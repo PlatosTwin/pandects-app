@@ -964,14 +964,8 @@ def register_agreements_routes(
                 )
                 has_next = len(page_rows_raw) > page_size
                 page_rows = page_rows_raw[:page_size]
-                if parsed_args["count_mode"] == "exact":
-                    total_count = deps._to_int(direct_query.order_by(None).count())
-                    total_count_is_approximate = False
-                else:
-                    total_count = ((page - 1) * page_size) + len(page_rows)
-                    if has_next:
-                        total_count += 1
-                    total_count_is_approximate = has_next
+                total_count = deps._to_int(direct_query.order_by(None).count())
+                total_count_is_approximate = False
 
                 meta = deps._pagination_metadata(
                     total_count=total_count,
@@ -1070,14 +1064,8 @@ def register_agreements_routes(
             )
             has_next = len(page_rows_raw) > page_size
             page_rows = page_rows_raw[:page_size]
-            if parsed_args["count_mode"] == "exact":
-                total_count = deps._to_int(aggregated_query.order_by(None).count())
-                total_count_is_approximate = False
-            else:
-                total_count = ((page - 1) * page_size) + len(page_rows)
-                if has_next:
-                    total_count += 1
-                total_count_is_approximate = has_next
+            total_count = deps._to_int(aggregated_query.order_by(None).count())
+            total_count_is_approximate = False
 
             meta = deps._pagination_metadata(
                 total_count=total_count,

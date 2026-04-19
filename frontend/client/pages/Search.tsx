@@ -239,14 +239,7 @@ export default function Search() {
     if (nextMode === searchMode) return;
     setSearchMode(nextMode);
     clearSelection();
-
-    const hasAnyFilters =
-      Object.values(filters).some((fieldValue) =>
-        Array.isArray(fieldValue) ? fieldValue.length > 0 : Boolean(fieldValue),
-      );
-    if (activeHasSearched || hasAnyFilters) {
-      await runActiveSearch(nextMode, { ...filters, page: 1 });
-    }
+    transactionSearch.clearSelection();
   };
 
   // Auto-collapse sidebar on tablet and mobile
@@ -512,12 +505,24 @@ export default function Search() {
       await runActiveSearch(searchMode, nextFilters);
     },
     downloadCSV: () => {
-      trackEvent("sections_export_click", {
-        export_format: "csv",
-        result_count: selectedResults.size > 0 ? selectedResults.size : totalCountSections,
-        is_filtered: Object.values(filters).flat().length > 0,
-      });
-      downloadCSV();
+      if (searchMode === "sections") {
+        trackEvent("sections_export_click", {
+          export_format: "csv",
+          result_count: selectedResults.size > 0 ? selectedResults.size : totalCountSections,
+          is_filtered: Object.values(filters).flat().length > 0,
+        });
+        downloadCSV();
+      } else {
+        trackEvent("transactions_export_click", {
+          export_format: "csv",
+          result_count:
+            transactionSearch.selectedResults.size > 0
+              ? transactionSearch.selectedResults.size
+              : transactionSearch.totalCount,
+          is_filtered: Object.values(filters).flat().length > 0,
+        });
+        void transactionSearch.downloadCSV(clauseTypesNested, filters);
+      }
     },
     clearFilters: () => {
       trackEvent("sections_filters_cleared", {
@@ -525,6 +530,7 @@ export default function Search() {
       });
       clearSectionFilters();
       transactionSearch.clear();
+      transactionSearch.clearSelection();
     },
     goToPage: async (page: number) => {
       const nextFilters: SearchFilters = { ...filters, page };
@@ -796,44 +802,49 @@ export default function Search() {
                 </Button>
 
                 <div className="flex items-center gap-3">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-block">
-                        <Button
-                          onClick={() => trackingActions.downloadCSV()}
-                          disabled={
-                            searchMode !== "sections" ||
-                            (searchResults.length === 0 && selectedResults.size === 0)
-                          }
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 border-0 bg-transparent px-0 text-muted-foreground hover:text-foreground sm:border sm:bg-background sm:px-3 sm:text-foreground"
-                          aria-label={
-                            searchMode !== "sections" ||
-                            (searchResults.length === 0 && selectedResults.size === 0)
-                              ? "Download CSV (disabled: no results to download. Run a search first.)"
-                              : "Download CSV"
-                          }
-                        >
-                          <Download className="h-4 w-4" aria-hidden="true" />
-                          <span>
-                            Download CSV
-                            {selectedResults.size > 0 && ` (${selectedResults.size})`}
+                  {(() => {
+                    const activeSelectedSize =
+                      searchMode === "sections"
+                        ? selectedResults.size
+                        : transactionSearch.selectedResults.size;
+                    const activeResultsLength =
+                      searchMode === "sections"
+                        ? searchResults.length
+                        : transactionSearch.results.length;
+                    const downloadDisabled =
+                      activeResultsLength === 0 && activeSelectedSize === 0;
+                    return (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-block">
+                            <Button
+                              onClick={() => trackingActions.downloadCSV()}
+                              disabled={downloadDisabled}
+                              variant="outline"
+                              size="sm"
+                              className="gap-2 border-0 bg-transparent px-0 text-muted-foreground hover:text-foreground sm:border sm:bg-background sm:px-3 sm:text-foreground"
+                              aria-label={
+                                downloadDisabled
+                                  ? "Download CSV (disabled: no results to download. Run a search first.)"
+                                  : "Download CSV"
+                              }
+                            >
+                              <Download className="h-4 w-4" aria-hidden="true" />
+                              <span>
+                                Download CSV
+                                {activeSelectedSize > 0 && ` (${activeSelectedSize})`}
+                              </span>
+                            </Button>
                           </span>
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    {(searchMode !== "sections" ||
-                      (searchResults.length === 0 && selectedResults.size === 0)) && (
-                      <TooltipContent>
-                        <p>
-                          {searchMode === "sections"
-                            ? "No results to download. Run a search first."
-                            : "CSV export is available for section results only."}
-                        </p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
+                        </TooltipTrigger>
+                        {downloadDisabled && (
+                          <TooltipContent>
+                            <p>No results to download. Run a search first.</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    );
+                  })()}
 
                   <Button
                     onClick={trackingActions.clearFilters}
@@ -1128,6 +1139,15 @@ export default function Search() {
                                 clauseTypeLabelById={clauseTypeLabelById}
                                 currentPage={currentPage}
                                 pageSize={page_size}
+                                selectedResults={transactionSearch.selectedResults}
+                                onToggleResultSelection={transactionSearch.toggleResultSelection}
+                                onToggleSelectAll={transactionSearch.toggleSelectAll}
+                                sortBy={currentSort ?? "year"}
+                                sortDirection={sort_direction}
+                                onSortResults={(field) => void trackingActions.sortResults(field)}
+                                onToggleSortDirection={() => void trackingActions.toggleSortDirection()}
+                                density={resultsDensity}
+                                onDensityChange={updateResultsDensity}
                               />
                             </Suspense>
                           )}
@@ -1143,31 +1163,42 @@ export default function Search() {
                         </>
                       )}
 
-                      {searchMode === "sections" && selectedResults.size > 0 && (
-                        <div className="rounded-xl border border-border/60 bg-muted/20 p-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="text-sm text-muted-foreground">
-                              {selectedResults.size} selected
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => trackingActions.downloadCSV()}
-                              >
-                                Download selected
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={clearSelection}
-                              >
-                                Clear selection
-                              </Button>
+                      {(() => {
+                        const activeSelectedSize =
+                          searchMode === "sections"
+                            ? selectedResults.size
+                            : transactionSearch.selectedResults.size;
+                        if (activeSelectedSize === 0) return null;
+                        const onClear =
+                          searchMode === "sections"
+                            ? clearSelection
+                            : transactionSearch.clearSelection;
+                        return (
+                          <div className="rounded-xl border border-border/60 bg-muted/20 p-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="text-sm text-muted-foreground">
+                                {activeSelectedSize} selected
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => trackingActions.downloadCSV()}
+                                >
+                                  Download selected
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={onClear}
+                                >
+                                  Clear selection
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {hasHydrated ? (
                         <Suspense fallback={<SearchPaginationFallback />}>

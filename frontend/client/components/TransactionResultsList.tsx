@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  ArrowDown,
+  ArrowUp,
   ArrowUpRight,
   Building2,
   Calendar,
@@ -15,6 +17,16 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import {
   formatCompactCurrencyValue,
   formatDateValue,
@@ -34,6 +46,15 @@ interface TransactionResultsListProps {
   currentPage?: number;
   pageSize?: number;
   className?: string;
+  selectedResults?: Set<string>;
+  onToggleResultSelection?: (agreementUuid: string) => void;
+  onToggleSelectAll?: () => void;
+  sortBy?: "year" | "target" | "acquirer";
+  sortDirection?: "asc" | "desc";
+  onSortResults?: (field: "year" | "target" | "acquirer") => void;
+  onToggleSortDirection?: () => void;
+  density?: "comfy" | "compact";
+  onDensityChange?: (density: "comfy" | "compact") => void;
 }
 
 const INITIAL_MATCHED_VISIBLE = 3;
@@ -77,10 +98,29 @@ export function TransactionResultsList({
   currentPage = 1,
   pageSize = 25,
   className,
+  selectedResults,
+  onToggleResultSelection,
+  onToggleSelectAll,
+  sortBy = "year",
+  sortDirection = "desc",
+  onSortResults,
+  onToggleSortDirection,
+  density = "comfy",
+  onDensityChange,
 }: TransactionResultsListProps) {
   const [expandedMatches, setExpandedMatches] = useState<Set<string>>(
     () => new Set(),
   );
+
+  const selectionEnabled = Boolean(onToggleResultSelection);
+  const allSelected =
+    selectionEnabled &&
+    results.length > 0 &&
+    results.every((r) => selectedResults?.has(r.agreement_uuid));
+  const someSelected =
+    selectionEnabled &&
+    !allSelected &&
+    results.some((r) => selectedResults?.has(r.agreement_uuid));
 
   const toggleExpandedMatches = (agreementUuid: string) => {
     setExpandedMatches((prev) => {
@@ -92,11 +132,86 @@ export function TransactionResultsList({
   };
 
   return (
-    <ol
-      role="list"
-      aria-label="Deal search results"
-      className={cn("space-y-4", className)}
-    >
+    <div className={cn("space-y-4", className)}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {selectionEnabled && results.length > 0 ? (
+          <div className="hidden items-center gap-2 sm:flex">
+            <Checkbox
+              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              onCheckedChange={() => onToggleSelectAll?.()}
+              className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              aria-label="Select all deals"
+            />
+            <span className="text-sm text-muted-foreground" aria-live="polite">
+              {(selectedResults?.size ?? 0) > 0
+                ? `${selectedResults?.size} of ${results.length} selected`
+                : "Select all"}
+            </span>
+          </div>
+        ) : <div />}
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="hidden items-center gap-2 sm:flex">
+              <span className="hidden text-sm text-muted-foreground sm:inline">Density:</span>
+              <ToggleGroup
+                type="single"
+                aria-label="Results density"
+                value={density}
+                onValueChange={(value) => {
+                  if (value === "comfy" || value === "compact") onDensityChange?.(value);
+                }}
+                variant="outline"
+                size="xs"
+                className="justify-start"
+              >
+                <ToggleGroupItem value="compact" aria-label="Compact density" className="text-muted-foreground data-[state=on]:text-foreground">
+                  Compact
+                </ToggleGroupItem>
+                <ToggleGroupItem value="comfy" aria-label="Comfy density" className="text-muted-foreground data-[state=on]:text-foreground">
+                  Comfy
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="hidden text-sm text-muted-foreground sm:inline">Sort by:</label>
+              <Select
+                value={sortBy}
+                onValueChange={(value) => onSortResults?.(value as "year" | "target" | "acquirer")}
+              >
+                <SelectTrigger className="h-9 w-full sm:w-[160px]" aria-label="Sort results by">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="year">Year</SelectItem>
+                  <SelectItem value="target">Target</SelectItem>
+                  <SelectItem value="acquirer">Acquirer</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleSortDirection}
+                className="h-10 w-10 p-1 hover:bg-muted/40 sm:h-8 sm:w-8"
+                title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
+                aria-label={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
+              >
+                {sortDirection === "asc" ? (
+                  <ArrowUp className="w-4 h-4" aria-hidden="true" />
+                ) : (
+                  <ArrowDown className="w-4 h-4" aria-hidden="true" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol
+        role="list"
+        aria-label="Deal search results"
+        className={cn("space-y-4", density === "compact" && "sm:space-y-2")}
+      >
       {results.map((result, index) => {
         const rank = (currentPage - 1) * pageSize + index + 1;
         const href = getAgreementHref(
@@ -115,14 +230,38 @@ export function TransactionResultsList({
           result.matched_sections.length - INITIAL_MATCHED_VISIBLE,
         );
 
+        const isSelected =
+          selectionEnabled && !!selectedResults?.has(result.agreement_uuid);
         return (
           <li
             key={result.agreement_uuid}
-            className="group relative overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm transition-all hover:border-border hover:shadow-md"
+            className={cn(
+              "group relative overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:border-border hover:shadow-md",
+              isSelected ? "border-primary/40" : "border-border/60",
+            )}
           >
             {/* Header */}
-            <div className="border-b border-border/60 bg-muted/20 px-4 py-3 sm:px-5 sm:py-4">
+            <div
+              className={cn(
+                "border-b px-4 py-3 sm:px-5 sm:py-4",
+                isSelected
+                  ? "bg-primary/10 border-primary/20"
+                  : "bg-muted/20 border-border/60",
+              )}
+            >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                {selectionEnabled ? (
+                  <div className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center pt-0 sm:min-h-0 sm:min-w-0 sm:pt-0.5">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() =>
+                        onToggleResultSelection?.(result.agreement_uuid)
+                      }
+                      className="h-6 w-6 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4"
+                      aria-label={`Select deal ${rank}`}
+                    />
+                  </div>
+                ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold tabular-nums text-muted-foreground">
@@ -188,15 +327,22 @@ export function TransactionResultsList({
                       Deal value unavailable
                     </div>
                   )}
-                  <Button asChild size="sm" className="gap-1.5 shadow-sm">
-                    <Link
-                      to={href}
-                      aria-label={`Open agreement ${titleLabel}`}
-                    >
-                      Open agreement
-                      <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                    </Link>
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <FlagAsInaccurateButton
+                      source="search_result"
+                      agreement_uuid={result.agreement_uuid}
+                      className="shrink-0"
+                    />
+                    <Button asChild size="sm" className="gap-1.5 shadow-sm">
+                      <Link
+                        to={href}
+                        aria-label={`Open agreement ${titleLabel}`}
+                      >
+                        Open agreement
+                        <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -364,6 +510,7 @@ export function TransactionResultsList({
           </li>
         );
       })}
-    </ol>
+      </ol>
+    </div>
   );
 }

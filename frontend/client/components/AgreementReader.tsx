@@ -329,8 +329,22 @@ export function AgreementReader({
     update();
     const observer = new ResizeObserver(update);
     observer.observe(element);
-    return () => observer.disconnect();
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
   }, []);
+
+  useEffect(() => {
+    const element = headerRef.current;
+    if (!element) return;
+    const raf = requestAnimationFrame(() => {
+      const rect = element.getBoundingClientRect();
+      setStickyHeaderBottom(64 + rect.height);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [headerCollapsed, agreement?.is_redacted]);
 
   const { clause_types } = useFilterOptions({ fields: ["clause_types"] });
   const clauseTypeLabelById = useMemo(
@@ -394,7 +408,9 @@ export function AgreementReader({
       `[data-section-uuid="${sectionUuid}"]`,
     ) as HTMLElement | null;
     if (!sectionElement) return;
-    sectionElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    const rect = sectionElement.getBoundingClientRect();
+    const targetY = window.scrollY + rect.top - stickyHeaderBottom - 16;
+    window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
     setIsTocSheetOpen(false);
     setIsDetailsSheetOpen(false);
   };

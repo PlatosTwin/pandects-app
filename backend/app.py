@@ -1098,6 +1098,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _schema_prefix=_schema_prefix,
         _section_latest_xml_join_condition=_section_latest_xml_join_condition,
         _standard_id_filter_expr=_standard_id_filter_expr,
+        _estimated_query_row_count=_estimated_query_row_count,
         _to_int=_to_int,
         _year_from_filing_date_value=_year_from_filing_date_value,
         db=db,

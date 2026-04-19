@@ -1,11 +1,12 @@
 import {
-  ExternalLink,
+  ArrowUpRight,
   ArrowUp,
   ArrowDown,
   BadgeCheck,
   Copy,
   Check,
   FileText,
+  Layers,
   Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -406,18 +407,16 @@ export function SearchResultsTable({
                 {/* Header with metadata and checkbox */}
                 <div
                   className={cn(
-                    "border-b px-4 py-3",
-                    density === "compact"
-                      ? "sm:px-3 sm:py-2"
-                      : "sm:px-4 sm:py-3",
+                    "border-b px-4 py-3 sm:px-5 sm:py-4",
+                    density === "compact" && "sm:py-3",
                     isSelected
                       ? "bg-primary/10 border-primary/20"
                       : "bg-muted/20 border-border/60",
                   )}
                 >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center sm:min-h-0 sm:min-w-0">
+                      <div className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center pt-0 sm:min-h-0 sm:min-w-0 sm:pt-0.5">
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() =>
@@ -430,10 +429,10 @@ export function SearchResultsTable({
                       <div className="min-w-0 flex-1">
                         {/* Top row: Number, Year, Verified, Clause Type */}
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="hidden sm:inline text-xs font-semibold text-muted-foreground">
+                          <span className="text-xs font-semibold tabular-nums text-muted-foreground">
                             #{resultNumber}
                           </span>
-                          <Badge variant="outline" className="px-2 py-0.5">
+                          <Badge variant="outline" className="px-2 py-0.5 font-medium">
                             {result.year}
                           </Badge>
                           {result.verified ? (
@@ -462,7 +461,7 @@ export function SearchResultsTable({
                                 <button
                                   type="button"
                                   aria-label={`Clause type: ${clauseTypeLabel}`}
-                                  className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                  className="hidden sm:inline-flex max-w-[28rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:max-w-[36rem]"
                                 >
                                   <span title={clauseTypeLabel}>
                                     {clauseTypeText?.truncated}
@@ -489,7 +488,7 @@ export function SearchResultsTable({
                                 <button
                                   type="button"
                                   aria-label="Clause type unavailable"
-                                  className="hidden sm:inline-flex max-w-[18rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                  className="hidden sm:inline-flex max-w-[28rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:max-w-[36rem]"
                                 >
                                   <span>Clause type unavailable</span>
                                 </button>
@@ -523,26 +522,24 @@ export function SearchResultsTable({
                         </div>
 
                         {/* Main info: Target and Acquirer */}
-                        <div
-                          className={cn(
-                            "mt-2 flex flex-col gap-1.5 text-sm text-foreground sm:grid",
-                            density === "compact" ? "sm:mt-1 sm:gap-1" : "sm:mt-2 sm:gap-1.5",
-                          )}
-                        >
-                          <div className="min-w-0 break-words">
-                            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <div className="mt-2 min-w-0">
+                          <h3
+                            className="min-w-0 break-words text-lg font-bold leading-snug text-foreground"
+                            title={result.target}
+                          >
+                            <span className="mr-1.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                               Target
-                            </span>{" "}
+                            </span>
                             {targetText.needsTooltip ? (
                               <AdaptiveTooltip
-                              trigger={
-                                <button
-                                  type="button"
-                                  aria-label={`Target: ${result.target}`}
-                                  className="cursor-help break-words bg-transparent p-0 text-left font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                                >
-                                  {targetText.truncated}
-                                </button>
+                                trigger={
+                                  <button
+                                    type="button"
+                                    aria-label={`Target: ${result.target}`}
+                                    className="cursor-help break-words bg-transparent p-0 text-left font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                  >
+                                    {targetText.truncated}
+                                  </button>
                                 }
                                 content={<p>{result.target}</p>}
                                 popoverProps={{
@@ -550,25 +547,26 @@ export function SearchResultsTable({
                                 }}
                               />
                             ) : (
-                              <span className="break-words font-medium">
-                                {targetText.truncated}
-                              </span>
+                              <span className="break-words">{targetText.truncated}</span>
                             )}
-                          </div>
-                          <div className="min-w-0 break-words">
-                            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          </h3>
+                          <div
+                            className="mt-0.5 min-w-0 break-words text-base text-muted-foreground"
+                            title={result.acquirer}
+                          >
+                            <span className="mr-1.5 align-middle text-[11px] font-semibold uppercase tracking-wide">
                               Acquirer
-                            </span>{" "}
+                            </span>
                             {acquirerText.needsTooltip ? (
                               <AdaptiveTooltip
-                              trigger={
-                                <button
-                                  type="button"
-                                  aria-label={`Acquirer: ${result.acquirer}`}
-                                  className="cursor-help break-words bg-transparent p-0 text-left font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                                >
-                                  {acquirerText.truncated}
-                                </button>
+                                trigger={
+                                  <button
+                                    type="button"
+                                    aria-label={`Acquirer: ${result.acquirer}`}
+                                    className="cursor-help break-words bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                  >
+                                    {acquirerText.truncated}
+                                  </button>
                                 }
                                 content={<p>{result.acquirer}</p>}
                                 popoverProps={{
@@ -576,33 +574,31 @@ export function SearchResultsTable({
                                 }}
                               />
                             ) : (
-                              <span className="break-words font-medium">
-                                {acquirerText.truncated}
-                              </span>
+                              <span className="break-words">{acquirerText.truncated}</span>
                             )}
                           </div>
                         </div>
 
                         {/* Article and Section pills - separate */}
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className="hidden sm:inline-flex px-2 py-0.5 text-xs"
+                          <span
+                            className="hidden items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground sm:inline-flex"
                             title={result.article_title}
                           >
+                            <Layers className="h-3 w-3 shrink-0" aria-hidden="true" />
                             <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
                               {truncateText(result.article_title, DEFAULT_TRUNCATION_LENGTH).truncated}
                             </span>
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="px-2 py-0.5 text-xs"
+                          </span>
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
                             title={result.section_title}
                           >
+                            <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
                             <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
                               {truncateText(result.section_title, DEFAULT_TRUNCATION_LENGTH).truncated}
                             </span>
-                          </Badge>
+                          </span>
                         </div>
 
                         {/* New fields row - hidden on mobile */}
@@ -657,14 +653,12 @@ export function SearchResultsTable({
                         className="shrink-0"
                       />
                       <Button
-                        variant="outline"
                         size="sm"
                         onClick={() => onOpenAgreement(result, resultNumber)}
-                        className="flex w-full sm:w-auto h-11 items-center justify-center gap-2 border-primary/40 px-4 text-primary hover:bg-primary/10 sm:h-9 sm:px-3"
+                        className="flex h-11 w-full items-center justify-center gap-1.5 px-4 shadow-sm sm:h-9 sm:w-auto sm:px-3"
                       >
-                        <ExternalLink className="w-4 h-4" aria-hidden="true" />
-                        <span className="hidden sm:inline">Open Agreement</span>
-                        <span className="sm:hidden">Open Agreement</span>
+                        Open agreement
+                        <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </div>
                   </div>
