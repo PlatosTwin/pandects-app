@@ -8,8 +8,7 @@ import {
 
 const XML_ELEMENT_TREE = String.raw`<document uuid="agreement-uuid">
   <metadata>
-    <acquirer>...</acquirer>
-    <target>...</target>
+    <agreementUuid>agreement-uuid</agreementUuid>
     <filingDate>YYYY-MM-DD</filingDate>
     <url>...</url>
     <sourceFormat>html|txt</sourceFormat>
@@ -66,7 +65,9 @@ export default function XmlSchema() {
                   <p className="mt-2 text-muted-foreground">
                     <span className="font-mono text-sm text-foreground">&lt;document&gt;</span>{" "}
                     with a required{" "}
-                    <span className="font-mono text-sm text-foreground">uuid</span> attribute.
+                    <span className="font-mono text-sm text-foreground">uuid</span>{" "}
+                    attribute. The same value is repeated in{" "}
+                    <span className="font-mono text-sm text-foreground">metadata.agreementUuid</span>.
                   </p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
@@ -138,13 +139,26 @@ export default function XmlSchema() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Metadata Nodes
+                  </div>
+                  <p className="mt-2 text-muted-foreground">
+                    <span className="font-mono text-sm text-foreground">agreementUuid</span>,{" "}
+                    <span className="font-mono text-sm text-foreground">filingDate</span>,{" "}
+                    <span className="font-mono text-sm text-foreground">url</span>,{" "}
+                    <span className="font-mono text-sm text-foreground">sourceFormat</span>.
+                  </p>
+                  <p className="mt-2 text-muted-foreground">
+                    Party-name metadata is not embedded in the XML document.
+                    Use agreement-level API fields when you need target or
+                    acquirer names.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Content Nodes
                   </div>
                   <p className="mt-2 text-muted-foreground">
-                    <span className="font-mono text-sm text-foreground">
-                      text
-                    </span>
-                    ,{" "}
+                    <span className="font-mono text-sm text-foreground">text</span>,{" "}
                     <span className="font-mono text-sm text-foreground">
                       definition
                     </span>{" "}
@@ -152,7 +166,7 @@ export default function XmlSchema() {
                     <span className="font-mono text-sm text-foreground">
                       pageUUID
                     </span>
-                    ,{" "}
+                    and{" "}
                     <span className="font-mono text-sm text-foreground">
                       page
                     </span>{" "}
@@ -163,19 +177,9 @@ export default function XmlSchema() {
                     <span className="font-mono text-sm text-foreground">
                       pageUUID
                     </span>{" "}
-                    is typically a sibling of{" "}
-                    <span className="font-mono text-sm text-foreground">
-                      text
-                    </span>{" "}
-                    and{" "}
-                    <span className="font-mono text-sm text-foreground">
-                      definition
-                    </span>{" "}
-                    nodes, and only moves inside{" "}
-                    <span className="font-mono text-sm text-foreground">
-                      definition
-                    </span>{" "}
-                    when a page break lands within a definition.{" "}
+                    is typically a sibling of text and definition nodes, and
+                    only moves inside definition when a page break lands within
+                    a definition.{" "}
                     <span className="font-mono text-sm text-foreground">
                       page
                     </span>{" "}

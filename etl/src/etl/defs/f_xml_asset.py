@@ -1240,8 +1240,6 @@ def _run_xml_build_for_agreements(
                         else p.processed_page_content
                     end as tagged_output,
                     url,
-                    acquirer,
-                    target,
                     filing_date,
                     source_is_txt,
                     source_is_html

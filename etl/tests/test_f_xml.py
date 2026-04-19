@@ -22,8 +22,6 @@ class XMLGenerationTests(unittest.TestCase):
                     "source_page_type": "body",
                     "tagged_output": "<article>ARTICLE I</article>Valid text",
                     "url": "https://example.com/valid",
-                    "acquirer": "Acquirer",
-                    "target": "Target",
                     "filing_date": date(2024, 1, 1),
                     "source_is_html": True,
                 },
@@ -34,8 +32,6 @@ class XMLGenerationTests(unittest.TestCase):
                     "source_page_type": "body",
                     "tagged_output": "<article>ARTICLE I</article>Bad text",
                     "url": "https://example.com/invalid",
-                    "acquirer": "Acquirer",
-                    "target": "Target",
                     "filing_date": date(2024, 1, 1),
                     "source_is_html": True,
                 },
@@ -47,8 +43,6 @@ class XMLGenerationTests(unittest.TestCase):
         def mock_convert_to_xml(
             tagged_text: str,
             agreement_uuid: str,
-            acquirer: str,
-            target: str,
             filing_date: date,
             url: str,
             source_format: str,
@@ -58,8 +52,6 @@ class XMLGenerationTests(unittest.TestCase):
             return original_convert_to_xml(
                 tagged_text,
                 agreement_uuid,
-                acquirer,
-                target,
                 filing_date,
                 url,
                 source_format,
@@ -72,8 +64,33 @@ class XMLGenerationTests(unittest.TestCase):
 
         self.assertEqual(len(generated), 1)
         self.assertEqual(generated[0].agreement_uuid, valid_uuid)
+        valid_root = ET.fromstring(generated[0].xml)
+        valid_metadata = valid_root.find("metadata")
+        self.assertIsNotNone(valid_metadata)
+        assert valid_metadata is not None
+        self.assertEqual(valid_metadata.findtext("agreementUuid"), valid_uuid)
+        self.assertIsNone(valid_metadata.find("target"))
+        self.assertIsNone(valid_metadata.find("acquirer"))
         self.assertEqual(len(failures), 1)
         self.assertEqual(failures[0].agreement_uuid, invalid_uuid)
+
+    def test_convert_to_xml_metadata_uses_agreement_uuid_not_party_names(self) -> None:
+        agreement_uuid = "11111111-1111-1111-1111-111111111111"
+
+        xml_str = f_xml.convert_to_xml(
+            tagged_text="<article>ARTICLE I</article>Body text",
+            agreement_uuid=agreement_uuid,
+            filing_date=date(2024, 1, 1),
+            url="https://example.com",
+            source_format="html",
+        )
+        root = ET.fromstring(xml_str)
+        metadata = root.find("metadata")
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertEqual(metadata.findtext("agreementUuid"), agreement_uuid)
+        self.assertIsNone(metadata.find("target"))
+        self.assertIsNone(metadata.find("acquirer"))
 
     def test_convert_to_xml_sets_heading_page_uuid_attribute(self) -> None:
         agreement_uuid = "11111111-1111-1111-1111-111111111111"
@@ -90,8 +107,6 @@ class XMLGenerationTests(unittest.TestCase):
         xml_str = f_xml.convert_to_xml(
             tagged_text=tagged_text,
             agreement_uuid=agreement_uuid,
-            acquirer="Acquirer",
-            target="Target",
             filing_date=date(2024, 1, 1),
             url="https://example.com",
             source_format="html",
@@ -119,8 +134,6 @@ class XMLGenerationTests(unittest.TestCase):
         xml_str = f_xml.convert_to_xml(
             tagged_text=tagged_text,
             agreement_uuid=agreement_uuid,
-            acquirer="Acquirer",
-            target="Target",
             filing_date=date(2024, 1, 1),
             url="https://example.com",
             source_format="html",
@@ -188,8 +201,6 @@ class XMLGenerationTests(unittest.TestCase):
         xml_str = f_xml.convert_to_xml(
             tagged_text=tagged_text,
             agreement_uuid=agreement_uuid,
-            acquirer="Acquirer",
-            target="Target",
             filing_date=date(2024, 1, 1),
             url="https://example.com",
             source_format="html",

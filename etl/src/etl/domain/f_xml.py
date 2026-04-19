@@ -51,6 +51,21 @@ def make_section_uuid(
     return get_uuid("\x1f".join(parts))
 
 
+def add_metadata_nodes(
+    root: ET.Element,
+    agreement_uuid: str,
+    filing_date: date,
+    url: str,
+    source_format: str,
+) -> ET.Element:
+    metadata = ET.SubElement(root, "metadata")
+    ET.SubElement(metadata, "agreementUuid").text = agreement_uuid
+    ET.SubElement(metadata, "filingDate").text = filing_date.strftime("%Y-%m-%d")
+    ET.SubElement(metadata, "url").text = url
+    ET.SubElement(metadata, "sourceFormat").text = source_format
+    return metadata
+
+
 SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.DOTALL)
 SUBSECTION_NUMBER_RE = re.compile(r"\b\d+\.\d+\.\d+(?:\.\d+)*\b")
 ARTICLE_TAG_RE = re.compile(r"<article\b")
@@ -98,8 +113,6 @@ def _iter_line_fragments(text_block: str) -> list[str]:
 def convert_to_xml(
     tagged_text: str,
     agreement_uuid: str,
-    acquirer: str,
-    target: str,
     filing_date: date,
     url: str,
     source_format: str,
@@ -116,9 +129,7 @@ def convert_to_xml(
     Args:
         tagged_text: Text containing article and section tags.
         agreement_uuid: UUID of the agreement.
-        acquirer: Name of the acquiring company.
-        target: Name of the target company.
-        announcement_date: Date of the announcement.
+        filing_date: Date of the filing.
         url: URL of the source document.
         source_format: Format of the source document.
 
@@ -148,12 +159,7 @@ def convert_to_xml(
     root = ET.Element("document", uuid=agreement_uuid)
 
     # Add metadata
-    metadata = ET.SubElement(root, "metadata")
-    ET.SubElement(metadata, "acquirer").text = acquirer
-    ET.SubElement(metadata, "target").text = target
-    ET.SubElement(metadata, "filingDate").text = filing_date.strftime("%Y-%m-%d")
-    ET.SubElement(metadata, "url").text = url
-    ET.SubElement(metadata, "sourceFormat").text = source_format
+    _ = add_metadata_nodes(root, agreement_uuid, filing_date, url, source_format)
 
     # Helper to add <text>, <definition>, <pageUUID> or <page> children
     def add_text_nodes(parent: ET.Element, text_block: str) -> None:
@@ -456,18 +462,11 @@ def generate_xml(
                 temp = temp.sort_values(by=["page_uuid"], kind="stable")
 
             url = temp["url"].to_list()[0]
-            acquirer = temp["acquirer"].to_list()[0]
-            target = temp["target"].to_list()[0]
             announcement_date = temp["filing_date"].to_list()[0]
             source_format = "html" if temp["source_is_html"].to_list()[0] else "txt"
 
             root = ET.Element("document", uuid=agreement_uuid)
-            metadata = ET.SubElement(root, "metadata")
-            ET.SubElement(metadata, "acquirer").text = acquirer
-            ET.SubElement(metadata, "target").text = target
-            ET.SubElement(metadata, "filingDate").text = announcement_date.strftime("%Y-%m-%d")
-            ET.SubElement(metadata, "url").text = url
-            ET.SubElement(metadata, "sourceFormat").text = source_format
+            _ = add_metadata_nodes(root, agreement_uuid, announcement_date, url, source_format)
 
             # Containers by page type
             # frontMatter
@@ -499,8 +498,6 @@ def generate_xml(
                 tmp_xml = convert_to_xml(
                     body_text,
                     agreement_uuid,
-                    acquirer,
-                    target,
                     announcement_date,
                     url,
                     source_format,
