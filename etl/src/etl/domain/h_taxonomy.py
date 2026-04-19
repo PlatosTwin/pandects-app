@@ -10,6 +10,8 @@ from typing_extensions import NotRequired
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _SPACE_RE = re.compile(r"\s+")
+_ARTICLE_TITLE_PREFIX_RE = re.compile(r"^\s*article\b\s*", re.IGNORECASE)
+_SECTION_TITLE_PREFIX_RE = re.compile(r"^\s*section\b\s*", re.IGNORECASE)
 
 _TAXONOMY_LLM_RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -74,12 +76,12 @@ class TaxonomyRow(TypedDict):
 class TaxonomyLLMRow(TypedDict):
     section_uuid: str
     agreement_uuid: str
-    article_title_normed: str | None
-    section_title_normed: str | None
-    prev_article_title_normed: str | None
-    prev_section_title_normed: str | None
-    next_article_title_normed: str | None
-    next_section_title_normed: str | None
+    article_title: str | None
+    section_title: str | None
+    prev_article_title: str | None
+    prev_section_title: str | None
+    next_article_title: str | None
+    next_section_title: str | None
 
 
 def strip_xml_tags_to_text(xml_fragment: str) -> str:
@@ -105,6 +107,18 @@ def serialize_taxonomy_labels(labels: list[str]) -> str:
 
 def taxonomy_llm_response_schema() -> dict[str, Any]:
     return _TAXONOMY_LLM_RESPONSE_SCHEMA
+
+
+def _taxonomy_prompt_article_title(raw_title: str | None) -> str:
+    stripped = (raw_title or "").strip()
+    transformed = _ARTICLE_TITLE_PREFIX_RE.sub("", stripped, count=1).strip()
+    return transformed or "N/A"
+
+
+def _taxonomy_prompt_section_title(raw_title: str | None) -> str:
+    stripped = (raw_title or "").strip()
+    transformed = _SECTION_TITLE_PREFIX_RE.sub("", stripped, count=1).strip()
+    return transformed or "N/A"
 
 
 def build_taxonomy_llm_instructions(taxonomy_json: list[dict[str, Any]]) -> str:
@@ -208,12 +222,12 @@ Return a single JSON object and nothing else.
 
 
 def build_taxonomy_prompt_payload(row: TaxonomyLLMRow) -> str:
-    current_article = (row.get("article_title_normed") or "").strip() or "N/A"
-    current_section = (row.get("section_title_normed") or "").strip() or "N/A"
-    prev_article = (row.get("prev_article_title_normed") or "").strip() or "N/A"
-    prev_section = (row.get("prev_section_title_normed") or "").strip() or "N/A"
-    next_article = (row.get("next_article_title_normed") or "").strip() or "N/A"
-    next_section = (row.get("next_section_title_normed") or "").strip() or "N/A"
+    current_article = _taxonomy_prompt_article_title(row.get("article_title"))
+    current_section = _taxonomy_prompt_section_title(row.get("section_title"))
+    prev_article = _taxonomy_prompt_article_title(row.get("prev_article_title"))
+    prev_section = _taxonomy_prompt_section_title(row.get("prev_section_title"))
+    next_article = _taxonomy_prompt_article_title(row.get("next_article_title"))
+    next_section = _taxonomy_prompt_section_title(row.get("next_section_title"))
     return (
         f"Section UUID: {row['section_uuid']}.\n"
         f"Section to map >> Article title: {current_article}. Section title: {current_section}.\n"

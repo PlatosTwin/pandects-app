@@ -114,6 +114,17 @@ def _taxonomy_regex_clause(regex: str | None) -> str:
     return " AND s.section_title_normed REGEXP :section_title_regex"
 
 
+def _llm_title_eligibility_clause() -> str:
+    return (
+        "CHAR_LENGTH(TRIM(COALESCE(s.article_title, ''))) >= 3 "
+        "AND CHAR_LENGTH(TRIM(COALESCE(s.section_title, ''))) >= 3 "
+        "AND LOWER(COALESCE(s.section_title, '')) NOT LIKE '%[reserved]%' "
+        "AND LOWER(COALESCE(s.section_title, '')) NOT LIKE '%[omitted]%' "
+        "AND LOWER(COALESCE(s.section_title, '')) NOT LIKE '%[intentionally deleted]%' "
+        "AND LOWER(COALESCE(s.section_title, '')) NOT LIKE '%[deleted]%'"
+    )
+
+
 def _fetch_taxonomy_json(conn: Connection, schema: str) -> list[dict[str, Any]]:
     rows = conn.execute(
         text(
@@ -274,6 +285,9 @@ def _select_agreement_batch(
     if mode in {TaxonomyMode.LLM, TaxonomyMode.ML} and section_title_regex:
         regex_clause = _taxonomy_regex_clause(section_title_regex)
         params["section_title_regex"] = section_title_regex
+    llm_title_clause = ""
+    if mode == TaxonomyMode.LLM:
+        llm_title_clause = f"AND {_llm_title_eligibility_clause()}"
     if scoped_uuids:
         scope_clause = "AND s.agreement_uuid IN :agreement_uuids"
         params["agreement_uuids"] = tuple(scoped_uuids)
@@ -289,6 +303,7 @@ def _select_agreement_batch(
           AND x.latest = 1
           AND x.status = 'verified'
           AND {_prediction_clause_for_mode(mode)}
+          {llm_title_clause}
           {regex_clause}
         ORDER BY s.agreement_uuid
         LIMIT :lim
@@ -319,6 +334,9 @@ def _fetch_prediction_rows(
     if section_title_regex:
         regex_clause = _taxonomy_regex_clause(section_title_regex)
         params["section_title_regex"] = section_title_regex
+    llm_title_clause = ""
+    if mode == TaxonomyMode.LLM:
+        llm_title_clause = f"AND {_llm_title_eligibility_clause()}"
     query = text(
         f"""
         SELECT
@@ -340,6 +358,7 @@ def _fetch_prediction_rows(
           AND x.latest = 1
           AND x.status = 'verified'
           AND {_prediction_clause_for_mode(mode)}
+          {llm_title_clause}
           {regex_clause}
         ORDER BY
             s.agreement_uuid,
@@ -403,23 +422,23 @@ def _build_llm_rows(prediction_rows: list[dict[str, Any]]) -> list[TaxonomyLLMRo
                 {
                     "section_uuid": str(row["section_uuid"]),
                     "agreement_uuid": agreement_uuid,
-                    "article_title_normed": cast(str | None, row.get("article_title_normed")),
-                    "section_title_normed": cast(str | None, row.get("section_title_normed")),
-                    "prev_article_title_normed": cast(
+                    "article_title": cast(str | None, row.get("article_title")),
+                    "section_title": cast(str | None, row.get("section_title")),
+                    "prev_article_title": cast(
                         str | None,
-                        None if prev_row is None else prev_row.get("article_title_normed"),
+                        None if prev_row is None else prev_row.get("article_title"),
                     ),
-                    "prev_section_title_normed": cast(
+                    "prev_section_title": cast(
                         str | None,
-                        None if prev_row is None else prev_row.get("section_title_normed"),
+                        None if prev_row is None else prev_row.get("section_title"),
                     ),
-                    "next_article_title_normed": cast(
+                    "next_article_title": cast(
                         str | None,
-                        None if next_row is None else next_row.get("article_title_normed"),
+                        None if next_row is None else next_row.get("article_title"),
                     ),
-                    "next_section_title_normed": cast(
+                    "next_section_title": cast(
                         str | None,
-                        None if next_row is None else next_row.get("section_title_normed"),
+                        None if next_row is None else next_row.get("section_title"),
                     ),
                 }
             )

@@ -386,6 +386,41 @@ class TaxonomyAssetTests(unittest.TestCase):
             {"section-1": '["law", "venue"]'},
         )
         self.assertTrue(any("INSERT INTO pdx.taxonomy_llm_batches" in sql for sql in conn.executed_sql))
+        self.assertGreaterEqual(
+            sum(
+                "CHAR_LENGTH(TRIM(COALESCE(s.article_title, ''))) >= 3" in sql
+                and "CHAR_LENGTH(TRIM(COALESCE(s.section_title, ''))) >= 3" in sql
+                and "NOT LIKE '%[reserved]%'" in sql
+                and "NOT LIKE '%[omitted]%'" in sql
+                and "NOT LIKE '%[intentionally deleted]%'" in sql
+                and "NOT LIKE '%[deleted]%'" in sql
+                for sql in conn.executed_sql
+            ),
+            2,
+        )
+
+    def test_llm_prompt_payload_uses_raw_titles(self) -> None:
+        lines = taxonomy_asset_module._create_taxonomy_llm_lines(
+            prediction_rows=[
+                {
+                    "section_uuid": "section-1",
+                    "agreement_uuid": "agreement-1",
+                    "article_title": "ARTICLE I Conditions",
+                    "section_title": "Section 12.1 Section 14",
+                    "article_title_normed": "general provisions",
+                    "section_title_normed": "governing law",
+                }
+            ],
+            taxonomy_json=[],
+            model_name="gpt-5-mini",
+            batch_key="batch-key",
+            sections_per_request=1,
+        )
+
+        prompt_text = cast(str, lines[0]["body"]["input"][0]["content"])
+        self.assertIn("Article title: I Conditions.", prompt_text)
+        self.assertIn("Section title: 12.1 Section 14.", prompt_text)
+        self.assertNotIn("general provisions", prompt_text)
 
     def test_llm_mode_resumes_existing_batch_before_selecting_new_work(self) -> None:
         conn = _FakeConn(sec_rows=[])
