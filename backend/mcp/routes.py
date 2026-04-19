@@ -625,10 +625,16 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
         if method == "ping":
             return _json_rpc_result(request_id=request_id, result={})
         if method == "initialize":
+            client_version = params_obj.get("protocolVersion")
+            negotiated_version = (
+                client_version
+                if isinstance(client_version, str) and client_version.strip()
+                else mcp_protocol_version()
+            )
             return _json_rpc_result(
                 request_id=request_id,
                 result={
-                    "protocolVersion": mcp_protocol_version(),
+                    "protocolVersion": negotiated_version,
                     "capabilities": {
                         "tools": {"listChanged": False},
                         "resources": {"listChanged": False, "subscribe": False},
