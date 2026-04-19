@@ -1,4 +1,5 @@
 import { SearchFilters } from "@shared/sections";
+import type { SearchMode } from "@shared/search";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 
 /**
@@ -169,3 +170,91 @@ export const buildSearchParams = (
 
   return params;
 };
+
+const ARRAY_FILTER_FIELDS: Array<keyof SearchFilters> = [
+  "year",
+  "target",
+  "acquirer",
+  "clauseType",
+  "transaction_price_total",
+  "transaction_price_stock",
+  "transaction_price_cash",
+  "transaction_price_assets",
+  "transaction_consideration",
+  "target_type",
+  "acquirer_type",
+  "target_counsel",
+  "acquirer_counsel",
+  "target_industry",
+  "acquirer_industry",
+  "deal_status",
+  "attitude",
+  "deal_type",
+  "purpose",
+  "target_pe",
+  "acquirer_pe",
+];
+
+export function parseSearchFilters(params: URLSearchParams): SearchFilters {
+  const filters: SearchFilters = {
+    year: [],
+    target: [],
+    acquirer: [],
+    clauseType: [],
+    standard_id: [],
+    transaction_price_total: [],
+    transaction_price_stock: [],
+    transaction_price_cash: [],
+    transaction_price_assets: [],
+    transaction_consideration: [],
+    target_type: [],
+    acquirer_type: [],
+    target_counsel: [],
+    acquirer_counsel: [],
+    target_industry: [],
+    acquirer_industry: [],
+    deal_status: [],
+    attitude: [],
+    deal_type: [],
+    purpose: [],
+    target_pe: [],
+    acquirer_pe: [],
+  };
+
+  ARRAY_FILTER_FIELDS.forEach((field) => {
+    const queryKey = field === "clauseType" ? "standard_id" : field;
+    (filters[field] as string[] | undefined) = params.getAll(queryKey);
+  });
+
+  const agreementUuid = params.get("agreement_uuid");
+  const sectionUuid = params.get("section_uuid");
+  const page = params.get("page");
+  const pageSize = params.get("page_size");
+
+  if (agreementUuid) filters.agreement_uuid = agreementUuid;
+  if (sectionUuid) filters.section_uuid = sectionUuid;
+  if (page) filters.page = Number(page);
+  if (pageSize) filters.page_size = Number(pageSize);
+
+  return filters;
+}
+
+export function buildSearchStateParams({
+  filters,
+  mode,
+  sortBy,
+  sortDirection,
+  clauseTypesNested,
+}: {
+  filters: SearchFilters;
+  mode: SearchMode;
+  sortBy: "year" | "target" | "acquirer" | null;
+  sortDirection: "asc" | "desc";
+  clauseTypesNested?: ClauseTypeTree;
+}): URLSearchParams {
+  const params = buildSearchParams(filters, clauseTypesNested, true);
+  params.set("mode", mode);
+  if (sortBy) params.set("sort_by", sortBy);
+  params.set("sort_direction", sortDirection);
+  return params;
+}

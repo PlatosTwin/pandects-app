@@ -515,9 +515,7 @@ export function useSections() {
   const toggleSortDirection = useCallback(() => {
     const newDirection = sort_direction === "asc" ? "desc" : "asc";
     setSortDirection(newDirection);
-    // Pass the new direction directly so it's used immediately without waiting for state update
-    performSearch(false, undefined, false, undefined, currentSort, newDirection);
-  }, [sort_direction, currentSort, performSearch]);
+  }, [sort_direction]);
 
   // Result selection handlers
   const toggleResultSelection = useCallback((resultId: string) => {

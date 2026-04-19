@@ -49,6 +49,7 @@ interface SearchResultsTableProps {
   onToggleResultSelection: (resultId: string) => void;
   onToggleSelectAll: () => void;
   onOpenAgreement: (result: SearchResult, position: number) => void;
+  getAgreementHref?: (result: SearchResult) => string;
   onSortResults: (sort_by: "year" | "target" | "acquirer") => void;
   onToggleSortDirection: () => void;
   density?: "comfy" | "compact";
@@ -67,6 +68,7 @@ export function SearchResultsTable({
   onToggleResultSelection,
   onToggleSelectAll,
   onOpenAgreement,
+  getAgreementHref,
   onSortResults,
   onToggleSortDirection,
   density = "comfy",
@@ -111,14 +113,12 @@ export function SearchResultsTable({
   }, []);
 
   const buildSectionLinkUrl = useCallback(
-    (agreement_uuid: string, section_uuid: string) => {
-      if (typeof window === "undefined") return "";
-      const u = new URL("/search", window.location.origin);
-      u.searchParams.set("agreement_uuid", agreement_uuid);
-      u.searchParams.set("section_uuid", section_uuid);
-      return u.toString();
+    (result: SearchResult) => {
+      const href = getAgreementHref?.(result);
+      if (!href || typeof window === "undefined") return "";
+      return new URL(href, window.location.origin).toString();
     },
-    [],
+    [getAgreementHref],
   );
 
   const performCopy = useCallback(
@@ -397,10 +397,10 @@ export function SearchResultsTable({
                 role="listitem"
                 key={result.id}
                 className={cn(
-                  "relative overflow-hidden rounded-lg border bg-card shadow-sm transition-all duration-200 hover:shadow-md",
+                  "group relative overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:shadow-md",
                   isSelected
                     ? "border-primary/40 bg-primary/5 shadow-md"
-                    : "border-border/60 hover:bg-muted/10",
+                    : "border-border/60 hover:border-border",
                 )}
               >
                 {/* Header with metadata and checkbox */}
@@ -412,7 +412,7 @@ export function SearchResultsTable({
                       : "sm:px-4 sm:py-3",
                     isSelected
                       ? "bg-primary/10 border-primary/20"
-                      : "bg-muted/30 border-border/60",
+                      : "bg-muted/20 border-border/60",
                   )}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -810,10 +810,7 @@ export function SearchResultsTable({
                               <DropdownMenuItem
                                 onClick={() =>
                                   performCopy(
-                                    buildSectionLinkUrl(
-                                      result.agreement_uuid,
-                                      result.section_uuid,
-                                    ),
+                                    buildSectionLinkUrl(result),
                                     "Agreement link",
                                     result.id,
                                     "link",

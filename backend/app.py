@@ -1028,7 +1028,7 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext = cast(_ApiExtension, cast(object, api))
     sections_deps, agreements_deps, reference_data_deps, _ = _build_route_deps()
     sections_list_blp = register_sections_routes(deps=sections_deps)
-    agreements_blp, sections_blp = register_agreements_routes(
+    agreements_blp, sections_blp, agreement_search_blp = register_agreements_routes(
         target_app,
         deps=agreements_deps,
     )
@@ -1038,6 +1038,7 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext.register_blueprint(sections_list_blp)
     api_ext.register_blueprint(agreements_blp)
     api_ext.register_blueprint(sections_blp)
+    api_ext.register_blueprint(agreement_search_blp)
     api_ext.register_blueprint(taxonomy_blp)
     api_ext.register_blueprint(tax_clause_taxonomy_blp)
     api_ext.register_blueprint(naics_blp)
@@ -1066,6 +1067,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         AgreementCounsel=AgreementCounsel,
         Clauses=Clauses,
         Counsel=Counsel,
+        LatestSectionsSearch=LatestSectionsSearch,
         Sections=Sections,
         TaxonomyL1=TaxonomyL1,
         TaxonomyL2=TaxonomyL2,
@@ -1084,6 +1086,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _coalesced_section_standard_ids=_coalesced_section_standard_ids,
         _current_access_context=_current_access_context,
         _decode_agreements_cursor=_decode_agreements_cursor,
+        _expand_taxonomy_standard_ids_cached=_expand_taxonomy_standard_ids_cached,
         _encode_agreements_cursor=_encode_agreements_cursor,
         _filter_options_cache=cast(dict[str, object], cast(object, _filter_options_cache)),
         _filter_options_lock=_filter_options_lock,
@@ -1094,7 +1097,9 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _row_mapping_as_dict=_row_mapping_as_dict,
         _schema_prefix=_schema_prefix,
         _section_latest_xml_join_condition=_section_latest_xml_join_condition,
+        _standard_id_filter_expr=_standard_id_filter_expr,
         _to_int=_to_int,
+        _year_from_filing_date_value=_year_from_filing_date_value,
         db=db,
         time=time,
     )

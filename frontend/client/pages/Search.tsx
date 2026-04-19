@@ -1,5 +1,5 @@
-import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import { formatFilterOption } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
@@ -7,12 +7,15 @@ import type { SearchFilters } from "@shared/sections";
 import {
   Search as SearchIcon,
   Download,
+  Layers,
   FileText,
   SlidersHorizontal,
   Sparkles,
   X,
+  Building2,
 } from "lucide-react";
 import { useSections } from "@/hooks/use-sections";
+import { useTransactionSearch } from "@/hooks/use-transaction-search";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,12 +37,11 @@ import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { buildSearchStateParams, parseSearchFilters } from "@/lib/url-params";
+import type { SearchMode } from "@shared/search";
+import type { TransactionSearchResult } from "@shared/transactions";
 
-const AgreementModal = lazy(() =>
-  import("@/components/AgreementModal").then((mod) => ({
-    default: mod.AgreementModal,
-  })),
-);
 const SearchPagination = lazy(() =>
   import("@/components/SearchPagination").then((mod) => ({
     default: mod.SearchPagination,
@@ -53,6 +55,11 @@ const SearchResultsTable = lazy(() =>
 const SearchSidebar = lazy(() =>
   import("@/components/SearchSidebar").then((mod) => ({
     default: mod.SearchSidebar,
+  })),
+);
+const TransactionResultsList = lazy(() =>
+  import("@/components/TransactionResultsList").then((mod) => ({
+    default: mod.TransactionResultsList,
   })),
 );
 
@@ -109,114 +116,83 @@ function SearchResultsTableFallback() {
   );
 }
 
+function TransactionResultsFallback() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div
+          key={index}
+          className="rounded-lg border border-border/60 bg-card p-5 shadow-sm"
+        >
+          <Skeleton className="h-6 w-72" />
+          <Skeleton className="mt-3 h-4 w-full" />
+          <Skeleton className="mt-2 h-4 w-5/6" />
+          <Skeleton className="mt-5 h-24 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Search() {
   const { status: authStatus } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [hasHydrated, setHasHydrated] = useState(false);
+  const [searchMode, setSearchMode] = useState<SearchMode>(() => {
+    const mode = searchParams.get("mode");
+    return mode === "transactions" ? "transactions" : "sections";
+  });
+  const isHydratingFromUrlRef = useRef(true);
   const {
     filters,
-    isSearching,
+    isSearching: isSearchingSections,
     searchResults,
     selectedResults,
-    hasSearched,
-    total_count,
-    totalCountIsApproximate,
-    total_pages,
-    has_next,
-    has_prev,
+    hasSearched: hasSearchedSections,
+    total_count: totalCountSections,
+    totalCountIsApproximate: totalCountIsApproximateSections,
+    total_pages: totalPagesSections,
+    has_next: hasNextSections,
+    has_prev: hasPrevSections,
     currentSort,
     currentPage,
     page_size,
-    showErrorModal,
-    errorMessage,
+    showErrorModal: showSectionsErrorModal,
+    errorMessage: sectionsErrorMessage,
     sort_direction,
-    access,
+    access: sectionAccess,
     actions,
   } = useSections();
+  const transactionSearch = useTransactionSearch();
 
   const {
     toggleFilterValue,
     setTextFilterValue,
-    performSearch,
+    performSearch: performSectionSearch,
     downloadCSV,
-    clearFilters,
-    goToPage,
-    changePageSize,
-    closeErrorModal,
+    clearFilters: clearSectionFilters,
     sortResults,
     toggleSortDirection,
     toggleResultSelection,
     toggleSelectAll,
     clearSelection,
+    hydrateFilters,
+    updateFilter,
+    setSortDirection,
   } = actions;
-
-  const [searchParams, setSearchParams] = useSearchParams();
   const signInPath = useMemo(
     () => buildAccountPathWithNext(`${location.pathname}${location.search}${location.hash}`),
     [location.hash, location.pathname, location.search],
   );
 
-  // Agreement modal state
-  const [selectedAgreement, setSelectedAgreement] = useState<{
-    agreement_uuid: string;
-    section_uuid: string;
-    metadata: {
-      year: string;
-      target: string;
-      acquirer: string;
-    };
-  } | null>(null);
-
-  const openAgreement = (result: (typeof searchResults)[0], position: number) => {
-    trackEvent("sections_result_click", {
-      position,
-      year: result.year,
-      verified: result.verified,
-    });
-    setSelectedAgreement({
-      agreement_uuid: result.agreement_uuid,
-      section_uuid: result.section_uuid,
-      metadata: {
-        year: result.year,
-        target: result.target,
-        acquirer: result.acquirer,
-      },
-    });
-  };
-
-  const closeAgreement = () => {
-    setSelectedAgreement(null);
-    if (
-      searchParams.has("agreement_uuid") ||
-      searchParams.has("section_uuid")
-    ) {
-      const next = new URLSearchParams(searchParams);
-      next.delete("agreement_uuid");
-      next.delete("section_uuid");
-      setSearchParams(next, { replace: true });
-    }
-  };
-
-  const agreementUuidFromUrl = searchParams.get("agreement_uuid");
-  const sectionUuidFromUrl = searchParams.get("section_uuid");
-
   useEffect(() => {
     setHasHydrated(true);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0 });
+    }
   }, []);
-
-  useEffect(() => {
-    if (
-      !agreementUuidFromUrl ||
-      !sectionUuidFromUrl ||
-      selectedAgreement != null
-    )
-      return;
-    setSelectedAgreement({
-      agreement_uuid: agreementUuidFromUrl,
-      section_uuid: sectionUuidFromUrl,
-      metadata: { year: "", target: "", acquirer: "" },
-    });
-  }, [agreementUuidFromUrl, sectionUuidFromUrl, selectedAgreement]);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
@@ -245,6 +221,34 @@ export default function Search() {
     }
   };
 
+  const openAgreement = (
+    result: (typeof searchResults)[number],
+    position: number,
+  ) => {
+    trackEvent("sections_result_click", {
+      position,
+      year: result.year,
+      verified: result.verified,
+    });
+    navigate(getSectionAgreementHref(result));
+  };
+
+  const handleModeChange = async (value: string) => {
+    const nextMode: SearchMode =
+      value === "transactions" ? "transactions" : "sections";
+    if (nextMode === searchMode) return;
+    setSearchMode(nextMode);
+    clearSelection();
+
+    const hasAnyFilters =
+      Object.values(filters).some((fieldValue) =>
+        Array.isArray(fieldValue) ? fieldValue.length > 0 : Boolean(fieldValue),
+      );
+    if (activeHasSearched || hasAnyFilters) {
+      await runActiveSearch(nextMode, { ...filters, page: 1 });
+    }
+  };
+
   // Auto-collapse sidebar on tablet and mobile
   useEffect(() => {
     const handleResize = () => {
@@ -267,7 +271,7 @@ export default function Search() {
       return;
     }
 
-    if (hasSearched) {
+    if (hasSearchedSections || transactionSearch.hasSearched) {
       setShouldRenderDesktopSidebar(true);
       return;
     }
@@ -277,12 +281,13 @@ export default function Search() {
     }, 1800);
 
     return cancelDeferredSidebar;
-  }, [hasSearched, isDesktopLayout]);
+  }, [hasSearchedSections, isDesktopLayout, transactionSearch.hasSearched]);
 
   const shouldLoadFilterData =
     (isDesktopLayout && shouldRenderDesktopSidebar) ||
     isMobileFiltersOpen ||
-    hasSearched;
+    hasSearchedSections ||
+    transactionSearch.hasSearched;
 
   const {
     targets,
@@ -316,6 +321,151 @@ export default function Search() {
     () => indexClauseTypeLabels(clauseTypesNested),
     [clauseTypesNested],
   );
+
+  const activeIsSearching =
+    searchMode === "sections"
+      ? isSearchingSections
+      : transactionSearch.isSearching;
+  const activeHasSearched =
+    searchMode === "sections"
+      ? hasSearchedSections
+      : transactionSearch.hasSearched;
+  const activeTotalCount =
+    searchMode === "sections"
+      ? totalCountSections
+      : transactionSearch.totalCount;
+  const activeTotalCountIsApproximate =
+    searchMode === "sections"
+      ? totalCountIsApproximateSections
+      : transactionSearch.totalCountIsApproximate;
+  const activeTotalPages =
+    searchMode === "sections"
+      ? totalPagesSections
+      : transactionSearch.totalPages;
+  const activeHasNext =
+    searchMode === "sections"
+      ? hasNextSections
+      : transactionSearch.hasNext;
+  const activeHasPrev =
+    searchMode === "sections"
+      ? hasPrevSections
+      : transactionSearch.hasPrev;
+  const activeAccess =
+    searchMode === "sections"
+      ? sectionAccess
+      : transactionSearch.access;
+  const activeShowErrorModal =
+    showSectionsErrorModal || transactionSearch.showErrorModal;
+  const activeErrorMessage =
+    sectionsErrorMessage || transactionSearch.errorMessage;
+
+  const runActiveSearch = async (
+    nextMode: SearchMode,
+    nextFilters: SearchFilters,
+    markAsSearched: boolean = true,
+  ) => {
+    if (nextMode === "sections") {
+      await performSectionSearch(
+        false,
+        clauseTypesNested,
+        markAsSearched,
+        nextFilters,
+      );
+      return;
+    }
+    await transactionSearch.performSearch({
+      filters: nextFilters,
+      clauseTypesNested,
+      sortBy: currentSort,
+      sortDirection: sort_direction,
+      markAsSearched,
+    });
+  };
+
+  const buildAgreementHref = (
+    agreementUuid: string,
+    focusSectionUuid?: string | null,
+  ) => {
+    const params = new URLSearchParams();
+    params.set("from", `${location.pathname}${location.search}`);
+    if (focusSectionUuid) {
+      params.set("focusSectionUuid", focusSectionUuid);
+    }
+    return `/agreements/${agreementUuid}?${params.toString()}`;
+  };
+
+  const getSectionAgreementHref = (result: (typeof searchResults)[number]) =>
+    buildAgreementHref(result.agreement_uuid, result.section_uuid);
+
+  const getTransactionAgreementHref = (
+    result: TransactionSearchResult,
+    focusSectionUuid?: string | null,
+  ) =>
+    buildAgreementHref(
+      result.agreement_uuid,
+      focusSectionUuid ?? result.matched_sections[0]?.section_uuid ?? null,
+    );
+
+  const dealClauseContextActive =
+    filters.clauseType.length > 0 || Boolean(filters.section_uuid?.trim());
+
+  useEffect(() => {
+    if (!isHydratingFromUrlRef.current) return;
+
+    const nextMode = searchParams.get("mode") === "transactions"
+      ? "transactions"
+      : "sections";
+    const nextFilters = parseSearchFilters(searchParams);
+    const nextSortBy = searchParams.get("sort_by");
+    const nextSortDirection = searchParams.get("sort_direction");
+
+    hydrateFilters(nextFilters);
+    setSearchMode(nextMode);
+    if (nextSortBy === "year" || nextSortBy === "target" || nextSortBy === "acquirer") {
+      sortResults(nextSortBy);
+    }
+    if (nextSortDirection === "asc" || nextSortDirection === "desc") {
+      setSortDirection(nextSortDirection);
+    }
+
+    const shouldSearch =
+      searchParams.toString().length > 0 &&
+      (
+        nextFilters.page !== undefined ||
+        nextFilters.agreement_uuid !== undefined ||
+        nextFilters.section_uuid !== undefined ||
+        Object.values(nextFilters).some((value) =>
+          Array.isArray(value) ? value.length > 0 : false,
+        )
+      );
+
+    isHydratingFromUrlRef.current = false;
+    if (shouldSearch) {
+      void runActiveSearch(nextMode, nextFilters);
+    }
+  }, [hydrateFilters, searchParams, setSortDirection, sortResults]);
+
+  useEffect(() => {
+    if (isHydratingFromUrlRef.current) return;
+    const nextParams = buildSearchStateParams({
+      filters,
+      mode: searchMode,
+      sortBy: currentSort,
+      sortDirection: sort_direction,
+      clauseTypesNested,
+    });
+    if (nextParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [
+    clauseTypesNested,
+    currentSort,
+    filters,
+    searchMode,
+    searchParams,
+    setSearchParams,
+    sort_direction,
+  ]);
 
   const loadSearchFilterOptions = async (
     field: "target" | "acquirer",
@@ -356,20 +506,15 @@ export default function Search() {
       });
       setTextFilterValue(field as keyof SearchFilters, value);
     },
-    performSearch: (force?: boolean) => {
-      if (force || !hasSearched) {
-        trackEvent("sections_performed", {
-          filter_count: Object.values(filters).flat().length,
-          has_results: searchResults.length > 0,
-          result_count: total_count,
-        });
-      }
-      performSearch(force, clauseTypesNested);
+    performSearch: async () => {
+      const nextFilters: SearchFilters = { ...filters, page: 1 };
+      updateFilter("page", 1);
+      await runActiveSearch(searchMode, nextFilters);
     },
     downloadCSV: () => {
       trackEvent("sections_export_click", {
         export_format: "csv",
-        result_count: selectedResults.size > 0 ? selectedResults.size : total_count,
+        result_count: selectedResults.size > 0 ? selectedResults.size : totalCountSections,
         is_filtered: Object.values(filters).flat().length > 0,
       });
       downloadCSV();
@@ -378,43 +523,37 @@ export default function Search() {
       trackEvent("sections_filters_cleared", {
         filter_count: Object.values(filters).flat().length,
       });
-      clearFilters();
+      clearSectionFilters();
+      transactionSearch.clear();
     },
-    goToPage: (page: number) => {
-      trackEvent("sections_pagination", {
-        page_number: page,
-        total_pages: total_pages,
-        direction: page > currentPage ? "next" : "previous",
-      });
-      goToPage(page, clauseTypesNested);
+    goToPage: async (page: number) => {
+      const nextFilters: SearchFilters = { ...filters, page };
+      updateFilter("page", page);
+      await runActiveSearch(searchMode, nextFilters, false);
     },
-    changePageSize: (size: number) => {
-      trackEvent("sections_page_size_change", {
-        old_page_size: page_size,
-        new_page_size: size,
-      });
-      changePageSize(size, clauseTypesNested);
+    changePageSize: async (size: number) => {
+      const nextFilters: SearchFilters = { ...filters, page_size: size, page: 1 };
+      updateFilter("page_size", size);
+      updateFilter("page", 1);
+      await runActiveSearch(searchMode, nextFilters, false);
     },
-    sortResults: (field: string) => {
-      trackEvent("sections_sort_change", {
-        sort_field: field,
-        sort_direction: currentSort === field ? "reversed" : "initial",
-      });
-      sortResults(field as "year" | "target" | "acquirer");
+    sortResults: async (field: string) => {
+      const nextField = field as "year" | "target" | "acquirer";
+      sortResults(nextField);
+      const nextFilters: SearchFilters = { ...filters };
+      await runActiveSearch(searchMode, nextFilters, false);
     },
-    toggleSortDirection: () => {
-      trackEvent("sections_sort_direction_toggle", {
-        sort_field: currentSort,
-        new_direction: sort_direction === "asc" ? "desc" : "asc",
-      });
+    toggleSortDirection: async () => {
       toggleSortDirection();
+      const nextFilters: SearchFilters = { ...filters };
+      await runActiveSearch(searchMode, nextFilters, false);
     },
   };
 
   // Allow Enter to trigger search when focus isn't inside an input/control.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || isSearching) return;
+      if (e.key !== "Enter" || activeIsSearching) return;
 
       const activeElement = document.activeElement as HTMLElement | null;
       const activeTag = activeElement?.tagName;
@@ -435,27 +574,17 @@ export default function Search() {
         activeElement?.closest('[role="dialog"]');
 
       if (!isEditable && !isInsideDropdown && !hasOpenDropdown) {
-        if (!hasSearched) {
-          trackEvent("sections_performed", {
-            filter_count: Object.values(filters).flat().length,
-            has_results: searchResults.length > 0,
-            result_count: total_count,
-          });
-        }
-        performSearch(true, clauseTypesNested);
+        void runActiveSearch(searchMode, filters);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
-    clauseTypesNested,
+    activeIsSearching,
     filters,
-    hasSearched,
-    isSearching,
-    performSearch,
-    searchResults.length,
-    total_count,
+    runActiveSearch,
+    searchMode,
   ]);
 
   return (
@@ -479,7 +608,7 @@ export default function Search() {
                 isLoadingTaxonomy={isLoadingFilterOptions}
                 onToggleFilterValue={toggleFilterValue}
                 onTextFilterChange={trackingActions.setTextFilterValue}
-                onClearFilters={clearFilters}
+                onClearFilters={trackingActions.clearFilters}
                 loadTargetOptions={(query) => loadSearchFilterOptions("target", query)}
                 loadAcquirerOptions={(query) => loadSearchFilterOptions("acquirer", query)}
                 onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -493,12 +622,72 @@ export default function Search() {
 
         <div className="flex flex-col flex-1 min-w-0">
           <div className="border-b border-border px-4 py-4 sm:px-8 sm:py-6">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <FileText className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-                <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">
-                  M&A Section Search
-                </h1>
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 space-y-4">
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                    M&A Search
+                  </h1>
+                  <p
+                    className="mt-1 text-sm text-muted-foreground"
+                    aria-live="polite"
+                  >
+                    {searchMode === "sections"
+                      ? "Search section-level matches across the corpus."
+                      : "Search deals and review which matched sections brought each agreement into the result set."}
+                  </p>
+                </div>
+                <Tabs value={searchMode} onValueChange={handleModeChange}>
+                  <TabsList
+                    className="inline-flex h-auto items-stretch gap-1 rounded-lg border border-border bg-muted/40 p-1"
+                    aria-label="Choose what to search"
+                  >
+                    <TabsTrigger
+                      value="sections"
+                      className="group flex h-auto min-w-[150px] items-center gap-2.5 rounded-md px-3 py-2 text-left data-[state=active]:bg-background data-[state=active]:shadow-sm sm:min-w-[200px]"
+                    >
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors",
+                          searchMode === "sections"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground group-hover:bg-muted/80",
+                        )}
+                        aria-hidden="true"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <span className="flex min-w-0 flex-col leading-tight">
+                        <span className="text-sm font-semibold">Sections</span>
+                        <span className="hidden text-xs font-normal text-muted-foreground sm:block">
+                          Section-level matches
+                        </span>
+                      </span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="transactions"
+                      className="group flex h-auto min-w-[150px] items-center gap-2.5 rounded-md px-3 py-2 text-left data-[state=active]:bg-background data-[state=active]:shadow-sm sm:min-w-[200px]"
+                    >
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors",
+                          searchMode === "transactions"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground group-hover:bg-muted/80",
+                        )}
+                        aria-hidden="true"
+                      >
+                        <Building2 className="h-4 w-4" />
+                      </span>
+                      <span className="flex min-w-0 flex-col leading-tight">
+                        <span className="text-sm font-semibold">Deals</span>
+                        <span className="hidden text-xs font-normal text-muted-foreground sm:block">
+                          Whole transactions
+                        </span>
+                      </span>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
 
               <div className="lg:hidden">
@@ -538,7 +727,7 @@ export default function Search() {
                           isLoadingTaxonomy={isLoadingFilterOptions}
                           onToggleFilterValue={toggleFilterValue}
                           onTextFilterChange={trackingActions.setTextFilterValue}
-                          onClearFilters={clearFilters}
+                          onClearFilters={trackingActions.clearFilters}
                           loadTargetOptions={(query) => loadSearchFilterOptions("target", query)}
                           loadAcquirerOptions={(query) => loadSearchFilterOptions("acquirer", query)}
                         />
@@ -591,19 +780,19 @@ export default function Search() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Button
-                  onClick={() => trackingActions.performSearch(true)}
-                  disabled={isSearching}
+                  onClick={() => void trackingActions.performSearch()}
+                  disabled={activeIsSearching}
                   className="w-full gap-2 sm:w-auto"
                   variant="default"
                 >
                   <SearchIcon
                     className={cn(
                       "h-4 w-4",
-                      isSearching && "animate-spin-custom"
+                      activeIsSearching && "animate-spin-custom"
                     )}
                     aria-hidden="true"
                   />
-                  <span>{isSearching ? "Searching..." : "Search"}</span>
+                  <span>{activeIsSearching ? "Searching..." : "Search"}</span>
                 </Button>
 
                 <div className="flex items-center gap-3">
@@ -613,13 +802,15 @@ export default function Search() {
                         <Button
                           onClick={() => trackingActions.downloadCSV()}
                           disabled={
-                            searchResults.length === 0 && selectedResults.size === 0
+                            searchMode !== "sections" ||
+                            (searchResults.length === 0 && selectedResults.size === 0)
                           }
                           variant="outline"
                           size="sm"
                           className="gap-2 border-0 bg-transparent px-0 text-muted-foreground hover:text-foreground sm:border sm:bg-background sm:px-3 sm:text-foreground"
                           aria-label={
-                            searchResults.length === 0 && selectedResults.size === 0
+                            searchMode !== "sections" ||
+                            (searchResults.length === 0 && selectedResults.size === 0)
                               ? "Download CSV (disabled: no results to download. Run a search first.)"
                               : "Download CSV"
                           }
@@ -632,15 +823,20 @@ export default function Search() {
                         </Button>
                       </span>
                     </TooltipTrigger>
-                    {searchResults.length === 0 && selectedResults.size === 0 && (
+                    {(searchMode !== "sections" ||
+                      (searchResults.length === 0 && selectedResults.size === 0)) && (
                       <TooltipContent>
-                        <p>No results to download. Run a search first.</p>
+                        <p>
+                          {searchMode === "sections"
+                            ? "No results to download. Run a search first."
+                            : "CSV export is available for section results only."}
+                        </p>
                       </TooltipContent>
                     )}
                   </Tooltip>
 
                   <Button
-                    onClick={clearFilters}
+                    onClick={trackingActions.clearFilters}
                     variant="outline"
                     size="sm"
                     className="px-3 text-muted-foreground hover:text-foreground"
@@ -794,7 +990,7 @@ export default function Search() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={clearFilters}
+                    onClick={trackingActions.clearFilters}
                     className="h-8 px-2 text-muted-foreground hover:text-foreground"
                   >
                     Clear all filters
@@ -806,8 +1002,8 @@ export default function Search() {
 
           <div className="flex-1 overflow-auto">
             <div className="px-4 py-6 sm:px-8 sm:py-8">
-              {!hasSearched && (
-                <div className="mx-auto max-w-3xl">
+              {!activeHasSearched && (
+                <div className="mx-auto max-w-3xl space-y-4">
                   <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
                     <div className="flex items-start gap-4">
                       <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary">
@@ -815,22 +1011,52 @@ export default function Search() {
                       </div>
                       <div className="min-w-0">
                         <h2 className="text-base font-semibold text-foreground">
-                          Start with filters, then search
+                          {searchMode === "sections"
+                            ? "Find specific sections across the corpus"
+                            : "Find deals matching your criteria"}
                         </h2>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Pick a year, target/acquirer, and section types to
-                          narrow the corpus. Then run a search to load results
-                          (and open full agreements from any result).
+                          {searchMode === "sections"
+                            ? "Pick filters to narrow the corpus, then search to load matched sections and jump straight into the relevant agreement passage."
+                            : "Pick filters to narrow the corpus, then search to load matching deals with the sections that triggered each result."}
                         </p>
                       </div>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-border/60 bg-card/60 p-4">
+                      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        {searchMode === "sections" ? (
+                          <FileText className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                        ) : (
+                          <Building2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                        )}
+                        Try filtering by
+                      </div>
+                      <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                        <li>• Clause type (e.g. material adverse effect)</li>
+                        <li>• Year, deal status, or attitude</li>
+                        <li>• Target or acquirer counsel</li>
+                      </ul>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-card/60 p-4">
+                      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <Layers className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                        {searchMode === "sections" ? "What you'll see" : "What you'll see"}
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {searchMode === "sections"
+                          ? "Section text with the matched clause type, plus quick links to the full agreement."
+                          : "Each unique deal grouped together, with the matched sections that brought it into the result set."}
+                      </p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {hasSearched && (
+              {activeHasSearched && (
                 <div className="space-y-6">
-                  {total_count === 0 ? (
+                  {activeTotalCount === 0 ? (
                     <div
                       className="mx-auto max-w-3xl text-center py-12 text-muted-foreground"
                       role="status"
@@ -841,7 +1067,9 @@ export default function Search() {
                         aria-hidden="true"
                       />
                       <p className="text-foreground font-medium">
-                        No sections found.
+                        {searchMode === "sections"
+                          ? "No sections found."
+                          : "No deals found."}
                       </p>
                       <p className="text-sm mt-2">
                         Try adjusting your filters and search again.
@@ -854,50 +1082,68 @@ export default function Search() {
                           <Suspense fallback={<SearchPaginationFallback />}>
                             <SearchPagination
                               currentPage={currentPage}
-                              totalPages={total_pages}
+                              totalPages={activeTotalPages}
                               pageSize={page_size}
-                              totalCount={total_count}
-                              totalCountIsApproximate={totalCountIsApproximate}
-                              hasNext={has_next}
-                              hasPrev={has_prev}
+                              totalCount={activeTotalCount}
+                              totalCountIsApproximate={activeTotalCountIsApproximate}
+                              hasNext={activeHasNext}
+                              hasPrev={activeHasPrev}
                               onPageChange={(page) =>
-                                trackingActions.goToPage(page)
+                                void trackingActions.goToPage(page)
                               }
                               onPageSizeChange={(nextPageSize) =>
-                                trackingActions.changePageSize(nextPageSize)
+                                void trackingActions.changePageSize(nextPageSize)
                               }
-                              isLoading={isSearching}
-                              isLimited={(access?.tier ?? "anonymous") === "anonymous"}
+                              isLoading={activeIsSearching}
+                              isLimited={(activeAccess?.tier ?? "anonymous") === "anonymous"}
                             />
                           </Suspense>
 
-                          <Suspense fallback={<SearchResultsTableFallback />}>
-                            <SearchResultsTable
-                              searchResults={searchResults}
-                              selectedResults={selectedResults}
-                              clauseTypePathByStandardId={clauseTypePathByStandardId}
-                              sort_by={currentSort ?? "year"}
-                              sort_direction={sort_direction}
-                              onToggleResultSelection={toggleResultSelection}
-                              onToggleSelectAll={toggleSelectAll}
-                              onOpenAgreement={openAgreement}
-                              onSortResults={sortResults}
-                              onToggleSortDirection={toggleSortDirection}
-                              density={resultsDensity}
-                              onDensityChange={updateResultsDensity}
-                              currentPage={currentPage}
-                              page_size={page_size}
-                            />
-                          </Suspense>
+                          {searchMode === "sections" ? (
+                            <Suspense fallback={<SearchResultsTableFallback />}>
+                              <SearchResultsTable
+                                searchResults={searchResults}
+                                selectedResults={selectedResults}
+                                clauseTypePathByStandardId={clauseTypePathByStandardId}
+                                sort_by={currentSort ?? "year"}
+                                sort_direction={sort_direction}
+                                onToggleResultSelection={toggleResultSelection}
+                                onToggleSelectAll={toggleSelectAll}
+                                onOpenAgreement={openAgreement}
+                                getAgreementHref={getSectionAgreementHref}
+                                onSortResults={(field) => void trackingActions.sortResults(field)}
+                                onToggleSortDirection={() => void trackingActions.toggleSortDirection()}
+                                density={resultsDensity}
+                                onDensityChange={updateResultsDensity}
+                                currentPage={currentPage}
+                                page_size={page_size}
+                              />
+                            </Suspense>
+                          ) : (
+                            <Suspense fallback={<TransactionResultsFallback />}>
+                              <TransactionResultsList
+                                results={transactionSearch.results}
+                                getAgreementHref={getTransactionAgreementHref}
+                                showClauseContext={dealClauseContextActive}
+                                clauseTypeLabelById={clauseTypeLabelById}
+                                currentPage={currentPage}
+                                pageSize={page_size}
+                              />
+                            </Suspense>
+                          )}
                         </>
                       ) : (
                         <>
                           <SearchPaginationFallback />
-                          <SearchResultsTableFallback />
+                          {searchMode === "sections" ? (
+                            <SearchResultsTableFallback />
+                          ) : (
+                            <TransactionResultsFallback />
+                          )}
                         </>
                       )}
 
-                      {selectedResults.size > 0 && (
+                      {searchMode === "sections" && selectedResults.size > 0 && (
                         <div className="rounded-xl border border-border/60 bg-muted/20 p-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-sm text-muted-foreground">
@@ -927,20 +1173,20 @@ export default function Search() {
                         <Suspense fallback={<SearchPaginationFallback />}>
                           <SearchPagination
                             currentPage={currentPage}
-                            totalPages={total_pages}
+                            totalPages={activeTotalPages}
                             pageSize={page_size}
-                            totalCount={total_count}
-                            totalCountIsApproximate={totalCountIsApproximate}
-                            hasNext={has_next}
-                            hasPrev={has_prev}
+                            totalCount={activeTotalCount}
+                            totalCountIsApproximate={activeTotalCountIsApproximate}
+                            hasNext={activeHasNext}
+                            hasPrev={activeHasPrev}
                             onPageChange={(page) =>
-                              trackingActions.goToPage(page)
+                              void trackingActions.goToPage(page)
                             }
                             onPageSizeChange={(nextPageSize) =>
-                              trackingActions.changePageSize(nextPageSize)
+                              void trackingActions.changePageSize(nextPageSize)
                             }
-                            isLoading={isSearching}
-                            isLimited={(access?.tier ?? "anonymous") === "anonymous"}
+                            isLoading={activeIsSearching}
+                            isLimited={(activeAccess?.tier ?? "anonymous") === "anonymous"}
                           />
                         </Suspense>
                       ) : (
@@ -955,25 +1201,16 @@ export default function Search() {
         </div>
       </div>
 
-      {showErrorModal && (
+      {activeShowErrorModal && (
         <ErrorModal
-          isOpen={showErrorModal}
-          onClose={closeErrorModal}
-          message={errorMessage}
+          isOpen={activeShowErrorModal}
+          onClose={() => {
+            actions.closeErrorModal();
+            transactionSearch.closeErrorModal();
+          }}
+          message={activeErrorMessage}
         />
       )}
-
-      {selectedAgreement && hasHydrated ? (
-        <Suspense fallback={null}>
-          <AgreementModal
-            isOpen={!!selectedAgreement}
-            onClose={closeAgreement}
-            agreement_uuid={selectedAgreement.agreement_uuid}
-            targetSectionUuid={selectedAgreement.section_uuid}
-            agreementMetadata={selectedAgreement.metadata}
-          />
-        </Suspense>
-      ) : null}
     </div>
   );
 }

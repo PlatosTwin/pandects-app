@@ -3,13 +3,14 @@ from __future__ import annotations
 from collections import defaultdict
 from decimal import Decimal
 from datetime import date, datetime
+import re
 from threading import Lock
 from typing import Any, Mapping, Protocol, cast
 
 from flask import Flask, Response, abort, current_app, jsonify, request
 from flask.views import MethodView
 from flask_smorest import Blueprint
-from sqlalchemy import and_, asc, bindparam, func, or_, text
+from sqlalchemy import and_, asc, bindparam, desc, func, or_, text
 
 from backend.counsel_leaderboards import build_counsel_leaderboards_from_summary_rows
 from backend.filtering import (
@@ -20,6 +21,8 @@ from backend.routes.deps import AgreementsDeps
 from backend.schemas.public_api import (
     AgreementArgsPayload,
     AgreementArgsSchema,
+    AgreementSearchResponseSchema,
+    AgreementSectionIndexResponseSchema,
     AgreementResponseSchema,
     AgreementsBulkArgsPayload,
     AgreementsBulkArgsSchema,
@@ -28,6 +31,7 @@ from backend.schemas.public_api import (
     SectionResponseSchema,
     TaxClauseListResponseSchema,
 )
+from backend.schemas.sections import SectionsArgsPayload, SectionsArgsSchema
 
 
 class _PublicEligibleAgreementModel(Protocol):
@@ -55,6 +59,329 @@ def _to_float_or_none(value: object) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+_SNIPPET_TAG_RE = re.compile(r"<[^>]+>")
+_SNIPPET_WS_RE = re.compile(r"\s+")
+
+
+def _build_agreement_search_match_query(
+    deps: AgreementsDeps,
+    *,
+    parsed_args: SectionsArgsPayload,
+) -> tuple[Any, bool]:
+    db = deps.db
+    agreements = deps.Agreements
+    agreement_counsel = deps.AgreementCounsel
+    counsel = deps.Counsel
+    latest = deps.LatestSectionsSearch
+
+    years = parsed_args["year"]
+    targets = parsed_args["target"]
+    acquirers = parsed_args["acquirer"]
+    standard_ids = parsed_args["standard_id"]
+    transaction_price_totals = parsed_args["transaction_price_total"]
+    transaction_price_stocks = parsed_args["transaction_price_stock"]
+    transaction_price_cashes = parsed_args["transaction_price_cash"]
+    transaction_price_assets = parsed_args["transaction_price_assets"]
+    transaction_considerations = parsed_args["transaction_consideration"]
+    target_types = parsed_args["target_type"]
+    acquirer_types = parsed_args["acquirer_type"]
+    target_counsels = parsed_args["target_counsel"]
+    acquirer_counsels = parsed_args["acquirer_counsel"]
+    target_industries = parsed_args["target_industry"]
+    acquirer_industries = parsed_args["acquirer_industry"]
+    deal_statuses = parsed_args["deal_status"]
+    attitudes = parsed_args["attitude"]
+    deal_types = parsed_args["deal_type"]
+    purposes = parsed_args["purpose"]
+    target_pes = parsed_args["target_pe"]
+    acquirer_pes = parsed_args["acquirer_pe"]
+    agreement_uuid = parsed_args["agreement_uuid"]
+    section_uuid = parsed_args["section_uuid"]
+
+    q = (
+        db.session.query(
+            latest.section_uuid.label("section_uuid"),
+            latest.agreement_uuid.label("agreement_uuid"),
+            latest.filing_date.label("filing_date"),
+            latest.target.label("target"),
+            latest.acquirer.label("acquirer"),
+            latest.article_title.label("article_title"),
+            latest.section_title.label("section_title"),
+            latest.section_standard_ids.label("section_standard_ids"),
+        )
+        .join(agreements, agreements.agreement_uuid == latest.agreement_uuid)
+        .filter(_agreement_is_public_eligible_expr(agreements))
+    )
+
+    if years:
+        year_filters = tuple(
+            and_(
+                latest.filing_date >= f"{year:04d}-01-01",
+                latest.filing_date < f"{year + 1:04d}-01-01",
+            )
+            for year in years
+        )
+        q = q.filter(or_(*year_filters))
+
+    if targets:
+        q = q.filter(latest.target.in_(targets))
+    if acquirers:
+        q = q.filter(latest.acquirer.in_(acquirers))
+
+    transaction_price_total_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_total,
+        transaction_price_totals,
+    )
+    if transaction_price_total_filter is not None:
+        q = q.filter(transaction_price_total_filter)
+    transaction_price_stock_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_stock,
+        transaction_price_stocks,
+    )
+    if transaction_price_stock_filter is not None:
+        q = q.filter(transaction_price_stock_filter)
+    transaction_price_cash_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_cash,
+        transaction_price_cashes,
+    )
+    if transaction_price_cash_filter is not None:
+        q = q.filter(transaction_price_cash_filter)
+    transaction_price_assets_filter = build_transaction_price_bucket_filter(
+        latest.transaction_price_assets,
+        transaction_price_assets,
+    )
+    if transaction_price_assets_filter is not None:
+        q = q.filter(transaction_price_assets_filter)
+
+    standard_ids_expanded = False
+    if standard_ids:
+        standard_ids_key = tuple(sorted({value for value in standard_ids if value}))
+        expanded_standard_ids = list(
+            deps._expand_taxonomy_standard_ids_cached(standard_ids_key)
+        )
+        if expanded_standard_ids:
+            standard_ids_expanded = set(expanded_standard_ids) != set(standard_ids_key)
+            q = q.filter(deps._standard_id_filter_expr(expanded_standard_ids))
+
+    if target_types:
+        q = q.filter(latest.target_type.in_(target_types))
+    if transaction_considerations:
+        q = q.filter(latest.transaction_consideration.in_(transaction_considerations))
+    if acquirer_types:
+        q = q.filter(latest.acquirer_type.in_(acquirer_types))
+    target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="target",
+        canonical_names=target_counsels,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if target_counsel_subquery is not None:
+        q = q.filter(latest.agreement_uuid.in_(target_counsel_subquery))
+    acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="acquirer",
+        canonical_names=acquirer_counsels,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if acquirer_counsel_subquery is not None:
+        q = q.filter(latest.agreement_uuid.in_(acquirer_counsel_subquery))
+    if target_industries:
+        q = q.filter(latest.target_industry.in_(target_industries))
+    if acquirer_industries:
+        q = q.filter(latest.acquirer_industry.in_(acquirer_industries))
+    if deal_statuses:
+        q = q.filter(latest.deal_status.in_(deal_statuses))
+    if attitudes:
+        q = q.filter(latest.attitude.in_(attitudes))
+    if deal_types:
+        q = q.filter(latest.deal_type.in_(deal_types))
+    if purposes:
+        q = q.filter(latest.purpose.in_(purposes))
+
+    if target_pes:
+        db_target_pes: list[int] = []
+        for pe in target_pes:
+            if pe == "true":
+                db_target_pes.append(1)
+            elif pe == "false":
+                db_target_pes.append(0)
+        if db_target_pes:
+            q = q.filter(latest.target_pe.in_(db_target_pes))
+
+    if acquirer_pes:
+        db_acquirer_pes: list[int] = []
+        for pe in acquirer_pes:
+            if pe == "true":
+                db_acquirer_pes.append(1)
+            elif pe == "false":
+                db_acquirer_pes.append(0)
+        if db_acquirer_pes:
+            q = q.filter(latest.acquirer_pe.in_(db_acquirer_pes))
+
+    if agreement_uuid and agreement_uuid.strip():
+        q = q.filter(latest.agreement_uuid == agreement_uuid.strip())
+
+    if section_uuid and section_uuid.strip():
+        q = q.filter(latest.section_uuid == section_uuid.strip())
+
+    return q, standard_ids_expanded
+
+
+def _strip_xml_snippet(xml_value: object, *, max_chars: int = 220) -> str | None:
+    if not isinstance(xml_value, str) or not xml_value.strip():
+        return None
+    text_only = _SNIPPET_TAG_RE.sub(" ", xml_value)
+    normalized = _SNIPPET_WS_RE.sub(" ", text_only).strip()
+    if not normalized:
+        return None
+    if len(normalized) <= max_chars:
+        return normalized
+    return f"{normalized[: max_chars - 1].rstrip()}…"
+
+
+def _apply_agreement_metadata_filters(
+    q: Any,
+    *,
+    db: Any,
+    agreements: Any,
+    agreement_counsel: Any,
+    counsel: Any,
+    sections: Any,
+    parsed_args: SectionsArgsPayload | AgreementsBulkArgsPayload,
+) -> Any:
+    years = parsed_args["year"]
+    targets = parsed_args["target"]
+    acquirers = parsed_args["acquirer"]
+    transaction_price_totals = parsed_args["transaction_price_total"]
+    transaction_price_stocks = parsed_args["transaction_price_stock"]
+    transaction_price_cashes = parsed_args["transaction_price_cash"]
+    transaction_price_assets = parsed_args["transaction_price_assets"]
+    transaction_considerations = parsed_args["transaction_consideration"]
+    target_types = parsed_args["target_type"]
+    acquirer_types = parsed_args["acquirer_type"]
+    target_counsels = parsed_args["target_counsel"]
+    acquirer_counsels = parsed_args["acquirer_counsel"]
+    target_industries = parsed_args["target_industry"]
+    acquirer_industries = parsed_args["acquirer_industry"]
+    deal_statuses = parsed_args["deal_status"]
+    attitudes = parsed_args["attitude"]
+    deal_types = parsed_args["deal_type"]
+    purposes = parsed_args["purpose"]
+    target_pes = parsed_args["target_pe"]
+    acquirer_pes = parsed_args["acquirer_pe"]
+    agreement_uuid = parsed_args["agreement_uuid"]
+    section_uuid = parsed_args["section_uuid"]
+
+    if years:
+        year_filters = tuple(
+            and_(
+                agreements.filing_date >= f"{year:04d}-01-01",
+                agreements.filing_date < f"{year + 1:04d}-01-01",
+            )
+            for year in years
+        )
+        q = q.filter(or_(*year_filters))
+
+    if targets:
+        q = q.filter(agreements.target.in_(targets))
+    if acquirers:
+        q = q.filter(agreements.acquirer.in_(acquirers))
+    transaction_price_total_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_total,
+        transaction_price_totals,
+    )
+    if transaction_price_total_filter is not None:
+        q = q.filter(transaction_price_total_filter)
+    transaction_price_stock_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_stock,
+        transaction_price_stocks,
+    )
+    if transaction_price_stock_filter is not None:
+        q = q.filter(transaction_price_stock_filter)
+    transaction_price_cash_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_cash,
+        transaction_price_cashes,
+    )
+    if transaction_price_cash_filter is not None:
+        q = q.filter(transaction_price_cash_filter)
+    transaction_price_assets_filter = build_transaction_price_bucket_filter(
+        agreements.transaction_price_assets,
+        transaction_price_assets,
+    )
+    if transaction_price_assets_filter is not None:
+        q = q.filter(transaction_price_assets_filter)
+    if transaction_considerations:
+        q = q.filter(agreements.transaction_consideration.in_(transaction_considerations))
+    if target_types:
+        q = q.filter(agreements.target_type.in_(target_types))
+    if acquirer_types:
+        q = q.filter(agreements.acquirer_type.in_(acquirer_types))
+    target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="target",
+        canonical_names=target_counsels,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if target_counsel_subquery is not None:
+        q = q.filter(agreements.agreement_uuid.in_(target_counsel_subquery))
+    acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="acquirer",
+        canonical_names=acquirer_counsels,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if acquirer_counsel_subquery is not None:
+        q = q.filter(agreements.agreement_uuid.in_(acquirer_counsel_subquery))
+    if target_industries:
+        q = q.filter(agreements.target_industry.in_(target_industries))
+    if acquirer_industries:
+        q = q.filter(agreements.acquirer_industry.in_(acquirer_industries))
+    if deal_statuses:
+        q = q.filter(agreements.deal_status.in_(deal_statuses))
+    if attitudes:
+        q = q.filter(agreements.attitude.in_(attitudes))
+    if deal_types:
+        q = q.filter(agreements.deal_type.in_(deal_types))
+    if purposes:
+        q = q.filter(agreements.purpose.in_(purposes))
+
+    if target_pes:
+        db_target_pes: list[int] = []
+        for pe in target_pes:
+            if pe == "true":
+                db_target_pes.append(1)
+            elif pe == "false":
+                db_target_pes.append(0)
+        if db_target_pes:
+            q = q.filter(agreements.target_pe.in_(db_target_pes))
+
+    if acquirer_pes:
+        db_acquirer_pes: list[int] = []
+        for pe in acquirer_pes:
+            if pe == "true":
+                db_acquirer_pes.append(1)
+            elif pe == "false":
+                db_acquirer_pes.append(0)
+        if db_acquirer_pes:
+            q = q.filter(agreements.acquirer_pe.in_(db_acquirer_pes))
+
+    if agreement_uuid and agreement_uuid.strip():
+        q = q.filter(agreements.agreement_uuid == agreement_uuid.strip())
+
+    if section_uuid and section_uuid.strip():
+        section_exists = (
+            db.session.query(sections.section_uuid)
+            .filter(
+                sections.agreement_uuid == agreements.agreement_uuid,
+                sections.section_uuid == section_uuid.strip(),
+            )
+            .exists()
+        )
+        q = q.filter(section_exists)
+
+    return q
 
 
 def _cacheable_json_response(
@@ -169,7 +496,11 @@ def _tax_clause_rows(
     return list(grouped.values())
 
 
-def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]:
+def register_agreements_routes(
+    target_app: Flask,
+    *,
+    deps: AgreementsDeps,
+) -> tuple[Blueprint, Blueprint, Blueprint]:
     agreement_trends_cache: dict[str, object] = {"ts": 0.0, "payload": None}
     agreement_trends_lock = Lock()
     counsel_leaderboards_cache: dict[str, object] = {"ts": 0.0, "payload": None}
@@ -190,6 +521,12 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         "sections",
         url_prefix="/v1/sections",
         description="Retrieve full text for a given section",
+    )
+    agreement_search_blp = Blueprint(
+        "agreements_search",
+        "agreements_search",
+        url_prefix="/v1/search/agreements",
+        description="Search agreements and return one result per deal with matched section previews.",
     )
 
     def get_metadata_field_coverage() -> list[dict[str, object]]:
@@ -522,6 +859,386 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 "next_cursor": next_cursor,
             }
 
+    @agreement_search_blp.route("")
+    class AgreementSearchResource(MethodView):
+        @agreement_search_blp.doc(
+            operationId="searchAgreements",
+            summary="Search agreements with matched section previews",
+            description=(
+                "Searches agreements with the same structured filters as `/v1/sections`, "
+                "including taxonomy IDs, and returns one row per agreement."
+            ),
+        )
+        @agreement_search_blp.arguments(SectionsArgsSchema, location="query")
+        @agreement_search_blp.response(200, AgreementSearchResponseSchema)
+        def get(self, args: dict[str, object]) -> dict[str, object]:
+            ctx = deps._current_access_context()
+            parsed_args = cast(SectionsArgsPayload, cast(object, args))
+            sections = deps.Sections
+            agreements = deps.Agreements
+            latest = deps.LatestSectionsSearch
+            xml = deps.XML
+            db = deps.db
+
+            page = parsed_args["page"]
+            page_size = parsed_args["page_size"]
+            if page < 1:
+                page = 1
+            max_page_size = 100 if ctx.is_authenticated else 10
+            if page_size < 1 or page_size > max_page_size:
+                page_size = min(25, max_page_size)
+
+            clause_context_requested = bool(
+                parsed_args["standard_id"] or (
+                    parsed_args["section_uuid"] and parsed_args["section_uuid"].strip()
+                )
+            )
+
+            if not clause_context_requested:
+                direct_query = (
+                    db.session.query(
+                        agreements.agreement_uuid.label("agreement_uuid"),
+                        deps._agreement_year_expr().label("year"),
+                        agreements.target.label("target"),
+                        agreements.acquirer.label("acquirer"),
+                        agreements.filing_date.label("filing_date"),
+                        agreements.prob_filing.label("prob_filing"),
+                        agreements.filing_company_name.label("filing_company_name"),
+                        agreements.filing_company_cik.label("filing_company_cik"),
+                        agreements.form_type.label("form_type"),
+                        agreements.exhibit_type.label("exhibit_type"),
+                        agreements.transaction_price_total.label("transaction_price_total"),
+                        agreements.transaction_price_stock.label("transaction_price_stock"),
+                        agreements.transaction_price_cash.label("transaction_price_cash"),
+                        agreements.transaction_price_assets.label("transaction_price_assets"),
+                        agreements.transaction_consideration.label("transaction_consideration"),
+                        agreements.target_type.label("target_type"),
+                        agreements.acquirer_type.label("acquirer_type"),
+                        agreements.target_industry.label("target_industry"),
+                        agreements.acquirer_industry.label("acquirer_industry"),
+                        agreements.announce_date.label("announce_date"),
+                        agreements.close_date.label("close_date"),
+                        agreements.deal_status.label("deal_status"),
+                        agreements.attitude.label("attitude"),
+                        agreements.deal_type.label("deal_type"),
+                        agreements.purpose.label("purpose"),
+                        agreements.target_pe.label("target_pe"),
+                        agreements.acquirer_pe.label("acquirer_pe"),
+                        agreements.url.label("url"),
+                    )
+                    .join(xml, deps._agreement_latest_xml_join_condition())
+                    .filter(_agreement_is_public_eligible_expr(agreements))
+                )
+                direct_query = _apply_agreement_metadata_filters(
+                    direct_query,
+                    db=db,
+                    agreements=agreements,
+                    agreement_counsel=deps.AgreementCounsel,
+                    counsel=deps.Counsel,
+                    sections=sections,
+                    parsed_args=parsed_args,
+                )
+
+                sort_by = parsed_args["sort_by"]
+                descending = parsed_args["sort_direction"] == "desc"
+                if sort_by == "year":
+                    primary_sort = agreements.filing_date
+                elif sort_by == "target":
+                    primary_sort = agreements.target
+                else:
+                    primary_sort = agreements.acquirer
+                if descending:
+                    direct_query = direct_query.order_by(
+                        desc(primary_sort),
+                        desc(agreements.agreement_uuid),
+                    )
+                else:
+                    direct_query = direct_query.order_by(
+                        asc(primary_sort),
+                        asc(agreements.agreement_uuid),
+                    )
+
+                page_rows_raw = cast(
+                    list[object],
+                    direct_query.offset((page - 1) * page_size).limit(page_size + 1).all(),
+                )
+                has_next = len(page_rows_raw) > page_size
+                page_rows = page_rows_raw[:page_size]
+                if parsed_args["count_mode"] == "exact":
+                    total_count = deps._to_int(direct_query.order_by(None).count())
+                    total_count_is_approximate = False
+                else:
+                    total_count = ((page - 1) * page_size) + len(page_rows)
+                    if has_next:
+                        total_count += 1
+                    total_count_is_approximate = has_next
+
+                meta = deps._pagination_metadata(
+                    total_count=total_count,
+                    page=page,
+                    page_size=page_size,
+                    has_next_override=has_next,
+                    total_count_is_approximate=total_count_is_approximate,
+                )
+
+                results = []
+                for row in page_rows:
+                    row_map = deps._row_mapping_as_dict(cast(object, row))
+                    results.append(
+                        {
+                            "agreement_uuid": row_map.get("agreement_uuid"),
+                            "year": row_map.get("year"),
+                            "target": row_map.get("target"),
+                            "acquirer": row_map.get("acquirer"),
+                            "filing_date": row_map.get("filing_date"),
+                            "prob_filing": row_map.get("prob_filing"),
+                            "filing_company_name": row_map.get("filing_company_name"),
+                            "filing_company_cik": row_map.get("filing_company_cik"),
+                            "form_type": row_map.get("form_type"),
+                            "exhibit_type": row_map.get("exhibit_type"),
+                            "transaction_price_total": row_map.get("transaction_price_total"),
+                            "transaction_price_stock": row_map.get("transaction_price_stock"),
+                            "transaction_price_cash": row_map.get("transaction_price_cash"),
+                            "transaction_price_assets": row_map.get("transaction_price_assets"),
+                            "transaction_consideration": row_map.get("transaction_consideration"),
+                            "target_type": row_map.get("target_type"),
+                            "acquirer_type": row_map.get("acquirer_type"),
+                            "target_industry": row_map.get("target_industry"),
+                            "acquirer_industry": row_map.get("acquirer_industry"),
+                            "announce_date": row_map.get("announce_date"),
+                            "close_date": row_map.get("close_date"),
+                            "deal_status": row_map.get("deal_status"),
+                            "attitude": row_map.get("attitude"),
+                            "deal_type": row_map.get("deal_type"),
+                            "purpose": row_map.get("purpose"),
+                            "target_pe": row_map.get("target_pe"),
+                            "acquirer_pe": row_map.get("acquirer_pe"),
+                            "url": row_map.get("url"),
+                            "match_count": 0,
+                            "matched_sections": [],
+                        }
+                    )
+
+                return {
+                    "results": results,
+                    "access": {
+                        "tier": ctx.tier,
+                        "message": None
+                        if ctx.is_authenticated
+                        else "Sign in to view full agreement text and unlock higher page sizes.",
+                    },
+                    **meta,
+                }
+
+            match_query, _ = _build_agreement_search_match_query(
+                deps,
+                parsed_args=parsed_args,
+            )
+            aggregated_query = (
+                match_query.with_entities(
+                    latest.agreement_uuid.label("agreement_uuid"),
+                    func.count().label("match_count"),
+                    func.min(latest.filing_date).label("sort_filing_date"),
+                    func.min(latest.target).label("sort_target"),
+                    func.min(latest.acquirer).label("sort_acquirer"),
+                )
+                .group_by(latest.agreement_uuid)
+            )
+
+            sort_by = parsed_args["sort_by"]
+            descending = parsed_args["sort_direction"] == "desc"
+            if sort_by == "year":
+                sort_column = text("sort_filing_date")
+            elif sort_by == "target":
+                sort_column = text("sort_target")
+            else:
+                sort_column = text("sort_acquirer")
+            if descending:
+                aggregated_query = aggregated_query.order_by(
+                    desc(sort_column),
+                    desc(text("agreement_uuid")),
+                )
+            else:
+                aggregated_query = aggregated_query.order_by(
+                    asc(sort_column),
+                    asc(text("agreement_uuid")),
+                )
+
+            page_rows_raw = cast(
+                list[object],
+                aggregated_query.offset((page - 1) * page_size).limit(page_size + 1).all(),
+            )
+            has_next = len(page_rows_raw) > page_size
+            page_rows = page_rows_raw[:page_size]
+            if parsed_args["count_mode"] == "exact":
+                total_count = deps._to_int(aggregated_query.order_by(None).count())
+                total_count_is_approximate = False
+            else:
+                total_count = ((page - 1) * page_size) + len(page_rows)
+                if has_next:
+                    total_count += 1
+                total_count_is_approximate = has_next
+
+            meta = deps._pagination_metadata(
+                total_count=total_count,
+                page=page,
+                page_size=page_size,
+                has_next_override=has_next,
+                total_count_is_approximate=total_count_is_approximate,
+            )
+            agreement_ids: list[str] = []
+            match_count_by_agreement: dict[str, int] = {}
+            for row in page_rows:
+                row_map = deps._row_mapping_as_dict(cast(object, row))
+                agreement_id = row_map.get("agreement_uuid")
+                if not isinstance(agreement_id, str):
+                    continue
+                agreement_ids.append(agreement_id)
+                match_count_by_agreement[agreement_id] = deps._to_int(
+                    row_map.get("match_count")
+                )
+
+            agreement_details_by_id: dict[str, dict[str, object]] = {}
+            if agreement_ids:
+                detail_rows = cast(
+                    list[object],
+                    db.session.query(
+                        agreements.agreement_uuid.label("agreement_uuid"),
+                        deps._agreement_year_expr().label("year"),
+                        agreements.target.label("target"),
+                        agreements.acquirer.label("acquirer"),
+                        agreements.filing_date.label("filing_date"),
+                        agreements.prob_filing.label("prob_filing"),
+                        agreements.filing_company_name.label("filing_company_name"),
+                        agreements.filing_company_cik.label("filing_company_cik"),
+                        agreements.form_type.label("form_type"),
+                        agreements.exhibit_type.label("exhibit_type"),
+                        agreements.transaction_price_total.label("transaction_price_total"),
+                        agreements.transaction_price_stock.label("transaction_price_stock"),
+                        agreements.transaction_price_cash.label("transaction_price_cash"),
+                        agreements.transaction_price_assets.label("transaction_price_assets"),
+                        agreements.transaction_consideration.label("transaction_consideration"),
+                        agreements.target_type.label("target_type"),
+                        agreements.acquirer_type.label("acquirer_type"),
+                        agreements.target_industry.label("target_industry"),
+                        agreements.acquirer_industry.label("acquirer_industry"),
+                        agreements.announce_date.label("announce_date"),
+                        agreements.close_date.label("close_date"),
+                        agreements.deal_status.label("deal_status"),
+                        agreements.attitude.label("attitude"),
+                        agreements.deal_type.label("deal_type"),
+                        agreements.purpose.label("purpose"),
+                        agreements.target_pe.label("target_pe"),
+                        agreements.acquirer_pe.label("acquirer_pe"),
+                        agreements.url.label("url"),
+                    )
+                    .filter(agreements.agreement_uuid.in_(agreement_ids))
+                    .all(),
+                )
+                for row in detail_rows:
+                    row_map = deps._row_mapping_as_dict(cast(object, row))
+                    agreement_id = row_map.get("agreement_uuid")
+                    if isinstance(agreement_id, str):
+                        agreement_details_by_id[agreement_id] = row_map
+
+            matched_sections_by_agreement: dict[str, list[dict[str, object]]] = defaultdict(list)
+            if agreement_ids:
+                preview_rows = cast(
+                    list[object],
+                    match_query.join(
+                        sections,
+                        sections.section_uuid == latest.section_uuid,
+                    )
+                    .with_entities(
+                        latest.agreement_uuid.label("agreement_uuid"),
+                        latest.section_uuid.label("section_uuid"),
+                        latest.article_title.label("article_title"),
+                        latest.section_title.label("section_title"),
+                        latest.section_standard_ids.label("section_standard_ids"),
+                        sections.xml_content.label("xml_content"),
+                        sections.article_order.label("article_order"),
+                        sections.section_order.label("section_order"),
+                    )
+                    .filter(latest.agreement_uuid.in_(agreement_ids))
+                    .order_by(
+                        asc(latest.agreement_uuid),
+                        asc(sections.article_order),
+                        asc(sections.section_order),
+                        asc(latest.section_uuid),
+                    )
+                    .all(),
+                )
+                for row in preview_rows:
+                    row_map = deps._row_mapping_as_dict(cast(object, row))
+                    agreement_id = row_map.get("agreement_uuid")
+                    if not isinstance(agreement_id, str):
+                        continue
+                    matched_sections_by_agreement[agreement_id].append(
+                        {
+                            "section_uuid": row_map.get("section_uuid"),
+                            "article_title": row_map.get("article_title"),
+                            "section_title": row_map.get("section_title"),
+                            "standard_id": deps._parse_section_standard_ids(
+                                row_map.get("section_standard_ids")
+                            ),
+                            "snippet": _strip_xml_snippet(row_map.get("xml_content")),
+                        }
+                    )
+
+            results: list[dict[str, object]] = []
+            for agreement_id in agreement_ids:
+                detail_row = agreement_details_by_id.get(agreement_id)
+                if detail_row is None:
+                    continue
+                results.append(
+                    {
+                        "agreement_uuid": agreement_id,
+                        "year": detail_row.get("year"),
+                        "target": detail_row.get("target"),
+                        "acquirer": detail_row.get("acquirer"),
+                        "filing_date": detail_row.get("filing_date"),
+                        "prob_filing": detail_row.get("prob_filing"),
+                        "filing_company_name": detail_row.get("filing_company_name"),
+                        "filing_company_cik": detail_row.get("filing_company_cik"),
+                        "form_type": detail_row.get("form_type"),
+                        "exhibit_type": detail_row.get("exhibit_type"),
+                        "transaction_price_total": detail_row.get("transaction_price_total"),
+                        "transaction_price_stock": detail_row.get("transaction_price_stock"),
+                        "transaction_price_cash": detail_row.get("transaction_price_cash"),
+                        "transaction_price_assets": detail_row.get("transaction_price_assets"),
+                        "transaction_consideration": detail_row.get("transaction_consideration"),
+                        "target_type": detail_row.get("target_type"),
+                        "acquirer_type": detail_row.get("acquirer_type"),
+                        "target_industry": detail_row.get("target_industry"),
+                        "acquirer_industry": detail_row.get("acquirer_industry"),
+                        "announce_date": detail_row.get("announce_date"),
+                        "close_date": detail_row.get("close_date"),
+                        "deal_status": detail_row.get("deal_status"),
+                        "attitude": detail_row.get("attitude"),
+                        "deal_type": detail_row.get("deal_type"),
+                        "purpose": detail_row.get("purpose"),
+                        "target_pe": detail_row.get("target_pe"),
+                        "acquirer_pe": detail_row.get("acquirer_pe"),
+                        "url": detail_row.get("url"),
+                        "match_count": match_count_by_agreement.get(agreement_id, 0),
+                        "matched_sections": matched_sections_by_agreement.get(
+                            agreement_id,
+                            [],
+                        )[:3],
+                    }
+                )
+
+            return {
+                "results": results,
+                "access": {
+                    "tier": ctx.tier,
+                    "message": None
+                    if ctx.is_authenticated
+                    else "Sign in to view full agreement text and unlock higher page sizes.",
+                },
+                **meta,
+            }
+
     @agreements_blp.route("/<string:agreement_uuid>")
     class AgreementResource(MethodView):
         @agreements_blp.doc(
@@ -630,6 +1347,81 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
                 return payload
             payload["xml"] = xml_content
             return payload
+
+    @agreements_blp.route("/<string:agreement_uuid>/sections")
+    class AgreementSectionsIndexResource(MethodView):
+        @agreements_blp.doc(
+            operationId="listAgreementSections",
+            summary="List ordered agreement sections",
+            description=(
+                "Returns ordered section metadata for one agreement, including section UUIDs "
+                "and taxonomy IDs, for in-document navigation."
+            ),
+        )
+        @agreements_blp.response(200, AgreementSectionIndexResponseSchema)
+        def get(self, agreement_uuid: str) -> dict[str, object]:
+            agreements = deps.Agreements
+            sections = deps.Sections
+            xml = deps.XML
+            db = deps.db
+
+            agreement_exists = (
+                db.session.query(agreements.agreement_uuid)
+                .join(xml, deps._agreement_latest_xml_join_condition())
+                .filter(
+                    agreements.agreement_uuid == agreement_uuid,
+                    _agreement_is_public_eligible_expr(agreements),
+                )
+                .first()
+            )
+            if agreement_exists is None:
+                abort(404)
+
+            rows = cast(
+                list[object],
+                db.session.query(
+                    sections.section_uuid.label("section_uuid"),
+                    sections.article_title.label("article_title"),
+                    sections.section_title.label("section_title"),
+                    sections.article_order.label("article_order"),
+                    sections.section_order.label("section_order"),
+                    deps._coalesced_section_standard_ids().label("section_standard_ids"),
+                )
+                .join(
+                    xml,
+                    and_(
+                        sections.agreement_uuid == xml.agreement_uuid,
+                        sections.xml_version == xml.version,
+                        xml.latest == 1,
+                    ),
+                )
+                .filter(sections.agreement_uuid == agreement_uuid)
+                .order_by(
+                    asc(sections.article_order),
+                    asc(sections.section_order),
+                    asc(sections.section_uuid),
+                )
+                .all(),
+            )
+
+            return {
+                "agreement_uuid": agreement_uuid,
+                "results": [
+                    {
+                        "section_uuid": row_map.get("section_uuid"),
+                        "article_title": row_map.get("article_title"),
+                        "section_title": row_map.get("section_title"),
+                        "article_order": row_map.get("article_order"),
+                        "section_order": row_map.get("section_order"),
+                        "standard_id": deps._parse_section_standard_ids(
+                            row_map.get("section_standard_ids")
+                        ),
+                    }
+                    for row_map in (
+                        deps._row_mapping_as_dict(cast(object, row)) for row in rows
+                    )
+                ],
+            }
 
     @sections_blp.route("/<string:section_uuid>")
     class SectionResource(MethodView):
@@ -1557,4 +2349,4 @@ def register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tu
         methods=["GET"],
     )
 
-    return agreements_blp, sections_blp
+    return agreements_blp, sections_blp, agreement_search_blp

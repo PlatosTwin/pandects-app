@@ -9,6 +9,7 @@ interface TableOfContentsProps {
   targetSectionUuid?: string;
   onSectionClick: (sectionUuid: string) => void;
   className?: string;
+  scrollable?: boolean;
 }
 
 export function TableOfContents({
@@ -16,6 +17,7 @@ export function TableOfContents({
   targetSectionUuid,
   onSectionClick,
   className,
+  scrollable = true,
 }: TableOfContentsProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
@@ -25,9 +27,11 @@ export function TableOfContents({
 
   useEffect(() => {
     if (!targetSectionUuid) return;
-    const expandedSet = new Set<string>();
-    findAndExpandParents(tocItems, targetSectionUuid, expandedSet);
-    setExpandedItems(expandedSet);
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      findAndExpandParents(tocItems, targetSectionUuid, next);
+      return next;
+    });
   }, [tocItems, targetSectionUuid]);
 
   const toggleExpanded = (itemId: string) => {
@@ -97,7 +101,7 @@ export function TableOfContents({
   };
 
   return (
-    <div className={cn("overflow-y-auto", className)}>
+    <div className={cn(scrollable && "overflow-y-auto", className)}>
       <div className="p-4">
         <h3 className="mb-3 text-sm font-medium text-foreground">
           Table of Contents
@@ -119,6 +123,9 @@ function findAndExpandParents(
 ): boolean {
   for (const item of items) {
     if (item.sectionUuid === targetUuid) {
+      if (item.children && item.children.length > 0) {
+        expandedSet.add(item.id);
+      }
       return true;
     }
 

@@ -1,4 +1,4 @@
-import { ROUTE_DEFINITION_BY_PATH } from "./route-manifest.mjs";
+import { NOINDEX_FOLLOW, ROUTE_DEFINITION_BY_PATH } from "./route-manifest.mjs";
 
 const DEFAULT_TITLE = "Pandects";
 const DEFAULT_DESCRIPTION =
@@ -21,7 +21,29 @@ function normalizeSearch(search) {
 }
 
 function getRouteDefinition(pathname) {
-  return ROUTE_DEFINITION_BY_PATH.get(normalizePathname(pathname)) ?? null;
+  const normalizedPath = normalizePathname(pathname);
+  const direct = ROUTE_DEFINITION_BY_PATH.get(normalizedPath);
+  if (direct) return direct;
+
+  if (/^\/agreements\/[^/]+$/.test(normalizedPath)) {
+    return {
+      pathname: "/agreements/:agreementUuid",
+      title: "Agreement Viewer | Pandects",
+      description:
+        "Read a merger agreement with section navigation, metadata, and in-document search in Pandects.",
+      pageType: "WebPage",
+      pageName: "Agreement Viewer",
+      pageDescription:
+        "Read a merger agreement with section navigation, metadata, and in-document search in Pandects.",
+      robots: NOINDEX_FOLLOW,
+      renderStrategy: "runtime",
+      indexable: false,
+      queryRobots: NOINDEX_FOLLOW,
+      sitemap: false,
+    };
+  }
+
+  return null;
 }
 
 function getSeoConfigForLocation(pathname, search = "", origin) {

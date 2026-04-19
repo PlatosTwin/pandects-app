@@ -55,11 +55,6 @@ import { scheduleWhenBrowserIdle } from "@/lib/analytics";
 import { Link } from "react-router-dom";
 import brandLinks from "@branding/links.json";
 
-const AgreementModal = lazy(() =>
-  import("@/components/AgreementModal").then((mod) => ({
-    default: mod.AgreementModal,
-  })),
-);
 const AgreementIndexOverview = lazy(() =>
   import("@/components/AgreementIndexOverview").then((mod) => ({
     default: mod.AgreementIndexOverview,
@@ -156,13 +151,6 @@ export default function AgreementIndex() {
   const [sort_dir, setSortDir] = useState<SortDirection>("desc");
   const [filterInput, setFilterInput] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
-  const [selectedAgreement, setSelectedAgreement] = useState<{
-    agreement_uuid: string;
-    year: string;
-    target: string;
-    acquirer: string;
-  } | null>(null);
-
   useEffect(() => {
     let cancelled = false;
     let timeoutId: number | null = null;
@@ -671,18 +659,8 @@ export default function AgreementIndex() {
                         </Badge>
                       </TableCell>
                       <TableCell className="max-w-[320px] truncate font-semibold text-foreground">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startTransition(() => {
-                              setSelectedAgreement({
-                                agreement_uuid: agreement.agreement_uuid,
-                                year: agreement.year ?? "",
-                                target: agreement.target ?? "",
-                                acquirer: agreement.acquirer ?? "",
-                              });
-                            })
-                          }
+                        <Link
+                          to={`/agreements/${agreement.agreement_uuid}`}
                           className="group inline-flex items-center gap-2 text-left text-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         >
                           <span className="truncate">
@@ -691,7 +669,7 @@ export default function AgreementIndex() {
                           <span className="text-xs font-semibold text-primary/80 opacity-0 transition-opacity group-hover:opacity-100">
                             View
                           </span>
-                        </button>
+                        </Link>
                       </TableCell>
                       <TableCell className="max-w-[320px] truncate font-semibold text-muted-foreground">
                         {formatValue(agreement.acquirer)}
@@ -785,22 +763,12 @@ export default function AgreementIndex() {
                         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Target
                         </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startTransition(() => {
-                              setSelectedAgreement({
-                                agreement_uuid: agreement.agreement_uuid,
-                                year: agreement.year ?? "",
-                                target: agreement.target ?? "",
-                                acquirer: agreement.acquirer ?? "",
-                              });
-                            })
-                          }
+                        <Link
+                          to={`/agreements/${agreement.agreement_uuid}`}
                           className="mt-1 text-left font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         >
                           {formatValue(agreement.target)}
-                        </button>
+                        </Link>
                       </div>
                       <div>
                         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -900,21 +868,6 @@ export default function AgreementIndex() {
           </div>
         </CardContent>
       </Card>
-
-      {selectedAgreement ? (
-        <Suspense fallback={null}>
-          <AgreementModal
-            isOpen={!!selectedAgreement}
-            onClose={() => setSelectedAgreement(null)}
-            agreement_uuid={selectedAgreement.agreement_uuid}
-            agreementMetadata={{
-              year: selectedAgreement.year,
-              target: selectedAgreement.target,
-              acquirer: selectedAgreement.acquirer,
-            }}
-          />
-        </Suspense>
-      ) : null}
     </PageShell>
   );
 }

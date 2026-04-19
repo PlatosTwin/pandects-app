@@ -778,6 +778,42 @@ class MainRoutesTests(unittest.TestCase):
         res = client.get("/v1/agreements?standard_id=s1")
         self.assertEqual(res.status_code, 400)
 
+    def test_search_agreements_returns_aggregated_matches(self):
+        client = self.app.test_client()
+        res = client.get("/v1/search/agreements?standard_id=s1&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("total_count"), 1)
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].get("agreement_uuid"), "a1")
+        self.assertEqual(results[0].get("match_count"), 1)
+        self.assertEqual(
+            results[0].get("matched_sections", [])[0].get("section_uuid"),
+            "00000000-0000-0000-0000-000000000001",
+        )
+
+    def test_search_agreements_section_uuid_filter(self):
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/search/agreements?section_uuid=00000000-0000-0000-0000-000000000001&page=1&page_size=10"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].get("agreement_uuid"), "a1")
+
+    def test_list_agreement_sections_index(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements/a1/sections")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("agreement_uuid"), "a1")
+        results = body.get("results", [])
+        self.assertEqual(results[0].get("section_uuid"), "00000000-0000-0000-0000-000000000001")
+        self.assertEqual(results[0].get("standard_id"), ["s1"])
+
     def test_search_basic(self):
         client = self.app.test_client()
         res = client.get("/v1/sections?year=2020&page=1&page_size=10")

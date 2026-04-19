@@ -205,6 +205,69 @@ class AgreementsListResponseSchema(Schema):
     next_cursor = fields.Str(allow_none=True)
 
 
+class AgreementSearchMatchedSectionSchema(Schema):
+    section_uuid = fields.Str(required=True)
+    article_title = fields.Str(allow_none=True)
+    section_title = fields.Str(allow_none=True)
+    standard_id = fields.List(fields.Str(), required=True)
+    snippet = fields.Str(allow_none=True)
+
+
+class AgreementSearchResultSchema(Schema):
+    agreement_uuid = fields.Str(required=True)
+    year = fields.Int(allow_none=True)
+    target = fields.Str(allow_none=True)
+    acquirer = fields.Str(allow_none=True)
+    filing_date = fields.Str(allow_none=True)
+    prob_filing = fields.Float(allow_none=True)
+    filing_company_name = fields.Str(allow_none=True)
+    filing_company_cik = fields.Str(allow_none=True)
+    form_type = fields.Str(allow_none=True)
+    exhibit_type = fields.Str(allow_none=True)
+    transaction_price_total = fields.Float(allow_none=True)
+    transaction_price_stock = fields.Float(allow_none=True)
+    transaction_price_cash = fields.Float(allow_none=True)
+    transaction_price_assets = fields.Float(allow_none=True)
+    transaction_consideration = fields.Str(allow_none=True)
+    target_type = fields.Str(allow_none=True)
+    acquirer_type = fields.Str(allow_none=True)
+    target_industry = fields.Str(allow_none=True)
+    acquirer_industry = fields.Str(allow_none=True)
+    announce_date = fields.Str(allow_none=True)
+    close_date = fields.Str(allow_none=True)
+    deal_status = fields.Str(allow_none=True)
+    attitude = fields.Str(allow_none=True)
+    deal_type = fields.Str(allow_none=True)
+    purpose = fields.Str(allow_none=True)
+    target_pe = fields.Bool(allow_none=True)
+    acquirer_pe = fields.Bool(allow_none=True)
+    url = fields.Str(allow_none=True)
+    match_count = fields.Int(required=True)
+    matched_sections = fields.List(
+        fields.Nested(AgreementSearchMatchedSectionSchema),
+        required=True,
+    )
+
+
+class AgreementSearchResponseSchema(Schema):
+    results: object = cast(
+        object,
+        fields.List(
+            fields.Nested(AgreementSearchResultSchema),
+        ),
+    )
+    access = fields.Nested(AccessInfoSchema)
+    page = fields.Int(required=True)
+    page_size = fields.Int(required=True)
+    total_count = fields.Int(required=True)
+    total_count_is_approximate = fields.Bool(required=True)
+    total_pages = fields.Int(required=True)
+    has_next = fields.Bool(required=True)
+    has_prev = fields.Bool(required=True)
+    next_num = fields.Int(allow_none=True)
+    prev_num = fields.Int(allow_none=True)
+
+
 class SectionResponseSchema(Schema):
     agreement_uuid = fields.Str()
     section_uuid = fields.Str()
@@ -235,6 +298,23 @@ class TaxClauseListResponseSchema(Schema):
             fields.Nested(TaxClauseSchema),
             required=True,
         ),
+    )
+
+
+class AgreementSectionIndexItemSchema(Schema):
+    section_uuid = fields.Str(required=True)
+    article_title = fields.Str(allow_none=True)
+    section_title = fields.Str(allow_none=True)
+    article_order = fields.Int(allow_none=True)
+    section_order = fields.Int(allow_none=True)
+    standard_id = fields.List(fields.Str(), required=True)
+
+
+class AgreementSectionIndexResponseSchema(Schema):
+    agreement_uuid = fields.Str(required=True)
+    results = fields.List(
+        fields.Nested(AgreementSectionIndexItemSchema),
+        required=True,
     )
 
 

@@ -191,6 +191,7 @@ class AgreementsDeps:
     AgreementCounsel: Any
     Clauses: Any
     Counsel: Any
+    LatestSectionsSearch: Any
     Sections: Any
     TaxonomyL1: Any
     TaxonomyL2: Any
@@ -207,6 +208,7 @@ class AgreementsDeps:
     _coalesced_section_standard_ids: Callable[..., Any]
     _current_access_context: Callable[[], AccessContextProtocol]
     _decode_agreements_cursor: Callable[[str | None], str | None]
+    _expand_taxonomy_standard_ids_cached: Callable[[tuple[str, ...]], tuple[str, ...]]
     _encode_agreements_cursor: Callable[[str], str]
     _filter_options_cache: dict[str, Any]
     _filter_options_lock: Any
@@ -217,7 +219,9 @@ class AgreementsDeps:
     _row_mapping_as_dict: RowMappingAsDictProtocol
     _schema_prefix: Callable[[], str]
     _section_latest_xml_join_condition: Callable[[], object]
+    _standard_id_filter_expr: Callable[[list[str]], object]
     _to_int: ToIntProtocol
+    _year_from_filing_date_value: Callable[[object], int | None]
     db: Any
     time: Any
 
