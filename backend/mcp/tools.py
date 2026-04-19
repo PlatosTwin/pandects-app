@@ -1377,6 +1377,13 @@ def _list_agreements(
         )
         q = q.filter(section_exists)
 
+    standard_ids = [v for v in cast(list[str], parsed_args["standard_id"]) if v]
+    if standard_ids:
+        standard_ids_key = tuple(sorted(set(standard_ids)))
+        expanded = list(deps._expand_taxonomy_standard_ids_cached(standard_ids_key))
+        if expanded:
+            q = q.filter(deps._standard_id_agreement_filter_expr(agreements.agreement_uuid, expanded))
+
     if after_agreement_uuid:
         q = q.filter(agreements.agreement_uuid > after_agreement_uuid)
 
@@ -1607,6 +1614,15 @@ def _search_agreements(
         )
         q = q.filter(section_exists)
         count_q = count_q.filter(section_exists)
+
+    standard_ids = [v for v in cast(list[str], parsed_args["standard_id"]) if v]
+    if standard_ids:
+        standard_ids_key = tuple(sorted(set(standard_ids)))
+        expanded = list(deps._expand_taxonomy_standard_ids_cached(standard_ids_key))
+        if expanded:
+            std_id_clause = deps._standard_id_agreement_filter_expr(agreements.agreement_uuid, expanded)
+            q = q.filter(std_id_clause)
+            count_q = count_q.filter(std_id_clause)
 
     if query:
         if query.isdigit():
@@ -3381,12 +3397,13 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
     return (
         McpToolSpec(
             name="search_agreements",
-            description="Find merger agreements by target/acquirer name, year, counsel, industry, deal type, or any of the standard M&A filters. Best for exploratory discovery where you may combine a free-text hint with structured filters. For deep pagination or bulk exports of a known filter set, use list_agreements instead.",
+            description="Find merger agreements by target/acquirer name, year, counsel, industry, deal type, any of the standard M&A filters, or by clause taxonomy (standard_id). Passing standard_id filters to agreements that contain at least one section tagged with that taxonomy node — this is the efficient way to find all deals with a specific clause type without paginating search_sections. Best for exploratory discovery where you may combine a free-text hint with structured filters. For deep pagination or bulk exports of a known filter set, use list_agreements instead.",
             input_schema=_schema_input_schema(search_agreements_schema, field_overrides=search_agreements_overrides),
             output_schema=_search_agreements_output_schema(),
             examples=(
                 {"description": "Find agreements involving a target counsel.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"]}},
                 {"description": "Combine a text lookup with a year filter.", "arguments": {"query": "Target", "year": [2020]}},
+                {"description": "Find all agreements containing a go-shop or no-shop clause by taxonomy id.", "arguments": {"standard_id": ["1a7aeab47932d0d4"]}},
             ),
             response_examples=(
                 {"description": "Agreement discovery result page.", "content": {"returned_count": 1, "results": [{"agreement_uuid": "a1", "target": "Target A", "acquirer": "Acquirer A"}]}},
@@ -3430,12 +3447,13 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="list_agreements",
-            description="Paginate through agreements that match an exact structured filter set, with cursor pagination suitable for exporting or iterating large result sets. Use when filters are already known and you expect to scan many pages; use search_agreements for exploratory discovery.",
+            description="Paginate through agreements that match an exact structured filter set, with cursor pagination suitable for exporting or iterating large result sets. Supports standard_id to filter by clause taxonomy — pass a taxonomy node id to get only agreements containing that clause type. Use when filters are already known and you expect to scan many pages; use search_agreements for exploratory discovery.",
             input_schema=_schema_input_schema(AgreementsBulkArgsSchema(), field_overrides=agreements_list_overrides),
             output_schema=_list_agreements_output_schema(),
             examples=(
                 {"description": "Page through agreements by exact counsel filter.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "page_size": 50}},
                 {"description": "Retrieve all cash deals with a cursor.", "arguments": {"transaction_consideration": ["cash"], "cursor": None}},
+                {"description": "Export all agreements containing a specific clause type by taxonomy id.", "arguments": {"standard_id": ["1a7aeab47932d0d4"], "page_size": 100}},
             ),
             response_examples=(
                 {"description": "Cursor-based agreement page.", "content": {"returned_count": 1, "has_next": False, "next_cursor": None, "results": [{"agreement_uuid": "a1"}], "access": {"tier": "mcp"}}},

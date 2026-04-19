@@ -67,6 +67,11 @@ class AgreementsBulkArgsSchema(Schema):
     acquirer_pe = fields.List(fields.Str(), load_default=[])
     agreement_uuid = fields.Str(load_default=None, allow_none=True)
     section_uuid = fields.Str(load_default=None, allow_none=True)
+    standard_id = fields.List(
+        fields.Str(),
+        load_default=[],
+        metadata={"description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections."},
+    )
 
 
 class AgreementsIndexArgsSchema(Schema):
@@ -125,6 +130,7 @@ class AgreementsBulkArgsPayload(TypedDict):
     acquirer_pe: list[str]
     agreement_uuid: str | None
     section_uuid: str | None
+    standard_id: list[str]
 
 
 class AgreementResponseSchema(Schema):

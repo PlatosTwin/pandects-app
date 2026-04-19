@@ -103,8 +103,8 @@ The current MCP tools are:
 
 - The server is read-only
 - Clients should typically choose the right tools automatically
-- `search_agreements` is the discovery-oriented agreement search
-- `list_agreements` is the exact-filter, cursor-based agreement listing surface
+- `search_agreements` is the discovery-oriented agreement search; accepts a `standard_id` list to filter to agreements that contain at least one section tagged with any of the given taxonomy ids
+- `list_agreements` is the exact-filter, cursor-based agreement listing surface; also accepts `standard_id` for taxonomy-based agreement filtering
 - `list_agreement_sections` is an MCP convenience tool for within-agreement navigation
 - `search_sections` is a clause-language retrieval surface, not a normalized document-facts surface
 - `search_sections` exposes `count_mode` and returns `count_metadata` plus `interpretation` so clients can tell when totals are exact versus estimated and when taxonomy is acting as a proxy

@@ -220,6 +220,7 @@ class AgreementsDeps:
     _schema_prefix: Callable[[], str]
     _section_latest_xml_join_condition: Callable[[], object]
     _standard_id_filter_expr: Callable[[list[str]], object]
+    _standard_id_agreement_filter_expr: Callable[[Any, list[str]], object]
     _estimated_query_row_count: Callable[[object], int | None]
     _to_int: ToIntProtocol
     _year_from_filing_date_value: Callable[[object], int | None]

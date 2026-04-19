@@ -83,6 +83,7 @@ from backend.models.main_db import (
     parse_section_standard_ids as _parse_section_standard_ids,
     section_latest_xml_join_condition as _section_latest_xml_join_condition,
     standard_id_filter_expr as _standard_id_filter_expr,
+    standard_id_agreement_filter_expr as _standard_id_agreement_filter_expr,
     year_from_filing_date_value as _year_from_filing_date_value,
 )
 from backend.routes.deps import (
@@ -1098,6 +1099,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _schema_prefix=_schema_prefix,
         _section_latest_xml_join_condition=_section_latest_xml_join_condition,
         _standard_id_filter_expr=_standard_id_filter_expr,
+        _standard_id_agreement_filter_expr=_standard_id_agreement_filter_expr,
         _estimated_query_row_count=_estimated_query_row_count,
         _to_int=_to_int,
         _year_from_filing_date_value=_year_from_filing_date_value,

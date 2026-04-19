@@ -4,7 +4,7 @@ import json
 import os
 from datetime import date, datetime
 from functools import lru_cache
-from typing import ClassVar, cast
+from typing import Any, ClassVar, cast
 
 from sqlalchemy import (
     CHAR,
@@ -791,6 +791,22 @@ def standard_id_filter_expr(expanded_standard_ids: list[str]) -> ColumnElement[b
     )
 
 
+def standard_id_agreement_filter_expr(
+    agreement_uuid_column: Any,
+    expanded_standard_ids: list[str],
+) -> ColumnElement[bool]:
+    """Match agreements that contain at least one section with any of the given taxonomy ids."""
+    return cast(
+        ColumnElement[bool],
+        db.session.query(LatestSectionsSearchStandardId.agreement_uuid)
+        .filter(
+            LatestSectionsSearchStandardId.agreement_uuid == agreement_uuid_column,
+            LatestSectionsSearchStandardId.standard_id.in_(expanded_standard_ids),
+        )
+        .exists(),
+    )
+
+
 __all__ = [
     "MAIN_SCHEMA_TOKEN",
     "ENABLE_MAIN_DB_REFLECTION",
@@ -824,6 +840,7 @@ __all__ = [
     "schema_translate_map",
     "section_latest_xml_join_condition",
     "standard_id_filter_expr",
+    "standard_id_agreement_filter_expr",
     "year_from_filing_date_value",
     "xml_latest_ok_filter",
 ]
