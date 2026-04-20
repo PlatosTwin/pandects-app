@@ -44,7 +44,7 @@ export default function ResetPasswordConfirm() {
       size="md"
       className="max-w-3xl"
     >
-      <Card className="mx-auto w-full max-w-2xl border-border/70 bg-card/95 p-6 shadow-sm sm:p-8">
+      <Card className="mx-auto w-full max-w-2xl border-border bg-card/95 p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
           {!userId || !code ? (
             <Alert variant="destructive">
@@ -85,7 +85,7 @@ export default function ResetPasswordConfirm() {
                   onChange={(event) => setPassword(event.target.value)}
                   disabled={!userId || !code}
                   required
-                  className="h-11 border-border/80 bg-background"
+                  className="h-11 border-border bg-background"
                 />
               </div>
               <div className="grid gap-2">
@@ -103,7 +103,7 @@ export default function ResetPasswordConfirm() {
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   disabled={!userId || !code}
                   required
-                  className="h-11 border-border/80 bg-background"
+                  className="h-11 border-border bg-background"
                 />
               </div>
               <div className="flex justify-center pt-1">

@@ -325,7 +325,7 @@ export default function SourcesMethods() {
       <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
         <aside className="hidden lg:block">
           <div className="sticky top-20">
-            <Card className="border-border/60 bg-background/70 p-3 backdrop-blur">
+            <Card className="border-border bg-background/70 p-3 backdrop-blur">
               <div className="px-2 pb-2 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 On this page
               </div>
@@ -359,7 +359,7 @@ export default function SourcesMethods() {
 
         <article className="space-y-12 min-w-0">
           <section id="overview" className="scroll-mt-32 space-y-4" aria-labelledby="overview-heading">
-            <h2 id="overview-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+            <h2 id="overview-heading" className="text-xl font-semibold tracking-tight text-foreground">
               Overview
             </h2>
             <p className="text-muted-foreground">
@@ -368,8 +368,8 @@ export default function SourcesMethods() {
               text and messy HTML into clean, taxonomized XML. Conceptually, our
               pipeline solves several distinct problems.
             </p>
-            <div className="max-w-4xl rounded-2xl border border-border/60 bg-card/50 p-6 shadow-sm">
-              <div className="grid gap-1 border-b border-border/60 px-4 pb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid-cols-[16px_1fr_1fr]">
+            <div className="max-w-4xl rounded-2xl border border-border bg-card/50 p-6 shadow-sm">
+              <div className="grid gap-1 border-b border-border px-4 pb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid-cols-[16px_1fr_1fr]">
                 <div aria-hidden="true" />
                 <div className="px-1 text-left">The Status Quo</div>
                 <div className="px-2 text-left">The Pandects Standard</div>
@@ -378,7 +378,7 @@ export default function SourcesMethods() {
                 className="space-y-4 pt-4"
                 aria-label="Status quo versus Pandects standard comparisons"
               >
-                <li className="rounded-xl border border-border/60 bg-background/60 p-4">
+                <li className="rounded-xl border border-border bg-background/60 p-4">
                   <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
                     <div
                       aria-hidden="true"
@@ -410,7 +410,7 @@ export default function SourcesMethods() {
                     </div>
                   </div>
                 </li>
-                <li className="rounded-xl border border-border/60 bg-background/60 p-4">
+                <li className="rounded-xl border border-border bg-background/60 p-4">
                   <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
                     <div
                       aria-hidden="true"
@@ -443,7 +443,7 @@ export default function SourcesMethods() {
                     </div>
                   </div>
                 </li>
-                <li className="rounded-xl border border-border/60 bg-background/60 p-4">
+                <li className="rounded-xl border border-border bg-background/60 p-4">
                   <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
                     <div
                       aria-hidden="true"
@@ -475,7 +475,7 @@ export default function SourcesMethods() {
                     </div>
                   </div>
                 </li>
-                <li className="rounded-xl border border-border/60 bg-background/60 p-4">
+                <li className="rounded-xl border border-border bg-background/60 p-4">
                   <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
                     <div
                       aria-hidden="true"
@@ -507,7 +507,7 @@ export default function SourcesMethods() {
                     </div>
                   </div>
                 </li>
-                <li className="rounded-xl border border-border/60 bg-background/60 p-4">
+                <li className="rounded-xl border border-border bg-background/60 p-4">
                   <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
                     <div
                       aria-hidden="true"
@@ -546,7 +546,7 @@ export default function SourcesMethods() {
             className="scroll-mt-32 space-y-4"
             aria-labelledby="data-pipeline-architecture-heading"
           >
-            <h2 id="data-pipeline-architecture-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+            <h2 id="data-pipeline-architecture-heading" className="text-xl font-semibold tracking-tight text-foreground">
               Pipeline Architecture
             </h2>
             <p className="max-w-3xl text-muted-foreground">
@@ -590,7 +590,7 @@ export default function SourcesMethods() {
                 <li className="relative flex gap-4">
                   <div
                     ref={firstStepRef}
-                    className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70"
+                    className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70"
                   >
                     1
                   </div>
@@ -601,7 +601,7 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#exhibit-model"
-                        className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Exhibit Model
                       </a>
@@ -613,7 +613,7 @@ export default function SourcesMethods() {
                   </div>
                 </li>
                 <li className="relative flex gap-4">
-                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
+                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
                     2
                   </div>
                   <div className="space-y-2">
@@ -646,17 +646,17 @@ export default function SourcesMethods() {
                         }
                         tooltipProps={{
                           side: "top",
-                          className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                          className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                         }}
                         delayDuration={300}
                         popoverProps={{
                           side: "top",
-                          className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                          className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                         }}
                       />
                       <a
                         href="#page-classifier-model"
-                        className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Page Classifier Model
                       </a>
@@ -685,12 +685,12 @@ export default function SourcesMethods() {
                       </span>
                       .
                     </p>
-                    <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                    <div className="rounded-xl border border-border bg-background/60 p-4">
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Before
-                            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                               HTML
                             </span>
                           </div>
@@ -736,7 +736,7 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             After
-                            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                               Plain Text
                             </span>
                           </div>
@@ -756,7 +756,7 @@ export default function SourcesMethods() {
                   </div>
                 </li>
                 <li className="relative flex gap-4">
-                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
+                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
                     3
                   </div>
                   <div className="space-y-3">
@@ -766,7 +766,7 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#tagging-model"
-                        className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
                       >
                         Tagging Model
                       </a>
@@ -778,12 +778,12 @@ export default function SourcesMethods() {
                       </span>{" "}
                       pages, marking articles, sections, and page numbers.
                     </p>
-                    <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                    <div className="rounded-xl border border-border bg-background/60 p-4">
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Before
-                            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                               Plain Text
                             </span>
                           </div>
@@ -801,7 +801,7 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             After
-                            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                               Tagged Text
                             </span>
                           </div>
@@ -835,7 +835,7 @@ export default function SourcesMethods() {
                   </div>
                 </li>
                 <li className="relative flex gap-4">
-                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
+                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
                     4
                   </div>
                   <div className="space-y-3">
@@ -849,7 +849,7 @@ export default function SourcesMethods() {
                   </div>
                 </li>
                 <li className="relative flex gap-4">
-                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
+                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
                     5
                   </div>
                   <div className="space-y-3">
@@ -857,7 +857,7 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         XML Repair Loop
                       </span>
-                      <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
                         LLM
                       </span>
                     </div>
@@ -871,7 +871,7 @@ export default function SourcesMethods() {
                   </div>
                 </li>
                 <li className="relative flex gap-4">
-                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
+                  <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70">
                     6
                   </div>
                   <div className="space-y-2">
@@ -879,7 +879,7 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         Taxonomy
                       </span>
-                      <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
                         LLM
                       </span>
                     </div>
@@ -893,7 +893,7 @@ export default function SourcesMethods() {
                 <li className="relative flex gap-4">
                   <div
                     ref={lastStepRef}
-                    className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70"
+                    className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground before:absolute before:left-full before:top-1/2 before:h-px before:w-3 before:-translate-y-1/2 before:bg-border/70"
                   >
                     7
                   </div>
@@ -902,7 +902,7 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         Metadata
                       </span>
-                      <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
                         LLM
                       </span>
                     </div>
@@ -922,7 +922,7 @@ export default function SourcesMethods() {
             className="scroll-mt-32 space-y-4"
             aria-labelledby="ml-models-heading"
           >
-            <h2 id="ml-models-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+            <h2 id="ml-models-heading" className="text-xl font-semibold tracking-tight text-foreground">
               ML Models
             </h2>
             <div className="text-muted-foreground">
@@ -947,12 +947,12 @@ export default function SourcesMethods() {
                 }
                 tooltipProps={{
                   side: "top",
-                  className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                  className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                 }}
                 delayDuration={300}
                 popoverProps={{
                   side: "top",
-                  className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                  className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                 }}
               />{" "}
               still made too many mistakes for us to be comfortable using them
@@ -979,7 +979,7 @@ export default function SourcesMethods() {
               id="exhibit-model"
               className="scroll-mt-32 pt-2 space-y-4"
             >
-              <h3 className="text-xl font-semibold text-foreground">
+              <h3 className="text-lg font-semibold text-foreground">
                 Exhibit Model
               </h3>
               <div className="text-muted-foreground">
@@ -1040,7 +1040,7 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border/60 bg-card/70 p-6">
+                    <Card className="border-border bg-card/70 p-6">
                       <div className="space-y-4">
                         <Skeleton className="h-6 w-48" />
                         <Skeleton className="h-64 w-full" />
@@ -1055,7 +1055,7 @@ export default function SourcesMethods() {
                   <LazyExhibitEvalMetrics data={metricsData.exhibit} />
                 </Suspense>
               ) : (
-                <Card className="border-border/60 bg-card/70 p-6">
+                <Card className="border-border bg-card/70 p-6">
                   <div className="space-y-4">
                     <Skeleton className="h-6 w-48" />
                     <Skeleton className="h-64 w-full" />
@@ -1071,7 +1071,7 @@ export default function SourcesMethods() {
               id="page-classifier-model"
               className="scroll-mt-32 pt-2 space-y-4"
             >
-              <h3 className="text-xl font-semibold text-foreground">
+              <h3 className="text-lg font-semibold text-foreground">
                 Page Classifier Model
               </h3>
               <div className="text-muted-foreground">
@@ -1146,12 +1146,12 @@ export default function SourcesMethods() {
                       }
                       tooltipProps={{
                         side: "top",
-                        className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                        className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
-                        className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                        className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                     />{" "}
                     manually labeled pages across 673 agreements, grouped by
@@ -1172,7 +1172,7 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border/60 bg-card/70 p-6">
+                    <Card className="border-border bg-card/70 p-6">
                       <div className="space-y-4">
                         <Skeleton className="h-6 w-48" />
                         <Skeleton className="h-64 w-full" />
@@ -1188,7 +1188,7 @@ export default function SourcesMethods() {
                   <LazyClassifierEvalMetrics data={metricsData.classifier} />
                 </Suspense>
               ) : (
-                <Card className="border-border/60 bg-card/70 p-6">
+                <Card className="border-border bg-card/70 p-6">
                   <div className="space-y-4">
                     <Skeleton className="h-6 w-48" />
                     <Skeleton className="h-64 w-full" />
@@ -1202,7 +1202,7 @@ export default function SourcesMethods() {
               )}
             </div>
             <div id="tagging-model" className="scroll-mt-32 pt-2 space-y-4">
-              <h3 className="text-xl font-semibold text-foreground">
+              <h3 className="text-lg font-semibold text-foreground">
                 Tagging Model
               </h3>
               <div className="text-muted-foreground">
@@ -1277,12 +1277,12 @@ export default function SourcesMethods() {
                       }
                       tooltipProps={{
                         side: "top",
-                        className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                        className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
-                        className: "max-w-xs border-border/60 bg-background/95 text-xs text-foreground shadow-lg",
+                        className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                     />
                     . We split the corpus by <strong>agreement</strong>, not by
@@ -1303,7 +1303,7 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border/60 bg-card/70 p-6">
+                    <Card className="border-border bg-card/70 p-6">
                       <div className="space-y-4">
                         <Skeleton className="h-6 w-48" />
                         <Skeleton className="h-64 w-full" />
@@ -1321,7 +1321,7 @@ export default function SourcesMethods() {
                   />
                 </Suspense>
               ) : (
-                <Card className="border-border/60 bg-card/70 p-6">
+                <Card className="border-border bg-card/70 p-6">
                   <div className="space-y-4">
                     <Skeleton className="h-6 w-48" />
                     <Skeleton className="h-64 w-full" />
@@ -1337,7 +1337,7 @@ export default function SourcesMethods() {
           </section>
 
           <section id="gaps-and-callouts" className="scroll-mt-32 space-y-4" aria-labelledby="gaps-and-callouts-heading">
-            <h2 id="gaps-and-callouts-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+            <h2 id="gaps-and-callouts-heading" className="text-xl font-semibold tracking-tight text-foreground">
               Gaps and Other Call Outs
             </h2>
             <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
@@ -1406,7 +1406,7 @@ export default function SourcesMethods() {
           </section>
 
           <section id="validations" className="scroll-mt-32 space-y-4" aria-labelledby="validations-heading">
-            <h2 id="validations-heading" className="text-2xl font-semibold tracking-tight text-foreground">
+            <h2 id="validations-heading" className="text-xl font-semibold tracking-tight text-foreground">
               Validations
             </h2>
             <p className="text-muted-foreground">

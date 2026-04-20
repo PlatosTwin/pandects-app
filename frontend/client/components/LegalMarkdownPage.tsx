@@ -87,7 +87,7 @@ export function LegalMarkdownPage({
 
   return (
     <PageShell size="md" title={title} subtitle={prepared?.subtitle}>
-      <Card className="border-border/60 bg-background/70 p-8 backdrop-blur sm:p-10">
+      <Card className="border-border bg-background/70 p-8 backdrop-blur sm:p-10">
         <div className="mx-auto max-w-3xl">
           <div
             className="prose prose-slate dark:prose-invert prose-headings:tracking-tight prose-h2:scroll-mt-24 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-p:leading-relaxed"

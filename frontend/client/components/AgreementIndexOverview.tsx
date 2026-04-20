@@ -200,7 +200,7 @@ export function AgreementIndexOverview() {
           statusSummaryMetadataFieldCoverage.map((row) => (
             <div
               key={row.field}
-              className="rounded-md border border-border/60 bg-background/70 p-2"
+              className="rounded-md border border-border bg-background/70 p-2"
             >
               <div className="text-xs font-medium text-foreground">{row.label}</div>
               <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
@@ -778,7 +778,7 @@ export function AgreementIndexOverview() {
   const renderStagedChart = (className?: string) => (
     <Suspense
       fallback={
-        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+        <div className="rounded-lg border border-border bg-muted/20 p-4">
           <Skeleton className="h-[240px] w-full sm:h-[300px] lg:h-[340px]" />
         </div>
       }
@@ -799,7 +799,7 @@ export function AgreementIndexOverview() {
   const renderStagedSummaryTable = (className?: string) => (
     <div
       className={cn(
-        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        "rounded-lg border border-border bg-muted/20 p-3",
         className,
       )}
     >
@@ -807,7 +807,7 @@ export function AgreementIndexOverview() {
         {stagedSummaryMetrics.map((metric) => (
           <dl
             key={metric.key}
-            className="rounded-md border border-border/60 bg-background/70 p-3"
+            className="rounded-md border border-border bg-background/70 p-3"
           >
             <dt className="text-xs font-semibold text-muted-foreground">
               {renderMetricLabel(metric.label, metric.key)}
@@ -821,14 +821,14 @@ export function AgreementIndexOverview() {
           </dl>
         ))}
       </div>
-      <div className="hidden gap-0 overflow-hidden rounded-md border border-border/60 bg-background/70 sm:grid">
+      <div className="hidden gap-0 overflow-hidden rounded-md border border-border bg-background/70 sm:grid">
         <div className="grid min-w-[520px] grid-cols-4">
           {stagedPrimarySummaryMetrics.map((metric, index) => (
             <div
               key={metric.key}
               className={cn(
                 "p-4",
-                index > 0 && "border-l border-border/60",
+                index > 0 && "border-l border-border",
               )}
             >
               <div className="text-xs font-semibold text-muted-foreground">
@@ -843,13 +843,13 @@ export function AgreementIndexOverview() {
             </div>
           ))}
         </div>
-        <div className="grid min-w-[520px] grid-cols-3 border-t border-border/60">
+        <div className="grid min-w-[520px] grid-cols-3 border-t border-border">
           {stagedSecondarySummaryMetrics.map((metric, index) => (
             <div
               key={metric.key}
               className={cn(
                 "p-4",
-                index > 0 && "border-l border-border/60",
+                index > 0 && "border-l border-border",
               )}
             >
               <div className="text-xs font-semibold text-muted-foreground">
@@ -898,7 +898,7 @@ export function AgreementIndexOverview() {
   const renderDealTypeSummaryTable = (className?: string) => (
     <div
       className={cn(
-        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        "rounded-lg border border-border bg-muted/20 p-3",
         className,
       )}
     >
@@ -906,7 +906,7 @@ export function AgreementIndexOverview() {
         {dealTypeTotals.metrics.map((metric) => (
           <dl
             key={metric.key}
-            className="rounded-md border border-border/60 bg-background/70 p-3"
+            className="rounded-md border border-border bg-background/70 p-3"
           >
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {metric.label}
@@ -960,7 +960,7 @@ export function AgreementIndexOverview() {
   const renderDealTypeChart = (className?: string) => (
     <Suspense
       fallback={
-        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+        <div className="rounded-lg border border-border bg-muted/20 p-4">
           <Skeleton className="mb-3 h-8 w-40" />
           <Skeleton className="h-[240px] w-full sm:h-[300px] lg:h-[340px]" />
         </div>
@@ -985,7 +985,7 @@ export function AgreementIndexOverview() {
   const renderStageFunnelTable = (className?: string) => (
     <div
       className={cn(
-        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        "rounded-lg border border-border bg-muted/20 p-3",
         className,
       )}
     >
@@ -993,7 +993,7 @@ export function AgreementIndexOverview() {
         {stageSummaryRows.map((row) => (
           <dl
             key={row.key}
-            className="rounded-md border border-border/60 bg-background/70 p-3"
+            className="rounded-md border border-border bg-background/70 p-3"
           >
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {renderStageLabel(row)}
@@ -1096,20 +1096,20 @@ export function AgreementIndexOverview() {
           2021, we source data ourselves from EDGAR.
         </p>
         {statusSummaryLoading ? (
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="mt-4 h-[220px] w-full sm:h-[260px]" />
           </div>
         ) : statusSummaryError ? (
           <div
-            className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+            className="rounded-lg border border-border bg-muted/10 p-4 text-sm text-muted-foreground"
             role="alert"
           >
             {statusSummaryError}
           </div>
         ) : stagedChartData.length === 0 ? (
           <div
-            className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+            className="rounded-lg border border-border bg-muted/10 p-4 text-sm text-muted-foreground"
             role="status"
           >
             No staged agreement data available yet.
@@ -1204,20 +1204,20 @@ export function AgreementIndexOverview() {
           beginning 2021, we source data ourselves from EDGAR.
         </p>
         {dealTypeSummaryLoading || (!dealTypeSummaryLoaded && !dealTypeSummaryError) ? (
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="mt-4 h-[220px] w-full sm:h-[260px]" />
           </div>
         ) : dealTypeSummaryError ? (
           <div
-            className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+            className="rounded-lg border border-border bg-muted/10 p-4 text-sm text-muted-foreground"
             role="alert"
           >
             {dealTypeSummaryError}
           </div>
         ) : dealTypeChartData.length === 0 || dealTypeSeries.length === 0 ? (
           <div
-            className="rounded-lg border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground"
+            className="rounded-lg border border-border bg-muted/10 p-4 text-sm text-muted-foreground"
             role="status"
           >
             No deal type data available yet.

@@ -85,7 +85,7 @@ function NavigationComponent() {
                 srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
                 sizes="36px"
                 decoding="async"
-                className="relative z-10 h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
+                className="relative z-10 h-9 w-9 rounded-md object-cover ring-1 ring-border"
               />
             </picture>
             <span
@@ -99,7 +99,7 @@ function NavigationComponent() {
             <button
               type="button"
               onClick={() => setIsBetaDialogOpen(true)}
-              className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80 ring-1 ring-inset ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               aria-label="Read beta notice"
             >
               BETA

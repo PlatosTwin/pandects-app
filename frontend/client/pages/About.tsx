@@ -8,7 +8,7 @@ export default function About() {
       <article className="space-y-12">
         <section
           id="overview"
-          className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6"
+          className="scroll-mt-24 space-y-4 border-t border-border pt-6"
           aria-labelledby="overview-heading"
         >
           <h2
@@ -72,7 +72,7 @@ export default function About() {
 
         <section
           id="contributing"
-          className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6"
+          className="scroll-mt-24 space-y-4 border-t border-border pt-6"
           aria-labelledby="contributing-heading"
         >
           <h2
@@ -127,7 +127,7 @@ export default function About() {
 
         <section
           id="credits"
-          className="scroll-mt-24 space-y-4 border-t border-border/60 pt-6"
+          className="scroll-mt-24 space-y-4 border-t border-border pt-6"
           aria-labelledby="credits-heading"
         >
           <h2

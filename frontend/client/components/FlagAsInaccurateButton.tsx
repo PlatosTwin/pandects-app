@@ -165,7 +165,7 @@ export function FlagAsInaccurateButton({
                 </span>
               </span>
               <div
-                className="grid gap-2 rounded-md border border-border/60 p-3 text-sm sm:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
+                className="grid gap-2 rounded-md border border-border p-3 text-sm sm:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
                 role="group"
                 aria-labelledby={issueGroupId}
                 aria-required="true"
@@ -283,7 +283,7 @@ export function FlagAsInaccurateButton({
               </span>
             </span>
             <div
-              className="grid gap-2 rounded-md border border-border/60 p-3 text-sm sm:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
+              className="grid gap-2 rounded-md border border-border p-3 text-sm sm:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
               role="group"
               aria-labelledby={issueGroupId}
               aria-required="true"

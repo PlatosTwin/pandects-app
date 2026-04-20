@@ -139,7 +139,7 @@ function MpcClientCard({ id, title, description, command, copied, onCopy }: MpcC
     <section
       aria-labelledby={titleId}
       aria-describedby={`${descriptionId} ${commandId}`}
-      className="rounded-lg border border-border/60 bg-background p-4"
+      className="rounded-lg border border-border bg-background p-4"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -170,7 +170,7 @@ function MpcClientCard({ id, title, description, command, copied, onCopy }: MpcC
       <pre
         id={commandId}
         tabIndex={0}
-        className="mt-3 max-w-full overflow-x-auto rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="mt-3 max-w-full overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <code className="font-mono whitespace-pre">{command}</code>
       </pre>
@@ -629,7 +629,7 @@ export default function Account() {
                         activeApiKeys.map((k) => (
                           <div
                             key={k.id}
-                            className="rounded-md border border-border/60 p-3"
+                            className="rounded-md border border-border p-3"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
@@ -690,7 +690,7 @@ export default function Account() {
                         {revokedApiKeys.map((k) => (
                           <div
                             key={k.id}
-                            className="rounded-md border border-border/60 bg-muted/20 p-3"
+                            className="rounded-md border border-border bg-muted/20 p-3"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
@@ -860,7 +860,7 @@ export default function Account() {
             </div>
           </Card>
 
-          <Card className="p-6 border-t border-border/60 pt-6 mt-6">
+          <Card className="p-6 border-t border-border pt-6 mt-6">
             <div className="flex flex-col gap-3">
               <div>
                 <h2 className="text-xl font-semibold">MCP</h2>
@@ -871,7 +871,7 @@ export default function Account() {
                 </p>
               </div>
 
-              <Alert className="border-border/60 bg-muted/20 text-muted-foreground">
+              <Alert className="border-border bg-muted/20 text-muted-foreground">
                 <AlertTitle className="text-sm font-semibold text-foreground/80">
                   MCP uses account login, not API keys
                 </AlertTitle>
@@ -905,7 +905,7 @@ export default function Account() {
                 />
               </div>
 
-              <div className="rounded-lg border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
                 Full walkthrough:{" "}
                 <a
                   href={`${docsUrl}/docs/mcp/using`}
@@ -922,7 +922,7 @@ export default function Account() {
             </div>
           </Card>
 
-          <Card className="p-6 border-t border-border/60 pt-6 mt-6">
+          <Card className="p-6 border-t border-border pt-6 mt-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h2 className="text-xl font-semibold">Usage</h2>
@@ -1016,7 +1016,7 @@ export default function Account() {
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
+            <div className="mt-4 rounded-lg border border-border bg-muted/20 p-3">
               {accountDataBootstrapping || accountWakeLoading ? (
                 <div role="status" aria-live="polite" className="text-sm text-muted-foreground">
                   {accountWakeLoading ? AUTH_WAKEUP_MESSAGE : "Loading usage…"}
@@ -1098,7 +1098,7 @@ export default function Account() {
             </div>
           </Card>
 
-          <Card className="p-6 border-t border-border/60 pt-6 mt-6">
+          <Card className="p-6 border-t border-border pt-6 mt-6">
             <h2 className="text-xl font-semibold text-destructive">
               Delete account
             </h2>
@@ -1198,7 +1198,7 @@ export default function Account() {
                   toast({ title: "Copied to clipboard" });
                 }, 0);
               }}
-              className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded border border-border/60 bg-background p-0 shadow-sm hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-8 sm:w-8"
+              className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded border border-border bg-background p-0 shadow-sm hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-8 sm:w-8"
               title="Copy to clipboard"
               aria-label="Copy API key"
             >

@@ -19,7 +19,7 @@ function RouteFallback() {
           <div className="h-4 w-full animate-pulse rounded bg-muted" />
           <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
         </div>
-        <div className="rounded-xl border border-border/60 bg-background/70 p-6 backdrop-blur">
+        <div className="rounded-xl border border-border bg-background/70 p-6 backdrop-blur">
           <div className="h-4 w-36 animate-pulse rounded bg-muted" />
           <div className="mt-4 h-3 w-full animate-pulse rounded bg-muted" />
           <div className="mt-2 h-3 w-5/6 animate-pulse rounded bg-muted" />

@@ -116,7 +116,7 @@ function SearchResultsTableFallback() {
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="rounded-lg border border-border/60 bg-card p-4 shadow-sm"
+          className="rounded-lg border border-border bg-card p-4 shadow-sm"
         >
           <Skeleton className="h-5 w-48" />
           <Skeleton className="mt-3 h-4 w-full" />
@@ -134,7 +134,7 @@ function TransactionResultsFallback() {
       {Array.from({ length: 3 }).map((_, index) => (
         <div
           key={index}
-          className="rounded-lg border border-border/60 bg-card p-5 shadow-sm"
+          className="rounded-lg border border-border bg-card p-5 shadow-sm"
         >
           <Skeleton className="h-6 w-72" />
           <Skeleton className="mt-3 h-4 w-full" />
@@ -890,7 +890,7 @@ export default function Search() {
               </Button>
 
               {searchMode === "tax" && (
-                <label className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 text-xs text-muted-foreground">
+                <label className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={!!taxSearch.filters.include_rep_warranty}
@@ -1086,7 +1086,7 @@ export default function Search() {
             <div className="px-4 py-4 sm:px-8 sm:py-5">
               {!activeHasSearched && (
                 <div className="mx-auto max-w-3xl space-y-4">
-                  <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+                  <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                     <div className="flex items-start gap-4">
                       <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary">
                         <Sparkles className="h-5 w-5" aria-hidden="true" />
@@ -1110,7 +1110,7 @@ export default function Search() {
                     </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-border/60 bg-card/60 p-4">
+                    <div className="rounded-xl border border-border bg-card/60 p-4">
                       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                         {searchMode === "sections" ? (
                           <FileText className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -1125,7 +1125,7 @@ export default function Search() {
                         <li>• Target or acquirer counsel</li>
                       </ul>
                     </div>
-                    <div className="rounded-xl border border-border/60 bg-card/60 p-4">
+                    <div className="rounded-xl border border-border bg-card/60 p-4">
                       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                         <Layers className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         {searchMode === "sections" ? "What you'll see" : "What you'll see"}
@@ -1274,7 +1274,7 @@ export default function Search() {
                               ? taxSearch.actions.clearSelection
                               : transactionSearch.clearSelection;
                         return (
-                          <div className="rounded-xl border border-border/60 bg-muted/20 p-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
+                          <div className="rounded-xl border border-border bg-muted/20 p-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="text-sm text-muted-foreground">
                                 {activeSelectedSize} selected

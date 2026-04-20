@@ -46,12 +46,12 @@ export function NerEvalMetrics({
   } as const;
 
   return (
-    <Card className="rounded-2xl border border-border/60 bg-card/60 p-6">
+    <Card className="rounded-2xl border border-border bg-card/60 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm font-semibold text-foreground">
           Model Metrics
         </div>
-        <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
           Tagging Model
         </span>
       </div>
@@ -77,12 +77,12 @@ export function NerEvalMetrics({
           </div>
         </div>
 
-        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+        <div className="min-w-0 rounded-xl border border-border bg-background/60 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Entity-level micro metrics
             </div>
-            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Lenient
             </span>
           </div>
@@ -97,7 +97,7 @@ export function NerEvalMetrics({
           </div>
         </div>
 
-        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+        <div className="min-w-0 rounded-xl border border-border bg-background/60 p-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Article, Section, Page metrics
           </div>
@@ -115,7 +115,7 @@ export function NerEvalMetrics({
                 <col className="w-[18%]" />
               </colgroup>
               <thead>
-                <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                   <th
                     scope="col"
                     className="w-[1%] whitespace-nowrap pb-2 pr-2 sm:w-auto sm:pr-3"
@@ -146,7 +146,7 @@ export function NerEvalMetrics({
                     return (
                       <tr
                         key={`${entity}-${mode}`}
-                        className="border-b border-border/40"
+                        className="border-b border-border/50"
                       >
                         <th
                           scope="row"
@@ -183,7 +183,7 @@ export function NerEvalMetrics({
           </div>
         </div>
 
-        <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+        <div className="min-w-0 rounded-xl border border-border bg-background/60 p-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Boundary metrics (F1)
           </div>
@@ -200,7 +200,7 @@ export function NerEvalMetrics({
                 <col className="w-[18%]" />
               </colgroup>
               <thead>
-                <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                   <th
                     scope="col"
                     className="w-[1%] whitespace-nowrap pb-2 pr-2 sm:w-auto sm:pr-3"
@@ -224,7 +224,7 @@ export function NerEvalMetrics({
                   { label: "Section", key: "SECTION", showS: false },
                   { label: "Page", key: "PAGE", showS: true },
                 ].map((row) => (
-                  <tr key={row.label} className="border-b border-border/40">
+                  <tr key={row.label} className="border-b border-border/50">
                     {(() => {
                       const availableValues = (["B", "I", "E", "S"] as const)
                         .map((metric) =>

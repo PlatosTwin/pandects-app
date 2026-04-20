@@ -186,7 +186,7 @@ function TrendsSkeleton() {
 
 function ChartSkeleton({ className = "h-[260px] sm:h-[320px] lg:h-[360px]" }: { className?: string }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+    <div className="rounded-lg border border-border bg-muted/20 p-3">
       <Skeleton className={`w-full ${className}`} />
     </div>
   );
@@ -208,11 +208,11 @@ function TrendsHeatmapTable({
   rows: string[];
 }) {
   return (
-    <div className={cn("overflow-x-auto rounded-lg border border-border/60 bg-background/80", className)}>
+    <div className={cn("overflow-x-auto rounded-lg border border-border bg-background/80", className)}>
       <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
-          <tr className="border-b border-border/60">
+          <tr className="border-b border-border">
             <th className="w-64 px-3 py-2 text-left font-semibold text-foreground">
               Segment
             </th>
@@ -231,7 +231,7 @@ function TrendsHeatmapTable({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row} className="border-b border-border/40 last:border-0">
+            <tr key={row} className="border-b border-border/50 last:border-0">
               <th className="w-64 px-3 py-3 text-left font-medium text-foreground" title={row}>
                 <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
                   {row}
@@ -1019,7 +1019,7 @@ function IndustryDynamicsPanel({
             {concentrationTrend.topIndustries.map((industry) => (
               <span
                 key={industry}
-                className="rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs font-medium text-foreground"
+                className="rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-medium text-foreground"
               >
                 {formatIndustryLabel(industry)}
               </span>

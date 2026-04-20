@@ -29,7 +29,7 @@ export function LegalAcceptancePrompt({
             <span className="font-medium text-foreground">{email}</span>.
           </p>
         </div>
-        <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-4 text-sm">
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm">
           <Checkbox
             id="legal-acceptance"
             checked={checked}

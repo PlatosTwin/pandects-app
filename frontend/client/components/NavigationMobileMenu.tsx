@@ -99,7 +99,7 @@ function NavigationMobileMenuComponent() {
                     srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
                     sizes="36px"
                     decoding="async"
-                    className="h-9 w-9 rounded-md object-cover ring-1 ring-border/60"
+                    className="h-9 w-9 rounded-md object-cover ring-1 ring-border"
                   />
                 </picture>
                 <span className="text-base font-semibold tracking-tight">Pandects</span>
@@ -157,7 +157,7 @@ function NavigationMobileMenuComponent() {
                 ))}
               </div>
 
-              <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-2">
+              <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2">
                 <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Data
                 </div>
@@ -197,7 +197,7 @@ function NavigationMobileMenuComponent() {
                 </div>
               </div>
 
-              <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-2">
+              <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2">
                 <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Project
                 </div>

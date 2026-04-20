@@ -58,7 +58,7 @@ export function ExhibitEvalMetrics({ data }: ExhibitEvalMetricsProps) {
   );
 
   const renderConfusionMatrix = () => (
-    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+    <div className="min-w-0 rounded-xl border border-border bg-background/60 p-4">
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Confusion Matrix
       </div>
@@ -137,7 +137,7 @@ export function ExhibitEvalMetrics({ data }: ExhibitEvalMetricsProps) {
   );
 
   const renderPerClass = () => (
-    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+    <div className="min-w-0 rounded-xl border border-border bg-background/60 p-4">
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Per-class Metrics
       </div>
@@ -145,7 +145,7 @@ export function ExhibitEvalMetrics({ data }: ExhibitEvalMetricsProps) {
         <table className="w-full min-w-[320px] text-xs">
           <caption className="sr-only">Exhibit classifier per-class metrics</caption>
           <thead>
-            <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <th scope="col" className="pb-2 pr-3">
                 Class
               </th>
@@ -172,7 +172,7 @@ export function ExhibitEvalMetrics({ data }: ExhibitEvalMetricsProps) {
                     ? "bg-amber-400"
                     : "bg-muted-foreground/40";
               return (
-                <tr key={metric.label} className="border-b border-border/40">
+                <tr key={metric.label} className="border-b border-border/50">
                   <th
                     scope="row"
                     className="py-2 pr-3 text-left text-foreground font-normal"
@@ -204,12 +204,12 @@ export function ExhibitEvalMetrics({ data }: ExhibitEvalMetricsProps) {
   );
 
   return (
-    <Card className="rounded-2xl border border-border/60 bg-card/60 p-6">
+    <Card className="rounded-2xl border border-border bg-card/60 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm font-semibold text-foreground">
           Model Metrics
         </div>
-        <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
           Binary Classifier
         </span>
       </div>

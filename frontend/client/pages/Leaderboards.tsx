@@ -156,7 +156,7 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <h2 id={descriptionId} className="text-xl font-semibold leading-none tracking-tight sm:text-2xl">
+            <h2 id={descriptionId} className="text-xl font-semibold leading-none tracking-tight">
               {title}
             </h2>
             <CardDescription className="max-w-3xl text-sm sm:text-base">
@@ -234,7 +234,7 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
                 {yearOptions.map((option) => (
                   <label
                     key={option.value}
-                    className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-sm text-foreground"
+                    className="flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 text-sm text-foreground"
                   >
                     <RadioGroupItem value={option.value} id={`${tableId}-${option.value}`} />
                     <span>{option.label}</span>
@@ -245,11 +245,11 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
           ) : null}
 
           {activeView === "table" && tableRows.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border/80 bg-background/70 px-4 py-8 text-sm text-muted-foreground">
+            <div className="rounded-lg border border-dashed border-border bg-background/70 px-4 py-8 text-sm text-muted-foreground">
               No counsel leaderboard data is available for that year yet.
             </div>
           ) : activeView === "table" ? (
-            <div className="overflow-x-auto rounded-lg border border-border/60 bg-background/80">
+            <div className="overflow-x-auto rounded-lg border border-border bg-background/80">
               <Table>
                 <TableHeader>
                   <TableRow>

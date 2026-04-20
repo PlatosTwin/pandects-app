@@ -131,7 +131,7 @@ export function ProcessingStatusChart({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        "rounded-lg border border-border bg-muted/20 p-3",
         className,
       )}
     >
@@ -324,7 +324,7 @@ export function DealTypesChart({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border/60 bg-muted/20 p-3",
+        "rounded-lg border border-border bg-muted/20 p-3",
         className,
       )}
     >

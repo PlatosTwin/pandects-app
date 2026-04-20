@@ -42,7 +42,7 @@ export default function XmlSchema() {
           aria-labelledby="xml-schema-overview"
           aria-describedby="xml-schema-overview-desc"
         >
-          <Card className="border-border/60 bg-card">
+          <Card className="border-border bg-card">
             <CardHeader>
               <h2
                 id="xml-schema-overview"
@@ -58,7 +58,7 @@ export default function XmlSchema() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+                <div className="rounded-lg border border-border bg-muted/40 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Root Node
                   </div>
@@ -70,7 +70,7 @@ export default function XmlSchema() {
                     <span className="font-mono text-sm text-foreground">metadata.agreementUuid</span>.
                   </p>
                 </div>
-                <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+                <div className="rounded-lg border border-border bg-muted/40 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Page Containers
                   </div>
@@ -92,7 +92,7 @@ export default function XmlSchema() {
           aria-labelledby="xml-schema-definition"
           aria-describedby="xml-schema-definition-desc"
         >
-          <Card className="border-border/60 bg-card">
+          <Card className="border-border bg-card">
             <CardHeader>
               <h2
                 id="xml-schema-definition"
@@ -109,7 +109,7 @@ export default function XmlSchema() {
                 role="region"
                 aria-label="XML element tree"
                 tabIndex={0}
-                className="rounded-lg border border-border/60 bg-muted/40 p-4"
+                className="rounded-lg border border-border bg-muted/40 p-4"
               >
                 <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs font-mono text-muted-foreground [overflow-wrap:anywhere] sm:text-sm sm:whitespace-pre">
                   {XML_ELEMENT_TREE}
@@ -123,7 +123,7 @@ export default function XmlSchema() {
           aria-labelledby="xml-schema-elements"
           aria-describedby="xml-schema-elements-desc"
         >
-          <Card className="border-border/60 bg-card">
+          <Card className="border-border bg-card">
             <CardHeader>
               <h2
                 id="xml-schema-elements"
@@ -137,7 +137,7 @@ export default function XmlSchema() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+                <div className="rounded-lg border border-border bg-muted/40 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Metadata Nodes
                   </div>
@@ -153,7 +153,7 @@ export default function XmlSchema() {
                     acquirer names.
                   </p>
                 </div>
-                <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+                <div className="rounded-lg border border-border bg-muted/40 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Content Nodes
                   </div>
@@ -186,7 +186,7 @@ export default function XmlSchema() {
                     appears only when a page number is explicitly tagged.
                   </p>
                 </div>
-                <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+                <div className="rounded-lg border border-border bg-muted/40 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Structural Rules
                   </div>

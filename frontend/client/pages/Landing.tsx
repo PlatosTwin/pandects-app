@@ -55,14 +55,20 @@ export default function Landing() {
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10"
-      >
-        <div className="absolute left-1/2 top-[-14rem] h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-foreground/5 blur-3xl" />
-      </div>
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, hsl(var(--foreground) / 0.07) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--foreground) / 0.07) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          maskImage:
+            "radial-gradient(ellipse 70% 60% at 50% 45%, black 40%, transparent 100%)",
+          WebkitMaskImage:
+            "radial-gradient(ellipse 70% 60% at 50% 45%, black 40%, transparent 100%)",
+        }}
+      />
 
       <div className="mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center">
         <div className="flex w-full max-w-[860px] flex-col items-center">
-          <Card className="w-full animate-fade-in-up border-border/60 bg-background/75 px-6 py-12 text-center backdrop-blur shadow-lg supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-16">
+          <Card className="w-full animate-fade-in-up border-border bg-background/75 px-6 py-12 text-center backdrop-blur shadow-lg supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-16">
             <div
               ref={headerBadgeRef}
               className="mx-auto mb-6 inline-flex flex-wrap items-center justify-center gap-x-1 rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-foreground/70"
@@ -100,7 +106,7 @@ export default function Landing() {
                       sizes="(min-width: 640px) 128px, 96px"
                       fetchpriority="high"
                       decoding="async"
-                      className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border/60 sm:h-32 sm:w-32"
+                      className="h-24 w-24 rounded-2xl object-cover shadow-sm ring-1 ring-border sm:h-32 sm:w-32"
                     />
                   </picture>
                 </button>
@@ -122,11 +128,11 @@ export default function Landing() {
               }}
             />
 
-            <h1 className="mt-0 text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
+            <h1 className="mt-0 text-4xl font-semibold leading-[1.05] tracking-[-0.025em] text-foreground sm:text-5xl">
               {"Search Thousands of M&A\u00A0Agreements"}
             </h1>
 
-            <p className="mt-4 text-base font-medium text-foreground/70 sm:text-xl">
+            <p className="mt-5 text-base font-normal text-foreground/65 sm:text-lg">
               The fastest way to query deal data, open-source.
             </p>
 

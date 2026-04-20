@@ -8,10 +8,10 @@ const cardVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-border/60 shadow-sm",
-        compact: "border-border/60 shadow-sm p-4",
+        default: "border-border shadow-sm",
+        compact: "border-border shadow-sm p-4",
         elevated: "border-border shadow-md",
-        subtle: "border-border/40 bg-muted/20 shadow-sm",
+        subtle: "border-border/50 bg-muted/20 shadow-sm",
       },
     },
     defaultVariants: {

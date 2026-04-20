@@ -39,7 +39,7 @@ export function PageShell({
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             {title && (
-              <h1 className="text-3xl font-bold text-foreground">{title}</h1>
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground">{title}</h1>
             )}
             {subtitle && (
               <div className="mt-2 text-sm text-muted-foreground sm:text-base">

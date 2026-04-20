@@ -248,7 +248,7 @@ export default function Login() {
             submitLabel={submitting ? "Finishing sign-in…" : "Continue"}
           />
         ) : state.kind === "verify" ? (
-          <Card className="mx-auto w-full max-w-xl border-border/70 bg-card/95 p-6 shadow-sm">
+          <Card className="mx-auto w-full max-w-xl border-border bg-card/95 p-6 shadow-sm">
             <div className="grid gap-4">
               <div>
                 <h2 className="text-base font-medium">Check your email</h2>
@@ -288,7 +288,7 @@ export default function Login() {
             </div>
           </Card>
         ) : (
-          <Card className="mx-auto w-full max-w-xl border-border/70 bg-card/95 p-6 shadow-sm sm:p-8">
+          <Card className="mx-auto w-full max-w-xl border-border bg-card/95 p-6 shadow-sm sm:p-8">
             <div className="grid gap-5">
               <div className="grid gap-6">
                 <div className="flex justify-center">
@@ -296,7 +296,7 @@ export default function Login() {
                     onClick={() => void startGoogle()}
                     disabled={submitting}
                     variant="outline"
-                    className="h-11 min-w-[17rem] rounded-full border-border/80 bg-white px-5 text-foreground shadow-sm hover:bg-muted/40"
+                    className="h-11 min-w-[17rem] rounded-full border-border bg-white px-5 text-foreground shadow-sm hover:bg-muted/40"
                   >
                     <GoogleMark />
                     {submitting ? "Redirecting…" : "Continue with Google"}
@@ -320,7 +320,7 @@ export default function Login() {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required
-                    className="h-11 border-border/80 bg-background"
+                    className="h-11 border-border bg-background"
                   />
                 </div>
                 <div className="grid gap-2">
@@ -345,7 +345,7 @@ export default function Login() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     required
-                    className="h-11 border-border/80 bg-background"
+                    className="h-11 border-border bg-background"
                   />
                 </div>
                 <div className="flex justify-center pt-1">

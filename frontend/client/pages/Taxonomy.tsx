@@ -393,7 +393,7 @@ export default function Taxonomy() {
                   }}
                   onFocus={() => setHasActivatedSearch(true)}
                   placeholder={taxonomySearchPlaceholder}
-                  className="h-11 rounded-full border-border/70 bg-background pl-10 pr-4 text-sm shadow-none"
+                  className="h-11 rounded-full border-border bg-background pl-10 pr-4 text-sm shadow-none"
                   autoComplete="off"
                 />
               </div>
@@ -401,7 +401,7 @@ export default function Taxonomy() {
 
             <div className="flex items-center lg:justify-end">
               <div
-                className="inline-grid grid-cols-2 rounded-full border border-border/80 bg-muted/35 p-1"
+                className="inline-grid grid-cols-2 rounded-full border border-border bg-muted/35 p-1"
                 role="group"
                 aria-label="Taxonomy mode"
               >
@@ -428,7 +428,7 @@ export default function Taxonomy() {
 
             {hasQuery && (
               <div
-                className="mt-1 rounded-xl border border-border/60 bg-muted/20 p-3 lg:mt-3"
+                className="mt-1 rounded-xl border border-border bg-muted/20 p-3 lg:mt-3"
                 aria-live="polite"
                 aria-atomic="true"
               >
@@ -452,7 +452,7 @@ export default function Taxonomy() {
                       {orderedResults.map((result) => (
                         <li
                           key={result.id}
-                          className="rounded-md border border-border/60 bg-card shadow-sm"
+                          className="rounded-md border border-border bg-card shadow-sm"
                         >
                           <button
                             type="button"
@@ -515,7 +515,7 @@ export default function Taxonomy() {
           aria-labelledby="taxonomy-overview"
           aria-describedby="taxonomy-overview-desc"
         >
-          <Card className="border-border/60 bg-card">
+          <Card className="border-border bg-card">
             <CardHeader className="pb-4">
               <h2
                 id="taxonomy-overview"
@@ -540,8 +540,8 @@ export default function Taxonomy() {
                   <Skeleton className="h-20 w-full" />
                 </div>
               ) : (
-                <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
-                  <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+                <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
+                  <div className="rounded-lg border border-border bg-card px-4 py-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       <Folder className="h-4 w-4" aria-hidden="true" />
                       Level 1 Categories
@@ -553,7 +553,7 @@ export default function Taxonomy() {
                   <div className="hidden justify-center text-muted-foreground sm:flex">
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </div>
-                  <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+                  <div className="rounded-lg border border-border bg-card px-4 py-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       <Layers className="h-4 w-4" aria-hidden="true" />
                       Level 2 Groups
@@ -565,7 +565,7 @@ export default function Taxonomy() {
                   <div className="hidden justify-center text-muted-foreground sm:flex">
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </div>
-                  <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+                  <div className="rounded-lg border border-border bg-card px-4 py-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
                       <Tag className="h-4 w-4" aria-hidden="true" />
                       Level 3 Types
@@ -640,7 +640,7 @@ export default function Taxonomy() {
                 <Skeleton className="h-32 w-full" />
               </div>
             ) : taxonomyEntries.length === 0 ? (
-              <Card className="border-border/60 bg-card">
+              <Card className="border-border bg-card">
                 <CardContent className="py-6 text-sm text-foreground/90">
                   No taxonomy entries are available right now.
                 </CardContent>
@@ -668,7 +668,7 @@ export default function Taxonomy() {
                       key={entry.id}
                       value={entry.id}
                       id={`taxonomy-l1-${entry.id}`}
-                      className={`rounded-lg border border-border/60 bg-card px-0 transition-all duration-1000 hover:-translate-y-1 hover:shadow-md ${highlightRingClass(
+                      className={`rounded-lg border border-border bg-card px-0 transition-all duration-1000 hover:-translate-y-1 hover:shadow-md ${highlightRingClass(
                         `taxonomy-l1-${entry.id}`,
                       )}`}
                     >
@@ -683,7 +683,7 @@ export default function Taxonomy() {
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground">
                               {!isMobile ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground">
                                   <span className="font-mono text-[11px] text-foreground">
                                     {entry.id}
                                   </span>
@@ -705,7 +705,7 @@ export default function Taxonomy() {
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="px-6 pb-6 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
-                        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                        <div className="rounded-lg border border-border bg-muted/20 p-4">
                           <Accordion
                             type="multiple"
                             value={openLevel2ByParent[entry.id] ?? []}
@@ -722,7 +722,7 @@ export default function Taxonomy() {
                                 key={child.id}
                                 value={child.id}
                                 id={`taxonomy-l2-${child.id}`}
-                                className={`rounded-lg border border-border/60 bg-muted/20 transition-all duration-1000 hover:-translate-y-1 hover:shadow-md ${highlightRingClass(
+                                className={`rounded-lg border border-border bg-muted/20 transition-all duration-1000 hover:-translate-y-1 hover:shadow-md ${highlightRingClass(
                                   `taxonomy-l2-${child.id}`,
                                 )}`}
                               >
@@ -744,7 +744,7 @@ export default function Taxonomy() {
                                 <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
                                   {!isMobile ? (
                                     <div className="mb-3">
-                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
+                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
                                         <span className="font-mono text-[11px] text-foreground">
                                           {child.id}
                                         </span>
@@ -757,7 +757,7 @@ export default function Taxonomy() {
                                       <li
                                         key={leaf.id}
                                         id={`taxonomy-l3-${leaf.id}`}
-                                        className={`group rounded-md border border-border/60 bg-card px-3 py-3 shadow-sm transition-all duration-1000 hover:-translate-y-1 hover:border-primary/60 hover:shadow-md ${highlightRingClass(
+                                        className={`group rounded-md border border-border bg-card px-3 py-3 shadow-sm transition-all duration-1000 hover:-translate-y-1 hover:border-primary/60 hover:shadow-md ${highlightRingClass(
                                           `taxonomy-l3-${leaf.id}`,
                                         )}`}
                                       >
@@ -785,9 +785,9 @@ export default function Taxonomy() {
                   ))}
                 </Accordion>
               ) : (
-                <Card className="border-border/60 bg-card">
+                <Card className="border-border bg-card">
                   <CardContent className="p-5 sm:p-6">
-                    <div className="rounded-lg border border-border/60 bg-muted/10 p-4">
+                    <div className="rounded-lg border border-border bg-muted/10 p-4">
                       <ul className="space-y-4">
                         {taxonomyEntries.map((entry) => (
                           <li

@@ -67,7 +67,7 @@ export default function TaxClauseCompare() {
   if (clauses.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-8">
-        <div className="rounded-2xl border border-border/60 bg-card p-8 text-center shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
           <h1 className="text-xl font-semibold text-foreground">
             Nothing to compare yet
           </h1>
@@ -220,7 +220,7 @@ export default function TaxClauseCompare() {
                 </span>
               </div>
               {phrases.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 p-6 text-sm text-muted-foreground">
+                <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
                   No shared phrases found at current settings. Try widening the
                   phrase length range or clearing the tax type filter.
                 </div>
@@ -264,7 +264,7 @@ export default function TaxClauseCompare() {
                   return (
                     <li
                       key={c.id}
-                      className="rounded-xl border border-border/60 bg-card p-4 shadow-sm"
+                      className="rounded-xl border border-border bg-card p-4 shadow-sm"
                     >
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">

@@ -560,7 +560,7 @@ export function AgreementModal({
                 {metadataSections.map((section) => (
                   <section
                     key={section.title}
-                    className="rounded-md border border-border/60 bg-background/70 p-3"
+                    className="rounded-md border border-border bg-background/70 p-3"
                   >
                     <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {section.title}
@@ -580,7 +580,7 @@ export function AgreementModal({
                   </section>
                 ))}
               </div>
-              <div className="mt-3 rounded-md border border-dashed border-border/60 bg-background/70 px-3 py-2 text-xs text-muted-foreground sm:hidden">
+              <div className="mt-3 rounded-md border border-dashed border-border bg-background/70 px-3 py-2 text-xs text-muted-foreground sm:hidden">
                 To see deal metadata, view on desktop.
               </div>
             </details>

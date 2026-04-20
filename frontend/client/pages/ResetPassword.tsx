@@ -58,7 +58,7 @@ export default function ResetPassword() {
       size="md"
       className="max-w-2xl"
     >
-      <Card className="mx-auto w-full max-w-xl border-border/70 bg-card/95 p-6 shadow-sm sm:p-8">
+      <Card className="mx-auto w-full max-w-xl border-border bg-card/95 p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
           {submitted ? (
             <Alert>
@@ -88,7 +88,7 @@ export default function ResetPassword() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
-                className="h-11 border-border/80 bg-background"
+                className="h-11 border-border bg-background"
               />
             </div>
             <div className="flex justify-center pt-1">

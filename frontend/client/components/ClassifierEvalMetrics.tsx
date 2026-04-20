@@ -61,7 +61,7 @@ export function ClassifierEvalMetrics({ data }: ClassifierEvalMetricsProps) {
   const renderConfusionMatrix = (
     model: ClassifierEvalData["models"][number],
   ) => (
-    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+    <div className="min-w-0 rounded-xl border border-border bg-background/60 p-4">
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Confusion Matrix
       </div>
@@ -138,7 +138,7 @@ export function ClassifierEvalMetrics({ data }: ClassifierEvalMetricsProps) {
   );
 
   const renderPerClass = (model: ClassifierEvalData["models"][number]) => (
-    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+    <div className="min-w-0 rounded-xl border border-border bg-background/60 p-4">
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Per-class Metrics
       </div>
@@ -146,7 +146,7 @@ export function ClassifierEvalMetrics({ data }: ClassifierEvalMetricsProps) {
         <table className="w-full min-w-[320px] text-xs">
           <caption className="sr-only">{model.perClassCaption}</caption>
           <thead>
-            <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <th scope="col" className="pb-2 pr-3">
                 Class
               </th>
@@ -175,7 +175,7 @@ export function ClassifierEvalMetrics({ data }: ClassifierEvalMetricsProps) {
               const labelIndex = data.labels.indexOf(metric.label);
               const shortLabel = data.abbreviations[labelIndex];
               return (
-                <tr key={metric.label} className="border-b border-border/40">
+                <tr key={metric.label} className="border-b border-border/50">
                   <th
                     scope="row"
                     className="py-2 pr-3 text-left text-foreground font-normal"
@@ -221,14 +221,14 @@ export function ClassifierEvalMetrics({ data }: ClassifierEvalMetricsProps) {
           <AccordionItem
             key={model.id}
             value={model.id}
-            className="rounded-2xl border border-border/60 bg-card/60"
+            className="rounded-2xl border border-border bg-card/60"
           >
             <AccordionTrigger className="px-5 py-4 text-left">
               <div className="flex w-full flex-wrap items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-foreground">
                   {model.title}
                 </div>
-                <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
                   {model.badge}
                 </span>
               </div>
@@ -242,13 +242,13 @@ export function ClassifierEvalMetrics({ data }: ClassifierEvalMetricsProps) {
       {cardModels.map((model) => (
         <Card
           key={model.id}
-          className="rounded-2xl border border-border/60 bg-card/60 p-6"
+          className="rounded-2xl border border-border bg-card/60 p-6"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-semibold text-foreground">
               {model.title}
             </div>
-            <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
               {model.badge}
             </span>
           </div>

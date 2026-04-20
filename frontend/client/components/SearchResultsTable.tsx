@@ -401,7 +401,7 @@ export function SearchResultsTable({
                   "group relative overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:shadow-md",
                   isSelected
                     ? "border-primary/40 bg-primary/5 shadow-md"
-                    : "border-border/60 hover:border-border",
+                    : "border-border hover:border-border",
                 )}
               >
                 {/* Header with metadata and checkbox */}
@@ -411,7 +411,7 @@ export function SearchResultsTable({
                     density === "compact" && "sm:py-3",
                     isSelected
                       ? "bg-primary/10 border-primary/20"
-                      : "bg-muted/20 border-border/60",
+                      : "bg-muted/20 border-border",
                   )}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -671,7 +671,7 @@ export function SearchResultsTable({
                     <>
                       <div
                         className={cn(
-                          "relative rounded-md border border-border/60 bg-muted/20 p-3",
+                          "relative rounded-md border border-border bg-muted/20 p-3",
                           density === "compact"
                             ? "sm:h-28 sm:p-2"
                             : "sm:h-36 sm:p-3",
@@ -690,7 +690,7 @@ export function SearchResultsTable({
                                 type="button"
                                 title="Copy…"
                                 className={cn(
-                                  "flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-border/60 bg-background shadow-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-muted/40 data-[state=open]:text-foreground sm:h-7 sm:w-7",
+                                  "flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-border bg-background shadow-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-muted/40 data-[state=open]:text-foreground sm:h-7 sm:w-7",
                                   copiedForResult?.resultId === result.id &&
                                     "bg-primary/10 text-primary border-primary/20",
                                 )}

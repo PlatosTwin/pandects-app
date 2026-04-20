@@ -80,7 +80,7 @@ function HeaderFactChip({
   value: string;
 }) {
   return (
-    <div className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs">
+    <div className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs">
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="text-muted-foreground">{label}</span>
       <span className="truncate font-medium text-foreground">{value}</span>
@@ -196,7 +196,7 @@ function ReaderSearch({
           ) : null}
         </div>
         {jumpItems.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-3 text-center text-xs text-muted-foreground">
+          <div className="rounded-md border border-dashed border-border bg-muted/20 p-3 text-center text-xs text-muted-foreground">
             {isTextQueryActive
               ? "No text matches yet."
               : sectionType === "all"
@@ -216,7 +216,7 @@ function ReaderSearch({
                       "group w-full rounded-lg border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       isActive
                         ? "border-primary/40 bg-primary/5"
-                        : "border-border/60 bg-muted/20 hover:border-border hover:bg-muted/40",
+                        : "border-border bg-muted/20 hover:border-border hover:bg-muted/40",
                     )}
                     aria-current={isActive ? "true" : undefined}
                   >
@@ -267,7 +267,7 @@ function ReaderDetails({
 }) {
   return (
     <div className="space-y-4">
-      <dl className="divide-y divide-border/40 rounded-lg border border-border/60 bg-card">
+      <dl className="divide-y divide-border/50 rounded-lg border border-border bg-card">
         {metadata.map((item) => (
           <div
             key={item.label}
@@ -319,6 +319,7 @@ export function AgreementReader({
   const isMobile = useIsMobile();
 
   useEffect(() => {
+    if (isLoading) return;
     const element = headerRef.current;
     if (!element) return;
     const update = () => {
@@ -334,7 +335,7 @@ export function AgreementReader({
       observer.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, []);
+  }, [isLoading]);
 
   useEffect(() => {
     const element = headerRef.current;
@@ -627,7 +628,7 @@ export function AgreementReader({
       {/* Sticky header */}
       <div
         ref={headerRef}
-        className="sticky top-16 z-30 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        className="sticky top-16 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       >
         <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
           {/* Single row: back | title+subtitle | SEC filing */}
@@ -772,7 +773,7 @@ export function AgreementReader({
           onClick={() => setHeaderCollapsed((v) => !v)}
           aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
           aria-expanded={!headerCollapsed}
-          className="group flex w-full items-center justify-center gap-2 border-t border-border/60 bg-muted/40 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/70 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="group flex w-full items-center justify-center gap-2 border-t border-border bg-muted/40 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/70 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <div className="h-px w-10 rounded-full bg-current transition-colors" aria-hidden="true" />
           <span className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide">
@@ -818,8 +819,8 @@ export function AgreementReader({
             }}
           >
             {leftOpen ? (
-              <div className="rounded-xl border border-border/60 bg-card shadow-sm">
-                <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3">
+              <div className="rounded-xl border border-border bg-card shadow-sm">
+                <div className="flex items-center gap-2 border-b border-border px-4 py-3">
                   <ListTree
                     className="h-4 w-4 text-muted-foreground"
                     aria-hidden="true"
@@ -848,7 +849,7 @@ export function AgreementReader({
                 type="button"
                 onClick={() => setLeftOpen(true)}
                 aria-label="Expand contents"
-                className="flex w-11 flex-col items-center gap-2 rounded-xl border border-border/60 bg-card py-3 text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex w-11 flex-col items-center gap-2 rounded-xl border border-border bg-card py-3 text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 <ListTree className="h-4 w-4" aria-hidden="true" />
@@ -865,7 +866,7 @@ export function AgreementReader({
 
         {/* Center: document */}
         <div className="min-w-0">
-          <article className="rounded-xl border border-border/60 bg-card shadow-sm">
+          <article className="rounded-xl border border-border bg-card shadow-sm">
             <div
               ref={contentRef}
               className="agreement-reader-content max-h-none overflow-visible p-5 sm:p-8 lg:px-10"
@@ -893,7 +894,7 @@ export function AgreementReader({
           >
             {rightOpen ? (
               sectionIndexLoading ? (
-                <div className="rounded-xl border border-border/60 bg-card p-4 shadow-sm">
+                <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
                   <div className="flex h-32 items-center justify-center">
                     <LoadingSpinner aria-label="Loading agreement index" />
                   </div>
@@ -904,14 +905,14 @@ export function AgreementReader({
                   <AlertDescription>{sectionIndexError}</AlertDescription>
                 </Alert>
               ) : (
-                <div className="rounded-xl border border-border/60 bg-card shadow-sm">
+                <div className="rounded-xl border border-border bg-card shadow-sm">
                   <Tabs
                     value={sidebarTab}
                     onValueChange={(value) =>
                       setSidebarTab(value === "details" ? "details" : "search")
                     }
                   >
-                    <div className="flex items-center gap-2 border-b border-border/60 p-3">
+                    <div className="flex items-center gap-2 border-b border-border p-3">
                       <TabsList className="grid flex-1 grid-cols-2">
                         <TabsTrigger value="search">Search</TabsTrigger>
                         <TabsTrigger value="details">Details</TabsTrigger>
@@ -939,7 +940,7 @@ export function AgreementReader({
                 type="button"
                 onClick={() => setRightOpen(true)}
                 aria-label="Expand panel"
-                className="flex w-11 flex-col items-center gap-2 rounded-xl border border-border/60 bg-card py-3 text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex w-11 flex-col items-center gap-2 rounded-xl border border-border bg-card py-3 text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 <Search className="h-4 w-4" aria-hidden="true" />

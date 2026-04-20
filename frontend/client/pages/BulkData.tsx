@@ -201,11 +201,11 @@ export default function BulkData() {
       {/* Demo Code Blocks */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* API Call Example */}
-        <div className="bg-card rounded-lg border border-border/60 p-6 min-w-0">
+        <div className="bg-card rounded-lg border border-border p-6 min-w-0">
           <h2 className="text-xl font-semibold text-foreground mb-3">
             Pull metadata for all dumps via API
           </h2>
-          <div className="rounded-md border border-border/60 bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
+          <div className="rounded-md border border-border bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
               onClick={() => {
@@ -215,7 +215,7 @@ export default function BulkData() {
                   "api-call",
                 );
               }}
-              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border/60 transition-opacity duration-200 hover:bg-accent/60 z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border transition-opacity duration-200 hover:bg-accent/60 z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Copy to clipboard"
               aria-label="Copy API curl command"
             >
@@ -239,11 +239,11 @@ export default function BulkData() {
         </div>
 
         {/* Download with wget */}
-        <div className="bg-card rounded-lg border border-border/60 p-6 min-w-0">
+        <div className="bg-card rounded-lg border border-border p-6 min-w-0">
           <h2 className="text-xl font-semibold text-foreground mb-3">
             Download latest version with wget
           </h2>
-          <div className="rounded-md border border-border/60 bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
+          <div className="rounded-md border border-border bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
               onClick={() => {
@@ -251,7 +251,7 @@ export default function BulkData() {
                 trackEvent("bulk_copy_click", { copy_target: "wget_latest" });
                 void copyToClipboard(`wget ${latestSqlUrl}`, "wget-download");
               }}
-              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border/60 hover:bg-accent/60 z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent/60 z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Copy to clipboard"
               aria-label="Copy wget command for latest SQL"
             >
@@ -275,11 +275,11 @@ export default function BulkData() {
         </div>
 
         {/* Verify the checksum */}
-        <div className="bg-card rounded-lg border border-border/60 p-6 min-w-0">
+        <div className="bg-card rounded-lg border border-border p-6 min-w-0">
           <h2 className="text-xl font-semibold text-foreground mb-3">
             Verify the checksum
           </h2>
-          <div className="rounded-md border border-border/60 bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
+          <div className="rounded-md border border-border bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
             <button
               type="button"
               onClick={() => {
@@ -292,7 +292,7 @@ export default function BulkData() {
                   "checksum-verify",
                 );
               }}
-              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border/60 hover:bg-accent/60 z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent/60 z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               title="Copy to clipboard"
               aria-label="Copy checksum verification command"
             >
@@ -338,7 +338,7 @@ export default function BulkData() {
       </div>
 
       {/* Data Table */}
-      <div className="overflow-hidden rounded-lg border border-border/60 bg-card">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="px-6 py-4 border-b border-border">
           <h2 className="text-xl font-semibold text-foreground">
             Available Downloads
@@ -487,7 +487,7 @@ export default function BulkData() {
 
             <div className="lg:hidden p-4 space-y-4">
               {dumps.map((dump, index) => (
-                <Card key={`mobile-${index}`} className="border-border/60">
+                <Card key={`mobile-${index}`} className="border-border">
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>

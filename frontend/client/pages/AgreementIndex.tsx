@@ -371,7 +371,7 @@ export default function AgreementIndex() {
           return (
             <Card
               key={card.key}
-              className="relative overflow-hidden border-border/60 bg-gradient-to-br from-background via-background to-muted/40 shadow-sm"
+              className="relative overflow-hidden border-border bg-gradient-to-br from-background via-background to-muted/40 shadow-sm"
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] opacity-70" />
               <CardContent className="relative flex min-h-[8.75rem] items-center gap-4 p-6">
@@ -404,7 +404,7 @@ export default function AgreementIndex() {
         })}
       </div>
 
-      <Card className="mb-10 border-border/60 shadow-sm">
+      <Card className="mb-10 border-border shadow-sm">
         <CardContent className="p-6">
           <Accordion
             type="single"
@@ -415,7 +415,7 @@ export default function AgreementIndex() {
               }
             }}
           >
-            <AccordionItem value="staged" className="border-border/60">
+            <AccordionItem value="staged" className="border-border">
               <AccordionTrigger
                 headingLevel="h2"
                 className="py-3 text-2xl font-semibold tracking-tight"
@@ -451,11 +451,11 @@ export default function AgreementIndex() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/60 shadow-sm transition-shadow duration-200 hover:shadow-md">
+      <Card className="border-border shadow-sm transition-shadow duration-200 hover:shadow-md">
         <CardContent className="p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              <h2 className="text-xl font-semibold tracking-tight text-foreground">
                 Index of processed agreements
               </h2>
               {filteredLabel ? (
@@ -493,7 +493,7 @@ export default function AgreementIndex() {
             </div>
           </div>
 
-          <div className="mt-6 hidden rounded-lg border border-border/60 bg-muted/20 lg:block">
+          <div className="mt-6 hidden rounded-lg border border-border bg-muted/20 lg:block">
             <Table className="min-w-[900px]">
               <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur">
                 <TableRow>
@@ -711,7 +711,7 @@ export default function AgreementIndex() {
           <div className="mt-6 space-y-4 lg:hidden">
             {isInitialAgreementLoad ? (
               Array.from({ length: page_size }).map((_, index) => (
-                <Card key={`mobile-skeleton-${index}`} className="border-border/60">
+                <Card key={`mobile-skeleton-${index}`} className="border-border">
                   <CardContent className="p-4">
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="mt-3 h-4 w-full" />
@@ -720,7 +720,7 @@ export default function AgreementIndex() {
                 </Card>
               ))
             ) : error ? (
-              <Card className="border-border/60">
+              <Card className="border-border">
                 <CardContent className="p-4">
                   <div className="text-sm text-muted-foreground" role="alert">
                     {error}
@@ -728,7 +728,7 @@ export default function AgreementIndex() {
                 </CardContent>
               </Card>
             ) : agreements.length === 0 ? (
-              <Card className="border-border/60">
+              <Card className="border-border">
                 <CardContent className="p-4">
                   <div className="text-sm text-muted-foreground" role="status">
                     No agreements match this filter.
@@ -739,7 +739,7 @@ export default function AgreementIndex() {
               agreements.map((agreement) => (
                 <Card
                   key={`mobile-${agreement.agreement_uuid}`}
-                  className="border-border/60 transition-shadow duration-200 hover:shadow-md"
+                  className="border-border transition-shadow duration-200 hover:shadow-md"
                 >
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-center justify-between">

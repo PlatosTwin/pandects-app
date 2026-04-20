@@ -65,6 +65,16 @@ export default {
         "card": "1rem", // 16px - gap-4
         "tight": "0.5rem", // 8px - gap-2
       },
+      fontFamily: {
+        serif: [
+          "Lora",
+          "ui-serif",
+          "Georgia",
+          "Cambria",
+          "Times New Roman",
+          "serif",
+        ],
+      },
       typography: {
         DEFAULT: {
           css: {
