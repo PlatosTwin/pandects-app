@@ -39,6 +39,12 @@ class McpOAuthRuntimeTests(unittest.TestCase):
             }
         )
 
+    def setUp(self) -> None:
+        import backend.app as backend_app
+
+        backend_app._rate_limit_state.clear()
+        backend_app._endpoint_rate_limit_state.clear()
+
     def test_oauth_metadata_includes_required_oidc_arrays(self) -> None:
         payload = self.runtime.mcp_oauth_metadata()
 
