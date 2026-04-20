@@ -147,7 +147,7 @@ export function CounselLeaderboardChart({
                   const year = payload?.[0]?.payload?.year;
                   return `Filing year ${year ?? "—"}`;
                 }}
-                formatter={(value, _name, item) => {
+                formatter={(value, name, item) => {
                   const indicatorColor = item?.payload?.fill || item?.color;
                   const payload = item?.payload as
                     | { year?: number }
@@ -173,7 +173,7 @@ export function CounselLeaderboardChart({
                   const valueNumber = Number(value);
 
                   return (
-                    <div className="grid grid-cols-[auto_minmax(0,6rem)_minmax(0,1fr)] items-center gap-x-3">
+                    <div className="flex items-center gap-3">
                       <span
                         className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
                         style={
@@ -183,10 +183,13 @@ export function CounselLeaderboardChart({
                         }
                         aria-hidden="true"
                       />
-                      <span className="text-left font-mono font-medium tabular-nums text-foreground">
+                      <span className="w-72 shrink-0 truncate text-left text-foreground">
+                        {String(name ?? "")}
+                      </span>
+                      <span className="w-10 shrink-0 text-right font-mono font-medium tabular-nums text-foreground">
                         {valueFormatter(rawValue)}
                       </span>
-                      <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      <span className="w-28 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
                         {valueNumber.toFixed(1)}% of year
                         {pct !== valueNumber ? ` (${pct.toFixed(1)}%)` : ""}
                       </span>

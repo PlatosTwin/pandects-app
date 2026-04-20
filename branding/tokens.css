@@ -1,12 +1,12 @@
 :root {
-  --brand-primary: #0b5fff;
-  --brand-primary-dark: #0752e0;
+  --brand-primary: #1258e2;
+  --brand-primary-dark: #104dc6;
   --brand-ink: #0c1a33;
   --brand-surface: #f6f8fb;
-  --brand-background: #fcfbf7;
+  --brand-background: #fafbfc;
   --brand-border: #d8e1ef;
   --brand-muted-text: #5f6f8c;
   --brand-heading: #1f2e46;
-  --brand-sidebar-bg: #fcfbf7;
+  --brand-sidebar-bg: #fafbfc;
   --brand-sidebar-active: #e7ecf4;
 }

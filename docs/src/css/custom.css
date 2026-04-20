@@ -1,26 +1,26 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap");
 @import "../../../branding/tokens.css";
 
 :root {
-  --ifm-color-primary: #1d4ed8;
-  --ifm-color-primary-dark: #1a47c5;
-  --ifm-color-primary-darker: #163fad;
-  --ifm-color-primary-darkest: #132f7f;
-  --ifm-color-primary-light: #315fdb;
-  --ifm-color-primary-lighter: #4d74e0;
-  --ifm-color-primary-lightest: #8daceb;
+  --ifm-color-primary: #1258e2;
+  --ifm-color-primary-dark: #104dc6;
+  --ifm-color-primary-darker: #0f45b3;
+  --ifm-color-primary-darkest: #0b3384;
+  --ifm-color-primary-light: #2f6fee;
+  --ifm-color-primary-lighter: #5589f1;
+  --ifm-color-primary-lightest: #aac4f8;
 
   --ifm-background-color: var(--brand-background);
   --ifm-background-surface-color: #ffffff;
   --ifm-navbar-background-color: #ffffff;
   --ifm-navbar-height: 3.35rem;
-  --ifm-font-family-base: "Inter", "Segoe UI", sans-serif;
-  --ifm-heading-font-family: "Inter", "Segoe UI", sans-serif;
+  --ifm-font-family-base: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --ifm-heading-font-family: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
   --ifm-font-color-base: var(--brand-ink);
   --ifm-heading-color: var(--brand-heading);
-  --ifm-font-size-base: 15px;
+  --ifm-font-size-base: 16px;
   --ifm-line-height-base: 1.5;
-  --ifm-global-radius: 8px;
+  --ifm-global-radius: 6px;
   --ifm-toc-border-color: var(--brand-border);
 
   --openapi-card-border-radius: 12px;
@@ -91,14 +91,14 @@ body {
   font-size: 0.86rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: #455a78;
+  color: #445e83;
 }
 
 .navbar__item.navbar__link {
   display: inline-flex;
   align-items: center;
   gap: 0.38rem;
-  color: #2f4567;
+  color: #2a4066;
   font-weight: 600;
   font-size: 0.92rem;
   border-radius: 10px;
@@ -109,13 +109,13 @@ body {
 
 .navbar__item.navbar__link:hover {
   background: transparent;
-  color: #1f355c;
+  color: #1b2f52;
   text-decoration: none;
 }
 
 .navbar__item.navbar__link--active {
-  color: #1f355c;
-  background: #eaf0f8;
+  color: #1b2f52;
+  background: #e7eefb;
 }
 
 .navbar__item.navbar__link:focus-visible {
@@ -199,7 +199,7 @@ body {
   right: 1rem;
   height: 2.25rem;
   border: 1px solid #d8e1ef;
-  border-radius: 8px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.75);
   color: #495d79;
   font-size: 0.78rem;
@@ -245,7 +245,7 @@ body {
 
 .menu__link:hover {
   background: rgba(15, 23, 42, 0.04);
-  color: #2b3f62;
+  color: #273c62;
 }
 
 .menu__link--active {
@@ -310,7 +310,7 @@ body {
   line-height: 20px;
   text-transform: uppercase;
   font-weight: 700;
-  border-radius: 8px;
+  border-radius: 6px;
   margin-right: 0;
   text-align: center;
   flex-shrink: 0;
@@ -622,8 +622,8 @@ body {
 div.col > form.openapi-explorer__request-form > div.openapi-explorer__details-outer-container > button.openapi-explorer__request-btn,
 .openapi-explorer__request-form .openapi-explorer__request-btn {
   border-radius: 9px;
-  border: 1px solid #1d4ed8 !important;
-  background: #1d4ed8 !important;
+  border: 1px solid #1258e2 !important;
+  background: #1258e2 !important;
   color: #ffffff !important;
   font-size: 0.84rem;
   font-weight: 700;
@@ -634,7 +634,7 @@ div.col > form.openapi-explorer__request-form > div.openapi-explorer__details-ou
 
 div.col > form.openapi-explorer__request-form > div.openapi-explorer__details-outer-container > button.openapi-explorer__request-btn:hover,
 .openapi-explorer__request-form .openapi-explorer__request-btn:hover {
-  background: #1e40af !important;
+  background: #104dc6 !important;
 }
 
 .openapi-explorer__request-btn:focus-visible {
@@ -679,7 +679,7 @@ div.openapi-tabs__response-header-section > div.openapi-tabs__response-container
 div.openapi-tabs__response-header-section > div.openapi-tabs__response-container > ul.openapi-tabs__response-list-container > li.tabs__item.info.active,
 .openapi-tabs__response-list-container > .tabs__item.openapi-tabs__response-code-item.info.active {
   color: #ffffff !important;
-  background: #1d4ed8 !important;
+  background: #1258e2 !important;
 }
 
 /* Response panel: lighter, readme-style presentation */
@@ -960,7 +960,7 @@ div.openapi-tabs__response-header-section > div.openapi-tabs__response-container
 .theme-api-markdown .openapi-params__list-item code {
   background: #edf2f7;
   border: 1px solid #d9e2ed;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 0.16rem 0.52rem;
 }
 

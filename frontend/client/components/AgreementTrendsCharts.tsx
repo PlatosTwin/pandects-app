@@ -269,7 +269,7 @@ export function TrendsStackedShareAreaChart({
                   );
 
                   return (
-                    <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,6rem)_minmax(0,1fr)] items-center gap-x-3">
+                    <div className="flex items-center gap-3">
                       <span
                         className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
                         style={
@@ -279,13 +279,13 @@ export function TrendsStackedShareAreaChart({
                         }
                         aria-hidden="true"
                       />
-                      <span className="truncate text-left text-foreground">
+                      <span className="w-72 shrink-0 truncate text-left text-foreground">
                         {item.name}
                       </span>
-                      <span className="text-left font-mono font-medium tabular-nums text-foreground">
+                      <span className="w-10 shrink-0 text-right font-mono font-medium tabular-nums text-foreground">
                         {valueFormatter(rawValue)}
                       </span>
-                      <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      <span className="w-24 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
                         {Number(value).toFixed(1)}% of year
                       </span>
                     </div>
