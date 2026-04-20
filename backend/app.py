@@ -77,6 +77,7 @@ from backend.models.main_db import (
     agreement_latest_xml_join_condition as _agreement_latest_xml_join_condition,
     agreement_year_expr as _agreement_year_expr,
     coalesced_section_standard_ids as _coalesced_section_standard_ids,
+    expand_tax_clause_taxonomy_standard_ids_cached as _expand_tax_clause_taxonomy_standard_ids_cached,
     expand_taxonomy_standard_ids_cached as _expand_taxonomy_standard_ids_cached,
     main_db_schema_from_env as _main_db_schema_from_env,
     metadata as _main_db_metadata,
@@ -84,6 +85,7 @@ from backend.models.main_db import (
     section_latest_xml_join_condition as _section_latest_xml_join_condition,
     standard_id_filter_expr as _standard_id_filter_expr,
     standard_id_agreement_filter_expr as _standard_id_agreement_filter_expr,
+    tax_clause_standard_id_filter_expr as _tax_clause_standard_id_filter_expr,
     year_from_filing_date_value as _year_from_filing_date_value,
 )
 from backend.routes.deps import (
@@ -96,7 +98,9 @@ from backend.routes.deps import (
 from backend.routes.sections import register_sections_routes
 from backend.routes.agreements import register_agreements_routes
 from backend.routes.reference_data import register_reference_data_routes
+from backend.routes.tax_clauses import TaxClausesDeps, register_tax_clauses_routes
 from backend.routes.auth import register_auth_routes
+from backend.services.tax_clauses_service import TaxClausesServiceDeps
 from backend.mcp.routes import McpDeps, register_mcp_routes
 from backend.core.config import (
     app_config_map as _app_config_map,
@@ -1027,7 +1031,7 @@ _decode_agreements_cursor = _core_decode_agreements_cursor
 
 def _register_blueprints(target_app: Flask) -> None:
     api_ext = cast(_ApiExtension, cast(object, api))
-    sections_deps, agreements_deps, reference_data_deps, _ = _build_route_deps()
+    sections_deps, agreements_deps, reference_data_deps, tax_clauses_deps, _ = _build_route_deps()
     sections_list_blp = register_sections_routes(deps=sections_deps)
     agreements_blp, sections_blp, agreement_search_blp = register_agreements_routes(
         target_app,
@@ -1036,7 +1040,9 @@ def _register_blueprints(target_app: Flask) -> None:
     taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp = register_reference_data_routes(
         deps=reference_data_deps,
     )
+    tax_clauses_blp = register_tax_clauses_routes(deps=tax_clauses_deps)
     api_ext.register_blueprint(sections_list_blp)
+    api_ext.register_blueprint(tax_clauses_blp)
     api_ext.register_blueprint(agreements_blp)
     api_ext.register_blueprint(sections_blp)
     api_ext.register_blueprint(agreement_search_blp)
@@ -1057,11 +1063,32 @@ def _register_blueprints(target_app: Flask) -> None:
     )
 
 
-def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps, AuthDeps]:
+def _build_tax_clauses_service_deps() -> TaxClausesServiceDeps:
+    return TaxClausesServiceDeps(
+        db=db,
+        AgreementCounsel=AgreementCounsel,
+        Agreements=Agreements,
+        Clauses=Clauses,
+        Counsel=Counsel,
+        TaxClauseAssignment=TaxClauseAssignment,
+        _to_int=_to_int,
+        _row_mapping_as_dict=_row_mapping_as_dict,
+        _pagination_metadata=_pagination_metadata,
+        _expand_tax_clause_taxonomy_standard_ids_cached=_expand_tax_clause_taxonomy_standard_ids_cached,
+        _tax_clause_standard_id_filter_expr=_tax_clause_standard_id_filter_expr,
+        _year_from_filing_date_value=_year_from_filing_date_value,
+    )
+
+
+def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps, TaxClausesDeps, AuthDeps]:
     sections_service_deps = _build_sections_service_deps()
     sections_deps = SectionsDeps(
         _current_access_context=_current_access_context,
         sections_service_deps=sections_service_deps,
+    )
+    tax_clauses_deps = TaxClausesDeps(
+        _current_access_context=_current_access_context,
+        tax_clauses_service_deps=_build_tax_clauses_service_deps(),
     )
     agreements_deps = AgreementsDeps(
         Agreements=Agreements,
@@ -1235,11 +1262,11 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         text=text,
         urlencode=urlencode,
     )
-    return sections_deps, agreements_deps, reference_data_deps, auth_deps
+    return sections_deps, agreements_deps, reference_data_deps, tax_clauses_deps, auth_deps
 
 
 def _register_app(target_app: Flask) -> None:
-    _, _, _, auth_deps = _build_route_deps()
+    _, _, _, _, auth_deps = _build_route_deps()
 
     _register_error_handlers(target_app)
     _register_request_hooks(target_app)

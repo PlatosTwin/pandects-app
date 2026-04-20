@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useSections } from "@/hooks/use-sections";
 import { useTransactionSearch } from "@/hooks/use-transaction-search";
+import { useTaxClauses } from "@/hooks/use-tax-clauses";
+import { useTaxClauseTaxonomy } from "@/hooks/use-tax-clause-taxonomy";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,8 +40,14 @@ import { authFetch } from "@/lib/auth-fetch";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildSearchStateParams, parseSearchFilters } from "@/lib/url-params";
-import type { SearchMode } from "@shared/search";
+import {
+  stashCompareClauses,
+  TAX_COMPARE_MAX,
+  TAX_COMPARE_MIN,
+} from "@/lib/tax-compare-handoff";
+import { parseSearchMode, type SearchMode } from "@shared/search";
 import type { TransactionSearchResult } from "@shared/transactions";
+import type { TaxClauseSearchResult } from "@shared/tax-clauses";
 
 const SearchPagination = lazy(() =>
   import("@/components/SearchPagination").then((mod) => ({
@@ -59,6 +67,11 @@ const SearchSidebar = lazy(() =>
 const TransactionResultsList = lazy(() =>
   import("@/components/TransactionResultsList").then((mod) => ({
     default: mod.TransactionResultsList,
+  })),
+);
+const TaxClauseResultsList = lazy(() =>
+  import("@/components/TaxClauseResultsList").then((mod) => ({
+    default: mod.TaxClauseResultsList,
   })),
 );
 
@@ -139,10 +152,9 @@ export default function Search() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [hasHydrated, setHasHydrated] = useState(false);
-  const [searchMode, setSearchMode] = useState<SearchMode>(() => {
-    const mode = searchParams.get("mode");
-    return mode === "transactions" ? "transactions" : "sections";
-  });
+  const [searchMode, setSearchMode] = useState<SearchMode>(() =>
+    parseSearchMode(searchParams.get("mode")),
+  );
   const isHydratingFromUrlRef = useRef(true);
   const {
     filters,
@@ -165,6 +177,7 @@ export default function Search() {
     actions,
   } = useSections();
   const transactionSearch = useTransactionSearch();
+  const taxSearch = useTaxClauses();
 
   const {
     toggleFilterValue,
@@ -233,12 +246,12 @@ export default function Search() {
   };
 
   const handleModeChange = async (value: string) => {
-    const nextMode: SearchMode =
-      value === "transactions" ? "transactions" : "sections";
+    const nextMode: SearchMode = parseSearchMode(value);
     if (nextMode === searchMode) return;
     setSearchMode(nextMode);
     clearSelection();
     transactionSearch.clearSelection();
+    taxSearch.actions.clearSelection();
   };
 
   // Auto-collapse sidebar on tablet and mobile
@@ -263,7 +276,7 @@ export default function Search() {
       return;
     }
 
-    if (hasSearchedSections || transactionSearch.hasSearched) {
+    if (hasSearchedSections || transactionSearch.hasSearched || taxSearch.hasSearched) {
       setShouldRenderDesktopSidebar(true);
       return;
     }
@@ -273,13 +286,14 @@ export default function Search() {
     }, 1800);
 
     return cancelDeferredSidebar;
-  }, [hasSearchedSections, isDesktopLayout, transactionSearch.hasSearched]);
+  }, [hasSearchedSections, isDesktopLayout, taxSearch.hasSearched, transactionSearch.hasSearched]);
 
   const shouldLoadFilterData =
     (isDesktopLayout && shouldRenderDesktopSidebar) ||
     isMobileFiltersOpen ||
     hasSearchedSections ||
-    transactionSearch.hasSearched;
+    transactionSearch.hasSearched ||
+    taxSearch.hasSearched;
 
   const {
     targets,
@@ -303,7 +317,13 @@ export default function Search() {
   });
 
   const years = AVAILABLE_YEARS;
-  const clauseTypesNested: ClauseTypeTree = clause_types;
+  const {
+    taxonomy: taxClauseTypesNested,
+    isLoading: isLoadingTaxTaxonomy,
+  } = useTaxClauseTaxonomy({ enabled: searchMode === "tax" && shouldLoadFilterData });
+  const sectionClauseTypesNested: ClauseTypeTree = clause_types;
+  const clauseTypesNested: ClauseTypeTree =
+    searchMode === "tax" ? taxClauseTypesNested : sectionClauseTypesNested;
 
   const clauseTypePathByStandardId = useMemo(
     () => indexClauseTypePaths(clauseTypesNested),
@@ -317,39 +337,55 @@ export default function Search() {
   const activeIsSearching =
     searchMode === "sections"
       ? isSearchingSections
-      : transactionSearch.isSearching;
+      : searchMode === "tax"
+        ? taxSearch.isSearching
+        : transactionSearch.isSearching;
   const activeHasSearched =
     searchMode === "sections"
       ? hasSearchedSections
-      : transactionSearch.hasSearched;
+      : searchMode === "tax"
+        ? taxSearch.hasSearched
+        : transactionSearch.hasSearched;
   const activeTotalCount =
     searchMode === "sections"
       ? totalCountSections
-      : transactionSearch.totalCount;
+      : searchMode === "tax"
+        ? taxSearch.total_count
+        : transactionSearch.totalCount;
   const activeTotalCountIsApproximate =
     searchMode === "sections"
       ? totalCountIsApproximateSections
-      : transactionSearch.totalCountIsApproximate;
+      : searchMode === "tax"
+        ? taxSearch.totalCountIsApproximate
+        : transactionSearch.totalCountIsApproximate;
   const activeTotalPages =
     searchMode === "sections"
       ? totalPagesSections
-      : transactionSearch.totalPages;
+      : searchMode === "tax"
+        ? taxSearch.total_pages
+        : transactionSearch.totalPages;
   const activeHasNext =
     searchMode === "sections"
       ? hasNextSections
-      : transactionSearch.hasNext;
+      : searchMode === "tax"
+        ? taxSearch.has_next
+        : transactionSearch.hasNext;
   const activeHasPrev =
     searchMode === "sections"
       ? hasPrevSections
-      : transactionSearch.hasPrev;
+      : searchMode === "tax"
+        ? taxSearch.has_prev
+        : transactionSearch.hasPrev;
   const activeAccess =
     searchMode === "sections"
       ? sectionAccess
-      : transactionSearch.access;
+      : searchMode === "tax"
+        ? taxSearch.access
+        : transactionSearch.access;
   const activeShowErrorModal =
-    showSectionsErrorModal || transactionSearch.showErrorModal;
+    showSectionsErrorModal || transactionSearch.showErrorModal || taxSearch.showErrorModal;
   const activeErrorMessage =
-    sectionsErrorMessage || transactionSearch.errorMessage;
+    sectionsErrorMessage || transactionSearch.errorMessage || taxSearch.errorMessage;
 
   const runActiveSearch = async (
     nextMode: SearchMode,
@@ -359,15 +395,28 @@ export default function Search() {
     if (nextMode === "sections") {
       await performSectionSearch(
         false,
-        clauseTypesNested,
+        sectionClauseTypesNested,
         markAsSearched,
         nextFilters,
       );
       return;
     }
+    if (nextMode === "tax") {
+      await taxSearch.actions.performSearch(
+        false,
+        markAsSearched,
+        {
+          ...nextFilters,
+          include_rep_warranty: taxSearch.filters.include_rep_warranty,
+        },
+        currentSort,
+        sort_direction,
+      );
+      return;
+    }
     await transactionSearch.performSearch({
       filters: nextFilters,
-      clauseTypesNested,
+      clauseTypesNested: sectionClauseTypesNested,
       sortBy: currentSort,
       sortDirection: sort_direction,
       markAsSearched,
@@ -404,9 +453,7 @@ export default function Search() {
   useEffect(() => {
     if (!isHydratingFromUrlRef.current) return;
 
-    const nextMode = searchParams.get("mode") === "transactions"
-      ? "transactions"
-      : "sections";
+    const nextMode = parseSearchMode(searchParams.get("mode"));
     const nextFilters = parseSearchFilters(searchParams);
     const nextSortBy = searchParams.get("sort_by");
     const nextSortDirection = searchParams.get("sort_direction");
@@ -511,6 +558,16 @@ export default function Search() {
           is_filtered: Object.values(filters).flat().length > 0,
         });
         downloadCSV();
+      } else if (searchMode === "tax") {
+        trackEvent("tax_clauses_export_click", {
+          export_format: "csv",
+          result_count:
+            taxSearch.selectedResults.size > 0
+              ? taxSearch.selectedResults.size
+              : taxSearch.total_count,
+          is_filtered: Object.values(filters).flat().length > 0,
+        });
+        void taxSearch.actions.downloadCSV();
       } else {
         trackEvent("transactions_export_click", {
           export_format: "csv",
@@ -520,7 +577,7 @@ export default function Search() {
               : transactionSearch.totalCount,
           is_filtered: Object.values(filters).flat().length > 0,
         });
-        void transactionSearch.downloadCSV(clauseTypesNested, filters);
+        void transactionSearch.downloadCSV(sectionClauseTypesNested, filters);
       }
     },
     clearFilters: () => {
@@ -530,6 +587,7 @@ export default function Search() {
       clearSectionFilters();
       transactionSearch.clear();
       transactionSearch.clearSelection();
+      taxSearch.actions.clearFilters();
     },
     goToPage: async (page: number) => {
       const nextFilters: SearchFilters = { ...filters, page };
@@ -609,8 +667,9 @@ export default function Search() {
                 acquirer_industries={acquirer_industries}
                 clauseTypesNested={clauseTypesNested}
                 clauseTypeLabelById={clauseTypeLabelById}
+                clauseTypeSectionLabel={searchMode === "tax" ? "Tax clause type" : "Section Type"}
                 isLoadingFilterOptions={isLoadingFilterOptions}
-                isLoadingTaxonomy={isLoadingFilterOptions}
+                isLoadingTaxonomy={searchMode === "tax" ? isLoadingTaxTaxonomy : isLoadingFilterOptions}
                 onToggleFilterValue={toggleFilterValue}
                 onTextFilterChange={trackingActions.setTextFilterValue}
                 onClearFilters={trackingActions.clearFilters}
@@ -636,17 +695,18 @@ export default function Search() {
                 <div
                   role="radiogroup"
                   aria-label="Search mode"
-                  className="flex h-8 items-center rounded-full border border-border bg-muted/40 p-0.5"
+                  className="flex h-8 items-center rounded-full border border-border bg-muted/40 p-1"
                   onKeyDown={(e) => {
-                    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-                      e.preventDefault();
-                      void handleModeChange(
-                        searchMode === "sections" ? "transactions" : "sections",
-                      );
-                    }
+                    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+                    e.preventDefault();
+                    const order: SearchMode[] = ["sections", "transactions", "tax"];
+                    const idx = order.indexOf(searchMode);
+                    const delta = e.key === "ArrowLeft" ? -1 : 1;
+                    const nextIdx = (idx + delta + order.length) % order.length;
+                    void handleModeChange(order[nextIdx]);
                   }}
                 >
-                  {(["sections", "transactions"] as const).map((mode) => (
+                  {(["sections", "transactions", "tax"] as const).map((mode) => (
                     <button
                       key={mode}
                       type="button"
@@ -655,13 +715,13 @@ export default function Search() {
                       tabIndex={searchMode === mode ? 0 : -1}
                       onClick={() => void handleModeChange(mode)}
                       className={cn(
-                        "h-7 rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        "h-6 rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         searchMode === mode
                           ? "bg-primary/10 text-primary shadow-sm"
                           : "text-muted-foreground hover:text-foreground",
                       )}
                     >
-                      {mode === "sections" ? "Sections" : "Deals"}
+                      {mode === "sections" ? "Sections" : mode === "transactions" ? "Deals" : "Tax"}
                     </button>
                   ))}
                 </div>
@@ -776,11 +836,15 @@ export default function Search() {
                 const activeSelectedSize =
                   searchMode === "sections"
                     ? selectedResults.size
-                    : transactionSearch.selectedResults.size;
+                    : searchMode === "tax"
+                      ? taxSearch.selectedResults.size
+                      : transactionSearch.selectedResults.size;
                 const activeResultsLength =
                   searchMode === "sections"
                     ? searchResults.length
-                    : transactionSearch.results.length;
+                    : searchMode === "tax"
+                      ? taxSearch.searchResults.length
+                      : transactionSearch.results.length;
                 const downloadDisabled =
                   activeResultsLength === 0 && activeSelectedSize === 0;
                 return (
@@ -825,6 +889,65 @@ export default function Search() {
                 Reset filters
               </Button>
 
+              {searchMode === "tax" && (
+                <label className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={!!taxSearch.filters.include_rep_warranty}
+                    onChange={(e) =>
+                      taxSearch.actions.setIncludeRepWarranty(e.target.checked)
+                    }
+                    className="h-3.5 w-3.5"
+                  />
+                  Include reps &amp; warranties clauses
+                </label>
+              )}
+
+              {searchMode === "tax" && (() => {
+                const selected = taxSearch.selectedResults.size;
+                const disabled = selected < TAX_COMPARE_MIN || selected > TAX_COMPARE_MAX;
+                const label =
+                  selected === 0
+                    ? `Compare (select ${TAX_COMPARE_MIN}–${TAX_COMPARE_MAX})`
+                    : selected < TAX_COMPARE_MIN
+                      ? `Compare (select ${TAX_COMPARE_MIN - selected} more)`
+                      : selected > TAX_COMPARE_MAX
+                        ? `Compare (max ${TAX_COMPARE_MAX})`
+                        : `Compare (${selected})`;
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          onClick={() => {
+                            const clauses = taxSearch.searchResults.filter((r) =>
+                              taxSearch.selectedResults.has(r.id),
+                            );
+                            stashCompareClauses(clauses);
+                            trackEvent("tax_clauses_compare_click", {
+                              selected_count: clauses.length,
+                            });
+                            navigate("/compare/tax");
+                          }}
+                          disabled={disabled}
+                          variant="outline"
+                          size="sm"
+                        >
+                          {label}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {disabled && (
+                      <TooltipContent>
+                        <p>
+                          Select {TAX_COMPARE_MIN}–{TAX_COMPARE_MAX} tax clauses to compare.
+                        </p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                );
+              })()}
+
               {/* Active filter chips inline */}
               {(filters.year.length > 0 ||
                 filters.target.length > 0 ||
@@ -856,7 +979,7 @@ export default function Search() {
                       ["year", "Year", filters.year],
                       ["target", "Target", filters.target],
                       ["acquirer", "Acquirer", filters.acquirer],
-                      ["clauseType", "Section type", filters.clauseType],
+                      ["clauseType", searchMode === "tax" ? "Tax clause type" : "Section type", filters.clauseType],
                       ["transaction_price_total", "Price (total)", filters.transaction_price_total],
                       ["transaction_price_stock", "Price (stock)", filters.transaction_price_stock],
                       ["transaction_price_cash", "Price (cash)", filters.transaction_price_cash],
@@ -972,12 +1095,16 @@ export default function Search() {
                         <h2 className="text-base font-semibold text-foreground">
                           {searchMode === "sections"
                             ? "Find specific sections across the corpus"
-                            : "Find deals matching your criteria"}
+                            : searchMode === "tax"
+                              ? "Find tax clause precedents across the corpus"
+                              : "Find deals matching your criteria"}
                         </h2>
                         <p className="mt-1 text-sm text-muted-foreground">
                           {searchMode === "sections"
                             ? "Pick filters to narrow the corpus, then search to load matched sections and jump straight into the relevant agreement passage."
-                            : "Pick filters to narrow the corpus, then search to load matching deals with the sections that triggered each result."}
+                            : searchMode === "tax"
+                              ? "Filter by tax clause type and deal metadata to surface precedent drafting language. Reps & warranties clauses are excluded by default."
+                              : "Pick filters to narrow the corpus, then search to load matching deals with the sections that triggered each result."}
                         </p>
                       </div>
                     </div>
@@ -1028,7 +1155,9 @@ export default function Search() {
                       <p className="text-foreground font-medium">
                         {searchMode === "sections"
                           ? "No sections found."
-                          : "No deals found."}
+                          : searchMode === "tax"
+                            ? "No tax clauses found."
+                            : "No deals found."}
                       </p>
                       <p className="text-sm mt-2">
                         Try adjusting your filters and search again.
@@ -1058,7 +1187,26 @@ export default function Search() {
                             />
                           </Suspense>
 
-                          {searchMode === "sections" ? (
+                          {searchMode === "tax" ? (
+                            <Suspense fallback={<SearchResultsTableFallback />}>
+                              <TaxClauseResultsList
+                                results={taxSearch.searchResults}
+                                getAgreementHref={(r: TaxClauseSearchResult) =>
+                                  buildAgreementHref(r.agreement_uuid, r.section_uuid)
+                                }
+                                clauseTypeLabelById={clauseTypeLabelById}
+                                selectedResults={taxSearch.selectedResults}
+                                onToggleResultSelection={taxSearch.actions.toggleResultSelection}
+                                onToggleSelectAll={taxSearch.actions.toggleSelectAll}
+                                sortBy={currentSort ?? "year"}
+                                sortDirection={sort_direction}
+                                onSortResults={(field) => void trackingActions.sortResults(field)}
+                                onToggleSortDirection={() => void trackingActions.toggleSortDirection()}
+                                density={resultsDensity}
+                                onDensityChange={updateResultsDensity}
+                              />
+                            </Suspense>
+                          ) : searchMode === "sections" ? (
                             <Suspense fallback={<SearchResultsTableFallback />}>
                               <SearchResultsTable
                                 searchResults={searchResults}
@@ -1103,10 +1251,10 @@ export default function Search() {
                       ) : (
                         <>
                           <SearchPaginationFallback />
-                          {searchMode === "sections" ? (
-                            <SearchResultsTableFallback />
-                          ) : (
+                          {searchMode === "transactions" ? (
                             <TransactionResultsFallback />
+                          ) : (
+                            <SearchResultsTableFallback />
                           )}
                         </>
                       )}
@@ -1115,12 +1263,16 @@ export default function Search() {
                         const activeSelectedSize =
                           searchMode === "sections"
                             ? selectedResults.size
-                            : transactionSearch.selectedResults.size;
+                            : searchMode === "tax"
+                              ? taxSearch.selectedResults.size
+                              : transactionSearch.selectedResults.size;
                         if (activeSelectedSize === 0) return null;
                         const onClear =
                           searchMode === "sections"
                             ? clearSelection
-                            : transactionSearch.clearSelection;
+                            : searchMode === "tax"
+                              ? taxSearch.actions.clearSelection
+                              : transactionSearch.clearSelection;
                         return (
                           <div className="rounded-xl border border-border/60 bg-muted/20 p-4 backdrop-blur supports-[backdrop-filter]:bg-muted/20">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1186,6 +1338,7 @@ export default function Search() {
           onClose={() => {
             actions.closeErrorModal();
             transactionSearch.closeErrorModal();
+            taxSearch.actions.closeErrorModal();
           }}
           message={activeErrorMessage}
         />

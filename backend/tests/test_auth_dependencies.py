@@ -5,7 +5,7 @@ import backend.app as backend_app
 
 class AuthDependencyTests(unittest.TestCase):
     def test_build_route_deps_contains_auth_contract(self) -> None:
-        _search_deps, _agreements_deps, _reference_data_deps, auth_deps = (
+        _search_deps, _agreements_deps, _reference_data_deps, _tax_clauses_deps, auth_deps = (
             backend_app._build_route_deps()
         )
         self.assertTrue(callable(auth_deps._require_auth_db))
@@ -16,7 +16,7 @@ class AuthDependencyTests(unittest.TestCase):
         self.assertIs(auth_deps.AuthSession, backend_app.AuthSession)
 
     def test_auth_dep_wrappers_follow_runtime_monkeypatches(self) -> None:
-        _search_deps, _agreements_deps, _reference_data_deps, auth_deps = (
+        _search_deps, _agreements_deps, _reference_data_deps, _tax_clauses_deps, auth_deps = (
             backend_app._build_route_deps()
         )
         original_verify = backend_app._verify_turnstile_token

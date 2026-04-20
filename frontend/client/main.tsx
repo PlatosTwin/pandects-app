@@ -17,6 +17,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 
 const Landing = lazy(() => import("./pages/Landing"));
 const SearchPage = lazy(() => import("./pages/Search"));
+const TaxClauseComparePage = lazy(() => import("./pages/TaxClauseCompare"));
 const AgreementPage = lazy(() => import("./pages/Agreement"));
 const BulkData = lazy(() => import("./pages/BulkData"));
 const AgreementIndex = lazy(() => import("./pages/AgreementIndex"));
@@ -70,6 +71,7 @@ const App = () => {
             <Route element={<AppLayout />}>
               <Route path="/" element={<Landing />} />
               <Route path="/search" element={<SearchPage />} />
+              <Route path="/compare/tax" element={<TaxClauseComparePage />} />
               <Route path="/agreements/:agreementUuid" element={<AgreementPage />} />
               <Route path="/bulk-data" element={<BulkData />} />
               <Route path="/agreement-index" element={<AgreementIndex />} />

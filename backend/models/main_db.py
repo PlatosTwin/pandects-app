@@ -791,6 +791,98 @@ def standard_id_filter_expr(expanded_standard_ids: list[str]) -> ColumnElement[b
     )
 
 
+def expand_tax_clause_taxonomy_standard_ids(standard_ids: list[str]) -> list[str]:
+    if not standard_ids:
+        return []
+
+    standard_ids_set = {value for value in standard_ids if value}
+    if not standard_ids_set:
+        return []
+
+    l1_rows = cast(
+        list[tuple[object]],
+        db.session.query(TaxClauseTaxonomyL1.standard_id)
+        .filter(TaxClauseTaxonomyL1.standard_id.in_(standard_ids_set))
+        .all(),
+    )
+    l1_ids = {standard_id for (standard_id,) in l1_rows if isinstance(standard_id, str)}
+    l2_rows = cast(
+        list[tuple[object]],
+        db.session.query(TaxClauseTaxonomyL2.standard_id)
+        .filter(TaxClauseTaxonomyL2.standard_id.in_(standard_ids_set))
+        .all(),
+    )
+    l2_ids = {standard_id for (standard_id,) in l2_rows if isinstance(standard_id, str)}
+    l3_rows = cast(
+        list[tuple[object]],
+        db.session.query(TaxClauseTaxonomyL3.standard_id)
+        .filter(TaxClauseTaxonomyL3.standard_id.in_(standard_ids_set))
+        .all(),
+    )
+    l3_ids = {standard_id for (standard_id,) in l3_rows if isinstance(standard_id, str)}
+
+    expanded_l2_ids: set[str] = set()
+    expanded_l3_ids: set[str] = set()
+    if l1_ids:
+        expanded_l2_rows = cast(
+            list[tuple[object]],
+            db.session.query(TaxClauseTaxonomyL2.standard_id)
+            .filter(TaxClauseTaxonomyL2.parent_id.in_(l1_ids))
+            .all(),
+        )
+        expanded_l2_ids.update(
+            standard_id for (standard_id,) in expanded_l2_rows if isinstance(standard_id, str)
+        )
+        expanded_l3_from_l1 = cast(
+            list[tuple[object]],
+            db.session.query(TaxClauseTaxonomyL3.standard_id)
+            .join(TaxClauseTaxonomyL2, TaxClauseTaxonomyL3.parent_id == TaxClauseTaxonomyL2.standard_id)
+            .filter(TaxClauseTaxonomyL2.parent_id.in_(l1_ids))
+            .all(),
+        )
+        expanded_l3_ids.update(
+            standard_id for (standard_id,) in expanded_l3_from_l1 if isinstance(standard_id, str)
+        )
+    if l2_ids:
+        expanded_l3_from_l2 = cast(
+            list[tuple[object]],
+            db.session.query(TaxClauseTaxonomyL3.standard_id)
+            .filter(TaxClauseTaxonomyL3.parent_id.in_(l2_ids))
+            .all(),
+        )
+        expanded_l3_ids.update(
+            standard_id for (standard_id,) in expanded_l3_from_l2 if isinstance(standard_id, str)
+        )
+
+    return list(
+        standard_ids_set | l1_ids | l2_ids | l3_ids | expanded_l2_ids | expanded_l3_ids
+    )
+
+
+@lru_cache(maxsize=512)
+def expand_tax_clause_taxonomy_standard_ids_cached(
+    standard_ids_key: tuple[str, ...],
+) -> tuple[str, ...]:
+    if not standard_ids_key:
+        return ()
+    return tuple(expand_tax_clause_taxonomy_standard_ids(list(standard_ids_key)))
+
+
+def tax_clause_standard_id_filter_expr(
+    expanded_standard_ids: list[str],
+) -> ColumnElement[bool]:
+    """Match tax clauses that have any of the given taxonomy standard_ids assigned."""
+    return cast(
+        ColumnElement[bool],
+        db.session.query(TaxClauseAssignment.clause_uuid)
+        .filter(
+            TaxClauseAssignment.clause_uuid == Clauses.clause_uuid,
+            TaxClauseAssignment.standard_id.in_(expanded_standard_ids),
+        )
+        .exists(),
+    )
+
+
 def standard_id_agreement_filter_expr(
     agreement_uuid_column: Any,
     expanded_standard_ids: list[str],
@@ -832,8 +924,11 @@ __all__ = [
     "agreement_latest_xml_join_condition",
     "agreement_year_expr",
     "coalesced_section_standard_ids",
+    "expand_tax_clause_taxonomy_standard_ids",
+    "expand_tax_clause_taxonomy_standard_ids_cached",
     "expand_taxonomy_standard_ids",
     "expand_taxonomy_standard_ids_cached",
+    "tax_clause_standard_id_filter_expr",
     "main_db_schema_from_env",
     "main_db_uri_from_env",
     "parse_section_standard_ids",

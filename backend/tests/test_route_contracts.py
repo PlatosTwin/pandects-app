@@ -44,6 +44,7 @@ class RouteContractTests(unittest.TestCase):
         rules = {rule.rule for rule in self.app.url_map.iter_rules()}
         expected = {
             "/v1/sections",
+            "/v1/tax-clauses",
             "/v1/agreements",
             "/v1/agreements/<string:agreement_uuid>",
             "/v1/agreements/<string:agreement_uuid>/tax-clauses",
@@ -75,6 +76,7 @@ class RouteContractTests(unittest.TestCase):
             spec_dict = spec.to_dict()
         paths = spec_dict.get("paths", {})
         self.assertEqual(paths["/v1/sections"]["get"]["operationId"], "listSections")
+        self.assertEqual(paths["/v1/tax-clauses"]["get"]["operationId"], "listTaxClauses")
         self.assertEqual(paths["/v1/agreements"]["get"]["operationId"], "listAgreements")
         self.assertEqual(paths["/v1/taxonomy"]["get"]["operationId"], "getTaxonomy")
         self.assertEqual(paths["/v1/taxonomy/tax-clauses"]["get"]["operationId"], "getTaxClauseTaxonomy")

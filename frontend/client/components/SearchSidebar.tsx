@@ -57,6 +57,7 @@ interface SearchSidebarProps {
   acquirer_industries: string[];
   clauseTypesNested: ClauseTypeTree;
   clauseTypeLabelById: Record<string, string>;
+  clauseTypeSectionLabel?: string;
   isLoadingFilterOptions: boolean;
   isLoadingTaxonomy: boolean;
   onToggleFilterValue: (field: string, value: string) => void;
@@ -81,6 +82,7 @@ export function SearchSidebar({
   acquirer_industries,
   clauseTypesNested,
   clauseTypeLabelById,
+  clauseTypeSectionLabel = "Section Type",
   isLoadingFilterOptions,
   isLoadingTaxonomy,
   onToggleFilterValue,
@@ -189,7 +191,7 @@ export function SearchSidebar({
       {/* Section Type Filter */}
       <div className="relative">
         <NestedCheckboxFilter
-          label="Section Type"
+          label={clauseTypeSectionLabel}
           labelAddon={
             <AdaptiveTooltip
               trigger={

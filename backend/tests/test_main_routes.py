@@ -1719,6 +1719,53 @@ class MainRoutesTests(unittest.TestCase):
             },
         )
 
+    def test_tax_clauses_search_default_excludes_rep_warranty(self):
+        client = self.app.test_client()
+        res = client.get("/v1/tax-clauses?page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        results = body.get("results", [])
+        clause_uuids = [r["clause_uuid"] for r in results]
+        self.assertIn("clause-a1-1", clause_uuids)
+        self.assertNotIn("clause-a1-2", clause_uuids)
+        first = results[0]
+        self.assertEqual(first["agreement_uuid"], "a1")
+        self.assertEqual(first["target"], "Target A")
+        self.assertEqual(first["acquirer"], "Acquirer A")
+        self.assertEqual(first["year"], 2020)
+        self.assertEqual(first["context_type"], "operative")
+        self.assertEqual(first["tax_standard_ids"], ["tax_transfer"])
+
+    def test_tax_clauses_search_include_rep_warranty(self):
+        client = self.app.test_client()
+        res = client.get("/v1/tax-clauses?include_rep_warranty=true&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        results = body.get("results", [])
+        clause_uuids = {r["clause_uuid"] for r in results}
+        self.assertIn("clause-a1-1", clause_uuids)
+        self.assertIn("clause-a1-2", clause_uuids)
+
+    def test_tax_clauses_search_by_tax_standard_id_expands_parent(self):
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/tax-clauses?tax_standard_id=tax_operational&include_rep_warranty=true&page=1&page_size=10"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        clause_uuids = {r["clause_uuid"] for r in body.get("results", [])}
+        self.assertEqual(clause_uuids, {"clause-a1-1", "clause-a1-2"})
+
+    def test_tax_clauses_search_filters_by_deal_metadata(self):
+        client = self.app.test_client()
+        res = client.get("/v1/tax-clauses?year=2020&target=Target%20A&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("total_count"), 1)
+        res_no_match = client.get("/v1/tax-clauses?year=2099&page=1&page_size=10")
+        self.assertEqual(res_no_match.status_code, 200)
+        self.assertEqual(res_no_match.get_json().get("total_count"), 0)
+
     def test_agreement_tax_clauses_endpoint(self):
         client = self.app.test_client()
         res = client.get("/v1/agreements/a1/tax-clauses")
