@@ -28,9 +28,17 @@ class PipelineStateSqlTests(unittest.TestCase):
 
     def test_tagging_queue_uses_body_gap_and_non_gated(self) -> None:
         sql = canonical_tagging_queue_sql("pdx")
-        self.assertIn("body_page_count > 0", sql)
-        self.assertIn("tagged_body_page_count < body_page_count", sql)
-        self.assertIn("page_is_gated = 0", sql)
+        self.assertIn("FROM pdx.agreements a", sql)
+        self.assertIn("JOIN pdx.pages p", sql)
+        self.assertIn("LEFT JOIN pdx.tagged_outputs t", sql)
+        self.assertIn("AND a.paginated IS NOT FALSE", sql)
+        self.assertIn("AND t.page_uuid IS NULL", sql)
+        self.assertIn("MAX(", sql)
+        self.assertIn("WHEN p.review_flag = 1 THEN 1", sql)
+        self.assertIn("p.gold_label IS NULL OR TRIM(p.gold_label) = ''", sql)
+        self.assertIn(") < 5", sql)
+        self.assertNotIn("xml_latest AS", sql)
+        self.assertNotIn("sections_latest AS", sql)
 
     def test_page_gating_requires_review_flag_or_too_few_body_pages(self) -> None:
         sql = canonical_stage_state_sql("pdx")

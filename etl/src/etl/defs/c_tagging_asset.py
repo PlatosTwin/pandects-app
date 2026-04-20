@@ -18,7 +18,7 @@ from etl.domain.c_tagging import (
     ContextProtocol as TaggingContext,
     tag,
 )
-from etl.utils.db_utils import upsert_tags
+from etl.utils.db_utils import insert_new_tags
 from etl.utils.logical_job_runs import (
     load_active_scope_for_job,
     mark_logical_run_stage_completed,
@@ -124,7 +124,7 @@ def _run_tagging_for_agreements(
             )
 
             try:
-                upsert_tags(tagged_pages, db.database, conn)
+                insert_new_tags(tagged_pages, db.database, conn)
                 processed_agreement_uuids.update(
                     str(row["agreement_uuid"])
                     for row in rows_mapping

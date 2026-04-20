@@ -8,6 +8,7 @@ from etl.defs.resources import (
     DBResource,
     PipelineConfig,
     QueueRunMode,
+    TaggingModel,
     TaxonomyMode,
     get_resources,
 )
@@ -32,6 +33,22 @@ class DBResourceTests(unittest.TestCase):
             pool_recycle=3600,
         )
 
+
+class TaggingModelTests(unittest.TestCase):
+    def test_model_is_cached(self) -> None:
+        model = TaggingModel()
+        fake_inference = object()
+
+        with patch("etl.defs.resources.NERInference", return_value=fake_inference) as inference_cls:
+            first = model.model()
+            second = model.model()
+
+        self.assertIs(first, fake_inference)
+        self.assertIs(second, fake_inference)
+        inference_cls.assert_called_once()
+
+
+class PipelineConfigResourceTests(unittest.TestCase):
     def test_get_resources_accepts_new_queue_and_openai_batch_keys(self) -> None:
         with patch(
             "etl.defs.resources._load_yaml_config",

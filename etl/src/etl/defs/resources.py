@@ -177,12 +177,15 @@ class ReviewModel(dg.ConfigurableResource[object]):
 class TaggingModel(dg.ConfigurableResource[object]):
     """Resource for the NER tagging model."""
 
+    _inf: NERInference | None = PrivateAttr(default=None)
+
     def model(self) -> NERInference:
         """Load and return the NER tagging model."""
-        model = NERInference(
-            ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.80
-        )
-        return model
+        if self._inf is None:
+            self._inf = NERInference(
+                ckpt_path=NER_CKPT_PATH, label_list=NER_LABEL_LIST, review_threshold=0.80
+            )
+        return self._inf
 
 
 class TaxonomyModel(dg.ConfigurableResource[object]):

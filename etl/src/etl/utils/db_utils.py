@@ -487,6 +487,63 @@ def upsert_tags(
             _ = conn.execute(update_sql_tags, rows_update)
 
 
+def insert_new_tags(
+    staged_tags: Sequence[TagRow],
+    schema: str,
+    conn: Connection,
+) -> None:
+    """
+    Insert freshly tagged pages without a preflight existence query.
+
+    The tagging asset selects only pages with no tagged_outputs row. The duplicate
+    branch keeps this idempotent if a concurrent run wins the race.
+    """
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    insert_sql_tags = text(
+        f"""
+        INSERT INTO {tagged_outputs_table} (
+            page_uuid,
+            tagged_text,
+            low_count,
+            spans,
+            tokens,
+            created_date
+        ) VALUES (
+            :page_uuid,
+            :tagged_text,
+            :low_count,
+            :spans,
+            :tokens,
+            DEFAULT
+        )
+        ON DUPLICATE KEY UPDATE
+            tagged_text = VALUES(tagged_text),
+            low_count = VALUES(low_count),
+            spans = VALUES(spans),
+            tokens = VALUES(tokens)
+        """
+    )
+    rows_tags: list[dict[str, object]] = [
+        {
+            "page_uuid": tag.page_uuid,
+            "tagged_text": tag.tagged_text,
+            "low_count": tag.low_count,
+            "spans": json.dumps(tag.spans),
+            "tokens": json.dumps(tag.tokens),
+        }
+        for tag in staged_tags
+    ]
+
+    for i in range(0, len(rows_tags), 250):
+        batch_tags = rows_tags[i : i + 250]
+        if not batch_tags:
+            continue
+        deduped_batch_by_pid: dict[object, dict[str, object]] = {}
+        for row in batch_tags:
+            deduped_batch_by_pid[row["page_uuid"]] = row
+        _ = conn.execute(insert_sql_tags, list(deduped_batch_by_pid.values()))
+
+
 def upsert_xml(
     staged_xml: Sequence[XmlRow],
     schema: str,
@@ -659,7 +716,7 @@ def replace_module_clauses(
     _ = conn.execute(delete_assignments_sql, params)
     _ = conn.execute(delete_clauses_sql, params)
 
-    rows = [dict(row._asdict()) if hasattr(row, "_asdict") else dict(row) for row in staged_clauses]
+    rows: list[Mapping[str, object]] = list(staged_clauses)
     for i in range(0, len(rows), 250):
         batch = rows[i : i + 250]
         if batch:
@@ -694,7 +751,7 @@ def upsert_tax_clause_assignments(
             assigned_at = UTC_TIMESTAMP()
         """
     )
-    rows = [dict(row._asdict()) if hasattr(row, "_asdict") else dict(row) for row in staged_assignments]
+    rows: list[Mapping[str, object]] = list(staged_assignments)
     for i in range(0, len(rows), 250):
         batch = rows[i : i + 250]
         if batch:

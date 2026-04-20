@@ -238,18 +238,65 @@ def canonical_pre_processing_queue_sql(schema: str, *, scoped: bool = False) -> 
 
 
 def canonical_tagging_queue_sql(schema: str, *, scoped: bool = False) -> str:
-    scoped_clause = "AND agreement_uuid IN :auuids" if scoped else "AND agreement_uuid > :last_uuid"
+    tables = _table_names(schema)
+    agreements_table = tables["agreements"]
+    pages_table = tables["pages"]
+    tagged_outputs_table = tables["tagged_outputs"]
+    scoped_clause = (
+        "AND a.agreement_uuid IN :auuids"
+        if scoped
+        else "AND a.agreement_uuid > :last_uuid"
+    )
     return f"""
-    {canonical_components_cte_sql(schema)}
-    SELECT agreement_uuid
-    FROM state_components
-    WHERE is_not_paginated = 0
-      AND page_count > 0
-      AND body_page_count > 0
-      AND tagged_body_page_count < body_page_count
-      AND page_is_gated = 0
+    SELECT
+        a.agreement_uuid
+    FROM {agreements_table} a
+    JOIN {pages_table} p
+        ON p.agreement_uuid = a.agreement_uuid
+    LEFT JOIN {tagged_outputs_table} t
+        ON t.page_uuid = p.page_uuid
+    WHERE COALESCE(LOWER(a.status), '') <> 'invalid'
+      AND a.paginated IS NOT FALSE
       {scoped_clause}
-    ORDER BY agreement_uuid ASC
+    GROUP BY a.agreement_uuid
+    HAVING COUNT(p.page_uuid) > 0
+       AND SUM(
+            CASE
+                WHEN COALESCE(p.gold_label, p.source_page_type) = 'body' THEN 1
+                ELSE 0
+            END
+       ) > 0
+       AND SUM(
+            CASE
+                WHEN COALESCE(p.gold_label, p.source_page_type) = 'body'
+                    AND t.page_uuid IS NULL
+                THEN 1
+                ELSE 0
+            END
+       ) > 0
+       AND NOT (
+            (
+                MAX(
+                    CASE
+                        WHEN p.review_flag = 1 THEN 1
+                        ELSE 0
+                    END
+                ) = 1
+                AND SUM(
+                    CASE
+                        WHEN p.gold_label IS NULL OR TRIM(p.gold_label) = '' THEN 1
+                        ELSE 0
+                    END
+                ) > 0
+            )
+            OR SUM(
+                CASE
+                    WHEN COALESCE(p.gold_label, p.source_page_type) = 'body' THEN 1
+                    ELSE 0
+                END
+            ) < 5
+       )
+    ORDER BY a.agreement_uuid ASC
     LIMIT :batch_size
     """
 

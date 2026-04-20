@@ -3,7 +3,7 @@ import unittest
 from dataclasses import dataclass
 from typing import cast
 
-from etl.utils.db_utils import upsert_agreements
+from etl.utils.db_utils import insert_new_tags, upsert_agreements
 
 
 class _FakeScalarResult:
@@ -49,6 +49,15 @@ class _AgreementRow:
     auto_status_verified: bool = False
 
 
+@dataclass
+class _TagRow:
+    page_uuid: str
+    tagged_text: str
+    low_count: int
+    spans: list[dict[str, object]]
+    tokens: list[dict[str, object]]
+
+
 class UpsertAgreementsTests(unittest.TestCase):
     def test_insert_qualifying_row_sets_valid_status(self) -> None:
         conn = _FakeConnection()
@@ -63,7 +72,7 @@ class UpsertAgreementsTests(unittest.TestCase):
         insert_sql, insert_params = conn.executions[1]
         insert_rows = cast(list[dict[str, object]], insert_params)
         self.assertIn("status", insert_sql)
-        self.assertEqual(insert_rows[0]["status"], "valid")
+        self.assertEqual(insert_rows[0]["status"], "verified")
         self.assertTrue(cast(bool, insert_rows[0]["auto_status_verified"]))
 
     def test_insert_non_qualifying_row_leaves_status_null(self) -> None:
@@ -93,7 +102,7 @@ class UpsertAgreementsTests(unittest.TestCase):
 
         update_sql, update_params = conn.executions[1]
         update_rows = cast(list[dict[str, object]], update_params)
-        self.assertIn("WHEN status IS NULL AND :auto_status_verified THEN 'valid'", update_sql)
+        self.assertIn("WHEN status IS NULL AND :auto_status_verified THEN 'verified'", update_sql)
         self.assertIn("OR (status IS NULL AND :auto_status_verified)", update_sql)
         self.assertTrue(cast(bool, update_rows[0]["auto_status_verified"]))
 
@@ -110,7 +119,31 @@ class UpsertAgreementsTests(unittest.TestCase):
         update_sql, update_params = conn.executions[1]
         update_rows = cast(list[dict[str, object]], update_params)
         self.assertFalse(cast(bool, update_rows[0]["auto_status_verified"]))
-        self.assertIn("WHEN status IS NULL AND :auto_status_verified THEN 'valid'", update_sql)
+        self.assertIn("WHEN status IS NULL AND :auto_status_verified THEN 'verified'", update_sql)
+
+
+class InsertNewTagsTests(unittest.TestCase):
+    def test_insert_new_tags_skips_preflight_select(self) -> None:
+        conn = _FakeConnection()
+        tag = _TagRow(
+            page_uuid="page-1",
+            tagged_text="<section>Intro</section>",
+            low_count=0,
+            spans=[],
+            tokens=[],
+        )
+
+        insert_new_tags(cast(object, [tag]), "pdx", cast(object, conn))  # type: ignore[arg-type]
+
+        self.assertEqual(len(conn.executions), 1)
+        insert_sql, insert_params = conn.executions[0]
+        insert_rows = cast(list[dict[str, object]], insert_params)
+        self.assertIn("INSERT INTO pdx.tagged_outputs", insert_sql)
+        self.assertIn("ON DUPLICATE KEY UPDATE", insert_sql)
+        self.assertNotIn("SELECT page_uuid", insert_sql)
+        self.assertEqual(insert_rows[0]["page_uuid"], "page-1")
+        self.assertEqual(insert_rows[0]["spans"], "[]")
+        self.assertEqual(insert_rows[0]["tokens"], "[]")
 
 
 if __name__ == "__main__":
