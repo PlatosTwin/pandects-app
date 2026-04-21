@@ -876,7 +876,7 @@ export function AgreementReader({
                 mode="agreement"
                 highlightedSection={highlightedSection}
                 isMobile={isMobile}
-                className="text-sm leading-relaxed text-foreground sm:text-base"
+                className="text-sm leading-relaxed text-foreground sm:text-base break-words"
               />
             </div>
           </article>

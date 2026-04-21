@@ -103,7 +103,7 @@ export function XMLRenderer({
           className={cn(
             isMobile
               ? "whitespace-pre-line break-words [overflow-wrap:anywhere]"
-              : "whitespace-pre-wrap",
+              : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
           )}
         >
           {normalizedContent}
@@ -161,7 +161,7 @@ export function XMLRenderer({
                     )}
                   </button>
                 </div>
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   {!isCollapsed && node.children && (
                     <div className="leading-relaxed">
                       {node.children.map((child, childIndex) =>
@@ -196,7 +196,7 @@ export function XMLRenderer({
             className={cn(
               "text-xs font-light inline",
               colorClass,
-              isMobile && "break-words [overflow-wrap:anywhere]",
+              "break-words [overflow-wrap:anywhere]",
             )}
           >
             &lt;{node.tagName}&gt;{content}&lt;/{node.tagName}&gt;
@@ -277,7 +277,7 @@ export function XMLRenderer({
               </div>
 
               {!isCollapsed && node.children && node.children.length > 0 && (
-                <div className="agreement-children mt-2">
+                <div className="agreement-children mt-2 min-w-0">
                   {node.children.map((child, childIndex) =>
                     renderNode(child, childIndex, depth + 1),
                   )}
@@ -312,13 +312,13 @@ export function XMLRenderer({
                 )}
               </div>
 
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <h3 className={cn(headerLevel, "text-foreground mb-2")}>
                   {title}
                 </h3>
 
                 {!isCollapsed && node.children && node.children.length > 0 && (
-                  <div className="agreement-children ml-2">
+                  <div className="agreement-children ml-2 min-w-0">
                     {node.children.map((child, childIndex) =>
                       renderNode(child, childIndex, depth + 1),
                     )}
@@ -335,16 +335,16 @@ export function XMLRenderer({
           <div className="flex items-start gap-1">
             <div className="flex-shrink-0">
               {isCollapsible && (
-                  <button
-                    type="button"
-                    onClick={() => toggleCollapse(tagId)}
-                    data-collapse-toggle="true"
-                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    aria-expanded={!isCollapsed}
-                    aria-label={
-                      isCollapsed ? "Expand section" : "Collapse section"
-                    }
-                  >
+                <button
+                  type="button"
+                  onClick={() => toggleCollapse(tagId)}
+                  data-collapse-toggle="true"
+                  className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  aria-expanded={!isCollapsed}
+                  aria-label={
+                    isCollapsed ? "Expand section" : "Collapse section"
+                  }
+                >
                   {isCollapsed ? (
                     <ChevronRight className="w-3 h-3" aria-hidden="true" />
                   ) : (
@@ -354,13 +354,13 @@ export function XMLRenderer({
               )}
             </div>
 
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <span className={cn("text-xs font-light", colorClass)}>
                 &lt;{node.tagName}&gt;
               </span>
 
               {!isCollapsed && node.children && node.children.length > 0 && (
-                <div className="ml-4 mt-1">
+                <div className="ml-4 mt-1 min-w-0">
                   {node.children.map((child, childIndex) =>
                     renderNode(child, childIndex, depth + 1),
                   )}
@@ -384,7 +384,7 @@ export function XMLRenderer({
   };
 
   return (
-    <div className={cn("xml-renderer", className)}>
+    <div className={cn("xml-renderer min-w-0 max-w-full", className)}>
       {parsedXML.map((node, index) => renderNode(node, index))}
     </div>
   );
