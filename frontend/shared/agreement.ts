@@ -38,5 +38,6 @@ export interface TOCItem {
   title: string;
   level: number;
   sectionUuid?: string;
+  anchorId?: string;
   children?: TOCItem[];
 }

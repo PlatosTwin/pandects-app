@@ -8,18 +8,30 @@ interface TableOfContentsProps {
   xmlContent: string;
   targetSectionUuid?: string;
   onSectionClick: (sectionUuid: string) => void;
+  onAnchorClick?: (anchorId: string) => void;
   className?: string;
   scrollable?: boolean;
 }
+
+const REGION_ITEMS: Array<{ tagName: string; title: string }> = [
+  { tagName: "frontMatter", title: "Front Matter" },
+  { tagName: "tableOfContents", title: "Table of Contents" },
+  { tagName: "body", title: "Body" },
+  { tagName: "sigPages", title: "Signature Pages" },
+  { tagName: "backMatter", title: "Back Matter" },
+];
 
 export function TableOfContents({
   xmlContent,
   targetSectionUuid,
   onSectionClick,
+  onAnchorClick,
   className,
   scrollable = true,
 }: TableOfContentsProps) {
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(
+    () => new Set(["region-body"]),
+  );
 
   const tocItems = useMemo(() => {
     return extractTOCFromXML(xmlContent);
@@ -67,10 +79,16 @@ export function TableOfContents({
             }
             if (item.sectionUuid) {
               onSectionClick(item.sectionUuid);
+            } else if (item.anchorId) {
+              onAnchorClick?.(item.anchorId);
             }
           }}
           aria-expanded={hasChildren ? isExpanded : undefined}
-          aria-label={item.sectionUuid ? `Go to section: ${item.title}` : item.title}
+          aria-label={
+            item.sectionUuid || item.anchorId
+              ? `Go to section: ${item.title}`
+              : item.title
+          }
         >
           <div className="w-4 flex-shrink-0 flex items-center justify-center">
             {hasChildren ? (
@@ -145,9 +163,9 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
   let itemCounter = 0;
 
   try {
-    // First, let's check if there's a body tag and extract content from it
     const bodyMatch = xmlContent.match(/<body[^>]*>(.*?)<\/body>/s);
     const contentToScan = bodyMatch ? bodyMatch[1] : xmlContent;
+    const bodyChildren: TOCItem[] = [];
 
     // Extract all articles from the body
     const articleMatches = contentToScan.matchAll(
@@ -218,7 +236,7 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
         });
       }
 
-      items.push(articleItem);
+      bodyChildren.push(articleItem);
     }
 
     // Also look for any standalone sections that might not be in articles
@@ -237,13 +255,27 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
       const uuidMatch = sectionAttributes.match(/uuid="([^"]*)"/);
       const sectionUuid = uuidMatch ? uuidMatch[1] : undefined;
 
-      items.push({
+      bodyChildren.push({
         id: `standalone-section-${itemCounter++}`,
         title: sectionTitle,
         level: 1,
         sectionUuid: sectionUuid,
       });
     }
+
+    for (const region of REGION_ITEMS) {
+      if (!xmlContent.includes(`<${region.tagName}`)) continue;
+
+      items.push({
+        id: `region-${region.tagName}`,
+        title: region.title,
+        level: 1,
+        anchorId: `agreement-region-${region.tagName}`,
+        children: region.tagName === "body" ? bodyChildren : undefined,
+      });
+    }
+
+    if (items.length === 0) return bodyChildren;
   } catch (error) {
     logger.error("Error parsing XML for TOC:", error);
     // Return a basic structure if parsing fails

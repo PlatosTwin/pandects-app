@@ -15,6 +15,7 @@ import {
   Info,
   ListTree,
   Search,
+  SlidersHorizontal,
   ShieldCheck,
   Tag,
   X,
@@ -36,6 +37,16 @@ import {
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,6 +80,8 @@ interface JumpItem {
   subtitle: string;
   preview?: string | null;
 }
+
+type AgreementTextSize = "small" | "medium" | "large";
 
 function HeaderFactChip({
   icon: Icon,
@@ -312,6 +325,8 @@ export function AgreementReader({
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const [showBodyOnly, setShowBodyOnly] = useState(false);
+  const [textSize, setTextSize] = useState<AgreementTextSize>("medium");
   const [stickyHeaderBottom, setStickyHeaderBottom] = useState(240);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -414,6 +429,18 @@ export function AgreementReader({
     window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
     setIsTocSheetOpen(false);
     setIsDetailsSheetOpen(false);
+  };
+
+  const scrollToAnchor = (anchorId: string) => {
+    const element = document.getElementById(anchorId);
+    if (!element) return;
+
+    const targetY =
+      element.getBoundingClientRect().top +
+      window.scrollY -
+      stickyHeaderBottom -
+      16;
+    window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -623,6 +650,13 @@ export function AgreementReader({
     <ReaderDetails metadata={metadata} filingUrl={agreement.url ?? null} />
   );
 
+  const agreementTextSizeClass =
+    textSize === "small"
+      ? "text-sm"
+      : textSize === "large"
+        ? "text-base sm:text-lg"
+        : "text-sm sm:text-base";
+
   return (
     <div>
       {/* Sticky header */}
@@ -666,6 +700,39 @@ export function AgreementReader({
                 </span>
               ) : null}
             </div>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden h-8 shrink-0 gap-1.5 px-2 text-muted-foreground hover:text-foreground sm:inline-flex"
+                >
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                  View options
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuCheckboxItem
+                  checked={showBodyOnly}
+                  onCheckedChange={(checked) => setShowBodyOnly(checked === true)}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  Show body only
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Text size</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={textSize}
+                  onValueChange={(value) =>
+                    setTextSize(value as AgreementTextSize)
+                  }
+                >
+                  <DropdownMenuRadioItem value="small">Small</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="medium">Medium</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="large">Large</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {agreement.url ? (
               <Button
                 asChild
@@ -716,6 +783,7 @@ export function AgreementReader({
                         xmlContent={agreement.xml}
                         targetSectionUuid={highlightedSection ?? undefined}
                         onSectionClick={scrollToSection}
+                        onAnchorClick={scrollToAnchor}
                         className="h-full"
                         scrollable={true}
                       />
@@ -844,6 +912,7 @@ export function AgreementReader({
                   xmlContent={agreement.xml}
                   targetSectionUuid={highlightedSection ?? undefined}
                   onSectionClick={scrollToSection}
+                  onAnchorClick={scrollToAnchor}
                   scrollable={false}
                 />
               </div>
@@ -879,7 +948,11 @@ export function AgreementReader({
                 mode="agreement"
                 highlightedSection={highlightedSection}
                 isMobile={isMobile}
-                className="text-sm leading-relaxed text-foreground sm:text-base break-words"
+                className={cn(
+                  "leading-relaxed text-foreground break-words",
+                  agreementTextSizeClass,
+                )}
+                showBodyOnly={showBodyOnly}
               />
             </div>
           </article>

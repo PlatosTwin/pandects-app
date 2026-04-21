@@ -15,6 +15,7 @@ interface XMLRendererProps {
   mode?: "search" | "agreement";
   highlightedSection?: string | null;
   isMobile?: boolean;
+  showBodyOnly?: boolean;
 }
 
 const XML_TAG_COLORS = {
@@ -27,6 +28,13 @@ const XML_TAG_COLORS = {
 const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
 const AGREEMENT_COLLAPSIBLE_TAGS = new Set(["article", "section"]);
 const NON_BREAKING_CHARS_RE = /[\u00a0\u2007\u202f\u2060\ufeff]/g;
+const AGREEMENT_REGION_LABELS = new Map([
+  ["frontMatter", "Front Matter"],
+  ["tableOfContents", "Table of Contents"],
+  ["body", "Body"],
+  ["sigPages", "Signature Pages"],
+  ["backMatter", "Back Matter"],
+]);
 
 export function normalizeXmlText(content: string) {
   return content.replace(NON_BREAKING_CHARS_RE, " ");
@@ -38,6 +46,7 @@ export function XMLRenderer({
   mode = "search",
   highlightedSection,
   isMobile = false,
+  showBodyOnly = false,
 }: XMLRendererProps) {
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [fadingHighlights, setFadingHighlights] = useState<Set<string>>(
@@ -75,8 +84,12 @@ export function XMLRenderer({
   }, [highlightedSection, previousHighlightedSection]);
 
   const parsedXML = useMemo(() => {
-    return parseXMLContent(xmlContent);
-  }, [xmlContent]);
+    const nodes = parseXMLContent(xmlContent);
+    if (!showBodyOnly) return nodes;
+
+    const bodyNode = findFirstTagNode(nodes, "body");
+    return bodyNode?.children ?? nodes;
+  }, [showBodyOnly, xmlContent]);
 
   const toggleCollapse = (tagId: string) => {
     setCollapsedTags((prev) => {
@@ -90,10 +103,21 @@ export function XMLRenderer({
     });
   };
 
+  const renderChildren = (
+    children: XMLNode[] | undefined,
+    depth: number,
+    parentTagName?: string,
+  ) =>
+    children?.map((child, childIndex) =>
+      renderNode(child, childIndex, depth, children, parentTagName),
+    );
+
   const renderNode = (
     node: XMLNode,
     index: number,
     depth: number = 0,
+    siblings: XMLNode[] = [],
+    parentTagName?: string,
   ): React.ReactNode => {
     if (node.type === "text") {
       const normalizedContent = normalizeXmlText(node.content);
@@ -136,6 +160,10 @@ export function XMLRenderer({
         ? { "data-section-uuid": sectionUuid }
         : {};
 
+      if (mode === "agreement" && node.tagName === "metadata") {
+        return null;
+      }
+
       // Handle text tags - remove tags and just render content
       if (node.tagName === "text") {
         if (mode === "search") {
@@ -164,9 +192,7 @@ export function XMLRenderer({
                 <div className="min-w-0 flex-1">
                   {!isCollapsed && node.children && (
                     <div className="leading-relaxed">
-                      {node.children.map((child, childIndex) =>
-                        renderNode(child, childIndex, depth + 1),
-                      )}
+                      {renderChildren(node.children, depth + 1, node.tagName)}
                     </div>
                   )}
                 </div>
@@ -177,17 +203,55 @@ export function XMLRenderer({
           // In agreement mode, just render content without tags
           return (
             <div key={tagId} className="my-1 leading-relaxed">
-              {node.children &&
-                node.children.map((child, childIndex) =>
-                  renderNode(child, childIndex, depth + 1),
-                )}
+              {renderChildren(node.children, depth + 1, node.tagName)}
             </div>
           );
         }
       }
 
-      // Handle pageUUID and page tags - render inline
+      if (mode === "agreement" && node.tagName) {
+        const regionLabel = AGREEMENT_REGION_LABELS.get(node.tagName);
+        if (regionLabel) {
+          return (
+            <section
+              key={tagId}
+              id={`agreement-region-${node.tagName}`}
+              data-reader-region={node.tagName}
+              className="scroll-mt-3"
+            >
+              <div className="my-8 flex items-center gap-4" aria-hidden="true">
+                <div className="h-0.5 flex-1 bg-foreground/30" />
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {regionLabel}
+                </div>
+                <div className="h-0.5 flex-1 bg-foreground/30" />
+              </div>
+              <div className="min-w-0">
+                {renderChildren(node.children, depth + 1, node.tagName)}
+              </div>
+            </section>
+          );
+        }
+      }
+
+      // Handle pageUUID and page tags - render page separators in agreement mode
       if (node.tagName === "pageUUID" || node.tagName === "page") {
+        if (mode === "agreement") {
+          if (node.tagName === "page") return null;
+          if (isAdjacentToAgreementHeavyBreak(siblings, index)) return null;
+          if (isAgreementContainerBoundaryPageBreak(siblings, index, parentTagName)) {
+            return null;
+          }
+
+          return (
+            <div
+              key={tagId}
+              className="my-5 border-t border-foreground/20"
+              aria-hidden="true"
+            />
+          );
+        }
+
         const content =
           node.children?.find((child) => child.type === "text")?.content || "";
         return (
@@ -229,7 +293,7 @@ export function XMLRenderer({
 
         const containerProps = {
           className: cn(
-            "my-4 scroll-mt-3 relative",
+            "my-6 border-t-2 border-foreground/20 pt-5 scroll-mt-3 relative",
             showHighlight && "z-10",
             showHighlight && isMobile && "pl-1 pr-1 -ml-1 -mr-1",
             showHighlight && !isMobile && "pr-2 -mr-2",
@@ -278,9 +342,7 @@ export function XMLRenderer({
 
               {!isCollapsed && node.children && node.children.length > 0 && (
                 <div className="agreement-children mt-2 min-w-0">
-                  {node.children.map((child, childIndex) =>
-                    renderNode(child, childIndex, depth + 1),
-                  )}
+                  {renderChildren(node.children, depth + 1, node.tagName)}
                 </div>
               )}
             </div>
@@ -319,9 +381,7 @@ export function XMLRenderer({
 
                 {!isCollapsed && node.children && node.children.length > 0 && (
                   <div className="agreement-children ml-2 min-w-0">
-                    {node.children.map((child, childIndex) =>
-                      renderNode(child, childIndex, depth + 1),
-                    )}
+                    {renderChildren(node.children, depth + 1, node.tagName)}
                   </div>
                 )}
               </div>
@@ -329,6 +389,15 @@ export function XMLRenderer({
           </div>
         );
       }
+
+      if (mode === "agreement") {
+        return (
+          <div key={tagId} className="my-1 min-w-0 scroll-mt-3" {...dataAttributes}>
+            {renderChildren(node.children, depth + 1, node.tagName)}
+          </div>
+        );
+      }
+
       // For other tags in search mode or non-collapsible tags
       return (
         <div key={tagId} className="my-1 scroll-mt-3" {...dataAttributes}>
@@ -361,9 +430,7 @@ export function XMLRenderer({
 
               {!isCollapsed && node.children && node.children.length > 0 && (
                 <div className="ml-4 mt-1 min-w-0">
-                  {node.children.map((child, childIndex) =>
-                    renderNode(child, childIndex, depth + 1),
-                  )}
+                  {renderChildren(node.children, depth + 1, node.tagName)}
                 </div>
               )}
 
@@ -385,7 +452,7 @@ export function XMLRenderer({
 
   return (
     <div className={cn("xml-renderer min-w-0 max-w-full", className)}>
-      {parsedXML.map((node, index) => renderNode(node, index))}
+      {renderChildren(parsedXML, 0)}
     </div>
   );
 }
@@ -495,4 +562,77 @@ function parseXMLContent(xmlContent: string): XMLNode[] {
   }
 
   return nodes;
+}
+
+function findFirstTagNode(nodes: XMLNode[], tagName: string): XMLNode | null {
+  for (const node of nodes) {
+    if (node.type !== "tag") continue;
+    if (node.tagName === tagName) return node;
+
+    const childMatch = node.children
+      ? findFirstTagNode(node.children, tagName)
+      : null;
+    if (childMatch) return childMatch;
+  }
+
+  return null;
+}
+
+function isAdjacentToAgreementHeavyBreak(
+  siblings: XMLNode[],
+  index: number,
+): boolean {
+  return (
+    isAgreementHeavyBreakNode(siblings[index - 1]) ||
+    isAgreementHeavyBreakNode(siblings[index + 1])
+  );
+}
+
+function isAgreementHeavyBreakNode(node: XMLNode | undefined): boolean {
+  return (
+    node?.type === "tag" &&
+    (node.tagName === "article" ||
+      node.tagName === "section" ||
+      (node.tagName ? AGREEMENT_REGION_LABELS.has(node.tagName) : false))
+  );
+}
+
+function isAgreementContainerBoundaryPageBreak(
+  siblings: XMLNode[],
+  index: number,
+  parentTagName?: string,
+): boolean {
+  if (!parentTagName || !isAgreementContentContainer(parentTagName)) {
+    return false;
+  }
+
+  const hasPreviousContent = siblings
+    .slice(0, index)
+    .some(hasSubstantiveReaderContent);
+  const hasNextContent = siblings
+    .slice(index + 1)
+    .some(hasSubstantiveReaderContent);
+
+  return !hasPreviousContent || !hasNextContent;
+}
+
+function isAgreementContentContainer(tagName: string): boolean {
+  return (
+    tagName === "article" ||
+    tagName === "section" ||
+    AGREEMENT_REGION_LABELS.has(tagName)
+  );
+}
+
+function hasSubstantiveReaderContent(node: XMLNode): boolean {
+  if (node.type === "text") return node.content.trim().length > 0;
+  if (isPageMarkerNode(node) || node.tagName === "metadata") return false;
+  return node.children ? node.children.some(hasSubstantiveReaderContent) : false;
+}
+
+function isPageMarkerNode(node: XMLNode): boolean {
+  return (
+    node.type === "tag" &&
+    (node.tagName === "page" || node.tagName === "pageUUID")
+  );
 }
