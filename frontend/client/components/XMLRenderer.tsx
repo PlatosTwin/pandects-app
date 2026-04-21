@@ -238,8 +238,8 @@ export function XMLRenderer({
       if (node.tagName === "pageUUID" || node.tagName === "page") {
         if (mode === "agreement") {
           if (node.tagName === "page") return null;
-          if (isAdjacentToAgreementHeavyBreak(siblings, index)) return null;
-          if (isAgreementContainerBoundaryPageBreak(siblings, index, parentTagName)) {
+          if (isAdjacentToAgreementRegionBreak(siblings, index)) return null;
+          if (isAgreementRegionBoundaryPageBreak(siblings, index, parentTagName)) {
             return null;
           }
 
@@ -293,7 +293,7 @@ export function XMLRenderer({
 
         const containerProps = {
           className: cn(
-            "my-6 border-t-2 border-foreground/20 pt-5 scroll-mt-3 relative",
+            "my-4 scroll-mt-3 relative",
             showHighlight && "z-10",
             showHighlight && isMobile && "pl-1 pr-1 -ml-1 -mr-1",
             showHighlight && !isMobile && "pr-2 -mr-2",
@@ -578,31 +578,29 @@ function findFirstTagNode(nodes: XMLNode[], tagName: string): XMLNode | null {
   return null;
 }
 
-function isAdjacentToAgreementHeavyBreak(
+function isAdjacentToAgreementRegionBreak(
   siblings: XMLNode[],
   index: number,
 ): boolean {
   return (
-    isAgreementHeavyBreakNode(siblings[index - 1]) ||
-    isAgreementHeavyBreakNode(siblings[index + 1])
+    isAgreementRegionNode(siblings[index - 1]) ||
+    isAgreementRegionNode(siblings[index + 1])
   );
 }
 
-function isAgreementHeavyBreakNode(node: XMLNode | undefined): boolean {
+function isAgreementRegionNode(node: XMLNode | undefined): boolean {
   return (
     node?.type === "tag" &&
-    (node.tagName === "article" ||
-      node.tagName === "section" ||
-      (node.tagName ? AGREEMENT_REGION_LABELS.has(node.tagName) : false))
+    (node.tagName ? AGREEMENT_REGION_LABELS.has(node.tagName) : false)
   );
 }
 
-function isAgreementContainerBoundaryPageBreak(
+function isAgreementRegionBoundaryPageBreak(
   siblings: XMLNode[],
   index: number,
   parentTagName?: string,
 ): boolean {
-  if (!parentTagName || !isAgreementContentContainer(parentTagName)) {
+  if (!parentTagName || !AGREEMENT_REGION_LABELS.has(parentTagName)) {
     return false;
   }
 
@@ -614,14 +612,6 @@ function isAgreementContainerBoundaryPageBreak(
     .some(hasSubstantiveReaderContent);
 
   return !hasPreviousContent || !hasNextContent;
-}
-
-function isAgreementContentContainer(tagName: string): boolean {
-  return (
-    tagName === "article" ||
-    tagName === "section" ||
-    AGREEMENT_REGION_LABELS.has(tagName)
-  );
 }
 
 function hasSubstantiveReaderContent(node: XMLNode): boolean {
