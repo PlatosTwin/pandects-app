@@ -122,6 +122,104 @@ class XMLGenerationTests(unittest.TestCase):
         toc_texts = [el.text or "" for el in toc.findall("text")]
         self.assertTrue(any(text.startswith("1.1     The Merger") for text in toc_texts))
 
+    def test_format_signature_text_like_screen_joins_field_values(self) -> None:
+        rendered_signature = """
+        STANLEY BLACK & DECKER, INC.
+
+        By:
+         /s/ Donald Allan, Jr.
+
+        Name:
+        Donald Allan, Jr.
+
+        Title:
+        Senior Vice President and Chief Financial Officer
+
+        SPECTRUM BRANDS,
+        INC.
+
+        by
+        /s/ Nathan Fagre
+        """
+
+        formatted = f_xml.format_signature_text_like_screen(rendered_signature)
+
+        self.assertIn("By: /s/ Donald Allan, Jr.", formatted)
+        self.assertIn("Name: Donald Allan, Jr.", formatted)
+        self.assertIn(
+            "Title: Senior Vice President and Chief Financial Officer",
+            formatted,
+        )
+        self.assertIn("SPECTRUM BRANDS, INC.", formatted)
+        self.assertIn("By: /s/ Nathan Fagre", formatted)
+        self.assertNotIn("By:\n\n/s/ Donald Allan, Jr.", formatted)
+
+    def test_format_signature_text_like_screen_preserves_blank_form_fields(self) -> None:
+        rendered_signature = """
+        SUBSCRIBER:
+
+        By:
+
+        Name:
+        Title:
+
+        (Please print. Please indicate name and capacity of person signing above)
+        """
+
+        formatted = f_xml.format_signature_text_like_screen(rendered_signature)
+
+        self.assertIn("By:\n\nName:\nTitle:", formatted)
+        self.assertIn(
+            "(Please print. Please indicate name and capacity of person signing above)",
+            formatted,
+        )
+        self.assertNotIn(
+            "Title: (Please print. Please indicate name and capacity of person signing above)",
+            formatted,
+        )
+
+    def test_generate_xml_reformats_html_signature_processed_content(self) -> None:
+        agreement_uuid = "11111111-1111-1111-1111-111111111111"
+        df = pd.DataFrame(
+            [
+                {
+                    "agreement_uuid": agreement_uuid,
+                    "page_uuid": "sig-page",
+                    "page_order": 1,
+                    "raw_page_content": "<table></table>",
+                    "source_page_type": "body",
+                    "gold_label": "sig",
+                    "tagged_output": (
+                        "IN WITNESS WHEREOF\n\n"
+                        "ACME CORP.\n\n"
+                        "By:\n\n"
+                        "/s/ Jane Doe\n\n"
+                        "Name:\n"
+                        "Jane Doe\n\n"
+                        "Title:\n"
+                        "Chief Executive Officer"
+                    ),
+                    "url": "https://example.com/agreement",
+                    "filing_date": date(2024, 1, 1),
+                    "source_is_txt": False,
+                    "source_is_html": True,
+                },
+            ]
+        )
+
+        generated, failures = f_xml.generate_xml(df)
+
+        self.assertEqual(failures, [])
+        self.assertEqual(len(generated), 1)
+        root = ET.fromstring(generated[0].xml)
+        sig_pages = root.find("sigPages")
+        self.assertIsNotNone(sig_pages)
+        assert sig_pages is not None
+        sig_texts = [el.text or "" for el in sig_pages.findall("text")]
+        self.assertIn("By: /s/ Jane Doe", sig_texts)
+        self.assertIn("Name: Jane Doe", sig_texts)
+        self.assertIn("Title: Chief Executive Officer", sig_texts)
+
     def test_generate_xml_skips_agreement_with_invalid_xml_token(self) -> None:
         valid_uuid = "11111111-1111-1111-1111-111111111111"
         invalid_uuid = "22222222-2222-2222-2222-222222222222"

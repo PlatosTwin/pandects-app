@@ -73,6 +73,24 @@ SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.DOTALL)
 SUBSECTION_NUMBER_RE = re.compile(r"\b\d+\.\d+\.\d+(?:\.\d+)*\b")
 ARTICLE_TAG_RE = re.compile(r"<article\b")
 INLINE_MARKER_RE = re.compile(r"(<pageUUID>.*?</pageUUID>|<page>.*?</page>)", re.DOTALL)
+SIGNATURE_FIELD_LABEL_RE = re.compile(r"^(?:By|Name|Title):?$", re.IGNORECASE)
+SIGNATURE_FIELD_WITH_VALUE_RE = re.compile(r"^(By|Name|Title):\s*(.+)$", re.IGNORECASE)
+SIGNATURE_FIELD_NON_VALUE_RE = re.compile(
+    (
+        r"^(?:\[|\(|signature page\b|address:|facsimile:|email:|attention:|ein:|"
+        r"aggregate\b|name in which\b|you must\b)"
+    ),
+    re.IGNORECASE,
+)
+SIGNATURE_VALUE_RE = re.compile(r"^(?:/s/|s/|_+)", re.IGNORECASE)
+SIGNATURE_ENTITY_SUFFIX_RE = re.compile(
+    (
+        r"\b(?:INC\.?|INCORPORATED|CORP\.?|CORPORATION|LLC|L\.L\.C\.|LTD\.?|"
+        r"LIMITED|COMPANY|CO\.|LP|L\.P\.|PTE\.?\s+LTD\.?|AG|S\.A\.|PLC|"
+        r"HOLDINGS?)\.?,?$"
+    ),
+    re.IGNORECASE,
+)
 
 
 def strip_subsection_section_tags(tagged_text: str) -> str:
@@ -478,6 +496,106 @@ def format_toc_html_like_screen(raw_html: str, *, line_width: int = 120) -> str:
     return _wrap_toc_long_lines("\n\n".join(blocks).strip(), line_width=line_width)
 
 
+def _signature_text_lines(text: str) -> list[str]:
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060\uFEFF]", "", text)
+    return [re.sub(r"[^\S\n]+", " ", line).strip() for line in text.splitlines()]
+
+
+def _looks_like_signature_entity_fragment(line: str) -> bool:
+    if (
+        not line
+        or SIGNATURE_FIELD_LABEL_RE.fullmatch(line)
+        or SIGNATURE_FIELD_WITH_VALUE_RE.match(line)
+    ):
+        return False
+    letters = [ch for ch in line if ch.isalpha()]
+    if not letters:
+        return False
+    uppercase_ratio = sum(1 for ch in letters if ch.isupper()) / len(letters)
+    return uppercase_ratio >= 0.65
+
+
+def _should_join_signature_entity_lines(left: str, right: str) -> bool:
+    if not _looks_like_signature_entity_fragment(left):
+        return False
+    if not _looks_like_signature_entity_fragment(right):
+        return False
+    if SIGNATURE_ENTITY_SUFFIX_RE.search(left):
+        return False
+    return bool(SIGNATURE_ENTITY_SUFFIX_RE.search(right))
+
+
+def _signature_continuation_value(lines: list[str], start_index: int) -> tuple[str, int] | None:
+    index = start_index
+    while index < len(lines) and not lines[index]:
+        index += 1
+    if index >= len(lines):
+        return None
+
+    value = lines[index]
+    if (
+        not value
+        or SIGNATURE_FIELD_LABEL_RE.fullmatch(value)
+        or SIGNATURE_FIELD_NON_VALUE_RE.search(value)
+    ):
+        return None
+    return value, index
+
+
+def format_signature_text_like_screen(text: str) -> str:
+    lines = _signature_text_lines(text)
+    formatted: list[str] = []
+    index = 0
+
+    while index < len(lines):
+        line = lines[index]
+        if not line:
+            if formatted and formatted[-1]:
+                formatted.append("")
+            index += 1
+            continue
+
+        if (
+            index + 1 < len(lines)
+            and _should_join_signature_entity_lines(line, lines[index + 1])
+        ):
+            line = f"{line} {lines[index + 1]}"
+            index += 1
+
+        label_match = SIGNATURE_FIELD_LABEL_RE.fullmatch(line)
+        if label_match:
+            label = line.rstrip(":").title()
+            continuation = _signature_continuation_value(lines, index + 1)
+            if continuation is not None:
+                value, value_index = continuation
+                formatted.append(f"{label}: {value}")
+                index = value_index + 1
+                continue
+
+        field_value_match = SIGNATURE_FIELD_WITH_VALUE_RE.match(line)
+        if field_value_match:
+            label = field_value_match.group(1).title()
+            value = field_value_match.group(2).strip()
+            formatted.append(f"{label}: {value}")
+            index += 1
+            continue
+
+        if line.lower() == "by":
+            continuation = _signature_continuation_value(lines, index + 1)
+            if continuation is not None:
+                value, value_index = continuation
+                if SIGNATURE_VALUE_RE.search(value):
+                    formatted.append(f"by: {value}")
+                    index = value_index + 1
+                    continue
+
+        formatted.append(line)
+        index += 1
+
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(formatted)).strip()
+
+
 def convert_to_xml(
     tagged_text: str,
     agreement_uuid: str,
@@ -780,6 +898,14 @@ def _xml_page_text(row: Any) -> str:
         formatted_toc = format_toc_html_like_screen(str(row.get("raw_page_content")))
         if formatted_toc.strip():
             return formatted_toc
+    if (
+        source_page_type == "sig"
+        and bool(row.get("source_is_html"))
+        and _has_text_value(tagged_output)
+    ):
+        formatted_signature = format_signature_text_like_screen(str(tagged_output))
+        if formatted_signature.strip():
+            return formatted_signature
     return tagged_output if _has_text_value(tagged_output) else ""
 
 
