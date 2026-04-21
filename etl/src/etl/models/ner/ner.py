@@ -11,6 +11,7 @@ import argparse
 import csv
 import fcntl
 import hashlib
+import importlib
 import json
 import math
 import os
@@ -143,10 +144,9 @@ def _load_entity_audit_builders() -> tuple[
             build_page_failure_records,
         )
     except ImportError:  # pragma: no cover - supports running as a script
-        from entity_audit import (
-            build_article_failure_records,
-            build_page_failure_records,
-        )
+        entity_audit = importlib.import_module("entity_audit")
+        build_article_failure_records = entity_audit.build_article_failure_records
+        build_page_failure_records = entity_audit.build_page_failure_records
     return build_article_failure_records, build_page_failure_records
 
 PrecisionInput = Literal["bf16-mixed", "32-true"]
@@ -172,6 +172,13 @@ def _log_progress(message: str) -> None:
 def _split_path_for_version(split_version: str) -> str:
     version = split_version.strip() or "default"
     return str(SPLITS_DIR / f"ner-agreement-splits-{version}.json")
+
+
+def _series_sum_as_int(series: pd.Series) -> int:
+    total = series.astype(int).sum()
+    if isinstance(total, pd.Series):
+        raise ValueError("Expected a scalar Series sum.")
+    return int(total)
 
 
 def _hash_sorted_ids(ids: list[str], seed: int) -> list[str]:
@@ -565,9 +572,12 @@ class NERTrainer:
         )
         print(
             "[split] upsample rows "
-            + f"train={int(train_df['article_upsample'].sum())}, "
-            + f"val={int(val_df['article_upsample'].sum())}, "
-            + f"test={int(test_df['article_upsample'].sum())}"
+            + "train="
+            + f"{_series_sum_as_int(cast(pd.Series, train_df['article_upsample']))}, "
+            + "val="
+            + f"{_series_sum_as_int(cast(pd.Series, val_df['article_upsample']))}, "
+            + "test="
+            + f"{_series_sum_as_int(cast(pd.Series, test_df['article_upsample']))}"
         )
         print(
             f"Splits -> train: {train_df.shape}, val: {val_df.shape}, test: {test_df.shape}"

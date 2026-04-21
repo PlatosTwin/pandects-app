@@ -6,9 +6,11 @@ import hmac
 import json
 import time
 from base64 import urlsafe_b64encode
-from datetime import date, timedelta
+from collections.abc import Mapping
+from datetime import date, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
+from typing import cast
 from sqlalchemy import text
 
 
@@ -26,11 +28,11 @@ def _set_default_env() -> None:
     os.environ["MCP_ZITADEL_CLIENT_ID"] = "test-zitadel-client-id"
     os.environ["MCP_OIDC_ISSUER"] = "https://pandects-test-zitadel.example.com"
     os.environ["MCP_OIDC_AUDIENCE"] = "https://api.pandects.org/mcp"
-    os.environ.pop("AUTH_ZITADEL_PROJECT_ID", None)
-    os.environ.pop("AUTH_ZITADEL_PROJECT_NAME", None)
+    _ = os.environ.pop("AUTH_ZITADEL_PROJECT_ID", None)
+    _ = os.environ.pop("AUTH_ZITADEL_PROJECT_NAME", None)
     os.environ["TURNSTILE_ENABLED"] = "0"
-    os.environ.pop("TURNSTILE_SITE_KEY", None)
-    os.environ.pop("TURNSTILE_SECRET_KEY", None)
+    _ = os.environ.pop("TURNSTILE_SITE_KEY", None)
+    _ = os.environ.pop("TURNSTILE_SECRET_KEY", None)
 
 
 _set_default_env()
@@ -40,7 +42,9 @@ _AUTH_DB_TEMP.close()
 os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
 
 
-from backend.app import create_test_app, db, ApiKey, ApiUsageDaily, AuthExternalSubject, AuthUser  # noqa: E402
+from backend.app import create_test_app  # noqa: E402
+from backend.extensions import db  # noqa: E402
+from backend.models.auth import ApiKey, ApiUsageDaily, AuthExternalSubject, AuthUser, LegalAcceptance  # noqa: E402
 import backend.app as backend_app  # noqa: E402
 import backend.routes.auth as auth_routes  # noqa: E402
 from werkzeug.exceptions import Conflict, NotFound, Unauthorized  # noqa: E402
@@ -98,6 +102,38 @@ class AuthFlowTests(unittest.TestCase):
             self.fail(f"Expected test user with email={email}")
         return user
 
+    def _legal_acceptance(
+        self,
+        *,
+        user_id: str,
+        document: str,
+        version: str,
+        document_hash: str,
+        checked_at: datetime,
+    ) -> LegalAcceptance:
+        acceptance = LegalAcceptance()
+        acceptance.user_id = user_id
+        acceptance.document = document
+        acceptance.version = version
+        acceptance.document_hash = document_hash
+        acceptance.checked_at = checked_at
+        acceptance.submitted_at = checked_at
+        acceptance.ip_address = None
+        acceptance.user_agent = None
+        return acceptance
+
+    def _auth_external_subject(self, *, user_id: str, issuer: str, subject: str) -> AuthExternalSubject:
+        link = AuthExternalSubject()
+        link.user_id = user_id
+        link.issuer = issuer
+        link.subject = subject
+        return link
+
+    def _dict_value(self, payload: Mapping[str, object], key: str) -> dict[str, object]:
+        value = payload[key]
+        self.assertIsInstance(value, dict)
+        return cast(dict[str, object], value)
+
     def _create_local_user(
         self,
         *,
@@ -117,15 +153,12 @@ class AuthFlowTests(unittest.TestCase):
                 checked_at = backend_app._utc_now()
                 for doc, meta in backend_app._LEGAL_DOCS.items():
                     db.session.add(
-                        backend_app.LegalAcceptance(
+                        self._legal_acceptance(
                             user_id=user.id,
                             document=doc,
                             version=meta["version"],
                             document_hash=meta["sha256"],
                             checked_at=checked_at,
-                            submitted_at=checked_at,
-                            ip_address=None,
-                            user_agent=None,
                         )
                     )
             db.session.commit()
@@ -142,7 +175,7 @@ class AuthFlowTests(unittest.TestCase):
         client.set_cookie("pdcts_session", token, path="/")
         return token
 
-    def _zitadel_signature_headers(self, payload: dict[str, object]) -> dict[str, str]:
+    def _zitadel_signature_headers(self, payload: Mapping[str, object]) -> dict[str, str]:
         os.environ["AUTH_ZITADEL_NOTIFICATION_SIGNING_KEY"] = "test-zitadel-notification-signing-key"
         raw = json.dumps(payload).encode("utf-8")
         timestamp = str(int(time.time()))
@@ -387,9 +420,9 @@ class AuthFlowTests(unittest.TestCase):
 
         with self.app.app_context():
             first = self._require_user("first-link@example.com")
-            second = self._require_user("second-link@example.com")
+            _ = self._require_user("second-link@example.com")
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=first.id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-user-123",
@@ -613,15 +646,12 @@ class AuthFlowTests(unittest.TestCase):
             checked_at = backend_app._utc_now()
             for doc, meta in backend_app._LEGAL_DOCS.items():
                 db.session.add(
-                    backend_app.LegalAcceptance(
+                    self._legal_acceptance(
                         user_id=existing.id,
                         document=doc,
                         version=meta["version"],
                         document_hash=meta["sha256"],
                         checked_at=checked_at,
-                        submitted_at=checked_at,
-                        ip_address=None,
-                        user_agent=None,
                     )
                 )
             db.session.commit()
@@ -834,7 +864,7 @@ class AuthFlowTests(unittest.TestCase):
         existing_user_id = self._create_local_user(email="linked-google@example.com")
         with self.app.app_context():
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=existing_user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-user-linked-123",
@@ -1077,6 +1107,8 @@ class AuthFlowTests(unittest.TestCase):
             method: str | None = None,
         ):
             if url == "https://pandects-test-zitadel.example.com/oauth/v2/token":
+                if data is None:
+                    self.fail("Expected token request form data.")
                 self.assertEqual(data["grant_type"], "client_credentials")
                 self.assertEqual(data["scope"], "urn:zitadel:iam:org:project:id:zitadel:aud")
                 self.assertEqual(
@@ -1092,6 +1124,8 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertIsNone(data)
                 self.assertEqual(method, "POST")
                 self.assertEqual(headers, {"Authorization": "Bearer service-api-token"})
+                if json_body is None:
+                    self.fail("Expected IDP intent request JSON.")
                 self.assertEqual(json_body["idpId"], "google-idp-123")
                 return {"authUrl": "https://accounts.google.com/o/oauth2/v2/auth?client_id=test"}
             self.fail(f"Unexpected ZITADEL request: {url}")
@@ -1196,15 +1230,12 @@ class AuthFlowTests(unittest.TestCase):
             checked_at = backend_app._utc_now()
             for doc, meta in backend_app._LEGAL_DOCS.items():
                 db.session.add(
-                    backend_app.LegalAcceptance(
+                    self._legal_acceptance(
                         user_id=existing.id,
                         document=doc,
                         version=meta["version"],
                         document_hash=meta["sha256"],
                         checked_at=checked_at,
-                        submitted_at=checked_at,
-                        ip_address=None,
-                        user_agent=None,
                     )
                 )
             db.session.commit()
@@ -1341,7 +1372,8 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertIsInstance(json_body, dict)
                 assert json_body is not None
                 self.assertEqual(json_body["username"], "legacy-password@example.com")
-                self.assertIs(json_body["email"]["isVerified"], True)
+                email_payload = self._dict_value(json_body, "email")
+                self.assertIs(email_payload["isVerified"], True)
                 return {"userId": "zitadel-user-migrated"}
             if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
                 self.assertEqual(method, "POST")
@@ -1413,11 +1445,13 @@ class AuthFlowTests(unittest.TestCase):
             assert json_body is not None
             created_signup_payloads.append(json_body)
             self.assertEqual(json_body["username"], "new-password-user@example.com")
-            self.assertEqual(json_body["profile"]["givenName"], "New")
-            self.assertEqual(json_body["profile"]["familyName"], "User")
-            self.assertEqual(json_body["email"]["email"], "new-password-user@example.com")
-            self.assertNotIn("sendCode", json_body["email"])
-            self.assertIs(json_body["email"]["isVerified"], False)
+            profile_payload = self._dict_value(json_body, "profile")
+            email_payload = self._dict_value(json_body, "email")
+            self.assertEqual(profile_payload["givenName"], "New")
+            self.assertEqual(profile_payload["familyName"], "User")
+            self.assertEqual(email_payload["email"], "new-password-user@example.com")
+            self.assertNotIn("sendCode", email_payload)
+            self.assertIs(email_payload["isVerified"], False)
             return {"userId": "zitadel-new-user"}
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
@@ -1615,7 +1649,7 @@ class AuthFlowTests(unittest.TestCase):
                 legal=False,
             )
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-resume-user",
@@ -1660,7 +1694,7 @@ class AuthFlowTests(unittest.TestCase):
                 legal=False,
             )
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-pending-no-legal-user",
@@ -1729,7 +1763,7 @@ class AuthFlowTests(unittest.TestCase):
                 legal=False,
             )
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-stale-pending-user",
@@ -1757,8 +1791,10 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertIsInstance(json_body, dict)
                 assert json_body is not None
                 self.assertEqual(json_body["username"], "pending-missing-remote@example.com")
-                self.assertEqual(json_body["password"]["password"], "NewP4ssword!")
-                self.assertIs(json_body["email"]["isVerified"], False)
+                password_payload = self._dict_value(json_body, "password")
+                email_payload = self._dict_value(json_body, "email")
+                self.assertEqual(password_payload["password"], "NewP4ssword!")
+                self.assertIs(email_payload["isVerified"], False)
                 return {"userId": "zitadel-recreated-pending-user"}
             self.fail(f"Unexpected URL: {url}")
 
@@ -1799,7 +1835,7 @@ class AuthFlowTests(unittest.TestCase):
                 legal=True,
             )
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-verify-again-user",
@@ -1891,8 +1927,9 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertIsInstance(json_body, dict)
                 assert json_body is not None
                 signup_payloads.append(json_body)
-                self.assertNotIn("sendCode", json_body["email"])
-                self.assertIs(json_body["email"]["isVerified"], False)
+                email_payload = self._dict_value(json_body, "email")
+                self.assertNotIn("sendCode", email_payload)
+                self.assertIs(email_payload["isVerified"], False)
                 return {"userId": "zitadel-deferred-verify-user"}
             if url == "https://pandects-test-zitadel.example.com/v2/users/zitadel-deferred-verify-user/email/send":
                 self.assertEqual(method, "POST")
@@ -1961,7 +1998,8 @@ class AuthFlowTests(unittest.TestCase):
             if url == "https://pandects-test-zitadel.example.com/v2/users/human":
                 self.assertIsInstance(json_body, dict)
                 assert json_body is not None
-                self.assertIs(json_body["email"]["isVerified"], True)
+                email_payload = self._dict_value(json_body, "email")
+                self.assertIs(email_payload["isVerified"], True)
                 return {"userId": "zitadel-reset-user"}
             if url == "https://pandects-test-zitadel.example.com/management/v1/users/grants/_search":
                 self.assertEqual(method, "POST")
@@ -1973,7 +2011,11 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertEqual(method, "POST")
                 self.assertIsInstance(json_body, dict)
                 assert json_body is not None
-                self.assertIn("/reset-password/confirm", json_body["sendLink"]["urlTemplate"])
+                send_link_payload = self._dict_value(json_body, "sendLink")
+                url_template = send_link_payload["urlTemplate"]
+                if not isinstance(url_template, str):
+                    self.fail("Expected reset URL template.")
+                self.assertIn("/reset-password/confirm", url_template)
                 seen_reset["called"] = True
                 return {"details": {}}
             self.fail(f"Unexpected URL: {url}")
@@ -2004,7 +2046,7 @@ class AuthFlowTests(unittest.TestCase):
                 legal=False,
             )
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-unverified-reset-user",
@@ -2029,7 +2071,11 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertEqual(method, "POST")
                 self.assertIsInstance(json_body, dict)
                 assert json_body is not None
-                self.assertIn("/reset-password/confirm", json_body["sendLink"]["urlTemplate"])
+                send_link_payload = self._dict_value(json_body, "sendLink")
+                url_template = send_link_payload["urlTemplate"]
+                if not isinstance(url_template, str):
+                    self.fail("Expected reset URL template.")
+                self.assertIn("/reset-password/confirm", url_template)
                 seen_reset["called"] = True
                 return {"details": {}}
             self.fail(f"Unexpected URL: {url}")
@@ -2127,7 +2173,7 @@ class AuthFlowTests(unittest.TestCase):
                 legal=True,
             )
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-resend-verify-user",
@@ -2264,7 +2310,7 @@ class AuthFlowTests(unittest.TestCase):
                 legal=False,
             )
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-pending-login-user",
@@ -2437,7 +2483,8 @@ class AuthFlowTests(unittest.TestCase):
 
         def _fake_oauth_fetch_json(url: str, *, data: dict[str, str] | None = None):
             self.assertEqual(url, "https://pandects-test-zitadel.example.com/oauth/v2/token")
-            self.assertIsNotNone(data)
+            if data is None:
+                self.fail("Expected token request form data.")
             self.assertEqual(data["grant_type"], "authorization_code")
             return {
                 "access_token": "test-mcp-access-token",
@@ -2505,7 +2552,7 @@ class AuthFlowTests(unittest.TestCase):
         user_id = self._create_local_user(email="oauth-facade@example.com")
         with self.app.app_context():
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="oauth-facade-zitadel-user",
@@ -2663,7 +2710,7 @@ class AuthFlowTests(unittest.TestCase):
         user_id = self._create_local_user(email="oauth-resume@example.com", verified=True, legal=True)
         with self.app.app_context():
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer=os.environ["MCP_OIDC_ISSUER"],
                     subject="zitadel|oauth-resume",
@@ -2734,7 +2781,7 @@ class AuthFlowTests(unittest.TestCase):
         user_id = self._create_local_user(email="oauth-legal@example.com", verified=True, legal=False)
         with self.app.app_context():
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer=os.environ["MCP_OIDC_ISSUER"],
                     subject="zitadel|oauth-legal",
@@ -2862,7 +2909,7 @@ class AuthFlowTests(unittest.TestCase):
         user_id = self._create_local_user(email="scope-default@example.com", verified=True, legal=True)
         with self.app.app_context():
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer=os.environ["MCP_OIDC_ISSUER"],
                     subject="zitadel|scope-default",
@@ -2999,7 +3046,7 @@ class AuthFlowTests(unittest.TestCase):
         user_id = self._create_local_user(email="delete-zitadel@example.com")
         with self.app.app_context():
             db.session.add(
-                AuthExternalSubject(
+                self._auth_external_subject(
                     user_id=user_id,
                     issuer="https://pandects-test-zitadel.example.com",
                     subject="zitadel-delete-user",

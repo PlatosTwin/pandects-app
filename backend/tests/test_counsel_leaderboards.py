@@ -1,4 +1,5 @@
 import unittest
+from typing import cast
 
 from backend.counsel_leaderboards import (
     build_counsel_leaderboards,
@@ -6,6 +7,20 @@ from backend.counsel_leaderboards import (
     format_counsel_display_name,
     split_counsel_names,
 )
+
+
+def _dict_value(payload: dict[str, object], key: str) -> dict[str, object]:
+    value = payload[key]
+    if not isinstance(value, dict):
+        raise AssertionError(f"Expected {key} to be an object.")
+    return cast(dict[str, object], value)
+
+
+def _list_of_dicts(payload: dict[str, object], key: str) -> list[dict[str, object]]:
+    value = payload[key]
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise AssertionError(f"Expected {key} to be a list of objects.")
+    return cast(list[dict[str, object]], value)
 
 
 class CounselLeaderboardHelpersTests(unittest.TestCase):
@@ -200,24 +215,31 @@ class CounselLeaderboardHelpersTests(unittest.TestCase):
             ]
         )
 
+        buy_side = _dict_value(payload, "buy_side")
+        sell_side = _dict_value(payload, "sell_side")
+        buy_top_by_count = _list_of_dicts(buy_side, "top_by_count")
+        buy_top_by_value = _list_of_dicts(buy_side, "top_by_value")
+        sell_top_by_count = _list_of_dicts(sell_side, "top_by_count")
+        buy_annual = _list_of_dicts(buy_side, "annual")
+
         self.assertEqual(
-            payload["buy_side"]["top_by_count"][0]["counsel"],
+            buy_top_by_count[0]["counsel"],
             "Wiggin & Dana",
         )
         self.assertEqual(
-            payload["buy_side"]["top_by_count"][0]["deal_count"],
+            buy_top_by_count[0]["deal_count"],
             2,
         )
         self.assertEqual(
-            payload["buy_side"]["top_by_value"][0]["counsel"],
+            buy_top_by_value[0]["counsel"],
             "Skadden, Arps, Slate, Meagher & Flom",
         )
         self.assertEqual(
-            payload["sell_side"]["top_by_count"][0]["counsel"],
+            sell_top_by_count[0]["counsel"],
             "Wilson Sonsini Goodrich & Rosati",
         )
         self.assertEqual(
-            payload["buy_side"]["annual"][0],
+            buy_annual[0],
             {
                 "year": 2022,
                 "top_by_count": [
@@ -255,7 +277,7 @@ class CounselLeaderboardHelpersTests(unittest.TestCase):
                 row["counsel"] == "Goodwin Procter"
                 and row["deal_count"] == 1
                 and row["total_transaction_value"] == 50000000.0
-                for row in payload["sell_side"]["top_by_count"]
+                for row in sell_top_by_count
             )
         )
 

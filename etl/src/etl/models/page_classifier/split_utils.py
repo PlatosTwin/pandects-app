@@ -172,7 +172,8 @@ def build_agreement_split(
     year_counts = {
         (s, int(y)): 0 for s in split_names for y in agreement_windows.unique()
     }
-    back_bucket_means = back_counts.groupby(back_bucket).mean().to_dict()
+    back_bucket_means_series = cast(pd.Series, back_counts.groupby(back_bucket).mean())
+    back_bucket_means = back_bucket_means_series.to_dict()
     back_bucket_targets = {
         int(b): _targets(int((back_bucket == b).sum()))
         for b in back_bucket.unique()

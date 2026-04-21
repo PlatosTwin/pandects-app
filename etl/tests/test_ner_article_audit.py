@@ -1,6 +1,6 @@
 import unittest
 
-from etl.models.ner.article_audit import build_article_failure_records
+from etl.models.ner.entity_audit import build_article_failure_records
 
 
 class NerArticleAuditTests(unittest.TestCase):
