@@ -2778,6 +2778,70 @@ class AuthFlowTests(unittest.TestCase):
             ["authorization_code", "refresh_token"],
         )
 
+    def test_oauth_register_rejects_unsafe_redirect_uris(self):
+        client = self.app.test_client()
+
+        unsafe_redirects = [
+            "http://evil.example.com/callback",
+            "https://codex.example.com/callback#token",
+            "https://user:pass@codex.example.com/callback",
+            r"https://codex.example.com\@evil.example.com/callback",
+        ]
+        for redirect_uri in unsafe_redirects:
+            with self.subTest(redirect_uri=redirect_uri):
+                register = client.post(
+                    "/v1/auth/oauth/register",
+                    json={
+                        "client_name": "Codex MCP",
+                        "redirect_uris": [redirect_uri],
+                        "grant_types": ["authorization_code"],
+                        "response_types": ["code"],
+                        "token_endpoint_auth_method": "none",
+                    },
+                )
+                self.assertEqual(register.status_code, 400)
+
+    def test_oauth_authorize_redirect_preserves_registered_query_string(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback?client=desktop"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback?client=desktop"
+            "&response_type=token"
+            "&scope=agreements:read"
+            "&state=test-state"
+            "&code_challenge=test-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+        parsed = urlparse(authorize.headers["Location"])
+        self.assertEqual(parsed.scheme, "https")
+        self.assertEqual(parsed.netloc, "codex.example.com")
+        self.assertEqual(parsed.path, "/callback")
+        self.assertEqual(
+            parse_qs(parsed.query),
+            {
+                "client": ["desktop"],
+                "error": ["unsupported_response_type"],
+                "state": ["test-state"],
+            },
+        )
+
     def test_oauth_authorize_defaults_scope_when_client_omits_it(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()

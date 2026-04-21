@@ -13,7 +13,7 @@ from hashlib import sha256
 from datetime import timedelta
 from collections import defaultdict
 from typing import cast
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import urlencode, urlparse, urlunparse
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -62,6 +62,7 @@ _OAUTH_BROWSER_COOKIE_MAX_AGE = 60 * 20
 _OAUTH_AUTHORIZE_COOKIE_NAME = "pdcts_oauth_authorize"
 _OAUTH_AUTHORIZE_COOKIE_MAX_AGE = 60 * 20
 _ZITADEL_API_TOKEN_CACHE: dict[str, object] = {}
+_OAUTH_LOOPBACK_REDIRECT_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
 def _zitadel_link_cookie_serializer() -> URLSafeTimedSerializer:
@@ -1443,8 +1444,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             req = urlparse(redirect_uri)
         except Exception:
             return False
-        _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
-        if req.scheme != "http" or req.hostname not in _LOOPBACK_HOSTS:
+        if req.scheme != "http" or req.hostname not in _OAUTH_LOOPBACK_REDIRECT_HOSTS:
             return False
         for reg_uri in registered:
             try:
@@ -1453,12 +1453,31 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 continue
             if (
                 reg.scheme == "http"
-                and reg.hostname in _LOOPBACK_HOSTS
+                and reg.hostname in _OAUTH_LOOPBACK_REDIRECT_HOSTS
                 and reg.path == req.path
                 and reg.query == req.query
             ):
                 return True
         return False
+
+    def _valid_oauth_redirect_uri(redirect_uri: str) -> bool:
+        if "\\" in redirect_uri:
+            return False
+        try:
+            parsed = urlparse(redirect_uri)
+        except Exception:
+            return False
+        if parsed.fragment or parsed.username or parsed.password or not parsed.hostname:
+            return False
+        if parsed.scheme == "https":
+            return True
+        return parsed.scheme == "http" and parsed.hostname in _OAUTH_LOOPBACK_REDIRECT_HOSTS
+
+    def _oauth_redirect_location(redirect_uri: str, params: dict[str, str]) -> str:
+        parsed = urlparse(redirect_uri)
+        encoded_params = urlencode(params)
+        query = f"{parsed.query}&{encoded_params}" if parsed.query else encoded_params
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, query, ""))
 
     def _oauth_active_signing_key():
         key = deps.AuthOAuthSigningKey.query.filter_by(active=True).first()
@@ -1483,7 +1502,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         params = {"error": error}
         if isinstance(state, str) and state.strip():
             params["state"] = state.strip()
-        return redirect(f"{redirect_uri}?{urlencode(params)}", code=302)
+        return redirect(_oauth_redirect_location(redirect_uri, params), code=302)
 
     def _oauth_authorize_pending_payload(
         *,
@@ -1588,6 +1607,8 @@ window.location.replace({json.dumps(login_url)});
             if not isinstance(raw_uri, str) or not raw_uri.strip():
                 abort(400, description="redirect_uris must contain only non-empty strings.")
             normalized = raw_uri.strip()
+            if not _valid_oauth_redirect_uri(normalized):
+                abort(400, description="redirect_uris must be HTTPS URLs or HTTP loopback URLs without fragments.")
             if normalized in normalized_redirect_uris:
                 continue
             normalized_redirect_uris.append(normalized)
@@ -1747,7 +1768,7 @@ window.location.replace({json.dumps(login_url)});
         _params = {"code": raw_code}
         if state:
             _params["state"] = state
-        resp = redirect(f"{redirect_uri}?{urlencode(_params)}", code=302)
+        resp = redirect(_oauth_redirect_location(redirect_uri, _params), code=302)
         _clear_oauth_browser_cookie(resp)
         _clear_oauth_authorize_cookie(resp)
         return resp
