@@ -36,10 +36,8 @@ export function AppLayout() {
 
   useEffect(() => {
     applySeoForLocation(location.pathname, location.search);
-    trackPageview(
-      `${location.pathname}${location.search}${location.hash}`,
-    );
-  }, [location.hash, location.pathname, location.search]);
+    trackPageview(`${location.pathname}${location.search}`);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     let cleanup = () => undefined;
@@ -54,7 +52,7 @@ export function AppLayout() {
   }, []);
 
   useEffect(() => {
-    const path = `${location.pathname}${location.search}${location.hash}`;
+    const path = `${location.pathname}${location.search}`;
 
     if (routeTimerRef.current) {
       trackTimeOnPage(
@@ -67,7 +65,7 @@ export function AppLayout() {
       path,
       start: performance.now(),
     };
-  }, [location.hash, location.pathname, location.search]);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const handlePageHide = () => {

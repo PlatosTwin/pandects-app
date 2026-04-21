@@ -1,9 +1,40 @@
-type AnalyticsParams = Record<string, string | number | boolean | undefined>;
+type AnalyticsParamValue = string | number | boolean | null | undefined;
+type AnalyticsParams = Record<string, AnalyticsParamValue>;
 
-const GA_MEASUREMENT_ID = "G-94X4EVQVHZ";
+const DEFAULT_GA_MEASUREMENT_ID = "G-94X4EVQVHZ";
+const MAX_PARAM_STRING_LENGTH = 500;
+const GA_MEASUREMENT_ID =
+  import.meta.env.VITE_GA_MEASUREMENT_ID?.trim() || DEFAULT_GA_MEASUREMENT_ID;
 let analyticsBootstrapped = false;
 let analyticsScriptLoaded = false;
 let analyticsScriptScheduled = false;
+
+export function isAnalyticsEnabled() {
+  return (
+    typeof window !== "undefined" &&
+    import.meta.env.PROD &&
+    import.meta.env.VITE_DISABLE_ANALYTICS !== "1" &&
+    GA_MEASUREMENT_ID.length > 0
+  );
+}
+
+function sanitizeAnalyticsParams(params?: AnalyticsParams): AnalyticsParams | undefined {
+  if (!params) return undefined;
+
+  const sanitized: AnalyticsParams = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    if (typeof value === "number" && !Number.isFinite(value)) continue;
+    sanitized[key] =
+      typeof value === "string" ? value.slice(0, MAX_PARAM_STRING_LENGTH) : value;
+  }
+
+  if (import.meta.env.VITE_GA_DEBUG_MODE === "1") {
+    sanitized.debug_mode = true;
+  }
+
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+}
 
 export function scheduleWhenBrowserIdle(
   callback: () => void,
@@ -27,7 +58,7 @@ export function scheduleWhenBrowserIdle(
 }
 
 export function bootstrapAnalytics() {
-  if (typeof window === "undefined" || analyticsBootstrapped) return;
+  if (!isAnalyticsEnabled() || analyticsBootstrapped) return;
   analyticsBootstrapped = true;
 
   window.dataLayer = window.dataLayer || [];
@@ -41,7 +72,7 @@ export function bootstrapAnalytics() {
 }
 
 export function loadAnalyticsScript() {
-  if (typeof window === "undefined" || analyticsScriptLoaded) return;
+  if (!isAnalyticsEnabled() || analyticsScriptLoaded) return;
   analyticsScriptLoaded = true;
   bootstrapAnalytics();
 
@@ -52,7 +83,7 @@ export function loadAnalyticsScript() {
 }
 
 export function scheduleAnalyticsScriptLoad() {
-  if (typeof window === "undefined" || analyticsScriptLoaded || analyticsScriptScheduled) {
+  if (!isAnalyticsEnabled() || analyticsScriptLoaded || analyticsScriptScheduled) {
     return () => undefined;
   }
 
@@ -91,35 +122,44 @@ export function scheduleAnalyticsScriptLoad() {
 }
 
 export function trackEvent(eventName: string, params?: AnalyticsParams) {
-  if (typeof window === "undefined") return;
+  if (!isAnalyticsEnabled()) return;
   if (typeof window.gtag !== "function") return;
-  window.gtag("event", eventName, params);
+  window.gtag("event", eventName, sanitizeAnalyticsParams(params));
 }
 
 export function trackPageview(pagePath: string) {
-  if (typeof window === "undefined") return;
+  if (!isAnalyticsEnabled()) return;
   if (typeof window.gtag !== "function") return;
-  window.gtag("event", "page_view", {
-    page_path: pagePath,
-    page_location: window.location.href,
-    page_title: document.title,
-  });
+  window.gtag(
+    "event",
+    "page_view",
+    sanitizeAnalyticsParams({
+      page_path: pagePath,
+      page_location: `${window.location.origin}${pagePath}`,
+      page_title: document.title,
+    }),
+  );
 }
 
 export function trackTimeOnPage(pagePath: string, durationMs: number) {
-  if (typeof window === "undefined") return;
+  if (!isAnalyticsEnabled()) return;
   if (typeof window.gtag !== "function") return;
-  window.gtag("event", "time_on_page", {
-    page_path: pagePath,
-    page_location: window.location.href,
-    page_title: document.title,
-    duration_ms: Math.max(0, Math.round(durationMs)),
-    transport_type: "beacon",
-  });
+  if (durationMs <= 1000) return;
+  window.gtag(
+    "event",
+    "time_on_page",
+    sanitizeAnalyticsParams({
+      page_path: pagePath,
+      page_location: `${window.location.origin}${pagePath}`,
+      page_title: document.title,
+      duration_ms: Math.max(0, Math.round(durationMs)),
+      transport_type: "beacon",
+    }),
+  );
 }
 
 export function installOutboundLinkTracking() {
-  if (typeof window === "undefined") return () => undefined;
+  if (!isAnalyticsEnabled()) return () => undefined;
 
   const onClick = (event: MouseEvent) => {
     if (event.defaultPrevented) return;
@@ -165,13 +205,15 @@ export function installOutboundLinkTracking() {
 }
 
 export function installGlobalErrorTracking() {
-  if (typeof window === "undefined") return () => undefined;
+  if (!isAnalyticsEnabled()) return () => undefined;
 
   const onError = (event: ErrorEvent) => {
     trackEvent("client_error", {
       kind: "error",
       message: event.message,
-      filename: event.filename,
+      filename: event.filename
+        ? new URL(event.filename, window.location.href).pathname
+        : "",
       lineno: event.lineno,
       colno: event.colno,
     });
@@ -198,27 +240,5 @@ export function installGlobalErrorTracking() {
   return () => {
     window.removeEventListener("error", onError);
     window.removeEventListener("unhandledrejection", onUnhandledRejection);
-  };
-}
-
-// Track time spent on page and send as beacon on page unload
-export function trackTimeOnPageOnUnload(pagePath: string) {
-  if (typeof window === "undefined") return () => undefined;
-
-  let timeOnPage = 0;
-  const startTime = Date.now();
-
-  const onBeforeUnload = () => {
-    timeOnPage = Date.now() - startTime;
-    // Only track if user spent > 1 second on page
-    if (timeOnPage > 1000) {
-      trackTimeOnPage(pagePath, timeOnPage);
-    }
-  };
-
-  window.addEventListener("beforeunload", onBeforeUnload);
-
-  return () => {
-    window.removeEventListener("beforeunload", onBeforeUnload);
   };
 }
