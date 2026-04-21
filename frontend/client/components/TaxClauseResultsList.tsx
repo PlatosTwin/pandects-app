@@ -60,6 +60,7 @@ export function TaxClauseResultsList({
           <Checkbox
             checked={allSelected ? true : someSelected ? "indeterminate" : false}
             onCheckedChange={() => onToggleSelectAll()}
+            className="h-5 w-5 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4"
             aria-label="Select all tax clauses on this page"
           />
           <span className="text-sm text-muted-foreground">
@@ -68,9 +69,9 @@ export function TaxClauseResultsList({
               : "Select all on page"}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <Select value={sortBy} onValueChange={(v) => onSortResults(v as "year" | "target" | "acquirer")}>
-            <SelectTrigger className="h-8 w-[140px]">
+            <SelectTrigger className="h-11 flex-1 sm:h-8 sm:w-[140px] sm:flex-none" aria-label="Sort tax clause results by">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -84,7 +85,8 @@ export function TaxClauseResultsList({
             variant="outline"
             size="sm"
             onClick={onToggleSortDirection}
-            aria-label={`Sort direction: ${sortDirection === "asc" ? "ascending" : "descending"}`}
+            className="h-11 w-11 p-0 sm:h-8 sm:w-auto sm:px-3"
+            aria-label={`Change sort direction. Current direction: ${sortDirection === "asc" ? "ascending" : "descending"}`}
           >
             {sortDirection === "asc" ? (
               <ArrowUp className="h-4 w-4" aria-hidden="true" />
@@ -122,7 +124,7 @@ export function TaxClauseResultsList({
             <li
               key={result.id}
               className={cn(
-                "rounded-xl border border-border bg-card shadow-sm transition-colors",
+                "rounded-lg border border-border bg-card shadow-sm transition-colors",
                 isSelected && "ring-2 ring-primary/30",
                 isCompact ? "p-3" : "p-4",
               )}
@@ -131,19 +133,19 @@ export function TaxClauseResultsList({
                 <Checkbox
                   checked={isSelected}
                   onCheckedChange={() => onToggleResultSelection(result.id)}
-                  className="mt-1"
-                  aria-label={`Select tax clause ${result.clause_uuid}`}
+                  className="mt-1 h-5 w-5 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4"
+                  aria-label={`Select tax clause for ${target} acquired by ${acquirer}`}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span className="font-medium text-foreground">{year}</span>
                     <span aria-hidden="true">·</span>
-                    <span className="truncate">
+                    <span className="min-w-0 max-w-full truncate">
                       <span className="text-muted-foreground">Target:</span>{" "}
                       <span className="font-medium text-foreground">{target}</span>
                     </span>
                     <span aria-hidden="true">·</span>
-                    <span className="truncate">
+                    <span className="min-w-0 max-w-full truncate">
                       <span className="text-muted-foreground">Acquirer:</span>{" "}
                       <span className="font-medium text-foreground">{acquirer}</span>
                     </span>
@@ -175,8 +177,11 @@ export function TaxClauseResultsList({
                   </p>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <Button asChild size="sm" variant="outline" className="gap-1.5">
-                      <Link to={getAgreementHref(result)}>
+                    <Button asChild size="sm" variant="outline" className="h-11 min-w-0 flex-1 gap-1.5 sm:h-9 sm:flex-none">
+                      <Link
+                        to={getAgreementHref(result)}
+                        aria-label={`Open agreement for tax clause from ${target} acquired by ${acquirer}`}
+                      >
                         <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                         Open agreement
                       </Link>

@@ -651,7 +651,7 @@ export default function Search() {
   ]);
 
   return (
-    <div className="w-full">
+    <div className="w-full overflow-x-hidden">
       <div className="flex min-h-full">
         {isDesktopLayout ? (
           shouldRenderDesktopSidebar && hasHydrated ? (
@@ -684,25 +684,46 @@ export default function Search() {
           )
         ) : null}
 
-        <div className="flex flex-col flex-1 min-w-0">
+        <div className="flex min-w-0 flex-1 flex-col">
           {/* Row 1: title + tabs + mobile filters */}
           <div className="border-b border-border px-4 py-3 sm:px-8">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-wrap items-center gap-3">
-                <h1 className="shrink-0 text-xl font-semibold tracking-tight text-foreground">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <h1
+                  id="search-page-title"
+                  className="shrink-0 text-xl font-semibold tracking-tight text-foreground"
+                >
                   M&A Search
                 </h1>
                 <div
                   role="radiogroup"
                   aria-label="Search mode"
-                  className="flex h-8 items-center rounded-full border border-border bg-muted/40 p-1"
+                  className="grid min-h-10 w-full grid-cols-3 items-center rounded-lg border border-border bg-muted/40 p-1 sm:w-auto sm:rounded-full"
                   onKeyDown={(e) => {
-                    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+                    if (
+                      ![
+                        "ArrowLeft",
+                        "ArrowRight",
+                        "ArrowUp",
+                        "ArrowDown",
+                        "Home",
+                        "End",
+                      ].includes(e.key)
+                    ) {
+                      return;
+                    }
                     e.preventDefault();
                     const order: SearchMode[] = ["sections", "transactions", "tax"];
                     const idx = order.indexOf(searchMode);
-                    const delta = e.key === "ArrowLeft" ? -1 : 1;
-                    const nextIdx = (idx + delta + order.length) % order.length;
+                    const nextIdx =
+                      e.key === "Home"
+                        ? 0
+                        : e.key === "End"
+                          ? order.length - 1
+                          : (idx +
+                              (e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 1) +
+                              order.length) %
+                            order.length;
                     void handleModeChange(order[nextIdx]);
                   }}
                 >
@@ -715,7 +736,7 @@ export default function Search() {
                       tabIndex={searchMode === mode ? 0 : -1}
                       onClick={() => void handleModeChange(mode)}
                       className={cn(
-                        "h-6 rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        "min-h-8 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:rounded-full",
                         searchMode === mode
                           ? "bg-primary/10 text-primary shadow-sm"
                           : "text-muted-foreground hover:text-foreground",
@@ -727,13 +748,13 @@ export default function Search() {
                 </div>
               </div>
 
-              <div className="lg:hidden shrink-0">
+              <div className="shrink-0 lg:hidden">
                 <Sheet
                   open={isMobileFiltersOpen}
                   onOpenChange={setIsMobileFiltersOpen}
                 >
                   <SheetTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2">
+                    <Button variant="outline" size="sm" className="h-11 w-full gap-2 sm:w-auto">
                       <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
                       Filters
                     </Button>
@@ -746,7 +767,9 @@ export default function Search() {
                     <SheetDescription className="sr-only">
                       {searchMode === "sections"
                         ? "Filter agreement section results."
-                        : "Filter deal results."}
+                        : searchMode === "tax"
+                          ? "Filter tax clause results."
+                          : "Filter deal results."}
                     </SheetDescription>
                     {hasHydrated ? (
                       <Suspense fallback={<SearchSidebarFallback variant="sheet" />}>
@@ -762,8 +785,9 @@ export default function Search() {
                           acquirer_industries={acquirer_industries}
                           clauseTypesNested={clauseTypesNested}
                           clauseTypeLabelById={clauseTypeLabelById}
+                          clauseTypeSectionLabel={searchMode === "tax" ? "Tax clause type" : "Section Type"}
                           isLoadingFilterOptions={isLoadingFilterOptions}
-                          isLoadingTaxonomy={isLoadingFilterOptions}
+                          isLoadingTaxonomy={searchMode === "tax" ? isLoadingTaxTaxonomy : isLoadingFilterOptions}
                           onToggleFilterValue={toggleFilterValue}
                           onTextFilterChange={trackingActions.setTextFilterValue}
                           onClearFilters={trackingActions.clearFilters}
@@ -817,13 +841,14 @@ export default function Search() {
 
           {/* Row 2: actions + active filter chips */}
           <div className="border-b border-border bg-muted/20 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-muted/20 sm:px-8">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Search actions">
               <Button
                 onClick={() => void trackingActions.performSearch()}
                 disabled={activeIsSearching}
-                className="gap-2 sm:w-auto"
+                className="h-11 flex-1 gap-2 sm:h-9 sm:flex-none sm:w-auto"
                 variant="default"
                 size="sm"
+                aria-describedby="search-results-status"
               >
                 <SearchIcon
                   className={cn("h-4 w-4", activeIsSearching && "animate-spin-custom")}
@@ -856,7 +881,7 @@ export default function Search() {
                           disabled={downloadDisabled}
                           variant="outline"
                           size="sm"
-                          className="gap-2 text-muted-foreground hover:text-foreground"
+                          className="h-11 w-full gap-2 text-muted-foreground hover:text-foreground sm:h-9 sm:w-auto"
                           aria-label={
                             downloadDisabled
                               ? "Download CSV (disabled: no results to download. Run a search first.)"
@@ -864,7 +889,7 @@ export default function Search() {
                           }
                         >
                           <Download className="h-4 w-4" aria-hidden="true" />
-                          <span>
+                          <span className="sm:inline">
                             Download CSV
                             {activeSelectedSize > 0 && ` (${activeSelectedSize})`}
                           </span>
@@ -884,13 +909,13 @@ export default function Search() {
                 onClick={trackingActions.clearFilters}
                 variant="outline"
                 size="sm"
-                className="text-muted-foreground hover:text-foreground"
+                className="h-11 text-muted-foreground hover:text-foreground sm:h-9"
               >
                 Reset filters
               </Button>
 
               {searchMode === "tax" && (
-                <label className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
+                <label className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground sm:min-h-0">
                   <input
                     type="checkbox"
                     checked={!!taxSearch.filters.include_rep_warranty}
@@ -932,6 +957,7 @@ export default function Search() {
                           disabled={disabled}
                           variant="outline"
                           size="sm"
+                          className="h-11 sm:h-9"
                         >
                           {label}
                         </Button>
@@ -1025,10 +1051,10 @@ export default function Search() {
                         <Badge
                           key={`${field}:${value}`}
                           variant="outline"
-                          className="flex items-center gap-1 rounded-md bg-background px-2 py-1"
+                          className="flex max-w-full items-center gap-1 rounded-md bg-background px-2 py-1"
                         >
                           <span className="text-muted-foreground">{label}:</span>
-                          <span className="truncate">{displayValue}</span>
+                          <span className="min-w-0 truncate">{displayValue}</span>
                           <button
                             type="button"
                             onClick={() => trackingActions.toggleFilterValue(field, value)}
@@ -1042,9 +1068,9 @@ export default function Search() {
                     })
                   )}
                   {filters.agreement_uuid && (
-                    <Badge variant="outline" className="flex items-center gap-1 rounded-md bg-background px-2 py-1">
+                    <Badge variant="outline" className="flex max-w-full items-center gap-1 rounded-md bg-background px-2 py-1">
                       <span className="text-muted-foreground">Agreement UUID:</span>
-                      <span className="truncate">{filters.agreement_uuid}</span>
+                      <span className="min-w-0 truncate">{filters.agreement_uuid}</span>
                       <button
                         type="button"
                         onClick={() => trackingActions.setTextFilterValue("agreement_uuid", "")}
@@ -1056,9 +1082,9 @@ export default function Search() {
                     </Badge>
                   )}
                   {filters.section_uuid && (
-                    <Badge variant="outline" className="flex items-center gap-1 rounded-md bg-background px-2 py-1">
+                    <Badge variant="outline" className="flex max-w-full items-center gap-1 rounded-md bg-background px-2 py-1">
                       <span className="text-muted-foreground">Section UUID:</span>
-                      <span className="truncate">{filters.section_uuid}</span>
+                      <span className="min-w-0 truncate">{filters.section_uuid}</span>
                       <button
                         type="button"
                         onClick={() => trackingActions.setTextFilterValue("section_uuid", "")}
@@ -1082,8 +1108,15 @@ export default function Search() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto" aria-labelledby="search-page-title">
             <div className="px-4 py-4 sm:px-8 sm:py-5">
+              <div id="search-results-status" className="sr-only" role="status" aria-live="polite">
+                {activeIsSearching
+                  ? "Searching."
+                  : activeHasSearched
+                    ? `${activeTotalCount} ${searchMode === "sections" ? "sections" : searchMode === "tax" ? "tax clauses" : "deals"} found.`
+                    : "No search has been run."}
+              </div>
               {!activeHasSearched && (
                 <div className="mx-auto max-w-3xl space-y-4">
                   <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
@@ -1328,7 +1361,7 @@ export default function Search() {
                 </div>
               )}
             </div>
-          </div>
+          </main>
         </div>
       </div>
 

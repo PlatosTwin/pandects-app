@@ -459,7 +459,7 @@ export function SearchSidebar({
         <div className={cn("flex h-full flex-col", className)}>
           <div className="border-b border-border bg-muted/20 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <div className="text-base font-semibold text-foreground">Filters</div>
+              <h2 className="text-base font-semibold text-foreground">Filters</h2>
             </div>
             <Button
               onClick={onClearFilters}
@@ -509,10 +509,10 @@ export function SearchSidebar({
           <div className="h-full flex flex-col">
             {/* Header */}
             <div className="border-b border-border bg-muted/20 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-lg font-medium text-foreground">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-medium text-foreground">
                   Search Filters
-                </div>
+                </h2>
                 <button
                   type="button"
                   onClick={toggleCollapse}

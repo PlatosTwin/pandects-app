@@ -151,7 +151,7 @@ export function TransactionResultsList({
         ) : null}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
             <div className="hidden items-center gap-2 sm:flex">
               <span className="hidden text-sm text-muted-foreground sm:inline">Density:</span>
               <ToggleGroup
@@ -180,7 +180,7 @@ export function TransactionResultsList({
                 value={sortBy}
                 onValueChange={(value) => onSortResults?.(value as "year" | "target" | "acquirer")}
               >
-                <SelectTrigger className="h-9 w-full sm:w-[160px]" aria-label="Sort results by">
+                <SelectTrigger className="h-11 w-full sm:h-9 sm:w-[160px]" aria-label="Sort deal results by">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -236,7 +236,7 @@ export function TransactionResultsList({
           <li
             key={result.agreement_uuid}
             className={cn(
-              "group relative overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:border-border hover:shadow-md",
+              "group relative overflow-hidden rounded-lg border bg-card shadow-sm transition-all hover:border-border hover:shadow-md",
               isSelected ? "border-primary/40" : "border-border",
             )}
           >
@@ -309,7 +309,7 @@ export function TransactionResultsList({
                     </div>
                   ) : null}
                 </div>
-                <div className="flex flex-row-reverse items-center justify-between gap-3 sm:flex-col sm:items-end sm:justify-start">
+                <div className="flex min-w-0 flex-row-reverse items-center justify-between gap-3 sm:flex-col sm:items-end sm:justify-start">
                   {result.transaction_price_total !== null ? (
                     <div className="text-right">
                       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -327,13 +327,13 @@ export function TransactionResultsList({
                       Deal value unavailable
                     </div>
                   )}
-                  <div className="flex items-center gap-1">
+                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                     <FlagAsInaccurateButton
                       source="search_result"
                       agreement_uuid={result.agreement_uuid}
                       className="shrink-0"
                     />
-                    <Button asChild size="sm" className="gap-1.5 shadow-sm">
+                    <Button asChild size="sm" className="h-11 min-w-0 flex-1 gap-1.5 shadow-sm sm:h-9 sm:flex-none">
                       <Link
                         to={href}
                         aria-label={`Open agreement ${titleLabel}`}

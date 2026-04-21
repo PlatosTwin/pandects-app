@@ -274,7 +274,7 @@ export function SearchResultsTable({
 
         {/* Sort Controls */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
             {/* Density */}
             <div className="hidden items-center gap-2 sm:flex">
               <span className="hidden text-sm text-muted-foreground sm:inline">
@@ -321,7 +321,7 @@ export function SearchResultsTable({
                   onSortResults(value as "year" | "target" | "acquirer")
                 }
               >
-                <SelectTrigger className="h-9 w-full sm:w-[160px]" aria-label="Sort results by">
+                <SelectTrigger className="h-11 w-full sm:h-9 sm:w-[160px]" aria-label="Sort section results by">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -398,7 +398,7 @@ export function SearchResultsTable({
                 role="listitem"
                 key={result.id}
                 className={cn(
-                  "group relative overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:shadow-md",
+                  "group relative overflow-hidden rounded-lg border bg-card shadow-sm transition-all hover:shadow-md",
                   isSelected
                     ? "border-primary/40 bg-primary/5 shadow-md"
                     : "border-border hover:border-border",
@@ -415,7 +415,7 @@ export function SearchResultsTable({
                   )}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
                       <div className="hidden shrink-0 items-center justify-center pt-0.5 sm:flex">
                         <Checkbox
                           checked={isSelected}
@@ -645,7 +645,7 @@ export function SearchResultsTable({
                     </div>
 
                     {/* Actions: Flag + Open Agreement */}
-                    <div className="flex items-center gap-1 sm:ml-4 sm:justify-end">
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:ml-4 sm:w-auto sm:justify-end">
                       <FlagAsInaccurateButton
                         source="search_result"
                         agreement_uuid={result.agreement_uuid}
@@ -655,7 +655,8 @@ export function SearchResultsTable({
                       <Button
                         size="sm"
                         onClick={() => onOpenAgreement(result, resultNumber)}
-                        className="flex h-11 w-full items-center justify-center gap-1.5 px-4 shadow-sm sm:h-9 sm:w-auto sm:px-3"
+                        className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 px-4 shadow-sm sm:h-9 sm:w-auto sm:flex-none sm:px-3"
+                        aria-label={`Open agreement for result ${resultNumber}: ${result.target} acquired by ${result.acquirer}`}
                       >
                         Open agreement
                         <ArrowUpRight className="h-4 w-4" aria-hidden="true" />

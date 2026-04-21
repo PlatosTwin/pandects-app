@@ -176,7 +176,7 @@ export function XMLRenderer({
                     type="button"
                     onClick={() => toggleCollapse(tagId)}
                     data-collapse-toggle="true"
-                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
                     aria-expanded={!isCollapsed}
                     aria-label={
                       isCollapsed ? "Expand section" : "Collapse section"
@@ -321,7 +321,7 @@ export function XMLRenderer({
                     type="button"
                     onClick={() => toggleCollapse(tagId)}
                     data-collapse-toggle="true"
-                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
                     aria-expanded={!isCollapsed}
                     aria-label={
                       isCollapsed ? "Expand section" : "Collapse section"
@@ -335,7 +335,7 @@ export function XMLRenderer({
                   </button>
                 )}
 
-                <h3 className={cn(headerLevel, "text-foreground min-w-0 flex-1")}>
+                <h3 className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
                   {title}
                 </h3>
               </div>
@@ -359,7 +359,7 @@ export function XMLRenderer({
                     type="button"
                     onClick={() => toggleCollapse(tagId)}
                     data-collapse-toggle="true"
-                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
                     aria-expanded={!isCollapsed}
                     aria-label={
                       isCollapsed ? "Expand section" : "Collapse section"
@@ -375,7 +375,7 @@ export function XMLRenderer({
               </div>
 
               <div className="min-w-0 flex-1">
-                <h3 className={cn(headerLevel, "text-foreground mb-2")}>
+                <h3 className={cn(headerLevel, "mb-2 break-words text-foreground [overflow-wrap:anywhere]")}>
                   {title}
                 </h3>
 
@@ -408,7 +408,7 @@ export function XMLRenderer({
                   type="button"
                   onClick={() => toggleCollapse(tagId)}
                   data-collapse-toggle="true"
-                  className="text-muted-foreground hover:text-foreground transition-colors p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
                   aria-expanded={!isCollapsed}
                   aria-label={
                     isCollapsed ? "Expand section" : "Collapse section"

@@ -35,7 +35,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   DropdownMenu,
@@ -93,10 +99,10 @@ function HeaderFactChip({
   value: string;
 }) {
   return (
-    <div className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs">
+    <div className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs">
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="text-muted-foreground">{label}</span>
-      <span className="truncate font-medium text-foreground">{value}</span>
+      <span className="min-w-0 truncate font-medium text-foreground">{value}</span>
     </div>
   );
 }
@@ -143,7 +149,7 @@ function ReaderSearch({
             value={textQuery}
             onChange={(event) => onTextQueryChange(event.target.value)}
             placeholder="Find text in this document"
-            className="h-9 pl-9 pr-9"
+            className="h-11 pl-9 pr-9 sm:h-9"
             aria-describedby="agreement-text-search-hint"
           />
           {textQuery ? (
@@ -174,7 +180,11 @@ function ReaderSearch({
           Filter by section type
         </label>
         <Select value={sectionType} onValueChange={onSectionTypeChange}>
-          <SelectTrigger id="agreement-section-type" className="h-9">
+          <SelectTrigger
+            id="agreement-section-type"
+            className="h-11 sm:h-9"
+            aria-label="Filter agreement navigation by section type"
+          >
             <SelectValue placeholder="All section types" />
           </SelectTrigger>
           <SelectContent>
@@ -226,7 +236,7 @@ function ReaderSearch({
                     type="button"
                     onClick={() => onJumpToSection(item.sectionUuid)}
                     className={cn(
-                      "group w-full rounded-lg border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      "group min-h-11 w-full rounded-lg border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       isActive
                         ? "border-primary/40 bg-primary/5"
                         : "border-border bg-muted/20 hover:border-border hover:bg-muted/40",
@@ -284,7 +294,7 @@ function ReaderDetails({
         {metadata.map((item) => (
           <div
             key={item.label}
-            className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 px-3 py-2 text-sm"
+            className="grid gap-1 px-3 py-2 text-sm sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3"
           >
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {item.label}
@@ -658,7 +668,7 @@ export function AgreementReader({
         : "text-sm sm:text-base";
 
   return (
-    <div>
+    <div className="overflow-x-hidden">
       {/* Sticky header */}
       <div
         ref={headerRef}
@@ -666,19 +676,20 @@ export function AgreementReader({
       >
         <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
           {/* Single row: back | title+subtitle | SEC filing */}
-          <div className="flex items-center gap-2 py-2 sm:py-2.5">
+          <div className="flex flex-wrap items-center gap-2 py-2 sm:flex-nowrap sm:py-2.5">
             <Button
               asChild
               variant="ghost"
               size="sm"
-              className="-ml-2 h-8 shrink-0 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+              className="-ml-2 h-11 shrink-0 gap-1.5 px-2 text-muted-foreground hover:text-foreground sm:h-8"
             >
               <Link
                 to={backTo || "/search"}
                 onClick={() => window.scrollTo({ top: 0, left: 0 })}
               >
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                Back to results
+                <span className="hidden sm:inline">Back to results</span>
+                <span className="sm:hidden">Back</span>
               </Link>
             </Button>
             <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
@@ -686,6 +697,7 @@ export function AgreementReader({
                 Target
               </span>
               <h1
+                id="agreement-reader-title"
                 className="min-w-0 truncate text-base font-semibold text-foreground sm:text-lg"
                 title={subtitle ? `${title} — ${subtitle}` : title}
               >
@@ -705,10 +717,11 @@ export function AgreementReader({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="hidden h-8 shrink-0 gap-1.5 px-2 text-muted-foreground hover:text-foreground sm:inline-flex"
+                  className="h-11 w-11 shrink-0 gap-1.5 px-2 text-muted-foreground hover:text-foreground sm:h-8 sm:w-auto"
+                  aria-label="Open view options"
                 >
                   <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                  View options
+                  <span className="hidden sm:inline">View options</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -772,13 +785,16 @@ export function AgreementReader({
                 <div className="flex gap-2 pt-0.5">
                   <Sheet open={isTocSheetOpen} onOpenChange={setIsTocSheetOpen}>
                     <SheetTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex-1 gap-2">
+                      <Button variant="outline" size="sm" className="h-11 flex-1 gap-2">
                         <ListTree className="h-4 w-4" aria-hidden="true" />
                         Contents
                       </Button>
                     </SheetTrigger>
                     <SheetContent side="left" className="w-[min(360px,100vw)] p-0">
                       <SheetTitle className="sr-only">Agreement contents</SheetTitle>
+                      <SheetDescription className="sr-only">
+                        Browse agreement sections and jump to a selected section.
+                      </SheetDescription>
                       <TableOfContents
                         xmlContent={agreement.xml}
                         targetSectionUuid={highlightedSection ?? undefined}
@@ -791,7 +807,7 @@ export function AgreementReader({
                   </Sheet>
                   <Sheet open={isDetailsSheetOpen} onOpenChange={setIsDetailsSheetOpen}>
                     <SheetTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex-1 gap-2">
+                      <Button variant="outline" size="sm" className="h-11 flex-1 gap-2">
                         <Info className="h-4 w-4" aria-hidden="true" />
                         Search & details
                       </Button>
@@ -801,6 +817,9 @@ export function AgreementReader({
                       className="w-[min(380px,100vw)] overflow-y-auto p-4"
                     >
                       <SheetTitle className="sr-only">Search and details</SheetTitle>
+                      <SheetDescription className="sr-only">
+                        Search within the agreement and review deal metadata.
+                      </SheetDescription>
                       <Tabs
                         value={sidebarTab}
                         onValueChange={(value) =>
@@ -841,7 +860,7 @@ export function AgreementReader({
           onClick={() => setHeaderCollapsed((v) => !v)}
           aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
           aria-expanded={!headerCollapsed}
-          className="group flex w-full items-center justify-center gap-2 border-t border-border bg-muted/40 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/70 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="group flex min-h-9 w-full items-center justify-center gap-2 border-t border-border bg-muted/40 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/70 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <div className="h-px w-10 rounded-full bg-current transition-colors" aria-hidden="true" />
           <span className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide">
@@ -862,7 +881,8 @@ export function AgreementReader({
       </div>
 
       {/* Main layout */}
-      <div
+      <main
+        aria-labelledby="agreement-reader-title"
         className={cn(
           "mx-auto grid max-w-[1600px] gap-6 px-4 sm:px-6 lg:px-8",
           headerCollapsed ? "py-3" : "py-6 sm:py-8",
@@ -938,10 +958,13 @@ export function AgreementReader({
 
         {/* Center: document */}
         <div className="min-w-0">
-          <article className="rounded-xl border border-border bg-card shadow-sm">
+          <article
+            className="rounded-lg border border-border bg-card shadow-sm"
+            aria-labelledby="agreement-reader-title"
+          >
             <div
               ref={contentRef}
-              className="agreement-reader-content max-h-none overflow-visible p-5 sm:p-8 lg:px-10"
+              className="agreement-reader-content max-h-none overflow-visible p-4 sm:p-8 lg:px-10"
             >
               <XMLRenderer
                 xmlContent={agreement.xml}
@@ -1033,7 +1056,7 @@ export function AgreementReader({
             )}
           </aside>
         ) : null}
-      </div>
+      </main>
     </div>
   );
 }

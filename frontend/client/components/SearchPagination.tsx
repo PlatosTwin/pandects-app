@@ -82,7 +82,7 @@ export function SearchPagination({
 
   return (
     <nav
-      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+      className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center"
       aria-label="Search results pagination"
     >
       {/* Results per page selector */}
@@ -110,7 +110,7 @@ export function SearchPagination({
       </div>
 
       {/* Results info */}
-      <div className="text-sm text-muted-foreground" aria-live="polite">
+      <div className="text-sm text-muted-foreground" aria-live="polite" role="status">
         Showing {formatNumber(startResult)} to {formatNumber(endResult)} of{" "}
         {totalCountIsApproximate ? "approx. " : ""}
         {formatNumber(totalCount)} results
@@ -201,6 +201,7 @@ export function SearchPagination({
                       <span
                         key={`ellipsis-${index}`}
                         className="px-2 py-1 text-sm text-muted-foreground"
+                        aria-hidden="true"
                       >
                         ...
                       </span>
