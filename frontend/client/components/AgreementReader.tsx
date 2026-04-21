@@ -812,7 +812,10 @@ export function AgreementReader({
         {!isMobile ? (
           <aside
             aria-label="Table of contents"
-            className="sticky self-start overflow-y-auto"
+            className={cn(
+              "sticky self-start",
+              leftOpen ? "overflow-y-auto" : "overflow-visible",
+            )}
             style={{
               top: `${stickyHeaderBottom + 12}px`,
               maxHeight: `calc(100vh - ${stickyHeaderBottom + 44}px)`,
@@ -886,7 +889,10 @@ export function AgreementReader({
         {!isMobile ? (
           <aside
             aria-label="Search and details"
-            className="sticky self-start overflow-y-auto"
+            className={cn(
+              "sticky self-start",
+              rightOpen ? "overflow-y-auto" : "overflow-visible",
+            )}
             style={{
               top: `${stickyHeaderBottom + 12}px`,
               maxHeight: `calc(100vh - ${stickyHeaderBottom + 44}px)`,
