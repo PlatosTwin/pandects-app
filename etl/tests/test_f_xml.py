@@ -28,6 +28,19 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertIn("1.2     The Closing", formatted)
         self.assertNotIn("ARTICLE I THE MERGER 6 1.1", formatted)
 
+    def test_format_toc_html_like_screen_ignores_nested_hidden_nodes(self) -> None:
+        raw_html = """
+        <div style="display: none"><span>hidden section</span></div>
+        <table>
+          <tr><td>1.1</td><td>The Merger</td><td>6</td></tr>
+        </table>
+        """
+
+        formatted = f_xml.format_toc_html_like_screen(raw_html, line_width=80)
+
+        self.assertIn("1.1     The Merger", formatted)
+        self.assertNotIn("hidden section", formatted)
+
     def test_generate_xml_reformats_html_toc_raw_page_content(self) -> None:
         agreement_uuid = "11111111-1111-1111-1111-111111111111"
         raw_toc_html = """

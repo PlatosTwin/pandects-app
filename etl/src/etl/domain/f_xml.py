@@ -191,6 +191,8 @@ def _remove_toc_nonvisible_nodes(soup: BeautifulSoup) -> None:
     for tag in soup.find_all(["script", "style", "noscript", "template"]):
         tag.decompose()
     for tag in list(soup.find_all(True)):
+        if tag.decomposed:
+            continue
         style = str(tag.get("style") or "").lower().replace(" ", "")
         hidden = (
             tag.has_attr("hidden")
