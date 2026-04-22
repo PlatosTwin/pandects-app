@@ -87,6 +87,7 @@ etl/tests/test_audit_training_data_quality.py
 etl/src/etl/models/ner/audit_training_data_labels.py
 etl/src/etl/models/ner/audit_training_data_quality.py
 etl/src/etl/utils/compare_rendered_text_to_format_content.py
+etl/src/etl/tmp/
 
 ############################
 # ML / Experiment Logs
