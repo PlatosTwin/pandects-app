@@ -57,7 +57,8 @@ export default function About() {
             >
               documentation site
             </a>
-            . Finally, for more control, users may elect to <a
+            . Finally, for more control, users may elect to{" "}
+            <a
               href="https://pandects.org/bulk-data/"
               target="_blank"
               rel="noopener noreferrer"
@@ -65,8 +66,8 @@ export default function About() {
               className="underline underline-offset-2"
             >
               bulk download
-            </a> a copy
-            of the complete database.
+            </a>{" "}
+            a copy of the complete database.
           </p>
         </section>
 
@@ -109,9 +110,9 @@ export default function About() {
           <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
             <li>
               Taxonomize not just <em>tax</em> clauses but also important
-              clauses <em>generally</em>. Right now, in addition to tax
-              clauses, we taxonomize <em>sections</em>, but a single section
-              can have multiple important clauses within it.
+              clauses <em>generally</em>. Right now, in addition to tax clauses,
+              we taxonomize <em>sections</em>, but a single section can have
+              multiple important clauses within it.
             </li>
             <li>
               Identify defined terms, including those relegated to appendices,
@@ -149,10 +150,11 @@ export default function About() {
               >
                 Jacobson Leadership Program in Law and Business
               </a>{" "}
-              at NYU has also provided support, including a commitment to
-              substantially all of the startup funding. We are also thankful to
-              NYU Law professor Chris Sprigman. The concept and design for this
-              site borrow heavily from the{" "}
+              at NYU has also provided support, including a commitment to all of
+              the startup funding. NYU Law professor Alex Walker developed the
+              tax taxonomy, for which we are very thankful. We are also thankful
+              to NYU Law professor Chris Sprigman. The concept and design for
+              this site borrow heavily from the{" "}
               <a
                 href="https://case.law"
                 target="_blank"
@@ -207,9 +209,8 @@ export default function About() {
               .
             </p>
             <p className="prose max-w-none text-muted-foreground">
-              Finally, this project was supported in part through NYU IT
-              High Performance Computing resources, services, and staff
-              expertise.
+              Finally, this project was supported in part through NYU IT High
+              Performance Computing resources, services, and staff expertise.
             </p>
           </div>
         </section>
