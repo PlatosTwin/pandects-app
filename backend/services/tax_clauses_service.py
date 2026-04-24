@@ -245,7 +245,6 @@ def run_tax_clauses(
         if isinstance(value, str):
             clause_uuids.append(value)
 
-    # Count
     if count_mode == "exact" or page <= 1:
         total_count = deps._to_int(q.count())
         total_count_is_approximate = False
@@ -259,7 +258,6 @@ def run_tax_clauses(
         total_count_is_approximate = False
         count_method = "query_count"
 
-    # Hydrate clause details + agreement metadata
     details_by_uuid: dict[str, dict[str, object]] = {}
     assignments_by_uuid: dict[str, list[str]] = {}
     if clause_uuids:

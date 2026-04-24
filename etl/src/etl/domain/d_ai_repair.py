@@ -488,8 +488,6 @@ def _system_prompt_excerpt() -> str:
 
 
 def _user_prompt_full(page_uuid: str, text: str, toc_context: str | None = None) -> str:
-    _ = page_uuid
-    _ = toc_context
     # Pass only the source page text so the model cannot echo prompt scaffolding
     # (e.g., PAGE_UUID/Task lines) into tagged_text.
     return text
