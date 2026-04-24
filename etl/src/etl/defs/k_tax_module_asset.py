@@ -63,6 +63,7 @@ TAX_CLAUSE_TAXONOMY_L3_TABLE = "tax_clause_taxonomy_l3"
 TAX_MODULE_LLM_BATCHES_TABLE = "tax_module_llm_batches"
 TAX_MODULE_LLM_REQUEST_FILENAME = "tax_module_llm_requests.jsonl"
 TAX_MODULE_LLM_COMPLETION_WINDOW = "24h"
+TAX_MODULE_MAX_AGREEMENTS_PER_OPENAI_BATCH = 250
 TAX_SIGNAL_SQL_TERMS = (
     "tax",
     "tax-free",
@@ -331,6 +332,19 @@ def _insert_clauses_for_agreements(
         schema=schema,
         conn=conn,
     )
+
+
+def _chunk_agreement_uuids(
+    agreement_uuids: list[str],
+    *,
+    chunk_size: int,
+) -> list[list[str]]:
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be > 0.")
+    return [
+        agreement_uuids[start : start + chunk_size]
+        for start in range(0, len(agreement_uuids), chunk_size)
+    ]
 
 
 def _llm_rows_from_clauses(
@@ -681,22 +695,41 @@ def _run_tax_module_for_agreements(
             if not agreement_uuids:
                 break
 
-            section_rows = _fetch_sections_for_agreements(conn, schema=schema, agreement_uuids=agreement_uuids)
-            clause_rows = _build_clause_rows(
-                section_rows=section_rows,
-                tax_section_standard_ids=tax_section_standard_ids,
+            agreement_uuid_chunks = _chunk_agreement_uuids(
+                agreement_uuids,
+                chunk_size=TAX_MODULE_MAX_AGREEMENTS_PER_OPENAI_BATCH,
             )
-            _insert_clauses_for_agreements(
-                conn,
-                schema=schema,
-                agreement_uuids=agreement_uuids,
-                clause_rows=clause_rows,
-            )
-            processed_agreement_uuids.extend(agreement_uuids)
+            taxonomy_json: list[dict[str, Any]] | None = None
+            batch_rows: list[dict[str, Any]] = []
+            for agreement_uuid_chunk in agreement_uuid_chunks:
+                section_rows = _fetch_sections_for_agreements(
+                    conn,
+                    schema=schema,
+                    agreement_uuids=agreement_uuid_chunk,
+                )
+                clause_rows = _build_clause_rows(
+                    section_rows=section_rows,
+                    tax_section_standard_ids=tax_section_standard_ids,
+                )
+                _insert_clauses_for_agreements(
+                    conn,
+                    schema=schema,
+                    agreement_uuids=agreement_uuid_chunk,
+                    clause_rows=clause_rows,
+                )
+                processed_agreement_uuids.extend(agreement_uuid_chunk)
 
-            if clause_rows:
+                if not clause_rows:
+                    context.log.info(
+                        "%s: no tax clauses extracted for %s agreements.",
+                        log_prefix,
+                        len(agreement_uuid_chunk),
+                    )
+                    continue
+
                 section_rows_by_uuid = {row["section_uuid"]: row for row in section_rows}
-                taxonomy_json = _fetch_taxonomy_json(conn, schema)
+                if taxonomy_json is None:
+                    taxonomy_json = _fetch_taxonomy_json(conn, schema)
                 batch_key = scoped_batch_key or agreement_batch_key(agreement_uuids)
                 lines = _create_llm_lines(
                     clause_rows=clause_rows,
@@ -706,51 +739,50 @@ def _run_tax_module_for_agreements(
                     clauses_per_request=clauses_per_request,
                     batch_key=batch_key,
                 )
-                if lines:
-                    jsonl_buf = io.StringIO()
-                    for line in lines:
-                        _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
-                    jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
-                    jsonl_bytes.name = TAX_MODULE_LLM_REQUEST_FILENAME
-                    client = _oai_client()
-                    input_file = client.files.create(purpose="batch", file=jsonl_bytes)
-                    batch = client.batches.create(
-                        input_file_id=input_file.id,
-                        endpoint="/v1/responses",
-                        completion_window=TAX_MODULE_LLM_COMPLETION_WINDOW,
-                    )
-                    _upsert_tax_module_batch_row(
-                        conn,
-                        schema,
-                        batch=batch,
-                        completion_window=TAX_MODULE_LLM_COMPLETION_WINDOW,
-                        request_total=len(lines),
-                        model_name=pipeline_config.tax_module_llm_model,
-                        batch_key=batch_key,
-                    )
-                    context.log.info(
-                        "%s: created batch %s with %s requests for %s agreements.",
-                        log_prefix,
-                        batch.id,
-                        len(lines),
-                        len(agreement_uuids),
-                    )
-                    batch_row = {
+                if not lines:
+                    continue
+
+                jsonl_buf = io.StringIO()
+                for line in lines:
+                    _ = jsonl_buf.write(json.dumps(line, ensure_ascii=False) + "\n")
+                jsonl_bytes = io.BytesIO(jsonl_buf.getvalue().encode("utf-8"))
+                jsonl_bytes.name = TAX_MODULE_LLM_REQUEST_FILENAME
+                client = _oai_client()
+                input_file = client.files.create(purpose="batch", file=jsonl_bytes)
+                batch = client.batches.create(
+                    input_file_id=input_file.id,
+                    endpoint="/v1/responses",
+                    completion_window=TAX_MODULE_LLM_COMPLETION_WINDOW,
+                )
+                _upsert_tax_module_batch_row(
+                    conn,
+                    schema,
+                    batch=batch,
+                    completion_window=TAX_MODULE_LLM_COMPLETION_WINDOW,
+                    request_total=len(lines),
+                    model_name=pipeline_config.tax_module_llm_model,
+                    batch_key=batch_key,
+                )
+                context.log.info(
+                    "%s: created batch %s with %s requests for %s agreements.",
+                    log_prefix,
+                    batch.id,
+                    len(lines),
+                    len(agreement_uuid_chunk),
+                )
+                batch_rows.append(
+                    {
                         "batch_id": batch.id,
                         "completion_window": TAX_MODULE_LLM_COMPLETION_WINDOW,
                         "request_total": len(lines),
                         "model_name": pipeline_config.tax_module_llm_model,
                         "batch_key": batch_key,
                     }
-                else:
-                    batch_row = None
-            else:
-                context.log.info("%s: no tax clauses extracted for %s agreements.", log_prefix, len(agreement_uuids))
-                batch_row = None
+                )
 
             last_uuid = agreement_uuids[-1]
 
-        if batch_row is not None:
+        for batch_row in batch_rows:
             _resume_and_apply_tax_module_batch(
                 context,
                 engine=engine,
