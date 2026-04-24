@@ -5,6 +5,7 @@ from etl.domain.d_ai_repair import (
     RepairDecision,
     _system_prompt_full,
     _user_prompt_full,
+    build_jsonl_line_for_source_text_verdict,
     build_jsonl_lines_for_page,
 )
 
@@ -93,6 +94,45 @@ class AiRepairDomainTests(unittest.TestCase):
         self.assertIn("Do not infer, reconstruct, or borrow headings", prompt)
         self.assertIn("Bare numeric headings like", prompt)
         self.assertIn("it is probably a reference rather than a heading", prompt)
+
+    def test_source_text_verdict_request_uses_agreement_level_custom_id(self) -> None:
+        line, meta = build_jsonl_line_for_source_text_verdict(
+            agreement_uuid="agreement-1",
+            xml_version=9,
+            anchor_page_uuid="page-2",
+            model="gpt-5.1",
+            reason_rows=[
+                {
+                    "reason_code": "section_non_sequential",
+                    "reason_detail": "expected 2, found 3",
+                    "page_uuid": "page-2",
+                }
+            ],
+            page_contexts=[
+                {
+                    "page_uuid": "page-1",
+                    "page_order": 1,
+                    "is_flagged_page": False,
+                    "source_text": "4.01 Organization.",
+                    "tagged_text": "<section>4.01 Organization.</section>",
+                },
+                {
+                    "page_uuid": "page-2",
+                    "page_order": 2,
+                    "is_flagged_page": True,
+                    "source_text": "4.03 Capital Stock.",
+                    "tagged_text": "<section>4.03 Capital Stock.</section>",
+                },
+            ],
+        )
+
+        self.assertEqual(line["custom_id"], "agreement-1::source::9")
+        self.assertEqual(meta["request_id"], "agreement-1::source::9")
+        self.assertEqual(meta["page_uuid"], "page-2")
+        self.assertEqual(meta["mode"], "source")
+        self.assertIn("source_text_hard_rule_exception", line["body"]["instructions"])
+        self.assertIn("agreement-1", line["body"]["input"][0]["content"])
+        self.assertIn("4.03 Capital Stock.", line["body"]["input"][0]["content"])
 
 
 if __name__ == "__main__":

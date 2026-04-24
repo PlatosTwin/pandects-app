@@ -6,6 +6,7 @@ import json
 import os
 import re
 import xml.etree.ElementTree as ET
+from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
@@ -23,6 +24,22 @@ from etl.defs.c_tagging_asset import (
 )
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
+from etl.domain.xml_tag_repairs import (
+    SectionGap,
+    XMLTagRepairStats,
+    apply_body_start_tag_repairs,
+    insert_missing_section_heading_tags,
+    normalize_no_space_section_prefixes,
+    section_title_is_whole_number_article_heading,
+    section_title_starts_with_same_article_decimal,
+    split_leading_page_number_section_tags,
+    split_combined_omitted_heading_tags,
+    split_combined_missing_section_tags,
+    unwrap_bare_number_section_tags,
+    unwrap_inline_section_reference_tags,
+    unwrap_standalone_section_label_tags,
+    wrap_untagged_article_headings_before_first_sections,
+)
 from etl.utils.db_utils import upsert_xml
 from etl.utils.batch_keys import agreement_version_batch_key
 from etl.utils.logical_job_runs import (
@@ -71,9 +88,11 @@ XML_VERIFY_BATCH_SCOPE_REPAIR = "repair"
 XML_VERIFY_INSTRUCTIONS = (
     "Validate an agreement XML tag tree and return JSON with key `status` only. "
     "Apply these hard rules exactly: "
-    "1) Empty articles are allowed, but at most one article may have zero sections. "
+    "1) Empty articles are allowed, but at most one article may have zero sections, "
+    "excluding articles whose titles mark them as omitted, deleted, reserved, or ***. "
     "2) Within each article, sections must start at 1 and be strictly sequential with no gaps, "
-    "unless the body's numbering for that article exactly matches the XML's own tableOfContents. "
+    "unless the XML's own tableOfContents shows the same local section-number jump or the "
+    "expected/skipped section number is absent from the body text and titles. "
     "3) Every section title must begin with a valid section number prefix in one of these forms: "
     "`Section A.B ...`, `SECTION A.B ...`, or `A.B ...` where A and B are integers; "
     "titles that do not match this are invalid. "
@@ -82,13 +101,46 @@ XML_VERIFY_INSTRUCTIONS = (
     "If all hard rules pass and structure is coherent, return status='verified'. "
     "If still unclear, return status=null."
 )
-ARTICLE_NUMBER_RE = re.compile(r"^\s*ARTICLE\s+([IVXLCDM]+|\d+)\b", re.IGNORECASE)
+ARTICLE_NUMBER_RE = re.compile(
+    r"^\s*(?:ARTICLE\s+([IVXLCDM]+|\d+)|(?:SECTION\s+)?(\d+))(?=\b|[\s.:)\-])",
+    re.IGNORECASE,
+)
 SECTION_NUMBER_RE = re.compile(
     r"^\s*(?:SECTION\s+)?(?P<article>\d+)\s*\.\s*(?P<section>\d+)",
     re.IGNORECASE,
 )
 TOC_SECTION_NUMBER_RE = re.compile(
     r"(?<!\d)(?:SECTION\s+)?(?P<article>\d+)\s*\.\s*(?P<section>\d+)(?!\s*\.\s*\d)",
+    re.IGNORECASE,
+)
+SECTION_NONSEQ_DETAIL_RE = re.compile(
+    r"Non-sequential section number in article (?P<title>.+?): expected (?P<expected>\d+), found (?P<found>\d+)\."
+)
+TAGGED_SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.IGNORECASE | re.DOTALL)
+TAGGED_STRUCTURAL_TAG_RE = re.compile(
+    r"<(?P<tag>article|section)>(?P<title>.*?)</(?P=tag)>",
+    re.IGNORECASE | re.DOTALL,
+)
+BARE_ARTICLE_MARKER_RE = re.compile(
+    r"^\s*ARTICLE\s+(?P<number>[IVXLCDM]+|\d+)\.?\s*$",
+    re.IGNORECASE,
+)
+SPLIT_SECTION_NUMBER_DIGIT_RE = re.compile(
+    (
+        r"^\s*(?P<label>(?:SECTION|Section)\s+)?(?P<article>\d+)(?P<dot>\s*\.\s*)"
+        r"(?P<head>\d+)(?P<gap>\s+)(?P<tail>\d+)(?P<after>\s+.+)$"
+    ),
+    re.DOTALL,
+)
+SPLIT_ARTICLE_NUMBER_DIGIT_RE = re.compile(
+    (
+        r"^\s*(?P<label>(?:SECTION|Section)\s+)(?P<head>\d+)(?P<gap>\s+)"
+        r"(?P<tail>\d+)(?P<dot>\s*\.\s*)(?P<section>\d+)(?P<after>(?:\s+.+|$))$"
+    ),
+    re.DOTALL,
+)
+OMITTED_EMPTY_ARTICLE_RE = re.compile(
+    r"(?:\b(?:intentionally\s+)?(?:omitted|deleted|reserved)\b|\*{3,})",
     re.IGNORECASE,
 )
 ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
@@ -394,7 +446,7 @@ def _extract_article_number(title: str) -> int | None:
     match = ARTICLE_NUMBER_RE.match(title)
     if not match:
         return None
-    token = match.group(1)
+    token = match.group(1) or match.group(2)
     if token.isdigit():
         return int(token)
     return _roman_to_int(token)
@@ -421,6 +473,56 @@ def _extract_section_numbers(title: str) -> Tuple[int, int] | None:
     article_num = int(match.group("article"))
     section_num = int(match.group("section"))
     return article_num, section_num
+
+
+def _article_title_marks_intentionally_empty(title: str) -> bool:
+    return OMITTED_EMPTY_ARTICLE_RE.search(title) is not None
+
+
+def _bare_article_marker_number(title: str) -> int | None:
+    match = BARE_ARTICLE_MARKER_RE.match(title)
+    if match is None:
+        return None
+    token = match.group("number")
+    if token.isdigit():
+        return int(token)
+    return _roman_to_int(token)
+
+
+def _article_has_substantive_non_section_content(article_elem: ET.Element) -> bool:
+    for node in article_elem.iter():
+        if node.tag in {"page", "pageUUID"}:
+            continue
+        text_value = (node.text or "").strip()
+        if text_value:
+            return True
+        tail_value = (node.tail or "").strip()
+        if tail_value:
+            return True
+    return False
+
+
+def _article_text_starts_with_section_heading(
+    article_elem: ET.Element,
+    *,
+    article_num: int | None,
+) -> bool:
+    if article_num is None:
+        return False
+    heading_pattern = re.compile(
+        rf"^\s*(?:SECTION\s+|Section\s+)?{article_num}\s*\.\s*\d+\s*\.?(?:\s+|$)",
+        re.IGNORECASE,
+    )
+    for node in article_elem.iter():
+        if node.tag in {"page", "pageUUID", "section"}:
+            continue
+        text_value = (node.text or "").strip()
+        if text_value and heading_pattern.match(text_value):
+            return True
+        tail_value = (node.tail or "").strip()
+        if tail_value and heading_pattern.match(tail_value):
+            return True
+    return False
 
 
 def _iter_nonempty_text_nodes(root: ET.Element) -> List[str]:
@@ -510,6 +612,30 @@ def toc_consistent_article_numbers(root: ET.Element) -> set[int]:
     return consistent_articles
 
 
+def toc_has_matching_local_gap(
+    toc_sequences: Dict[int, List[int]],
+    *,
+    article_num: int | None,
+    expected_section_num: int,
+    found_section_num: int,
+) -> bool:
+    if article_num is None or found_section_num <= expected_section_num:
+        return False
+    toc_sequence = toc_sequences.get(article_num)
+    if not toc_sequence:
+        return False
+    skipped = set(range(expected_section_num, found_section_num))
+    if any(section_num in skipped for section_num in toc_sequence):
+        return False
+    if expected_section_num == 1:
+        return found_section_num in toc_sequence
+    previous_section_num = expected_section_num - 1
+    return any(
+        previous == previous_section_num and current == found_section_num
+        for previous, current in zip(toc_sequence, toc_sequence[1:])
+    )
+
+
 def _collect_page_uuids(root: ET.Element) -> Tuple[str, ...]:
     attr_uuid = (
         root.attrib.get("pageUUID")
@@ -590,6 +716,160 @@ def _section_body_mentions_number(
     return False
 
 
+def _section_body_mentions_number_after_page_boundary(
+    section_elem: ET.Element,
+    *,
+    article_num: int,
+    section_num: int,
+) -> bool:
+    pattern = re.compile(
+        rf"(?:^|[\n\r.;:])\s*(?:SECTION\s+)?{article_num}\s*\.\s*{section_num}\b",
+        re.IGNORECASE,
+    )
+    seen_page_boundary = False
+
+    def visit(node: ET.Element) -> bool:
+        nonlocal seen_page_boundary
+        if node.tag in {"page", "pageUUID"}:
+            seen_page_boundary = True
+        else:
+            text_value = (node.text or "").strip()
+            if seen_page_boundary and text_value and pattern.search(text_value):
+                return True
+        for child in list(node):
+            if visit(child):
+                return True
+            tail_value = (child.tail or "").strip()
+            if seen_page_boundary and tail_value and pattern.search(tail_value):
+                return True
+        return False
+
+    return visit(section_elem)
+
+
+def _text_starts_with_article_heading(text_value: str, article_num: int) -> bool:
+    if _extract_article_number(text_value) != article_num:
+        return False
+    return _extract_section_numbers(text_value) is None
+
+
+def _nearest_page_uuid_for_child(parent: ET.Element, child_index: int) -> Tuple[str, ...]:
+    children = list(parent)
+    child_page_uuids = _collect_page_uuids(children[child_index])
+    if child_page_uuids:
+        return child_page_uuids
+
+    for following in children[child_index + 1 :]:
+        if following.tag == "pageUUID":
+            page_uuid = (following.text or "").strip()
+            if page_uuid:
+                return (page_uuid,)
+
+    for previous in reversed(children[:child_index]):
+        if previous.tag == "pageUUID":
+            page_uuid = (previous.text or "").strip()
+            if page_uuid:
+                return (page_uuid,)
+
+    return _collect_page_uuids(parent)
+
+
+def _article_heading_page_uuids_in_section(
+    section_elem: ET.Element,
+    *,
+    article_num: int,
+) -> Tuple[str, ...]:
+    page_uuids: List[str] = []
+    for idx, child in enumerate(list(section_elem)):
+        if child.tag in {"page", "pageUUID"}:
+            continue
+        text_value = (child.text or "").strip()
+        if not text_value or not _text_starts_with_article_heading(text_value, article_num):
+            continue
+        for page_uuid in _nearest_page_uuid_for_child(section_elem, idx):
+            if page_uuid not in page_uuids:
+                page_uuids.append(page_uuid)
+    return tuple(page_uuids)
+
+
+def _target_section_article_mismatch_page_uuids(
+    *,
+    previous_section_elem: ET.Element | None,
+    section_article_num: int,
+    section_page_uuids: Tuple[str, ...],
+) -> Tuple[str, ...]:
+    if previous_section_elem is None:
+        return section_page_uuids
+    previous_article_heading_page_uuids = _article_heading_page_uuids_in_section(
+        previous_section_elem,
+        article_num=section_article_num,
+    )
+    if previous_article_heading_page_uuids:
+        return previous_article_heading_page_uuids
+    return section_page_uuids
+
+
+def _section_number_search_pattern(article_num: int, section_num: int) -> re.Pattern[str]:
+    pattern = rf"(?<![\d.])(?:SECTION\s+)?{article_num}\s*\.\s*0*{section_num}"
+    pattern += r"(?!\s*\.\s*\d)(?=\b|[\s.;:,\)\]\-])"
+    return re.compile(pattern, re.IGNORECASE)
+
+
+def _iter_body_number_search_values(root: ET.Element) -> List[str]:
+    body = root.find("body")
+    if body is None:
+        return []
+    values: List[str] = []
+    for node in body.iter():
+        if node.tag == "pageUUID":
+            continue
+        title = node.attrib.get("title")
+        if title:
+            values.append(title)
+        text_value = (node.text or "").strip()
+        if text_value:
+            values.append(text_value)
+        tail_value = (node.tail or "").strip()
+        if tail_value:
+            values.append(tail_value)
+    return values
+
+
+def _body_mentions_section_number(
+    root: ET.Element,
+    *,
+    article_num: int,
+    section_num: int,
+) -> bool:
+    pattern = _section_number_search_pattern(article_num, section_num)
+    return any(pattern.search(value) is not None for value in _iter_body_number_search_values(root))
+
+
+def _expected_or_skipped_section_numbers_absent_from_agreement(
+    root: ET.Element,
+    *,
+    article_num: int | None,
+    expected_section_num: int,
+    found_section_num: int,
+) -> bool:
+    if article_num is None:
+        return False
+    if found_section_num <= expected_section_num:
+        return not _body_mentions_section_number(
+            root,
+            article_num=article_num,
+            section_num=expected_section_num,
+        )
+    return all(
+        not _body_mentions_section_number(
+            root,
+            article_num=article_num,
+            section_num=section_num,
+        )
+        for section_num in range(expected_section_num, found_section_num)
+    )
+
+
 def _target_section_non_sequential_page_uuids(
     *,
     previous_section_elem: ET.Element | None,
@@ -628,6 +908,17 @@ def _target_section_non_sequential_page_uuids(
             article_num=section_article_num,
             section_num=expected_section_num,
         )
+        previous_mentions_after_page_boundary = (
+            previous_mentions_expected
+            and previous_section_elem is not None
+            and _section_body_mentions_number_after_page_boundary(
+                previous_section_elem,
+                article_num=section_article_num,
+                section_num=expected_section_num,
+            )
+        )
+        if previous_mentions_after_page_boundary and current_page_uuids:
+            return current_page_uuids
         if previous_mentions_expected and not current_mentions_expected:
             return previous_page_uuids
         if current_mentions_expected:
@@ -638,6 +929,7 @@ def _target_section_non_sequential_page_uuids(
 
 def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
     violations: List[XMLHardRuleViolation] = []
+    toc_sequences = extract_toc_section_sequences(root)
     toc_consistent_articles = toc_consistent_article_numbers(root)
     body = root.find("body")
     if body is None:
@@ -713,6 +1005,16 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
         article_num = _extract_article_number_from_elem(article_elem)
         section_children = [c for c in list(article_elem) if c.tag == "section"]
         if not section_children:
+            if _article_title_marks_intentionally_empty(article_title):
+                continue
+            if (
+                _article_has_substantive_non_section_content(article_elem)
+                and not _article_text_starts_with_section_heading(
+                    article_elem,
+                    article_num=article_num,
+                )
+            ):
+                continue
             empty_article_count += 1
             for page_uuid in _collect_page_uuids(article_elem):
                 if page_uuid not in empty_article_page_uuids:
@@ -722,6 +1024,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
         expected_section_num = 1
         previous_section_elem: ET.Element | None = None
         previous_section_page_uuids: Tuple[str, ...] = ()
+        article_mismatch_targets: Dict[int, Tuple[str, ...]] = {}
         for section_elem in section_children:
             section_title = section_elem.attrib.get("title", "")
             section_page_uuids = _collect_page_uuids(section_elem)
@@ -738,15 +1041,39 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
 
             section_article_num, section_num = parsed_numbers
             if article_num is not None and section_article_num != article_num:
+                mismatch_page_uuids = article_mismatch_targets.get(section_article_num)
+                if mismatch_page_uuids is None:
+                    mismatch_page_uuids = _target_section_article_mismatch_page_uuids(
+                        previous_section_elem=previous_section_elem,
+                        section_article_num=section_article_num,
+                        section_page_uuids=section_page_uuids,
+                    )
+                    if mismatch_page_uuids != section_page_uuids:
+                        article_mismatch_targets[section_article_num] = mismatch_page_uuids
                 violations.append(
                     XMLHardRuleViolation(
                         reason_code=XML_REASON_SECTION_ARTICLE_MISMATCH,
                         reason_detail=f"Section {section_article_num}.{section_num} does not match article {article_num} ({article_title!r}).",
-                        page_uuids=section_page_uuids,
+                        page_uuids=mismatch_page_uuids,
                     )
                 )
             if section_num != expected_section_num:
-                if article_num not in toc_consistent_articles:
+                toc_suppresses_nonseq = (
+                    article_num in toc_consistent_articles
+                    or toc_has_matching_local_gap(
+                        toc_sequences,
+                        article_num=article_num,
+                        expected_section_num=expected_section_num,
+                        found_section_num=section_num,
+                    )
+                )
+                agreement_absence_suppresses_nonseq = _expected_or_skipped_section_numbers_absent_from_agreement(
+                    root,
+                    article_num=article_num,
+                    expected_section_num=expected_section_num,
+                    found_section_num=section_num,
+                )
+                if not toc_suppresses_nonseq and not agreement_absence_suppresses_nonseq:
                     violations.append(
                         XMLHardRuleViolation(
                             reason_code=XML_REASON_SECTION_NON_SEQUENTIAL,
@@ -778,6 +1105,561 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
             )
         )
     return violations
+
+
+def _section_gaps_from_violations(
+    violations: List[XMLHardRuleViolation],
+) -> List[SectionGap]:
+    gaps: List[SectionGap] = []
+    for violation in violations:
+        if violation.reason_code != XML_REASON_SECTION_NON_SEQUENTIAL:
+            continue
+        match = SECTION_NONSEQ_DETAIL_RE.search(violation.reason_detail)
+        if not match:
+            continue
+        article_num = _extract_article_number(match.group("title").strip("'"))
+        if article_num is None:
+            continue
+        gaps.append(
+            SectionGap(
+                article_num=article_num,
+                expected=int(match.group("expected")),
+                found=int(match.group("found")),
+            )
+        )
+    return gaps
+
+
+def _hard_rule_result_for_df(
+    df: pd.DataFrame,
+) -> Tuple[Counter[str], List[XMLHardRuleViolation]]:
+    xml_rows, generation_failures = generate_xml(df)
+    counts: Counter[str] = Counter()
+    violations: List[XMLHardRuleViolation] = []
+    if generation_failures:
+        counts["xml_generation_failure"] += len(generation_failures)
+    for xml_row in xml_rows:
+        try:
+            root = ET.fromstring(xml_row.xml)
+        except ET.ParseError:
+            counts[XML_REASON_XML_PARSE_FAILURE] += 1
+            continue
+        row_violations = find_hard_rule_violations(root)
+        violations.extend(row_violations)
+        counts.update(violation.reason_code for violation in row_violations)
+    return counts, violations
+
+
+def _safe_hard_rule_improvement(
+    before_counts: Counter[str],
+    after_counts: Counter[str],
+) -> bool:
+    if not before_counts:
+        return False
+    if set(after_counts) - set(before_counts):
+        return False
+    if any(after_counts[reason] > before_counts[reason] for reason in after_counts):
+        return False
+    return sum(after_counts.values()) < sum(before_counts.values())
+
+
+def _source_page_type(row: pd.Series) -> object:
+    gold_label = row.get("gold_label")
+    if isinstance(gold_label, str) and gold_label.strip():
+        return gold_label
+    return row.get("source_page_type")
+
+
+def _apply_tag_repair_to_body_rows(
+    df: pd.DataFrame,
+    repair_name: str,
+    gaps: List[SectionGap],
+) -> Tuple[pd.DataFrame, XMLTagRepairStats]:
+    out = df.copy()
+    total_stats = XMLTagRepairStats()
+    for idx, row in out.iterrows():
+        if _source_page_type(row) != "body":
+            continue
+        tagged_output = row.get("tagged_output")
+        if not isinstance(tagged_output, str) or not tagged_output.strip():
+            continue
+        if repair_name == "split_omitted":
+            repaired, stats = split_combined_omitted_heading_tags(tagged_output)
+        elif repair_name == "split_combined":
+            repaired, stats = split_combined_missing_section_tags(tagged_output, gaps)
+        elif repair_name == "body_start":
+            repaired, stats = apply_body_start_tag_repairs(tagged_output)
+        elif repair_name == "unwrap_bare_number_sections":
+            repaired, stats = unwrap_bare_number_section_tags(tagged_output)
+        elif repair_name == "unwrap_standalone_section_labels":
+            repaired, stats = unwrap_standalone_section_label_tags(tagged_output)
+        elif repair_name == "normalize_no_space_section_prefixes":
+            repaired, stats = normalize_no_space_section_prefixes(tagged_output)
+        elif repair_name == "split_leading_page_number_sections":
+            repaired, stats = split_leading_page_number_section_tags(tagged_output)
+        elif repair_name == "unwrap_inline_section_references":
+            repaired, stats = unwrap_inline_section_reference_tags(tagged_output)
+        elif repair_name == "insert_missing":
+            repaired, stats = insert_missing_section_heading_tags(tagged_output, gaps)
+        elif repair_name == "wrap_untagged_article":
+            repaired, stats = wrap_untagged_article_headings_before_first_sections(tagged_output)
+        else:
+            raise ValueError(f"Unknown XML tag repair: {repair_name}")
+        total_stats.update(stats)
+        if repaired != tagged_output:
+            out.at[idx, "tagged_output"] = repaired
+    return out, total_stats
+
+
+def _apply_cross_row_article_heading_repairs(
+    df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, XMLTagRepairStats]:
+    out = df.copy()
+    stats = XMLTagRepairStats()
+    body_rows = out[out.apply(_source_page_type, axis=1) == "body"]
+    if body_rows.empty:
+        return out, stats
+    if "page_order" in body_rows.columns:
+        body_rows = body_rows.sort_values(["page_order", "page_uuid"], kind="stable")
+
+    section_positions: list[tuple[object, int, int, str]] = []
+    for idx, row in body_rows.iterrows():
+        tagged_output = row.get("tagged_output")
+        if not isinstance(tagged_output, str) or not tagged_output.strip():
+            continue
+        for match in TAGGED_SECTION_TAG_RE.finditer(tagged_output):
+            section_positions.append((idx, match.start(), match.end(), match.group(1).strip()))
+
+    replacements_by_idx: dict[object, dict[tuple[int, int], str]] = {}
+    for current, following in zip(section_positions, section_positions[1:]):
+        idx, start, end, title = current
+        _next_idx, _next_start, _next_end, next_title = following
+        stats.attempts["promote_cross_row_whole_number_sections_to_articles"] += 1
+        article_num = section_title_is_whole_number_article_heading(title)
+        if article_num is None:
+            continue
+        if not section_title_starts_with_same_article_decimal(next_title, article_num):
+            continue
+        replacements_by_idx.setdefault(idx, {})[(start, end)] = f"<article>{title}</article>"
+        stats.applied["promote_cross_row_whole_number_sections_to_articles"] += 1
+
+    for idx, replacements in replacements_by_idx.items():
+        tagged_output = out.at[idx, "tagged_output"]
+        if not isinstance(tagged_output, str):
+            continue
+        pieces: list[str] = []
+        last = 0
+        for (start, end), replacement in sorted(replacements.items()):
+            pieces.append(tagged_output[last:start])
+            pieces.append(replacement)
+            last = end
+        pieces.append(tagged_output[last:])
+        out.at[idx, "tagged_output"] = "".join(pieces)
+
+    return out, stats
+
+
+def _heading_article_context_number(tag_name: str, title: str) -> int | None:
+    if tag_name.lower() == "article":
+        return _extract_article_number(title)
+    article_num = section_title_is_whole_number_article_heading(title)
+    if article_num is not None:
+        return int(article_num)
+    section_numbers = _extract_section_numbers(title)
+    if section_numbers is not None:
+        return section_numbers[0]
+    return None
+
+
+def _apply_article_sequence_heading_repairs(
+    df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, XMLTagRepairStats]:
+    out = df.copy()
+    stats = XMLTagRepairStats()
+    body_rows = out[out.apply(_source_page_type, axis=1) == "body"]
+    if body_rows.empty:
+        return out, stats
+    if "page_order" in body_rows.columns:
+        body_rows = body_rows.sort_values(["page_order", "page_uuid"], kind="stable")
+
+    heading_positions: list[tuple[object, int, int, str, str, int | None]] = []
+    for idx, row in body_rows.iterrows():
+        tagged_output = row.get("tagged_output")
+        if not isinstance(tagged_output, str) or not tagged_output.strip():
+            continue
+        for match in TAGGED_STRUCTURAL_TAG_RE.finditer(tagged_output):
+            tag_name = match.group("tag").lower()
+            title = match.group("title").strip()
+            heading_positions.append(
+                (
+                    idx,
+                    match.start(),
+                    match.end(),
+                    tag_name,
+                    title,
+                    _heading_article_context_number(tag_name, title),
+                )
+            )
+
+    replacements_by_idx: dict[object, dict[tuple[int, int], str]] = {}
+    for pos, heading in enumerate(heading_positions):
+        idx, start, end, tag_name, title, _article_context_num = heading
+        if tag_name != "section":
+            continue
+        stats.attempts["promote_sequence_whole_number_sections_to_articles"] += 1
+        article_num_text = section_title_is_whole_number_article_heading(title)
+        if article_num_text is None:
+            continue
+        article_num = int(article_num_text)
+        previous_article_num = (
+            heading_positions[pos - 1][5]
+            if pos > 0
+            else None
+        )
+        next_article_num = (
+            heading_positions[pos + 1][5]
+            if pos + 1 < len(heading_positions)
+            else None
+        )
+        follows_previous_article = previous_article_num == article_num - 1
+        precedes_next_article = next_article_num == article_num + 1
+        starts_sequence = previous_article_num is None and article_num == 1 and precedes_next_article
+        follows_article_sequence_gap = (
+            follows_previous_article
+            and (next_article_num is None or next_article_num > article_num)
+        )
+        if not (precedes_next_article or starts_sequence or follows_article_sequence_gap):
+            continue
+        replacements_by_idx.setdefault(idx, {})[(start, end)] = f"<article>{title}</article>"
+        stats.applied["promote_sequence_whole_number_sections_to_articles"] += 1
+
+    for idx, replacements in replacements_by_idx.items():
+        tagged_output = out.at[idx, "tagged_output"]
+        if not isinstance(tagged_output, str):
+            continue
+        pieces: list[str] = []
+        last = 0
+        for (start, end), replacement in sorted(replacements.items()):
+            pieces.append(tagged_output[last:start])
+            pieces.append(replacement)
+            last = end
+        pieces.append(tagged_output[last:])
+        out.at[idx, "tagged_output"] = "".join(pieces)
+
+    return out, stats
+
+
+def _split_section_digit_title_candidates(
+    title: str,
+    *,
+    article_num: int,
+) -> list[tuple[int, str]]:
+    candidates: list[tuple[int, str]] = []
+    section_match = SPLIT_SECTION_NUMBER_DIGIT_RE.match(title)
+    if section_match is not None and int(section_match.group("article")) == article_num:
+        section_num = int(section_match.group("head") + section_match.group("tail"))
+        candidates.append(
+            (
+                section_num,
+                title[: section_match.start("gap")] + title[section_match.end("gap") :],
+            )
+        )
+
+    article_match = SPLIT_ARTICLE_NUMBER_DIGIT_RE.match(title)
+    if article_match is not None and int(article_match.group("head") + article_match.group("tail")) == article_num:
+        candidates.append(
+            (
+                int(article_match.group("section")),
+                title[: article_match.start("gap")] + title[article_match.end("gap") :],
+            )
+        )
+    return candidates
+
+
+def _apply_split_section_number_digit_repairs(
+    df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, XMLTagRepairStats]:
+    out = df.copy()
+    stats = XMLTagRepairStats()
+    body_rows = out[out.apply(_source_page_type, axis=1) == "body"]
+    if body_rows.empty:
+        return out, stats
+    if "page_order" in body_rows.columns:
+        body_rows = body_rows.sort_values(["page_order", "page_uuid"], kind="stable")
+
+    section_positions: list[tuple[object, int, int, str, int | None, int | None]] = []
+    current_article_num: int | None = None
+    for idx, row in body_rows.iterrows():
+        tagged_output = row.get("tagged_output")
+        if not isinstance(tagged_output, str) or not tagged_output.strip():
+            continue
+        for match in TAGGED_STRUCTURAL_TAG_RE.finditer(tagged_output):
+            tag_name = match.group("tag").lower()
+            title = match.group("title").strip()
+            if tag_name == "article":
+                current_article_num = _extract_article_number(title)
+                continue
+            parsed_section = _extract_section_numbers(title)
+            parsed_section_num = (
+                parsed_section[1]
+                if parsed_section is not None and parsed_section[0] == current_article_num
+                else None
+            )
+            section_positions.append(
+                (
+                    idx,
+                    match.start(),
+                    match.end(),
+                    title,
+                    current_article_num,
+                    parsed_section_num,
+                )
+            )
+
+    replacements_by_idx: dict[object, dict[tuple[int, int], str]] = {}
+    for pos, section_position in enumerate(section_positions):
+        idx, start, end, title, article_num, _parsed_section_num = section_position
+        stats.attempts["join_split_section_number_digits"] += 1
+        if article_num is None:
+            continue
+
+        previous_section_num: int | None = None
+        for previous in reversed(section_positions[:pos]):
+            if previous[4] != article_num:
+                break
+            if previous[5] is not None:
+                previous_section_num = previous[5]
+                break
+
+        next_section_num: int | None = None
+        for following in section_positions[pos + 1 :]:
+            if following[4] != article_num:
+                break
+            if following[5] is not None:
+                next_section_num = following[5]
+                break
+
+        if previous_section_num is None or next_section_num is None:
+            continue
+        for repaired_section_num, repaired_title in _split_section_digit_title_candidates(
+            title,
+            article_num=article_num,
+        ):
+            previous_supports_repair = previous_section_num == repaired_section_num - 1
+            next_supports_repair = next_section_num == repaired_section_num + 1
+            prior_sequence_allows_repair = previous_section_num < repaired_section_num
+            following_sequence_allows_repair = next_section_num > repaired_section_num
+            if not (
+                (previous_supports_repair and following_sequence_allows_repair)
+                or (next_supports_repair and prior_sequence_allows_repair)
+            ):
+                continue
+            replacements_by_idx.setdefault(idx, {})[(start, end)] = (
+                f"<section>{repaired_title}</section>"
+            )
+            stats.applied["join_split_section_number_digits"] += 1
+            break
+
+    for idx, replacements in replacements_by_idx.items():
+        tagged_output = out.at[idx, "tagged_output"]
+        if not isinstance(tagged_output, str):
+            continue
+        pieces: list[str] = []
+        last = 0
+        for (start, end), replacement in sorted(replacements.items()):
+            pieces.append(tagged_output[last:start])
+            pieces.append(replacement)
+            last = end
+        pieces.append(tagged_output[last:])
+        out.at[idx, "tagged_output"] = "".join(pieces)
+
+    return out, stats
+
+
+def _merge_article_title_parts(left_title: str, right_title: str) -> str:
+    left = left_title.strip()
+    right = right_title.strip()
+    if left.endswith("."):
+        return f"{left} {right}"
+    return f"{left}. {right}"
+
+
+def _apply_split_article_title_repairs(
+    df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, XMLTagRepairStats]:
+    out = df.copy()
+    stats = XMLTagRepairStats()
+    body_rows = out[out.apply(_source_page_type, axis=1) == "body"]
+    if body_rows.empty:
+        return out, stats
+    if "page_order" in body_rows.columns:
+        body_rows = body_rows.sort_values(["page_order", "page_uuid"], kind="stable")
+
+    heading_positions: list[tuple[object, int, int, str, str]] = []
+    for idx, row in body_rows.iterrows():
+        tagged_output = row.get("tagged_output")
+        if not isinstance(tagged_output, str) or not tagged_output.strip():
+            continue
+        for match in TAGGED_STRUCTURAL_TAG_RE.finditer(tagged_output):
+            heading_positions.append(
+                (
+                    idx,
+                    match.start(),
+                    match.end(),
+                    match.group("tag").lower(),
+                    match.group("title").strip(),
+                )
+            )
+
+    replacements_by_idx: dict[object, dict[tuple[int, int], str]] = {}
+    for pos, heading in enumerate(heading_positions[:-2]):
+        idx, start, end, tag_name, title = heading
+        stats.attempts["merge_split_article_title_tags"] += 1
+        if tag_name != "article":
+            continue
+        article_num = _bare_article_marker_number(title)
+        if article_num is None:
+            continue
+        next_idx, next_start, next_end, next_tag_name, next_title = heading_positions[pos + 1]
+        if next_tag_name != "article":
+            continue
+        if _extract_article_number(next_title) is not None:
+            continue
+        following_tag_name = heading_positions[pos + 2][3]
+        following_title = heading_positions[pos + 2][4]
+        if following_tag_name != "section":
+            continue
+        following_section_numbers = _extract_section_numbers(following_title)
+        if following_section_numbers is None or following_section_numbers[0] != article_num:
+            continue
+
+        replacements_by_idx.setdefault(idx, {})[(start, end)] = (
+            f"<article>{_merge_article_title_parts(title, next_title)}</article>"
+        )
+        replacements_by_idx.setdefault(next_idx, {})[(next_start, next_end)] = ""
+        stats.applied["merge_split_article_title_tags"] += 1
+
+    for idx, replacements in replacements_by_idx.items():
+        tagged_output = out.at[idx, "tagged_output"]
+        if not isinstance(tagged_output, str):
+            continue
+        pieces: list[str] = []
+        last = 0
+        for (start, end), replacement in sorted(replacements.items()):
+            pieces.append(tagged_output[last:start])
+            pieces.append(replacement)
+            last = end
+        pieces.append(tagged_output[last:])
+        out.at[idx, "tagged_output"] = "".join(pieces)
+
+    return out, stats
+
+
+def _apply_safe_xml_tag_repairs_to_df(
+    df: pd.DataFrame,
+    *,
+    context: AssetExecutionContext | None = None,
+    log_prefix: str = "xml_asset",
+) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    out = df.copy()
+    accepted_counts: Counter[str] = Counter()
+    rejected_counts: Counter[str] = Counter()
+    out, direct_text_stats = _apply_tag_repair_to_body_rows(
+        out,
+        "normalize_no_space_section_prefixes",
+        [],
+    )
+
+    for agreement_uuid in out["agreement_uuid"].drop_duplicates().tolist():
+        agreement_mask = out["agreement_uuid"] == agreement_uuid
+        current_df = out.loc[agreement_mask].copy()
+        current_counts, current_violations = _hard_rule_result_for_df(current_df)
+        if not current_counts:
+            continue
+
+        for repair_name in (
+            "split_omitted",
+            "split_combined",
+            "body_start",
+            "unwrap_bare_number_sections",
+            "unwrap_standalone_section_labels",
+            "split_leading_page_number_sections",
+            "unwrap_inline_section_references",
+            "article_sequence",
+            "join_split_digits",
+            "split_article_title",
+            "cross_row_article",
+            "wrap_untagged_article",
+            "insert_missing",
+        ):
+            gaps = _section_gaps_from_violations(current_violations)
+            if repair_name in {"split_combined", "insert_missing"} and not gaps:
+                continue
+            if repair_name == "cross_row_article":
+                candidate_df, stats = _apply_cross_row_article_heading_repairs(current_df)
+                if stats.applied:
+                    candidate_df, followup_stats = _apply_tag_repair_to_body_rows(
+                        candidate_df,
+                        "wrap_untagged_article",
+                        gaps,
+                    )
+                    stats.update(followup_stats)
+                    candidate_df, followup_stats = _apply_tag_repair_to_body_rows(
+                        candidate_df,
+                        "split_omitted",
+                        gaps,
+                    )
+                    stats.update(followup_stats)
+            elif repair_name == "article_sequence":
+                candidate_df, stats = _apply_article_sequence_heading_repairs(current_df)
+                if stats.applied:
+                    candidate_df, followup_stats = _apply_tag_repair_to_body_rows(
+                        candidate_df,
+                        "wrap_untagged_article",
+                        gaps,
+                    )
+                    stats.update(followup_stats)
+                    candidate_df, followup_stats = _apply_tag_repair_to_body_rows(
+                        candidate_df,
+                        "split_omitted",
+                        gaps,
+                    )
+                    stats.update(followup_stats)
+            elif repair_name == "join_split_digits":
+                candidate_df, stats = _apply_split_section_number_digit_repairs(current_df)
+            elif repair_name == "split_article_title":
+                candidate_df, stats = _apply_split_article_title_repairs(current_df)
+            else:
+                candidate_df, stats = _apply_tag_repair_to_body_rows(
+                    current_df,
+                    repair_name,
+                    gaps,
+                )
+            if not stats.applied:
+                continue
+            candidate_counts, candidate_violations = _hard_rule_result_for_df(candidate_df)
+            if _safe_hard_rule_improvement(current_counts, candidate_counts):
+                current_df = candidate_df
+                current_counts = candidate_counts
+                current_violations = candidate_violations
+                accepted_counts[repair_name] += 1
+            else:
+                rejected_counts[repair_name] += 1
+
+        out.loc[agreement_mask, "tagged_output"] = current_df["tagged_output"]
+
+    if context is not None and (direct_text_stats.applied or accepted_counts or rejected_counts):
+        context.log.info(
+            "%s: xml tag repairs direct_text=%s accepted=%s rejected=%s",
+            log_prefix,
+            dict(direct_text_stats.applied),
+            dict(accepted_counts),
+            dict(rejected_counts),
+        )
+    return out
 
 
 def _render_tag_tree_from_root(root: ET.Element) -> str:
@@ -1076,6 +1958,34 @@ def _set_xml_status_with_reasons(
     return int(result.rowcount or 0)
 
 
+def _xml_llm_verification_enabled(pipeline_config: PipelineConfig) -> bool:
+    raw_value = getattr(pipeline_config, "xml_enable_llm_verification", None)
+    if raw_value is None:
+        return True
+    return bool(raw_value)
+
+
+def _mark_xml_rows_verified(
+    conn: Connection,
+    xml_table: str,
+    xml_status_reasons_table: str,
+    *,
+    rows: List[Tuple[str, int]],
+) -> int:
+    updated = 0
+    for agreement_uuid, version in rows:
+        updated += _set_xml_status_with_reasons(
+            conn,
+            xml_table,
+            xml_status_reasons_table,
+            agreement_uuid=agreement_uuid,
+            version=version,
+            status="verified",
+            reason_rows=[],
+        )
+    return updated
+
+
 def _apply_xml_verify_batch_output(
     context: AssetExecutionContext,
     engine: Any,
@@ -1270,6 +2180,11 @@ def _run_xml_build_for_agreements(
             ).mappings().fetchall()
 
             version_map = {row["agreement_uuid"]: row["max_version"] + 1 for row in existing_versions}
+            df = _apply_safe_xml_tag_repairs_to_df(
+                df,
+                context=context,
+                log_prefix=log_prefix,
+            )
             xml, xml_generation_failures = generate_xml(df, version_map)
             for failure in xml_generation_failures:
                 context.log.warning(
@@ -1541,18 +2456,22 @@ def xml_verify_asset(
     built_xml_agreement_uuids: List[str],
 ) -> List[str]:
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
-    resume_openai_batches = pipeline_config.resume_openai_batches
+    llm_verification_enabled = _xml_llm_verification_enabled(pipeline_config)
+    resume_openai_batches = (
+        pipeline_config.resume_openai_batches and llm_verification_enabled
+    )
     target_agreement_uuids = sorted(set(built_xml_agreement_uuids))
 
     engine = db.get_engine()
     schema = db.database
     xml_table = f"{schema}.xml"
-    client = _oai_client()
+    client = _oai_client() if llm_verification_enabled else None
 
     with engine.begin() as conn:
         assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
 
     if resume_openai_batches:
+        assert client is not None
         with engine.begin() as conn:
             stranded_batch = _fetch_unpulled_xml_verify_batch(
                 conn,
@@ -1633,6 +2552,7 @@ def xml_verify_asset(
     selected_for_verify = [str(row["agreement_uuid"]) for row in rows]
 
     lines: List[Dict[str, Any]] = []
+    direct_verify_rows: List[Tuple[str, int]] = []
     hard_invalid_rows: List[Dict[str, Any]] = []
     for row in rows:
         agreement_uuid = str(row["agreement_uuid"])
@@ -1684,6 +2604,10 @@ def xml_verify_asset(
                     "reason_rows": reason_rows,
                 }
             )
+            continue
+
+        if not llm_verification_enabled:
+            direct_verify_rows.append((agreement_uuid, version))
             continue
 
         try:
@@ -1751,6 +2675,24 @@ def xml_verify_asset(
             reason_counts,
         )
 
+    if not llm_verification_enabled:
+        direct_verified_updated = 0
+        if direct_verify_rows:
+            with engine.begin() as conn:
+                direct_verified_updated = _mark_xml_rows_verified(
+                    conn,
+                    xml_table,
+                    f"{schema}.xml_status_reasons",
+                    rows=direct_verify_rows,
+                )
+        context.log.info(
+            "xml_verify_asset: bypassed LLM verification by config; directly verified=%s, hard_invalid_updated=%s",
+            direct_verified_updated,
+            hard_invalid_updated,
+        )
+        run_post_asset_refresh(context, db, pipeline_config)
+        return selected_for_verify
+
     if not lines:
         context.log.info(
             "xml_verify_asset: no LLM submissions required after hard-rule checks; hard_invalid_updated=%s",
@@ -1769,6 +2711,7 @@ def xml_verify_asset(
         len(lines),
         len(hard_invalid_rows),
     )
+    assert client is not None
 
     if resume_openai_batches:
         with engine.begin() as conn:
@@ -1887,13 +2830,16 @@ def _run_scoped_fresh_xml_verify(
     mark_stage_on_no_eligible: bool = False,
 ) -> List[str]:
     agreement_batch_size = pipeline_config.xml_agreement_batch_size
-    resume_openai_batches = pipeline_config.resume_openai_batches
+    llm_verification_enabled = _xml_llm_verification_enabled(pipeline_config)
+    resume_openai_batches = (
+        pipeline_config.resume_openai_batches and llm_verification_enabled
+    )
     target_agreement_uuids = sorted(set(target_scope))
 
     engine = db.get_engine()
     schema = db.database
     xml_table = f"{schema}.xml"
-    client = _oai_client()
+    client = _oai_client() if llm_verification_enabled else None
 
     with engine.begin() as conn:
         assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
@@ -1950,6 +2896,7 @@ def _run_scoped_fresh_xml_verify(
 
         selected_for_verify = [str(row["agreement_uuid"]) for row in rows]
         lines: List[Dict[str, Any]] = []
+        direct_verify_rows: List[Tuple[str, int]] = []
         hard_invalid_rows: List[Dict[str, Any]] = []
         for row in rows:
             agreement_uuid = str(row["agreement_uuid"])
@@ -2003,6 +2950,10 @@ def _run_scoped_fresh_xml_verify(
                 )
                 continue
 
+            if not llm_verification_enabled:
+                direct_verify_rows.append((agreement_uuid, version))
+                continue
+
             try:
                 tag_tree = _render_tag_tree_from_root(root)
             except Exception as e:
@@ -2046,6 +2997,25 @@ def _run_scoped_fresh_xml_verify(
                         reason_rows=list(row["reason_rows"]),
                     )
 
+        if not llm_verification_enabled:
+            if direct_verify_rows:
+                with engine.begin() as conn:
+                    _ = _mark_xml_rows_verified(
+                        conn,
+                        xml_table,
+                        f"{schema}.xml_status_reasons",
+                        rows=direct_verify_rows,
+                    )
+            with engine.begin() as conn:
+                verified_agreement_uuids.update(
+                    _fetch_latest_verified_agreement_uuids(
+                        conn,
+                        xml_table=xml_table,
+                        agreement_uuids=selected_for_verify,
+                    )
+                )
+            continue
+
         if not lines:
             with engine.begin() as conn:
                 verified_agreement_uuids.update(
@@ -2066,6 +3036,7 @@ def _run_scoped_fresh_xml_verify(
             stage_name=stage_name,
             default_key=agreement_version_batch_key(llm_targets),
         )
+        assert client is not None
 
         if resume_openai_batches:
             with engine.begin() as conn:

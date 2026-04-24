@@ -160,6 +160,13 @@ class SummaryDataTests(unittest.TestCase):
             for sql in conn.executed_sql
             if "INSERT INTO pdx.summary_data" in sql
         )
+        sections_agg_sql = next(
+            sql
+            for sql in conn.executed_sql
+            if "CREATE TEMPORARY TABLE tmp_sections_agg AS" in sql
+        )
+        self.assertIn("AND x.latest = 1", sections_agg_sql)
+        self.assertIn("AND x.status = 'verified'", sections_agg_sql)
         self.assertIn("FROM pdx.agreements AS a", summary_insert_sql)
         self.assertIn("COALESCE(LOWER(a.status), '') <> 'invalid'", summary_insert_sql)
         self.assertIn(
@@ -201,6 +208,7 @@ class SummaryDataTests(unittest.TestCase):
         self.assertIn("TRIM(s.section_standard_id) <> '[]'", overview_insert_sql)
         self.assertIn("TRIM(s.section_standard_id_gold_label) <> '[]'", overview_insert_sql)
         self.assertIn("JOIN tmp_xml_latest x", overview_insert_sql)
+        self.assertIn("AND x.status = 'verified'", overview_insert_sql)
         self.assertIn("TRIM(a3.filing_date) REGEXP '^[0-9]{4}-[0-9]{2}-[0-9]{2}'", overview_insert_sql)
         self.assertIn("SUBSTRING(TRIM(a3.filing_date), 1, 10)", overview_insert_sql)
         self.assertNotIn("a3.filing_date != ''", overview_insert_sql)

@@ -134,6 +134,7 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
         with (
             patch("etl.defs.d_ai_repair_asset.assert_tables_exist"),
             patch("etl.defs.d_ai_repair_asset._fetch_candidates", return_value=candidates),
+            patch("etl.defs.d_ai_repair_asset._fetch_source_verdict_candidates", return_value=[]),
             patch(
                 "etl.defs.d_ai_repair_asset._fetch_candidate_page_reason_codes",
                 return_value={
@@ -226,6 +227,7 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
         with (
             patch("etl.defs.d_ai_repair_asset.assert_tables_exist"),
             patch("etl.defs.d_ai_repair_asset._fetch_candidates", return_value=candidates),
+            patch("etl.defs.d_ai_repair_asset._fetch_source_verdict_candidates", return_value=[]),
             patch(
                 "etl.defs.d_ai_repair_asset._fetch_candidate_page_reason_codes",
                 return_value={"page-gap": {"section_non_sequential"}},
@@ -420,6 +422,7 @@ class AIRepairEnqueueAssetTests(unittest.TestCase):
                 "etl.defs.d_ai_repair_asset._fetch_candidates",
                 return_value=[],
             ) as fetch_candidates,
+            patch("etl.defs.d_ai_repair_asset._fetch_source_verdict_candidates", return_value=[]),
             patch("etl.defs.d_ai_repair_asset.run_post_asset_refresh", return_value=None),
         ):
             result = _enqueue_ai_repair_for_agreements(

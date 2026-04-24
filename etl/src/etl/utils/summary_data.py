@@ -386,6 +386,7 @@ def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
                 ON x.agreement_uuid = s.agreement_uuid
                AND x.version = s.xml_version
                AND x.latest = 1
+               AND x.status = 'verified'
             WHERE s.agreement_uuid IS NOT NULL
             GROUP BY s.agreement_uuid
             """
@@ -987,6 +988,7 @@ def _refresh_agreement_overview_summary_table(conn: Connection, *, schema: str) 
                     JOIN tmp_xml_latest x
                         ON x.agreement_uuid = s.agreement_uuid
                        AND x.version = s.xml_version
+                       AND x.status = 'verified'
                     JOIN {agreements_table} a2
                         ON a2.agreement_uuid = s.agreement_uuid
                     WHERE {_summary_eligible_agreement_where_sql(alias='a2')}
@@ -1016,6 +1018,7 @@ def _refresh_agreement_overview_summary_table(conn: Connection, *, schema: str) 
                     JOIN tmp_xml_latest x
                         ON x.agreement_uuid = s.agreement_uuid
                        AND x.version = s.xml_version
+                       AND x.status = 'verified'
                     JOIN {agreements_table} a2
                         ON a2.agreement_uuid = s.agreement_uuid
                     WHERE {_summary_eligible_agreement_where_sql(alias='a2')}

@@ -11,6 +11,7 @@ import pandas as pd
 from dagster import AssetExecutionContext
 from sqlalchemy import bindparam, text
 
+from etl.defs.d_ai_repair_asset import apply_source_text_bypasses_for_agreements
 from etl.defs.e_reconcile_tags import (
     ingestion_cleanup_a_reconcile_tags,
     ingestion_cleanup_b_reconcile_tags,
@@ -22,6 +23,7 @@ from etl.defs.f_xml_asset import (
     XML_REASON_XML_PARSE_FAILURE,
     XML_VERIFY_BATCH_SCOPE_REPAIR,
     _apply_xml_verify_batch_output,
+    _apply_safe_xml_tag_repairs_to_df,
     _build_xml_verify_batch_request_body,
     _fetch_latest_verified_agreement_uuids,
     _fetch_unpulled_xml_verify_batch,
@@ -183,6 +185,11 @@ def post_repair_build_xml_asset(
             for row in existing_versions
         }
 
+        df = _apply_safe_xml_tag_repairs_to_df(
+            df,
+            context=context,
+            log_prefix="post_repair_build_xml_asset",
+        )
         xml, xml_generation_failures = generate_xml(df, version_map)
         for failure in xml_generation_failures:
             context.log.warning(
@@ -451,10 +458,16 @@ def post_repair_verify_xml_asset(
                     status="invalid",
                     reason_rows=list(row["reason_rows"]),
                 )
+            source_bypassed = apply_source_text_bypasses_for_agreements(
+                conn,
+                schema,
+                [str(row["agreement_uuid"]) for row in hard_invalid_rows],
+            )
 
         context.log.info(
-            "post_repair_verify_xml_asset: hard-rule invalidated %s XML rows before LLM.",
+            "post_repair_verify_xml_asset: hard-rule invalidated %s XML rows before LLM; source_text_bypassed=%s.",
             len(hard_invalid_rows),
+            source_bypassed,
         )
 
     if not lines:
@@ -691,6 +704,11 @@ def regular_ingest_post_repair_build_xml_asset(
             for row in existing_versions
         }
 
+        df = _apply_safe_xml_tag_repairs_to_df(
+            df,
+            context=context,
+            log_prefix="regular_ingest_post_repair_build_xml_asset",
+        )
         xml, xml_generation_failures = generate_xml(df, version_map)
         for failure in xml_generation_failures:
             context.log.warning(
@@ -903,6 +921,16 @@ def regular_ingest_post_repair_verify_xml_asset(
                     status="invalid",
                     reason_rows=list(row["reason_rows"]),
                 )
+            source_bypassed = apply_source_text_bypasses_for_agreements(
+                conn,
+                schema,
+                [str(row["agreement_uuid"]) for row in hard_invalid_rows],
+            )
+        context.log.info(
+            "regular_ingest_post_repair_verify_xml_asset: hard-rule invalidated %s XML rows before LLM; source_text_bypassed=%s.",
+            len(hard_invalid_rows),
+            source_bypassed,
+        )
 
     if not lines:
         run_post_asset_refresh(context, db, pipeline_config)
@@ -1130,6 +1158,11 @@ def ingestion_cleanup_a_post_repair_build_xml_asset(
             for row in existing_versions
         }
 
+        df = _apply_safe_xml_tag_repairs_to_df(
+            df,
+            context=context,
+            log_prefix="ingestion_cleanup_a_post_repair_build_xml_asset",
+        )
         xml, xml_generation_failures = generate_xml(df, version_map)
         for failure in xml_generation_failures:
             context.log.warning(
@@ -1345,6 +1378,16 @@ def ingestion_cleanup_a_post_repair_verify_xml_asset(
                     status="invalid",
                     reason_rows=list(row["reason_rows"]),
                 )
+            source_bypassed = apply_source_text_bypasses_for_agreements(
+                conn,
+                schema,
+                [str(row["agreement_uuid"]) for row in hard_invalid_rows],
+            )
+        context.log.info(
+            "ingestion_cleanup_a_post_repair_verify_xml_asset: hard-rule invalidated %s XML rows before LLM; source_text_bypassed=%s.",
+            len(hard_invalid_rows),
+            source_bypassed,
+        )
 
     if not lines:
         with engine.begin() as conn:
@@ -1585,6 +1628,11 @@ def ingestion_cleanup_b_post_repair_build_xml_asset(
             for row in existing_versions
         }
 
+        df = _apply_safe_xml_tag_repairs_to_df(
+            df,
+            context=context,
+            log_prefix="ingestion_cleanup_b_post_repair_build_xml_asset",
+        )
         xml, xml_generation_failures = generate_xml(df, version_map)
         for failure in xml_generation_failures:
             context.log.warning(
@@ -1811,6 +1859,16 @@ def ingestion_cleanup_b_post_repair_verify_xml_asset(
                     status="invalid",
                     reason_rows=list(row["reason_rows"]),
                 )
+            source_bypassed = apply_source_text_bypasses_for_agreements(
+                conn,
+                schema,
+                [str(row["agreement_uuid"]) for row in hard_invalid_rows],
+            )
+        context.log.info(
+            "ingestion_cleanup_b_post_repair_verify_xml_asset: hard-rule invalidated %s XML rows before LLM; source_text_bypassed=%s.",
+            len(hard_invalid_rows),
+            source_bypassed,
+        )
 
     if not lines:
         with engine.begin() as conn:

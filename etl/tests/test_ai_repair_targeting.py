@@ -1,4 +1,5 @@
 # pyright: reportAny=false, reportPrivateUsage=false
+import json
 import unittest
 from collections.abc import Mapping, Sequence
 from typing import cast
@@ -10,6 +11,8 @@ from etl.defs.d_ai_repair_asset import (
     _repair_model_for_candidate,
     _apply_full_page_tag_spans,
     _build_toc_context_for_page,
+    _parse_source_text_verdict,
+    _source_reason_rows_are_bypass_eligible,
     _validate_full_page_tag_spans,
 )
 from etl.defs.resources import AIRepairAttemptPriority
@@ -67,7 +70,7 @@ class AiRepairTargetingTests(unittest.TestCase):
         self.assertEqual(_repair_model_for_attempted(0), "gpt-5-mini")
         self.assertEqual(_repair_model_for_attempted(1), "gpt-5-mini")
         with self.assertRaises(ValueError):
-            _repair_model_for_attempted(2)
+            _ = _repair_model_for_attempted(2)
         self.assertEqual(
             _repair_model_for_candidate(1, has_completed_requests=False),
             "gpt-5-mini",
@@ -383,7 +386,7 @@ class AiRepairTargetingTests(unittest.TestCase):
             }
         ]
         with self.assertRaises(ValueError):
-            _validate_full_page_tag_spans(source, contaminated)
+            _ = _validate_full_page_tag_spans(source, contaminated)
 
     def test_full_page_span_validation_realigns_nearby_exact_match(self) -> None:
         source = "\nSection 6.03. Termination."
@@ -472,7 +475,7 @@ class AiRepairTargetingTests(unittest.TestCase):
         ]
 
         with self.assertRaises(ValueError):
-            _validate_full_page_tag_spans(source, far_off)
+            _ = _validate_full_page_tag_spans(source, far_off)
 
     def test_full_page_span_validation_rejects_ambiguous_nearby_exact_matches(self) -> None:
         source = "TAG" + ("x" * 17) + "TAG"
@@ -486,7 +489,7 @@ class AiRepairTargetingTests(unittest.TestCase):
         ]
 
         with self.assertRaises(ValueError):
-            _validate_full_page_tag_spans(source, ambiguous)
+            _ = _validate_full_page_tag_spans(source, ambiguous)
 
     def test_full_page_span_validation_rejects_overlapping_spans(self) -> None:
         source = "ARTICLE I\nSection 1.01"
@@ -505,7 +508,7 @@ class AiRepairTargetingTests(unittest.TestCase):
             },
         ]
         with self.assertRaises(ValueError):
-            _validate_full_page_tag_spans(source, spans)
+            _ = _validate_full_page_tag_spans(source, spans)
 
     def test_apply_full_page_tag_spans_inserts_tags_deterministically(self) -> None:
         source = "ARTICLE I\nSection 1.01 text.\n-56-"
@@ -535,6 +538,90 @@ class AiRepairTargetingTests(unittest.TestCase):
             "<article>ARTICLE I</article>\n<section>Section 1.01</section> text.\n<page>-56-</page>",
         )
 
+    def test_source_reason_rows_are_bypass_eligible_only_for_page_scoped_nonseq(self) -> None:
+        eligible, page_uuids = _source_reason_rows_are_bypass_eligible(
+            [
+                {
+                    "reason_code": "section_non_sequential",
+                    "reason_detail": "expected 2, found 3",
+                    "page_uuid": "page-1",
+                }
+            ]
+        )
+        self.assertTrue(eligible)
+        self.assertEqual(page_uuids, {"page-1"})
+
+        mixed, _ = _source_reason_rows_are_bypass_eligible(
+            [
+                {
+                    "reason_code": "section_non_sequential",
+                    "reason_detail": "expected 2, found 3",
+                    "page_uuid": "page-1",
+                },
+                {
+                    "reason_code": "section_article_mismatch",
+                    "reason_detail": "bad article",
+                    "page_uuid": "page-2",
+                },
+            ]
+        )
+        self.assertFalse(mixed)
+
+        unscoped, _ = _source_reason_rows_are_bypass_eligible(
+            [
+                {
+                    "reason_code": "section_non_sequential",
+                    "reason_detail": "expected 2, found 3",
+                    "page_uuid": None,
+                }
+            ]
+        )
+        self.assertFalse(unscoped)
+
+    def test_parse_source_text_verdict_strictly_accepts_schema(self) -> None:
+        raw = {
+            "custom_id": "agreement-1::source::4",
+            "response": {
+                "status_code": 200,
+                "body": {
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [
+                                {
+                                    "text": json.dumps(
+                                        {
+                                            "verdict": "source_text_hard_rule_exception",
+                                            "source_text_is_correct": True,
+                                            "flagged_pages_are_causal": True,
+                                            "saw_full_problem_text": True,
+                                            "confidence": 0.94,
+                                            "problem_summary": "The source jumps from 4.01 to 4.03.",
+                                            "evidence": [
+                                                {
+                                                    "page_uuid": "page-2",
+                                                    "quote": "4.03 Capital Stock.",
+                                                    "interpretation": "The next source heading is 4.03.",
+                                                }
+                                            ],
+                                            "missing_or_duplicate_section_numbers": ["4.02"],
+                                            "warnings": [],
+                                        }
+                                    )
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+        }
+
+        request_id, verdict = _parse_source_text_verdict(raw)
+
+        self.assertEqual(request_id, "agreement-1::source::4")
+        self.assertEqual(verdict["verdict"], "source_text_hard_rule_exception")
+        self.assertEqual(verdict["confidence"], 0.94)
+
 
 if __name__ == "__main__":
-    unittest.main()
+    _ = unittest.main()

@@ -5,6 +5,7 @@ resources:
       queue_run_mode: single_batch
       refresh: true
       resume_openai_batches: true
+      xml_enable_llm_verification: false
       tagging_agreement_batch_size: 10
       pre_processing_agreement_batch_size: 10
       xml_agreement_batch_size: 10

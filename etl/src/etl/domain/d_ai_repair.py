@@ -258,6 +258,64 @@ def _json_schema_excerpt_rulings() -> Dict[str, Any]:
     }
 
 
+def _json_schema_source_text_verdict() -> Dict[str, Any]:
+    """
+    Agreement-level source-text verdict for hard XML failures.
+
+    This is intentionally separate from tag-span repair: the model must decide
+    whether the source agreement text itself has a numbering/structure defect
+    that should bypass hard validation after normal retagging has failed.
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "verdict": {
+                "type": "string",
+                "enum": [
+                    "source_text_hard_rule_exception",
+                    "tagging_error_or_missing_tag",
+                    "insufficient_context",
+                ],
+            },
+            "source_text_is_correct": {"type": "boolean"},
+            "flagged_pages_are_causal": {"type": "boolean"},
+            "saw_full_problem_text": {"type": "boolean"},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            "problem_summary": {"type": "string"},
+            "evidence": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "page_uuid": {"type": "string"},
+                        "quote": {"type": "string"},
+                        "interpretation": {"type": "string"},
+                    },
+                    "required": ["page_uuid", "quote", "interpretation"],
+                    "additionalProperties": False,
+                },
+            },
+            "missing_or_duplicate_section_numbers": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+            "warnings": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": [
+            "verdict",
+            "source_text_is_correct",
+            "flagged_pages_are_causal",
+            "saw_full_problem_text",
+            "confidence",
+            "problem_summary",
+            "evidence",
+            "missing_or_duplicate_section_numbers",
+            "warnings",
+        ],
+        "additionalProperties": False,
+    }
+
+
 def _system_prompt_full(toc_context: str | None = None) -> str:
     prompt = '''
     # Identity
@@ -461,6 +519,64 @@ def _user_prompt_excerpt(
     )
 
 
+def _system_prompt_source_text_verdict() -> str:
+    return '''
+    # Identity
+
+    You are an expert legal agreement source-text auditor. You are not repairing tags in this task.
+
+    # Task
+
+    You will receive:
+    1. Hard XML validation failures for one agreement.
+    2. The source text and current tagged text for the pages believed to cause those failures.
+    3. Neighboring pages for context when available.
+
+    Decide whether the agreement failed hard validation because the SOURCE AGREEMENT TEXT itself has an unusual but genuine numbering/structure problem, rather than because the tagger missed or misplaced tags.
+
+    # Verdicts
+
+    Return "source_text_hard_rule_exception" only if all of these are true:
+    - The flagged page(s) shown are enough to see the complete local problem.
+    - The hard-validation failure is caused by text physically present in the source agreement.
+    - The current source text is correct as printed, even though it violates the normal hard XML rule.
+    - There is no plausible missing article/section heading on the shown pages that should be tagged to fix the failure.
+
+    Return "tagging_error_or_missing_tag" if the shown source text contains an untagged or mistagged heading that should be repaired, or if the numbering looks normal once headings are correctly interpreted.
+
+    Return "insufficient_context" if the shown pages do not let you confidently see the full local issue.
+
+    # Rules
+
+    - Review SOURCE text first. Tagged text is supporting evidence only.
+    - Do not infer missing pages or missing headings from references in prose.
+    - Section references inside prose are not section headings.
+    - A true source-text exception can include duplicated section numbers, skipped section numbers, or a missing section heading where nearby source pages show the agreement truly jumps over it.
+    - Be conservative. False bypasses are worse than leaving an agreement invalid.
+    - If confidence is below 0.90, do not use "source_text_hard_rule_exception".
+
+    # Output
+
+    Return only JSON matching the schema.
+    '''
+
+
+def _user_prompt_source_text_verdict(
+    *,
+    agreement_uuid: str,
+    xml_version: int,
+    reason_rows: List[Dict[str, Any]],
+    page_contexts: List[Dict[str, Any]],
+) -> str:
+    payload = {
+        "agreement_uuid": agreement_uuid,
+        "xml_version": xml_version,
+        "hard_validation_failures": reason_rows,
+        "pages": page_contexts,
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
 # ------------------------------
 # JSONL line builders (OpenAI Batch)
 # ------------------------------
@@ -581,3 +697,54 @@ def build_jsonl_lines_for_page(
             }
         )
     return lines, metas
+
+
+def build_jsonl_line_for_source_text_verdict(
+    *,
+    agreement_uuid: str,
+    xml_version: int,
+    anchor_page_uuid: str,
+    model: str,
+    reason_rows: List[Dict[str, Any]],
+    page_contexts: List[Dict[str, Any]],
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    custom_id = f"{agreement_uuid}::source::{int(xml_version)}"
+    body = {
+        "model": model,
+        "reasoning": {"effort": "high"},
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "source_text_hard_rule_verdict",
+                "strict": True,
+                "schema": _json_schema_source_text_verdict(),
+            }
+        },
+        "instructions": _system_prompt_source_text_verdict(),
+        "input": [
+            {
+                "role": "user",
+                "content": _user_prompt_source_text_verdict(
+                    agreement_uuid=agreement_uuid,
+                    xml_version=xml_version,
+                    reason_rows=reason_rows,
+                    page_contexts=page_contexts,
+                ),
+            }
+        ],
+    }
+    return (
+        {
+            "custom_id": custom_id,
+            "method": "POST",
+            "url": "/v1/responses",
+            "body": body,
+        },
+        {
+            "request_id": custom_id,
+            "page_uuid": anchor_page_uuid,
+            "mode": "source",
+            "excerpt_start": 0,
+            "excerpt_end": 0,
+        },
+    )

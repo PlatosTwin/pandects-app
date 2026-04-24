@@ -57,6 +57,7 @@ from etl.utils.schema_guards import assert_tables_exist
 from etl.domain.d_ai_repair import (
     RepairDecision,
     build_jsonl_lines_for_page,
+    build_jsonl_line_for_source_text_verdict,
 )
 
 if TYPE_CHECKING:
@@ -80,9 +81,17 @@ AI_REPAIR_ELIGIBLE_XML_REASON_CODES: Tuple[str, ...] = (
     XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
 )
+AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES: Tuple[str, ...] = (
+    XML_REASON_SECTION_NON_SEQUENTIAL,
+)
 
 AI_REPAIR_FIRST_PASS_MODEL = "gpt-5-mini"
 AI_REPAIR_RETRY_MODEL = "gpt-5.1"
+AI_REPAIR_SOURCE_VERDICT_MODEL = "gpt-5.1"
+XML_REASON_LLM_SOURCE_TEXT_BYPASS = "llm_source_text_hard_rule_bypass"
+SOURCE_TEXT_BYPASS_CONFIDENCE_THRESHOLD = 0.90
+SOURCE_VERDICT_MAX_FLAGGED_PAGES = 4
+SOURCE_VERDICT_MAX_CONTEXT_PAGES = 9
 _ALLOWED_FULL_MODE_TAGS: Tuple[str, ...] = (
     "<article>",
     "</article>",
@@ -98,6 +107,17 @@ _AI_REPAIR_FAILED_BATCH_STATUSES = ("failed", "cancelled", "expired")
 
 def _full_request_id(page_uuid: str, xml_version: int) -> str:
     return f"{page_uuid}::full::{int(xml_version)}"
+
+
+def _source_request_id(agreement_uuid: str, xml_version: int) -> str:
+    return f"{agreement_uuid}::source::{int(xml_version)}"
+
+
+def _parse_source_request_id(request_id: str) -> Tuple[str, int]:
+    parts = request_id.split("::")
+    if len(parts) != 3 or parts[1] != "source":
+        raise ValueError(f"Invalid source verdict request_id: {request_id!r}")
+    return parts[0], int(parts[2])
 
 
 def _repair_model_for_attempted(ai_repair_attempted: int) -> str:
@@ -434,6 +454,311 @@ def _fetch_candidates(
     return selected_page_rows
 
 
+def _fetch_source_verdict_candidates(
+    conn: Connection,
+    schema: str,
+    agreement_limit: int | None,
+    target_agreement_uuids: list[str] | None = None,
+    page_budget: int | None = None,
+    attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST,
+    exclude_in_flight: bool = True,
+) -> List[Dict[str, Any]]:
+    """
+    Pull agreement-level source-text verdict targets.
+
+    These are deliberately narrower than tag repair targets: currently only
+    pure section_non_sequential failures with concrete page UUIDs are eligible.
+    The verdict request gets the flagged page(s) plus neighboring pages so the
+    model can decide whether the hard failure is a real source-text defect.
+    """
+    if not AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES:
+        raise ValueError("AI repair source verdict reason codes must not be empty.")
+
+    ai_repair_requests_table = f"{schema}.ai_repair_requests"
+    ai_repair_source_verdicts_table = f"{schema}.ai_repair_source_verdicts"
+    pages_table = f"{schema}.pages"
+    tagged_outputs_table = f"{schema}.tagged_outputs"
+    xml_status_reasons_table = f"{schema}.xml_status_reasons"
+
+    scoped_uuids = sorted(set(target_agreement_uuids or []))
+    queue_sql = text(
+        canonical_ai_repair_enqueue_queue_sql(schema, scoped=bool(scoped_uuids))
+    ).bindparams(bindparam("reason_codes", expanding=True))
+    params: Dict[str, Any] = {
+        "reason_codes": list(AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES),
+    }
+    if scoped_uuids:
+        queue_sql = queue_sql.bindparams(bindparam("agreement_uuids", expanding=True))
+        params["agreement_uuids"] = scoped_uuids
+    invalid_rows = conn.execute(queue_sql, params).mappings().fetchall()
+    if not invalid_rows:
+        return []
+
+    xml_version_by_agreement: Dict[str, int] = {}
+    attempted_by_agreement: Dict[str, int] = {}
+    target_page_uuids_by_agreement: Dict[str, List[str]] = {}
+    request_ids: List[str] = []
+    for row in invalid_rows:
+        agreement_uuid = str(row["agreement_uuid"])
+        xml_version = int(row["xml_version"])
+        attempted = int(row.get("ai_repair_attempted") or 0)
+        page_uuid = str(row.get("page_uuid") or "").strip()
+        if not page_uuid:
+            continue
+        existing_version = xml_version_by_agreement.get(agreement_uuid)
+        if existing_version is None:
+            xml_version_by_agreement[agreement_uuid] = xml_version
+            attempted_by_agreement[agreement_uuid] = attempted
+            request_ids.append(_source_request_id(agreement_uuid, xml_version))
+        elif existing_version != xml_version:
+            raise ValueError(
+                f"Multiple latest xml versions for agreement {agreement_uuid}: {existing_version} and {xml_version}."
+            )
+        target_pages = target_page_uuids_by_agreement.setdefault(agreement_uuid, [])
+        if page_uuid not in target_pages:
+            target_pages.append(page_uuid)
+
+    if not request_ids:
+        return []
+
+    blocked_statuses = ("completed", "queued", "running") if exclude_in_flight else ("completed",)
+    existing_request_ids = set(
+        str(v)
+        for v in conn.execute(
+            text(
+                f"""
+                SELECT request_id
+                FROM {ai_repair_requests_table}
+                WHERE request_id IN :rids
+                  AND status IN :statuses
+                """
+            ).bindparams(
+                bindparam("rids", expanding=True),
+                bindparam("statuses", expanding=True),
+            ),
+            {"rids": request_ids, "statuses": list(blocked_statuses)},
+        ).scalars().all()
+    )
+    existing_verdict_request_ids = set(
+        str(v)
+        for v in conn.execute(
+            text(
+                f"""
+                SELECT request_id
+                FROM {ai_repair_source_verdicts_table}
+                WHERE request_id IN :rids
+                """
+            ).bindparams(bindparam("rids", expanding=True)),
+            {"rids": request_ids},
+        ).scalars().all()
+    )
+
+    candidate_agreement_uuids = [
+        agreement_uuid
+        for agreement_uuid in sorted(target_page_uuids_by_agreement)
+        if _source_request_id(agreement_uuid, xml_version_by_agreement[agreement_uuid])
+        not in existing_request_ids
+        and _source_request_id(agreement_uuid, xml_version_by_agreement[agreement_uuid])
+        not in existing_verdict_request_ids
+    ]
+    if not candidate_agreement_uuids:
+        return []
+
+    reason_rows = (
+        conn.execute(
+            text(
+                f"""
+                SELECT
+                    agreement_uuid,
+                    xml_version,
+                    reason_code,
+                    reason_detail,
+                    page_uuid
+                FROM {xml_status_reasons_table}
+                WHERE agreement_uuid IN :auuids
+                ORDER BY agreement_uuid, id
+                """
+            ).bindparams(bindparam("auuids", expanding=True)),
+            {"auuids": candidate_agreement_uuids},
+        )
+        .mappings()
+        .fetchall()
+    )
+    reasons_by_agreement: Dict[str, List[Dict[str, Any]]] = {}
+    reason_codes_by_agreement: Dict[str, Set[str]] = {}
+    for row in reason_rows:
+        agreement_uuid = str(row["agreement_uuid"])
+        xml_version = int(row["xml_version"])
+        if xml_version != xml_version_by_agreement.get(agreement_uuid):
+            continue
+        reason_code = str(row["reason_code"])
+        page_uuid = None if row.get("page_uuid") is None else str(row["page_uuid"])
+        reasons_by_agreement.setdefault(agreement_uuid, []).append(
+            {
+                "reason_code": reason_code,
+                "reason_detail": None if row.get("reason_detail") is None else str(row["reason_detail"]),
+                "page_uuid": page_uuid,
+            }
+        )
+        reason_codes_by_agreement.setdefault(agreement_uuid, set()).add(reason_code)
+
+    eligible_agreement_uuids: List[str] = []
+    eligible_page_uuids: Set[str] = set()
+    for agreement_uuid in candidate_agreement_uuids:
+        reason_codes = reason_codes_by_agreement.get(agreement_uuid, set())
+        if reason_codes != set(AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES):
+            continue
+        target_page_uuids = target_page_uuids_by_agreement.get(agreement_uuid, [])
+        if not target_page_uuids or len(target_page_uuids) > SOURCE_VERDICT_MAX_FLAGGED_PAGES:
+            continue
+        rows_for_agreement = reasons_by_agreement.get(agreement_uuid, [])
+        if any(row.get("page_uuid") is None for row in rows_for_agreement):
+            continue
+        eligible_agreement_uuids.append(agreement_uuid)
+        eligible_page_uuids.update(target_page_uuids)
+
+    if not eligible_agreement_uuids:
+        return []
+
+    target_page_rows = (
+        conn.execute(
+            text(
+                f"""
+                SELECT agreement_uuid, page_uuid, page_order
+                FROM {pages_table}
+                WHERE page_uuid IN :pids
+                """
+            ).bindparams(bindparam("pids", expanding=True)),
+            {"pids": sorted(eligible_page_uuids)},
+        )
+        .mappings()
+        .fetchall()
+    )
+    target_orders_by_agreement: Dict[str, Set[int]] = {}
+    for row in target_page_rows:
+        agreement_uuid = str(row["agreement_uuid"])
+        if agreement_uuid not in eligible_agreement_uuids:
+            continue
+        target_orders_by_agreement.setdefault(agreement_uuid, set()).add(int(row["page_order"]))
+
+    eligible_agreement_uuids = [
+        agreement_uuid
+        for agreement_uuid in eligible_agreement_uuids
+        if target_orders_by_agreement.get(agreement_uuid)
+    ]
+    if not eligible_agreement_uuids:
+        return []
+
+    ranked_agreements = sorted(
+        eligible_agreement_uuids,
+        key=lambda agreement_uuid: (
+            {
+                AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST: {0: 0, 1: 1},
+                AIRepairAttemptPriority.ATTEMPTED_FIRST: {1: 0, 0: 1},
+            }[attempt_priority][int(attempted_by_agreement[agreement_uuid])],
+            len(target_page_uuids_by_agreement[agreement_uuid]),
+            agreement_uuid,
+        ),
+    )
+    if page_budget is not None and page_budget > 0:
+        selected: List[str] = []
+        selected_page_total = 0
+        for agreement_uuid in ranked_agreements:
+            page_count = len(target_page_uuids_by_agreement[agreement_uuid])
+            if selected_page_total + page_count > page_budget:
+                break
+            selected.append(agreement_uuid)
+            selected_page_total += page_count
+        ranked_agreements = selected
+    elif agreement_limit is not None:
+        ranked_agreements = ranked_agreements[:agreement_limit]
+
+    if not ranked_agreements:
+        return []
+
+    context_orders_by_agreement: Dict[str, Set[int]] = {}
+    for agreement_uuid in ranked_agreements:
+        context_orders: Set[int] = set()
+        for page_order in target_orders_by_agreement[agreement_uuid]:
+            context_orders.update({page_order - 1, page_order, page_order + 1})
+        if len(context_orders) > SOURCE_VERDICT_MAX_CONTEXT_PAGES:
+            continue
+        context_orders_by_agreement[agreement_uuid] = {
+            page_order for page_order in context_orders if page_order > 0
+        }
+
+    if not context_orders_by_agreement:
+        return []
+
+    context_page_rows = (
+        conn.execute(
+            text(
+                f"""
+                SELECT
+                    p.agreement_uuid,
+                    p.page_uuid,
+                    p.page_order,
+                    p.processed_page_content AS source_text,
+                    COALESCE(
+                        tgo.tagged_text_corrected,
+                        tgo.tagged_text_gold,
+                        tgo.tagged_text,
+                        p.processed_page_content
+                    ) AS tagged_text
+                FROM {pages_table} p
+                LEFT JOIN {tagged_outputs_table} tgo
+                    ON tgo.page_uuid = p.page_uuid
+                WHERE p.agreement_uuid IN :auuids
+                ORDER BY p.agreement_uuid, p.page_order
+                """
+            ).bindparams(bindparam("auuids", expanding=True)),
+            {"auuids": sorted(context_orders_by_agreement)},
+        )
+        .mappings()
+        .fetchall()
+    )
+
+    page_contexts_by_agreement: Dict[str, List[Dict[str, Any]]] = {}
+    target_page_sets = {
+        agreement_uuid: set(target_page_uuids_by_agreement[agreement_uuid])
+        for agreement_uuid in context_orders_by_agreement
+    }
+    for row in context_page_rows:
+        agreement_uuid = str(row["agreement_uuid"])
+        page_order = int(row["page_order"])
+        if page_order not in context_orders_by_agreement.get(agreement_uuid, set()):
+            continue
+        page_uuid = str(row["page_uuid"])
+        page_contexts_by_agreement.setdefault(agreement_uuid, []).append(
+            {
+                "page_uuid": page_uuid,
+                "page_order": page_order,
+                "is_flagged_page": page_uuid in target_page_sets[agreement_uuid],
+                "source_text": str(row.get("source_text") or ""),
+                "tagged_text": str(row.get("tagged_text") or ""),
+            }
+        )
+
+    source_candidates: List[Dict[str, Any]] = []
+    for agreement_uuid in ranked_agreements:
+        page_contexts = page_contexts_by_agreement.get(agreement_uuid, [])
+        if not page_contexts:
+            continue
+        target_page_uuids = target_page_uuids_by_agreement[agreement_uuid]
+        source_candidates.append(
+            {
+                "agreement_uuid": agreement_uuid,
+                "xml_version": int(xml_version_by_agreement[agreement_uuid]),
+                "ai_repair_attempted": int(attempted_by_agreement[agreement_uuid]),
+                "anchor_page_uuid": target_page_uuids[0],
+                "target_page_uuids": target_page_uuids,
+                "reason_rows": reasons_by_agreement[agreement_uuid],
+                "page_contexts": page_contexts,
+            }
+        )
+    return source_candidates
+
+
 def _fetch_open_ai_repair_batch(
     conn: Connection,
     schema: str,
@@ -493,7 +818,7 @@ def _fetch_open_ai_repair_batch_for_scope(
     scoped_agreement_uuids: list[str],
 ) -> Dict[str, Any] | None:
     matching_batch: Dict[str, Any] | None = None
-    for model in (AI_REPAIR_FIRST_PASS_MODEL, AI_REPAIR_RETRY_MODEL):
+    for model in (AI_REPAIR_FIRST_PASS_MODEL, AI_REPAIR_RETRY_MODEL, AI_REPAIR_SOURCE_VERDICT_MODEL):
         batch_key = _ai_repair_batch_key(
             agreement_uuids=scoped_agreement_uuids,
             model=model,
@@ -706,6 +1031,7 @@ def _enqueue_ai_repair_for_agreements(
                 "ai_repair_requests",
                 "ai_repair_rulings",
                 "ai_repair_full_pages",
+                "ai_repair_source_verdicts",
                 "ai_repair_processed_spans",
                 "xml_status_reasons",
             ),
@@ -719,7 +1045,7 @@ def _enqueue_ai_repair_for_agreements(
             if page_budget > 0
             else (max(batch_size, len(scoped_uuids)) if scoped_uuids else batch_size)
         )
-        candidate_agreement_by_page_uuid: Dict[str, str] = {}
+        candidate_agreement_by_request_id: Dict[str, str] = {}
 
         preselected_candidates: List[Dict[str, Any]] | None = None
         if resume_openai_batches:
@@ -808,17 +1134,21 @@ def _enqueue_ai_repair_for_agreements(
                     page_budget=page_budget if page_budget > 0 else None,
                     attempt_priority=pipeline_config.ai_repair_attempt_priority,
                 )
-            if not candidates:
+            source_candidates = _fetch_source_verdict_candidates(
+                conn,
+                db.database,
+                agreement_limit=agreement_limit,
+                target_agreement_uuids=scoped_uuids or None,
+                page_budget=page_budget if page_budget > 0 else None,
+                attempt_priority=pipeline_config.ai_repair_attempt_priority,
+            )
+            if not candidates and not source_candidates:
                 context.log.info("%s: no candidates.", log_prefix)
                 should_exit_after_tx = True
             else:
-                candidate_agreement_by_page_uuid = {
-                    str(r["page_uuid"]): str(r["agreement_uuid"])
-                    for r in candidates
-                }
                 candidate_attempted_by_agreement = {
                     str(r["agreement_uuid"]): int(r["ai_repair_attempted"])
-                    for r in candidates
+                    for r in [*candidates, *source_candidates]
                 }
                 candidate_agreement_count = len(candidate_attempted_by_agreement)
                 candidate_already_attempted = sum(
@@ -831,6 +1161,11 @@ def _enqueue_ai_repair_for_agreements(
                     candidate_agreement_count - candidate_already_attempted,
                     candidate_already_attempted,
                     len(candidates),
+                )
+                context.log.info(
+                    "%s: selected source-verdict agreements=%s",
+                    log_prefix,
+                    len(source_candidates),
                 )
                 context.log.info(
                     "%s: attempt priority=%s",
@@ -891,6 +1226,26 @@ def _enqueue_ai_repair_for_agreements(
                 )
                 request_lines_by_model.setdefault(model, []).extend(batch_lines)
                 lines_meta_by_model.setdefault(model, []).extend(metas)
+                for meta in metas:
+                    candidate_agreement_by_request_id[str(meta["request_id"])] = agreement_uuid
+
+            for row in source_candidates:
+                agreement_uuid = str(row["agreement_uuid"])
+                xml_version = int(row["xml_version"])
+                line, meta = build_jsonl_line_for_source_text_verdict(
+                    agreement_uuid=agreement_uuid,
+                    xml_version=xml_version,
+                    anchor_page_uuid=str(row["anchor_page_uuid"]),
+                    model=AI_REPAIR_SOURCE_VERDICT_MODEL,
+                    reason_rows=list(row["reason_rows"]),
+                    page_contexts=list(row["page_contexts"]),
+                )
+                request_lines_by_model.setdefault(AI_REPAIR_SOURCE_VERDICT_MODEL, []).append(line)
+                lines_meta_by_model.setdefault(AI_REPAIR_SOURCE_VERDICT_MODEL, []).append(meta)
+                request_count_by_model[AI_REPAIR_SOURCE_VERDICT_MODEL] = (
+                    request_count_by_model.get(AI_REPAIR_SOURCE_VERDICT_MODEL, 0) + 1
+                )
+                candidate_agreement_by_request_id[str(meta["request_id"])] = agreement_uuid
 
             all_lines_meta = [
                 meta
@@ -904,7 +1259,7 @@ def _enqueue_ai_repair_for_agreements(
                 client = _oai_client()
                 llm_agreement_uuids = sorted(
                     {
-                        str(candidate_agreement_by_page_uuid[str(meta["page_uuid"])])
+                        str(candidate_agreement_by_request_id[str(meta["request_id"])])
                         for meta in all_lines_meta
                     }
                 )
@@ -954,12 +1309,12 @@ def _enqueue_ai_repair_for_agreements(
                     )
 
                     for meta in model_metas:
-                        page_uuid = str(meta["page_uuid"])
-                        if page_uuid not in candidate_agreement_by_page_uuid:
+                        request_id = str(meta["request_id"])
+                        if request_id not in candidate_agreement_by_request_id:
                             raise ValueError(
-                                f"Missing agreement mapping for page_uuid={page_uuid} while marking XML AI-repair attempts."
+                                f"Missing agreement mapping for request_id={request_id} while marking XML AI-repair attempts."
                             )
-                        enqueued_agreement_uuids.add(candidate_agreement_by_page_uuid[page_uuid])
+                        enqueued_agreement_uuids.add(candidate_agreement_by_request_id[request_id])
                 marked_rows = _mark_xml_ai_repair_attempted(
                     conn, db.database, enqueued_agreement_uuids
                 )
@@ -994,6 +1349,7 @@ def _select_ai_repair_scope(
                 "ai_repair_requests",
                 "ai_repair_rulings",
                 "ai_repair_full_pages",
+                "ai_repair_source_verdicts",
                 "ai_repair_processed_spans",
                 "xml_status_reasons",
             ),
@@ -1006,7 +1362,21 @@ def _select_ai_repair_scope(
             page_budget=int(getattr(pipeline_config, "ai_repair_page_budget", 0) or 0) or None,
             attempt_priority=pipeline_config.ai_repair_attempt_priority,
         )
-    return sorted({str(row["agreement_uuid"]) for row in candidates if row.get("agreement_uuid")})
+        source_candidates = _fetch_source_verdict_candidates(
+            conn,
+            schema,
+            agreement_limit=None if int(getattr(pipeline_config, "ai_repair_page_budget", 0) or 0) > 0 else pipeline_config.xml_agreement_batch_size,
+            target_agreement_uuids=None,
+            page_budget=int(getattr(pipeline_config, "ai_repair_page_budget", 0) or 0) or None,
+            attempt_priority=pipeline_config.ai_repair_attempt_priority,
+        )
+    return sorted(
+        {
+            str(row["agreement_uuid"])
+            for row in [*candidates, *source_candidates]
+            if row.get("agreement_uuid")
+        }
+    )
 
 
 @dg.asset(name="05-01_ai_repair_enqueue_asset")
@@ -1255,6 +1625,73 @@ def _parse_full_page_tag_spans(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str,
     return rid, parsed_spans
 
 
+def _parse_source_text_verdict(raw: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+    rid = raw["custom_id"]
+    resp = raw["response"]
+    sc = resp["status_code"]
+    if sc not in (200, 201, 202):
+        raise ValueError(f"Non-success status_code: {sc}")
+    body = resp["body"]
+    raw_text = extract_output_text_from_batch_body(body)
+    obj = json.loads(raw_text)
+    if not isinstance(obj, dict):
+        raise ValueError("source-text verdict output must be an object.")
+    required = (
+        "verdict",
+        "source_text_is_correct",
+        "flagged_pages_are_causal",
+        "saw_full_problem_text",
+        "confidence",
+        "problem_summary",
+        "evidence",
+        "missing_or_duplicate_section_numbers",
+        "warnings",
+    )
+    for key in required:
+        if key not in obj:
+            raise ValueError(f"Missing source-text verdict field: {key}")
+    verdict = obj["verdict"]
+    if verdict not in (
+        "source_text_hard_rule_exception",
+        "tagging_error_or_missing_tag",
+        "insufficient_context",
+    ):
+        raise ValueError(f"invalid source-text verdict: {verdict}")
+    for key in ("source_text_is_correct", "flagged_pages_are_causal", "saw_full_problem_text"):
+        if not isinstance(obj[key], bool):
+            raise ValueError(f"{key} must be boolean.")
+    confidence = obj["confidence"]
+    if not isinstance(confidence, (int, float)) or confidence < 0 or confidence > 1:
+        raise ValueError("confidence must be a number between 0 and 1.")
+    if not isinstance(obj["problem_summary"], str):
+        raise ValueError("problem_summary must be a string.")
+    if not isinstance(obj["evidence"], list):
+        raise ValueError("evidence must be a list.")
+    for evidence in obj["evidence"]:
+        if not isinstance(evidence, dict):
+            raise ValueError("evidence entries must be objects.")
+        for key in ("page_uuid", "quote", "interpretation"):
+            if not isinstance(evidence.get(key), str):
+                raise ValueError(f"evidence.{key} must be a string.")
+    if not isinstance(obj["missing_or_duplicate_section_numbers"], list) or not all(
+        isinstance(value, str) for value in obj["missing_or_duplicate_section_numbers"]
+    ):
+        raise ValueError("missing_or_duplicate_section_numbers must be a string list.")
+    if not isinstance(obj["warnings"], list) or not all(isinstance(value, str) for value in obj["warnings"]):
+        raise ValueError("warnings must be a string list.")
+    return rid, {
+        "verdict": str(verdict),
+        "source_text_is_correct": bool(obj["source_text_is_correct"]),
+        "flagged_pages_are_causal": bool(obj["flagged_pages_are_causal"]),
+        "saw_full_problem_text": bool(obj["saw_full_problem_text"]),
+        "confidence": float(confidence),
+        "problem_summary": str(obj["problem_summary"]),
+        "evidence": obj["evidence"],
+        "missing_or_duplicate_section_numbers": obj["missing_or_duplicate_section_numbers"],
+        "warnings": obj["warnings"],
+    }
+
+
 def _choose_best_alignment_candidate(
     candidates: List[Tuple[int, int]],
     *,
@@ -1497,6 +1934,190 @@ def _parse_excerpt_rulings(raw: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any
     return rid, out
 
 
+def _source_reason_rows_are_bypass_eligible(
+    reason_rows: List[Dict[str, Any]],
+) -> Tuple[bool, Set[str]]:
+    if not reason_rows:
+        return False, set()
+    reason_codes = {str(row["reason_code"]) for row in reason_rows}
+    if reason_codes != set(AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES):
+        return False, set()
+    page_uuids: Set[str] = set()
+    for row in reason_rows:
+        page_uuid = row.get("page_uuid")
+        if page_uuid is None or not str(page_uuid).strip():
+            return False, set()
+        page_uuids.add(str(page_uuid))
+    return bool(page_uuids), page_uuids
+
+
+def apply_source_text_bypasses_for_agreements(
+    conn: Connection,
+    schema: str,
+    agreement_uuids: List[str],
+) -> int:
+    """
+    Mark latest XML verified when a high-confidence source-text verdict covers
+    the current hard-rule failure exactly enough to bypass normal validation.
+    """
+    target_agreement_uuids = sorted(set(agreement_uuids))
+    if not target_agreement_uuids:
+        return 0
+
+    xml_table = f"{schema}.xml"
+    xml_status_reasons_table = f"{schema}.xml_status_reasons"
+    ai_repair_source_verdicts_table = f"{schema}.ai_repair_source_verdicts"
+
+    xml_rows = (
+        conn.execute(
+            text(
+                f"""
+                SELECT agreement_uuid, version
+                FROM {xml_table}
+                WHERE latest = 1
+                  AND status = 'invalid'
+                  AND agreement_uuid IN :auuids
+                """
+            ).bindparams(bindparam("auuids", expanding=True)),
+            {"auuids": target_agreement_uuids},
+        )
+        .mappings()
+        .fetchall()
+    )
+    if not xml_rows:
+        return 0
+
+    current_versions = {str(row["agreement_uuid"]): int(row["version"]) for row in xml_rows}
+    reason_rows = (
+        conn.execute(
+            text(
+                f"""
+                SELECT agreement_uuid, xml_version, reason_code, reason_detail, page_uuid
+                FROM {xml_status_reasons_table}
+                WHERE agreement_uuid IN :auuids
+                ORDER BY agreement_uuid, id
+                """
+            ).bindparams(bindparam("auuids", expanding=True)),
+            {"auuids": sorted(current_versions)},
+        )
+        .mappings()
+        .fetchall()
+    )
+    current_reasons_by_agreement: Dict[str, List[Dict[str, Any]]] = {}
+    for row in reason_rows:
+        agreement_uuid = str(row["agreement_uuid"])
+        if int(row["xml_version"]) != current_versions.get(agreement_uuid):
+            continue
+        current_reasons_by_agreement.setdefault(agreement_uuid, []).append(
+            {
+                "reason_code": str(row["reason_code"]),
+                "reason_detail": None if row.get("reason_detail") is None else str(row["reason_detail"]),
+                "page_uuid": None if row.get("page_uuid") is None else str(row["page_uuid"]),
+            }
+        )
+
+    verdict_rows = (
+        conn.execute(
+            text(
+                f"""
+                SELECT
+                    request_id,
+                    agreement_uuid,
+                    xml_version,
+                    verdict,
+                    source_text_is_correct,
+                    flagged_pages_are_causal,
+                    saw_full_problem_text,
+                    confidence,
+                    problem_summary,
+                    target_page_uuids_json
+                FROM {ai_repair_source_verdicts_table}
+                WHERE agreement_uuid IN :auuids
+                  AND verdict = 'source_text_hard_rule_exception'
+                  AND source_text_is_correct = 1
+                  AND flagged_pages_are_causal = 1
+                  AND saw_full_problem_text = 1
+                  AND confidence >= :confidence
+                ORDER BY agreement_uuid, created_at DESC
+                """
+            ).bindparams(bindparam("auuids", expanding=True)),
+            {
+                "auuids": sorted(current_versions),
+                "confidence": SOURCE_TEXT_BYPASS_CONFIDENCE_THRESHOLD,
+            },
+        )
+        .mappings()
+        .fetchall()
+    )
+    verdicts_by_agreement: Dict[str, List[Dict[str, Any]]] = {}
+    for row in verdict_rows:
+        verdicts_by_agreement.setdefault(str(row["agreement_uuid"]), []).append(dict(row))
+
+    update_verified = text(
+        f"""
+        UPDATE {xml_table}
+        SET status = 'verified',
+            status_source = 'asset',
+            status_reason_code = :reason_code,
+            status_reason_detail = :reason_detail
+        WHERE agreement_uuid = :agreement_uuid
+          AND version = :version
+          AND latest = 1
+          AND status = 'invalid'
+        """
+    )
+    delete_reasons = text(
+        f"""
+        DELETE FROM {xml_status_reasons_table}
+        WHERE agreement_uuid = :agreement_uuid
+          AND xml_version = :version
+        """
+    )
+
+    bypassed = 0
+    for agreement_uuid, version in current_versions.items():
+        eligible, current_page_uuids = _source_reason_rows_are_bypass_eligible(
+            current_reasons_by_agreement.get(agreement_uuid, [])
+        )
+        if not eligible:
+            continue
+        selected_verdict: Dict[str, Any] | None = None
+        for verdict_row in verdicts_by_agreement.get(agreement_uuid, []):
+            try:
+                verdict_page_uuids = {
+                    str(page_uuid)
+                    for page_uuid in json.loads(str(verdict_row["target_page_uuids_json"] or "[]"))
+                }
+            except json.JSONDecodeError:
+                continue
+            if current_page_uuids.issubset(verdict_page_uuids):
+                selected_verdict = verdict_row
+                break
+        if selected_verdict is None:
+            continue
+
+        reason_detail = (
+            f"LLM source-text bypass via {selected_verdict['request_id']}: "
+            f"{str(selected_verdict['problem_summary'])[:900]}"
+        )
+        result = conn.execute(
+            update_verified,
+            {
+                "agreement_uuid": agreement_uuid,
+                "version": version,
+                "reason_code": XML_REASON_LLM_SOURCE_TEXT_BYPASS,
+                "reason_detail": reason_detail,
+            },
+        )
+        if int(result.rowcount or 0) > 0:
+            _ = conn.execute(
+                delete_reasons,
+                {"agreement_uuid": agreement_uuid, "version": version},
+            )
+            bypassed += 1
+    return bypassed
+
+
 def _poll_ai_repair_batches(
     context: AssetExecutionContext,
     db: DBResource,
@@ -1515,7 +2136,7 @@ def _poll_ai_repair_batches(
       - No output/no error → status = 'completed_no_output'
 
     Returns:
-      - request_ids for full-page outputs successfully parsed in this poll run.
+      - request_ids for full-page outputs and source-text verdicts successfully parsed in this poll run.
     """
     engine = db.get_engine()
     schema = db.database
@@ -1524,6 +2145,8 @@ def _poll_ai_repair_batches(
     ai_repair_processed_spans_table = f"{schema}.ai_repair_processed_spans"
     ai_repair_full_pages_table = f"{schema}.ai_repair_full_pages"
     ai_repair_rulings_table = f"{schema}.ai_repair_rulings"
+    ai_repair_source_verdicts_table = f"{schema}.ai_repair_source_verdicts"
+    xml_status_reasons_table = f"{schema}.xml_status_reasons"
     pages_table = f"{schema}.pages"
     client = _oai_client()
     target_agreement_uuids = sorted(set(enqueued_agreement_uuids))
@@ -1664,6 +2287,7 @@ def _poll_ai_repair_batches(
                 # Parsed excerpt rulings and full pages
                 parsed_rulings: List[Tuple[str, str, List[Dict[str, Any]]]] = []  # (rid, page_uuid, rulings)
                 parsed_full_pages: List[Tuple[str, str, str]] = []  # (rid, page_uuid, tagged_text)
+                parsed_source_verdicts: List[Tuple[str, str, int, Dict[str, Any]]] = []  # (rid, agreement_uuid, version, verdict)
 
                 # Process output JSONL (success lines)
                 ofid = getattr(b, "output_file_id", None)
@@ -1696,6 +2320,13 @@ def _poll_ai_repair_batches(
                                 elif mode == "excerpt":
                                     rid2, rulings = _parse_excerpt_rulings(raw)
                                     parsed_rulings.append((rid2, pid, rulings))
+                                    success_ids.add(rid2)
+                                elif mode == "source":
+                                    rid2, verdict = _parse_source_text_verdict(raw)
+                                    agreement_uuid, xml_version = _parse_source_request_id(rid2)
+                                    parsed_source_verdicts.append(
+                                        (rid2, agreement_uuid, xml_version, verdict)
+                                    )
                                     success_ids.add(rid2)
                                 else:
                                     raise ValueError(f"Unexpected request mode {mode!r} for {rid}.")
@@ -1773,12 +2404,127 @@ def _poll_ai_repair_batches(
                                 {"rid": rid2, "pid": pid, "s": s_adj, "e": e_adj, "lab": r["label"], "bid": bid},
                             )
 
+                if parsed_source_verdicts:
+                    source_reason_rows_by_request: Dict[str, List[Dict[str, Any]]] = {}
+                    select_source_reasons = text(
+                        f"""
+                        SELECT reason_code, reason_detail, page_uuid
+                        FROM {xml_status_reasons_table}
+                        WHERE agreement_uuid = :agreement_uuid
+                          AND xml_version = :xml_version
+                        ORDER BY id
+                        """
+                    )
+                    for rid2, agreement_uuid, xml_version, _verdict in parsed_source_verdicts:
+                        source_reason_rows = [
+                            {
+                                "reason_code": str(reason_row["reason_code"]),
+                                "reason_detail": None if reason_row.get("reason_detail") is None else str(reason_row["reason_detail"]),
+                                "page_uuid": None if reason_row.get("page_uuid") is None else str(reason_row["page_uuid"]),
+                            }
+                            for reason_row in conn.execute(
+                                select_source_reasons,
+                                {
+                                    "agreement_uuid": agreement_uuid,
+                                    "xml_version": xml_version,
+                                },
+                            ).mappings().fetchall()
+                        ]
+                        source_reason_rows_by_request[rid2] = source_reason_rows
+
+                    ins_source = text(
+                        f"""
+                        INSERT INTO {ai_repair_source_verdicts_table} (
+                            request_id,
+                            agreement_uuid,
+                            xml_version,
+                            verdict,
+                            source_text_is_correct,
+                            flagged_pages_are_causal,
+                            saw_full_problem_text,
+                            confidence,
+                            problem_summary,
+                            reason_rows_json,
+                            target_page_uuids_json,
+                            evidence_json,
+                            missing_or_duplicate_section_numbers_json,
+                            warnings_json,
+                            batch_id,
+                            created_at
+                        )
+                        VALUES (
+                            :rid,
+                            :agreement_uuid,
+                            :xml_version,
+                            :verdict,
+                            :source_text_is_correct,
+                            :flagged_pages_are_causal,
+                            :saw_full_problem_text,
+                            :confidence,
+                            :problem_summary,
+                            :reason_rows_json,
+                            :target_page_uuids_json,
+                            :evidence_json,
+                            :missing_or_duplicate_section_numbers_json,
+                            :warnings_json,
+                            :bid,
+                            UTC_TIMESTAMP()
+                        )
+                        ON DUPLICATE KEY UPDATE
+                            verdict = VALUES(verdict),
+                            source_text_is_correct = VALUES(source_text_is_correct),
+                            flagged_pages_are_causal = VALUES(flagged_pages_are_causal),
+                            saw_full_problem_text = VALUES(saw_full_problem_text),
+                            confidence = VALUES(confidence),
+                            problem_summary = VALUES(problem_summary),
+                            reason_rows_json = VALUES(reason_rows_json),
+                            target_page_uuids_json = VALUES(target_page_uuids_json),
+                            evidence_json = VALUES(evidence_json),
+                            missing_or_duplicate_section_numbers_json = VALUES(missing_or_duplicate_section_numbers_json),
+                            warnings_json = VALUES(warnings_json),
+                            batch_id = VALUES(batch_id)
+                        """
+                    )
+                    for rid2, agreement_uuid, xml_version, verdict in parsed_source_verdicts:
+                        source_reason_rows = source_reason_rows_by_request.get(rid2, [])
+                        target_page_uuids = sorted(
+                            {
+                                str(row["page_uuid"])
+                                for row in source_reason_rows
+                                if row.get("page_uuid") is not None
+                            }
+                        )
+                        _ = conn.execute(
+                            ins_source,
+                            {
+                                "rid": rid2,
+                                "agreement_uuid": agreement_uuid,
+                                "xml_version": xml_version,
+                                "verdict": verdict["verdict"],
+                                "source_text_is_correct": int(bool(verdict["source_text_is_correct"])),
+                                "flagged_pages_are_causal": int(bool(verdict["flagged_pages_are_causal"])),
+                                "saw_full_problem_text": int(bool(verdict["saw_full_problem_text"])),
+                                "confidence": float(verdict["confidence"]),
+                                "problem_summary": verdict["problem_summary"],
+                                "reason_rows_json": json.dumps(source_reason_rows, ensure_ascii=False),
+                                "target_page_uuids_json": json.dumps(target_page_uuids, ensure_ascii=False),
+                                "evidence_json": json.dumps(verdict["evidence"], ensure_ascii=False),
+                                "missing_or_duplicate_section_numbers_json": json.dumps(
+                                    verdict["missing_or_duplicate_section_numbers"],
+                                    ensure_ascii=False,
+                                ),
+                                "warnings_json": json.dumps(verdict["warnings"], ensure_ascii=False),
+                                "bid": bid,
+                            },
+                        )
+
                 parsed_full_ids = set(rid for rid, _, _ in parsed_full_pages)
-                parsed_ids = parsed_full_ids | set(rid for rid, _, _ in parsed_rulings)
+                parsed_source_ids = set(rid for rid, _, _, _ in parsed_source_verdicts)
+                parsed_ids = parsed_full_ids | parsed_source_ids | set(rid for rid, _, _ in parsed_rulings)
 
                 # Mark requests completed that produced outputs (either kind)
                 _mark_completed(conn, db.database, parsed_ids)
-                successful_request_ids.update(parsed_full_ids)
+                successful_request_ids.update(parsed_full_ids | parsed_source_ids)
 
                 # Completed with HTTP success but no parsed record (and not failed/parse_error)
                 no_output_ids = (

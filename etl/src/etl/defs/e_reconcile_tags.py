@@ -6,6 +6,7 @@ from dagster import AssetExecutionContext
 from sqlalchemy import bindparam, text
 
 from etl.defs.d_ai_repair_asset import (
+    apply_source_text_bypasses_for_agreements,
     ai_repair_poll_asset,
     ingestion_cleanup_a_ai_repair_poll_asset,
     ingestion_cleanup_b_ai_repair_poll_asset,
@@ -37,6 +38,7 @@ def _reconcile_tags_for_requests(
     tagged_outputs_table = f"{schema}.tagged_outputs"
     ai_repair_requests_table = f"{schema}.ai_repair_requests"
     ai_repair_full_pages_table = f"{schema}.ai_repair_full_pages"
+    ai_repair_source_verdicts_table = f"{schema}.ai_repair_source_verdicts"
 
     target_request_ids = sorted(set(polled_request_ids))
     if not target_request_ids:
@@ -74,9 +76,32 @@ def _reconcile_tags_for_requests(
             .fetchall()
         )
 
-        if not full_rows:
+        source_verdict_rows = (
+            conn.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT v.agreement_uuid
+                    FROM {ai_repair_requests_table} r
+                    JOIN {ai_repair_source_verdicts_table} v
+                        ON v.request_id = r.request_id
+                    WHERE r.request_id IN :rids
+                      AND r.status = 'completed'
+                      AND r.mode = 'source'
+                    ORDER BY v.agreement_uuid
+                    """
+                ).bindparams(bindparam("rids", expanding=True)),
+                {"rids": tuple(target_request_ids)},
+            )
+            .mappings()
+            .fetchall()
+        )
+        source_verdict_agreement_uuids = {
+            str(row["agreement_uuid"]) for row in source_verdict_rows
+        }
+
+        if not full_rows and not source_verdict_agreement_uuids:
             context.log.info(
-                "%s: no completed full-page outputs for upstream agreements on latest XML version.",
+                "%s: no completed full-page outputs or source-text verdicts for upstream agreements.",
                 log_prefix,
             )
             run_post_asset_refresh(context, db, pipeline_config)
@@ -109,6 +134,19 @@ def _reconcile_tags_for_requests(
             pages_updated,
             pages_considered - pages_updated,
         )
+        bypass_candidates = sorted(source_verdict_agreement_uuids - updated_agreements)
+        source_bypassed = apply_source_text_bypasses_for_agreements(
+            conn,
+            schema,
+            bypass_candidates,
+        )
+        if source_verdict_agreement_uuids:
+            context.log.info(
+                "%s: source-text verdict agreements=%s bypassed_without_tag_updates=%s",
+                log_prefix,
+                len(source_verdict_agreement_uuids),
+                source_bypassed,
+            )
 
     run_post_asset_refresh(context, db, pipeline_config)
     return sorted(updated_agreements)

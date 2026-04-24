@@ -83,6 +83,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     queue_run_mode: QueueRunMode = QueueRunMode.SINGLE_BATCH
     refresh: bool = True  # run end-of-job gating + summary refresh for terminal assets
     resume_openai_batches: bool = True  # resume matching in-flight OpenAI batches when possible
+    xml_enable_llm_verification: bool = False  # gate XML LLM verification route; hard rules still run when disabled
     resume_logical_runs: bool = True  # resume unfinished logical runs for managed ingest jobs
     force_new_logical_run: bool = False  # bypass unfinished logical run and start a fresh managed ingest run
     tagging_agreement_batch_size: int = 500  # used in tagging_asset
@@ -295,6 +296,7 @@ def get_resources() -> dict[str, object]:
         "queue_run_mode",
         "refresh",
         "resume_openai_batches",
+        "xml_enable_llm_verification",
         "resume_logical_runs",
         "force_new_logical_run",
         "tagging_agreement_batch_size",
@@ -349,6 +351,12 @@ def get_resources() -> dict[str, object]:
         pipeline_config_kwargs["resume_openai_batches"] = _parse_bool(
             yaml_config["resume_openai_batches"],
             field_name="resume_openai_batches",
+        )
+
+    if "xml_enable_llm_verification" in yaml_config:
+        pipeline_config_kwargs["xml_enable_llm_verification"] = _parse_bool(
+            yaml_config["xml_enable_llm_verification"],
+            field_name="xml_enable_llm_verification",
         )
 
     if "resume_logical_runs" in yaml_config:

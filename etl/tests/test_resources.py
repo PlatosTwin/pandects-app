@@ -55,6 +55,7 @@ class PipelineConfigResourceTests(unittest.TestCase):
             return_value={
                 "queue_run_mode": "drain",
                 "resume_openai_batches": False,
+                "xml_enable_llm_verification": True,
                 "ai_repair_attempt_priority": "attempted_first",
                 "taxonomy_mode": "ml",
                 "taxonomy_section_title_regex": "^governing",
@@ -70,6 +71,7 @@ class PipelineConfigResourceTests(unittest.TestCase):
         pipeline_config = cast(PipelineConfig, resources["pipeline_config"])
         self.assertEqual(pipeline_config.queue_run_mode, QueueRunMode.DRAIN)
         self.assertFalse(pipeline_config.resume_openai_batches)
+        self.assertTrue(pipeline_config.xml_enable_llm_verification)
         self.assertEqual(
             pipeline_config.ai_repair_attempt_priority,
             AIRepairAttemptPriority.ATTEMPTED_FIRST,
@@ -84,6 +86,7 @@ class PipelineConfigResourceTests(unittest.TestCase):
 
     def test_pipeline_config_defaults_taxonomy_to_llm(self) -> None:
         config = PipelineConfig()
+        self.assertFalse(config.xml_enable_llm_verification)
         self.assertEqual(config.taxonomy_mode, TaxonomyMode.LLM)
         self.assertIsNone(config.taxonomy_section_title_regex)
         self.assertEqual(config.taxonomy_llm_model, "gpt-5-mini")
