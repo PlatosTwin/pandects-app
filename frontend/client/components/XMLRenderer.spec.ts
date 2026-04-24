@@ -71,6 +71,39 @@ describe("normalizeAgreementTableOfContentsText", () => {
       { kind: "entry", text: "Section 2.1 The Merger", pageNumber: "3" },
     ]);
   });
+
+  it("deduplicates repeated TOC heading rows", () => {
+    expect(
+      normalizeAgreementTableOfContentsText([
+        "TABLE OF SCHEDULES AND EXHIBITS",
+        "Schedule A - Definitions ix",
+        "TABLE OF SCHEDULES AND EXHIBITS",
+        "Exhibit B - Form of Certificate x",
+      ]),
+    ).toEqual([
+      { kind: "heading", text: "TABLE OF SCHEDULES AND EXHIBITS" },
+      { kind: "entry", text: "Schedule A - Definitions", pageNumber: "ix" },
+      {
+        kind: "entry",
+        text: "Exhibit B - Form of Certificate",
+        pageNumber: "x",
+      },
+    ]);
+  });
+
+  it("attaches standalone roman-numeral page lines to preceding entries", () => {
+    expect(
+      normalizeAgreementTableOfContentsText([
+        "ARTICLE I DEFINITIONS",
+        "iv",
+        "Section 1.1 Defined Terms",
+        "v",
+      ]),
+    ).toEqual([
+      { kind: "entry", text: "ARTICLE I DEFINITIONS", pageNumber: "iv" },
+      { kind: "entry", text: "Section 1.1 Defined Terms", pageNumber: "v" },
+    ]);
+  });
 });
 
 describe("XMLRenderer table of contents rendering", () => {
@@ -91,8 +124,42 @@ describe("XMLRenderer table of contents rendering", () => {
     );
 
     expect(markup).toContain("text-right tabular-nums");
+    expect(markup).toContain("role=\"list\"");
+    expect(markup).toContain("role=\"listitem\"");
     expect(markup).toContain("ARTICLE I THE MERGER</span><span class=\"w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground\">6</span>");
     expect(markup).toContain("1.4 Certificate of Formation and Bylaws of the Surviving Corporation</span><span class=\"w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground\">6</span>");
     expect(markup).not.toContain(">1.4     Certificate of Formation and Bylaws of the Surviving Corporation");
+  });
+
+  it("renders a deduplicated heading and aligned entry rows", () => {
+    const markup = renderToStaticMarkup(
+      createElement(XMLRenderer, {
+        mode: "agreement",
+        xmlContent: `
+          <document>
+            <tableOfContents>
+              <text>TABLE OF SCHEDULES AND EXHIBITS</text>
+              <text>Schedule A - Definitions ix</text>
+              <text>TABLE OF SCHEDULES AND EXHIBITS</text>
+              <text>Exhibit B - Form of Certificate x</text>
+            </tableOfContents>
+          </document>
+        `,
+      }),
+    );
+
+    expect(markup).toContain(
+      "text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground",
+    );
+    expect(markup).toContain(
+      ">TABLE OF SCHEDULES AND EXHIBITS</div>",
+    );
+    expect(markup).toContain(
+      "Schedule A - Definitions</span><span class=\"w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground\">ix</span>",
+    );
+    expect(markup).toContain(
+      "Exhibit B - Form of Certificate</span><span class=\"w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground\">x</span>",
+    );
+    expect(markup.match(/TABLE OF SCHEDULES AND EXHIBITS/g)).toHaveLength(1);
   });
 });
