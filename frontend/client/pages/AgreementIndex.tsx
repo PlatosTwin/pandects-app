@@ -374,9 +374,9 @@ export default function AgreementIndex() {
               className="relative overflow-hidden border-border bg-gradient-to-br from-background via-background to-muted/40 shadow-sm"
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] opacity-70" />
-              <CardContent className="relative flex min-h-[8.75rem] items-center gap-4 p-6">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
+              <CardContent className="relative flex min-h-[7.25rem] items-center gap-3.5 p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
+                  <Icon className="h-4.5 w-4.5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
