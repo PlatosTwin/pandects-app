@@ -668,7 +668,7 @@ export function AgreementReader({
         : "text-sm sm:text-base";
 
   return (
-    <div className="overflow-x-hidden">
+    <div style={{ overflowX: "clip" }}>
       {/* Sticky header */}
       <div
         ref={headerRef}
