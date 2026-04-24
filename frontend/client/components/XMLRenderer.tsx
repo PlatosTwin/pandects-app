@@ -18,6 +18,12 @@ interface XMLRendererProps {
   showBodyOnly?: boolean;
 }
 
+interface NormalizedAgreementTocRow {
+  kind: "entry" | "heading";
+  text: string;
+  pageNumber?: string;
+}
+
 const XML_TAG_COLORS = {
   text: "text-blue-600",
   definition: "text-green-600",
@@ -28,6 +34,16 @@ const XML_TAG_COLORS = {
 const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
 const AGREEMENT_COLLAPSIBLE_TAGS = new Set(["article", "section"]);
 const NON_BREAKING_CHARS_RE = /[\u00a0\u2007\u202f\u2060\ufeff]/g;
+const TOC_HEADER_LINE_RE = /^(?:TABLE OF CONTENTS|\(continued\)|Page)$/i;
+const TOC_HEADING_LINE_RE = /^TABLE OF /i;
+const TOC_PAGE_NUMBER_RE = /^(?:\d{1,4}|[ivxlcdm]+)$/i;
+const TOC_TRAILING_PAGE_RE = /^(.*\S)\s+(?<page>(?:\d{1,4}|[ivxlcdm]+))$/i;
+const TOC_DOT_LEADER_RE = /[.\u00b7\u2022\u2024\u2025\u2026\s]+$/u;
+const TOC_ENTRY_START_PATTERN =
+  "(?:TABLE OF CONTENTS|TABLE OF SCHEDULES AND EXHIBITS|\\(continued\\)|ARTICLE\\s+[IVXLCDM]+\\b|Section\\s+\\d+(?:\\.\\d+)*\\b|Annex\\s+[A-Z0-9]+\\b|Exhibit\\s+[A-Z0-9]+\\b|Schedule\\s+[A-Z0-9]+\\b|Appendix\\s+[A-Z0-9]+\\b)";
+const TOC_ENTRY_BREAK_RE = new RegExp(`\\s+(?=${TOC_ENTRY_START_PATTERN})`, "gi");
+const TOC_SUBENTRY_START_RE =
+  /^(?:Section|Annex|Exhibit|Schedule|Appendix|\d+(?:\.\d+)+)\b/i;
 const AGREEMENT_REGION_LABELS = new Map([
   ["frontMatter", "Front Matter"],
   ["tableOfContents", "Table of Contents"],
@@ -38,6 +54,49 @@ const AGREEMENT_REGION_LABELS = new Map([
 
 export function normalizeXmlText(content: string) {
   return content.replace(NON_BREAKING_CHARS_RE, " ");
+}
+
+export function normalizeAgreementTableOfContentsText(
+  textChunks: string[],
+): NormalizedAgreementTocRow[] {
+  const rows: NormalizedAgreementTocRow[] = [];
+  const seenHeadings = new Set<string>();
+
+  for (const chunk of textChunks) {
+    const lines = normalizeAgreementTocChunk(chunk);
+
+    for (const line of lines) {
+      if (TOC_HEADER_LINE_RE.test(line)) {
+        continue;
+      }
+
+      if (TOC_PAGE_NUMBER_RE.test(line)) {
+        const previousRow = rows.at(-1);
+        if (previousRow?.kind === "entry" && !previousRow.pageNumber) {
+          previousRow.pageNumber = line;
+        }
+        continue;
+      }
+
+      if (TOC_HEADING_LINE_RE.test(line)) {
+        const normalizedHeading = line.toUpperCase();
+        if (!seenHeadings.has(normalizedHeading)) {
+          seenHeadings.add(normalizedHeading);
+          rows.push({ kind: "heading", text: line });
+        }
+        continue;
+      }
+
+      const entry = splitAgreementTocLine(line);
+      rows.push({
+        kind: "entry",
+        text: entry.text,
+        pageNumber: entry.pageNumber,
+      });
+    }
+  }
+
+  return rows;
 }
 
 export function XMLRenderer({
@@ -101,6 +160,59 @@ export function XMLRenderer({
       }
       return newSet;
     });
+  };
+
+  const renderAgreementTableOfContents = (children: XMLNode[] | undefined) => {
+    const textChunks = extractAgreementTocTextChunks(children);
+    const rows = normalizeAgreementTableOfContentsText(textChunks);
+
+    if (rows.length === 0) {
+      return renderChildren(children, 0, "tableOfContents");
+    }
+
+    return (
+      <div className="space-y-1.5">
+        {rows.map((row, rowIndex) => {
+          if (row.kind === "heading") {
+            return (
+              <div
+                key={`toc-heading-${rowIndex}`}
+                className="pt-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground first:pt-0"
+              >
+                {row.text}
+              </div>
+            );
+          }
+
+          const isSubentry = TOC_SUBENTRY_START_RE.test(row.text);
+          const isArticle = /^ARTICLE\b/i.test(row.text);
+
+          return (
+            <div
+              key={`toc-entry-${rowIndex}`}
+              className={cn(
+                "flex items-baseline gap-4 py-0.5",
+                isSubentry ? "pl-4 sm:pl-6" : "pt-2 first:pt-0",
+              )}
+            >
+              <span
+                className={cn(
+                  "min-w-0 flex-1 break-words [overflow-wrap:anywhere]",
+                  isArticle && "font-medium tracking-[0.02em]",
+                )}
+              >
+                {row.text}
+              </span>
+              {row.pageNumber ? (
+                <span className="w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground">
+                  {row.pageNumber}
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const renderChildren = (
@@ -227,7 +339,9 @@ export function XMLRenderer({
                 <div className="h-0.5 flex-1 bg-foreground/30" />
               </div>
               <div className="min-w-0">
-                {renderChildren(node.children, depth + 1, node.tagName)}
+                {node.tagName === "tableOfContents"
+                  ? renderAgreementTableOfContents(node.children)
+                  : renderChildren(node.children, depth + 1, node.tagName)}
               </div>
             </section>
           );
@@ -625,4 +739,61 @@ function isPageMarkerNode(node: XMLNode): boolean {
     node.type === "tag" &&
     (node.tagName === "page" || node.tagName === "pageUUID")
   );
+}
+
+function normalizeAgreementTocChunk(content: string): string[] {
+  const normalized = normalizeXmlText(content)
+    .replace(/[^\S\r\n]+/g, " ")
+    .replace(/\s*\n\s*/g, "\n")
+    .trim();
+
+  if (!normalized) {
+    return [];
+  }
+
+  const withEntryBreaks = normalized
+    .replace(
+      /^Page\s+(?=(?:ARTICLE|Section|Annex|Exhibit|Schedule|Appendix)\b)/i,
+      "Page\n",
+    )
+    .replace(TOC_ENTRY_BREAK_RE, "\n");
+
+  return withEntryBreaks
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function extractAgreementTocTextChunks(children: XMLNode[] | undefined): string[] {
+  if (!children) {
+    return [];
+  }
+
+  return children.flatMap((child) => {
+    if (child.type === "text") {
+      return child.content;
+    }
+
+    if (child.tagName !== "text" || !child.children) {
+      return [];
+    }
+
+    return child.children
+      .filter((grandchild) => grandchild.type === "text")
+      .map((grandchild) => grandchild.content);
+  });
+}
+
+function splitAgreementTocLine(
+  line: string,
+): { text: string; pageNumber?: string } {
+  const match = line.match(TOC_TRAILING_PAGE_RE);
+  if (!match?.groups?.page) {
+    return { text: line };
+  }
+
+  return {
+    text: match[1].replace(TOC_DOT_LEADER_RE, "").trim(),
+    pageNumber: match.groups.page,
+  };
 }
