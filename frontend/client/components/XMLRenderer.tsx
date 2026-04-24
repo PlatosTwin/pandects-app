@@ -171,7 +171,11 @@ export function XMLRenderer({
     }
 
     return (
-      <div className="space-y-1.5">
+      <div
+        className="space-y-1.5"
+        role="list"
+        aria-label="Agreement table of contents entries"
+      >
         {rows.map((row, rowIndex) => {
           if (row.kind === "heading") {
             return (
@@ -190,6 +194,7 @@ export function XMLRenderer({
           return (
             <div
               key={`toc-entry-${rowIndex}`}
+              role="listitem"
               className={cn(
                 "flex items-baseline gap-4 py-0.5",
                 isSubentry ? "pl-4 sm:pl-6" : "pt-2 first:pt-0",
