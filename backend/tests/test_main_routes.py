@@ -1233,6 +1233,10 @@ class MainRoutesTests(unittest.TestCase):
             self.assertEqual(section_tax_res.status_code, 200)
             self.assertEqual(section_tax_res.get_json(), {"clauses": []})
 
+            tax_search_res = client.get("/v1/tax-clauses?agreement_uuid=a_gated_hidden&page=1&page_size=10")
+            self.assertEqual(tax_search_res.status_code, 200)
+            self.assertEqual(tax_search_res.get_json().get("results", []), [])
+
             index_res = client.get("/v1/agreements-index?query=Target Hidden&page=1&page_size=10")
             self.assertEqual(index_res.status_code, 200)
             self.assertEqual(index_res.get_json().get("results", []), [])
@@ -1765,6 +1769,35 @@ class MainRoutesTests(unittest.TestCase):
         res_no_match = client.get("/v1/tax-clauses?year=2099&page=1&page_size=10")
         self.assertEqual(res_no_match.status_code, 200)
         self.assertEqual(res_no_match.get_json().get("total_count"), 0)
+
+    def test_tax_clauses_search_excludes_non_latest_xml_versions(self):
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO clauses ("
+                        "clause_uuid, agreement_uuid, section_uuid, xml_version, module, clause_order, "
+                        "anchor_label, start_char, end_char, clause_text, source_method, context_type"
+                        ") VALUES ("
+                        "'clause-a4-stale', 'a4', '00000000-0000-0000-0000-000000000041', 1, 'tax', 1, "
+                        "'(a)', 0, 18, 'Stale verified clause', 'enumerated_split', 'operative'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
+                        "('clause-a4-stale', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
+                    )
+                )
+
+        client = self.app.test_client()
+        res = client.get("/v1/tax-clauses?agreement_uuid=a4&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        clause_uuids = {row["clause_uuid"] for row in body.get("results", [])}
+        self.assertNotIn("clause-a4-stale", clause_uuids)
 
     def test_agreement_tax_clauses_endpoint(self):
         client = self.app.test_client()

@@ -4,12 +4,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
-from sqlalchemy import and_, asc, desc, or_
+from sqlalchemy import and_, asc, desc, func, or_
 
 from backend.filtering import (
     build_canonical_counsel_agreement_uuid_subquery,
     build_transaction_price_bucket_filter,
 )
+from backend.models.main_db import xml_latest_ok_filter
+from backend.routes.agreements import _agreement_is_public_eligible_expr
 from backend.routes.deps import (
     AccessContextProtocol,
     PaginationMetadataProtocol,
@@ -27,6 +29,7 @@ class TaxClausesServiceDeps:
     Clauses: Any
     Counsel: Any
     TaxClauseAssignment: Any
+    XML: Any
     _to_int: ToIntProtocol
     _row_mapping_as_dict: RowMappingAsDictProtocol
     _pagination_metadata: PaginationMetadataProtocol
@@ -58,6 +61,7 @@ def run_tax_clauses(
     agreements = deps.Agreements
     clauses = deps.Clauses
     tax_clause_assignment = deps.TaxClauseAssignment
+    xml = deps.XML
     row_mapping_as_dict = deps._row_mapping_as_dict
     pagination_metadata = deps._pagination_metadata
     expand_cached = deps._expand_tax_clause_taxonomy_standard_ids_cached
@@ -105,7 +109,18 @@ def run_tax_clauses(
         _Query,
         db.session.query(clauses.clause_uuid.label("clause_uuid"))
         .join(agreements, clauses.agreement_uuid == agreements.agreement_uuid)
-        .filter(clauses.module == "tax"),
+        .join(
+            xml,
+            and_(
+                clauses.agreement_uuid == xml.agreement_uuid,
+                clauses.xml_version == xml.version,
+                xml_latest_ok_filter(),
+            ),
+        )
+        .filter(
+            clauses.module == "tax",
+            _agreement_is_public_eligible_expr(agreements),
+        ),
     )
 
     if not include_rep_warranty:

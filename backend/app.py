@@ -1071,6 +1071,7 @@ def _build_tax_clauses_service_deps() -> TaxClausesServiceDeps:
         Clauses=Clauses,
         Counsel=Counsel,
         TaxClauseAssignment=TaxClauseAssignment,
+        XML=XML,
         _to_int=_to_int,
         _row_mapping_as_dict=_row_mapping_as_dict,
         _pagination_metadata=_pagination_metadata,
