@@ -317,7 +317,7 @@ export default function Taxonomy() {
           void copyToClipboard(value);
         }
       }}
-      className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-border/50 bg-background/80 text-foreground/80 transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-transparent bg-transparent text-foreground/65 transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       aria-label={label}
       title={label}
     >
@@ -678,18 +678,20 @@ export default function Taxonomy() {
                       >
                         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <div className="text-xl font-semibold text-foreground">
-                              {entry.label}
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                              <div className="text-xl font-semibold text-foreground">
+                                {entry.label}
+                              </div>
                               {!isMobile ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground">
-                                  <span className="font-mono text-[11px] text-foreground">
+                                <div className="inline-flex items-center gap-1 text-sm text-foreground/78">
+                                  <span className="font-mono text-[13px] text-foreground/80">
                                     {entry.id}
                                   </span>
                                   {renderCopyControl(entry.id, "Copy level 1 ID")}
-                                </span>
+                                </div>
                               ) : null}
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-foreground">
                               <span>{entry.l2Count} groups</span>
                               <span>{entry.l3Count} types</span>
                             </div>
@@ -731,10 +733,18 @@ export default function Taxonomy() {
                                   className="px-5 py-3 text-left text-sm font-semibold hover:no-underline"
                                 >
                                   <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <div>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                       <div className="text-sm font-semibold text-foreground">
                                         {child.label}
                                       </div>
+                                      {!isMobile ? (
+                                        <div className="inline-flex items-center gap-1 text-xs text-foreground/78">
+                                          <span className="font-mono text-[11px] text-foreground/80">
+                                            {child.id}
+                                          </span>
+                                          {renderCopyControl(child.id, "Copy level 2 ID")}
+                                        </div>
+                                      ) : null}
                                     </div>
                                     <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
                                       {child.children.length} Types
@@ -742,16 +752,6 @@ export default function Taxonomy() {
                                   </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
-                                  {!isMobile ? (
-                                    <div className="mb-3">
-                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground/90">
-                                        <span className="font-mono text-[11px] text-foreground">
-                                          {child.id}
-                                        </span>
-                                        {renderCopyControl(child.id, "Copy level 2 ID")}
-                                      </span>
-                                    </div>
-                                  ) : null}
                                   <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                     {child.children.map((leaf) => (
                                       <li
