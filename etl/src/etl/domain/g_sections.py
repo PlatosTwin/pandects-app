@@ -69,6 +69,23 @@ def get_inner_xml(elem: ET.Element) -> str:
     return "".join(parts)
 
 
+def get_article_level_xml_excluding_sections(article: ET.Element) -> str:
+    parts: List[str] = []
+    if article.text:
+        parts.append(article.text)
+    for child in article:
+        if child.tag != "section":
+            parts.append(ET.tostring(child, encoding="unicode"))
+        if child.tail:
+            parts.append(child.tail)
+    return "".join(parts)
+
+
+def has_meaningful_xml_text(xml_fragment: str) -> bool:
+    wrapped = ET.fromstring(f"<root>{xml_fragment}</root>")
+    return any(text.strip() for text in wrapped.itertext())
+
+
 def extract_sections_from_xml(xml_str: str) -> List[Dict[str, Any]]:
     root = ET.fromstring(xml_str)
 
@@ -82,13 +99,30 @@ def extract_sections_from_xml(xml_str: str) -> List[Dict[str, Any]]:
     for article in body.findall(".//article"):
         article_title = article.get("title", "")
         article_title_normed = clean_article_title(article_title)
+        article_uuid = article.get("uuid")
         article_order_raw = article.get("order")
         try:
             article_order = int(article_order_raw) if article_order_raw is not None else None
         except Exception:
             article_order = None
 
-        for section in article.findall(".//section"):
+        article_sections = article.findall(".//section")
+        article_level_xml = get_article_level_xml_excluding_sections(article)
+        if article_uuid and article_level_xml.strip() and has_meaningful_xml_text(article_level_xml):
+            out.append(
+                {
+                    "section_uuid": article_uuid,
+                    "article_title": article_title,
+                    "article_title_normed": article_title_normed,
+                    "article_order": article_order,
+                    "section_title": "",
+                    "section_title_normed": "",
+                    "section_order": None,
+                    "xml_content": article_level_xml,
+                }
+            )
+
+        for section in article_sections:
             section_uuid = section.get("uuid")
             section_title = section.get("title", "")
             section_title_normed = clean_section_title(section_title)
@@ -137,5 +171,3 @@ def extract_sections_from_xml(xml_str: str) -> List[Dict[str, Any]]:
         )
 
     return out
-
-
