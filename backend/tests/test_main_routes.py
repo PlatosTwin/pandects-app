@@ -1516,6 +1516,18 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("metadata_coverage_pct"), 61.5)
         self.assertEqual(body.get("taxonomy_covered_sections"), 4567)
         self.assertEqual(body.get("taxonomy_coverage_pct"), 87.2)
+        self.assertEqual(
+            [row["field"] for row in body.get("metadata_field_coverage", [])],
+            [
+                "transaction_price_cash",
+                "transaction_price_stock",
+                "transaction_price_assets",
+                "target_counsel",
+                "acquirer_counsel",
+                "target_pe",
+                "purpose",
+            ],
+        )
         metadata_field_coverage = {
             row["field"]: row for row in body.get("metadata_field_coverage", [])
         }

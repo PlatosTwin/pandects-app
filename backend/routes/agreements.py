@@ -18,6 +18,7 @@ from backend.filtering import (
     build_transaction_price_bucket_filter,
 )
 from backend.routes.deps import AgreementsDeps
+from backend.summary_specs import METADATA_FIELD_COVERAGE_CONFIG
 from backend.schemas.public_api import (
     AgreementArgsPayload,
     AgreementArgsSchema,
@@ -37,6 +38,24 @@ from backend.schemas.sections import SectionsArgsPayload, SectionsArgsSchema
 class _PublicEligibleAgreementModel(Protocol):
     __table__: Any
     verified: Any
+
+
+_METADATA_FIELD_COVERAGE_DISPLAY_ORDER = {
+    config["field"]: index
+    for index, config in enumerate(METADATA_FIELD_COVERAGE_CONFIG)
+}
+
+
+def _metadata_field_coverage_sort_key(row_dict: dict[str, object]) -> tuple[int, str]:
+    field_name = row_dict.get("field_name")
+    normalized_field_name = field_name if isinstance(field_name, str) else ""
+    return (
+        _METADATA_FIELD_COVERAGE_DISPLAY_ORDER.get(
+            normalized_field_name,
+            len(_METADATA_FIELD_COVERAGE_DISPLAY_ORDER),
+        ),
+        normalized_field_name,
+    )
 
 
 def _agreement_is_public_eligible_expr(agreements: _PublicEligibleAgreementModel) -> object:
@@ -545,12 +564,18 @@ def register_agreements_routes(
                         processed_coverage_pct,
                         note
                     FROM {deps._schema_prefix()}agreement_metadata_field_coverage_summary
-                    ORDER BY field_name ASC
                     """
                 )
             )
             .mappings()
             .all()
+        )
+        sorted_rows = sorted(
+            (
+                deps._row_mapping_as_dict(cast(object, row))
+                for row in rows
+            ),
+            key=_metadata_field_coverage_sort_key,
         )
         return [
             {
@@ -576,10 +601,7 @@ def register_agreements_routes(
                 ),
                 "note": row_dict.get("note"),
             }
-            for row_dict in (
-                deps._row_mapping_as_dict(cast(object, row))
-                for row in rows
-            )
+            for row_dict in sorted_rows
         ]
 
     @agreements_blp.route("")
