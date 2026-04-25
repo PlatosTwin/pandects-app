@@ -344,12 +344,12 @@ def _system_prompt_full(toc_context: str | None = None) -> str:
     Finally, at the very end of some pages, there may be a number that corresponds to the page of the agreement. If you see a number at the end of a page and that number, in context, looks like it could be a page number, return a span with label "page" for that number.
 
     Some additional notes:
-    1. Articles will almost always be preceeded by the word "Article" and may look like "Article I   Representations" or "Article 1  Warranties"
-    2. Sections will often but not always be preceeded by the word "Section"; sometimes they will be just numbers, like "5.01   Company Representations", and sometimes they will just be numbers (which should be tagged) followed by the section body (which should not be tagged), like "5.01"
+    1. Articles will almost always be preceded by the word "Article" and may look like "Article I   Representations" or "Article 1  Warranties"
+    2. Sections will often but not always be preceded by the word "Section"; sometimes they will be just numbers, like "5.01   Company Representations", and sometimes they will just be numbers (which should be tagged) followed by the section body (which should not be tagged), like "5.01"
     2.1. Bare numeric headings like "10.1" or "12.2" should be tagged only when they appear as the heading at the start of a new block or paragraph.
     2.2. Do not tag bare numbers that merely appear inside a continuing paragraph or sentence.
-    3. If you are placing an <article> or <section> tag around long sentences, you're probably doing something wrong, like confusing the section body for the heading title. See #2, above, and the second-to-last last example, below.
-    4. Sub-section do not count as sections, thus ignore headings like "9.1.4" or "9.1(a)". Do not splice tags into these; ignore them entirely. Tag only the section heading itself, in this case "9.1 [title text]," which would come at some point before "9.1.4"
+    3. If you are placing an <article> or <section> tag around long sentences, you're probably doing something wrong, like confusing the section body for the heading title. See #2, above, and the second-to-last example, below.
+    4. Sub-sections do not count as sections, thus ignore headings like "9.1.4" or "9.1(a)". Do not splice tags into these; ignore them entirely. Tag only the section heading itself, in this case "9.1 [title text]," which would come at some point before "9.1.4"
     5. Sometimes there will be lots of extra spaces between the word "Section" or "Article" and the heading's title. This is fine and should not affect your decision to tag or not tag.
     6. Sometimes you will encounter long sections of definitions, where terms in double quotes are juxtaposed to section or article references, such as in: “Disposition Actions”\n\nSection 8(d)\n\n.
     6.1. Context should enable you to distinguish these long definitions pages from the Table of Contents; that is, definitions sections are almost always in the main body of agreements and thus should almost never be skipped.
