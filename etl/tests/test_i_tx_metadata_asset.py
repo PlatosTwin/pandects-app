@@ -1073,7 +1073,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         self.assertIn("WHERE 1 = 1", select_sql)
         self.assertNotIn("WHERE (\n            COALESCE(a.metadata, 0) = 0", select_sql)
 
-    def test_run_web_search_mode_uses_gpt_5_1_for_requeues_without_mixing_chunk_models(self) -> None:
+    def test_run_web_search_mode_uses_gpt_5_4_for_requeues_without_mixing_chunk_models(self) -> None:
         conn = _FakeWebConn(
             select_rows=[
                 self._agreement_row("agreement-initial", initial_metadata_pass=1),
@@ -1102,12 +1102,12 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                 batch_size=2,
             )
 
-        self.assertEqual(client.responses.models, ["gpt-5-mini", "gpt-5.1"])
+        self.assertEqual(client.responses.models, ["gpt-5.4-mini", "gpt-5.4"])
         self.assertTrue(
-            any(call[0] == "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements using model %s" and call[4] == "gpt-5-mini" for call in fake_log.info_calls)
+            any(call[0] == "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements using model %s" and call[4] == "gpt-5.4-mini" for call in fake_log.info_calls)
         )
         self.assertTrue(
-            any(call[0] == "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements using model %s" and call[4] == "gpt-5.1" for call in fake_log.info_calls)
+            any(call[0] == "tx_metadata_asset (web_search): starting chunk %s/%s with %s agreements using model %s" and call[4] == "gpt-5.4" for call in fake_log.info_calls)
         )
 
     def test_run_web_search_mode_targets_retry_prompt_to_unresolved_fields(self) -> None:
@@ -1132,7 +1132,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
                 batch_size=1,
             )
 
-        self.assertEqual(client.responses.models, ["gpt-5.1"])
+        self.assertEqual(client.responses.models, ["gpt-5.4"])
         self.assertEqual(len(client.responses.inputs), 1)
         retry_input = cast(str, client.responses.inputs[0])
         self.assertIn("focus_fields: close_date, deal_status", retry_input)

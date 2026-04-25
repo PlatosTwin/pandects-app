@@ -85,9 +85,9 @@ AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES: Tuple[str, ...] = (
     XML_REASON_SECTION_NON_SEQUENTIAL,
 )
 
-AI_REPAIR_FIRST_PASS_MODEL = "gpt-5-mini"
-AI_REPAIR_RETRY_MODEL = "gpt-5.1"
-AI_REPAIR_SOURCE_VERDICT_MODEL = "gpt-5.1"
+AI_REPAIR_FIRST_PASS_MODEL = "gpt-5.4-mini"
+AI_REPAIR_RETRY_MODEL = "gpt-5.4"
+AI_REPAIR_SOURCE_VERDICT_MODEL = "gpt-5.4"
 XML_REASON_LLM_SOURCE_TEXT_BYPASS = "llm_source_text_hard_rule_bypass"
 SOURCE_TEXT_BYPASS_CONFIDENCE_THRESHOLD = 0.90
 SOURCE_VERDICT_MAX_FLAGGED_PAGES = 4
@@ -818,7 +818,9 @@ def _fetch_open_ai_repair_batch_for_scope(
     scoped_agreement_uuids: list[str],
 ) -> Dict[str, Any] | None:
     matching_batch: Dict[str, Any] | None = None
-    for model in (AI_REPAIR_FIRST_PASS_MODEL, AI_REPAIR_RETRY_MODEL, AI_REPAIR_SOURCE_VERDICT_MODEL):
+    for model in dict.fromkeys(
+        (AI_REPAIR_FIRST_PASS_MODEL, AI_REPAIR_RETRY_MODEL, AI_REPAIR_SOURCE_VERDICT_MODEL)
+    ):
         batch_key = _ai_repair_batch_key(
             agreement_uuids=scoped_agreement_uuids,
             model=model,

@@ -172,8 +172,8 @@ def _select_recent_pending_agreement_uuids_for_web_search(
 
 def _web_search_model_for_agreement(agreement_row: Dict[str, Any]) -> str:
     if int(agreement_row.get("initial_metadata_pass", 1) or 0) == 1:
-        return "gpt-5-mini"
-    return "gpt-5.1"
+        return "gpt-5.4-mini"
+    return "gpt-5.4"
 
 
 def _fetch_unapplied_offline_batch(
@@ -1745,7 +1745,7 @@ def _build_offline_metadata_lines(
         if not concat:
             context.log.warning("%s: no page text for %s; skipping.", log_prefix, agreement_uuid)
             continue
-        lines.append(build_offline_tx_metadata_request_body(agreement_uuid, concat, model="gpt-5-mini"))
+        lines.append(build_offline_tx_metadata_request_body(agreement_uuid, concat, model="gpt-5.4-mini"))
     return lines
 
 
@@ -1890,7 +1890,7 @@ def _build_offline_counsel_lines(
                 section_text=joined_text,
                 target_name=target_by_agreement[agreement_uuid],
                 acquirer_name=acquirer_by_agreement[agreement_uuid],
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
             )
         )
     return lines
@@ -2140,7 +2140,7 @@ def _run_web_search_mode(
             model_name,
             [agreement for agreement in agreements if _web_search_model_for_agreement(agreement) == model_name],
         )
-        for model_name in ("gpt-5-mini", "gpt-5.1")
+        for model_name in ("gpt-5.4-mini", "gpt-5.4")
     ]
     agreement_groups = [(model_name, group) for model_name, group in agreement_groups if group]
     total_chunks = sum(
@@ -2149,9 +2149,9 @@ def _run_web_search_mode(
     )
     completed_chunk_count = 0
     context.log.info(
-        "tx_metadata_asset (web_search): selected by model gpt-5-mini=%s gpt-5.1=%s",
-        sum(1 for agreement in agreements if _web_search_model_for_agreement(agreement) == "gpt-5-mini"),
-        sum(1 for agreement in agreements if _web_search_model_for_agreement(agreement) == "gpt-5.1"),
+        "tx_metadata_asset (web_search): selected by model gpt-5.4-mini=%s gpt-5.4=%s",
+        sum(1 for agreement in agreements if _web_search_model_for_agreement(agreement) == "gpt-5.4-mini"),
+        sum(1 for agreement in agreements if _web_search_model_for_agreement(agreement) == "gpt-5.4"),
     )
 
     for model_name, queued_agreements in agreement_groups:

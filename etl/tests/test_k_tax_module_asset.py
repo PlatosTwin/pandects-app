@@ -172,7 +172,7 @@ class TaxModuleAssetTests(unittest.TestCase):
                 SimpleNamespace(
                     tax_module_agreement_batch_size=10,
                     tax_module_llm_clauses_per_request=1,
-                    tax_module_llm_model="gpt-5-mini",
+                    tax_module_llm_model="gpt-5.4-mini",
                     resume_openai_batches=True,
                     queue_run_mode="SINGLE_BATCH",
                 ),
@@ -238,7 +238,7 @@ class TaxModuleAssetTests(unittest.TestCase):
                 SimpleNamespace(
                     tax_module_agreement_batch_size=10,
                     tax_module_llm_clauses_per_request=1,
-                    tax_module_llm_model="gpt-5-mini",
+                    tax_module_llm_model="gpt-5.4-mini",
                     resume_openai_batches=True,
                     queue_run_mode="SINGLE_BATCH",
                 ),
@@ -280,7 +280,7 @@ class TaxModuleAssetTests(unittest.TestCase):
                 SimpleNamespace(
                     tax_module_agreement_batch_size=10,
                     tax_module_llm_clauses_per_request=1,
-                    tax_module_llm_model="gpt-5-mini",
+                    tax_module_llm_model="gpt-5.4-mini",
                     resume_openai_batches=True,
                     queue_run_mode="SINGLE_BATCH",
                 ),

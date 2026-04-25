@@ -225,7 +225,7 @@ class TxMetadataDomainTests(unittest.TestCase):
                 "filing_date": "2024-01-01",
                 "url": "https://www.sec.gov/Archives/edgar/data/123/abc.htm",
             },
-            model="gpt-5.1",
+            model="gpt-5.4",
         )
         input_text = request_body.get("input")
         self.assertIsInstance(input_text, str)
@@ -246,7 +246,7 @@ class TxMetadataDomainTests(unittest.TestCase):
                 "filing_date": "2024-01-01",
                 "url": None,
             },
-            model="gpt-5.1",
+            model="gpt-5.4",
         )
         input_text = request_body.get("input")
         self.assertIsInstance(input_text, str)
@@ -264,7 +264,7 @@ class TxMetadataDomainTests(unittest.TestCase):
                 "filing_date": "2024-01-01",
                 "url": "https://www.sec.gov/Archives/edgar/data/123/abc.htm",
             },
-            model="gpt-5.1",
+            model="gpt-5.4",
         )
         input_text = request_body.get("input")
         self.assertIsInstance(input_text, str)
@@ -358,7 +358,7 @@ class TxMetadataDomainTests(unittest.TestCase):
         retry_context = build_web_search_retry_context(self._requeue_agreement_row())
         request_body = build_tx_metadata_request_body_web_search_only(
             self._requeue_agreement_row(),
-            model="gpt-5.1",
+            model="gpt-5.4",
             retry_context=retry_context,
         )
 

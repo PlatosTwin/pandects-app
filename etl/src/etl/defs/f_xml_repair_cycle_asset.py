@@ -440,7 +440,7 @@ def post_repair_verify_xml_asset(
             _build_xml_verify_batch_request_body(
                 custom_id=custom_id,
                 tag_tree=tag_tree,
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
             )
         )
 
@@ -903,7 +903,7 @@ def regular_ingest_post_repair_verify_xml_asset(
             _build_xml_verify_batch_request_body(
                 custom_id=custom_id,
                 tag_tree=tag_tree,
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
             )
         )
 
@@ -1360,7 +1360,7 @@ def ingestion_cleanup_a_post_repair_verify_xml_asset(
             _build_xml_verify_batch_request_body(
                 custom_id=custom_id,
                 tag_tree=tag_tree,
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
             )
         )
 
@@ -1841,7 +1841,7 @@ def ingestion_cleanup_b_post_repair_verify_xml_asset(
             _build_xml_verify_batch_request_body(
                 custom_id=custom_id,
                 tag_tree=tag_tree,
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
             )
         )
 

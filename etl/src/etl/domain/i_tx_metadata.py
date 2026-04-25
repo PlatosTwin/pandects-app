@@ -826,7 +826,7 @@ def build_offline_tx_metadata_request_body(
     agreement_uuid: str,
     concatenated_page_text: str,
     *,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-5.4-mini",
 ) -> Dict[str, Any]:
     """Build request body for offline extraction (one agreement). No tools; JSON output."""
     schema = json_schema_offline_metadata()
@@ -939,7 +939,7 @@ def build_offline_counsel_request_body(
     section_text: str,
     target_name: str,
     acquirer_name: str,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-5.4-mini",
 ) -> Dict[str, Any]:
     """Build request body for counsel extraction from the counsel section."""
     schema = json_schema_offline_counsel()

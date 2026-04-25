@@ -420,7 +420,7 @@ class IngestionCleanupScopeResumeTests(unittest.TestCase):
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.LLM,
             taxonomy_section_title_regex=None,
-            taxonomy_llm_model="gpt-5-mini",
+            taxonomy_llm_model="gpt-5.4-mini",
             taxonomy_llm_sections_per_request=1,
             queue_run_mode=QueueRunMode.SINGLE_BATCH,
             resume_openai_batches=True,
@@ -464,7 +464,7 @@ class IngestionCleanupScopeResumeTests(unittest.TestCase):
                 SimpleNamespace(
                     tax_module_agreement_batch_size=10,
                     tax_module_llm_clauses_per_request=1,
-                    tax_module_llm_model="gpt-5-mini",
+                    tax_module_llm_model="gpt-5.4-mini",
                     resume_openai_batches=True,
                     queue_run_mode="SINGLE_BATCH",
                 ),

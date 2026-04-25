@@ -2633,7 +2633,7 @@ def xml_verify_asset(
             _build_xml_verify_batch_request_body(
                 custom_id=custom_id,
                 tag_tree=tag_tree,
-                model="gpt-5-mini",
+                model="gpt-5.4-mini",
                 toc_context=_build_xml_verify_toc_context(root),
             )
         )
@@ -2977,7 +2977,7 @@ def _run_scoped_fresh_xml_verify(
                 _build_xml_verify_batch_request_body(
                     custom_id=custom_id,
                     tag_tree=tag_tree,
-                    model="gpt-5-mini",
+                    model="gpt-5.4-mini",
                     toc_context=_build_xml_verify_toc_context(root),
                 )
             )

@@ -1319,7 +1319,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
         body = _build_xml_verify_batch_request_body(
             custom_id="agreement|1",
             tag_tree=_render_tag_tree_from_root(root),
-            model="gpt-5-mini",
+            model="gpt-5.4-mini",
             toc_context=_build_xml_verify_toc_context(root),
         )["body"]
 

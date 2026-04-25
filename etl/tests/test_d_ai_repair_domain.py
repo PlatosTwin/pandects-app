@@ -17,7 +17,7 @@ class AiRepairDomainTests(unittest.TestCase):
             page_uuid="11111111-1111-1111-1111-111111111111",
             text="Sample text.",
             decision=decision,
-            model="gpt-5.1",
+            model="gpt-5.4",
             uncertain_spans=[],
             xml_version=7,
         )
@@ -58,7 +58,7 @@ class AiRepairDomainTests(unittest.TestCase):
             page_uuid="11111111-1111-1111-1111-111111111111",
             text="Sample text.",
             decision=decision,
-            model="gpt-5.1",
+            model="gpt-5.4",
             uncertain_spans=[],
             xml_version=7,
         )
@@ -72,7 +72,7 @@ class AiRepairDomainTests(unittest.TestCase):
             page_uuid="11111111-1111-1111-1111-111111111111",
             text="5.22 Customers and Suppliers.",
             decision=decision,
-            model="gpt-5.1",
+            model="gpt-5.4",
             uncertain_spans=[],
             xml_version=7,
             toc_context="Article 5 TOC section numbering: 5.20, 5.21, 5.22, 5.23",
@@ -100,7 +100,7 @@ class AiRepairDomainTests(unittest.TestCase):
             agreement_uuid="agreement-1",
             xml_version=9,
             anchor_page_uuid="page-2",
-            model="gpt-5.1",
+            model="gpt-5.4",
             reason_rows=[
                 {
                     "reason_code": "section_non_sequential",

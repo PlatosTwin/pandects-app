@@ -59,7 +59,7 @@ class PipelineConfigResourceTests(unittest.TestCase):
                 "ai_repair_attempt_priority": "attempted_first",
                 "taxonomy_mode": "ml",
                 "taxonomy_section_title_regex": "^governing",
-                "taxonomy_llm_model": "gpt-5-mini",
+                "taxonomy_llm_model": "gpt-5.4-mini",
                 "taxonomy_llm_sections_per_request": 7,
                 "tax_module_agreement_batch_size": 11,
                 "tax_module_llm_model": "gpt-5.4-mini",
@@ -78,7 +78,7 @@ class PipelineConfigResourceTests(unittest.TestCase):
         )
         self.assertEqual(pipeline_config.taxonomy_mode, TaxonomyMode.ML)
         self.assertEqual(pipeline_config.taxonomy_section_title_regex, "^governing")
-        self.assertEqual(pipeline_config.taxonomy_llm_model, "gpt-5-mini")
+        self.assertEqual(pipeline_config.taxonomy_llm_model, "gpt-5.4-mini")
         self.assertEqual(pipeline_config.taxonomy_llm_sections_per_request, 7)
         self.assertEqual(pipeline_config.tax_module_agreement_batch_size, 11)
         self.assertEqual(pipeline_config.tax_module_llm_model, "gpt-5.4-mini")
@@ -89,10 +89,10 @@ class PipelineConfigResourceTests(unittest.TestCase):
         self.assertFalse(config.xml_enable_llm_verification)
         self.assertEqual(config.taxonomy_mode, TaxonomyMode.LLM)
         self.assertIsNone(config.taxonomy_section_title_regex)
-        self.assertEqual(config.taxonomy_llm_model, "gpt-5-mini")
+        self.assertEqual(config.taxonomy_llm_model, "gpt-5.4-mini")
         self.assertEqual(config.taxonomy_llm_sections_per_request, 5)
         self.assertEqual(config.tax_module_agreement_batch_size, 25)
-        self.assertEqual(config.tax_module_llm_model, "gpt-5-mini")
+        self.assertEqual(config.tax_module_llm_model, "gpt-5.4-mini")
         self.assertEqual(config.tax_module_llm_clauses_per_request, 5)
 
     def test_get_resources_rejects_legacy_scope_keys(self) -> None:

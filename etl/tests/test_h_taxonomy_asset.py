@@ -182,7 +182,7 @@ class TaxonomyAssetTests(unittest.TestCase):
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.ML,
             taxonomy_section_title_regex="governing",
-            taxonomy_llm_model="gpt-5-mini",
+            taxonomy_llm_model="gpt-5.4-mini",
             taxonomy_llm_sections_per_request=5,
             queue_run_mode=QueueRunMode.SINGLE_BATCH,
             resume_openai_batches=True,
@@ -240,7 +240,7 @@ class TaxonomyAssetTests(unittest.TestCase):
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.GOLD_BACKFILL,
             taxonomy_section_title_regex="governing",
-            taxonomy_llm_model="gpt-5-mini",
+            taxonomy_llm_model="gpt-5.4-mini",
             taxonomy_llm_sections_per_request=5,
             queue_run_mode=QueueRunMode.SINGLE_BATCH,
             resume_openai_batches=True,
@@ -294,7 +294,7 @@ class TaxonomyAssetTests(unittest.TestCase):
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.LLM,
             taxonomy_section_title_regex=None,
-            taxonomy_llm_model="gpt-5-mini",
+            taxonomy_llm_model="gpt-5.4-mini",
             taxonomy_llm_sections_per_request=1,
             queue_run_mode=QueueRunMode.SINGLE_BATCH,
             resume_openai_batches=False,
@@ -380,7 +380,7 @@ class TaxonomyAssetTests(unittest.TestCase):
 
         self.assertEqual(create_lines.call_args.kwargs["sections_per_request"], 1)
         self.assertEqual(conn.gold_update_payloads[0]["gold_label_payload"], '["law", "venue"]')
-        self.assertEqual(conn.gold_update_payloads[0]["model_name"], "gpt-5-mini")
+        self.assertEqual(conn.gold_update_payloads[0]["model_name"], "gpt-5.4-mini")
         apply_standard_ids_to_xml.assert_called_once_with(
             "<document />",
             {"section-1": '["law", "venue"]'},
@@ -412,7 +412,7 @@ class TaxonomyAssetTests(unittest.TestCase):
                 }
             ],
             taxonomy_json=[],
-            model_name="gpt-5-mini",
+            model_name="gpt-5.4-mini",
             batch_key="batch-key",
             sections_per_request=1,
         )
@@ -431,7 +431,7 @@ class TaxonomyAssetTests(unittest.TestCase):
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.LLM,
             taxonomy_section_title_regex=None,
-            taxonomy_llm_model="gpt-5-mini",
+            taxonomy_llm_model="gpt-5.4-mini",
             taxonomy_llm_sections_per_request=5,
             queue_run_mode=QueueRunMode.SINGLE_BATCH,
             resume_openai_batches=True,
@@ -445,7 +445,7 @@ class TaxonomyAssetTests(unittest.TestCase):
                     "batch_id": "batch-1",
                     "completion_window": "24h",
                     "request_total": 1,
-                    "model_name": "gpt-5-mini",
+                    "model_name": "gpt-5.4-mini",
                     "batch_key": "key-1",
                 },
             ),
@@ -491,7 +491,7 @@ class TaxonomyAssetTests(unittest.TestCase):
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.LLM,
             taxonomy_section_title_regex=None,
-            taxonomy_llm_model="gpt-5-mini",
+            taxonomy_llm_model="gpt-5.4-mini",
             taxonomy_llm_sections_per_request=1,
             queue_run_mode=QueueRunMode.SINGLE_BATCH,
             resume_openai_batches=True,
@@ -540,7 +540,7 @@ class TaxonomyAssetTests(unittest.TestCase):
             taxonomy_agreement_batch_size=10,
             taxonomy_mode=TaxonomyMode.LLM,
             taxonomy_section_title_regex=None,
-            taxonomy_llm_model="gpt-5-mini",
+            taxonomy_llm_model="gpt-5.4-mini",
             taxonomy_llm_sections_per_request=1,
             queue_run_mode=QueueRunMode.SINGLE_BATCH,
             resume_openai_batches=True,

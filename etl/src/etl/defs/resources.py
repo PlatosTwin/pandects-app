@@ -94,10 +94,10 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
     taxonomy_mode: TaxonomyMode = TaxonomyMode.LLM  # llm | ml | gold_backfill
     taxonomy_section_title_regex: str | None = None  # optional REGEXP filter for taxonomy prediction modes
-    taxonomy_llm_model: str = "gpt-5-mini"  # used in taxonomy_asset llm mode
+    taxonomy_llm_model: str = "gpt-5.4-mini"  # used in taxonomy_asset llm mode
     taxonomy_llm_sections_per_request: int = 5  # sections bundled into each LLM request within a batch
     tax_module_agreement_batch_size: int = 25  # used in tax_module assets
-    tax_module_llm_model: str = "gpt-5-mini"  # used in tax_module_asset
+    tax_module_llm_model: str = "gpt-5.4-mini"  # used in tax_module_asset
     tax_module_llm_clauses_per_request: int = 5  # clauses bundled into each LLM request within a batch
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
     tx_metadata_mode: TxMetadataMode = TxMetadataMode.OFFLINE  # offline | web_search
