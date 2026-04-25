@@ -14,7 +14,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
-import { formatDateValue, formatEnumValue, formatNumberValue } from "@/lib/format-utils";
+import {
+  formatDateValue,
+  formatEnumValue,
+  formatNumberValue,
+} from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -125,9 +129,12 @@ const formatCoverageRatio = (
   eligible: number,
   label: string,
 ) =>
-  `${formatNumberValue(covered, { maximumFractionDigits: 0 })} / ${formatNumberValue(eligible, {
-    maximumFractionDigits: 0,
-  })} ${label}`;
+  `${formatNumberValue(covered, { maximumFractionDigits: 0 })} / ${formatNumberValue(
+    eligible,
+    {
+      maximumFractionDigits: 0,
+    },
+  )} ${label}`;
 
 const formatCoveragePct = (pct: number | null) =>
   pct === null ? "—" : `${pct.toFixed(1)}%`;
@@ -156,16 +163,22 @@ export function AgreementIndexOverview() {
     statusSummaryMetadataCoveredAgreements,
     setStatusSummaryMetadataCoveredAgreements,
   ] = useState<number | null>(null);
-  const [statusSummaryMetadataCoveragePct, setStatusSummaryMetadataCoveragePct] =
-    useState<number | null>(null);
-  const [statusSummaryMetadataFieldCoverage, setStatusSummaryMetadataFieldCoverage] =
-    useState<MetadataFieldCoverageRow[]>([]);
+  const [
+    statusSummaryMetadataCoveragePct,
+    setStatusSummaryMetadataCoveragePct,
+  ] = useState<number | null>(null);
+  const [
+    statusSummaryMetadataFieldCoverage,
+    setStatusSummaryMetadataFieldCoverage,
+  ] = useState<MetadataFieldCoverageRow[]>([]);
   const [
     statusSummaryTaxonomyCoveredSections,
     setStatusSummaryTaxonomyCoveredSections,
   ] = useState<number | null>(null);
-  const [statusSummaryTaxonomyCoveragePct, setStatusSummaryTaxonomyCoveragePct] =
-    useState<number | null>(null);
+  const [
+    statusSummaryTaxonomyCoveragePct,
+    setStatusSummaryTaxonomyCoveragePct,
+  ] = useState<number | null>(null);
   const [dealTypeSummary, setDealTypeSummary] = useState<
     AgreementDealTypeYearRow[]
   >([]);
@@ -183,9 +196,7 @@ export function AgreementIndexOverview() {
   const renderMetadataFieldCoverageTooltip = () => (
     <div className="space-y-3">
       <div className="space-y-1">
-        <p className="text-xs font-medium text-foreground">
-          Coverage by field
-        </p>
+        <p className="text-xs font-medium text-foreground">Coverage by field</p>
         <p className="text-xs text-muted-foreground">
           Pricing fields use consideration-aware denominators for both ingested
           and processed deals.
@@ -202,7 +213,9 @@ export function AgreementIndexOverview() {
               key={row.field}
               className="rounded-md border border-border bg-background/70 p-2"
             >
-              <div className="text-xs font-medium text-foreground">{row.label}</div>
+              <div className="text-xs font-medium text-foreground">
+                {row.label}
+              </div>
               <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                 <div className="min-w-0">
                   {formatCoverageRatio(
@@ -246,9 +259,9 @@ export function AgreementIndexOverview() {
       </p>
       <p className="text-xs leading-relaxed text-muted-foreground">
         Not all agreements that fail validation are invalid, however. We&apos;ve
-        found that a non-negligible number of agreements awaiting XML
-        validation accurately represent the original agreement, and it is the
-        original agreement that fails validation.
+        found that a non-negligible number of agreements awaiting XML validation
+        accurately represent the original agreement, and it is the original
+        agreement that fails validation.
       </p>
       <p className="text-xs leading-relaxed text-muted-foreground">
         For instance,{" "}
@@ -290,14 +303,13 @@ export function AgreementIndexOverview() {
         skips straight from 8.07 to 8.09.
       </p>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        We have not yet upgraded our validation pipelines to validate based on
-        the table of contents rather than using hard validation rules only, but
-        hope to do so soon.
-      </p>
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        In the meantime, only{" "}
+        We have implemented several measures to keep such agreements from being
+        screened out, and are slowly running invalid agreements through this new
+        system. In the meantime, only{" "}
         <span className="font-mono tabular-nums text-foreground">
-          {xmlAwaitingValidationPct === null ? "—" : `${xmlAwaitingValidationPct.toFixed(1)}%`}
+          {xmlAwaitingValidationPct === null
+            ? "—"
+            : `${xmlAwaitingValidationPct.toFixed(1)}%`}
         </span>{" "}
         of ingested agreements are awaiting XML validation.
       </p>
@@ -326,7 +338,8 @@ export function AgreementIndexOverview() {
             tooltipProps={{
               side: "top",
               align: "start",
-              className: "max-h-[min(28rem,calc(100vh-6rem))] max-w-[340px] overflow-y-auto text-xs",
+              className:
+                "max-h-[min(28rem,calc(100vh-6rem))] max-w-[340px] overflow-y-auto text-xs",
             }}
             popoverProps={{
               side: "top",
@@ -357,7 +370,8 @@ export function AgreementIndexOverview() {
             tooltipProps={{
               side: "top",
               align: "start",
-              className: "max-h-[min(28rem,calc(100vh-6rem))] max-w-[360px] overflow-y-auto text-xs",
+              className:
+                "max-h-[min(28rem,calc(100vh-6rem))] max-w-[360px] overflow-y-auto text-xs",
             }}
             popoverProps={{
               side: "top",
@@ -396,14 +410,18 @@ export function AgreementIndexOverview() {
           setStatusSummaryMetadataCoveredAgreements(
             data.metadata_covered_agreements ?? null,
           );
-          setStatusSummaryMetadataCoveragePct(data.metadata_coverage_pct ?? null);
+          setStatusSummaryMetadataCoveragePct(
+            data.metadata_coverage_pct ?? null,
+          );
           setStatusSummaryMetadataFieldCoverage(
             data.metadata_field_coverage ?? [],
           );
           setStatusSummaryTaxonomyCoveredSections(
             data.taxonomy_covered_sections ?? null,
           );
-          setStatusSummaryTaxonomyCoveragePct(data.taxonomy_coverage_pct ?? null);
+          setStatusSummaryTaxonomyCoveragePct(
+            data.taxonomy_coverage_pct ?? null,
+          );
           setStatusSummaryLoaded(true);
         }
       } catch (err) {
@@ -539,7 +557,9 @@ export function AgreementIndexOverview() {
       value: number | null,
       denominatorLabel: "processed" | "sections",
     ) =>
-      value === null ? `—% of ${denominatorLabel}` : `${value.toFixed(1)}% of ${denominatorLabel}`;
+      value === null
+        ? `—% of ${denominatorLabel}`
+        : `${value.toFixed(1)}% of ${denominatorLabel}`;
     return [
       {
         key: "staged",
@@ -826,10 +846,7 @@ export function AgreementIndexOverview() {
           {stagedPrimarySummaryMetrics.map((metric, index) => (
             <div
               key={metric.key}
-              className={cn(
-                "p-4",
-                index > 0 && "border-l border-border",
-              )}
+              className={cn("p-4", index > 0 && "border-l border-border")}
             >
               <div className="text-xs font-semibold text-muted-foreground">
                 {renderMetricLabel(metric.label, metric.key)}
@@ -839,7 +856,9 @@ export function AgreementIndexOverview() {
                   ? metric.value.toLocaleString("en-US")
                   : metric.value}
               </div>
-              <div className="text-xs text-muted-foreground">{metric.detail}</div>
+              <div className="text-xs text-muted-foreground">
+                {metric.detail}
+              </div>
             </div>
           ))}
         </div>
@@ -847,10 +866,7 @@ export function AgreementIndexOverview() {
           {stagedSecondarySummaryMetrics.map((metric, index) => (
             <div
               key={metric.key}
-              className={cn(
-                "p-4",
-                index > 0 && "border-l border-border",
-              )}
+              className={cn("p-4", index > 0 && "border-l border-border")}
             >
               <div className="text-xs font-semibold text-muted-foreground">
                 {renderMetricLabel(metric.label, metric.key)}
@@ -860,7 +876,9 @@ export function AgreementIndexOverview() {
                   ? metric.value.toLocaleString("en-US")
                   : metric.value}
               </div>
-              <div className="text-xs text-muted-foreground">{metric.detail}</div>
+              <div className="text-xs text-muted-foreground">
+                {metric.detail}
+              </div>
             </div>
           ))}
         </div>
@@ -1089,11 +1107,17 @@ export function AgreementIndexOverview() {
           that are awaiting validation have made it through at least one step of
           the pipeline but tripped one of our validations and are awaiting
           manual review. Agreements that are staged or awaiting validation do
-          not show up in the <span className="font-mono text-sm text-foreground">/v1/sections/*</span>{" "}or
-          <span className="font-mono text-sm text-foreground">/v1/agreements/*</span>{" "}
-          routes. The dashed vertical divider marks the 2020/2021 boundary:
-          from 2000 through 2020, we use data from the DMA Corpus; beginning
-          2021, we source data ourselves from EDGAR.
+          not show up in the{" "}
+          <span className="font-mono text-sm text-foreground">
+            /v1/sections/*
+          </span>{" "}
+          or
+          <span className="font-mono text-sm text-foreground">
+            /v1/agreements/*
+          </span>{" "}
+          routes. The dashed vertical divider marks the 2020/2021 boundary: from
+          2000 through 2020, we use data from the DMA Corpus; beginning 2021, we
+          source data ourselves from EDGAR.
         </p>
         {statusSummaryLoading ? (
           <div className="rounded-lg border border-border bg-muted/20 p-4">
@@ -1203,7 +1227,8 @@ export function AgreementIndexOverview() {
           boundary: from 2000 through 2020, we use data from the DMA Corpus;
           beginning 2021, we source data ourselves from EDGAR.
         </p>
-        {dealTypeSummaryLoading || (!dealTypeSummaryLoaded && !dealTypeSummaryError) ? (
+        {dealTypeSummaryLoading ||
+        (!dealTypeSummaryLoaded && !dealTypeSummaryError) ? (
           <div className="rounded-lg border border-border bg-muted/20 p-4">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="mt-4 h-[220px] w-full sm:h-[260px]" />
@@ -1244,9 +1269,7 @@ export function AgreementIndexOverview() {
                   description="Shows annual deal type counts for processed agreements."
                 >
                   <div className="mx-auto w-full max-w-[980px]">
-                    <h2 className="mb-2 text-base font-semibold">
-                      Deal types
-                    </h2>
+                    <h2 className="mb-2 text-base font-semibold">Deal types</h2>
                     {renderDealTypeChart("border-0 bg-background p-0")}
                   </div>
                 </MobileChartModal>
