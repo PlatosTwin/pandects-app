@@ -49,6 +49,7 @@ class XMLGenerationTests(unittest.TestCase):
           <tr><td>ARTICLE I THE MERGER</td><td>6</td></tr>
           <tr><td>1.1</td><td>The Merger</td><td>6</td></tr>
           <tr><td>1.2</td><td>The Closing</td><td>6</td></tr>
+          <tr><td>Exhibit A\x0e</td><td>7</td></tr>
         </table>
         """
         df = pd.DataFrame(
@@ -95,6 +96,8 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertIn("Page", toc_texts)
         self.assertTrue(any(text.startswith("1.1     The Merger") for text in toc_texts))
         self.assertTrue(any(text.startswith("1.2     The Closing") for text in toc_texts))
+        self.assertTrue(any(text.startswith("Exhibit A") for text in toc_texts))
+        self.assertNotIn("\x0e", generated[0].xml)
         self.assertNotIn(
             "TABLE OF CONTENTS Page ARTICLE I THE MERGER 6 1.1 The Merger 6 1.2 The Closing 6",
             toc_texts,

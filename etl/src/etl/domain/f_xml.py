@@ -95,6 +95,7 @@ SIGNATURE_ENTITY_SUFFIX_RE = re.compile(
     re.IGNORECASE,
 )
 SIGNATURE_HTML_STRUCTURAL_TAGS = {"div", "p", "table", "tr", "td", "th"}
+XML_INVALID_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
 
 
 def strip_subsection_section_tags(tagged_text: str) -> str:
@@ -135,7 +136,12 @@ def _iter_line_fragments(text_block: str) -> list[str]:
     return fragments
 
 
+def _strip_xml_invalid_control_chars(text: str) -> str:
+    return XML_INVALID_CONTROL_CHAR_RE.sub("", text)
+
+
 def _normalize_toc_cell_text(text: str) -> str:
+    text = _strip_xml_invalid_control_chars(text)
     text = text.replace("\u00a0", " ").replace("\xa0", " ")
     text = re.sub(r"[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060\uFEFF]", " ", text)
     text = re.sub(r"\s+", " ", text)
@@ -507,6 +513,7 @@ def format_toc_html_like_screen(raw_html: str, *, line_width: int = 120) -> str:
 
 
 def _signature_text_lines(text: str) -> list[str]:
+    text = _strip_xml_invalid_control_chars(text)
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060\uFEFF]", "", text)
     return [re.sub(r"[^\S\n]+", " ", line).strip() for line in text.splitlines()]
@@ -987,7 +994,7 @@ def _xml_page_text(row: Any) -> str:
     ):
         formatted_toc = format_toc_html_like_screen(str(row.get("raw_page_content")))
         if formatted_toc.strip():
-            return formatted_toc
+            return _strip_xml_invalid_control_chars(formatted_toc)
     if (
         source_page_type == "sig"
         and bool(row.get("source_is_html"))
@@ -997,7 +1004,7 @@ def _xml_page_text(row: Any) -> str:
             str(row.get("raw_page_content"))
         )
         if formatted_signature_html.strip():
-            return formatted_signature_html
+            return _strip_xml_invalid_control_chars(formatted_signature_html)
     if (
         source_page_type == "sig"
         and bool(row.get("source_is_html"))
@@ -1005,8 +1012,12 @@ def _xml_page_text(row: Any) -> str:
     ):
         formatted_signature = format_signature_text_like_screen(str(tagged_output))
         if formatted_signature.strip():
-            return formatted_signature
-    return tagged_output if _has_text_value(tagged_output) else ""
+            return _strip_xml_invalid_control_chars(formatted_signature)
+    return (
+        _strip_xml_invalid_control_chars(str(tagged_output))
+        if _has_text_value(tagged_output)
+        else ""
+    )
 
 
 def generate_xml(
