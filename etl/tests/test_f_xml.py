@@ -191,7 +191,63 @@ class XMLGenerationTests(unittest.TestCase):
             formatted,
         )
 
-    def test_generate_xml_reformats_html_signature_processed_content(self) -> None:
+    def test_format_signature_html_like_screen_preserves_table_rows(self) -> None:
+        raw_html = """
+        <div><font>In Witness Whereof, the parties hereto have entered into and signed this Agreement.</font></div>
+        <div>
+          <table>
+            <tr><td></td><td>PARENT:</td></tr>
+            <tr><td></td><td>HawkEye 360, Inc.</td></tr>
+            <tr style="height:14pt"><td></td><td></td></tr>
+            <tr><td></td><td>By:</td><td>/s/ John Serafini</td></tr>
+            <tr><td></td><td>Name:</td><td>John Serafini</td></tr>
+            <tr><td></td><td>Its:</td><td>Chief Executive Officer</td></tr>
+            <tr style="height:14pt"><td></td><td></td></tr>
+            <tr><td></td><td>MERGER SUB:</td></tr>
+            <tr><td></td><td>Forestal Merger Sub, Inc.</td></tr>
+            <tr><td></td><td>By:</td><td>/s/ Todd Probert</td></tr>
+            <tr><td></td><td>Name:</td><td>Todd Probert</td></tr>
+            <tr><td></td><td>Its:</td><td>President</td></tr>
+          </table>
+        </div>
+        <div><font>[SIGNATURE PAGE TO AGREEMENT AND PLAN OF MERGER]</font></div>
+        """
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertIn("PARENT:", formatted)
+        self.assertIn("HawkEye 360, Inc.", formatted)
+        self.assertIn(
+            "In Witness Whereof, the parties hereto have entered into and signed this Agreement.",
+            formatted,
+        )
+        self.assertNotIn("Whereof ,", formatted)
+        self.assertIn("By: /s/ John Serafini", formatted)
+        self.assertIn("Name: John Serafini", formatted)
+        self.assertIn("Its: Chief Executive Officer", formatted)
+        self.assertIn("MERGER SUB:", formatted)
+        self.assertIn("Forestal Merger Sub, Inc.", formatted)
+        self.assertIn("By: /s/ Todd Probert", formatted)
+        self.assertIn("Its: President", formatted)
+        self.assertNotIn(
+            "PARENT: HawkEye 360, Inc. By: /s/ John Serafini Name: John Serafini",
+            formatted,
+        )
+
+    def test_format_signature_html_like_screen_normalizes_bracket_spacing(self) -> None:
+        raw_html = """
+        <div><font>( Signature Page )</font></div>
+        <div><font>[ SIGNATURE PAGE TO AGREEMENT AND PLAN OF MERGER ]</font></div>
+        """
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertIn("(Signature Page)", formatted)
+        self.assertIn("[SIGNATURE PAGE TO AGREEMENT AND PLAN OF MERGER]", formatted)
+        self.assertNotIn("( Signature Page )", formatted)
+        self.assertNotIn("[ SIGNATURE PAGE TO AGREEMENT AND PLAN OF MERGER ]", formatted)
+
+    def test_generate_xml_reformats_html_signature_raw_page_content(self) -> None:
         agreement_uuid = "11111111-1111-1111-1111-111111111111"
         df = pd.DataFrame(
             [
@@ -199,18 +255,22 @@ class XMLGenerationTests(unittest.TestCase):
                     "agreement_uuid": agreement_uuid,
                     "page_uuid": "sig-page",
                     "page_order": 1,
-                    "raw_page_content": "<table></table>",
+                    "raw_page_content": """
+                    <div><font>IN WITNESS WHEREOF</font></div>
+                    <div>
+                      <table>
+                        <tr><td></td><td>ACME CORP.</td></tr>
+                        <tr><td></td><td>By:</td><td>/s/ Jane Doe</td></tr>
+                        <tr><td></td><td>Name:</td><td>Jane Doe</td></tr>
+                        <tr><td></td><td>Its:</td><td>Chief Executive Officer</td></tr>
+                      </table>
+                    </div>
+                    """,
                     "source_page_type": "body",
                     "gold_label": "sig",
                     "tagged_output": (
                         "IN WITNESS WHEREOF\n\n"
-                        "ACME CORP.\n\n"
-                        "By:\n\n"
-                        "/s/ Jane Doe\n\n"
-                        "Name:\n"
-                        "Jane Doe\n\n"
-                        "Title:\n"
-                        "Chief Executive Officer"
+                        "ACME CORP. By: /s/ Jane Doe Name: Jane Doe Its: Chief Executive Officer"
                     ),
                     "url": "https://example.com/agreement",
                     "filing_date": date(2024, 1, 1),
@@ -229,9 +289,10 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertIsNotNone(sig_pages)
         assert sig_pages is not None
         sig_texts = [el.text or "" for el in sig_pages.findall("text")]
+        self.assertIn("ACME CORP.", sig_texts)
         self.assertIn("By: /s/ Jane Doe", sig_texts)
         self.assertIn("Name: Jane Doe", sig_texts)
-        self.assertIn("Title: Chief Executive Officer", sig_texts)
+        self.assertIn("Its: Chief Executive Officer", sig_texts)
 
     def test_generate_xml_skips_agreement_with_invalid_xml_token(self) -> None:
         valid_uuid = "11111111-1111-1111-1111-111111111111"

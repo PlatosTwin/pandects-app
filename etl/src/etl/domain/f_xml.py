@@ -73,8 +73,11 @@ SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.DOTALL)
 SUBSECTION_NUMBER_RE = re.compile(r"\b\d+\.\d+\.\d+(?:\.\d+)*\b")
 ARTICLE_TAG_RE = re.compile(r"<article\b")
 INLINE_MARKER_RE = re.compile(r"(<pageUUID>.*?</pageUUID>|<page>.*?</page>)", re.DOTALL)
-SIGNATURE_FIELD_LABEL_RE = re.compile(r"^(?:By|Name|Title):?$", re.IGNORECASE)
-SIGNATURE_FIELD_WITH_VALUE_RE = re.compile(r"^(By|Name|Title):\s*(.+)$", re.IGNORECASE)
+SIGNATURE_FIELD_LABEL_RE = re.compile(r"^(?P<label>By|Name|Title|Its):?$", re.IGNORECASE)
+SIGNATURE_FIELD_WITH_VALUE_RE = re.compile(
+    r"^(?P<label>By|Name|Title|Its):\s*(?P<value>.+)$",
+    re.IGNORECASE,
+)
 SIGNATURE_FIELD_NON_VALUE_RE = re.compile(
     (
         r"^(?:\[|\(|signature page\b|address:|facsimile:|email:|attention:|ein:|"
@@ -91,6 +94,7 @@ SIGNATURE_ENTITY_SUFFIX_RE = re.compile(
     ),
     re.IGNORECASE,
 )
+SIGNATURE_HTML_STRUCTURAL_TAGS = {"div", "p", "table", "tr", "td", "th"}
 
 
 def strip_subsection_section_tags(tagged_text: str) -> str:
@@ -139,6 +143,10 @@ def _normalize_toc_cell_text(text: str) -> str:
 
 
 def _toc_visible_text(tag: Tag) -> str:
+    return _normalize_toc_cell_text(tag.get_text(separator=" ", strip=False))
+
+
+def _signature_visible_text(tag: Tag) -> str:
     return _normalize_toc_cell_text(tag.get_text(separator=" ", strip=False))
 
 
@@ -504,6 +512,86 @@ def _signature_text_lines(text: str) -> list[str]:
     return [re.sub(r"[^\S\n]+", " ", line).strip() for line in text.splitlines()]
 
 
+def _normalize_signature_punctuation_spacing(text: str) -> str:
+    text = re.sub(r"[^\S\r\n]+([,.;:)\]])", r"\1", text)
+    return re.sub(r"([(\[])[^\S\r\n]+", r"\1", text)
+
+
+def _format_signature_label(label: str) -> str:
+    return label.strip().rstrip(":").title() + ":"
+
+
+def _signature_table_row_text(tr: Tag) -> str | None:
+    cells = tr.find_all(["td", "th"], recursive=False)
+    if not cells:
+        return None
+
+    parts = [_signature_visible_text(cell) for cell in cells]
+    parts = [part for part in parts if part]
+    if not parts:
+        return ""
+
+    if len(parts) == 1:
+        return parts[0]
+
+    label_match = SIGNATURE_FIELD_LABEL_RE.fullmatch(parts[0])
+    if label_match is not None:
+        return f"{_format_signature_label(label_match.group('label'))} {' '.join(parts[1:])}"
+
+    return " ".join(parts)
+
+
+def _signature_table_to_lines(table: Tag) -> list[str]:
+    lines: list[str] = []
+    for tr in table.find_all("tr"):
+        row_text = _signature_table_row_text(tr)
+        if row_text is None:
+            continue
+        lines.append(row_text)
+    return lines
+
+
+def _signature_html_blocks(node: Tag) -> list[str]:
+    blocks: list[str] = []
+    for child in node.find_all(recursive=False):
+        if child.name == "table":
+            table_lines = _signature_table_to_lines(child)
+            if table_lines:
+                blocks.append("\n".join(table_lines))
+            continue
+
+        if any(
+            grandchild.name in SIGNATURE_HTML_STRUCTURAL_TAGS
+            for grandchild in child.find_all(recursive=False)
+        ):
+            blocks.extend(_signature_html_blocks(child))
+            continue
+
+        text = _signature_visible_text(child)
+        if text:
+            blocks.append(text)
+    return blocks
+
+
+def format_signature_html_like_screen(raw_html: str) -> str:
+    soup = BeautifulSoup(raw_html, "html.parser")
+    _remove_toc_nonvisible_nodes(soup)
+
+    blocks = _signature_html_blocks(soup.body or soup)
+    if not blocks:
+        text = soup.get_text(separator="\n", strip=False)
+        text = "\n".join(_normalize_toc_cell_text(line) for line in text.splitlines())
+        normalized_text = _normalize_signature_punctuation_spacing(
+            re.sub(r"\n{3,}", "\n\n", text).strip()
+        )
+        return format_signature_text_like_screen(normalized_text)
+
+    normalized_blocks = _normalize_signature_punctuation_spacing(
+        "\n\n".join(blocks).strip()
+    )
+    return format_signature_text_like_screen(normalized_blocks)
+
+
 def _looks_like_signature_entity_fragment(line: str) -> bool:
     if (
         not line
@@ -567,19 +655,19 @@ def format_signature_text_like_screen(text: str) -> str:
 
         label_match = SIGNATURE_FIELD_LABEL_RE.fullmatch(line)
         if label_match:
-            label = line.rstrip(":").title()
+            label = _format_signature_label(label_match.group("label"))
             continuation = _signature_continuation_value(lines, index + 1)
             if continuation is not None:
                 value, value_index = continuation
-                formatted.append(f"{label}: {value}")
+                formatted.append(f"{label} {value}")
                 index = value_index + 1
                 continue
 
         field_value_match = SIGNATURE_FIELD_WITH_VALUE_RE.match(line)
         if field_value_match:
-            label = field_value_match.group(1).title()
-            value = field_value_match.group(2).strip()
-            formatted.append(f"{label}: {value}")
+            label = _format_signature_label(field_value_match.group("label"))
+            value = field_value_match.group("value").strip()
+            formatted.append(f"{label} {value}")
             index += 1
             continue
 
@@ -900,6 +988,16 @@ def _xml_page_text(row: Any) -> str:
         formatted_toc = format_toc_html_like_screen(str(row.get("raw_page_content")))
         if formatted_toc.strip():
             return formatted_toc
+    if (
+        source_page_type == "sig"
+        and bool(row.get("source_is_html"))
+        and _has_text_value(row.get("raw_page_content"))
+    ):
+        formatted_signature_html = format_signature_html_like_screen(
+            str(row.get("raw_page_content"))
+        )
+        if formatted_signature_html.strip():
+            return formatted_signature_html
     if (
         source_page_type == "sig"
         and bool(row.get("source_is_html"))
