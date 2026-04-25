@@ -1,0 +1,9 @@
+batch_size: 8
+learning_rate: 0.00013263319105435943
+train_subsample_window: 512
+val_window: 510
+val_stride: 256
+weight_decay: 3.2533497095456858e-06
+warmup_steps_pct: 0.21546989058976135
+max_epochs: 10
+model_name: answerdotai/ModernBERT-base
