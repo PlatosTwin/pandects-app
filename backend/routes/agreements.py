@@ -7,7 +7,7 @@ import re
 from threading import Lock
 from typing import Any, Mapping, Protocol, cast
 
-from flask import Flask, Response, abort, current_app, jsonify, request
+from flask import Flask, Response, abort, current_app, g, jsonify, request
 from flask.views import MethodView
 from flask_smorest import Blueprint
 from sqlalchemy import and_, asc, bindparam, desc, func, or_, text
@@ -867,7 +867,7 @@ def register_agreements_routes(
                     raise RuntimeError("Agreements list query returned a row without agreement_uuid.")
                 next_cursor = deps._encode_agreements_cursor(last_agreement_uuid)
 
-            return {
+            response_payload: dict[str, object] = {
                 "results": results,
                 "access": {
                     "tier": ctx.tier,
@@ -880,6 +880,10 @@ def register_agreements_routes(
                 "has_next": has_next,
                 "next_cursor": next_cursor,
             }
+            dump_version = getattr(g, "dump_version", None)
+            if dump_version is not None and request.args.get("include_dump", "true") != "false":
+                response_payload["dump_version"] = dump_version
+            return response_payload
 
     @agreement_search_blp.route("")
     class AgreementSearchResource(MethodView):
@@ -1238,7 +1242,7 @@ def register_agreements_routes(
                     }
                 )
 
-            return {
+            search_payload: dict[str, object] = {
                 "results": results,
                 "access": {
                     "tier": ctx.tier,
@@ -1248,6 +1252,10 @@ def register_agreements_routes(
                 },
                 **meta,
             }
+            dump_version = getattr(g, "dump_version", None)
+            if dump_version is not None and request.args.get("include_dump", "true") != "false":
+                search_payload["dump_version"] = dump_version
+            return search_payload
 
     @agreements_blp.route("/<string:agreement_uuid>")
     class AgreementResource(MethodView):

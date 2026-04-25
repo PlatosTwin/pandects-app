@@ -4,7 +4,7 @@ from typing import TypedDict, cast
 
 from marshmallow import Schema, fields, validate
 
-from backend.schemas.sections import AccessInfoSchema
+from backend.schemas.sections import AccessInfoSchema, DumpVersionInfoSchema
 
 
 class AgreementArgsSchema(Schema):
@@ -209,6 +209,7 @@ class AgreementsListResponseSchema(Schema):
     returned_count = fields.Int()
     has_next = fields.Bool()
     next_cursor = fields.Str(allow_none=True)
+    dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 
 class AgreementSearchMatchedSectionSchema(Schema):
@@ -272,6 +273,7 @@ class AgreementSearchResponseSchema(Schema):
     has_prev = fields.Bool(required=True)
     next_num = fields.Int(allow_none=True)
     prev_num = fields.Int(allow_none=True)
+    dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 
 class SectionResponseSchema(Schema):
@@ -390,6 +392,7 @@ __all__ = [
     "CounselEntrySchema",
     "CounselResponseSchema",
     "DumpEntrySchema",
+    "DumpVersionInfoSchema",
     "NaicsResponseSchema",
     "NaicsSectorSchema",
     "NaicsSubSectorSchema",

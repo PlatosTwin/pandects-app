@@ -230,6 +230,11 @@ class AccessInfoSchema(Schema):
     message = fields.Str(required=False, allow_none=True)
 
 
+class DumpVersionInfoSchema(Schema):
+    hash = fields.Str(required=True)
+    dump_ts = fields.Str(required=True)
+
+
 class SectionsResponseSchema(Schema):
     results: object = cast(
         object,
@@ -249,10 +254,12 @@ class SectionsResponseSchema(Schema):
     has_prev = fields.Bool()
     next_num = fields.Int(allow_none=True)
     prev_num = fields.Int(allow_none=True)
+    dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 
 __all__ = [
     "AccessInfoSchema",
+    "DumpVersionInfoSchema",
     "SECTIONS_RESULT_METADATA_FIELDS",
     "SectionsArgsPayload",
     "SectionsArgsSchema",

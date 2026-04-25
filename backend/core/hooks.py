@@ -69,8 +69,12 @@ def register_request_hooks(
     auth_rate_limit_guard: Callable[[], None],
     record_api_key_usage: Callable[[Response], Response],
     set_security_headers: Callable[[Response], Response],
+    populate_dump_version: Callable[[], None],
+    attach_dump_version_header: Callable[[Response], Response],
 ) -> None:
     _before_req_start: object = target_app.before_request(capture_request_start)
     _before_req_guard: object = target_app.before_request(auth_rate_limit_guard)
+    _before_req_dump: object = target_app.before_request(populate_dump_version)
     _after_req_usage: object = target_app.after_request(record_api_key_usage)
     _after_req_headers: object = target_app.after_request(set_security_headers)
+    _after_req_dump: object = target_app.after_request(attach_dump_version_header)

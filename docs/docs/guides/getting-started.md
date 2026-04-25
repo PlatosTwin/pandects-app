@@ -31,6 +31,30 @@ The API returns JSON and standard HTTP status codes.
 - `422`: invalid request shape or unsupported parameters
 - `default`: other server-side error envelopes
 
+## Data provenance
+
+Every response includes the sha256 hash of the public database dump the data was sourced from. This lets you record exactly which snapshot your queries came from.
+
+**Response header** (always present):
+
+```
+X-Pandects-Dump-Hash: 3a7f9b2c...
+```
+
+**Response body** (present by default on `/v1/sections`, `/v1/agreements`, and `/v1/agreements/search`):
+
+```json
+{
+  "results": [...],
+  "dump_version": {
+    "hash": "3a7f9b2c...",
+    "dump_ts": "2025-03-01 04:00:00"
+  }
+}
+```
+
+To omit `dump_version` from the JSON body, pass `?include_dump=false`. The header is always set regardless.
+
 ## Next step
 
 Continue with `Request Patterns` for common query combinations and endpoint workflows.

@@ -62,6 +62,7 @@ from backend.models.main_db import (
     AgreementCounsel,
     Clauses,
     Counsel,
+    DumpVersion,
     LatestSectionsSearch,
     NaicsSector,
     NaicsSubSector,
@@ -228,6 +229,16 @@ class _DumpsCache(TypedDict):
 class _DumpsManifestCacheEntry(TypedDict):
     etag: str
     payload: dict[str, object]
+
+
+class _DumpVersionInfo(TypedDict):
+    hash: str
+    dump_ts: str
+
+
+class _DumpVersionCache(TypedDict):
+    ts: float
+    payload: _DumpVersionInfo | None
     ts: float
 
 class _S3ListObject(TypedDict, total=False):
@@ -348,6 +359,9 @@ _DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(
 )
 _dumps_manifest_cache: dict[str, _DumpsManifestCacheEntry] = {}
 _dumps_manifest_cache_lock = Lock()
+_DUMP_VERSION_CACHE_TTL_SECONDS = int(os.environ.get("DUMP_VERSION_CACHE_TTL_SECONDS", "300"))
+_dump_version_cache: _DumpVersionCache = {"ts": 0.0, "payload": None}
+_dump_version_cache_lock = Lock()
 
 # ── API usage logging ─────────────────────────────────────────────────────
 _USAGE_SAMPLE_RATE_2XX = float(os.environ.get("USAGE_SAMPLE_RATE_2XX", "0.05"))
@@ -404,6 +418,44 @@ def _async_task_runner() -> AsyncTaskRunner | None:
         )
         current_app.extensions["async_task_runner"] = runner
     return runner
+
+def _fetch_latest_dump_version() -> _DumpVersionInfo | None:
+    now = time.time()
+    with _dump_version_cache_lock:
+        cached = _dump_version_cache["payload"]
+        cached_ts = _dump_version_cache["ts"]
+        if cached is not None and (now - cached_ts < _DUMP_VERSION_CACHE_TTL_SECONDS):
+            return cached
+    try:
+        row = (
+            db.session.query(DumpVersion.sha256, DumpVersion.dump_ts)
+            .order_by(DumpVersion.id.desc())
+            .first()
+        )
+    except Exception:
+        return None
+    if row is None:
+        return None
+    sha256_val, dump_ts_val = row
+    if not isinstance(sha256_val, str) or not isinstance(dump_ts_val, str):
+        return None
+    info: _DumpVersionInfo = {"hash": sha256_val, "dump_ts": dump_ts_val}
+    with _dump_version_cache_lock:
+        _dump_version_cache["payload"] = info
+        _dump_version_cache["ts"] = now
+    return info
+
+
+def _populate_dump_version() -> None:
+    g.dump_version = _fetch_latest_dump_version()
+
+
+def _attach_dump_version_header(response: Response) -> Response:
+    info = getattr(g, "dump_version", None)
+    if isinstance(info, dict) and isinstance(info.get("hash"), str):
+        response.headers["X-Pandects-Dump-Hash"] = info["hash"]
+    return response
+
 
 # Legacy names retained for tests and app-module indirection.
 _is_running_on_fly = _is_running_on_fly_auth_runtime
@@ -1023,6 +1075,8 @@ def _register_request_hooks(target_app: Flask) -> None:
         auth_rate_limit_guard=_auth_rate_limit_guard,
         record_api_key_usage=_record_api_key_usage,
         set_security_headers=_set_security_headers,
+        populate_dump_version=_populate_dump_version,
+        attach_dump_version_header=_attach_dump_version_header,
     )
 
 # Legacy helper names kept so route dependency wiring and tests can import one app module.
