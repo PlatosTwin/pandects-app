@@ -378,6 +378,8 @@ class MainRoutesTests(unittest.TestCase):
                 )
 
     def setUp(self) -> None:
+        self.app_module._rate_limit_state.clear()
+        self.app_module._endpoint_rate_limit_state.clear()
         self._restore_base_dataset()
 
     def _restore_base_dataset(self) -> None:
