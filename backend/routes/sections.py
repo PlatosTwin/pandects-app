@@ -37,7 +37,7 @@ def register_sections_routes(*, deps: SectionsDeps) -> Blueprint:
             parsed_args = cast(SectionsArgsPayload, cast(object, args))
             result = run_sections(deps.sections_service_deps, ctx=ctx, parsed_args=parsed_args)
             dump_version = getattr(g, "dump_version", None)
-            if dump_version is not None and request.args.get("include_dump", "true") != "false":
+            if dump_version is not None and bool(args.get("include_dump", True)):
                 result["dump_version"] = dump_version
             return result
 

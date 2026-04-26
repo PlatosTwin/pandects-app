@@ -429,7 +429,8 @@ def _fetch_latest_dump_version() -> _DumpVersionInfo | None:
             return cached
     try:
         url = f"{PUBLIC_DEV_BASE}/dumps/latest.json"
-        with urllib.request.urlopen(url, timeout=5) as resp:
+        req = urllib.request.Request(url, headers={"User-Agent": "pandects-api/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
             manifest = _json.loads(resp.read())
         sha256_val = manifest.get("sha256")
         dump_ts_val = manifest.get("timestamp")

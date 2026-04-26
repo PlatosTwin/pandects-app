@@ -67,6 +67,15 @@ class AgreementsBulkArgsSchema(Schema):
     acquirer_pe = fields.List(fields.Str(), load_default=[])
     agreement_uuid = fields.Str(load_default=None, allow_none=True)
     section_uuid = fields.Str(load_default=None, allow_none=True)
+    include_dump = fields.Bool(
+        load_default=True,
+        metadata={
+            "description": (
+                "When false, omit `dump_version` from the response body. "
+                "The `X-Pandects-Dump-Hash` response header is always included."
+            ),
+        },
+    )
     standard_id = fields.List(
         fields.Str(),
         load_default=[],
@@ -130,6 +139,7 @@ class AgreementsBulkArgsPayload(TypedDict):
     acquirer_pe: list[str]
     agreement_uuid: str | None
     section_uuid: str | None
+    include_dump: bool
     standard_id: list[str]
 
 

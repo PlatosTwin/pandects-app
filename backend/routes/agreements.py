@@ -881,7 +881,7 @@ def register_agreements_routes(
                 "next_cursor": next_cursor,
             }
             dump_version = getattr(g, "dump_version", None)
-            if dump_version is not None and request.args.get("include_dump", "true") != "false":
+            if dump_version is not None and bool(args.get("include_dump", True)):
                 response_payload["dump_version"] = dump_version
             return response_payload
 
@@ -1253,7 +1253,7 @@ def register_agreements_routes(
                 **meta,
             }
             dump_version = getattr(g, "dump_version", None)
-            if dump_version is not None and request.args.get("include_dump", "true") != "false":
+            if dump_version is not None and bool(args.get("include_dump", True)):
                 search_payload["dump_version"] = dump_version
             return search_payload
 
