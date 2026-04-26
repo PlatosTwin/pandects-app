@@ -55,3 +55,22 @@ for (const relativePath of [
   const filePath = path.join(__dirname, "..", relativePath);
   fs.writeFileSync(filePath, JSON.stringify(taxonomyResponse));
 }
+
+// agreements_search has its own tag entry with a description, which causes
+// docusaurus-plugin-openapi-docs to generate a tag page. That page uses
+// useCurrentSidebarCategory(), which fails when the doc is a hidden sidebar
+// item rather than a real category link. Fix: repoint the generated sidebar
+// link directly at the endpoint doc so the tag.mdx is never referenced, then
+// delete the orphan tag page.
+const sidebarPath = path.join(__dirname, "..", "docs/pandects/sidebar.ts");
+if (fs.existsSync(sidebarPath)) {
+  const original = fs.readFileSync(sidebarPath, "utf8");
+  const patched = original.replace(
+    /id:\s*"pandects\/agreements-search"/g,
+    'id: "pandects/search-agreements"',
+  );
+  if (patched !== original) fs.writeFileSync(sidebarPath, patched);
+}
+
+const tagMdxPath = path.join(__dirname, "..", "docs/pandects/agreements-search.tag.mdx");
+if (fs.existsSync(tagMdxPath)) fs.unlinkSync(tagMdxPath);
