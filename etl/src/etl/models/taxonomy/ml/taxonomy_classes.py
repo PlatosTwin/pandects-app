@@ -43,7 +43,7 @@ if __package__ in (None, ""):
     src_root = Path(__file__).resolve().parents[3]
     if str(src_root) not in sys.path:
         sys.path.append(str(src_root))
-    from etl.models.taxonomy.taxonomy_text import (  # type: ignore[reportMissingImports]
+    from etl.models.taxonomy.ml.taxonomy_text import (  # type: ignore[reportMissingImports]
         combine_taxonomy_text,
     )
 else:

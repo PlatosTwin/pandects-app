@@ -55,18 +55,18 @@ if __package__ in (None, ""):
     src_root = Path(__file__).resolve().parents[3]
     if str(src_root) not in sys.path:
         sys.path.append(str(src_root))
-    from etl.models.taxonomy.taxonomy_constants import (  # type: ignore[reportMissingImports]
+    from etl.models.taxonomy.ml.taxonomy_constants import (  # type: ignore[reportMissingImports]
         TAXONOMY_CKPT_PATH,
         TAXONOMY_VECTORIZER_PATH,
         TAXONOMY_TITLE_RULES_PATH,
         TAXONOMY_EVAL_METRICS_PATH,
     )
-    from etl.models.taxonomy.taxonomy_classes import (  # type: ignore[reportMissingImports]
+    from etl.models.taxonomy.ml.taxonomy_classes import (  # type: ignore[reportMissingImports]
         TransformerDataModule,
         TfidfDataModule,
         TaxonomyClassifier,
     )
-    from etl.models.taxonomy.taxonomy_text import (  # type: ignore[reportMissingImports]
+    from etl.models.taxonomy.ml.taxonomy_text import (  # type: ignore[reportMissingImports]
         clean_article_title,
         clean_section_title,
         combine_taxonomy_text,

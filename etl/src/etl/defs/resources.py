@@ -23,8 +23,8 @@ from etl.models.page_classifier_revamp.page_classifier_constants import (
     CLASSIFIER_CRF_PATH,
     CLASSIFIER_REVIEW_MODEL_PATH,
 )
-from etl.models.taxonomy.taxonomy import TaxonomyInference
-from etl.models.taxonomy.taxonomy_constants import (
+from etl.models.taxonomy.ml.taxonomy import TaxonomyInference
+from etl.models.taxonomy.ml.taxonomy_constants import (
     TAXONOMY_CKPT_PATH,
     TAXONOMY_TITLE_RULES_PATH,
     TAXONOMY_VECTORIZER_PATH,

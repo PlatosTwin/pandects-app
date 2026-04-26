@@ -16,12 +16,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.sparse import csr_matrix
 
 from etl.defs.resources import TaxonomyModel
-from etl.models.taxonomy.taxonomy import (
+from etl.models.taxonomy.ml.taxonomy import (
     TaxonomyConfig,
     TaxonomyInference,
     TaxonomyTrainer,
 )
-from etl.models.taxonomy.taxonomy_classes import TaxonomyClassifier
+from etl.models.taxonomy.ml.taxonomy_classes import TaxonomyClassifier
 
 
 class TaxonomyModelTests(unittest.TestCase):
@@ -333,7 +333,7 @@ class TaxonomyModelTests(unittest.TestCase):
         )
 
         with patch(
-            "etl.models.taxonomy.taxonomy.TaxonomyClassifier.load_from_checkpoint",
+            "etl.models.taxonomy.ml.taxonomy.TaxonomyClassifier.load_from_checkpoint",
             return_value=object(),
         ):
             trainer._collect_val_probs_and_labels = lambda model, dm: (probs, y_true)
@@ -441,7 +441,7 @@ class TaxonomyModelTests(unittest.TestCase):
                 "_get_callbacks",
                 return_value=(fake_checkpoint, object(), object(), object(), []),
             ),
-            patch("etl.models.taxonomy.taxonomy.pl.Trainer", return_value=fake_trainer),
+            patch("etl.models.taxonomy.ml.taxonomy.pl.Trainer", return_value=fake_trainer),
             patch.object(
                 trainer,
                 "_tune_per_class_thresholds",
@@ -513,7 +513,7 @@ class TaxonomyModelTests(unittest.TestCase):
                 "_get_callbacks",
                 return_value=(fake_checkpoint, object(), object(), object(), []),
             ),
-            patch("etl.models.taxonomy.taxonomy.pl.Trainer", return_value=fake_trainer),
+            patch("etl.models.taxonomy.ml.taxonomy.pl.Trainer", return_value=fake_trainer),
         ):
             with self.assertRaises(TrialPruned):
                 _ = trainer._objective(cast(Trial, cast(object, _FakeTrial())))
