@@ -1,4 +1,4 @@
-This is LuaHBTeX, Version 1.21.0 (TeX Live 2025)  (format=lualatex 2025.3.8)  26 APR 2026 12:21
+This is LuaHBTeX, Version 1.21.0 (TeX Live 2025)  (format=lualatex 2025.3.8)  26 APR 2026 13:22
  restricted system commands enabled.
  file:line:error style messages enabled.
 **/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/paper/introducing_pandects
@@ -903,22 +903,22 @@ LaTeX DocumentMetadata Warning: The language has not been set in
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/microtype/mt-cmr.cfg
 File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman (RS)
-) (./introducing_pandects.toc)
+) (./introducing_pandects.toc
+
+[1
+
+{/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}])
 \tf@toc=\write4
 
 \openout4 = introducing_pandects.toc
 
 
-[1
-
-{/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+[2]
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `lmtt' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 
-
-[2]
 
 [3]
 
@@ -941,109 +941,111 @@ Package microtype Info: Loading generic protrusion settings for font family
 [12]
 
 [13]
-Underfull \hbox (badness 1490) in paragraph at lines 362--362
+
+[14]
+Underfull \hbox (badness 1490) in paragraph at lines 369--369
 [][][]\TU/TimesNewRoman(0)/m/n/10 The com-plete anal-y-sis is avail-able as a Jupyter Note-book un-der []$\TU/lmtt/m/n/10 https://github.com/PlatosTwin/
  []
 
 
 
-[14]
-
 [15]
 
 [16]
-<plots/filtered_sample_agreements_by_year.png, id=304, 710.8959pt x 385.6809pt>
+
+[17]
+<plots/filtered_sample_agreements_by_year.png, id=311, 710.8959pt x 385.6809pt>
 File: plots/filtered_sample_agreements_by_year.png Graphic file (type png)
 <use plots/filtered_sample_agreements_by_year.png>
-Package luatex.def Info: plots/filtered_sample_agreements_by_year.png  used on input line 374.
+Package luatex.def Info: plots/filtered_sample_agreements_by_year.png  used on input line 381.
 (luatex.def)             Requested size: 383.65027pt x 208.14099pt.
 
 
-[17]
-<plots/forum_clause_prevalence.png, id=312, 710.8959pt x 385.9218pt>
+[18]
+<plots/forum_clause_prevalence.png, id=319, 710.8959pt x 385.9218pt>
 File: plots/forum_clause_prevalence.png Graphic file (type png)
 <use plots/forum_clause_prevalence.png>
-Package luatex.def Info: plots/forum_clause_prevalence.png  used on input line 381.
+Package luatex.def Info: plots/forum_clause_prevalence.png  used on input line 388.
 (luatex.def)             Requested size: 383.42249pt x 208.14734pt.
-<plots/forum_clause_length_complexity.png, id=313, 1019.9706pt x 658.6206pt>
+<plots/forum_clause_length_complexity.png, id=320, 1019.9706pt x 658.6206pt>
 File: plots/forum_clause_length_complexity.png Graphic file (type png)
 <use plots/forum_clause_length_complexity.png>
-Package luatex.def Info: plots/forum_clause_length_complexity.png  used on input line 388.
+Package luatex.def Info: plots/forum_clause_length_complexity.png  used on input line 395.
 (luatex.def)             Requested size: 322.33519pt x 208.13991pt.
 
 
-[18<./plots/filtered_sample_agreements_by_year.png><./plots/forum_clause_prevalence.png>]
-<plots/forum_clause_delaware_new_york_shares.png, id=320, 783.1659pt x 422.0568pt>
+[19<./plots/filtered_sample_agreements_by_year.png><./plots/forum_clause_prevalence.png>]
+<plots/forum_clause_delaware_new_york_shares.png, id=327, 783.1659pt x 422.0568pt>
 File: plots/forum_clause_delaware_new_york_shares.png Graphic file (type png)
 <use plots/forum_clause_delaware_new_york_shares.png>
-Package luatex.def Info: plots/forum_clause_delaware_new_york_shares.png  used on input line 395.
+Package luatex.def Info: plots/forum_clause_delaware_new_york_shares.png  used on input line 402.
 (luatex.def)             Requested size: 386.22833pt x 208.14273pt.
-<plots/forum_clause_phrase_shift_five_periods.png, id=321, 929.874pt x 566.5968pt>
+<plots/forum_clause_phrase_shift_five_periods.png, id=328, 929.874pt x 566.5968pt>
 File: plots/forum_clause_phrase_shift_five_periods.png Graphic file (type png)
 <use plots/forum_clause_phrase_shift_five_periods.png>
-Package luatex.def Info: plots/forum_clause_phrase_shift_five_periods.png  used on input line 402.
+Package luatex.def Info: plots/forum_clause_phrase_shift_five_periods.png  used on input line 409.
 (luatex.def)             Requested size: 341.59334pt x 208.14185pt.
 
 
-[19<./plots/forum_clause_length_complexity.png><./plots/forum_clause_delaware_new_york_shares.png>]
-<plots/forum_clause_substantive_phrase_shift_five_periods.png, id=328, 930.5967pt x 566.5968pt>
+[20<./plots/forum_clause_length_complexity.png><./plots/forum_clause_delaware_new_york_shares.png>]
+<plots/forum_clause_substantive_phrase_shift_five_periods.png, id=335, 930.5967pt x 566.5968pt>
 File: plots/forum_clause_substantive_phrase_shift_five_periods.png Graphic file (type png)
 <use plots/forum_clause_substantive_phrase_shift_five_periods.png>
-Package luatex.def Info: plots/forum_clause_substantive_phrase_shift_five_periods.png  used on input line 409.
+Package luatex.def Info: plots/forum_clause_substantive_phrase_shift_five_periods.png  used on input line 416.
 (luatex.def)             Requested size: 341.85883pt x 208.14185pt.
 
 
-[20<./plots/forum_clause_phrase_shift_five_periods.png><./plots/forum_clause_substantive_phrase_shift_five_periods.png>]
+[21<./plots/forum_clause_phrase_shift_five_periods.png><./plots/forum_clause_substantive_phrase_shift_five_periods.png>]
 
-[21]
-Underfull \hbox (badness 2401) in paragraph at lines 443--443
+[22]
+Underfull \hbox (badness 2401) in paragraph at lines 450--450
 []|\TU/TimesNewRoman(0)/m/n/10.95 Trans-ac-tion Price As-
  []
 
 
-Underfull \hbox (badness 1354) in paragraph at lines 449--450
+Underfull \hbox (badness 1354) in paragraph at lines 456--457
 []|\TU/TimesNewRoman(0)/m/n/10.95 Two- or three-digit NAICS
  []
 
 
-Underfull \hbox (badness 1354) in paragraph at lines 450--451
+Underfull \hbox (badness 1354) in paragraph at lines 457--458
 []|\TU/TimesNewRoman(0)/m/n/10.95 Two- or three-digit NAICS
  []
-
-[22]
 
 [23]
 
 [24]
+
+[25]
 \pydata@fh@_E057F6DC4294FCFAEFEBC8A2A3B90F9F.data.minted=\write5
 
 \openout5 = _E057F6DC4294FCFAEFEBC8A2A3B90F9F.data.minted
-runsystem(latexminted config  --timestamp 20260426122155 E057F6DC4294FCFAEFEBC8A2A3B90F9F)...executed.
+runsystem(latexminted config  --timestamp 20260426132218 E057F6DC4294FCFAEFEBC8A2A3B90F9F)...executed.
  (./_E057F6DC4294FCFAEFEBC8A2A3B90F9F.config.minted)
-runsystem(latexminted cleanconfig  --timestamp 20260426122155 E057F6DC4294FCFAEFEBC8A2A3B90F9F)...executed.
+runsystem(latexminted cleanconfig  --timestamp 20260426132218 E057F6DC4294FCFAEFEBC8A2A3B90F9F)...executed.
  (./_minted/default.style.minted) (./_minted/1722404F0A7D595F3B4C21129115724C.highlight.minted
 
-[25]
+[26]
 
-[26]) (./_minted/C76211655D45AFE80726B02520E2CFF9.highlight.minted
+[27]) (./_minted/C76211655D45AFE80726B02520E2CFF9.highlight.minted
 
-[27]) (./_minted/6CF48D4583F5D28F979F3989D97EFC11.highlight.minted) (./_minted/4517FEEB9B8B504CC21F7CCA1C5E6C30.highlight.minted
+[28]) (./_minted/6CF48D4583F5D28F979F3989D97EFC11.highlight.minted) (./_minted/4517FEEB9B8B504CC21F7CCA1C5E6C30.highlight.minted
 
-[28]
+[29]
 
-[29]) (./_minted/3719C5978AD718909CD59A6D47AA2992.highlight.minted) (./_minted/D26CEBD2BF77D010817BE18D059C7E78.highlight.minted
+[30]) (./_minted/3719C5978AD718909CD59A6D47AA2992.highlight.minted) (./_minted/D26CEBD2BF77D010817BE18D059C7E78.highlight.minted
 
-[30]) (./_minted/121038CBC89EBB0EB162531AEDA64665.highlight.minted)
-<report_issue.png, id=395, 884.30376pt x 761.84625pt>
+[31]) (./_minted/121038CBC89EBB0EB162531AEDA64665.highlight.minted)
+<report_issue.png, id=403, 884.30376pt x 761.84625pt>
 File: report_issue.png Graphic file (type png)
 <use report_issue.png>
-Package luatex.def Info: report_issue.png  used on input line 815.
+Package luatex.def Info: report_issue.png  used on input line 822.
 (luatex.def)             Requested size: 422.7743pt x 364.22894pt.
 
 
-[31]
+[32]
 
-[32<./report_issue.png>] (./introducing_pandects.aux)
+[33<./report_issue.png>] (./introducing_pandects.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
@@ -1051,23 +1053,23 @@ L3 programming layer <2025-01-18>
 )
 (\end occurred inside a group at level 1)
 
-### simple group (level 1) entered at line 357 ({)
+### simple group (level 1) entered at line 364 ({)
 ### bottom level
 
 Here is how much of LuaTeX's memory you used:
- 25848 strings out of 475506
- 478049,1648299 words of node,token memory allocated
- 1315 words of node memory still in use:
-   7 hlist, 2 vlist, 2 rule, 1 local_par, 49 glue, 4 kern, 1 penalty, 1 margin_kern, 4 glyph, 124 attribute, 63 glue_spec, 63 attribute_list, 1 write, 9 pdf_action nodes
-   avail lists: 1:8,2:19991,3:466,4:157,5:5590,6:120,7:25949,8:92,9:17301,10:102,11:5324
- 48232 multiletter control sequences out of 65536+600000
+ 25852 strings out of 475506
+ 478047,1648299 words of node,token memory allocated
+ 1328 words of node memory still in use:
+   7 hlist, 2 vlist, 2 rule, 1 local_par, 50 glue, 4 kern, 1 penalty, 1 margin_kern, 4 glyph, 126 attribute, 63 glue_spec, 64 attribute_list, 1 write, 9 pdf_action nodes
+   avail lists: 1:4,2:19991,3:427,4:143,5:5590,6:121,7:25949,8:90,9:17301,10:102,11:5324
+ 48234 multiletter control sequences out of 65536+600000
  73 fonts using 17924455 bytes
  85i,12n,92p,2585b,1305s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/opentype/public/lm/lmmono8-regular.otf></usr/local/texlive/2025/texmf-dist/fonts/opentype/public/lm/lmmono12-regular.otf></usr/local/texlive/2025/texmf-dist/fonts/opentype/public/lm/lmmono10-regular.otf></System/Library/Fonts/Supplemental/Times New Roman Italic.ttf></System/Library/Fonts/Supplemental/Times New Roman Bold.ttf></System/Library/Fonts/Supplemental/Times New Roman.ttf></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi6.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb>
-Output written on introducing_pandects.pdf (32 pages, 2875725 bytes).
+Output written on introducing_pandects.pdf (33 pages, 2878164 bytes).
 
-PDF statistics: 561 PDF objects out of 1000 (max. 8388607)
- 330 compressed objects within 4 object streams
- 124 named destinations out of 1000 (max. 131072)
+PDF statistics: 568 PDF objects out of 1000 (max. 8388607)
+ 336 compressed objects within 4 object streams
+ 126 named destinations out of 1000 (max. 131072)
  235 words of extra memory for PDF output out of 10000 (max. 100000000)
 
