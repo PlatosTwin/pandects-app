@@ -13,9 +13,6 @@ _PUBLIC_API_SOURCE_PATHS = (
     _REPO_ROOT / "backend" / "routes" / "reference_data.py",
     _REPO_ROOT / "backend" / "services" / "sections_service.py",
 )
-# Tables used directly by the app module (not through route deps), always exported.
-_APP_MODULE_TABLES = {"dump_versions"}
-
 _ORM_DEP_TO_TABLE = {
     "AgreementCounsel": "agreement_counsel",
     "Agreements": "agreements",
@@ -72,7 +69,6 @@ def _derive_expected_public_api_tables() -> set[str]:
             and "LatestSectionsSearchStandardId" in model_source
         ):
             tables.add("latest_sections_search_standard_ids")
-    tables |= _APP_MODULE_TABLES
     return tables
 
 

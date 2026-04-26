@@ -62,7 +62,6 @@ from backend.models.main_db import (
     AgreementCounsel,
     Clauses,
     Counsel,
-    DumpVersion,
     LatestSectionsSearch,
     NaicsSector,
     NaicsSubSector,
@@ -239,7 +238,6 @@ class _DumpVersionInfo(TypedDict):
 class _DumpVersionCache(TypedDict):
     ts: float
     payload: _DumpVersionInfo | None
-    ts: float
 
 class _S3ListObject(TypedDict, total=False):
     Key: str
@@ -359,7 +357,7 @@ _DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(
 )
 _dumps_manifest_cache: dict[str, _DumpsManifestCacheEntry] = {}
 _dumps_manifest_cache_lock = Lock()
-_DUMP_VERSION_CACHE_TTL_SECONDS = int(os.environ.get("DUMP_VERSION_CACHE_TTL_SECONDS", "300"))
+_DUMP_VERSION_CACHE_TTL_SECONDS = int(os.environ.get("DUMP_VERSION_CACHE_TTL_SECONDS", "3600"))
 _dump_version_cache: _DumpVersionCache = {"ts": 0.0, "payload": None}
 _dump_version_cache_lock = Lock()
 
@@ -420,6 +418,9 @@ def _async_task_runner() -> AsyncTaskRunner | None:
     return runner
 
 def _fetch_latest_dump_version() -> _DumpVersionInfo | None:
+    import json as _json
+    import urllib.request
+
     now = time.time()
     with _dump_version_cache_lock:
         cached = _dump_version_cache["payload"]
@@ -427,17 +428,14 @@ def _fetch_latest_dump_version() -> _DumpVersionInfo | None:
         if cached is not None and (now - cached_ts < _DUMP_VERSION_CACHE_TTL_SECONDS):
             return cached
     try:
-        row = (
-            db.session.query(DumpVersion.sha256, DumpVersion.dump_ts)
-            .order_by(DumpVersion.id.desc())
-            .first()
-        )
+        url = f"{PUBLIC_DEV_BASE}/dumps/latest.json"
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            manifest = _json.loads(resp.read())
+        sha256_val = manifest.get("sha256")
+        dump_ts_val = manifest.get("timestamp")
+        if not isinstance(sha256_val, str) or not isinstance(dump_ts_val, str):
+            return None
     except Exception:
-        return None
-    if row is None:
-        return None
-    sha256_val, dump_ts_val = row
-    if not isinstance(sha256_val, str) or not isinstance(dump_ts_val, str):
         return None
     info: _DumpVersionInfo = {"hash": sha256_val, "dump_ts": dump_ts_val}
     with _dump_version_cache_lock:

@@ -72,7 +72,6 @@ API_TABLES=(
   taxonomy_l2
   taxonomy_l3
   xml
-  dump_versions
 )
 
 TABLES_LIST=""
@@ -184,11 +183,6 @@ echo "🔐 [2b/4] Generating checksum..."
 CHECKSUM_FILE="${SQL_DUMP_FILE}.sha256"
 sha256sum "$SQL_DUMP_FILE" > "$CHECKSUM_FILE"
 echo "✅ Checksum file created: $CHECKSUM_FILE"
-
-DUMP_SHA256=$(awk '{print $1}' "$CHECKSUM_FILE")
-DUMP_TS=$(date -u +"%Y-%m-%d %H:%M:%S")
-DUMP_SIZE_BYTES=$(stat -f%z "$SQL_DUMP_FILE" 2>/dev/null || stat --format="%s" "$SQL_DUMP_FILE")
-DUMP_URL_DEV="${PUBLIC_DEV_BASE}/dumps/public_${TIMESTAMP}.sql.gz"
 
 # ── 3. Upload to R2 ─────────────────────────────────────────────
 echo "☁️  [3/4] Uploading artifacts to R2..."
@@ -401,17 +395,6 @@ for src_key, dst_key in [
 
 print("✅ All uploads successful.")
 EOF
-
-# ── 3b. Record Dump Version in DB ───────────────────────────────
-echo "💾 [3b/4] Recording dump version in database..."
-mysql \
-  --host="${MARIADB_HOST}" \
-  --port="${MARIADB_PORT:-3306}" \
-  --user="${MARIADB_USER}" \
-  --password="${MARIADB_PASSWORD}" \
-  "${TARGET_DB}" \
-  --execute="INSERT INTO dump_versions (sha256, dump_ts, size_bytes, download_url) VALUES ('${DUMP_SHA256}', '${DUMP_TS}', ${DUMP_SIZE_BYTES}, '${DUMP_URL_DEV}');"
-echo "✅ Dump version recorded: ${DUMP_SHA256}"
 
 # ── Cleanup ─────────────────────────────────────────────────────
 echo "🧹 [4/4] Cleaning up local artifacts..."

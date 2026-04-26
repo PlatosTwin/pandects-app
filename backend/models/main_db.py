@@ -209,12 +209,6 @@ if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
-    dump_versions_table = Table(
-        "dump_versions",
-        metadata,
-        schema=_MAIN_SCHEMA_TOKEN,
-        autoload_with=engine,
-    )
 else:
     # Test mode: avoid connecting to the main DB at import time.
     engine = None
@@ -441,17 +435,6 @@ else:
         Column("counsel_id", Integer, nullable=False),
         schema=_MAIN_SCHEMA_TOKEN,
     )
-    dump_versions_table = Table(
-        "dump_versions",
-        metadata,
-        Column("id", Integer, primary_key=True, autoincrement=True),
-        Column("sha256", CHAR(64), nullable=False),
-        Column("dump_ts", TEXT, nullable=False),
-        Column("size_bytes", Integer, nullable=True),
-        Column("download_url", TEXT, nullable=True),
-        Column("recorded_at", TEXT, nullable=False),
-        schema=_MAIN_SCHEMA_TOKEN,
-    )
 
 
 class Sections(db.Model):
@@ -593,16 +576,6 @@ class AgreementCounsel(db.Model):
     position: ClassVar[Mapped[int]]
     raw_name: ClassVar[Mapped[str]]
     counsel_id: ClassVar[Mapped[int]]
-
-
-class DumpVersion(db.Model):
-    __table__ = dump_versions_table
-    id: ClassVar[Mapped[int]]
-    sha256: ClassVar[Mapped[str]]
-    dump_ts: ClassVar[Mapped[str]]
-    size_bytes: ClassVar[Mapped[int | None]]
-    download_url: ClassVar[Mapped[str | None]]
-    recorded_at: ClassVar[Mapped[str]]
 
 
 class XML(db.Model):
@@ -935,7 +908,6 @@ __all__ = [
     "_SKIP_MAIN_DB_REFLECTION",
     "Agreements",
     "Clauses",
-    "DumpVersion",
     "LatestSectionsSearch",
     "LatestSectionsSearchStandardId",
     "NaicsSector",
