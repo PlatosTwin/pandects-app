@@ -139,7 +139,7 @@ function MpcClientCard({ id, title, description, command, copied, onCopy }: MpcC
     <section
       aria-labelledby={titleId}
       aria-describedby={`${descriptionId} ${commandId}`}
-      className="rounded-lg border border-border bg-background p-4"
+      className="min-w-0 overflow-x-hidden rounded-lg border border-border bg-background p-4"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -553,7 +553,7 @@ export default function Account() {
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold">API keys</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Use `X-API-Key` for API access. Keep keys secret — you can view
+                  Use <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">X-API-Key</code> for API access. Keep keys secret — you can view
                   a newly created key only once. Full API examples and reference are on the{" "}
                   <a
                     href={gettingStartedDocsUrl}
@@ -631,42 +631,13 @@ export default function Account() {
                             key={k.id}
                             className="rounded-md border border-border p-3"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium text-foreground">
-                                  {k.name ?? "Untitled key"}
-                                </div>
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  Prefix
-                                </div>
-                                <div className="font-mono text-xs text-foreground">
-                                  {k.prefix}
-                                </div>
-                              </div>
-                              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => openRevokeDialog(k)}
-                                  disabled={apiKeysPending}
-                                >
-                                  Revoke
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className={API_KEY_DELETE_ICON_BUTTON_CLASS}
-                                  onClick={() => openPermanentDeleteDialog(k)}
-                                  disabled={apiKeysPending}
-                                  title="Delete API key permanently"
-                                  aria-label="Delete API key permanently"
-                                >
-                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                </Button>
-                              </div>
+                            <div className="text-sm font-medium text-foreground">
+                              {k.name ?? "Untitled key"}
                             </div>
-                            <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                            <div className="mt-0.5 font-mono text-xs text-muted-foreground">
+                              {k.prefix}
+                            </div>
+                            <div className="mt-2 grid gap-1.5 text-xs text-muted-foreground">
                               <div className="flex items-center justify-between gap-3">
                                 <span>Created</span>
                                 <span className="text-foreground">
@@ -680,6 +651,29 @@ export default function Account() {
                                 </span>
                               </div>
                             </div>
+                            <div className="mt-3 flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openRevokeDialog(k)}
+                                disabled={apiKeysPending}
+                                className="flex-1"
+                              >
+                                Revoke
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className={API_KEY_DELETE_ICON_BUTTON_CLASS}
+                                onClick={() => openPermanentDeleteDialog(k)}
+                                disabled={apiKeysPending}
+                                title="Delete API key permanently"
+                                aria-label="Delete API key permanently"
+                              >
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            </div>
                           </div>
                         ))
                       )}
@@ -692,37 +686,18 @@ export default function Account() {
                             key={k.id}
                             className="rounded-md border border-border bg-muted/20 p-3"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium text-foreground">
-                                  {k.name ?? "Untitled key"}
-                                </div>
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  Prefix
-                                </div>
-                                <div className="font-mono text-xs text-foreground">
-                                  {k.prefix}
-                                </div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-sm font-medium text-foreground">
+                                {k.name ?? "Untitled key"}
                               </div>
-                              <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
-                                <div className="rounded border border-border px-2 py-1 text-xs text-muted-foreground">
-                                  Revoked
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className={API_KEY_DELETE_ICON_BUTTON_CLASS}
-                                  onClick={() => openPermanentDeleteDialog(k)}
-                                  disabled={apiKeysPending}
-                                  title="Delete API key permanently"
-                                  aria-label="Delete API key permanently"
-                                >
-                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                </Button>
-                              </div>
+                              <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground">
+                                Revoked
+                              </span>
                             </div>
-                            <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                            <div className="mt-0.5 font-mono text-xs text-muted-foreground">
+                              {k.prefix}
+                            </div>
+                            <div className="mt-2 grid gap-1.5 text-xs text-muted-foreground">
                               <div className="flex items-center justify-between gap-3">
                                 <span>Created</span>
                                 <span className="text-foreground">
@@ -741,6 +716,20 @@ export default function Account() {
                                   {formatDate(k.revoked_at)}
                                 </span>
                               </div>
+                            </div>
+                            <div className="mt-3 flex justify-end">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className={API_KEY_DELETE_ICON_BUTTON_CLASS}
+                                onClick={() => openPermanentDeleteDialog(k)}
+                                disabled={apiKeysPending}
+                                title="Delete API key permanently"
+                                aria-label="Delete API key permanently"
+                              >
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                              </Button>
                             </div>
                           </div>
                         ))}
@@ -860,7 +849,7 @@ export default function Account() {
             </div>
           </Card>
 
-          <Card className="p-6 border-t border-border pt-6 mt-6">
+          <Card className="p-6">
             <div className="flex flex-col gap-3">
               <div>
                 <h2 className="text-xl font-semibold">MCP</h2>
@@ -922,7 +911,7 @@ export default function Account() {
             </div>
           </Card>
 
-          <Card className="p-6 border-t border-border pt-6 mt-6">
+          <Card className="p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h2 className="text-xl font-semibold">Usage</h2>
@@ -959,7 +948,7 @@ export default function Account() {
                       });
                     }}
                     variant="outline"
-                    size="xs"
+                    size="sm"
                     aria-label="Usage time range"
                     className="justify-start"
                   >
@@ -1098,7 +1087,7 @@ export default function Account() {
             </div>
           </Card>
 
-          <Card className="p-6 border-t border-border pt-6 mt-6">
+          <Card className="p-6">
             <h2 className="text-xl font-semibold text-destructive">
               Delete account
             </h2>
