@@ -3011,6 +3011,29 @@ class AuthFlowTests(unittest.TestCase):
                 self.assertEqual(res.headers.get("Access-Control-Allow-Credentials"), "true")
                 self.assertEqual(res.headers.get("Access-Control-Allow-Origin"), origin)
 
+    def test_cors_docs_origin_allowed_even_when_cors_origins_env_set(self):
+        # Regression: when CORS_ORIGINS is set in production (e.g. to restrict
+        # localhost origins), the docs site must still be allowed.
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        os.environ["CORS_ORIGINS"] = "https://pandects.org,https://www.pandects.org"
+        try:
+            app = create_test_app(
+                config_overrides={
+                    "SQLALCHEMY_BINDS": {"auth": f"sqlite:///{_AUTH_DB_TEMP.name}"},
+                }
+            )
+            client = app.test_client()
+            for origin in (
+                "https://docs.pandects.org",
+                "https://www.docs.pandects.org",
+            ):
+                with self.subTest(origin=origin):
+                    res = client.get("/v1/auth/csrf", headers={"Origin": origin})
+                    self.assertEqual(res.status_code, 200)
+                    self.assertEqual(res.headers.get("Access-Control-Allow-Origin"), origin)
+        finally:
+            os.environ.pop("CORS_ORIGINS", None)
+
     def test_delete_account_requires_confirmation_and_revokes_keys(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()

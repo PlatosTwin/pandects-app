@@ -20,7 +20,17 @@ class _FlaskExtension(Protocol):
         ...
 
 
-_DEFAULT_CORS_ORIGINS = (
+# Always allowed regardless of the CORS_ORIGINS env var — these are the
+# production hostnames that must never be accidentally dropped when the env
+# var is set to a restricted list.
+_ALWAYS_CORS_ORIGINS = (
+    "https://pandects.org",
+    "https://www.pandects.org",
+    "https://docs.pandects.org",
+    "https://www.docs.pandects.org",
+)
+
+_DEV_CORS_ORIGINS = (
     "http://localhost:8080",
     "http://127.0.0.1:8080",
     "http://localhost:3001",
@@ -31,11 +41,9 @@ _DEFAULT_CORS_ORIGINS = (
     "http://127.0.0.1:4173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://pandects.org",
-    "https://www.pandects.org",
-    "https://docs.pandects.org",
-    "https://www.docs.pandects.org",
 )
+
+_DEFAULT_CORS_ORIGINS = _ALWAYS_CORS_ORIGINS + _DEV_CORS_ORIGINS
 
 
 def app_config_map(app: Flask) -> dict[str, object]:
@@ -46,13 +54,16 @@ def cors_origins() -> list[str]:
     raw = os.environ.get("CORS_ORIGINS", "").strip()
     if not raw:
         return list(_DEFAULT_CORS_ORIGINS)
-    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
-    if "*" in origins:
+    extra = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+    if "*" in extra:
         raise RuntimeError(
             "CORS_ORIGINS cannot include '*' when supports_credentials=True. "
             + "Specify explicit origins instead."
         )
-    return origins or list(_DEFAULT_CORS_ORIGINS)
+    # Merge env var origins with always-allowed production origins so that
+    # setting CORS_ORIGINS in production never silently drops the docs site.
+    combined = list(dict.fromkeys([*_ALWAYS_CORS_ORIGINS, *(extra or _DEV_CORS_ORIGINS)]))
+    return combined
 
 
 def normalize_database_uri(uri: str) -> str:
