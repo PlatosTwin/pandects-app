@@ -15,17 +15,17 @@ import type {
 const LazyClassifierEvalMetrics = lazy(() =>
   import("@/components/ClassifierEvalMetrics").then((mod) => ({
     default: mod.ClassifierEvalMetrics,
-  }))
+  })),
 );
 const LazyNerEvalMetrics = lazy(() =>
   import("@/components/NerEvalMetrics").then((mod) => ({
     default: mod.NerEvalMetrics,
-  }))
+  })),
 );
 const LazyExhibitEvalMetrics = lazy(() =>
   import("@/components/ExhibitEvalMetrics").then((mod) => ({
     default: mod.ExhibitEvalMetrics,
-  }))
+  })),
 );
 
 type MetricsData = {
@@ -33,7 +33,6 @@ type MetricsData = {
   ner: NerEvalData;
   exhibit: ExhibitEvalData;
 };
-
 
 export default function SourcesMethods() {
   const [activeSection, setActiveSection] = useState("");
@@ -72,7 +71,7 @@ export default function SourcesMethods() {
       { id: "gaps-and-callouts", label: "Gaps and Other Call Outs" },
       { id: "validations", label: "Validations" },
     ],
-    []
+    [],
   );
 
   const scrollToSection = (id: string) => {
@@ -176,7 +175,7 @@ export default function SourcesMethods() {
           Math.abs(prev.top - lineTop) > 0.5 ||
           Math.abs(prev.height - lineHeight) > 0.5
             ? { top: lineTop, height: lineHeight }
-            : prev
+            : prev,
         );
       }
       pipelineMetricsRef.current = {
@@ -220,7 +219,6 @@ export default function SourcesMethods() {
     };
   }, []);
 
-
   useEffect(() => {
     if (shouldLoadMetrics) return;
     if (typeof window === "undefined") return;
@@ -239,7 +237,7 @@ export default function SourcesMethods() {
           observer.disconnect();
         }
       },
-      { rootMargin: "400px" }
+      { rootMargin: "400px" },
     );
 
     observer.observe(target);
@@ -283,11 +281,9 @@ export default function SourcesMethods() {
         return;
       }
       if (
-        [
-          "exhibit-model",
-          "page-classifier-model",
-          "tagging-model",
-        ].includes(activeSection)
+        ["exhibit-model", "page-classifier-model", "tagging-model"].includes(
+          activeSection,
+        )
       ) {
         scrollToSection(activeSection);
       }
@@ -318,10 +314,7 @@ export default function SourcesMethods() {
   const formatMetric = (value: number) => `${(value * 100).toFixed(2)}%`;
 
   return (
-    <PageShell
-      size="xl"
-      title="Sources & Methods"
-    >
+    <PageShell size="xl" title="Sources & Methods">
       <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
         <aside className="hidden lg:block">
           <div className="sticky top-20">
@@ -344,7 +337,7 @@ export default function SourcesMethods() {
                           "w-full rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                           activeSection === id
                             ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                         )}
                       >
                         {label}
@@ -358,8 +351,15 @@ export default function SourcesMethods() {
         </aside>
 
         <article className="space-y-12 min-w-0">
-          <section id="overview" className="scroll-mt-32 space-y-4" aria-labelledby="overview-heading">
-            <h2 id="overview-heading" className="text-xl font-semibold tracking-tight text-foreground">
+          <section
+            id="overview"
+            className="scroll-mt-32 space-y-4"
+            aria-labelledby="overview-heading"
+          >
+            <h2
+              id="overview-heading"
+              className="text-xl font-semibold tracking-tight text-foreground"
+            >
               Overview
             </h2>
             <p className="text-muted-foreground">
@@ -402,8 +402,7 @@ export default function SourcesMethods() {
                         Automated Identification
                       </div>
                       <p className="text-sm text-foreground">
-                        We parse through Exhibit 2 and Exhibit 10
-                        filings at
+                        We parse through Exhibit 2 and Exhibit 10 filings at
                         scale and use machine learning to identify those that
                         represent definitive merger agreements.
                       </p>
@@ -531,8 +530,8 @@ export default function SourcesMethods() {
                         Monthly Updates
                       </div>
                       <p className="text-sm text-foreground">
-                        Our pipeline runs every month, ensuring the Pandects dataset
-                        remains in sync with the latest market activity.
+                        Our pipeline runs every month, ensuring the Pandects
+                        dataset remains in sync with the latest market activity.
                       </p>
                     </div>
                   </div>
@@ -546,14 +545,16 @@ export default function SourcesMethods() {
             className="scroll-mt-32 space-y-4"
             aria-labelledby="data-pipeline-architecture-heading"
           >
-            <h2 id="data-pipeline-architecture-heading" className="text-xl font-semibold tracking-tight text-foreground">
+            <h2
+              id="data-pipeline-architecture-heading"
+              className="text-xl font-semibold tracking-tight text-foreground"
+            >
               Pipeline Architecture
             </h2>
             <p className="max-w-3xl text-muted-foreground">
               Our pipeline takes raw EDGAR filings and produces clean XML,
-              structured sections, and taxonomy labels. We use three ML
-              models plus targeted LLM calls where they are the better tool. We
-              use{" "}
+              structured sections, and taxonomy labels. We use three ML models
+              plus targeted LLM calls where they are the better tool. We use{" "}
               <a
                 href="https://dagster.io/"
                 target="_blank"
@@ -646,12 +647,14 @@ export default function SourcesMethods() {
                         }
                         tooltipProps={{
                           side: "top",
-                          className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                          className:
+                            "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                         }}
                         delayDuration={300}
                         popoverProps={{
                           side: "top",
-                          className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                          className:
+                            "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                         }}
                       />
                       <a
@@ -713,7 +716,8 @@ export default function SourcesMethods() {
                               &lt;/font&gt;&lt;/p&gt;
                             </span>
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
-                              &lt;p style="...text-indent:-72pt;..."&gt;&lt;font&gt;
+                              &lt;p
+                              style="...text-indent:-72pt;..."&gt;&lt;font&gt;
                             </span>
                             Section&nbsp;2.1
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
@@ -724,7 +728,8 @@ export default function SourcesMethods() {
                               &lt;/font&gt;&lt;/p&gt;
                             </span>
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
-                              &lt;p style="...text-indent:36pt;..."&gt;&lt;font&gt;
+                              &lt;p
+                              style="...text-indent:36pt;..."&gt;&lt;font&gt;
                             </span>
                             The Company, the Parent and the Purchaser agree that
                             the Arrangement will be implemented…
@@ -743,9 +748,11 @@ export default function SourcesMethods() {
                           <p className="mt-2 text-sm text-foreground">
                             ARTICLE 2<br />
                             <br />
-                            THE ARRANGEMENT<br />
+                            THE ARRANGEMENT
                             <br />
-                            Section 2.1 Arrangement<br />
+                            <br />
+                            Section 2.1 Arrangement
+                            <br />
                             <br />
                             The Company, the Parent and the Purchaser agree that
                             the Arrangement will be implemented…
@@ -790,9 +797,11 @@ export default function SourcesMethods() {
                           <p className="mt-2 text-sm text-muted-foreground">
                             ARTICLE 2<br />
                             <br />
-                            THE ARRANGEMENT<br />
+                            THE ARRANGEMENT
                             <br />
-                            Section 2.1 Arrangement<br />
+                            <br />
+                            Section 2.1 Arrangement
+                            <br />
                             <br />
                             The Company, the Parent and the Purchaser agree that
                             the Arrangement will be implemented…
@@ -922,7 +931,10 @@ export default function SourcesMethods() {
             className="scroll-mt-32 space-y-4"
             aria-labelledby="ml-models-heading"
           >
-            <h2 id="ml-models-heading" className="text-xl font-semibold tracking-tight text-foreground">
+            <h2
+              id="ml-models-heading"
+              className="text-xl font-semibold tracking-tight text-foreground"
+            >
               ML Models
             </h2>
             <div className="text-muted-foreground">
@@ -947,12 +959,14 @@ export default function SourcesMethods() {
                 }
                 tooltipProps={{
                   side: "top",
-                  className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                  className:
+                    "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                 }}
                 delayDuration={300}
                 popoverProps={{
                   side: "top",
-                  className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                  className:
+                    "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                 }}
               />{" "}
               still made too many mistakes for us to be comfortable using them
@@ -962,8 +976,8 @@ export default function SourcesMethods() {
               to do the work we'd otherwise outsource to LLMs.
             </div>
             <p className="text-muted-foreground">
-              This section describes the three ML models at the heart of our data
-              processing pipeline. The full training code for each model is
+              This section describes the three ML models at the heart of our
+              data processing pipeline. The full training code for each model is
               available on{" "}
               <a
                 href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/"
@@ -975,10 +989,7 @@ export default function SourcesMethods() {
               </a>
               .
             </p>
-            <div
-              id="exhibit-model"
-              className="scroll-mt-32 pt-2 space-y-4"
-            >
+            <div id="exhibit-model" className="scroll-mt-32 pt-2 space-y-4">
               <h3 className="text-lg font-semibold text-foreground">
                 Exhibit Model
               </h3>
@@ -998,9 +1009,9 @@ export default function SourcesMethods() {
                 , identify all filings that match target form types (all forms
                 except for S-8 and ABS-EE), filter filings by scanning for
                 keywords indicating "Material Definitive Agreement" entries,
-                scrape each filing's index page to extract Exhibit 10.* and
-                2.* links, fetch and render the exhibit content as text,
-                and use the Exhibit Model to classify candidates.
+                scrape each filing's index page to extract Exhibit 10.* and 2.*
+                links, fetch and render the exhibit content as text, and use the
+                Exhibit Model to classify candidates.
               </div>
               <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
                 <li className="space-y-2">
@@ -1009,12 +1020,12 @@ export default function SourcesMethods() {
                     logistic-regression classifier over three feature blocks:
                     (1) <em>document-level features</em> such as opening title
                     phrases, hard-negative phrase counts, document length, and
-                    M&A keyword density; (2) <em>hashed word- and
-                    character-level TF-IDF features</em>; and (3){" "}
-                    <em>similarity features</em> capturing max, mean, and
-                    median cosine similarity to the training agreement corpus.
-                    We also apply a minimum-length hard-negative rule and use a
-                    tuned decision threshold of{" "}
+                    M&A keyword density; (2){" "}
+                    <em>hashed word- and character-level TF-IDF features</em>;
+                    and (3) <em>similarity features</em> capturing max, mean,
+                    and median cosine similarity to the training agreement
+                    corpus. We also apply a minimum-length hard-negative rule
+                    and use a tuned decision threshold of{" "}
                     <span className="font-mono text-sm text-foreground">
                       0.96
                     </span>
@@ -1025,11 +1036,10 @@ export default function SourcesMethods() {
                   <div>
                     <strong>Training corpus:</strong> We begin with{" "}
                     <strong>8,889</strong> labeled exhibits:{" "}
-                    <strong>7,919</strong> positives and{" "}
-                    <strong>970</strong> negatives. After dropping{" "}
-                    <strong>23</strong> short positive exhibits to align the{" "}
-                    training set with the model&apos;s minimum-length{" "}
-                    hard-negative rule, we split the remaining{" "}
+                    <strong>7,919</strong> positives and <strong>970</strong>{" "}
+                    negatives. After dropping <strong>23</strong> short positive
+                    exhibits to align the training set with the model&apos;s
+                    minimum-length hard-negative rule, we split the remaining{" "}
                     <strong>8,866</strong> exhibits with a stable manifest into{" "}
                     <strong>6,206</strong> training exhibits,{" "}
                     <strong>886</strong> validation exhibits, and{" "}
@@ -1037,6 +1047,20 @@ export default function SourcesMethods() {
                   </div>
                 </li>
               </ul>
+              <div className="text-muted-foreground">
+                Note that the class distributions in training and evaluation are
+                not representative of the class distribution in practice, where
+                the Exhibit Model sees primarily irrelevant filings—one reason
+                we tune for higher precision. Also, the metrics below are for
+                the Exhibit Model itself, not for the end-to-end staging
+                pipeline, which uses deterministic rules to pre-screen filings
+                before they reach the Exhibit Model. That said, in a random
+                sample of <strong>699</strong> non-Exhibit 99 agreements from
+                the DMA Corpus from 2015 onwards, <strong>694</strong>{" "}
+                agreements (99.3%) made it through pre-screening, so it is the
+                Exhibit Model—not the earlier deterministic filtering—that does the
+                important selection work.
+              </div>
               {metricsData ? (
                 <Suspense
                   fallback={
@@ -1085,19 +1109,19 @@ export default function SourcesMethods() {
               <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
                 <li className="space-y-2">
                   <div>
-                    <strong>Architecture:</strong> The Page Classifier Model
-                    is a document-level monotonic CRF:
+                    <strong>Architecture:</strong> The Page Classifier Model is
+                    a document-level monotonic CRF:
                     <ol className="list-decimal space-y-1 pl-5">
                       <li>
-                        Each page is featurized with positional, structural,
-                        and lexical signals, including relative page position,
+                        Each page is featurized with positional, structural, and
+                        lexical signals, including relative page position,
                         heading patterns, TOC dots, signature and witness
                         markers, annex and appendix anchors, and compact TF-IDF
                         word features.
                       </li>
                       <li>
-                        A constrained CRF predicts the full page sequence in
-                        one pass while enforcing monotonic transitions through{" "}
+                        A constrained CRF predicts the full page sequence in one
+                        pass while enforcing monotonic transitions through{" "}
                         <span className="font-mono text-sm text-foreground">
                           front_matter
                         </span>
@@ -1140,18 +1164,20 @@ export default function SourcesMethods() {
                           Did we really label 67,596 pages by hand? Yes—but it
                           wasn't that bad. We had GPT build us a custom labeling
                           interface that allowed us to select all body pages in
-                          a single go, so adding agreements was much faster
-                          than labeling every page one by one.
+                          a single go, so adding agreements was much faster than
+                          labeling every page one by one.
                         </>
                       }
                       tooltipProps={{
                         side: "top",
-                        className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                        className:
+                          "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
-                        className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                        className:
+                          "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                     />{" "}
                     manually labeled pages across 673 agreements, grouped by
@@ -1163,11 +1189,12 @@ export default function SourcesMethods() {
 
               <p className="text-muted-foreground">
                 Below are model performance metrics for the tuned validation CRF
-                run and the final holdout test run. The model reaches a macro
-                F1 of <strong>{formatMetric(validationClassifierF1)}</strong> on
-                validation and <strong>{formatMetric(finalClassifierF1)}</strong>{" "}
-                on the final test split, with most errors concentrated
-                at the body/back-matter boundary.
+                run and the final holdout test run. The model reaches a macro F1
+                of <strong>{formatMetric(validationClassifierF1)}</strong> on
+                validation and{" "}
+                <strong>{formatMetric(finalClassifierF1)}</strong> on the final
+                test split, with most errors concentrated at the
+                body/back-matter boundary.
               </p>
               {metricsData ? (
                 <Suspense
@@ -1230,13 +1257,13 @@ export default function SourcesMethods() {
                     for token-level labeling of Article, Section, and Page
                     entities. The current production recipe uses an independent
                     decoder, a lightweight auxiliary boundary head for Article
-                    and Section start/end detection, focal token loss,
-                    preserved input casing, and boundary-mix sampling over
-                    fixed-length token windows. At inference time, overlapping
-                    windows are stitched by averaging logits and then lightly
-                    repaired into legal BIO-style sequences before tags are
-                    rendered back into the page text. We use BIOE tags for
-                    Articles and Sections, plus BIOES-style tags for Pages.
+                    and Section start/end detection, focal token loss, preserved
+                    input casing, and boundary-mix sampling over fixed-length
+                    token windows. At inference time, overlapping windows are
+                    stitched by averaging logits and then lightly repaired into
+                    legal BIO-style sequences before tags are rendered back into
+                    the page text. We use BIOE tags for Articles and Sections,
+                    plus BIOES-style tags for Pages.
                   </div>
                 </li>
                 <li className="space-y-2">
@@ -1246,17 +1273,22 @@ export default function SourcesMethods() {
                       gpt-5.1
                     </span>{" "}
                     to create a page-level structural tagging corpus of{" "}
-                    <strong>15,000</strong> agreement pages (
+                    <strong>11,022</strong> agreement pages (
                     <span className="font-mono text-sm text-foreground">
                       body
                     </span>{" "}
-                    pages only) drawn from <strong>395</strong> agreements. Of
-                    those, <strong>10,016</strong> pages
-                    contain at least one structural tag and{" "}
-                    <strong>4,984</strong> are clean negatives. The corpus
-                    includes <strong>3,130</strong> pages with Article tags and{" "}
-                    <strong>9,990</strong> pages with Section tags. We also
-                    designated <strong>3,147</strong> pages to{" "}
+                    pages only) drawn from <strong>311</strong> agreements. Of
+                    those, <strong>6,909</strong> pages contain at least one
+                    structural tag and <strong>4,113</strong> are clean
+                    negatives. We further augmented the corpus with{" "}
+                    <strong>35,038</strong> pages from <strong>443</strong>{" "}
+                    agreements that an earlier version of the Tagging Model
+                    labeled and that passed the same XML validator, for a total
+                    corpus of <strong>46,060</strong> pages from{" "}
+                    <strong>754</strong> agreements; the full corpus contains{" "}
+                    <strong>7,061</strong> pages with Article tags and{" "}
+                    <strong>30,235</strong> pages with Section tags. We also
+                    designated <strong>2,865</strong> pages to{" "}
                     <AdaptiveTooltip
                       trigger={
                         <button
@@ -1270,32 +1302,34 @@ export default function SourcesMethods() {
                         <>
                           Article spans are structurally rarer and more brittle
                           at the exact end boundary than Section spans. We
-                          therefore marked 3,147 Article-heavy pages for
-                          targeted sampling in training so the model saw more
-                          of those heading patterns.
+                          therefore marked 2,865 Article-heavy pages for
+                          targeted sampling in training so the model saw more of
+                          those heading patterns.
                         </>
                       }
                       tooltipProps={{
                         side: "top",
-                        className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                        className:
+                          "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
-                        className: "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                        className:
+                          "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                     />
                     . We split the corpus by <strong>agreement</strong>, not by
                     page, so that pages from the same agreement never land in
                     both train and holdout sets. The fixed manifests contain{" "}
-                    <strong>11,794</strong> train pages across{" "}
-                    <strong>348</strong> agreements, <strong>1,508</strong>{" "}
-                    validation pages across <strong>23</strong> agreements, and{" "}
-                    <strong>1,698</strong> test pages across{" "}
-                    <strong>24</strong> agreements; the test split is reserved
-                    for final evaluation only. All 3,147 Article-oversampled
-                    pages remain train-only so model comparisons run on the
-                    same agreement-level partitions without leakage.
+                    <strong>39,416</strong> train pages across{" "}
+                    <strong>664</strong> agreements, <strong>3,335</strong>{" "}
+                    validation pages across <strong>45</strong> agreements, and{" "}
+                    <strong>3,309</strong> test pages across <strong>45</strong>{" "}
+                    agreements; the test split is reserved for final evaluation
+                    only. All 2,865 Article-oversampled pages remain train-only
+                    so model comparisons run on the same agreement-level
+                    partitions without leakage.
                   </div>
                 </li>
               </ul>
@@ -1316,9 +1350,7 @@ export default function SourcesMethods() {
                     </Card>
                   }
                 >
-                  <LazyNerEvalMetrics
-                    data={metricsData.ner}
-                  />
+                  <LazyNerEvalMetrics data={metricsData.ner} />
                 </Suspense>
               ) : (
                 <Card className="border-border bg-card/70 p-6">
@@ -1336,8 +1368,15 @@ export default function SourcesMethods() {
             </div>
           </section>
 
-          <section id="gaps-and-callouts" className="scroll-mt-32 space-y-4" aria-labelledby="gaps-and-callouts-heading">
-            <h2 id="gaps-and-callouts-heading" className="text-xl font-semibold tracking-tight text-foreground">
+          <section
+            id="gaps-and-callouts"
+            className="scroll-mt-32 space-y-4"
+            aria-labelledby="gaps-and-callouts-heading"
+          >
+            <h2
+              id="gaps-and-callouts-heading"
+              className="text-xl font-semibold tracking-tight text-foreground"
+            >
               Gaps and Other Call Outs
             </h2>
             <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
@@ -1387,10 +1426,10 @@ export default function SourcesMethods() {
                 plan to create a clause-level taxonomy as well.
               </li>
               <li>
-                We currently assign sections to taxonomic classes by sending the target
-                section title and the title of its parent article, as well as
-                section and article titles from both preceding and following
-                sections, to{" "}
+                We currently assign sections to taxonomic classes by sending the
+                target section title and the title of its parent article, as
+                well as section and article titles from both preceding and
+                following sections, to{" "}
                 <span className="font-mono text-sm text-foreground">
                   gpt-5.1
                 </span>{" "}
@@ -1405,8 +1444,15 @@ export default function SourcesMethods() {
             </ul>
           </section>
 
-          <section id="validations" className="scroll-mt-32 space-y-4" aria-labelledby="validations-heading">
-            <h2 id="validations-heading" className="text-xl font-semibold tracking-tight text-foreground">
+          <section
+            id="validations"
+            className="scroll-mt-32 space-y-4"
+            aria-labelledby="validations-heading"
+          >
+            <h2
+              id="validations-heading"
+              className="text-xl font-semibold tracking-tight text-foreground"
+            >
               Validations
             </h2>
             <p className="text-muted-foreground">
