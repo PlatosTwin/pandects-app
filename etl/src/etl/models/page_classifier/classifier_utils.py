@@ -37,6 +37,7 @@ LEGAL_KEYWORDS = [
     "entered into by and among",
     "[signature",
     "w i t n e s e t h",
+    "w i t n e s s e t h",
     "/s/",
     "intentionally blank",
     "page follows]",
