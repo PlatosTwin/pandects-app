@@ -7,10 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { lazy, useEffect } from "react";
 import {
-  bootstrapAnalytics,
   installGlobalErrorTracking,
   scheduleWhenBrowserIdle,
-  scheduleAnalyticsScriptLoad,
 } from "@/lib/analytics";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -44,11 +42,6 @@ const SoftwareLicense = lazy(() => import("./pages/SoftwareLicense"));
 const DataLicense = lazy(() => import("./pages/DataLicense"));
 
 const App = () => {
-  useEffect(() => {
-    bootstrapAnalytics();
-    return scheduleAnalyticsScriptLoad();
-  }, []);
-
   useEffect(() => {
     let cleanup = () => undefined;
     const cancelScheduledInstall = scheduleWhenBrowserIdle(() => {

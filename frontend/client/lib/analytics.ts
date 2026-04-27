@@ -97,7 +97,7 @@ export function scheduleAnalyticsScriptLoad() {
 
   let timeoutId: number | null = window.setTimeout(() => {
     load();
-  }, 10_000);
+  }, 3_000);
 
   const cleanup = () => {
     window.removeEventListener("pointerdown", load, listenerOptions);
