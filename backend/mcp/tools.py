@@ -591,6 +591,15 @@ def _agreement_filter_interpretation(parsed_args: AgreementsBulkArgsPayload, *, 
                     "match_kind": "exact_metadata_filter",
                 }
             )
+    for range_field in ("year_min", "year_max"):
+        if cast(int | None, parsed_args.get(range_field)) is not None:
+            applied_filters.append(
+                {
+                    "field": range_field,
+                    "representation": "first_class_agreement_field",
+                    "match_kind": "range_metadata_filter",
+                }
+            )
     heuristics_used: list[str] = []
     notes: list[str] = []
     if query:
