@@ -450,11 +450,45 @@ _RESOURCE_DEFINITIONS: tuple[dict[str, object], ...] = (
         "description": "How to obtain and refresh bearer tokens for Pandects MCP.",
         "mimeType": "application/json",
     },
+    {
+        "uri": "pandects://tools-manifest",
+        "name": "Tools manifest",
+        "description": (
+            "Lightweight index of every tool: name, one-line description, required scopes, "
+            "and top-level parameter names with their types. Cheaper than tools/list; "
+            "read this first to orient before loading individual tool schemas."
+        ),
+        "mimeType": "application/json",
+    },
 )
 
 
 def _resource_definitions() -> list[dict[str, object]]:
     return [dict(resource) for resource in _RESOURCE_DEFINITIONS]
+
+
+def _tools_manifest_payload() -> list[dict[str, object]]:
+    from backend.mcp.tools import _tool_specs
+
+    entries: list[dict[str, object]] = []
+    for spec in _tool_specs():
+        raw_params = spec.input_schema.get("properties", {})
+        params = raw_params if isinstance(raw_params, dict) else {}
+        param_summaries: list[dict[str, object]] = [
+            {"name": k, "type": v["type"] if isinstance(v, dict) and "type" in v else "any"}
+            for k, v in params.items()
+        ]
+        entries.append(
+            {
+                "name": spec.name,
+                "description": spec.description,
+                "scopes": list(spec.scopes),
+                "selection_hint": spec.selection_hint,
+                "parameters": param_summaries,
+                "pagination": spec.pagination,
+            }
+        )
+    return entries
 
 
 def _read_resource(uri: str) -> list[dict[str, object]] | None:
@@ -476,6 +510,14 @@ def _read_resource(uri: str) -> list[dict[str, object]] | None:
                 "uri": uri,
                 "mimeType": "application/json",
                 "text": json.dumps(payload, separators=(",", ":"), default=str),
+            }
+        ]
+    if uri == "pandects://tools-manifest":
+        return [
+            {
+                "uri": uri,
+                "mimeType": "application/json",
+                "text": json.dumps(_tools_manifest_payload(), separators=(",", ":"), default=str),
             }
         ]
     return None

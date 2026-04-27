@@ -65,3 +65,22 @@ def build_canonical_counsel_agreement_uuid_subquery(
         )
         .distinct()
     )
+
+
+def build_any_counsel_agreement_uuid_subquery(
+    *,
+    canonical_names: Iterable[str],
+    agreement_counsel: Any,
+    counsel: Any,
+) -> Any | None:
+    """Match agreements where the firm appears on either side (target or acquirer)."""
+    selected_names = [value for value in canonical_names if value]
+    if not selected_names:
+        return None
+
+    return (
+        select(agreement_counsel.agreement_uuid)
+        .join(counsel, counsel.counsel_id == agreement_counsel.counsel_id)
+        .where(counsel.canonical_name.in_(selected_names))
+        .distinct()
+    )
