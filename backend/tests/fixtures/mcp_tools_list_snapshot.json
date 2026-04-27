@@ -905,6 +905,20 @@
             "type": "integer"
           },
           "type": "array"
+        },
+        "year_max": {
+          "description": "Latest filing year to include (inclusive). Use with year_min for a range.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "year_min": {
+          "description": "Earliest filing year to include (inclusive). Use with year_max for a range; use year for specific individual years.",
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "type": "object"

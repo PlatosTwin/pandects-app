@@ -35,6 +35,8 @@ SECTIONS_RESULT_METADATA_FIELDS = (
 
 class SectionsArgsPayload(TypedDict):
     year: list[int]
+    year_min: int | None
+    year_max: int | None
     target: list[str]
     acquirer: list[str]
     standard_id: list[str]
@@ -75,6 +77,8 @@ class SectionsArgsSchema(Schema):
             "example": [2022, 2023],
         },
     )
+    year_min = fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
+    year_max = fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
     target = fields.List(
         fields.Str(),
         load_default=[],

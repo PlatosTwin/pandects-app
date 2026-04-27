@@ -3729,6 +3729,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
     }
     sections_search_overrides: dict[str, dict[str, object]] = {
         **structured_filter_overrides,
+        **_YEAR_RANGE_OVERRIDES,
         "count_mode": {
             "type": "string",
             "enum": list(_COUNT_MODE_VALUES),

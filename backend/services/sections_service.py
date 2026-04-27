@@ -253,6 +253,8 @@ def run_sections(
     year_from_filing_date = deps._year_from_filing_date_value
 
     years = parsed_args["year"]
+    year_min = parsed_args["year_min"]
+    year_max = parsed_args["year_max"]
     targets = parsed_args["target"]
     acquirers = parsed_args["acquirer"]
     standard_ids = parsed_args["standard_id"]
@@ -301,6 +303,11 @@ def run_sections(
             for year in years
         )
         q = q.filter(or_(*year_filters))
+
+    if year_min is not None:
+        q = q.filter(latest.filing_date >= f"{year_min:04d}-01-01")
+    if year_max is not None:
+        q = q.filter(latest.filing_date < f"{year_max + 1:04d}-01-01")
 
     if targets:
         q = q.filter(latest.target.in_(targets))
@@ -420,6 +427,8 @@ def run_sections(
     has_filters = any(
         (
             years,
+            year_min is not None,
+            year_max is not None,
             targets,
             acquirers,
             standard_ids,
