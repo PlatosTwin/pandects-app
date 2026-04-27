@@ -769,6 +769,7 @@ class McpTests(unittest.TestCase):
                 "search_sections",
                 "list_agreements",
                 "list_agreement_sections",
+                "list_agreement_sections_batch",
                 "get_agreement",
                 "get_section",
                 "get_agreement_tax_clauses",

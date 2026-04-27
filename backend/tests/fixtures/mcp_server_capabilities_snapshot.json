@@ -403,6 +403,16 @@
       "use_when": "Use when filters are already known and you expect to paginate deeply or export exact result sets."
     },
     {
+      "do_not_use_for": "Do not call this tool N times in a loop for N agreements; use list_agreement_sections_batch instead.",
+      "tool": "list_agreement_sections",
+      "use_when": "Use after identifying one agreement and before calling get_section. Use list_agreement_sections_batch when you have multiple agreement UUIDs."
+    },
+    {
+      "do_not_use_for": "Do not use for more than 20 agreements in one call; paginate with multiple batch calls instead.",
+      "tool": "list_agreement_sections_batch",
+      "use_when": "Use when you already have multiple agreement UUIDs and need all their section structures at once."
+    },
+    {
       "do_not_use_for": "Do not use this tool for bulk discovery or corpus filtering.",
       "tool": "get_agreement",
       "use_when": "Use when you already know the exact agreement UUID and need the agreement payload or XML."
@@ -515,6 +525,13 @@
               "string",
               "null"
             ]
+          },
+          "any_counsel": {
+            "description": "Filter to agreements where the firm appears on either side (target or acquirer). Use instead of target_counsel + acquirer_counsel when side is unknown.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "attitude": {
             "items": {
@@ -915,6 +932,12 @@
                 "filing_date": {
                   "type": [
                     "string",
+                    "null"
+                  ]
+                },
+                "section_count": {
+                  "type": [
+                    "integer",
                     "null"
                   ]
                 },
@@ -2061,6 +2084,12 @@
                     "null"
                   ]
                 },
+                "section_count": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
                 "target": {
                   "type": [
                     "string",
@@ -2156,8 +2185,10 @@
         "sections:search"
       ],
       "pagination": "page",
-      "selection_hint": "Use after identifying an agreement and before calling get_section on one section UUID.",
-      "negative_guidance": [],
+      "selection_hint": "Use after identifying one agreement and before calling get_section. Use list_agreement_sections_batch when you have multiple agreement UUIDs.",
+      "negative_guidance": [
+        "Do not call this tool N times in a loop for N agreements; use list_agreement_sections_batch instead."
+      ],
       "response_examples": [
         {
           "content": {
@@ -2196,11 +2227,12 @@
             "type": "integer"
           },
           "sort_by": {
-            "description": "Section list sort key.",
+            "description": "Section list sort key. One of: `article_title`, `section_title`, `section_uuid`, `document_order`.",
             "enum": [
               "article_title",
               "section_title",
-              "section_uuid"
+              "section_uuid",
+              "document_order"
             ],
             "type": "string"
           },
@@ -2343,6 +2375,183 @@
           "has_next",
           "has_prev",
           "total_count_is_approximate"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_agreement_sections_batch",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "selection_hint": "Use when you already have multiple agreement UUIDs and need all their section structures at once.",
+      "negative_guidance": [
+        "Do not use for more than 20 agreements in one call; paginate with multiple batch calls instead."
+      ],
+      "response_examples": [
+        {
+          "content": {
+            "results": [
+              {
+                "agreement_uuid": "a1",
+                "section_count": 48,
+                "sections": []
+              }
+            ],
+            "returned_agreement_count": 2,
+            "total_section_count": 80
+          },
+          "description": "Batch section listing."
+        }
+      ],
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
+      "limits": {
+        "mode": "none"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "agreement_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sort_by": {
+            "description": "Section list sort key. One of: `article_title`, `section_title`, `section_uuid`, `document_order`.",
+            "enum": [
+              "article_title",
+              "section_title",
+              "section_uuid",
+              "document_order"
+            ],
+            "type": "string"
+          },
+          "sort_direction": {
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "standard_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "agreement_uuids"
+        ],
+        "type": "object"
+      },
+      "output_schema": {
+        "additionalProperties": true,
+        "properties": {
+          "results": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "agreement_uuid": {
+                  "type": "string"
+                },
+                "section_count": {
+                  "type": "integer"
+                },
+                "sections": {
+                  "items": {
+                    "additionalProperties": true,
+                    "properties": {
+                      "acquirer": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "agreement_uuid": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "article_title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "section_title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "section_uuid": {
+                        "type": "string"
+                      },
+                      "standard_id": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "target": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "verified": {
+                        "type": "boolean"
+                      },
+                      "year": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "section_uuid",
+                      "standard_id",
+                      "verified"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "agreement_uuid",
+                "sections",
+                "section_count"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "returned_agreement_count": {
+            "type": "integer"
+          },
+          "total_section_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "returned_agreement_count",
+          "total_section_count"
         ],
         "type": "object"
       }
