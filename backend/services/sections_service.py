@@ -208,6 +208,16 @@ def _sections_interpretation_payload(
             }
         )
 
+    for range_field in ("year_min", "year_max"):
+        if parsed_args[range_field] is not None:
+            applied_filters.append(
+                {
+                    "field": range_field,
+                    "representation": "first_class_agreement_field",
+                    "match_kind": "range_metadata_filter",
+                }
+            )
+
     taxonomy_filters = [
         {
             "standard_id": standard_id,
