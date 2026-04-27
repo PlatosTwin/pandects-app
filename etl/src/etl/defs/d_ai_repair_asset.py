@@ -1841,6 +1841,31 @@ def _align_span_to_source(
         aligned_start, aligned_end = whitespace_alignment
         return aligned_start, aligned_end, source_text[aligned_start:aligned_end]
 
+    # The model's offsets were too far off for the windowed searches (radius=128). Try the
+    # full page — offsets still serve as a tiebreaker when multiple matches exist.
+    full_page_radius = len(source_text)
+    full_exact = _find_nearby_exact_alignment(
+        source_text,
+        selected_text,
+        approx_start=approx_start,
+        approx_end=approx_end,
+        radius=full_page_radius,
+    )
+    if full_exact is not None:
+        aligned_start, aligned_end = full_exact
+        return aligned_start, aligned_end, source_text[aligned_start:aligned_end]
+
+    full_ws = _find_nearby_whitespace_insensitive_alignment(
+        source_text,
+        selected_text,
+        approx_start=approx_start,
+        approx_end=approx_end,
+        radius=full_page_radius,
+    )
+    if full_ws is not None:
+        aligned_start, aligned_end = full_ws
+        return aligned_start, aligned_end, source_text[aligned_start:aligned_end]
+
     raise ValueError("selected_text could not be aligned to source text near the provided offsets.")
 
 
