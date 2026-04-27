@@ -37,10 +37,12 @@ Use these when the client needs to find the right agreement first or fetch one a
 
 - `search_sections`
 - `list_agreement_sections`
+- `list_agreement_sections_batch`
 - `get_section`
 - `get_section_snippet`
+- `get_section_snippets_batch`
 
-Use these when the client needs to search clause language across the corpus, navigate sections inside one agreement, inspect a known section directly, or extract a shorter plain-text excerpt from one section.
+Use these when the client needs to search clause language across the corpus, navigate sections inside one agreement, inspect a known section directly, or extract a shorter plain-text excerpt from one section. `list_agreement_sections_batch` and `get_section_snippets_batch` accept a list of agreement or section UUIDs and return results in a single call, reducing round-trips for multi-agreement workflows.
 
 ### Discovery Helpers
 
@@ -83,9 +85,11 @@ The current MCP tools are:
 - `search_sections`
 - `list_agreements`
 - `list_agreement_sections`
+- `list_agreement_sections_batch`
 - `get_agreement`
 - `get_section`
 - `get_section_snippet`
+- `get_section_snippets_batch`
 - `get_agreement_tax_clauses`
 - `get_section_tax_clauses`
 - `list_filter_options`
@@ -111,6 +115,7 @@ The current MCP tools are:
 - `search_agreements` returns exact totals today and also includes `count_metadata` plus `interpretation`
 - `suggest_clause_families` exists to bridge plain-English concepts to taxonomy ids and now reports fit/confidence metadata so clients can distinguish canonical matches from broader proxies
 - `get_section_snippet` is a focused reading aid, not a replacement for `get_section` or a canonical extracted-facts surface
+- `get_section_snippets_batch` and `list_agreement_sections_batch` accept arrays of UUIDs and collapse multiple single-item calls into one round-trip; use them when a workflow would otherwise fan out across many agreements or sections
 - `get_agreement` preserves the current redaction and full-text access behavior
 - `get_server_capabilities` is the main machine-readable semantics surface; it includes auth guidance, field inventory, concept notes, and negative guidance about when not to use a tool
 - The server exposes a small set of MCP resources (`pandects://capabilities`, `pandects://auth-help`) that mirror `get_server_capabilities` for clients that prefer the `resources/read` primitive over calling a tool
