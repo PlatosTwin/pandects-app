@@ -433,6 +433,16 @@
       "use_when": "Use after search_sections when you need a quick excerpt for comparison or quoting."
     },
     {
+      "do_not_use_for": "Do not call this tool N times in a loop for N sections \u2014 that defeats the purpose; pass all section_uuids at once.",
+      "tool": "get_section_snippets_batch",
+      "use_when": "Use when comparing clause language across many sections; replaces N calls to get_section_snippet."
+    },
+    {
+      "do_not_use_for": "Do not treat snippets as complete section text; use get_section for the full XML when exact context matters.",
+      "tool": "get_section_snippets_batch",
+      "use_when": "Use when comparing clause language across many sections; replaces N calls to get_section_snippet."
+    },
+    {
       "do_not_use_for": "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly.",
       "tool": "get_server_capabilities",
       "use_when": "Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows."
@@ -770,6 +780,20 @@
               "type": "integer"
             },
             "type": "array"
+          },
+          "year_max": {
+            "description": "Latest filing year to include (inclusive). Use with year_min for a range.",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "year_min": {
+            "description": "Earliest filing year to include (inclusive). Use with year_max for a range; use year for specific individual years.",
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object"
@@ -2220,6 +2244,10 @@
           "agreement_uuid": {
             "type": "string"
           },
+          "include_standard_ids": {
+            "description": "When false, omit standard_id from each section entry to reduce response size. Default true.",
+            "type": "boolean"
+          },
           "page": {
             "type": "integer"
           },
@@ -2344,7 +2372,6 @@
               "required": [
                 "id",
                 "section_uuid",
-                "standard_id",
                 "verified"
               ],
               "type": "object"
@@ -2352,6 +2379,9 @@
             "type": "array"
           },
           "returned_count": {
+            "type": "integer"
+          },
+          "total_agreement_sections": {
             "type": "integer"
           },
           "total_count": {
@@ -2366,6 +2396,7 @@
         },
         "required": [
           "agreement_uuid",
+          "total_agreement_sections",
           "results",
           "returned_count",
           "page",
@@ -2422,6 +2453,10 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "include_standard_ids": {
+            "description": "When false, omit standard_id from each section entry to reduce response size. Default true.",
+            "type": "boolean"
           },
           "sort_by": {
             "description": "Section list sort key. One of: `article_title`, `section_title`, `section_uuid`, `document_order`.",
@@ -2524,16 +2559,19 @@
                     "required": [
                       "id",
                       "section_uuid",
-                      "standard_id",
                       "verified"
                     ],
                     "type": "object"
                   },
                   "type": "array"
+                },
+                "total_agreement_sections": {
+                  "type": "integer"
                 }
               },
               "required": [
                 "agreement_uuid",
+                "total_agreement_sections",
                 "sections",
                 "section_count"
               ],
@@ -3713,6 +3751,139 @@
           "snippet",
           "matched_terms",
           "source_length"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_section_snippets_batch",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "selection_hint": "Use when comparing clause language across many sections; replaces N calls to get_section_snippet.",
+      "negative_guidance": [
+        "Do not call this tool N times in a loop for N sections \u2014 that defeats the purpose; pass all section_uuids at once.",
+        "Do not treat snippets as complete section text; use get_section for the full XML when exact context matters."
+      ],
+      "response_examples": [
+        {
+          "content": {
+            "results": [
+              {
+                "matched_terms": [
+                  "termination fee"
+                ],
+                "section_uuid": "00000000-0000-0000-0000-000000000001",
+                "snippet": "...termination fee of $50M..."
+              }
+            ],
+            "returned_count": 2
+          },
+          "description": "Batch snippet result."
+        }
+      ],
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
+      "limits": {
+        "mode": "none"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "focus_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "max_chars": {
+            "type": "integer"
+          },
+          "section_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "section_uuids"
+        ],
+        "type": "object"
+      },
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "agreement_uuid": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "article_title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matched_terms": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "section_title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "section_uuid": {
+                  "type": "string"
+                },
+                "snippet": {
+                  "type": "string"
+                },
+                "source_length": {
+                  "type": "integer"
+                },
+                "standard_id": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "agreement_uuid",
+                "section_uuid",
+                "standard_id",
+                "article_title",
+                "section_title",
+                "snippet",
+                "matched_terms",
+                "source_length"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "returned_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "returned_count"
         ],
         "type": "object"
       }

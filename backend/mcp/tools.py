@@ -359,6 +359,7 @@ class McpSectionArgsSchema(Schema):
 class McpListAgreementSectionsArgsSchema(Schema):
     agreement_uuid = ma_fields.Str(required=True)
     standard_id = ma_fields.List(ma_fields.Str(), load_default=[])
+    include_standard_ids = ma_fields.Bool(load_default=True)
     page = ma_fields.Int(load_default=1)
     page_size = ma_fields.Int(load_default=25)
     sort_by = ma_fields.Str(
@@ -375,6 +376,7 @@ class McpBatchAgreementSectionsArgsSchema(Schema):
         validate=validate.Length(min=1, max=20),
     )
     standard_id = ma_fields.List(ma_fields.Str(), load_default=[])
+    include_standard_ids = ma_fields.Bool(load_default=True)
     sort_by = ma_fields.Str(
         load_default="document_order",
         validate=validate.OneOf(list(_SECTION_LIST_SORT_FIELDS)),
@@ -384,6 +386,8 @@ class McpBatchAgreementSectionsArgsSchema(Schema):
 
 class McpSearchAgreementsExtraArgsSchema(Schema):
     any_counsel = ma_fields.List(ma_fields.Str(), load_default=[])
+    year_min = ma_fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
+    year_max = ma_fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
 
 
 class McpFilterOptionsArgsSchema(Schema):
@@ -1336,6 +1340,13 @@ def _list_agreements(
         )
         q = q.filter(or_(*year_filters))
 
+    year_min_val = cast(int | None, payload.get("year_min"))
+    year_max_val = cast(int | None, payload.get("year_max"))
+    if year_min_val is not None:
+        q = q.filter(agreements.filing_date >= f"{year_min_val:04d}-01-01")
+    if year_max_val is not None:
+        q = q.filter(agreements.filing_date < f"{year_max_val + 1:04d}-01-01")
+
     list_filters = (
         ("target", agreements.target),
         ("acquirer", agreements.acquirer),
@@ -1558,6 +1569,17 @@ def _search_agreements(
         year_clause = or_(*year_filters)
         q = q.filter(year_clause)
         count_q = count_q.filter(year_clause)
+
+    year_min = cast(int | None, parsed_args.get("year_min"))
+    year_max = cast(int | None, parsed_args.get("year_max"))
+    if year_min is not None:
+        clause = agreements.filing_date >= f"{year_min:04d}-01-01"
+        q = q.filter(clause)
+        count_q = count_q.filter(clause)
+    if year_max is not None:
+        clause = agreements.filing_date < f"{year_max + 1:04d}-01-01"
+        q = q.filter(clause)
+        count_q = count_q.filter(clause)
 
     list_filters = (
         ("target", agreements.target),
@@ -1987,6 +2009,87 @@ def _get_section_snippet(
     )
 
 
+def _get_section_snippets_batch(
+    deps: AgreementsDeps,
+    *,
+    principal: McpPrincipal,
+    payload: dict[str, object],
+) -> McpToolResult:
+    _require_scope(principal, "sections:search")
+    parsed_args = _validate_payload(
+        _schema_from_fields(
+            "McpBatchSectionSnippetsArgs",
+            {
+                "section_uuids": ma_fields.List(
+                    ma_fields.Str(),
+                    required=True,
+                    validate=validate.Length(min=1, max=20),
+                ),
+                "focus_terms": ma_fields.List(ma_fields.Str(), load_default=[]),
+                "max_chars": ma_fields.Int(load_default=400, validate=validate.Range(min=120, max=1200)),
+            },
+        ),
+        payload,
+    )
+    section_uuids = [s.strip() for s in cast(list[str], parsed_args["section_uuids"]) if s.strip()]
+    if not section_uuids:
+        abort(400, description="No valid section_uuids provided.")
+    for suuid in section_uuids:
+        if not deps._SECTION_ID_RE.match(suuid):
+            abort(400, description=f"Invalid section_uuid: {suuid}")
+    focus_terms = [t for t in cast(list[str], parsed_args["focus_terms"]) if t.strip()]
+    max_chars = cast(int, parsed_args["max_chars"])
+
+    rows = cast(
+        list[object],
+        deps.db.session.query(
+            deps.Sections.agreement_uuid.label("agreement_uuid"),
+            deps.Sections.section_uuid.label("section_uuid"),
+            deps.Sections.article_title.label("article_title"),
+            deps.Sections.section_title.label("section_title"),
+            deps._coalesced_section_standard_ids().label("section_standard_ids"),
+            deps.Sections.xml_content.label("xml_content"),
+        )
+        .filter(deps.Sections.section_uuid.in_(section_uuids))
+        .all(),
+    )
+    row_by_uuid: dict[str, dict[str, object]] = {}
+    for row in rows:
+        row_map = deps._row_mapping_as_dict(cast(object, row))
+        suuid = row_map.get("section_uuid")
+        if isinstance(suuid, str):
+            row_by_uuid[suuid] = row_map
+
+    results: list[dict[str, object]] = []
+    for suuid in section_uuids:
+        row_map = row_by_uuid.get(suuid)
+        if row_map is None:
+            continue
+        xml_text = _extract_text_from_xml(row_map.get("xml_content"))
+        snippet, matched_terms = _focused_snippet(xml_text, focus_terms=focus_terms, max_chars=max_chars)
+        results.append(
+            {
+                "agreement_uuid": row_map.get("agreement_uuid"),
+                "section_uuid": suuid,
+                "standard_id": deps._parse_section_standard_ids(row_map.get("section_standard_ids")),
+                "article_title": row_map.get("article_title"),
+                "section_title": row_map.get("section_title"),
+                "snippet": snippet,
+                "matched_terms": matched_terms,
+                "source_length": len(xml_text),
+            }
+        )
+
+    response: dict[str, object] = {
+        "results": results,
+        "returned_count": len(results),
+    }
+    return McpToolResult(
+        text=f"Returned snippets for {len(results)} section(s).",
+        structured_content=response,
+    )
+
+
 def _list_agreement_sections(
     deps: SectionsServiceDeps,
     *,
@@ -2002,6 +2105,7 @@ def _list_agreement_sections(
     page = _normalized_page(cast(int, parsed_args["page"]))
     page_size = _normalized_page_size(cast(int, parsed_args["page_size"]))
     standard_ids = [value for value in cast(list[str], parsed_args["standard_id"]) if value]
+    include_standard_ids = cast(bool, parsed_args["include_standard_ids"])
     sort_by = cast(str, parsed_args["sort_by"])
     sort_direction = cast(str, parsed_args["sort_direction"])
 
@@ -2044,6 +2148,14 @@ def _list_agreement_sections(
         else:
             q = q.order_by(asc(primary_sort), asc(latest.section_uuid))
 
+    total_agreement_sections = deps._to_int(
+        cast(
+            object,
+            deps.db.session.query(func.count(latest.section_uuid))
+            .filter(latest.agreement_uuid == agreement_uuid)
+            .scalar(),
+        )
+    )
     total_count = deps._to_int(cast(object, q.order_by(None).count()))
     offset = (page - 1) * page_size
     rows = cast(list[object], q.offset(offset).limit(page_size).all())
@@ -2052,23 +2164,24 @@ def _list_agreement_sections(
     results: list[dict[str, object]] = []
     for row in rows:
         row_map = deps._row_mapping_as_dict(cast(object, row))
-        results.append(
-            {
-                "id": row_map.get("section_uuid"),
-                "agreement_uuid": row_map.get("agreement_uuid"),
-                "section_uuid": row_map.get("section_uuid"),
-                "standard_id": deps._parse_section_standard_ids(row_map.get("section_standard_ids")),
-                "article_title": row_map.get("article_title"),
-                "section_title": row_map.get("section_title"),
-                "target": row_map.get("target"),
-                "acquirer": row_map.get("acquirer"),
-                "year": deps._year_from_filing_date_value(row_map.get("filing_date")),
-                "verified": bool(row_map.get("verified")) if row_map.get("verified") is not None else False,
-            }
-        )
+        entry: dict[str, object] = {
+            "id": row_map.get("section_uuid"),
+            "agreement_uuid": row_map.get("agreement_uuid"),
+            "section_uuid": row_map.get("section_uuid"),
+            "article_title": row_map.get("article_title"),
+            "section_title": row_map.get("section_title"),
+            "target": row_map.get("target"),
+            "acquirer": row_map.get("acquirer"),
+            "year": deps._year_from_filing_date_value(row_map.get("filing_date")),
+            "verified": bool(row_map.get("verified")) if row_map.get("verified") is not None else False,
+        }
+        if include_standard_ids:
+            entry["standard_id"] = deps._parse_section_standard_ids(row_map.get("section_standard_ids"))
+        results.append(entry)
 
     response = {
         "agreement_uuid": agreement_uuid,
+        "total_agreement_sections": total_agreement_sections,
         "results": results,
         "returned_count": len(results),
         **meta,
@@ -2092,6 +2205,7 @@ def _list_agreement_sections_batch(
         abort(400, description="No valid agreement_uuids provided.")
 
     standard_ids = [value for value in cast(list[str], parsed_args["standard_id"]) if value]
+    include_standard_ids = cast(bool, parsed_args["include_standard_ids"])
     sort_by = cast(str, parsed_args["sort_by"])
     sort_direction = cast(str, parsed_args["sort_direction"])
 
@@ -2136,29 +2250,48 @@ def _list_agreement_sections_batch(
 
     rows = cast(list[object], q.all())
 
+    # unfiltered total sections per agreement (independent of standard_id filter)
+    unfiltered_rows = cast(
+        list[object],
+        deps.db.session.query(
+            latest.agreement_uuid.label("agreement_uuid"),
+            func.count(latest.section_uuid).label("total_count"),
+        )
+        .filter(latest.agreement_uuid.in_(agreement_uuids))
+        .group_by(latest.agreement_uuid)
+        .all(),
+    )
+    unfiltered_counts: dict[str, int] = {
+        cast(str, deps._row_mapping_as_dict(cast(object, r)).get("agreement_uuid")): deps._to_int(
+            cast(object, deps._row_mapping_as_dict(cast(object, r)).get("total_count"))
+        )
+        for r in unfiltered_rows
+    }
+
     grouped: dict[str, list[dict[str, object]]] = {uuid: [] for uuid in agreement_uuids}
     for row in rows:
         row_map = deps._row_mapping_as_dict(cast(object, row))
         uuid = row_map.get("agreement_uuid")
         if isinstance(uuid, str) and uuid in grouped:
-            grouped[uuid].append(
-                {
-                    "id": row_map.get("section_uuid"),
-                    "section_uuid": row_map.get("section_uuid"),
-                    "agreement_uuid": uuid,
-                    "standard_id": deps._parse_section_standard_ids(row_map.get("section_standard_ids")),
-                    "article_title": row_map.get("article_title"),
-                    "section_title": row_map.get("section_title"),
-                    "target": row_map.get("target"),
-                    "acquirer": row_map.get("acquirer"),
-                    "year": deps._year_from_filing_date_value(row_map.get("filing_date")),
-                    "verified": bool(row_map.get("verified")) if row_map.get("verified") is not None else False,
-                }
-            )
+            entry: dict[str, object] = {
+                "id": row_map.get("section_uuid"),
+                "section_uuid": row_map.get("section_uuid"),
+                "agreement_uuid": uuid,
+                "article_title": row_map.get("article_title"),
+                "section_title": row_map.get("section_title"),
+                "target": row_map.get("target"),
+                "acquirer": row_map.get("acquirer"),
+                "year": deps._year_from_filing_date_value(row_map.get("filing_date")),
+                "verified": bool(row_map.get("verified")) if row_map.get("verified") is not None else False,
+            }
+            if include_standard_ids:
+                entry["standard_id"] = deps._parse_section_standard_ids(row_map.get("section_standard_ids"))
+            grouped[uuid].append(entry)
 
     per_agreement = [
         {
             "agreement_uuid": uuid,
+            "total_agreement_sections": unfiltered_counts.get(uuid, 0),
             "sections": grouped[uuid],
             "section_count": len(grouped[uuid]),
         }
@@ -2751,7 +2884,7 @@ def _list_section_result_schema() -> dict[str, object]:
             "year": {"type": ["integer", "null"]},
             "verified": {"type": "boolean"},
         },
-        required=["id", "section_uuid", "standard_id", "verified"],
+        required=["id", "section_uuid", "verified"],
     )
 
 
@@ -2879,13 +3012,14 @@ def _list_agreement_sections_output_schema() -> dict[str, object]:
     properties.update(
         {
             "agreement_uuid": {"type": "string"},
+            "total_agreement_sections": {"type": "integer"},
             "results": _array_of(_list_section_result_schema()),
             "returned_count": {"type": "integer"},
         }
     )
     return _object_schema(
         properties,
-        required=["agreement_uuid", "results", "returned_count", "page", "page_size", "total_count", "total_pages", "has_next", "has_prev", "total_count_is_approximate"],
+        required=["agreement_uuid", "total_agreement_sections", "results", "returned_count", "page", "page_size", "total_count", "total_pages", "has_next", "has_prev", "total_count_is_approximate"],
     )
 
 
@@ -2893,10 +3027,11 @@ def _batch_agreement_sections_output_schema() -> dict[str, object]:
     per_agreement_schema = _object_schema(
         {
             "agreement_uuid": {"type": "string"},
+            "total_agreement_sections": {"type": "integer"},
             "sections": _array_of(_list_section_result_schema()),
             "section_count": {"type": "integer"},
         },
-        required=["agreement_uuid", "sections", "section_count"],
+        required=["agreement_uuid", "total_agreement_sections", "sections", "section_count"],
     )
     return _object_schema(
         {
@@ -2905,6 +3040,31 @@ def _batch_agreement_sections_output_schema() -> dict[str, object]:
             "total_section_count": {"type": "integer"},
         },
         required=["results", "returned_agreement_count", "total_section_count"],
+    )
+
+
+def _batch_section_snippet_output_schema() -> dict[str, object]:
+    item_schema = _object_schema(
+        {
+            "agreement_uuid": {"type": ["string", "null"]},
+            "section_uuid": {"type": "string"},
+            "standard_id": _array_of({"type": "string"}),
+            "article_title": {"type": ["string", "null"]},
+            "section_title": {"type": ["string", "null"]},
+            "snippet": {"type": "string"},
+            "matched_terms": _array_of({"type": "string"}),
+            "source_length": {"type": "integer"},
+        },
+        required=["agreement_uuid", "section_uuid", "standard_id", "article_title", "section_title", "snippet", "matched_terms", "source_length"],
+        additional_properties=False,
+    )
+    return _object_schema(
+        {
+            "results": _array_of(item_schema),
+            "returned_count": {"type": "integer"},
+        },
+        required=["results", "returned_count"],
+        additional_properties=False,
     )
 
 
@@ -3536,6 +3696,17 @@ _ANY_COUNSEL_OVERRIDE: dict[str, object] = {
     "description": "Filter to agreements where the firm appears on either side (target or acquirer). Use instead of target_counsel + acquirer_counsel when side is unknown.",
 }
 
+_YEAR_RANGE_OVERRIDES: dict[str, dict[str, object]] = {
+    "year_min": {
+        "type": ["integer", "null"],
+        "description": "Earliest filing year to include (inclusive). Use with year_max for a range; use year for specific individual years.",
+    },
+    "year_max": {
+        "type": ["integer", "null"],
+        "description": "Latest filing year to include (inclusive). Use with year_min for a range.",
+    },
+}
+
 
 @lru_cache(maxsize=1)
 def _tool_specs() -> tuple[McpToolSpec, ...]:
@@ -3544,10 +3715,12 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
     agreements_list_overrides: dict[str, dict[str, object]] = {
         **_structured_filter_properties(include_cursor=True, include_xml=True),
         "any_counsel": _ANY_COUNSEL_OVERRIDE,
+        **_YEAR_RANGE_OVERRIDES,
     }
     search_agreements_overrides: dict[str, dict[str, object]] = {
         **structured_filter_overrides,
         "any_counsel": _ANY_COUNSEL_OVERRIDE,
+        **_YEAR_RANGE_OVERRIDES,
         "query": {
             "type": "string",
             "description": "Optional prefix search over target and acquirer names, or a 4-digit year string.",
@@ -3573,6 +3746,10 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             "type": "string",
             "enum": list(_SECTION_LIST_SORT_FIELDS),
             "description": "Section list sort key. One of: `article_title`, `section_title`, `section_uuid`, `document_order`.",
+        },
+        "include_standard_ids": {
+            "type": "boolean",
+            "description": "When false, omit standard_id from each section entry to reduce response size. Default true.",
         },
     }
     suggest_clause_families_schema = _schema_from_fields(
@@ -3862,6 +4039,42 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             redaction_behavior="none",
             fulltext_scope=None,
             handler=_get_section_snippet,
+        ),
+        McpToolSpec(
+            name="get_section_snippets_batch",
+            description="Return focused plain-text excerpts for up to 20 sections in a single call. Eliminates N sequential get_section_snippet calls when comparing clause language across multiple agreements. Accepts the same focus_terms and max_chars as get_section_snippet.",
+            input_schema=_schema_input_schema(
+                _schema_from_fields(
+                    "McpBatchSectionSnippetsArgs",
+                    {
+                        "section_uuids": ma_fields.List(
+                            ma_fields.Str(),
+                            required=True,
+                            validate=validate.Length(min=1, max=20),
+                        ),
+                        "focus_terms": ma_fields.List(ma_fields.Str(), load_default=[]),
+                        "max_chars": ma_fields.Int(load_default=400, validate=validate.Range(min=120, max=1200)),
+                    },
+                )
+            ),
+            output_schema=_batch_section_snippet_output_schema(),
+            examples=(
+                {"description": "Fetch snippets for sections from multiple agreements at once.", "arguments": {"section_uuids": ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"], "focus_terms": ["termination fee"], "max_chars": 400}},
+            ),
+            response_examples=(
+                {"description": "Batch snippet result.", "content": {"returned_count": 2, "results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "snippet": "...termination fee of $50M...", "matched_terms": ["termination fee"]}]}},
+            ),
+            scopes=("sections:search",),
+            selection_hint="Use when comparing clause language across many sections; replaces N calls to get_section_snippet.",
+            negative_guidance=(
+                "Do not call this tool N times in a loop for N sections — that defeats the purpose; pass all section_uuids at once.",
+                "Do not treat snippets as complete section text; use get_section for the full XML when exact context matters.",
+            ),
+            pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
+            handler=_get_section_snippets_batch,
         ),
         McpToolSpec(
             name="get_server_metrics",
@@ -4283,13 +4496,13 @@ def call_tool(
     if spec is None:
         raise KeyError(name)
     handler_kwargs: dict[str, object] = {"principal": principal}
-    if name in {"search_agreements", "list_agreements", "get_agreement", "get_section", "get_section_snippet", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "get_agreements_summary"}:
+    if name in {"search_agreements", "list_agreements", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "get_agreements_summary"}:
         handler_kwargs["deps"] = agreements_deps
     if name in {"search_sections", "list_agreement_sections", "list_agreement_sections_batch"}:
         handler_kwargs["deps"] = sections_service_deps
     if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families"}:
         handler_kwargs["deps"] = reference_data_deps
-    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families"}:
+    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families"}:
         handler_kwargs["payload"] = arguments
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps

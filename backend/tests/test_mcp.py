@@ -777,6 +777,7 @@ class McpTests(unittest.TestCase):
                 "list_filter_options",
                 "suggest_clause_families",
                 "get_section_snippet",
+                "get_section_snippets_batch",
                 "get_server_metrics",
                 "get_server_capabilities",
                 "get_clause_taxonomy",
