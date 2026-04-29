@@ -3224,7 +3224,7 @@
   },
   {
     "name": "get_server_capabilities",
-    "description": "Self-describing guide to this server: the tool inventory with selection hints and negative guidance, the field inventory (which concepts are first-class, taxonomy-backed, text-derived, or unrepresented), ready-made research workflows, and auth help. Call first when onboarding a new agent or planning a multi-step research task.",
+    "description": "Self-describing guide to this server: the tool inventory with selection hints and negative guidance, the field inventory (which concepts are first-class, taxonomy-backed, text-derived, or unrepresented), ready-made research workflows, and auth help. Call first when onboarding a new agent or planning a multi-step research task. Use `sections` to request only the parts you need \u2014 omit `tools` unless you specifically want full per-tool schemas (those are large; use the MCP tools/list endpoint instead).",
     "annotations": {
       "negativeGuidance": [
         "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly."
@@ -3237,7 +3237,32 @@
     },
     "inputSchema": {
       "additionalProperties": false,
-      "properties": {},
+      "properties": {
+        "sections": {
+          "default": [
+            "server",
+            "auth_help",
+            "field_inventory",
+            "concept_notes",
+            "tool_limitations",
+            "workflows"
+          ],
+          "description": "Subset of capability sections to return. Valid values: server, auth_help, field_inventory, concept_notes, tool_limitations, workflows, tools. Defaults to all sections except `tools` (which is large). Pass `[\"tools\"]` or include `tools` explicitly if you need full per-tool schemas.",
+          "items": {
+            "enum": [
+              "server",
+              "auth_help",
+              "field_inventory",
+              "concept_notes",
+              "tool_limitations",
+              "workflows",
+              "tools"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
       "type": "object"
     },
     "outputSchema": {
@@ -3433,6 +3458,12 @@
             "taxonomy_assignment_fields"
           ],
           "type": "object"
+        },
+        "sections_returned": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "server": {
           "additionalProperties": false,
@@ -3671,13 +3702,7 @@
         }
       },
       "required": [
-        "server",
-        "auth_help",
-        "field_inventory",
-        "concept_notes",
-        "tool_limitations",
-        "tools",
-        "workflows"
+        "sections_returned"
       ],
       "type": "object"
     }

@@ -4025,22 +4025,25 @@
       "response_examples": [
         {
           "content": {
+            "sections_returned": [
+              "server",
+              "auth_help",
+              "field_inventory",
+              "concept_notes",
+              "tool_limitations",
+              "workflows"
+            ],
             "server": {
               "name": "pandects-mcp",
               "transport": "http_jsonrpc"
             },
-            "tools": [
-              {
-                "name": "search_agreements"
-              }
-            ],
             "workflows": [
               {
                 "name": "discover agreements by counsel"
               }
             ]
           },
-          "description": "Capabilities payload with tool guidance."
+          "description": "Capabilities payload with default sections."
         }
       ],
       "access": {
@@ -4054,7 +4057,32 @@
       },
       "input_schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "sections": {
+            "default": [
+              "server",
+              "auth_help",
+              "field_inventory",
+              "concept_notes",
+              "tool_limitations",
+              "workflows"
+            ],
+            "description": "Subset of capability sections to return. Valid values: server, auth_help, field_inventory, concept_notes, tool_limitations, workflows, tools. Defaults to all sections except `tools` (which is large). Pass `[\"tools\"]` or include `tools` explicitly if you need full per-tool schemas.",
+            "items": {
+              "enum": [
+                "server",
+                "auth_help",
+                "field_inventory",
+                "concept_notes",
+                "tool_limitations",
+                "workflows",
+                "tools"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
         "type": "object"
       },
       "output_schema": {
@@ -4250,6 +4278,12 @@
               "taxonomy_assignment_fields"
             ],
             "type": "object"
+          },
+          "sections_returned": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "server": {
             "additionalProperties": false,
@@ -4488,13 +4522,7 @@
           }
         },
         "required": [
-          "server",
-          "auth_help",
-          "field_inventory",
-          "concept_notes",
-          "tool_limitations",
-          "tools",
-          "workflows"
+          "sections_returned"
         ],
         "type": "object"
       }
