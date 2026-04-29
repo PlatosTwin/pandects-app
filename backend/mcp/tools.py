@@ -4505,7 +4505,8 @@ def _server_capabilities_payload(sections: frozenset[str] | None = None) -> dict
     if sections is None:
         sections = frozenset(_CAPABILITIES_SECTIONS_DEFAULT)
     specs = _tool_specs() if (sections & {"tools", "tool_limitations"}) else ()
-    result: dict[str, object] = {"sections_returned": sorted(sections, key=list(_CAPABILITIES_SECTIONS_ALL).index)}
+    sections_returned = [section for section in _CAPABILITIES_SECTIONS_ALL if section in sections]
+    result: dict[str, object] = {"sections_returned": sections_returned}
     if "server" in sections:
         result["server"] = {
             "name": "pandects-mcp",
