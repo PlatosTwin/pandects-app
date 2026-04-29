@@ -3725,6 +3725,10 @@ def _tool_limitation_schema() -> dict[str, object]:
     )
 
 
+_CAPABILITIES_SECTIONS_ALL = ("server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools")
+_CAPABILITIES_SECTIONS_DEFAULT = ("server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows")
+
+
 def _server_capabilities_output_schema() -> dict[str, object]:
     return _object_schema(
         {
@@ -3755,16 +3759,9 @@ def _server_capabilities_output_schema() -> dict[str, object]:
             "tool_limitations": _array_of(_tool_limitation_schema()),
             "tools": _array_of(_tool_capabilities_output_schema()),
             "workflows": _array_of(_workflow_output_schema()),
+            "sections_returned": _array_of({"type": "string"}),
         },
-        required=[
-            "server",
-            "auth_help",
-            "field_inventory",
-            "concept_notes",
-            "tool_limitations",
-            "tools",
-            "workflows",
-        ],
+        required=["sections_returned"],
         additional_properties=False,
     )
 
@@ -4182,14 +4179,32 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_server_capabilities",
-            description="Self-describing guide to this server: the tool inventory with selection hints and negative guidance, the field inventory (which concepts are first-class, taxonomy-backed, text-derived, or unrepresented), ready-made research workflows, and auth help. Call first when onboarding a new agent or planning a multi-step research task.",
-            input_schema=_empty_schema(),
+            description="Self-describing guide to this server: the tool inventory with selection hints and negative guidance, the field inventory (which concepts are first-class, taxonomy-backed, text-derived, or unrepresented), ready-made research workflows, and auth help. Call first when onboarding a new agent or planning a multi-step research task. Use `sections` to request only the parts you need — omit `tools` unless you specifically want full per-tool schemas (those are large; use the MCP tools/list endpoint instead).",
+            input_schema=_object_schema(
+                {
+                    "sections": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": list(_CAPABILITIES_SECTIONS_ALL)},
+                        "description": (
+                            "Subset of capability sections to return. "
+                            f"Valid values: {', '.join(_CAPABILITIES_SECTIONS_ALL)}. "
+                            "Defaults to all sections except `tools` (which is large). "
+                            "Pass `[\"tools\"]` or include `tools` explicitly if you need full per-tool schemas."
+                        ),
+                        "default": list(_CAPABILITIES_SECTIONS_DEFAULT),
+                    }
+                },
+                required=[],
+                additional_properties=False,
+            ),
             output_schema=_server_capabilities_output_schema(),
             examples=(
-                {"description": "Inspect tool guidance before starting a workflow.", "arguments": {}},
+                {"description": "Inspect tool guidance and workflows (default — omits full tool schemas).", "arguments": {}},
+                {"description": "Fetch only the concept notes and field inventory.", "arguments": {"sections": ["concept_notes", "field_inventory"]}},
+                {"description": "Fetch full per-tool schemas (large response).", "arguments": {"sections": ["tools"]}},
             ),
             response_examples=(
-                {"description": "Capabilities payload with tool guidance.", "content": {"server": {"name": "pandects-mcp", "transport": "http_jsonrpc"}, "tools": [{"name": "search_agreements"}], "workflows": [{"name": "discover agreements by counsel"}]}},
+                {"description": "Capabilities payload with default sections.", "content": {"server": {"name": "pandects-mcp", "transport": "http_jsonrpc"}, "workflows": [{"name": "discover agreements by counsel"}], "sections_returned": ["server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows"]}},
             ),
             scopes=("agreements:search",),
             selection_hint="Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows.",
@@ -4486,10 +4501,13 @@ def _tool_list_entry(spec: McpToolSpec) -> dict[str, object]:
     }
 
 
-def _server_capabilities_payload() -> dict[str, object]:
-    specs = _tool_specs()
-    return {
-        "server": {
+def _server_capabilities_payload(sections: frozenset[str] | None = None) -> dict[str, object]:
+    if sections is None:
+        sections = frozenset(_CAPABILITIES_SECTIONS_DEFAULT)
+    specs = _tool_specs() if (sections & {"tools", "tool_limitations"}) else ()
+    result: dict[str, object] = {"sections_returned": sorted(sections, key=list(_CAPABILITIES_SECTIONS_ALL).index)}
+    if "server" in sections:
+        result["server"] = {
             "name": "pandects-mcp",
             "primary_discovery_tool": "list_filter_options",
             "introspection_tool": "get_server_capabilities",
@@ -4497,17 +4515,22 @@ def _server_capabilities_payload() -> dict[str, object]:
             "transport": "http_jsonrpc",
             "resources_supported": False,
             "resource_templates_supported": False,
-        },
-        "auth_help": {
+        }
+    if "auth_help" in sections:
+        result["auth_help"] = {
             "login_required": True,
             "relogin_hint": "If a bearer token is missing, invalid, or expired, re-authenticate and retry the MCP call.",
             "fulltext_scope": "agreements:read_fulltext",
             "invalid_or_expired_token_message": "If credentials look stale, sign in again and resend the bearer token.",
-        },
-        "field_inventory": _field_inventory_payload(),
-        "concept_notes": _concept_notes_payload(),
-        "tool_limitations": _tool_limitations_payload(specs),
-        "tools": [
+        }
+    if "field_inventory" in sections:
+        result["field_inventory"] = _field_inventory_payload()
+    if "concept_notes" in sections:
+        result["concept_notes"] = _concept_notes_payload()
+    if "tool_limitations" in sections:
+        result["tool_limitations"] = _tool_limitations_payload(specs)
+    if "tools" in sections:
+        result["tools"] = [
             {
                 "name": spec.name,
                 "description": spec.description,
@@ -4528,8 +4551,9 @@ def _server_capabilities_payload() -> dict[str, object]:
                 "output_schema": spec.output_schema,
             }
             for spec in specs
-        ],
-        "workflows": [
+        ]
+    if "workflows" in sections:
+        result["workflows"] = [
             {
                 "name": "discover agreements by counsel",
                 "steps": ["list_filter_options", "search_agreements", "get_agreement"],
@@ -4550,19 +4574,26 @@ def _server_capabilities_payload() -> dict[str, object]:
                 "name": "inspect MCP health and hot paths",
                 "steps": ["get_server_metrics", "get_server_capabilities"],
             },
-        ],
-    }
+        ]
+    return result
 
 
 def _get_server_capabilities(
     *,
     principal: McpPrincipal,
+    payload: dict[str, object],
 ) -> McpToolResult:
     if not principal.scopes:
         raise PermissionError("Missing required scope: agreements:search")
-    response = _server_capabilities_payload()
+    raw_sections = payload.get("sections")
+    if isinstance(raw_sections, list) and all(isinstance(s, str) for s in raw_sections):
+        sections = frozenset(cast(list[str], raw_sections)) & frozenset(_CAPABILITIES_SECTIONS_ALL)
+    else:
+        sections = frozenset(_CAPABILITIES_SECTIONS_DEFAULT)
+    response = _server_capabilities_payload(sections)
+    returned = cast(list[object], response["sections_returned"])
     return McpToolResult(
-        text=f"Returned MCP server capabilities for {len(cast(list[object], response['tools']))} tool(s).",
+        text=f"Returned MCP server capabilities: {len(returned)} section(s) ({', '.join(str(s) for s in returned)}).",
         structured_content=response,
     )
 
@@ -4606,7 +4637,7 @@ def call_tool(
         handler_kwargs["agreements_deps"] = agreements_deps
     if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families"}:
         handler_kwargs["deps"] = reference_data_deps
-    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "get_counsel_catalog"}:
+    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "get_counsel_catalog", "get_server_capabilities"}:
         handler_kwargs["payload"] = arguments
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps

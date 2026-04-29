@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from typing import cast
+
 from flask import Flask, Response, current_app, jsonify, make_response, request
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException, InternalServerError
+
+from backend.extensions import db
 
 
 def handle_http_exception(err: HTTPException):
@@ -25,10 +29,32 @@ def handle_internal_server_error(err: InternalServerError):
 
 
 def handle_sqlalchemy_error(err: SQLAlchemyError):
+    db.session.rollback()
     if request.path.startswith("/v1/"):
         current_app.logger.exception("Database error: %s", err)
         resp = jsonify(
             {"error": "Service Unavailable", "message": "Database is unavailable."}
+        )
+        resp.status_code = 503
+        return resp
+    if request.path == "/mcp":
+        current_app.logger.exception("MCP database error: %s", err)
+        raw_payload = request.get_json(silent=True)
+        request_id = (
+            cast(dict[str, object], raw_payload).get("id")
+            if isinstance(raw_payload, dict)
+            else None
+        )
+        resp = jsonify(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32004,
+                    "message": "Database is unavailable.",
+                    "data": {"category": "database", "status_code": 503},
+                },
+            }
         )
         resp.status_code = 503
         return resp

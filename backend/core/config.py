@@ -44,6 +44,7 @@ _DEV_CORS_ORIGINS = (
 )
 
 _DEFAULT_CORS_ORIGINS = _ALWAYS_CORS_ORIGINS + _DEV_CORS_ORIGINS
+_DB_POOL_RECYCLE_SECONDS = 240
 
 
 def app_config_map(app: Flask) -> dict[str, object]:
@@ -92,12 +93,40 @@ def _default_auth_sqlite_uri() -> str:
     return f"sqlite:///{Path(__file__).resolve().parents[1] / 'auth_dev.sqlite'}"
 
 
+def _resilient_engine_options(existing: dict[str, object]) -> dict[str, object]:
+    options = dict(existing)
+    _ = options.setdefault("pool_pre_ping", True)
+    _ = options.setdefault("pool_recycle", _DB_POOL_RECYCLE_SECONDS)
+    return options
+
+
+def _auth_bind_config(database_uri: str) -> dict[str, object]:
+    bind_config = _resilient_engine_options({})
+    bind_config["url"] = database_uri
+    return bind_config
+
+
 def configure_auth_bind(target_app: Flask, *, auth_database_uri: str | None) -> None:
     config = app_config_map(target_app)
     if auth_database_uri is not None:
-        config["SQLALCHEMY_BINDS"] = {"auth": auth_database_uri}
+        config["SQLALCHEMY_BINDS"] = {"auth": _auth_bind_config(auth_database_uri)}
     else:
-        config["SQLALCHEMY_BINDS"] = {"auth": _default_auth_sqlite_uri()}
+        config["SQLALCHEMY_BINDS"] = {"auth": _auth_bind_config(_default_auth_sqlite_uri())}
+
+
+def configure_auth_bind_engine_options(target_app: Flask) -> None:
+    config = app_config_map(target_app)
+    raw_binds = config.get("SQLALCHEMY_BINDS")
+    if not isinstance(raw_binds, dict):
+        return
+    binds = dict(cast(dict[str, object], raw_binds))
+    raw_auth_bind = binds.get("auth")
+    if isinstance(raw_auth_bind, str):
+        binds["auth"] = _auth_bind_config(raw_auth_bind)
+    elif isinstance(raw_auth_bind, dict):
+        auth_bind = _resilient_engine_options(cast(dict[str, object], raw_auth_bind))
+        binds["auth"] = auth_bind
+    config["SQLALCHEMY_BINDS"] = binds
 
 
 def max_content_length() -> int:
@@ -153,6 +182,7 @@ def configure_main_db(target_app: Flask) -> None:
         if isinstance(configured_engine_options, dict)
         else {}
     )
+    engine_options = _resilient_engine_options(engine_options)
     raw_execution_options = engine_options.get("execution_options", {})
     execution_options = (
         dict(cast(dict[str, object], raw_execution_options))
@@ -165,6 +195,7 @@ def configure_main_db(target_app: Flask) -> None:
     )
     engine_options["execution_options"] = execution_options
     config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
+    configure_auth_bind_engine_options(target_app)
 
 
 def configure_extensions(target_app: Flask) -> None:

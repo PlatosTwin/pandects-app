@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from base64 import b64encode
@@ -18,6 +19,9 @@ from backend.auth.mcp_oauth_runtime import decode_access_token, mcp_oauth_issuer
 from backend.auth.session_runtime import AccessContext
 from backend.extensions import db
 from backend.models import AuthExternalSubject, AuthOAuthSigningKey, AuthUser
+
+
+logger = logging.getLogger(__name__)
 
 
 class McpAuthError(Exception):
@@ -250,7 +254,12 @@ def _bearer_challenge(*, error: str | None = None, description: str | None = Non
 
 
 def _authenticate_pandects_access_token(token: str) -> McpPrincipal | None:
-    active_keys = AuthOAuthSigningKey.query.filter_by(active=True).all()
+    try:
+        active_keys = AuthOAuthSigningKey.query.filter_by(active=True).all()
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        logger.exception("mcp_auth_signing_keys_unavailable")
+        raise RuntimeError("Auth backend is unavailable right now.") from exc
     for key in active_keys:
         try:
             payload = decode_access_token(
@@ -609,6 +618,7 @@ def _linked_verified_user(*, issuer: str, subject: str) -> AuthUser:
     try:
         mapping = AuthExternalSubject.query.filter_by(issuer=issuer, subject=subject).first()
     except SQLAlchemyError as exc:
+        db.session.rollback()
         raise RuntimeError("Auth backend is unavailable right now.") from exc
     if mapping is None:
         raise _auth_error(
@@ -625,6 +635,7 @@ def _linked_verified_user(*, issuer: str, subject: str) -> AuthUser:
     try:
         user = db.session.get(AuthUser, mapping.user_id)
     except SQLAlchemyError as exc:
+        db.session.rollback()
         raise RuntimeError("Auth backend is unavailable right now.") from exc
     if user is None or user.email_verified_at is None:
         raise _auth_error(

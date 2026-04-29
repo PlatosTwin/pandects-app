@@ -10,6 +10,8 @@ from urllib.request import Request, urlopen
 from unittest.mock import patch
 
 import jwt
+from flask import Flask
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text
 from werkzeug.exceptions import BadRequest
 from werkzeug.serving import BaseWSGIServer, make_server
@@ -918,6 +920,144 @@ class McpTests(unittest.TestCase):
         self.assertIn("application/json", res.headers["Content-Type"])
         self.assertIn("result", res.get_json())
 
+    def test_sse_tool_response_serializes_decimal_dates_and_datetimes(self):
+        from backend.mcp.tools import McpToolResult
+
+        client = self.app.test_client()
+        structured_content = {
+            "amount": Decimal("12.50"),
+            "day": date(2020, 1, 1),
+            "at": datetime(2020, 1, 1, 12, 30, 0),
+        }
+        with patch(
+            "backend.mcp.routes.call_tool",
+            return_value=McpToolResult(
+                text="Returned decimal payload.",
+                structured_content=structured_content,
+            ),
+        ):
+            res = client.post(
+                "/mcp",
+                headers={
+                    "Authorization": self._bearer(),
+                    "Accept": "text/event-stream",
+                },
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "list_filter_options",
+                        "arguments": {},
+                        "_meta": {"progressToken": "progress-token-decimal"},
+                    },
+                },
+            )
+            body = res.get_data(as_text=True)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/event-stream", res.headers["Content-Type"])
+        self.assertIn('"amount":12.5', body)
+        self.assertIn('"day":"2020-01-01"', body)
+        self.assertIn('"at":"2020-01-01T12:30:00"', body)
+
+    def test_json_tool_response_serializes_decimal_dates_and_datetimes(self):
+        from backend.mcp.tools import McpToolResult
+
+        client = self.app.test_client()
+        structured_content = {
+            "amount": Decimal("12.50"),
+            "day": date(2020, 1, 1),
+            "at": datetime(2020, 1, 1, 12, 30, 0),
+        }
+        with patch(
+            "backend.mcp.routes.call_tool",
+            return_value=McpToolResult(
+                text="Returned decimal payload.",
+                structured_content=structured_content,
+            ),
+        ):
+            res = client.post(
+                "/mcp",
+                headers={
+                    "Authorization": self._bearer(),
+                    "Accept": "application/json",
+                },
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {"name": "list_filter_options", "arguments": {}},
+                },
+            )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("application/json", res.headers["Content-Type"])
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["amount"], 12.5)
+        self.assertEqual(payload["day"], "2020-01-01")
+        self.assertEqual(payload["at"], "2020-01-01T12:30:00")
+
+    def test_pandects_token_auth_db_failure_rolls_back_and_returns_503(self):
+        class BrokenSigningKeyQuery:
+            def filter_by(self, **_kwargs: object) -> "BrokenSigningKeyQuery":
+                raise SQLAlchemyError("auth db unavailable")
+
+        class BrokenSigningKey:
+            query = BrokenSigningKeyQuery()
+
+        client = self.app.test_client()
+        with (
+            patch.object(self.mcp_runtime, "AuthOAuthSigningKey", BrokenSigningKey),
+            patch.object(self.app_module.db.session, "rollback") as rollback,
+        ):
+            res = client.post(
+                "/mcp",
+                headers={"Authorization": self._bearer()},
+                json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+            )
+        self.assertEqual(res.status_code, 503)
+        rollback.assert_called_once()
+        body = res.get_json()
+        self.assertEqual(body["jsonrpc"], "2.0")
+        self.assertEqual(body["id"], 1)
+        self.assertEqual(body["error"]["data"]["status_code"], 503)
+        self.assertEqual(body["error"]["data"]["action"], "contact_support")
+
+    def test_mcp_sqlalchemy_error_handler_rolls_back_and_returns_jsonrpc_503(self):
+        client = self.app.test_client()
+        with (
+            patch("backend.mcp.routes.authenticate_mcp_request", side_effect=SQLAlchemyError("db down")),
+            patch.object(self.app_module.db.session, "rollback") as rollback,
+        ):
+            res = client.post(
+                "/mcp",
+                headers={"Authorization": self._bearer()},
+                json={"jsonrpc": "2.0", "id": 7, "method": "ping"},
+            )
+        self.assertEqual(res.status_code, 503)
+        rollback.assert_called_once()
+        body = res.get_json()
+        self.assertEqual(body["jsonrpc"], "2.0")
+        self.assertEqual(body["id"], 7)
+        self.assertEqual(body["error"]["code"], -32004)
+        self.assertEqual(body["error"]["data"], {"category": "database", "status_code": 503})
+
+    def test_database_engine_options_use_pre_ping_and_recycle(self):
+        from backend.core.config import configure_auth_bind, configure_main_db
+
+        app = Flask("engine-options-test")
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+        app.config["MAIN_DB_SCHEMA"] = ""
+        configure_auth_bind(app, auth_database_uri="sqlite:///:memory:")
+        configure_main_db(app)
+
+        engine_options = app.config["SQLALCHEMY_ENGINE_OPTIONS"]
+        self.assertEqual(engine_options["pool_pre_ping"], True)
+        self.assertEqual(engine_options["pool_recycle"], 240)
+        auth_bind = app.config["SQLALCHEMY_BINDS"]["auth"]
+        self.assertEqual(auth_bind["pool_pre_ping"], True)
+        self.assertEqual(auth_bind["pool_recycle"], 240)
+        self.assertEqual(auth_bind["url"], "sqlite:///:memory:")
+
     def test_delete_mcp_requires_auth_and_returns_204(self):
         client = self.app.test_client()
         res = client.delete("/mcp")
@@ -1117,7 +1257,7 @@ class McpTests(unittest.TestCase):
         self.assertIn("focus_terms", snippet_schema["properties"])
 
         capabilities_schema = tools["get_server_capabilities"]
-        self.assertEqual(capabilities_schema["properties"], {})
+        self.assertIn("sections", capabilities_schema["properties"])
 
         metrics_schema = tools["get_server_metrics"]
         self.assertEqual(metrics_schema["properties"], {})
@@ -1350,7 +1490,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(snippet_payload["matched_terms"], ["disproportionate effects"])
 
     def test_server_capabilities_tool(self):
-        res = self._call_tool("get_server_capabilities", {})
+        res = self._call_tool("get_server_capabilities", {"sections": ["server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools"]})
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()["result"]["structuredContent"]
         self.assertEqual(payload["server"]["introspection_tool"], "get_server_capabilities")
@@ -1491,7 +1631,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(tools, expected)
 
     def test_server_capabilities_snapshot(self):
-        res = self._call_tool("get_server_capabilities", {})
+        res = self._call_tool("get_server_capabilities", {"sections": ["server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools"]})
         self.assertEqual(res.status_code, 200)
         payload = _normalized_capabilities_snapshot(res.get_json()["result"]["structuredContent"])
         snapshot_path = os.path.join(os.path.dirname(__file__), "fixtures", "mcp_server_capabilities_snapshot.json")

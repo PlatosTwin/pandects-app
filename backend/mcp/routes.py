@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime
+from decimal import Decimal
 import json
 import logging
 import time
@@ -69,10 +71,36 @@ def _apply_protocol_headers(response: Response) -> Response:
     return response
 
 
-def _sse_envelope(payload: dict[str, object]) -> Response:
+def _json_compatible(value: object) -> object:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, dict):
+        return {str(key): _json_compatible(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_compatible(item) for item in value]
+    return value
+
+
+def _json_response(payload: dict[str, object], status_code: int) -> Response:
+    return make_response(jsonify(_json_compatible(payload)), status_code)
+
+
+def _sse_body(payload: dict[str, object]) -> str:
     event_id = uuid4().hex
-    body = f"id: {event_id}\nevent: message\ndata: {json.dumps(payload, separators=(',', ':'))}\n\n"
-    response = make_response(body, 200)
+    try:
+        data = json.dumps(_json_compatible(payload), separators=(",", ":"))
+    except TypeError:
+        logger.exception("mcp_sse_payload_serialization_failed")
+        raise
+    return f"id: {event_id}\nevent: message\ndata: {data}\n\n"
+
+
+def _sse_envelope(payload: dict[str, object]) -> Response:
+    response = make_response(_sse_body(payload), 200)
     response.headers["Content-Type"] = "text/event-stream; charset=utf-8"
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Accel-Buffering"] = "no"
@@ -99,7 +127,7 @@ def _json_rpc_error(
     if status_code == 200 and _client_prefers_sse():
         response = _sse_envelope(payload)
     else:
-        response = make_response(jsonify(payload), status_code)
+        response = _json_response(payload, status_code)
     if www_authenticate is not None:
         response.headers["WWW-Authenticate"] = www_authenticate
     return _apply_protocol_headers(response)
@@ -115,7 +143,7 @@ def _json_rpc_result(
     if _client_prefers_sse():
         response = _sse_envelope(payload)
     else:
-        response = make_response(jsonify(payload), 200)
+        response = _json_response(payload, 200)
     if extra_headers:
         for key, value in extra_headers.items():
             response.headers[key] = value
@@ -149,12 +177,7 @@ def _extract_progress_token(params: dict[str, object]) -> object | None:
 
 
 def _encode_sse_event(payload: dict[str, object]) -> str:
-    event_id = uuid4().hex
-    return (
-        f"id: {event_id}\n"
-        f"event: message\n"
-        f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
-    )
+    return _sse_body(payload)
 
 
 def _stream_tool_call_response(
