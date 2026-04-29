@@ -4667,19 +4667,19 @@
         "sections:search"
       ],
       "pagination": "none",
-      "selection_hint": "Use when you need canonical firm names before counsel-filtered agreement or section retrieval.",
+      "selection_hint": "Use when you need canonical firm names before counsel-filtered agreement or section retrieval. Pass query= to avoid fetching the full catalog.",
       "negative_guidance": [],
       "response_examples": [
         {
           "content": {
             "counsel": [
               {
-                "canonical_name": "Wachtell, Lipton, Rosen & Katz",
-                "counsel_id": 1
+                "canonical_name": "Kirkland & Ellis",
+                "counsel_id": 42
               }
             ]
           },
-          "description": "Canonical counsel catalog."
+          "description": "Filtered result for query='Kirkland'."
         }
       ],
       "access": {
@@ -4693,7 +4693,16 @@
       },
       "input_schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "limit": {
+            "description": "Maximum number of entries to return. Omit for no limit.",
+            "type": "integer"
+          },
+          "query": {
+            "description": "Case-insensitive substring filter on canonical_name. Omit to return all entries.",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "output_schema": {

@@ -1029,16 +1029,21 @@ def _naics_payload(deps: ReferenceDataDeps) -> dict[str, object]:
     return {"sectors": sectors}
 
 
-def _counsel_payload(deps: ReferenceDataDeps) -> dict[str, object]:
-    rows = cast(
-        list[tuple[object, object]],
-        deps.db.session.query(
-            deps.Counsel.counsel_id,
-            deps.Counsel.canonical_name,
-        )
-        .order_by(deps.Counsel.canonical_name.asc(), deps.Counsel.counsel_id.asc())
-        .all(),
-    )
+def _counsel_payload(
+    deps: ReferenceDataDeps,
+    *,
+    query: str | None = None,
+    limit: int | None = None,
+) -> dict[str, object]:
+    q = deps.db.session.query(
+        deps.Counsel.counsel_id,
+        deps.Counsel.canonical_name,
+    ).order_by(deps.Counsel.canonical_name.asc(), deps.Counsel.counsel_id.asc())
+    if query:
+        q = q.filter(cast(Any, deps.Counsel.canonical_name).ilike(f"%{query}%"))
+    if limit is not None:
+        q = q.limit(limit)
+    rows = cast(list[tuple[object, object]], q.all())
     payload_rows: list[dict[str, object]] = []
     for counsel_id, canonical_name in rows:
         if isinstance(counsel_id, int) and isinstance(canonical_name, str):
@@ -2798,9 +2803,16 @@ def _get_counsel_catalog(
     deps: ReferenceDataDeps,
     *,
     principal: McpPrincipal,
+    payload: dict[str, object],
 ) -> McpToolResult:
     _require_scope(principal, "sections:search")
-    response = _counsel_payload(deps)
+    query = payload.get("query")
+    limit = payload.get("limit")
+    response = _counsel_payload(
+        deps,
+        query=query if isinstance(query, str) else None,
+        limit=limit if isinstance(limit, int) else None,
+    )
     counsel_rows = cast(list[object], response.get("counsel", []))
     return McpToolResult(
         text=f"Returned {len(counsel_rows)} counsel entr{'' if len(counsel_rows) == 1 else 'ies'}.",
@@ -4234,18 +4246,36 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_counsel_catalog",
-            description="Return the canonical list of law firms used as counsel filters. Use to resolve a firm's informal name into the canonical form required by target_counsel and acquirer_counsel filters.",
-            input_schema=_empty_schema(),
+            description=(
+                "Return canonical law-firm names used as counsel filters. "
+                "Pass `query` to filter by substring (case-insensitive) — e.g. query='Kirkland' returns only Kirkland & Ellis entries. "
+                "Without `query` the full catalog (~1 300 entries) is returned; prefer a scoped query whenever you know the firm name."
+            ),
+            input_schema=_object_schema(
+                {
+                    "query": {
+                        "type": "string",
+                        "description": "Case-insensitive substring filter on canonical_name. Omit to return all entries.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of entries to return. Omit for no limit.",
+                    },
+                },
+                required=[],
+                additional_properties=False,
+            ),
             output_schema=_counsel_catalog_output_schema(),
             examples=(
-                {"description": "List canonical counsel names.", "arguments": {}},
-                {"description": "Get a normalized counsel name before applying target_counsel filters.", "arguments": {}},
+                {"description": "Look up Kirkland & Ellis by partial name.", "arguments": {"query": "Kirkland"}},
+                {"description": "Find all Sullivan & Cromwell entries.", "arguments": {"query": "Sullivan"}},
+                {"description": "Return the full catalog (use sparingly — large response).", "arguments": {}},
             ),
             response_examples=(
-                {"description": "Canonical counsel catalog.", "content": {"counsel": [{"counsel_id": 1, "canonical_name": "Wachtell, Lipton, Rosen & Katz"}]}},
+                {"description": "Filtered result for query='Kirkland'.", "content": {"counsel": [{"counsel_id": 42, "canonical_name": "Kirkland & Ellis"}]}},
             ),
             scopes=("sections:search",),
-            selection_hint="Use when you need canonical firm names before counsel-filtered agreement or section retrieval.",
+            selection_hint="Use when you need canonical firm names before counsel-filtered agreement or section retrieval. Pass query= to avoid fetching the full catalog.",
             negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
@@ -4576,7 +4606,7 @@ def call_tool(
         handler_kwargs["agreements_deps"] = agreements_deps
     if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families"}:
         handler_kwargs["deps"] = reference_data_deps
-    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families"}:
+    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "get_counsel_catalog"}:
         handler_kwargs["payload"] = arguments
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps

@@ -3812,18 +3812,27 @@
   },
   {
     "name": "get_counsel_catalog",
-    "description": "Return the canonical list of law firms used as counsel filters. Use to resolve a firm's informal name into the canonical form required by target_counsel and acquirer_counsel filters.",
+    "description": "Return canonical law-firm names used as counsel filters. Pass `query` to filter by substring (case-insensitive) \u2014 e.g. query='Kirkland' returns only Kirkland & Ellis entries. Without `query` the full catalog (~1 300 entries) is returned; prefer a scoped query whenever you know the firm name.",
     "annotations": {
       "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "sections:search"
       ],
-      "selectionHint": "Use when you need canonical firm names before counsel-filtered agreement or section retrieval."
+      "selectionHint": "Use when you need canonical firm names before counsel-filtered agreement or section retrieval. Pass query= to avoid fetching the full catalog."
     },
     "inputSchema": {
       "additionalProperties": false,
-      "properties": {},
+      "properties": {
+        "limit": {
+          "description": "Maximum number of entries to return. Omit for no limit.",
+          "type": "integer"
+        },
+        "query": {
+          "description": "Case-insensitive substring filter on canonical_name. Omit to return all entries.",
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "outputSchema": {
