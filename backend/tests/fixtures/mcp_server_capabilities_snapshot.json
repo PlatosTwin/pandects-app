@@ -1154,6 +1154,10 @@
             "description": "When false, omit `dump_version` from the response body. The `X-Pandects-Dump-Hash` response header is always included.",
             "type": "boolean"
           },
+          "include_xml": {
+            "description": "When true, include full section XML in each result. Omitted by default to keep responses compact.",
+            "type": "boolean"
+          },
           "metadata": {
             "description": "Agreement metadata fields to include under results[].metadata.",
             "example": [
@@ -2112,7 +2116,7 @@
                 },
                 "prob_filing": {
                   "type": [
-                    "string",
+                    "number",
                     "null"
                   ]
                 },
@@ -2764,7 +2768,7 @@
           },
           "prob_filing": {
             "type": [
-              "string",
+              "number",
               "null"
             ]
           },

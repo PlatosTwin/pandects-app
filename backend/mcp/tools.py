@@ -1436,6 +1436,22 @@ def _list_agreements(
         if expanded:
             q = q.filter(deps._standard_id_agreement_filter_expr(agreements.agreement_uuid, expanded))
 
+    target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="target",
+        canonical_names=cast(list[str], parsed_args["target_counsel"]),
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if target_counsel_subquery is not None:
+        q = q.filter(agreements.agreement_uuid.in_(target_counsel_subquery))
+    acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
+        side="acquirer",
+        canonical_names=cast(list[str], parsed_args["acquirer_counsel"]),
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    )
+    if acquirer_counsel_subquery is not None:
+        q = q.filter(agreements.agreement_uuid.in_(acquirer_counsel_subquery))
     any_counsel_subquery = build_any_counsel_agreement_uuid_subquery(
         canonical_names=any_counsel_values,
         agreement_counsel=agreement_counsel,
@@ -2323,15 +2339,57 @@ def _search_sections(
     *,
     principal: McpPrincipal,
     payload: dict[str, object],
+    agreements_deps: AgreementsDeps,
 ) -> McpToolResult:
     _require_scope(principal, "sections:search")
     parsed_args = cast(
         SectionsArgsPayload,
         cast(object, _validate_payload(SectionsArgsSchema(), payload)),
     )
+    include_xml = parsed_args["include_xml"]
     response = run_sections(deps, ctx=principal.access_context, parsed_args=parsed_args)
-    returned = response.get("results", [])
-    count = len(returned) if isinstance(returned, list) else 0
+    results = cast(list[dict[str, object]], response.get("results", []))
+
+    if not include_xml:
+        for item in results:
+            item.pop("xml", None)
+
+    all_standard_ids: set[str] = set()
+    for item in results:
+        for sid in cast(list[str], item.get("standard_id", [])):
+            if isinstance(sid, str):
+                all_standard_ids.add(sid)
+    if all_standard_ids:
+        db = deps.db
+        label_rows = cast(
+            list[tuple[object, object]],
+            db.session.query(
+                cast(Any, agreements_deps.TaxonomyL1).standard_id,
+                cast(Any, agreements_deps.TaxonomyL1).label,
+            )
+            .filter(cast(Any, agreements_deps.TaxonomyL1).standard_id.in_(all_standard_ids))
+            .all()
+            + db.session.query(
+                cast(Any, agreements_deps.TaxonomyL2).standard_id,
+                cast(Any, agreements_deps.TaxonomyL2).label,
+            )
+            .filter(cast(Any, agreements_deps.TaxonomyL2).standard_id.in_(all_standard_ids))
+            .all()
+            + db.session.query(
+                cast(Any, agreements_deps.TaxonomyL3).standard_id,
+                cast(Any, agreements_deps.TaxonomyL3).label,
+            )
+            .filter(cast(Any, agreements_deps.TaxonomyL3).standard_id.in_(all_standard_ids))
+            .all(),
+        )
+        standard_id_labels: dict[str, str] = {
+            sid: label
+            for sid, label in label_rows
+            if isinstance(sid, str) and isinstance(label, str)
+        }
+        response["standard_id_labels"] = standard_id_labels
+
+    count = len(results)
     return McpToolResult(
         text=f"Returned {count} section(s).",
         structured_content=response,
@@ -2829,7 +2887,7 @@ def _agreement_list_result_schema(*, include_xml: bool = False) -> dict[str, obj
         "target": {"type": ["string", "null"]},
         "acquirer": {"type": ["string", "null"]},
         "filing_date": {"type": ["string", "null"]},
-        "prob_filing": {"type": ["string", "null"]},
+        "prob_filing": {"type": ["number", "null"]},
         "filing_company_name": {"type": ["string", "null"]},
         "filing_company_cik": {"type": ["string", "null"]},
         "form_type": {"type": ["string", "null"]},
@@ -3084,7 +3142,7 @@ def _get_agreement_output_schema() -> dict[str, object]:
             "target": {"type": ["string", "null"]},
             "acquirer": {"type": ["string", "null"]},
             "filing_date": {"type": ["string", "null"]},
-            "prob_filing": {"type": ["string", "null"]},
+            "prob_filing": {"type": ["number", "null"]},
             "filing_company_name": {"type": ["string", "null"]},
             "filing_company_cik": {"type": ["string", "null"]},
             "form_type": {"type": ["string", "null"]},
@@ -3750,6 +3808,10 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             description="Agreement metadata fields to include under results[].metadata.",
             examples=[["deal_type", "target_industry"]],
         ),
+        "include_xml": {
+            "type": "boolean",
+            "description": "When true, include full section XML in each result. Omitted by default to keep responses compact.",
+        },
     }
     list_agreement_sections_overrides: dict[str, dict[str, object]] = {
         "sort_by": {
@@ -4510,6 +4572,8 @@ def call_tool(
         handler_kwargs["deps"] = agreements_deps
     if name in {"search_sections", "list_agreement_sections", "list_agreement_sections_batch"}:
         handler_kwargs["deps"] = sections_service_deps
+    if name == "search_sections":
+        handler_kwargs["agreements_deps"] = agreements_deps
     if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families"}:
         handler_kwargs["deps"] = reference_data_deps
     if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families"}:

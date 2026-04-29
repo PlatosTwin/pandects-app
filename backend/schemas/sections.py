@@ -61,6 +61,7 @@ class SectionsArgsPayload(TypedDict):
     agreement_uuid: str | None
     section_uuid: str | None
     include_dump: bool
+    include_xml: bool
     count_mode: str
     sort_by: str
     sort_direction: str
@@ -189,6 +190,12 @@ class SectionsArgsSchema(Schema):
                 "When false, omit `dump_version` from the response body. "
                 "The `X-Pandects-Dump-Hash` response header is always included."
             ),
+        },
+    )
+    include_xml = fields.Bool(
+        load_default=False,
+        metadata={
+            "description": "When true, include full section XML in each result. Omitted by default to keep responses compact.",
         },
     )
 

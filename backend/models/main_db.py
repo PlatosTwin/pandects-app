@@ -8,6 +8,7 @@ from typing import Any, ClassVar, cast
 
 from sqlalchemy import (
     CHAR,
+    Float,
     TEXT,
     Column,
     Integer,
@@ -217,7 +218,7 @@ else:
         metadata,
         Column("agreement_uuid", CHAR(36), primary_key=True),
         Column("filing_date", TEXT, nullable=True),
-        Column("prob_filing", TEXT, nullable=True),
+        Column("prob_filing", Float, nullable=True),
         Column("filing_company_name", TEXT, nullable=True),
         Column("filing_company_cik", TEXT, nullable=True),
         Column("form_type", TEXT, nullable=True),
@@ -326,7 +327,7 @@ else:
         Column("section_uuid", CHAR(36), primary_key=True),
         Column("agreement_uuid", CHAR(36), nullable=False),
         Column("filing_date", TEXT, nullable=True),
-        Column("prob_filing", TEXT, nullable=True),
+        Column("prob_filing", Float, nullable=True),
         Column("filing_company_name", TEXT, nullable=True),
         Column("filing_company_cik", TEXT, nullable=True),
         Column("form_type", TEXT, nullable=True),

@@ -225,7 +225,7 @@ def _stream_tool_call_response(
                     "id": request_id,
                     "error": {
                         "code": -32602,
-                        "message": "Invalid tool arguments.",
+                        "message": f"Invalid tool arguments: {', '.join(str(k) for k in exc.messages.keys()) if isinstance(exc.messages, dict) else 'unknown fields'}.",
                         "data": exc.messages,
                     },
                 }
