@@ -302,7 +302,7 @@ export default function Examples() {
         </section>
 
         {/* ── Output ── */}
-        <section id="output-section" tabIndex={-1} className="space-y-4 outline-none" aria-labelledby="output-heading">
+        <section id="output-section" tabIndex={-1} className="scroll-mt-24 space-y-4 outline-none" aria-labelledby="output-heading">
           <div className="flex items-center gap-3">
             <span aria-hidden="true" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
               3
