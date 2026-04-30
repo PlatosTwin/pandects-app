@@ -497,7 +497,7 @@ class AiRepairTargetingTests(unittest.TestCase):
             ],
         )
 
-    def test_full_page_span_validation_rejects_far_away_exact_match(self) -> None:
+    def test_full_page_span_validation_realigns_far_away_unique_exact_match(self) -> None:
         source = "Intro text. " + ("x" * 200) + "Section 9.12 Financing Sources."
         far_off = [
             {
@@ -508,8 +508,20 @@ class AiRepairTargetingTests(unittest.TestCase):
             }
         ]
 
-        with self.assertRaises(ValueError):
-            _ = _validate_full_page_tag_spans(source, far_off)
+        validated = _validate_full_page_tag_spans(source, far_off)
+        aligned_start = source.index("Section 9.12 Financing Sources.")
+
+        self.assertEqual(
+            validated,
+            [
+                {
+                    "start_char": aligned_start,
+                    "end_char": len(source),
+                    "label": "section",
+                    "selected_text": "Section 9.12 Financing Sources.",
+                }
+            ],
+        )
 
     def test_full_page_span_validation_rejects_ambiguous_nearby_exact_matches(self) -> None:
         source = "TAG" + ("x" * 17) + "TAG"
