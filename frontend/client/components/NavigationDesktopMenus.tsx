@@ -59,7 +59,7 @@ function NavigationDesktopMenusComponent() {
       { type: "link", to: "/xml-schema", label: "XML Schema" },
       { type: "link", to: "/taxonomy", label: "Taxonomy" },
       { type: "separator", key: "data-divider-1" },
-      { type: "link", to: "/examples", label: "Examples" },
+      { type: "link", to: "/examples", label: "Research Examples" },
       { type: "separator", key: "data-divider-2" },
       { type: "link", to: "/leaderboards", label: "Leaderboards" },
       { type: "link", to: "/trends-analyses", label: "Trends & Analyses" },

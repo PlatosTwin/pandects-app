@@ -147,7 +147,7 @@ export default function Examples() {
   return (
     <PageShell
       size="xl"
-      title="Examples"
+      title="Research Examples"
       subtitle="Real research sessions with the Pandects MCP server, showing the full agent trace from prompt to output."
     >
       <div className="space-y-10 overflow-x-hidden">
