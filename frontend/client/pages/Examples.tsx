@@ -132,7 +132,7 @@ const traceSteps: TraceStep[] = [
 
 function ToolCallRow({ tool }: { tool: ToolCall }) {
   return (
-    <div className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs">
+    <div className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs leading-relaxed [overflow-wrap:anywhere] [word-break:break-word]">
       <span className="text-primary">{tool.name}</span>
       <span className="text-muted-foreground">{"("}</span>
       <span className="text-foreground/80">{tool.args}</span>
@@ -150,7 +150,7 @@ export default function Examples() {
       title="Examples"
       subtitle="Real research sessions with the Pandects MCP server, showing the full agent trace from prompt to output."
     >
-      <div className="space-y-10">
+      <div className="space-y-10 overflow-x-hidden">
         {/* ── Example header ── */}
         <div className="space-y-3">
           <h2 className="text-lg font-semibold text-foreground">
@@ -180,7 +180,7 @@ export default function Examples() {
         {/* ── Prompt ── */}
         <section className="space-y-4" aria-labelledby="prompt-heading">
           <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+            <span aria-hidden="true" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
               1
             </span>
             <h3 id="prompt-heading" className="text-lg font-semibold tracking-tight text-foreground whitespace-nowrap">
@@ -189,7 +189,7 @@ export default function Examples() {
             <div className="ml-1 h-px flex-1 bg-border" />
             <a
               href="#output-section"
-              className="whitespace-nowrap text-xs text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+              className="whitespace-nowrap text-xs text-muted-foreground/70 transition-colors hover:text-muted-foreground"
             >
               Skip to output ↓
             </a>
@@ -226,7 +226,7 @@ export default function Examples() {
         {/* ── Agent Trace ── */}
         <section className="space-y-4" aria-labelledby="trace-heading">
           <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+            <span aria-hidden="true" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
               2
             </span>
             <h3 id="trace-heading" className="text-lg font-semibold tracking-tight text-foreground whitespace-nowrap">
@@ -235,7 +235,7 @@ export default function Examples() {
             <div className="ml-1 h-px flex-1 bg-border" />
             <a
               href="#output-section"
-              className="whitespace-nowrap text-xs text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+              className="whitespace-nowrap text-xs text-muted-foreground/70 transition-colors hover:text-muted-foreground"
             >
               Skip to output ↓
             </a>
@@ -249,8 +249,8 @@ export default function Examples() {
                     value={step.id}
                     className="rounded-md border border-border px-3 last:border-b"
                   >
-                    <AccordionTrigger className="py-3 text-left hover:no-underline">
-                      <div className="flex min-w-0 items-center gap-2">
+                    <AccordionTrigger className="min-w-0 py-3 text-left hover:no-underline">
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
                         <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
                           {i + 1}
                         </span>
@@ -302,9 +302,9 @@ export default function Examples() {
         </section>
 
         {/* ── Output ── */}
-        <section id="output-section" className="space-y-4" aria-labelledby="output-heading">
+        <section id="output-section" tabIndex={-1} className="space-y-4 outline-none" aria-labelledby="output-heading">
           <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+            <span aria-hidden="true" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
               3
             </span>
             <h3 id="output-heading" className="text-lg font-semibold tracking-tight text-foreground whitespace-nowrap">
@@ -331,8 +331,8 @@ export default function Examples() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="pb-2 pr-6 text-left font-medium text-muted-foreground">Formulation</th>
-                        <th className="pb-2 text-left font-medium text-muted-foreground">Side</th>
+                        <th scope="col" className="pb-2 pr-6 text-left font-medium text-muted-foreground">Formulation</th>
+                        <th scope="col" className="pb-2 text-left font-medium text-muted-foreground">Side</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -341,7 +341,9 @@ export default function Examples() {
                           "conduct the business in the ordinary course"
                         </td>
                         <td className="py-2">
-                          <Badge variant="outline" className="text-xs">Buyer's ask (clean, no qualifier)</Badge>
+                          <span className="inline-block rounded-md border border-border px-2 py-0.5 text-xs text-foreground">
+                            Buyer's ask (clean, no qualifier)
+                          </span>
                         </td>
                       </tr>
                       <tr>
@@ -349,7 +351,9 @@ export default function Examples() {
                           "use commercially reasonable efforts to conduct the business in the ordinary course"
                         </td>
                         <td className="py-2">
-                          <Badge variant="outline" className="text-xs">Seller's ask</Badge>
+                          <span className="inline-block rounded-md border border-border px-2 py-0.5 text-xs text-foreground">
+                            Seller's ask
+                          </span>
                         </td>
                       </tr>
                     </tbody>
@@ -364,10 +368,10 @@ export default function Examples() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Formulation Structure</th>
-                        <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Count</th>
-                        <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">%</th>
-                        <th className="pb-2 text-left font-medium text-muted-foreground">Deals</th>
+                        <th scope="col" className="pb-2 pr-4 text-left font-medium text-muted-foreground">Formulation Structure</th>
+                        <th scope="col" className="pb-2 pr-4 text-left font-medium text-muted-foreground">Count</th>
+                        <th scope="col" className="pb-2 pr-4 text-left font-medium text-muted-foreground">%</th>
+                        <th scope="col" className="pb-2 text-left font-medium text-muted-foreground">Deals</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border text-xs">
@@ -465,9 +469,9 @@ export default function Examples() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Deal</th>
-                        <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Size / Year</th>
-                        <th className="pb-2 text-left font-medium text-muted-foreground">Formulation</th>
+                        <th scope="col" className="pb-2 pr-4 text-left font-medium text-muted-foreground">Deal</th>
+                        <th scope="col" className="pb-2 pr-4 text-left font-medium text-muted-foreground">Size / Year</th>
+                        <th scope="col" className="pb-2 text-left font-medium text-muted-foreground">Formulation</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
