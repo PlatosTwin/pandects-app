@@ -38,6 +38,10 @@ STANDALONE_SECTION_LABEL_TAG_RE = re.compile(
     r"<section>(?P<inner>\s*(?:section|§)\s*)</section>",
     re.IGNORECASE,
 )
+ORPHAN_SECTION_LABEL_FRAGMENT_RE = re.compile(
+    r"^\s*(?:section|sections|secton|sectons|§)\s*\.?:?\s*$",
+    re.IGNORECASE,
+)
 NO_SPACE_SECTION_PREFIX_TAG_RE = re.compile(
     r"<section>(?P<prefix>\s*Section)(?P<number>\d{1,2}\.\d{1,3}\b)",
     re.IGNORECASE,
@@ -284,6 +288,8 @@ def split_combined_missing_section_tags(
         left = inner[:first_pos].rstrip()
         right = inner[first_pos:].lstrip()
         if not left or not right:
+            return match.group(0)
+        if ORPHAN_SECTION_LABEL_FRAGMENT_RE.fullmatch(left):
             return match.group(0)
         stats.applied["split_combined_missing_section_tags"] += 1
         return f"<section>{left}</section>\n\n<section>{right}</section>"

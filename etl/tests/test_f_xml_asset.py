@@ -32,6 +32,10 @@ from etl.defs.f_xml_asset import (
     find_hard_rule_violations,
     xml_verify_asset,
 )
+from etl.domain.xml_tag_repairs import (
+    SectionGap,
+    split_combined_missing_section_tags,
+)
 
 
 class XMLVerifyAssetTests(unittest.TestCase):
@@ -115,6 +119,81 @@ class XMLVerifyAssetTests(unittest.TestCase):
             self._normalized_text_without_heading_tags(tagged_output),
             self._normalized_text_without_heading_tags(repaired_text),
         )
+
+    def test_split_combined_missing_section_tags_ignores_orphan_section_label_fragments(self) -> None:
+        cases = [
+            (
+                "<section>Sections 7.2 Indemnification of the Purchaser Indemnitees.</section>",
+                SectionGap(article_num=7, expected=2, found=3),
+            ),
+            (
+                "<section>Secton 6.11 R&W Insurance Policy.</section>",
+                SectionGap(article_num=6, expected=11, found=12),
+            ),
+        ]
+
+        for tagged_text, gap in cases:
+            with self.subTest(tagged_text=tagged_text):
+                repaired, stats = split_combined_missing_section_tags(tagged_text, [gap])
+
+                self.assertEqual(repaired, tagged_text)
+                self.assertEqual(stats.applied, {})
+
+    def test_split_combined_missing_section_tags_still_splits_real_combined_headings(self) -> None:
+        tagged_text = (
+            "<section>Section 5.02 Cooper Filings Section 5.03 Non-Solicitation</section>"
+        )
+
+        repaired, stats = split_combined_missing_section_tags(
+            tagged_text,
+            [SectionGap(article_num=5, expected=3, found=4)],
+        )
+
+        self.assertEqual(
+            repaired,
+            "".join(
+                [
+                    "<section>Section 5.02 Cooper Filings</section>\n\n",
+                    "<section>Section 5.03 Non-Solicitation</section>",
+                ]
+            ),
+        )
+        self.assertEqual(stats.applied["split_combined_missing_section_tags"], 1)
+
+    def test_safe_xml_tag_repairs_do_not_create_orphan_section_label_sections(self) -> None:
+        cases = [
+            (
+                "".join(
+                    [
+                        "<section>7.1 Survival</section>",
+                        "<section>Sections 7.2 Indemnification</section>",
+                        "<section>7.3 Seller Indemnification</section>",
+                    ]
+                ),
+                "<section>Sections</section>",
+            ),
+            (
+                "".join(
+                    [
+                        "<section>6.10 Attorney-Client Privilege</section>",
+                        "<section>Secton 6.11 R&W Insurance Policy.</section>",
+                        "<section>6.12 Sellers Representative</section>",
+                    ]
+                ),
+                "<section>Secton</section>",
+            ),
+        ]
+
+        for article_body, orphan_tag in cases:
+            with self.subTest(orphan_tag=orphan_tag):
+                tagged_output = self._five_article_text(article_body)
+                df = self._xml_build_df(tagged_output)
+
+                repaired_df = _apply_safe_xml_tag_repairs_to_df(df)
+
+                repaired_text = cast(str, repaired_df.iloc[0]["tagged_output"])
+                self.assertNotIn(orphan_tag, repaired_text)
+                self.assertIn(article_body, repaired_text)
 
     def test_safe_xml_tag_repairs_split_combined_quoted_definition_tags(self) -> None:
         tagged_output = self._five_article_text(
