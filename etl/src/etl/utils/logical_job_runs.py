@@ -24,6 +24,7 @@ MANAGED_LOGICAL_JOB_NAMES = {
     "ingestion_cleanup_a",
     "ingestion_cleanup_b",
     "ingestion_cleanup_c",
+    "ingestion_cleanup_d",
 }
 
 MANAGED_JOB_STAGE_SEQUENCE: dict[str, tuple[str, ...]] = {
@@ -85,6 +86,14 @@ MANAGED_JOB_STAGE_SEQUENCE: dict[str, tuple[str, ...]] = {
         "ingestion_cleanup_c_taxonomy_gold_backfill",
         "ingestion_cleanup_c_tx_metadata_offline",
         "ingestion_cleanup_c_tx_metadata_web_search",
+    ),
+    "ingestion_cleanup_d": (
+        "ingestion_cleanup_d_sections",
+        "ingestion_cleanup_d_taxonomy_llm",
+        "ingestion_cleanup_d_tax_module",
+        "ingestion_cleanup_d_taxonomy_gold_backfill",
+        "ingestion_cleanup_d_tx_metadata_offline",
+        "ingestion_cleanup_d_tx_metadata_web_search",
     ),
 }
 

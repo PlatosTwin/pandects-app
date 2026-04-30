@@ -17,6 +17,7 @@ from etl.defs.g_sections_asset import (
     ingestion_cleanup_a_sections_from_repair_xml_asset,
     ingestion_cleanup_b_sections_from_repair_xml_asset,
     ingestion_cleanup_c_sections_asset,
+    ingestion_cleanup_d_sections_asset,
     regular_ingest_sections_from_fresh_xml_asset,
     regular_ingest_sections_from_repair_xml_asset,
 )
@@ -1215,6 +1216,31 @@ def ingestion_cleanup_c_taxonomy_llm_asset(
 
 
 @dg.asset(
+    name="07-05_ingestion_cleanup_d_taxonomy_llm_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_d_sections_asset.key)},
+)
+def ingestion_cleanup_d_taxonomy_llm_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+    section_agreement_uuids: list[str],
+) -> list[str]:
+    return _run_managed_taxonomy_asset(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        job_name="ingestion_cleanup_d",
+        stage_name="ingestion_cleanup_d_taxonomy_llm",
+        fallback_agreement_uuids=sorted(set(section_agreement_uuids)),
+        mode=TaxonomyMode.LLM,
+        log_prefix="ingestion_cleanup_d_taxonomy_llm_asset",
+        skip_if_completed=True,
+    )
+
+
+@dg.asset(
     name="09-01_ingestion_cleanup_a_taxonomy_gold_backfill_asset",
     ins={"section_agreement_uuids": dg.AssetIn(key=dg.AssetKey("08-04_ingestion_cleanup_a_tax_module_asset"))},
 )
@@ -1285,5 +1311,30 @@ def ingestion_cleanup_c_taxonomy_gold_backfill_asset(
         fallback_agreement_uuids=section_agreement_uuids,
         mode=TaxonomyMode.GOLD_BACKFILL,
         log_prefix="ingestion_cleanup_c_taxonomy_gold_backfill_asset",
+        skip_if_completed=True,
+    )
+
+
+@dg.asset(
+    name="09-04_ingestion_cleanup_d_taxonomy_gold_backfill_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=dg.AssetKey("08-07_ingestion_cleanup_d_tax_module_asset"))},
+)
+def ingestion_cleanup_d_taxonomy_gold_backfill_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    taxonomy_model: TaxonomyModel,
+    pipeline_config: PipelineConfig,
+    section_agreement_uuids: list[str],
+) -> list[str]:
+    return _run_managed_taxonomy_asset(
+        context,
+        db=db,
+        taxonomy_model=taxonomy_model,
+        pipeline_config=pipeline_config,
+        job_name="ingestion_cleanup_d",
+        stage_name="ingestion_cleanup_d_taxonomy_gold_backfill",
+        fallback_agreement_uuids=section_agreement_uuids,
+        mode=TaxonomyMode.GOLD_BACKFILL,
+        log_prefix="ingestion_cleanup_d_taxonomy_gold_backfill_asset",
         skip_if_completed=True,
     )

@@ -19,6 +19,7 @@ from etl.defs.h_taxonomy_asset import (
     ingestion_cleanup_a_taxonomy_llm_asset,
     ingestion_cleanup_b_taxonomy_llm_asset,
     ingestion_cleanup_c_taxonomy_llm_asset,
+    ingestion_cleanup_d_taxonomy_llm_asset,
     regular_ingest_taxonomy_llm_asset,
 )
 from etl.defs.resources import DBResource, PipelineConfig
@@ -990,5 +991,27 @@ def ingestion_cleanup_c_tax_module_asset(
         stage_name="ingestion_cleanup_c_tax_module",
         fallback_agreement_uuids=section_agreement_uuids,
         log_prefix="ingestion_cleanup_c_tax_module_asset",
+        skip_if_completed=True,
+    )
+
+
+@dg.asset(
+    name="08-07_ingestion_cleanup_d_tax_module_asset",
+    ins={"section_agreement_uuids": dg.AssetIn(key=ingestion_cleanup_d_taxonomy_llm_asset.key)},
+)
+def ingestion_cleanup_d_tax_module_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    section_agreement_uuids: list[str],
+) -> list[str]:
+    return _run_managed_tax_module_asset(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        job_name="ingestion_cleanup_d",
+        stage_name="ingestion_cleanup_d_tax_module",
+        fallback_agreement_uuids=section_agreement_uuids,
+        log_prefix="ingestion_cleanup_d_tax_module_asset",
         skip_if_completed=True,
     )

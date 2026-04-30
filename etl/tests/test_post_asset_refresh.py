@@ -48,6 +48,7 @@ class PostAssetRefreshTests(unittest.TestCase):
             "10-04_ingestion_cleanup_a_tx_metadata_web_search_asset",
             "10-06_ingestion_cleanup_b_tx_metadata_web_search_asset",
             "10-08_ingestion_cleanup_c_tx_metadata_web_search_asset",
+            "10-10_ingestion_cleanup_d_tx_metadata_web_search_asset",
             "11_embed_sections",
         ):
             context = SimpleNamespace(asset_key=SimpleNamespace(path=[asset_name]))
@@ -80,6 +81,7 @@ class PostAssetRefreshTests(unittest.TestCase):
             "10-03_ingestion_cleanup_a_tx_metadata_offline_asset",
             "10-05_ingestion_cleanup_b_tx_metadata_offline_asset",
             "10-07_ingestion_cleanup_c_tx_metadata_offline_asset",
+            "10-09_ingestion_cleanup_d_tx_metadata_offline_asset",
         ):
             context = SimpleNamespace(asset_key=SimpleNamespace(path=[asset_name]))
             with (

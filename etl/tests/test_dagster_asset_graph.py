@@ -54,11 +54,13 @@ class DagsterAssetGraphTests(unittest.TestCase):
             "06-04_ingestion_cleanup_a_sections_from_repair_xml",
             "06-05_ingestion_cleanup_b_sections_from_repair_xml",
             "06-06_ingestion_cleanup_c_sections_asset",
+            "06-07_ingestion_cleanup_d_sections_asset",
             "07_taxonomy_asset",
             "07-01_regular_ingest_taxonomy_llm_asset",
             "07-02_ingestion_cleanup_a_taxonomy_llm_asset",
             "07-03_ingestion_cleanup_b_taxonomy_llm_asset",
             "07-04_ingestion_cleanup_c_taxonomy_llm_asset",
+            "07-05_ingestion_cleanup_d_taxonomy_llm_asset",
             "08_tax_module_asset",
             "08-01_tax_module_from_fresh_xml",
             "08-02_tax_module_from_repair_xml",
@@ -66,10 +68,12 @@ class DagsterAssetGraphTests(unittest.TestCase):
             "08-04_ingestion_cleanup_a_tax_module_asset",
             "08-05_ingestion_cleanup_b_tax_module_asset",
             "08-06_ingestion_cleanup_c_tax_module_asset",
+            "08-07_ingestion_cleanup_d_tax_module_asset",
             "09_regular_ingest_taxonomy_gold_backfill_asset",
             "09-01_ingestion_cleanup_a_taxonomy_gold_backfill_asset",
             "09-02_ingestion_cleanup_b_taxonomy_gold_backfill_asset",
             "09-03_ingestion_cleanup_c_taxonomy_gold_backfill_asset",
+            "09-04_ingestion_cleanup_d_taxonomy_gold_backfill_asset",
             "10_tx_metadata_asset",
             "10-01_regular_ingest_tx_metadata_offline_asset",
             "10-02_regular_ingest_tx_metadata_web_search_asset",
@@ -79,6 +83,8 @@ class DagsterAssetGraphTests(unittest.TestCase):
             "10-06_ingestion_cleanup_b_tx_metadata_web_search_asset",
             "10-07_ingestion_cleanup_c_tx_metadata_offline_asset",
             "10-08_ingestion_cleanup_c_tx_metadata_web_search_asset",
+            "10-09_ingestion_cleanup_d_tx_metadata_offline_asset",
+            "10-10_ingestion_cleanup_d_tx_metadata_web_search_asset",
             "11_embed_sections",
             "99_gating",
         }
@@ -163,12 +169,29 @@ class DagsterAssetGraphTests(unittest.TestCase):
                 "10-08_ingestion_cleanup_c_tx_metadata_web_search_asset",
             },
         )
+        self.assertEqual(
+            jobs["ingestion_cleanup_d"],
+            {
+                "06-07_ingestion_cleanup_d_sections_asset",
+                "07-05_ingestion_cleanup_d_taxonomy_llm_asset",
+                "08-07_ingestion_cleanup_d_tax_module_asset",
+                "09-04_ingestion_cleanup_d_taxonomy_gold_backfill_asset",
+                "10-09_ingestion_cleanup_d_tx_metadata_offline_asset",
+                "10-10_ingestion_cleanup_d_tx_metadata_web_search_asset",
+            },
+        )
         self.assertTrue({"10_tx_metadata_asset", "11_embed_sections", "99_gating"}.issubset(jobs["__ASSET_JOB"]))
 
     def test_managed_jobs_include_logical_run_failure_hook(self) -> None:
         repo = defs.get_repository_def()
 
-        for job_name in ("regular_ingest", "ingestion_cleanup_a", "ingestion_cleanup_b", "ingestion_cleanup_c"):
+        for job_name in (
+            "regular_ingest",
+            "ingestion_cleanup_a",
+            "ingestion_cleanup_b",
+            "ingestion_cleanup_c",
+            "ingestion_cleanup_d",
+        ):
             job = repo.get_job(job_name)
             hook_names = {hook.name for hook in job.hook_defs}
             self.assertIn("_managed_logical_run_failure_hook", hook_names)
@@ -187,6 +210,10 @@ class DagsterAssetGraphTests(unittest.TestCase):
         self.assertEqual(
             repo.get_job("ingestion_cleanup_c").description,
             "Fresh XML cleanup job; resumes by building XML from fresh-XML eligible agreements.",
+        )
+        self.assertEqual(
+            repo.get_job("ingestion_cleanup_d").description,
+            "Sections cleanup job; starts from verified XML agreements that need sections.",
         )
 
 

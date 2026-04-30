@@ -37,6 +37,7 @@ from etl.defs.h_taxonomy_asset import (
     ingestion_cleanup_a_taxonomy_gold_backfill_asset,
     ingestion_cleanup_b_taxonomy_gold_backfill_asset,
     ingestion_cleanup_c_taxonomy_gold_backfill_asset,
+    ingestion_cleanup_d_taxonomy_gold_backfill_asset,
     regular_ingest_taxonomy_gold_backfill_asset,
 )
 from etl.domain.i_tx_metadata import (
@@ -1171,6 +1172,52 @@ def ingestion_cleanup_c_tx_metadata_web_search_asset(
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_tx_metadata_web_search",
         log_prefix="ingestion_cleanup_c_tx_metadata_web_search_asset",
+        skip_if_completed=True,
+    )
+
+
+@dg.asset(
+    name="10-09_ingestion_cleanup_d_tx_metadata_offline_asset",
+    ins={"agreement_uuids": dg.AssetIn(key=ingestion_cleanup_d_taxonomy_gold_backfill_asset.key)},
+)
+def ingestion_cleanup_d_tx_metadata_offline_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    agreement_uuids: list[str],
+) -> list[str]:
+    return _run_managed_tx_metadata_offline_asset(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="ingestion_cleanup_d_tx_metadata_offline_asset",
+        job_name="ingestion_cleanup_d",
+        stage_name="ingestion_cleanup_d_tx_metadata_offline",
+        log_prefix="ingestion_cleanup_d_tx_metadata_offline_asset",
+        skip_if_completed=True,
+    )
+
+
+@dg.asset(
+    name="10-10_ingestion_cleanup_d_tx_metadata_web_search_asset",
+    ins={"agreement_uuids": dg.AssetIn(key=ingestion_cleanup_d_tx_metadata_offline_asset.key)},
+)
+def ingestion_cleanup_d_tx_metadata_web_search_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+    agreement_uuids: list[str],
+) -> list[str]:
+    return _run_managed_tx_metadata_web_search_asset(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        agreement_uuids=agreement_uuids,
+        asset_name="ingestion_cleanup_d_tx_metadata_web_search_asset",
+        job_name="ingestion_cleanup_d",
+        stage_name="ingestion_cleanup_d_tx_metadata_web_search",
+        log_prefix="ingestion_cleanup_d_tx_metadata_web_search_asset",
         skip_if_completed=True,
     )
 

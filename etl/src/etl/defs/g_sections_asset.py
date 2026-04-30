@@ -25,11 +25,47 @@ from etl.utils.logical_job_runs import (
     load_active_scope_for_job,
     mark_logical_run_stage_completed,
     should_skip_managed_stage,
+    start_or_resume_logical_run,
 )
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.pipeline_state_sql import canonical_fresh_sections_queue_sql
 from etl.utils.run_config import runs_single_batch
+
+
+def _select_sections_cleanup_scope(
+    context: AssetExecutionContext,
+    *,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> List[str]:
+    agreement_batch_size = pipeline_config.xml_agreement_batch_size
+    single_batch_run = runs_single_batch(context, pipeline_config)
+    engine = db.get_engine()
+    schema = db.database
+    last_uuid = ""
+    selected_agreement_uuids: List[str] = []
+
+    while True:
+        with engine.begin() as conn:
+            agreement_uuids = [
+                str(row)
+                for row in conn.execute(
+                    text(canonical_fresh_sections_queue_sql(schema)),
+                    {"last_uuid": last_uuid, "lim": agreement_batch_size},
+                ).scalars().all()
+            ]
+
+        if not agreement_uuids:
+            break
+
+        selected_agreement_uuids.extend(agreement_uuids)
+        last_uuid = agreement_uuids[-1]
+
+        if single_batch_run:
+            break
+
+    return sorted(set(selected_agreement_uuids))
 
 
 def _run_sections_for_agreements(
@@ -468,5 +504,51 @@ def ingestion_cleanup_c_sections_asset(
         db=db,
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_sections",
+    )
+    return processed_agreement_uuids
+
+
+@dg.asset(name="06-07_ingestion_cleanup_d_sections_asset")
+def ingestion_cleanup_d_sections_asset(
+    context: AssetExecutionContext,
+    db: DBResource,
+    pipeline_config: PipelineConfig,
+) -> list[str]:
+    selected_scope = _select_sections_cleanup_scope(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+    )
+    logical_run = start_or_resume_logical_run(
+        context,
+        db=db,
+        pipeline_config=pipeline_config,
+        job_name="ingestion_cleanup_d",
+        initial_stage="ingestion_cleanup_d_sections",
+        selected_agreement_uuids=selected_scope,
+    )
+    scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
+    should_skip, current_stage = should_skip_managed_stage(
+        db=db,
+        job_name="ingestion_cleanup_d",
+        stage_name="ingestion_cleanup_d_sections",
+    )
+    if should_skip:
+        context.log.info(
+            "ingestion_cleanup_d_sections_asset: skipping because logical run already reached %s.",
+            current_stage,
+        )
+        return []
+    processed_agreement_uuids = _run_sections_for_agreements(
+        context,
+        db,
+        pipeline_config,
+        target_agreement_uuids=scope_uuids,
+        log_prefix="ingestion_cleanup_d_sections_asset",
+    )
+    mark_logical_run_stage_completed(
+        db=db,
+        job_name="ingestion_cleanup_d",
+        stage_name="ingestion_cleanup_d_sections",
     )
     return processed_agreement_uuids
