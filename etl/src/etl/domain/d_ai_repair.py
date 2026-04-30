@@ -488,6 +488,7 @@ def _system_prompt_excerpt() -> str:
 
 
 def _user_prompt_full(page_uuid: str, text: str, toc_context: str | None = None) -> str:
+    _ = page_uuid, toc_context
     # Pass only the source page text so the model cannot echo prompt scaffolding
     # (e.g., PAGE_UUID/Task lines) into tagged_text.
     return text
@@ -549,7 +550,7 @@ def _system_prompt_source_text_verdict() -> str:
     - Review SOURCE text first. Tagged text is supporting evidence only.
     - Do not infer missing pages or missing headings from references in prose.
     - Section references inside prose are not section headings.
-    - A true source-text exception can include duplicated section numbers, skipped section numbers, or a missing section heading where nearby source pages show the agreement truly jumps over it.
+    - A true source-text exception can include duplicated section numbers, skipped section numbers, article/section numbering mismatches, or a missing section heading where nearby source pages show the agreement truly jumps over it.
     - Be conservative. False bypasses are worse than leaving an agreement invalid.
     - If confidence is below 0.90, do not use "source_text_hard_rule_exception".
 

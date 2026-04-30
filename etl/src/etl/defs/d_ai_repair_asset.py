@@ -83,6 +83,7 @@ AI_REPAIR_ELIGIBLE_XML_REASON_CODES: Tuple[str, ...] = (
 )
 AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES: Tuple[str, ...] = (
     XML_REASON_SECTION_NON_SEQUENTIAL,
+    XML_REASON_SECTION_ARTICLE_MISMATCH,
 )
 
 AI_REPAIR_FIRST_PASS_MODEL = "gpt-5.4-mini"
@@ -466,8 +467,8 @@ def _fetch_source_verdict_candidates(
     """
     Pull agreement-level source-text verdict targets.
 
-    These are deliberately narrower than tag repair targets: currently only
-    pure section_non_sequential failures with concrete page UUIDs are eligible.
+    These are deliberately narrower than tag repair targets: only selected
+    source-text hard-rule failures with concrete page UUIDs are eligible.
     The verdict request gets the flagged page(s) plus neighboring pages so the
     model can decide whether the hard failure is a real source-text defect.
     """
@@ -604,9 +605,10 @@ def _fetch_source_verdict_candidates(
 
     eligible_agreement_uuids: List[str] = []
     eligible_page_uuids: Set[str] = set()
+    eligible_reason_codes = set(AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES)
     for agreement_uuid in candidate_agreement_uuids:
         reason_codes = reason_codes_by_agreement.get(agreement_uuid, set())
-        if reason_codes != set(AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES):
+        if not reason_codes or not reason_codes.issubset(eligible_reason_codes):
             continue
         target_page_uuids = target_page_uuids_by_agreement.get(agreement_uuid, [])
         if not target_page_uuids or len(target_page_uuids) > SOURCE_VERDICT_MAX_FLAGGED_PAGES:
@@ -1967,7 +1969,8 @@ def _source_reason_rows_are_bypass_eligible(
     if not reason_rows:
         return False, set()
     reason_codes = {str(row["reason_code"]) for row in reason_rows}
-    if reason_codes != set(AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES):
+    eligible_reason_codes = set(AI_REPAIR_SOURCE_VERDICT_XML_REASON_CODES)
+    if not reason_codes or not reason_codes.issubset(eligible_reason_codes):
         return False, set()
     page_uuids: Set[str] = set()
     for row in reason_rows:

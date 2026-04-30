@@ -538,7 +538,7 @@ class AiRepairTargetingTests(unittest.TestCase):
             "<article>ARTICLE I</article>\n<section>Section 1.01</section> text.\n<page>-56-</page>",
         )
 
-    def test_source_reason_rows_are_bypass_eligible_only_for_page_scoped_nonseq(self) -> None:
+    def test_source_reason_rows_are_bypass_eligible_for_page_scoped_source_text_reasons(self) -> None:
         eligible, page_uuids = _source_reason_rows_are_bypass_eligible(
             [
                 {
@@ -550,6 +550,18 @@ class AiRepairTargetingTests(unittest.TestCase):
         )
         self.assertTrue(eligible)
         self.assertEqual(page_uuids, {"page-1"})
+
+        article_mismatch, article_mismatch_pages = _source_reason_rows_are_bypass_eligible(
+            [
+                {
+                    "reason_code": "section_article_mismatch",
+                    "reason_detail": "Section 7.2 does not match article 6",
+                    "page_uuid": "page-2",
+                }
+            ]
+        )
+        self.assertTrue(article_mismatch)
+        self.assertEqual(article_mismatch_pages, {"page-2"})
 
         mixed, _ = _source_reason_rows_are_bypass_eligible(
             [
@@ -565,7 +577,23 @@ class AiRepairTargetingTests(unittest.TestCase):
                 },
             ]
         )
-        self.assertFalse(mixed)
+        self.assertTrue(mixed)
+
+        unsupported, _ = _source_reason_rows_are_bypass_eligible(
+            [
+                {
+                    "reason_code": "section_non_sequential",
+                    "reason_detail": "expected 2, found 3",
+                    "page_uuid": "page-1",
+                },
+                {
+                    "reason_code": "xml_parse_failure",
+                    "reason_detail": "bad xml",
+                    "page_uuid": "page-2",
+                },
+            ]
+        )
+        self.assertFalse(unsupported)
 
         unscoped, _ = _source_reason_rows_are_bypass_eligible(
             [
