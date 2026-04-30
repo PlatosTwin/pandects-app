@@ -66,6 +66,7 @@ class PipelineStateSqlTests(unittest.TestCase):
         sql = canonical_ai_repair_enqueue_queue_sql("pdx")
         self.assertIn("SELECT", sql)
         self.assertIn("x.version AS xml_version", sql)
+        self.assertIn("s.filing_date", sql)
         self.assertIn("s.latest_xml_ai_repair_attempted AS ai_repair_attempted", sql)
         self.assertIn("r.reason_code", sql)
         self.assertIn("r.page_uuid", sql)

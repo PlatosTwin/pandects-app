@@ -118,6 +118,7 @@ def canonical_components_cte_sql(schema: str) -> str:
     state_components AS (
         SELECT
             a.agreement_uuid,
+            a.filing_date,
             YEAR(DATE(a.filing_date)) AS filing_year,
             CASE
                 WHEN a.source = 'dma' THEN 0
@@ -407,6 +408,7 @@ def canonical_ai_repair_enqueue_queue_sql(schema: str, *, scoped: bool = False) 
     SELECT
         x.agreement_uuid,
         x.version AS xml_version,
+        s.filing_date,
         s.latest_xml_ai_repair_attempted AS ai_repair_attempted,
         r.reason_code,
         r.page_uuid

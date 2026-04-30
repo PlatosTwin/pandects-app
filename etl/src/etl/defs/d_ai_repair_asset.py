@@ -106,6 +106,19 @@ _AI_REPAIR_TERMINAL_BATCH_STATUSES = ("completed", "failed", "cancelled", "expir
 _AI_REPAIR_FAILED_BATCH_STATUSES = ("failed", "cancelled", "expired")
 
 
+def _filing_date_desc_key(raw: object) -> Tuple[int, int, int, int]:
+    if raw is None:
+        return (1, 0, 0, 0)
+    value = str(raw).strip()
+    if not value:
+        return (1, 0, 0, 0)
+    parts = value[:10].split("-")
+    if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        raise ValueError(f"Invalid filing_date value for AI repair ordering: {raw!r}.")
+    year, month, day = (int(part) for part in parts)
+    return (0, -year, -month, -day)
+
+
 def _full_request_id(page_uuid: str, xml_version: int) -> str:
     return f"{page_uuid}::full::{int(xml_version)}"
 
@@ -257,6 +270,7 @@ def _fetch_candidates(
 
     xml_version_by_agreement: Dict[str, int] = {}
     ai_repair_attempted_by_agreement: Dict[str, int] = {}
+    filing_date_by_agreement: Dict[str, object] = {}
     page_uuids_by_agreement: Dict[str, List[str]] = {}
     reason_codes_by_agreement: Dict[str, set[str]] = {}
     request_ids: List[str] = []
@@ -293,6 +307,8 @@ def _fetch_candidates(
             raise ValueError(
                 f"Inconsistent ai_repair_attempted values for agreement {agreement_uuid}: {payload_attempted} and {attempted}."
             )
+        if agreement_uuid not in filing_date_by_agreement:
+            filing_date_by_agreement[agreement_uuid] = row.get("filing_date")
         reason_codes_by_agreement.setdefault(agreement_uuid, set()).add(reason_code)
 
         page_uuids = page_uuids_by_agreement.setdefault(agreement_uuid, [])
@@ -337,7 +353,7 @@ def _fetch_candidates(
         ).scalars().all()
     )
 
-    unresolved_by_agreement: Dict[str, Tuple[int, int, int, int, List[str]]] = {}
+    unresolved_by_agreement: Dict[str, Tuple[int, int, int, int, object, List[str]]] = {}
     for agreement_uuid, page_uuids in page_uuids_by_agreement.items():
         attempted = int(ai_repair_attempted_by_agreement[agreement_uuid])
         xml_version = int(xml_version_by_agreement[agreement_uuid])
@@ -363,6 +379,7 @@ def _fetch_candidates(
             section_non_sequential_only,
             int(has_completed_requests),
             xml_version,
+            filing_date_by_agreement.get(agreement_uuid),
             unresolved_page_uuids,
         )
 
@@ -379,15 +396,15 @@ def _fetch_candidates(
         key=lambda item: (
             attempted_rank[item[1][0]],
             0 if item[1][1] == 1 else 1,
-            len(item[1][4]),
-            item[0],
+            len(item[1][5]),
+            _filing_date_desc_key(item[1][4]),
         ),
     )
     if page_budget is not None and page_budget > 0:
-        selected_ranked_agreements: List[Tuple[str, Tuple[int, int, int, int, List[str]]]] = []
+        selected_ranked_agreements: List[Tuple[str, Tuple[int, int, int, int, object, List[str]]]] = []
         selected_page_total = 0
         for agreement_uuid, payload in ranked_agreements:
-            unresolved_page_count = len(payload[4])
+            unresolved_page_count = len(payload[5])
             if selected_page_total + unresolved_page_count > page_budget:
                 break
             selected_ranked_agreements.append((agreement_uuid, payload))
@@ -399,7 +416,7 @@ def _fetch_candidates(
     selected_page_rows: List[Dict[str, Any]] = []
     page_uuid_to_target: Dict[str, Tuple[str, int, int, int]] = {}
     for agreement_uuid, payload in ranked_agreements:
-        attempted, _section_non_sequential_only, has_completed_requests, xml_version, unresolved_page_uuids = payload
+        attempted, _section_non_sequential_only, has_completed_requests, xml_version, _filing_date, unresolved_page_uuids = payload
         for page_uuid in unresolved_page_uuids:
             page_uuid_to_target[page_uuid] = (
                 agreement_uuid,
@@ -497,6 +514,7 @@ def _fetch_source_verdict_candidates(
 
     xml_version_by_agreement: Dict[str, int] = {}
     attempted_by_agreement: Dict[str, int] = {}
+    filing_date_by_agreement: Dict[str, object] = {}
     target_page_uuids_by_agreement: Dict[str, List[str]] = {}
     request_ids: List[str] = []
     for row in invalid_rows:
@@ -510,6 +528,7 @@ def _fetch_source_verdict_candidates(
         if existing_version is None:
             xml_version_by_agreement[agreement_uuid] = xml_version
             attempted_by_agreement[agreement_uuid] = attempted
+            filing_date_by_agreement[agreement_uuid] = row.get("filing_date")
             request_ids.append(_source_request_id(agreement_uuid, xml_version))
         elif existing_version != xml_version:
             raise ValueError(
@@ -659,7 +678,7 @@ def _fetch_source_verdict_candidates(
                 AIRepairAttemptPriority.ATTEMPTED_FIRST: {1: 0, 0: 1},
             }[attempt_priority][int(attempted_by_agreement[agreement_uuid])],
             len(target_page_uuids_by_agreement[agreement_uuid]),
-            agreement_uuid,
+            _filing_date_desc_key(filing_date_by_agreement.get(agreement_uuid)),
         ),
     )
     if page_budget is not None and page_budget > 0:

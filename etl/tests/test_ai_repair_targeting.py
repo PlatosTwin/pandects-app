@@ -241,6 +241,40 @@ class AiRepairTargetingTests(unittest.TestCase):
             {"agreement-a", "agreement-b"},
         )
 
+    def test_fetch_candidates_prefers_later_filing_date_as_final_agreement_rank(self) -> None:
+        invalid_rows = [
+            {
+                "agreement_uuid": "agreement-a",
+                "xml_version": 20,
+                "filing_date": "2024-06-01",
+                "ai_repair_attempted": 0,
+                "reason_code": "section_non_sequential",
+                "page_uuid": "page-a-1",
+            },
+            {
+                "agreement_uuid": "agreement-z",
+                "xml_version": 21,
+                "filing_date": "2026-01-15",
+                "ai_repair_attempted": 0,
+                "reason_code": "section_non_sequential",
+                "page_uuid": "page-z-1",
+            },
+        ]
+        page_rows = [
+            {"page_uuid": "page-a-1", "agreement_uuid": "agreement-a", "page_order": 1, "text": "a1"},
+            {"page_uuid": "page-z-1", "agreement_uuid": "agreement-z", "page_order": 1, "text": "z1"},
+        ]
+        conn = _FakeConn(
+            invalid_rows,
+            existing_request_rows=[],
+            completed_request_rows=[],
+            page_rows=page_rows,
+        )
+
+        candidates = _fetch_candidates(cast(Connection, cast(object, conn)), "pdx", agreement_limit=1)
+
+        self.assertEqual({str(row["agreement_uuid"]) for row in candidates}, {"agreement-z"})
+
     def test_fetch_candidates_sets_completed_history_flag(self) -> None:
         invalid_rows = [
             {"agreement_uuid": "agreement-retry", "xml_version": 11, "ai_repair_attempted": 1, "reason_code": "section_non_sequential", "page_uuid": "page-retry-1"},
