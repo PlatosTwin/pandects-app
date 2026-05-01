@@ -293,7 +293,7 @@ def run_sections(
     sort_direction = parsed_args["sort_direction"]
     page = parsed_args["page"]
     page_size = parsed_args["page_size"]
-    include_xml = parsed_args["include_xml"]
+    include_xml = parsed_args["include_xml"] or ctx.tier == "user"
 
     if page < 1:
         page = 1

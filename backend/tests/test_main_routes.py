@@ -832,6 +832,30 @@ class MainRoutesTests(unittest.TestCase):
         res = client.get("/v1/sections?include_xml=true")
         self.assertEqual(res.status_code, 403)
 
+    def test_sections_default_includes_xml_for_logged_in_user(self):
+        client = self.app.test_client()
+        with self.app.app_context():
+            user = self.app_module.AuthUser()
+            user.id = "00000000-0000-0000-0000-0000000000b2"
+            user.email = "sections-user@example.com"
+            user.password_hash = "not-used"
+            user.email_verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            self.app_module.db.session.add(user)
+            self.app_module.db.session.commit()
+            with self.app.test_request_context():
+                session_token = self.app_module._issue_session_token(user_id=user.id)
+
+        res = client.get(
+            "/v1/sections?page_size=1",
+            headers={"Authorization": f"Bearer {session_token}"},
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertIn("xml", results[0])
+        self.assertEqual(results[0]["xml"], "<section>TEXT</section>")
+
     def test_sections_include_xml_with_api_key(self):
         client = self.app.test_client()
         with self.app.app_context():
