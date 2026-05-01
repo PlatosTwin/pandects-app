@@ -86,7 +86,7 @@ export default function Feedback() {
   return (
     <PageShell size="xl" title="Feedback">
       <div className="mb-8">
-        <div className="prose max-w-none text-muted-foreground space-y-4 mb-8">
+        <div className="prose prose-copy max-w-none space-y-4 mb-8">
           <p>
             To submit questions, flag issues, or propose improvements, use our
             general feedback form below. You can also{" "}

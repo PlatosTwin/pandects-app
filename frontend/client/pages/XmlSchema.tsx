@@ -50,7 +50,7 @@ export default function XmlSchema() {
               >
                 Overview
               </h2>
-              <CardDescription id="xml-schema-overview-desc" className="text-base">
+              <CardDescription id="xml-schema-overview-desc" className="prose-copy text-base">
                 The XML output is a single document tree per agreement. It
                 contains metadata, optional page-type containers, and a
                 structured body with articles and sections.
@@ -62,7 +62,7 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Root Node
                   </div>
-                  <p className="mt-2 text-muted-foreground">
+                  <p className="mt-2 prose-copy">
                     <span className="font-mono text-sm text-foreground">&lt;document&gt;</span>{" "}
                     with a required{" "}
                     <span className="font-mono text-sm text-foreground">uuid</span>{" "}
@@ -74,7 +74,7 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Page Containers
                   </div>
-                  <p className="mt-2 text-muted-foreground">
+                  <p className="mt-2 prose-copy">
                     Optional containers split by page type:{" "}
                     <span className="font-mono text-sm text-foreground">frontMatter</span>,{" "}
                     <span className="font-mono text-sm text-foreground">tableOfContents</span>,{" "}
@@ -100,7 +100,7 @@ export default function XmlSchema() {
               >
                 Element Tree
               </h2>
-              <CardDescription id="xml-schema-definition-desc" className="text-base">
+              <CardDescription id="xml-schema-definition-desc" className="prose-copy text-base">
                 The tree below mirrors the current generator behavior.
               </CardDescription>
             </CardHeader>
@@ -131,7 +131,7 @@ export default function XmlSchema() {
               >
                 Element Notes
               </h2>
-              <CardDescription id="xml-schema-elements-desc" className="text-base">
+              <CardDescription id="xml-schema-elements-desc" className="prose-copy text-base">
                 Textual content is normalized into a small set of node types.
               </CardDescription>
             </CardHeader>
@@ -141,13 +141,13 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Metadata Nodes
                   </div>
-                  <p className="mt-2 text-muted-foreground">
+                  <p className="mt-2 prose-copy">
                     <span className="font-mono text-sm text-foreground">agreementUuid</span>,{" "}
                     <span className="font-mono text-sm text-foreground">filingDate</span>,{" "}
                     <span className="font-mono text-sm text-foreground">url</span>,{" "}
                     <span className="font-mono text-sm text-foreground">sourceFormat</span>.
                   </p>
-                  <p className="mt-2 text-muted-foreground">
+                  <p className="mt-2 prose-copy">
                     Party-name metadata is not embedded in the XML document.
                     Use agreement-level API fields when you need target or
                     acquirer names.
@@ -157,12 +157,12 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Content Nodes
                   </div>
-                  <p className="mt-2 text-muted-foreground">
+                  <p className="mt-2 prose-copy">
                     <span className="font-mono text-sm text-foreground">text</span>,{" "}
                     <span className="font-mono text-sm text-foreground">
                       definition
                     </span>{" "}
-                    <span className="text-muted-foreground">(optional)</span>,{" "}
+                    <span className="prose-copy">(optional)</span>,{" "}
                     <span className="font-mono text-sm text-foreground">
                       pageUUID
                     </span>
@@ -170,9 +170,9 @@ export default function XmlSchema() {
                     <span className="font-mono text-sm text-foreground">
                       page
                     </span>{" "}
-                    <span className="text-muted-foreground">(optional)</span>.
+                    <span className="prose-copy">(optional)</span>.
                   </p>
-                  <p className="mt-2 text-muted-foreground">
+                  <p className="mt-2 prose-copy">
                     Definitions are detected from quoted terms.{" "}
                     <span className="font-mono text-sm text-foreground">
                       pageUUID
@@ -190,7 +190,7 @@ export default function XmlSchema() {
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Structural Rules
                   </div>
-                  <p className="mt-2 text-muted-foreground">
+                  <p className="mt-2 prose-copy">
                     <span className="font-mono text-sm text-foreground">
                       article
                     </span>{" "}
@@ -216,7 +216,7 @@ export default function XmlSchema() {
                     </span>{" "}
                     attributes.
                   </p>
-                  <p className="mt-2 text-muted-foreground">
+                  <p className="mt-2 prose-copy">
                     <span className="font-mono text-sm text-foreground">
                       section
                     </span>{" "}

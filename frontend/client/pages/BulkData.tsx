@@ -321,7 +321,7 @@ export default function BulkData() {
         <h2 className="text-xl font-semibold text-foreground mb-2">
           About the SQL Dump
         </h2>
-        <p className="prose max-w-none text-foreground/90">
+        <p className="prose prose-copy max-w-none">
           The database dumps are in MariaDB SQL format. For installation, setup,
           and usage instructions, visit the{" "}
           <a
@@ -343,7 +343,7 @@ export default function BulkData() {
           <h2 className="text-xl font-semibold text-foreground">
             Available Downloads
           </h2>
-          <p className="mt-1 text-foreground/90">
+          <p className="mt-1 prose-copy">
             Database dumps hosted on Cloudflare, sorted by date (newest first)
           </p>
         </div>

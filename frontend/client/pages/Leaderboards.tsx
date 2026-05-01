@@ -159,7 +159,7 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
             <h2 id={descriptionId} className="text-xl font-semibold leading-none tracking-tight">
               {title}
             </h2>
-            <CardDescription className="max-w-3xl text-sm sm:text-base">
+            <CardDescription className="max-w-3xl prose-copy text-sm sm:text-base">
               {description}
             </CardDescription>
           </div>
@@ -370,7 +370,12 @@ export default function Leaderboards() {
     <PageShell
       title="Leaderboards"
       size="xl"
-      subtitle="Canonical counsel rankings for acquirer and target sides. The metric toggle swaps between distinct top-15 sets for deal count and total transaction value."
+      subtitle={
+        <span className="prose-copy">
+          Canonical counsel rankings for acquirer and target sides. The metric toggle swaps between
+          distinct top-15 sets for deal count and total transaction value.
+        </span>
+      }
     >
       <div className="space-y-6">
         {loading ? <LeaderboardsSkeleton /> : null}

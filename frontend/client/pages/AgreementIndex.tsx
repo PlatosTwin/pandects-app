@@ -325,7 +325,7 @@ export default function AgreementIndex() {
       size="xl"
       title="Agreement Index"
       subtitle={
-        <>
+        <span className="prose-copy">
           Explore our deal dataset, then jump to{" "}
           <Link
             to="/search"
@@ -357,7 +357,7 @@ export default function AgreementIndex() {
             Sources &amp; Methods
           </Link>{" "}
           for pipeline details.
-        </>
+        </span>
       }
     >
       <div

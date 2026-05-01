@@ -197,7 +197,7 @@ export function AgreementIndexOverview() {
     <div className="space-y-3">
       <div className="space-y-1">
         <p className="text-xs font-medium text-foreground">Coverage by field</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs prose-copy">
           Pricing fields use consideration-aware denominators for both ingested
           and processed deals.
         </p>
@@ -239,7 +239,7 @@ export function AgreementIndexOverview() {
                 </div>
               </div>
               {row.note ? (
-                <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                <div className="mt-1 text-[11px] leading-relaxed prose-copy">
                   {row.note}
                 </div>
               ) : null}
@@ -252,18 +252,18 @@ export function AgreementIndexOverview() {
 
   const renderAwaitingValidationTooltip = () => (
     <div className="space-y-3">
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-xs leading-relaxed prose-copy">
         The vast majority of agreements awaiting validation are awaiting{" "}
         <em>XML validation</em>, which happens when they fail either our hard
         validation rules or are rejected by the LLM validator.
       </p>
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-xs leading-relaxed prose-copy">
         Not all agreements that fail validation are invalid, however. We&apos;ve
         found that a non-negligible number of agreements awaiting XML validation
         accurately represent the original agreement, and it is the original
         agreement that fails validation.
       </p>
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-xs leading-relaxed prose-copy">
         For instance,{" "}
         <a
           href="https://www.sec.gov/Archives/edgar/data/862861/000095017023013095/jan-ex10_95.htm"
@@ -302,7 +302,7 @@ export function AgreementIndexOverview() {
         </a>{" "}
         skips straight from 8.07 to 8.09.
       </p>
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-xs leading-relaxed prose-copy">
         We have implemented several measures to keep such agreements from being
         screened out, and are slowly running invalid agreements through this new
         system. In the meantime, only{" "}
@@ -1101,7 +1101,7 @@ export function AgreementIndexOverview() {
       <TabsContent value="processing-status" className="mt-0 space-y-3">
         <p
           id={stagedChartDescriptionId}
-          className="text-base text-muted-foreground"
+          className="text-base prose-copy"
         >
           Staged agreements have not yet gone through our pipelines. Agreements
           that are awaiting validation have made it through at least one step of
@@ -1220,7 +1220,7 @@ export function AgreementIndexOverview() {
       <TabsContent value="deal-types" className="mt-0 space-y-3">
         <p
           id={dealTypeChartDescriptionId}
-          className="text-base text-muted-foreground"
+          className="text-base prose-copy"
         >
           Deal type counts are precomputed from processed agreements and grouped
           by filing year. The dashed vertical divider marks the 2020/2021

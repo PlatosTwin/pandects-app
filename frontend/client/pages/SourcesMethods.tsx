@@ -362,7 +362,7 @@ export default function SourcesMethods() {
             >
               Overview
             </h2>
-            <p className="text-muted-foreground">
+            <p className="prose-copy">
               Pandects sources agreements from the SEC's EDGAR database, then
               runs each agreement through a purpose-built pipeline that turns
               text and messy HTML into clean, taxonomized XML. Conceptually, our
@@ -391,7 +391,7 @@ export default function SourcesMethods() {
                       <div className="text-sm font-semibold text-foreground">
                         No Scalable Filtering
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm prose-copy">
                         Finding definitive M&A agreements in EDGAR is like
                         finding a needle in a haystack.
                       </p>
@@ -422,7 +422,7 @@ export default function SourcesMethods() {
                       <div className="text-sm font-semibold text-foreground">
                         Messy HTML
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm prose-copy">
                         Existing datasets provide only links to raw SEC filings,
                         forcing researchers to build their own parsers to
                         extract text and identify articles and sections.
@@ -455,7 +455,7 @@ export default function SourcesMethods() {
                       <div className="text-sm font-semibold text-foreground">
                         A Sea of Sections
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm prose-copy">
                         Whether working with raw or structured text, it's
                         challenging to classify sections at scale, and existing
                         datasets don't offer taxonomies.
@@ -487,7 +487,7 @@ export default function SourcesMethods() {
                       <div className="text-sm font-semibold text-foreground">
                         Missing Deal Context
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm prose-copy">
                         Structured text is of limited use without metadata on
                         deal value, industry codes, and buyer types, and
                         existing datasets don't provide this metadata.
@@ -519,7 +519,7 @@ export default function SourcesMethods() {
                       <div className="text-sm font-semibold text-foreground">
                         Static Snapshots
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm prose-copy">
                         Traditional legal corpora are frozen in time, losing
                         relevance within a few years of publication.
                       </p>
@@ -551,7 +551,7 @@ export default function SourcesMethods() {
             >
               Pipeline Architecture
             </h2>
-            <p className="max-w-3xl text-muted-foreground">
+            <p className="max-w-3xl prose-copy">
               Our pipeline takes raw EDGAR filings and produces clean XML,
               structured sections, and taxonomy labels. We use three ML models
               plus targeted LLM calls where they are the better tool. We use{" "}
@@ -607,7 +607,7 @@ export default function SourcesMethods() {
                         Exhibit Model
                       </a>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm prose-copy">
                       Identifies new definitive agreements and stages links to
                       the raw content on EDGAR for processing.
                     </p>
@@ -664,7 +664,7 @@ export default function SourcesMethods() {
                         Page Classifier Model
                       </a>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm prose-copy">
                       Splits agreements into pages, sanitizes HTML, and
                       classifies each as{" "}
                       <span className="font-mono text-xs text-foreground">
@@ -778,7 +778,7 @@ export default function SourcesMethods() {
                         Tagging Model
                       </a>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm prose-copy">
                       Applies the tagging model to{" "}
                       <span className="font-mono text-xs text-foreground">
                         body
@@ -794,7 +794,7 @@ export default function SourcesMethods() {
                               Plain Text
                             </span>
                           </div>
-                          <p className="mt-2 text-sm text-muted-foreground">
+                          <p className="mt-2 text-sm prose-copy">
                             ARTICLE 2<br />
                             <br />
                             THE ARRANGEMENT
@@ -851,7 +851,7 @@ export default function SourcesMethods() {
                     <div className="font-mono text-sm font-semibold text-foreground">
                       XML Generation
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm prose-copy">
                       Converts tagged body pages into agreement XML and upserts
                       section records into the sections table.
                     </p>
@@ -870,7 +870,7 @@ export default function SourcesMethods() {
                         LLM
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm prose-copy">
                       When XML validation fails, we send the affected pages to
                       an LLM for repair, reconcile the fixes back into the
                       tagged text, regenerate XML, and repeat until the
@@ -892,7 +892,7 @@ export default function SourcesMethods() {
                         LLM
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm prose-copy">
                       Sends section and nearby heading context to an LLM, then
                       assigns section-level taxonomy labels for cross-agreement
                       analysis.
@@ -915,7 +915,7 @@ export default function SourcesMethods() {
                         LLM
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm prose-copy">
                       Adds transaction metadata, including total consideration,
                       consideration types, and target and acquirer industries.
                     </p>
@@ -937,7 +937,7 @@ export default function SourcesMethods() {
             >
               ML Models
             </h2>
-            <div className="text-muted-foreground">
+            <div className="prose-copy">
               While we'd prefer to outsource all inference tasks to an LLM,
               Pandects is a small-scale operation run on a shoestring budget,
               meaning we don't have the resources to send hundreds of thousands
@@ -975,7 +975,7 @@ export default function SourcesMethods() {
               agreements and then train up more routine machine learning models
               to do the work we'd otherwise outsource to LLMs.
             </div>
-            <p className="text-muted-foreground">
+            <p className="prose-copy">
               This section describes the three ML models at the heart of our
               data processing pipeline. The full training code for each model is
               available on{" "}
@@ -993,7 +993,7 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Exhibit Model
               </h3>
-              <div className="text-muted-foreground">
+              <div className="prose-copy">
                 The Exhibit Model takes as inputs filings from the SEC's EDGAR
                 database, and for each filing outputs the probability that that
                 filing represents a definitive merger agreement. To identify
@@ -1013,7 +1013,7 @@ export default function SourcesMethods() {
                 links, fetch and render the exhibit content as text, and use the
                 Exhibit Model to classify candidates.
               </div>
-              <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
+              <ul className="list-disc ml-6 space-y-4 prose-copy">
                 <li className="space-y-2">
                   <div>
                     <strong>Architecture:</strong> The Exhibit Model is a tuned
@@ -1047,7 +1047,7 @@ export default function SourcesMethods() {
                   </div>
                 </li>
               </ul>
-              <div className="text-muted-foreground">
+              <div className="prose-copy">
                 Note that the class distributions in training and evaluation are
                 not representative of the class distribution in practice, where
                 the Exhibit Model sees primarily irrelevant filings—one reason
@@ -1098,7 +1098,7 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Page Classifier Model
               </h3>
-              <div className="text-muted-foreground">
+              <div className="prose-copy">
                 The Page Classifier takes as inputs pages from filings
                 identified as definitive merger agreements and outputs for each
                 page the probability that that page belongs to each one of five
@@ -1106,7 +1106,7 @@ export default function SourcesMethods() {
                 probabilities for the classes to enable validation of
                 low-confidence pages.
               </div>
-              <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
+              <ul className="list-disc ml-6 space-y-4 prose-copy">
                 <li className="space-y-2">
                   <div>
                     <strong>Architecture:</strong> The Page Classifier Model is
@@ -1187,7 +1187,7 @@ export default function SourcesMethods() {
                 </li>
               </ul>
 
-              <p className="text-muted-foreground">
+              <p className="prose-copy">
                 Below are model performance metrics for the tuned validation CRF
                 run and the final holdout test run. The model reaches a macro F1
                 of <strong>{formatMetric(validationClassifierF1)}</strong> on
@@ -1232,7 +1232,7 @@ export default function SourcesMethods() {
               <h3 className="text-lg font-semibold text-foreground">
                 Tagging Model
               </h3>
-              <div className="text-muted-foreground">
+              <div className="prose-copy">
                 The Tagging Model is the heart of our pipeline. It takes as
                 inputs plain-text body pages—as identified via the Page
                 Classifier model—and outputs text with Article, Section, and
@@ -1240,7 +1240,7 @@ export default function SourcesMethods() {
                 tags to create XML. We also persist low-confidence token spans
                 for downstream review and AI-assisted reconciliation.
               </div>
-              <ul className="list-disc ml-6 space-y-4 text-muted-foreground">
+              <ul className="list-disc ml-6 space-y-4 prose-copy">
                 <li className="space-y-2">
                   <div>
                     <strong>Architecture:</strong> The Tagging Model fine-tunes{" "}
@@ -1379,7 +1379,7 @@ export default function SourcesMethods() {
             >
               Gaps and Other Call Outs
             </h2>
-            <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+            <ul className="list-disc space-y-2 pl-6 prose-copy">
               <li>
                 We force each agreement into our five-class structure—
                 <span className="font-mono text-sm text-foreground">
@@ -1455,12 +1455,12 @@ export default function SourcesMethods() {
             >
               Validations
             </h2>
-            <p className="text-muted-foreground">
+            <p className="prose-copy">
               Validation happens at several points in the pipeline rather than
               in a single end-of-run review step. In practice, we use four
               checks:
             </p>
-            <ol className="list-decimal ml-6 space-y-4 text-muted-foreground">
+            <ol className="list-decimal ml-6 space-y-4 prose-copy">
               <li className="space-y-2">
                 <div>
                   <strong>Exhibit review:</strong> Before we treat an agreement

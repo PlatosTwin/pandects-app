@@ -17,7 +17,7 @@ export default function About() {
           >
             Overview
           </h2>
-          <p className="text-muted-foreground prose max-w-none">
+          <p className="prose prose-copy max-w-none">
             Pandects is an <strong>open-source M&A research platform</strong>{" "}
             built to make it easier to browse and analyze sections across
             definitive merger agreements. Unlike other corpora, we update our
@@ -28,7 +28,7 @@ export default function About() {
             each agreement into a comprehensive taxonomy, and enrich each deal
             with detailed metadata.
           </p>
-          <p className="text-muted-foreground prose max-w-none">
+          <p className="prose prose-copy max-w-none">
             While we expose a web-based search interface, the real power of the
             Pandects platform lies in the <strong>API </strong>and associated{" "}
             <strong>MCP server</strong>. By creating a free account, you gain
@@ -82,7 +82,7 @@ export default function About() {
           >
             Contributing
           </h2>
-          <p className="text-muted-foreground prose max-w-none">
+          <p className="prose prose-copy max-w-none">
             This is an open-source project, and contributions are welcome. See
             the{" "}
             <a
@@ -96,18 +96,18 @@ export default function About() {
             </a>{" "}
             for details.
           </p>
-          <p className="text-muted-foreground">
+          <p className="prose-copy">
             We are especially thankful for focused contributions to:
           </p>
-          <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+          <ul className="prose-copy list-disc space-y-2 pl-6">
             <li>Security hardening, including OAuth flow reviews.</li>
             <li>Accessibility improvements (keyboard, focus, contrast).</li>
             <li>ML model optimization.</li>
           </ul>
-          <p className="text-muted-foreground">
+          <p className="prose-copy">
             In the medium term, we hope to:
           </p>
-          <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
+          <ul className="prose-copy list-disc space-y-2 pl-6">
             <li>
               Taxonomize not just <em>tax</em> clauses but also important
               clauses <em>generally</em>. Right now, in addition to tax clauses,
@@ -138,7 +138,7 @@ export default function About() {
             Credits
           </h2>
           <div className="space-y-6 text-muted-foreground">
-            <p className="prose max-w-none text-muted-foreground">
+            <p className="prose prose-copy max-w-none">
               Professor Emiliano Catan at NYU Law has been an active advisor to
               this project from the beginning. The{" "}
               <a
@@ -178,7 +178,7 @@ export default function About() {
               advice early on in this project. Josh Carty provided technical
               assistance early on, and helped brainstorm.
             </p>
-            <p className="prose max-w-none text-muted-foreground">
+            <p className="prose prose-copy max-w-none">
               This project would not have gotten off the ground without the
               prior work of Peter Adelson, Matthew Jennejohn, Julian Nyarko, and
               Eric Talley, whose{" "}
@@ -208,7 +208,7 @@ export default function About() {
               </a>
               .
             </p>
-            <p className="prose max-w-none text-muted-foreground">
+            <p className="prose prose-copy max-w-none">
               Finally, this project was supported in part through NYU IT High
               Performance Computing resources, services, and staff expertise.
             </p>

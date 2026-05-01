@@ -397,7 +397,7 @@ function OwnershipStructurePanel({
             <CardTitle id={mixDescriptionId} className="text-xl sm:text-2xl">
               Public vs. Private Target Mix Over Time
             </CardTitle>
-            <CardDescription className="text-sm sm:text-base">
+            <CardDescription className="prose-copy text-sm sm:text-base">
               Share of public vs. private targets by filing year.
             </CardDescription>
           </div>
@@ -484,7 +484,7 @@ function OwnershipStructurePanel({
             <CardTitle id={dealSizeDescriptionId} className="text-xl sm:text-2xl">
               Public vs. Private Deal Size
             </CardTitle>
-            <CardDescription className="text-sm sm:text-base">
+            <CardDescription className="prose-copy text-sm sm:text-base">
               Median deal value by year; shaded bands show the 25th to 75th percentile range.
             </CardDescription>
           </div>
@@ -549,7 +549,7 @@ function OwnershipStructurePanel({
             <CardTitle id={matrixDescriptionId} className="text-xl sm:text-2xl">
               Target Type by Buyer Type
             </CardTitle>
-            <CardDescription className="text-sm sm:text-base">
+            <CardDescription className="prose-copy text-sm sm:text-base">
               Counts or median deal value for each target-buyer bucket combination.
             </CardDescription>
           </div>
@@ -575,7 +575,7 @@ function OwnershipStructurePanel({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm prose-copy">
             Private targets include PE-backed targets. Private-equity buyers are broken out
             separately from private strategic buyers.
           </p>
@@ -800,7 +800,7 @@ function IndustryDynamicsPanel({
             <CardTitle id={compositionDescriptionId} className="text-xl sm:text-2xl">
               Industry Composition Over Time
             </CardTitle>
-            <CardDescription className="text-sm sm:text-base">
+            <CardDescription className="prose-copy text-sm sm:text-base">
               Share of deals by target industry over time.
             </CardDescription>
           </div>
@@ -890,7 +890,7 @@ function IndustryDynamicsPanel({
             <CardTitle id={pairingsDescriptionId} className="text-xl sm:text-2xl">
               Top Industry Pairings
             </CardTitle>
-            <CardDescription className="text-sm sm:text-base">
+            <CardDescription className="prose-copy text-sm sm:text-base">
               Most common target and acquirer industry combinations.
             </CardDescription>
           </div>
@@ -937,7 +937,7 @@ function IndustryDynamicsPanel({
             <CardTitle id={concentrationDescriptionId} className="text-xl sm:text-2xl">
               Sector Concentration Trend
             </CardTitle>
-            <CardDescription className="text-sm sm:text-base">
+            <CardDescription className="prose-copy text-sm sm:text-base">
               Share of annual activity accounted for by the five largest target industries.
             </CardDescription>
           </div>
@@ -1025,7 +1025,7 @@ function IndustryDynamicsPanel({
               </span>
             ))}
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm prose-copy">
             Current top-five basket share:{" "}
             <span className="font-mono tabular-nums text-foreground">
               {concentrationTrend.data.length > 0
@@ -1094,7 +1094,12 @@ export default function TrendsAnalyses() {
     <PageShell
       title="Trends & Analyses"
       size="xl"
-      subtitle="A set of deeper cuts on ownership structure and sector composition, built from public-eligible agreements and designed to complement the headline leaderboards."
+      subtitle={
+        <span className="prose-copy">
+          A set of deeper cuts on ownership structure and sector composition, built from
+          public-eligible agreements and designed to complement the headline leaderboards.
+        </span>
+      }
     >
       <div className="space-y-6">
         {loading ? <TrendsSkeleton /> : null}

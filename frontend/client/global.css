@@ -196,6 +196,26 @@
   }
 }
 
+@layer utilities {
+  .prose-copy {
+    color: #344964;
+  }
+
+  .prose-copy :where(p, li):not(:where([class~="not-prose"], [class~="not-prose"] *)),
+  .prose-copy:is(p, li) {
+    color: #344964;
+  }
+
+  .prose-copy :where(strong):not(:where([class~="not-prose"], [class~="not-prose"] *)),
+  .prose-copy:is(strong) {
+    color: #223754;
+  }
+
+  .prose-copy :where(a):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    color: hsl(var(--primary));
+  }
+}
+
 @layer components {
   .tooltip-help-trigger {
     @apply inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-foreground/35 bg-background text-[10px] font-semibold text-foreground/80 transition-colors hover:border-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;

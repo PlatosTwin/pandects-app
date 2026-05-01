@@ -351,7 +351,7 @@ export default function Taxonomy() {
       title="Taxonomy"
     >
       <div className="mb-4">
-        <div className="rounded-lg bg-muted/20 pb-3 pt-0 text-sm text-foreground/80 sm:text-base">
+        <div className="prose-copy rounded-lg bg-muted/20 pb-3 pt-0 text-sm sm:text-base">
           Pull the latest taxonomy via the{" "}
           <span className="font-mono text-sm text-foreground">{endpointPath}</span>{" "}
           API route. See the{" "}
@@ -523,7 +523,7 @@ export default function Taxonomy() {
               >
                 {overviewTitle}
               </h2>
-              <CardDescription id="taxonomy-overview-desc">
+              <CardDescription id="taxonomy-overview-desc" className="prose-copy">
                 Expand a level to see how categories roll up to standard IDs and
                 child labels.
               </CardDescription>

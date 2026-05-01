@@ -10,7 +10,7 @@ export default function Contribute() {
       title="Contribute"
     >
       <div className="mb-8">
-        <div className="prose max-w-none space-y-4 text-muted-foreground">
+        <div className="prose prose-copy max-w-none space-y-4">
           <p>
             Pandects is an open-source project with real, ongoing costs: hosting
             and compute for the API, database storage, backups, CI/CD, and the
