@@ -860,23 +860,23 @@ export function AgreementReader({
           onClick={() => setHeaderCollapsed((v) => !v)}
           aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
           aria-expanded={!headerCollapsed}
-          className="group flex min-h-9 w-full items-center justify-center gap-2 border-t border-border bg-muted/40 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/70 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="group flex min-h-[22px] w-full items-center justify-center gap-1.5 border-t border-border bg-muted/40 py-0 text-muted-foreground/60 transition-colors hover:bg-muted/70 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
-          <div className="h-px w-10 rounded-full bg-current transition-colors" aria-hidden="true" />
-          <span className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide">
+          <div className="h-px w-8 rounded-full bg-current transition-colors" aria-hidden="true" />
+          <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide">
             {headerCollapsed ? (
               <>
-                <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                <ChevronDown className="h-3 w-3" aria-hidden="true" />
                 Expand
               </>
             ) : (
               <>
-                <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                <ChevronUp className="h-3 w-3" aria-hidden="true" />
                 Collapse
               </>
             )}
           </span>
-          <div className="h-px w-10 rounded-full bg-current transition-colors" aria-hidden="true" />
+          <div className="h-px w-8 rounded-full bg-current transition-colors" aria-hidden="true" />
         </button>
       </div>
 
