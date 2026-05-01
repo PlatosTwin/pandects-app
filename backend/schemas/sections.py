@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TypedDict, cast
 
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, post_dump, validate
 
 
 SECTIONS_RESULT_METADATA_FIELDS = (
@@ -244,6 +244,12 @@ class SectionItemSchema(Schema):
         required=False,
         allow_none=True,
     )
+
+    @post_dump
+    def _drop_missing_xml(self, data: dict[str, object], **_kwargs: object) -> dict[str, object]:
+        if data.get("xml") is None:
+            _ = data.pop("xml", None)
+        return data
 
 
 class AccessInfoSchema(Schema):

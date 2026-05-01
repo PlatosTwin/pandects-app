@@ -293,6 +293,7 @@ def run_sections(
     sort_direction = parsed_args["sort_direction"]
     page = parsed_args["page"]
     page_size = parsed_args["page_size"]
+    include_xml = parsed_args["include_xml"]
 
     if page < 1:
         page = 1
@@ -520,8 +521,9 @@ def run_sections(
             latest.target.label("target"),
             latest.filing_date.label("filing_date"),
             latest.verified.label("verified"),
-            sections.xml_content.label("xml_content"),
         ]
+        if include_xml:
+            detail_columns.append(sections.xml_content.label("xml_content"))
         for field_name in requested_metadata_fields:
             detail_columns.append(
                 metadata_column_by_field[field_name].label(field_name)
@@ -529,6 +531,7 @@ def run_sections(
         section_rows = cast(
             list[object],
             db.session.query(*detail_columns)
+            .select_from(sections)
             .join(
                 latest,
                 sections.section_uuid == latest.section_uuid,
@@ -564,7 +567,6 @@ def run_sections(
             "standard_id": parse_standard_ids(
                 detail_row.get("section_standard_ids")
             ),
-            "xml": detail_row.get("xml_content"),
             "article_title": detail_row.get("article_title"),
             "section_title": detail_row.get("section_title"),
             "acquirer": detail_row.get("acquirer"),
@@ -576,6 +578,8 @@ def run_sections(
                 else False
             ),
         }
+        if include_xml:
+            result_payload["xml"] = detail_row.get("xml_content")
         if requested_metadata_fields:
             result_payload["metadata"] = {
                 field_name: detail_row.get(field_name)

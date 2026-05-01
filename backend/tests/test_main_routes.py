@@ -825,6 +825,35 @@ class MainRoutesTests(unittest.TestCase):
         self.assertFalse(body.get("total_count_is_approximate"))
         self.assertEqual(len(body.get("results", [])), 1)
         self.assertIn("access", body)
+        self.assertNotIn("xml", body.get("results", [])[0])
+
+    def test_sections_include_xml_forbidden_for_anonymous(self):
+        client = self.app.test_client()
+        res = client.get("/v1/sections?include_xml=true")
+        self.assertEqual(res.status_code, 403)
+
+    def test_sections_include_xml_with_api_key(self):
+        client = self.app.test_client()
+        with self.app.app_context():
+            user = self.app_module.AuthUser()
+            user.id = "00000000-0000-0000-0000-0000000000b1"
+            user.email = "sections-api@example.com"
+            user.password_hash = "not-used"
+            user.email_verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            self.app_module.db.session.add(user)
+            self.app_module.db.session.commit()
+            _, api_key = self.app_module._create_api_key(user_id=user.id, name="sections")
+
+        res = client.get(
+            "/v1/sections?include_xml=true&page_size=1",
+            headers={"X-API-Key": api_key},
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertIn("xml", results[0])
+        self.assertEqual(results[0]["xml"], "<section>TEXT</section>")
 
     def test_search_by_standard_id(self):
         client = self.app.test_client()
