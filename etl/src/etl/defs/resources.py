@@ -92,11 +92,13 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     ai_repair_page_budget: int = 0  # when > 0, ai_repair_enqueue selects by page budget instead of agreement count
     ai_repair_attempt_priority: AIRepairAttemptPriority = AIRepairAttemptPriority.NOT_ATTEMPTED_FIRST
     taxonomy_agreement_batch_size: int = 50  # used in taxonomy_asset
+    enable_section_taxonomy: bool = True  # managed ingest: run section taxonomy LLM stage when true
     taxonomy_mode: TaxonomyMode = TaxonomyMode.LLM  # llm | ml | gold_backfill
     taxonomy_section_title_regex: str | None = None  # optional REGEXP filter for taxonomy prediction modes
     taxonomy_llm_model: str = "gpt-5.4-mini"  # used in taxonomy_asset llm mode
     taxonomy_llm_sections_per_request: int = 5  # sections bundled into each LLM request within a batch
     tax_module_agreement_batch_size: int = 25  # used in tax_module assets
+    enable_tax_taxonomy: bool = False  # managed ingest: run tax taxonomy stage when true
     tax_module_llm_model: str = "gpt-5.4-mini"  # used in tax_module_asset
     tax_module_llm_clauses_per_request: int = 5  # clauses bundled into each LLM request within a batch
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
@@ -305,11 +307,13 @@ def get_resources() -> dict[str, object]:
         "ai_repair_page_budget",
         "ai_repair_attempt_priority",
         "taxonomy_agreement_batch_size",
+        "enable_section_taxonomy",
         "taxonomy_mode",
         "taxonomy_section_title_regex",
         "taxonomy_llm_model",
         "taxonomy_llm_sections_per_request",
         "tax_module_agreement_batch_size",
+        "enable_tax_taxonomy",
         "tax_module_llm_model",
         "tax_module_llm_clauses_per_request",
         "tx_metadata_agreement_batch_size",
@@ -390,6 +394,12 @@ def get_resources() -> dict[str, object]:
     if "taxonomy_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["taxonomy_agreement_batch_size"] = int(yaml_config["taxonomy_agreement_batch_size"])
 
+    if "enable_section_taxonomy" in yaml_config:
+        pipeline_config_kwargs["enable_section_taxonomy"] = _parse_bool(
+            yaml_config["enable_section_taxonomy"],
+            field_name="enable_section_taxonomy",
+        )
+
     if "taxonomy_mode" in yaml_config:
         mode_str = str(yaml_config["taxonomy_mode"]).lower()
         pipeline_config_kwargs["taxonomy_mode"] = TaxonomyMode(mode_str)
@@ -413,6 +423,12 @@ def get_resources() -> dict[str, object]:
     if "tax_module_agreement_batch_size" in yaml_config:
         pipeline_config_kwargs["tax_module_agreement_batch_size"] = int(
             yaml_config["tax_module_agreement_batch_size"]
+        )
+
+    if "enable_tax_taxonomy" in yaml_config:
+        pipeline_config_kwargs["enable_tax_taxonomy"] = _parse_bool(
+            yaml_config["enable_tax_taxonomy"],
+            field_name="enable_tax_taxonomy",
         )
 
     if "tax_module_llm_model" in yaml_config:

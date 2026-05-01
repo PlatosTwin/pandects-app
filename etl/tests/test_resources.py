@@ -57,11 +57,13 @@ class PipelineConfigResourceTests(unittest.TestCase):
                 "resume_openai_batches": False,
                 "xml_enable_llm_verification": True,
                 "ai_repair_attempt_priority": "attempted_first",
+                "enable_section_taxonomy": True,
                 "taxonomy_mode": "ml",
                 "taxonomy_section_title_regex": "^governing",
                 "taxonomy_llm_model": "gpt-5.4-mini",
                 "taxonomy_llm_sections_per_request": 7,
                 "tax_module_agreement_batch_size": 11,
+                "enable_tax_taxonomy": True,
                 "tax_module_llm_model": "gpt-5.4-mini",
                 "tax_module_llm_clauses_per_request": 3,
             },
@@ -76,22 +78,26 @@ class PipelineConfigResourceTests(unittest.TestCase):
             pipeline_config.ai_repair_attempt_priority,
             AIRepairAttemptPriority.ATTEMPTED_FIRST,
         )
+        self.assertTrue(pipeline_config.enable_section_taxonomy)
         self.assertEqual(pipeline_config.taxonomy_mode, TaxonomyMode.ML)
         self.assertEqual(pipeline_config.taxonomy_section_title_regex, "^governing")
         self.assertEqual(pipeline_config.taxonomy_llm_model, "gpt-5.4-mini")
         self.assertEqual(pipeline_config.taxonomy_llm_sections_per_request, 7)
         self.assertEqual(pipeline_config.tax_module_agreement_batch_size, 11)
+        self.assertTrue(pipeline_config.enable_tax_taxonomy)
         self.assertEqual(pipeline_config.tax_module_llm_model, "gpt-5.4-mini")
         self.assertEqual(pipeline_config.tax_module_llm_clauses_per_request, 3)
 
     def test_pipeline_config_defaults_taxonomy_to_llm(self) -> None:
         config = PipelineConfig()
         self.assertFalse(config.xml_enable_llm_verification)
+        self.assertTrue(config.enable_section_taxonomy)
         self.assertEqual(config.taxonomy_mode, TaxonomyMode.LLM)
         self.assertIsNone(config.taxonomy_section_title_regex)
         self.assertEqual(config.taxonomy_llm_model, "gpt-5.4-mini")
         self.assertEqual(config.taxonomy_llm_sections_per_request, 5)
         self.assertEqual(config.tax_module_agreement_batch_size, 25)
+        self.assertFalse(config.enable_tax_taxonomy)
         self.assertEqual(config.tax_module_llm_model, "gpt-5.4-mini")
         self.assertEqual(config.tax_module_llm_clauses_per_request, 5)
 

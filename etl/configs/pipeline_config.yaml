@@ -12,10 +12,12 @@ resources:
       ai_repair_page_budget: 400
       ai_repair_attempt_priority: not_attempted_first
       taxonomy_agreement_batch_size: 10
+      enable_section_taxonomy: true
       taxonomy_mode: llm
       taxonomy_section_title_regex: null
       taxonomy_llm_model: gpt-5.4-mini
       taxonomy_llm_sections_per_request: 5
+      enable_tax_taxonomy: false
       tx_metadata_agreement_batch_size: 10
       tx_metadata_mode: offline
       embed_agreement_batch_size: 10
