@@ -493,6 +493,7 @@ class TaxonomyAssetTests(unittest.TestCase):
             taxonomy_section_title_regex=None,
             taxonomy_llm_model="gpt-5.4-mini",
             taxonomy_llm_sections_per_request=1,
+            enable_section_taxonomy=True,
             queue_run_mode=QueueRunMode.SINGLE_BATCH,
             resume_openai_batches=True,
         )
@@ -572,6 +573,51 @@ class TaxonomyAssetTests(unittest.TestCase):
             )
 
         self.assertEqual(result, [])
+
+    def test_regular_ingest_llm_mode_skips_when_section_taxonomy_disabled(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = SimpleNamespace(database="pdx", get_engine=lambda: _FakeEngine(_FakeConn(sec_rows=[])))
+        taxonomy_model = SimpleNamespace(model=lambda: object())
+        pipeline_config = SimpleNamespace(
+            taxonomy_agreement_batch_size=10,
+            taxonomy_mode=TaxonomyMode.LLM,
+            taxonomy_section_title_regex=None,
+            taxonomy_llm_model="gpt-5.4-mini",
+            taxonomy_llm_sections_per_request=1,
+            enable_section_taxonomy=False,
+            queue_run_mode=QueueRunMode.SINGLE_BATCH,
+            resume_openai_batches=True,
+        )
+
+        with (
+            patch("etl.defs.h_taxonomy_asset.should_skip_managed_stage", return_value=(False, None)),
+            patch("etl.defs.h_taxonomy_asset.load_active_scope_for_job", return_value=["agreement-1"]),
+            patch("etl.defs.h_taxonomy_asset.mark_logical_run_stage_completed", return_value=None) as mark_completed,
+            patch(
+                "etl.defs.h_taxonomy_asset._fetch_unapplied_taxonomy_llm_batch",
+                side_effect=AssertionError("disabled taxonomy should not inspect taxonomy batches"),
+            ),
+            patch(
+                "etl.defs.h_taxonomy_asset._create_and_apply_taxonomy_llm_batch",
+                side_effect=AssertionError("disabled taxonomy should not create taxonomy batches"),
+            ),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_taxonomy_llm_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                db=cast(object, db),
+                taxonomy_model=cast(object, taxonomy_model),
+                pipeline_config=cast(object, pipeline_config),
+                fresh_section_agreement_uuids=["agreement-1"],
+                repair_section_agreement_uuids=[],
+            )
+
+        self.assertEqual(result, ["agreement-1"])
+        mark_completed.assert_called_once_with(
+            db=db,
+            job_name="regular_ingest",
+            stage_name="regular_ingest_taxonomy_llm",
+        )
 
 
 if __name__ == "__main__":

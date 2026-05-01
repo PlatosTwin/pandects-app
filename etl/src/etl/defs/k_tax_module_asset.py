@@ -886,6 +886,18 @@ def _run_managed_tax_module_asset(
         job_name=job_name,
         fallback_agreement_uuids=fallback_agreement_uuids,
     )
+    if not getattr(pipeline_config, "enable_tax_taxonomy", False):
+        context.log.info(
+            "%s: skipping tax taxonomy because enable_tax_taxonomy=false.",
+            log_prefix,
+        )
+        mark_logical_run_stage_completed(
+            db=db,
+            job_name=job_name,
+            stage_name=stage_name,
+        )
+        return scope_uuids
+
     active_run = load_active_logical_run(db=db, job_name=job_name)
     processed_agreement_uuids = _run_tax_module_for_agreements(
         context,

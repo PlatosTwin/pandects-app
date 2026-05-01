@@ -173,6 +173,7 @@ class TaxModuleAssetTests(unittest.TestCase):
                     tax_module_agreement_batch_size=10,
                     tax_module_llm_clauses_per_request=1,
                     tax_module_llm_model="gpt-5.4-mini",
+                    enable_tax_taxonomy=True,
                     resume_openai_batches=True,
                     queue_run_mode="SINGLE_BATCH",
                 ),
@@ -269,6 +270,52 @@ class TaxModuleAssetTests(unittest.TestCase):
             )
 
         self.assertEqual(result, [])
+
+    def test_regular_ingest_tax_module_skips_when_tax_taxonomy_disabled(self) -> None:
+        context = SimpleNamespace(log=_FakeLog())
+        db = _FakeDB()
+        pipeline_config = cast(
+            PipelineConfig,
+            cast(
+                object,
+                SimpleNamespace(
+                    tax_module_agreement_batch_size=10,
+                    tax_module_llm_clauses_per_request=1,
+                    tax_module_llm_model="gpt-5.4-mini",
+                    enable_tax_taxonomy=False,
+                    resume_openai_batches=True,
+                    queue_run_mode="SINGLE_BATCH",
+                ),
+            ),
+        )
+
+        with (
+            patch("etl.defs.k_tax_module_asset.should_skip_managed_stage", return_value=(False, None)),
+            patch("etl.defs.k_tax_module_asset.load_active_scope_for_job", return_value=["agreement-1"]),
+            patch("etl.defs.k_tax_module_asset.mark_logical_run_stage_completed", return_value=None) as mark_completed,
+            patch(
+                "etl.defs.k_tax_module_asset._fetch_unapplied_tax_module_batch",
+                side_effect=AssertionError("disabled tax taxonomy should not inspect tax-module batches"),
+            ),
+            patch(
+                "etl.defs.k_tax_module_asset._create_llm_lines",
+                side_effect=AssertionError("disabled tax taxonomy should not create tax-module requests"),
+            ),
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_tax_module_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                cast(AssetExecutionContext, cast(object, context)),
+                cast(DBResource, cast(object, db)),
+                pipeline_config,
+                ["agreement-1"],
+            )
+
+        self.assertEqual(result, ["agreement-1"])
+        mark_completed.assert_called_once_with(
+            db=db,
+            job_name="regular_ingest",
+            stage_name="regular_ingest_tax_module",
+        )
 
     def test_run_tax_module_splits_large_scope_into_multiple_openai_batches(self) -> None:
         context = SimpleNamespace(log=_FakeLog())
