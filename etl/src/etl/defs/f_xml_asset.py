@@ -687,14 +687,13 @@ def _section_title_mentions_number(
 ) -> bool:
     match = SECTION_NUMBER_RE.match(title)
     search_text = title[match.end():] if match is not None else title
-    return (
-        re.search(
-            rf"\b(?:SECTION\s+)?{article_num}\s*\.\s*{section_num}\b",
-            search_text,
-            re.IGNORECASE,
-        )
-        is not None
-    )
+    return _section_number_search_pattern(article_num, section_num).search(search_text) is not None
+
+
+def _section_number_search_pattern(article_num: int, section_num: int) -> re.Pattern[str]:
+    pattern = rf"(?<![\d.])(?:SECTION\s+)?{article_num}\s*\.\s*0*{section_num}"
+    pattern += r"(?!\s*\.\s*\d)(?=\b|[\s.;:,\)\]\-])"
+    return re.compile(pattern, re.IGNORECASE)
 
 
 def _section_body_mentions_number(
@@ -703,10 +702,7 @@ def _section_body_mentions_number(
     article_num: int,
     section_num: int,
 ) -> bool:
-    pattern = re.compile(
-        rf"(?:^|[\n\r.;:])\s*(?:SECTION\s+)?{article_num}\s*\.\s*{section_num}\b",
-        re.IGNORECASE,
-    )
+    pattern = _section_number_search_pattern(article_num, section_num)
     for node in section_elem.iter():
         if node.tag in {"page", "pageUUID"}:
             continue
@@ -716,35 +712,38 @@ def _section_body_mentions_number(
     return False
 
 
-def _section_body_mentions_number_after_page_boundary(
+def _section_body_number_mention_page_uuids(
     section_elem: ET.Element,
     *,
     article_num: int,
     section_num: int,
-) -> bool:
-    pattern = re.compile(
-        rf"(?:^|[\n\r.;:])\s*(?:SECTION\s+)?{article_num}\s*\.\s*{section_num}\b",
-        re.IGNORECASE,
-    )
-    seen_page_boundary = False
+) -> Tuple[str, ...]:
+    pattern = _section_number_search_pattern(article_num, section_num)
+    page_uuids: List[str] = []
 
-    def visit(node: ET.Element) -> bool:
-        nonlocal seen_page_boundary
-        if node.tag in {"page", "pageUUID"}:
-            seen_page_boundary = True
-        else:
+    def add_page_uuids(values: Tuple[str, ...]) -> None:
+        for page_uuid in values:
+            if page_uuid not in page_uuids:
+                page_uuids.append(page_uuid)
+
+    for idx, child in enumerate(list(section_elem)):
+        if child.tag in {"page", "pageUUID"}:
+            continue
+        mention_found = False
+        for node in child.iter():
+            if node.tag in {"page", "pageUUID"}:
+                continue
             text_value = (node.text or "").strip()
-            if seen_page_boundary and text_value and pattern.search(text_value):
-                return True
-        for child in list(node):
-            if visit(child):
-                return True
-            tail_value = (child.tail or "").strip()
-            if seen_page_boundary and tail_value and pattern.search(tail_value):
-                return True
-        return False
+            if text_value and pattern.search(text_value):
+                mention_found = True
+                break
+        tail_value = (child.tail or "").strip()
+        if tail_value and pattern.search(tail_value):
+            mention_found = True
+        if mention_found:
+            add_page_uuids(_nearest_page_uuid_for_child(section_elem, idx))
 
-    return visit(section_elem)
+    return tuple(page_uuids)
 
 
 def _text_starts_with_article_heading(text_value: str, article_num: int) -> bool:
@@ -807,12 +806,6 @@ def _target_section_article_mismatch_page_uuids(
     if previous_article_heading_page_uuids:
         return previous_article_heading_page_uuids
     return section_page_uuids
-
-
-def _section_number_search_pattern(article_num: int, section_num: int) -> re.Pattern[str]:
-    pattern = rf"(?<![\d.])(?:SECTION\s+)?{article_num}\s*\.\s*0*{section_num}"
-    pattern += r"(?!\s*\.\s*\d)(?=\b|[\s.;:,\)\]\-])"
-    return re.compile(pattern, re.IGNORECASE)
 
 
 def _iter_body_number_search_values(root: ET.Element) -> List[str]:
@@ -895,32 +888,25 @@ def _target_section_non_sequential_page_uuids(
     ):
         return current_page_uuids
     if found_section_num > expected_section_num and previous_page_uuids:
-        previous_mentions_expected = (
-            previous_section_elem is not None
-            and _section_body_mentions_number(
+        previous_mention_page_uuids = (
+            _section_body_number_mention_page_uuids(
                 previous_section_elem,
                 article_num=section_article_num,
                 section_num=expected_section_num,
             )
+            if previous_section_elem is not None
+            else ()
         )
+        previous_mentions_expected = bool(previous_mention_page_uuids)
         current_mentions_expected = _section_body_mentions_number(
             current_section_elem,
             article_num=section_article_num,
             section_num=expected_section_num,
         )
-        previous_mentions_after_page_boundary = (
-            previous_mentions_expected
-            and previous_section_elem is not None
-            and _section_body_mentions_number_after_page_boundary(
-                previous_section_elem,
-                article_num=section_article_num,
-                section_num=expected_section_num,
-            )
-        )
-        if previous_mentions_after_page_boundary and current_page_uuids:
-            return current_page_uuids
         if previous_mentions_expected and not current_mentions_expected:
-            return previous_page_uuids
+            return previous_mention_page_uuids
+        if previous_mentions_expected and current_mentions_expected:
+            return _merge_page_uuid_targets(previous_mention_page_uuids, current_page_uuids)
         if current_mentions_expected:
             return current_page_uuids
         return _merge_page_uuid_targets(previous_page_uuids, current_page_uuids)

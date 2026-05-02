@@ -1271,7 +1271,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
 
         self.assertTrue(any(v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL for v in violations))
 
-    def test_section_non_sequential_targets_current_page_when_missing_heading_follows_page_boundary(self) -> None:
+    def test_section_non_sequential_targets_absorbed_heading_page_after_boundary(self) -> None:
         root = ET.fromstring(
             """
             <document>
@@ -1283,6 +1283,8 @@ class XMLVerifyAssetTests(unittest.TestCase):
                     <page>1</page>
                     <pageUUID>page-1</pageUUID>
                     <text>Section 1.3 Missing heading absorbed into prior section.</text>
+                    <page>2</page>
+                    <pageUUID>page-absorbed-heading</pageUUID>
                   </section>
                   <section title="Section 1.4 Fourth" pageUUID="page-2" />
                 </article>
@@ -1302,7 +1304,40 @@ class XMLVerifyAssetTests(unittest.TestCase):
         ]
 
         self.assertEqual(len(violations), 1)
-        self.assertEqual(violations[0].page_uuids, ("page-2",))
+        self.assertEqual(violations[0].page_uuids, ("page-absorbed-heading",))
+
+    def test_section_non_sequential_targets_zero_padded_absorbed_heading_page(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE VI"><section title="Section 6.1 First" pageUUID="page-6" /></article>
+                <article title="ARTICLE VII"><section title="Section 7.1 First" pageUUID="page-7" /></article>
+                <article title="ARTICLE VIII"><section title="Section 8.1 First" pageUUID="page-8" /></article>
+                <article title="ARTICLE IX"><section title="Section 9.1 First" pageUUID="page-9" /></article>
+                <article title="ARTICLE X">
+                  <section title="Section 10.01 First" pageUUID="page-1" />
+                  <section title="Section 10.02 Second" pageUUID="page-1">
+                    <text>Second section body.</text>
+                    <page>75</page>
+                    <pageUUID>page-absorbed-heading</pageUUID>
+                    <text>Section 10.03 Missing zero-padded heading absorbed into prior section.</text>
+                  </section>
+                  <section title="Section 10.04 Fourth" pageUUID="page-2" />
+                </article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = [
+            violation
+            for violation in find_hard_rule_violations(root)
+            if violation.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL
+        ]
+
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0].page_uuids, ("page-absorbed-heading",))
 
     def test_section_non_sequential_targets_previous_page_when_missing_heading_is_before_page_boundary(self) -> None:
         root = ET.fromstring(
