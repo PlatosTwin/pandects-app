@@ -825,12 +825,19 @@ class MainRoutesTests(unittest.TestCase):
         self.assertFalse(body.get("total_count_is_approximate"))
         self.assertEqual(len(body.get("results", [])), 1)
         self.assertIn("access", body)
-        self.assertNotIn("xml", body.get("results", [])[0])
+        self.assertEqual(
+            body.get("results", [])[0].get("xml"),
+            "<section>TEXT</section>",
+        )
 
-    def test_sections_include_xml_forbidden_for_anonymous(self):
+    def test_sections_include_xml_allowed_for_anonymous(self):
         client = self.app.test_client()
         res = client.get("/v1/sections?include_xml=true")
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        results = body.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].get("xml"), "<section>TEXT</section>")
 
     def test_sections_default_includes_xml_for_logged_in_user(self):
         client = self.app.test_client()

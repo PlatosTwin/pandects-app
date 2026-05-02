@@ -195,7 +195,7 @@ class SectionsArgsSchema(Schema):
     include_xml = fields.Bool(
         load_default=False,
         metadata={
-            "description": "When true, include full section XML in each result. Omitted by default to keep responses compact.",
+            "description": "Deprecated compatibility parameter. Section search results include section XML for all callers.",
         },
     )
 

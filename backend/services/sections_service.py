@@ -293,7 +293,7 @@ def run_sections(
     sort_direction = parsed_args["sort_direction"]
     page = parsed_args["page"]
     page_size = parsed_args["page_size"]
-    include_xml = parsed_args["include_xml"] or ctx.tier == "user"
+    include_xml = True
 
     if page < 1:
         page = 1
@@ -593,7 +593,7 @@ def run_sections(
             "tier": ctx.tier,
             "message": None
             if ctx.is_authenticated
-            else "Limited mode: sign in to view clause text, unlock full pagination, and use the MCP server.",
+            else "Limited mode: sign in to unlock full pagination and use the MCP server.",
         },
         "count_metadata": _sections_count_metadata_payload(
             total_count_is_approximate=total_count_is_approximate,
