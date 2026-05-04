@@ -27,8 +27,6 @@ interface NormalizedAgreementTocRow {
 const XML_TAG_COLORS = {
   text: "text-blue-600",
   definition: "text-green-600",
-  page: "text-purple-600",
-  pageUUID: "text-orange-600",
 } as const;
 
 const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
@@ -353,37 +351,22 @@ export function XMLRenderer({
         }
       }
 
-      // Handle pageUUID and page tags - render page separators in agreement mode
+      // Handle pageUUID and page tags - render page separators
       if (node.tagName === "pageUUID" || node.tagName === "page") {
+        if (node.tagName === "page") return null;
         if (mode === "agreement") {
-          if (node.tagName === "page") return null;
           if (isAdjacentToAgreementRegionBreak(siblings, index)) return null;
           if (isAgreementRegionBoundaryPageBreak(siblings, index, parentTagName)) {
             return null;
           }
-
-          return (
-            <div
-              key={tagId}
-              className="my-5 border-t border-foreground/20"
-              aria-hidden="true"
-            />
-          );
         }
 
-        const content =
-          node.children?.find((child) => child.type === "text")?.content || "";
         return (
-          <span
+          <div
             key={tagId}
-            className={cn(
-              "text-xs font-light inline",
-              colorClass,
-              "break-words [overflow-wrap:anywhere]",
-            )}
-          >
-            &lt;{node.tagName}&gt;{content}&lt;/{node.tagName}&gt;
-          </span>
+            className="my-5 border-t border-foreground/20"
+            aria-hidden="true"
+          />
         );
       }
 
