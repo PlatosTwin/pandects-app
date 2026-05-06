@@ -12,6 +12,10 @@ from backend.models.auth import (
     AuthSession,
     AuthSignonEvent,
     AuthUser,
+    Favorite,
+    FavoriteProject,
+    FavoriteTag,
+    FavoriteTagAssignment,
     LegalAcceptance,
 )
 from backend.models.main_db import (
@@ -48,6 +52,10 @@ __all__ = [
     "AuthSession",
     "AuthSignonEvent",
     "AuthUser",
+    "Favorite",
+    "FavoriteProject",
+    "FavoriteTag",
+    "FavoriteTagAssignment",
     "LegalAcceptance",
     "Agreements",
     "AgreementCounsel",

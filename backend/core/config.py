@@ -207,7 +207,7 @@ def configure_cors(target_app: Flask) -> None:
     _ = CORS(
         target_app,
         resources={r"/v1/*": {"origins": cors_origins()}},
-        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-CSRF-Token"],
         supports_credentials=True,
     )

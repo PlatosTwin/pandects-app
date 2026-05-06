@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
+import { StarButton } from "@/components/StarButton";
 import {
   formatCompactCurrencyValue,
   formatDateValue,
@@ -328,6 +329,16 @@ export function TransactionResultsList({
                     </div>
                   )}
                   <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                    <StarButton
+                      itemType="agreement"
+                      itemUuid={result.agreement_uuid}
+                      context={{
+                        target: result.target,
+                        acquirer: result.acquirer,
+                        filing_date: result.filing_date,
+                      }}
+                      className="shrink-0"
+                    />
                     <FlagAsInaccurateButton
                       source="search_result"
                       agreement_uuid={result.agreement_uuid}

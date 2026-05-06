@@ -1,0 +1,345 @@
+import os
+import tempfile
+import unittest
+from typing import cast
+
+from sqlalchemy import text
+
+
+def _set_default_env() -> None:
+    os.environ["SKIP_MAIN_DB_REFLECTION"] = "1"
+    os.environ["MARIADB_USER"] = "root"
+    os.environ["MARIADB_PASSWORD"] = "password"
+    os.environ["MARIADB_HOST"] = "127.0.0.1"
+    os.environ["MARIADB_DATABASE"] = "pdx"
+    os.environ["AUTH_SECRET_KEY"] = "test-auth-secret"
+    os.environ["PUBLIC_API_BASE_URL"] = "http://localhost:5000"
+    os.environ["PUBLIC_FRONTEND_BASE_URL"] = "http://localhost:8080"
+    os.environ["TURNSTILE_ENABLED"] = "0"
+
+
+_set_default_env()
+
+_AUTH_DB_TEMP = tempfile.NamedTemporaryFile(prefix="pandects_fav_", suffix=".sqlite", delete=False)
+_AUTH_DB_TEMP.close()
+os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
+
+
+from backend.app import create_test_app  # noqa: E402
+from backend.extensions import db  # noqa: E402
+from backend.models.auth import AuthUser, Favorite, FavoriteProject  # noqa: E402
+import backend.app as backend_app  # noqa: E402
+
+
+class FavoritesRoutesTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.app = create_test_app(
+            config_overrides={
+                "SQLALCHEMY_BINDS": {"auth": f"sqlite:///{_AUTH_DB_TEMP.name}"},
+            }
+        )
+        with cls.app.app_context():
+            db.create_all(bind_key="auth")
+
+    def setUp(self) -> None:
+        _set_default_env()
+        with self.app.app_context():
+            engine = db.engines["auth"]
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM favorite_tag_assignments"))
+                conn.execute(text("DELETE FROM favorite_tags"))
+                conn.execute(text("DELETE FROM favorites"))
+                conn.execute(text("DELETE FROM favorite_projects"))
+                conn.execute(text("DELETE FROM auth_sessions"))
+                conn.execute(text("DELETE FROM auth_users"))
+        backend_app._rate_limit_state.clear()
+        backend_app._endpoint_rate_limit_state.clear()
+
+    def _create_user_and_bearer(self, email: str = "u@example.com") -> str:
+        with self.app.app_context():
+            user = AuthUser()
+            user.email = email
+            user.password_hash = backend_app.generate_password_hash("password123")
+            user.email_verified_at = backend_app._utc_now()
+            db.session.add(user)
+            db.session.commit()
+            with self.app.test_request_context("/v1/me/favorites"):
+                return backend_app._issue_session_token(user.id)
+
+    def _client_with_bearer(self):
+        token = self._create_user_and_bearer()
+        client = self.app.test_client()
+        client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+        return client
+
+    def test_unauthenticated_listing_returns_401(self):
+        client = self.app.test_client()
+        res = client.get("/v1/me/favorites")
+        self.assertEqual(res.status_code, 401)
+
+    def test_listing_creates_default_project_lazily(self):
+        client = self._client_with_bearer()
+        res = client.get("/v1/me/favorite-projects")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        projects = cast(list[dict[str, object]], body["projects"])
+        self.assertEqual(len(projects), 1)
+        self.assertEqual(projects[0]["name"], "Scratchpad")
+        self.assertTrue(projects[0]["is_default"])
+
+    def test_create_then_idempotent_then_list(self):
+        client = self._client_with_bearer()
+        item_uuid = "11111111-1111-1111-1111-111111111111"
+
+        res = client.post(
+            "/v1/me/favorites",
+            json={
+                "item_type": "section",
+                "item_uuid": item_uuid,
+                "context": {"page": "/search?q=x"},
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+        body = res.get_json()
+        self.assertTrue(body["created"])
+        self.assertEqual(body["favorite"]["item_type"], "section")
+        first_id = body["favorite"]["id"]
+
+        res = client.post(
+            "/v1/me/favorites",
+            json={
+                "item_type": "section",
+                "item_uuid": item_uuid,
+                "note": "second pass",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertFalse(body["created"])
+        self.assertEqual(body["favorite"]["id"], first_id)
+        self.assertEqual(body["favorite"]["note"], "second pass")
+
+        res = client.get("/v1/me/favorites")
+        self.assertEqual(res.status_code, 200)
+        favs = cast(list[dict[str, object]], res.get_json()["favorites"])
+        self.assertEqual(len(favs), 1)
+        self.assertEqual(favs[0]["id"], first_id)
+
+    def test_create_minimal_response_skips_rich_fields(self):
+        client = self._client_with_bearer()
+        item_uuid = "22222222-2222-2222-2222-222222222222"
+        res = client.post(
+            "/v1/me/favorites?view=minimal",
+            json={"item_type": "agreement", "item_uuid": item_uuid},
+        )
+        self.assertEqual(res.status_code, 201)
+        body = res.get_json()
+        self.assertTrue(body["created"])
+        favorite = cast(dict[str, object], body["favorite"])
+        self.assertEqual(favorite["item_type"], "agreement")
+        self.assertEqual(favorite["item_uuid"], item_uuid)
+        self.assertNotIn("agreement_uuid", favorite)
+        self.assertNotIn("tags", favorite)
+
+    def test_exists_lookup(self):
+        client = self._client_with_bearer()
+        starred = "22222222-2222-2222-2222-222222222222"
+        not_starred = "33333333-3333-3333-3333-333333333333"
+        client.post(
+            "/v1/me/favorites",
+            json={"item_type": "agreement", "item_uuid": starred},
+        )
+        res = client.get(
+            f"/v1/me/favorites/exists?item_type=agreement&item_uuids={starred},{not_starred}"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIn(starred, body["favorites"])
+        self.assertNotIn(not_starred, body["favorites"])
+
+    def test_patch_note_and_delete(self):
+        client = self._client_with_bearer()
+        res = client.post(
+            "/v1/me/favorites",
+            json={
+                "item_type": "tax_clause",
+                "item_uuid": "44444444-4444-4444-4444-444444444444",
+            },
+        )
+        favorite_id = res.get_json()["favorite"]["id"]
+
+        res = client.patch(
+            f"/v1/me/favorites/{favorite_id}", json={"note": "  hello  "}
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()["favorite"]["note"], "hello")
+
+        res = client.delete(f"/v1/me/favorites/{favorite_id}")
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.get_json()["deleted"])
+
+        res = client.get("/v1/me/favorites")
+        self.assertEqual(res.get_json()["favorites"], [])
+
+    def test_user_isolation(self):
+        client_a = self._client_with_bearer()
+        token_b = self._create_user_and_bearer(email="b@example.com")
+        client_b = self.app.test_client()
+        client_b.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_b}"
+
+        res = client_a.post(
+            "/v1/me/favorites",
+            json={
+                "item_type": "agreement",
+                "item_uuid": "55555555-5555-5555-5555-555555555555",
+            },
+        )
+        favorite_id = res.get_json()["favorite"]["id"]
+
+        # User B cannot see or mutate user A's favorite.
+        res = client_b.get("/v1/me/favorites")
+        self.assertEqual(res.get_json()["favorites"], [])
+        res = client_b.delete(f"/v1/me/favorites/{favorite_id}")
+        self.assertEqual(res.status_code, 404)
+
+    def test_tag_create_list_and_assign(self):
+        client = self._client_with_bearer()
+
+        # Empty palette returns the available colors
+        res = client.get("/v1/me/tags")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["tags"], [])
+        self.assertIn("blue", body["available_colors"])
+
+        # Create tags
+        res = client.post("/v1/me/tags", json={"name": "Important", "color": "red"})
+        self.assertEqual(res.status_code, 201)
+        red_tag = res.get_json()["tag"]
+        self.assertEqual(red_tag["name"], "Important")
+
+        res = client.post("/v1/me/tags", json={"name": "Watch", "color": "amber"})
+        amber_tag = res.get_json()["tag"]
+
+        # Bad color rejected
+        res = client.post("/v1/me/tags", json={"name": "X", "color": "puce"})
+        self.assertEqual(res.status_code, 400)
+
+        # Duplicate name returns existing
+        res = client.post("/v1/me/tags", json={"name": "Important", "color": "red"})
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(res.get_json()["created"])
+
+        # Create a favorite, then assign tags
+        res = client.post(
+            "/v1/me/favorites",
+            json={
+                "item_type": "agreement",
+                "item_uuid": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            },
+        )
+        favorite_id = res.get_json()["favorite"]["id"]
+
+        res = client.put(
+            f"/v1/me/favorites/{favorite_id}/tags",
+            json={"tag_ids": [red_tag["id"], amber_tag["id"]]},
+        )
+        self.assertEqual(res.status_code, 200)
+        names = sorted(t["name"] for t in res.get_json()["tags"])
+        self.assertEqual(names, ["Important", "Watch"])
+
+        # List favorites includes the tags
+        favs = client.get("/v1/me/favorites").get_json()["favorites"]
+        self.assertEqual(len(favs), 1)
+        self.assertEqual(
+            sorted(t["name"] for t in favs[0]["tags"]),
+            ["Important", "Watch"],
+        )
+
+        # Filter favorites by tag_ids
+        favs = client.get(
+            f"/v1/me/favorites?tag_ids={red_tag['id']}"
+        ).get_json()["favorites"]
+        self.assertEqual(len(favs), 1)
+
+        # tag that nothing matches
+        res = client.post("/v1/me/tags", json={"name": "Other", "color": "blue"})
+        other_id = res.get_json()["tag"]["id"]
+        favs = client.get(
+            f"/v1/me/favorites?tag_ids={other_id}"
+        ).get_json()["favorites"]
+        self.assertEqual(favs, [])
+
+        # Replace assignments with a single tag
+        res = client.put(
+            f"/v1/me/favorites/{favorite_id}/tags",
+            json={"tag_ids": [red_tag["id"]]},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.get_json()["tags"]), 1)
+
+        # Delete a tag also removes it from the favorite
+        res = client.delete(f"/v1/me/tags/{red_tag['id']}")
+        self.assertEqual(res.status_code, 200)
+        favs = client.get("/v1/me/favorites").get_json()["favorites"]
+        self.assertEqual(favs[0]["tags"], [])
+
+        # Delete the favorite cleans up assignments — re-assign first
+        res = client.put(
+            f"/v1/me/favorites/{favorite_id}/tags",
+            json={"tag_ids": [amber_tag["id"]]},
+        )
+        self.assertEqual(res.status_code, 200)
+        res = client.delete(f"/v1/me/favorites/{favorite_id}")
+        self.assertEqual(res.status_code, 200)
+        # Tag still exists, no orphan rows
+        with self.app.app_context():
+            engine = db.engines["auth"]
+            with engine.begin() as conn:
+                row = conn.execute(
+                    text("SELECT COUNT(*) FROM favorite_tag_assignments")
+                ).scalar()
+                self.assertEqual(row, 0)
+
+    def test_tag_user_isolation(self):
+        client_a = self._client_with_bearer()
+        token_b = self._create_user_and_bearer(email="b@example.com")
+        client_b = self.app.test_client()
+        client_b.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_b}"
+
+        res = client_a.post("/v1/me/tags", json={"name": "Mine", "color": "red"})
+        a_tag_id = res.get_json()["tag"]["id"]
+
+        # B can't update or delete A's tag
+        res = client_b.patch(f"/v1/me/tags/{a_tag_id}", json={"color": "blue"})
+        self.assertEqual(res.status_code, 404)
+        res = client_b.delete(f"/v1/me/tags/{a_tag_id}")
+        self.assertEqual(res.status_code, 404)
+
+        # B can't assign A's tag to a B-owned favorite
+        res = client_b.post(
+            "/v1/me/favorites",
+            json={
+                "item_type": "agreement",
+                "item_uuid": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            },
+        )
+        b_fav_id = res.get_json()["favorite"]["id"]
+        res = client_b.put(
+            f"/v1/me/favorites/{b_fav_id}/tags",
+            json={"tag_ids": [a_tag_id]},
+        )
+        self.assertEqual(res.status_code, 404)
+
+    def test_invalid_item_type_rejected(self):
+        client = self._client_with_bearer()
+        res = client.post(
+            "/v1/me/favorites",
+            json={"item_type": "garbage", "item_uuid": "x"},
+        )
+        self.assertEqual(res.status_code, 400)
+
+
+if __name__ == "__main__":
+    unittest.main()

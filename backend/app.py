@@ -41,6 +41,10 @@ from backend.models import (
     AuthOAuthSigningKey,
     AuthSession,
     AuthUser,
+    Favorite,
+    FavoriteProject,
+    FavoriteTag,
+    FavoriteTagAssignment,
     LegalAcceptance,
 )
 from backend.schemas.auth import (
@@ -100,6 +104,7 @@ from backend.routes.agreements import register_agreements_routes
 from backend.routes.reference_data import register_reference_data_routes
 from backend.routes.tax_clauses import TaxClausesDeps, register_tax_clauses_routes
 from backend.routes.auth import register_auth_routes
+from backend.routes.favorites import FavoritesDeps, register_favorites_routes
 from backend.services.tax_clauses_service import TaxClausesServiceDeps
 from backend.mcp.routes import McpDeps, register_mcp_routes
 from backend.core.config import (
@@ -1326,6 +1331,24 @@ def _register_app(target_app: Flask) -> None:
     _register_request_hooks(target_app)
     _register_blueprints(target_app)
     _ = register_auth_routes(target_app, deps=auth_deps)
+    _ = register_favorites_routes(
+        target_app,
+        deps=FavoritesDeps(
+            Favorite=Favorite,
+            FavoriteProject=FavoriteProject,
+            FavoriteTag=FavoriteTag,
+            FavoriteTagAssignment=FavoriteTagAssignment,
+            Sections=Sections,
+            Clauses=Clauses,
+            Agreements=Agreements,
+            db=db,
+            _require_auth_db=_require_auth_db,
+            _require_verified_user=_require_verified_user,
+            _auth_is_mocked=_auth_is_mocked,
+            _load_json=_load_json,
+            _utc_now=_utc_now,
+        ),
+    )
 
 
 def create_app(*, config_overrides: dict[str, object] | None = None) -> Flask:
@@ -1371,6 +1394,10 @@ def init_auth_db():
             "api_usage_hourly",
             "api_request_events",
             "api_usage_daily_ips",
+            "favorite_projects",
+            "favorites",
+            "favorite_tags",
+            "favorite_tag_assignments",
         }
         existing = set(inspector.get_table_names())
         missing = sorted(expected - existing)

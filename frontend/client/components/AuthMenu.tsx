@@ -67,6 +67,9 @@ export function AuthMenu() {
         <DropdownMenuItem asChild>
           <Link to="/account">Account</Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/favorites">Favorites</Link>
+        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => {
             logout();

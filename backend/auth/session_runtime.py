@@ -193,14 +193,24 @@ def ensure_auth_schema_upgrades(target_app: Flask) -> None:
         if engine is None:
             return
         inspector = inspect(engine)
-        if "api_keys" not in inspector.get_table_names():
-            return
-        api_key_columns = {column["name"] for column in inspector.get_columns("api_keys")}
-        if "deleted_at" in api_key_columns:
-            return
-        column_type = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
-        with engine.begin() as conn:
-            conn.execute(text(f"ALTER TABLE api_keys ADD COLUMN deleted_at {column_type} NULL"))
+        existing_tables = set(inspector.get_table_names())
+        if "api_keys" in existing_tables:
+            api_key_columns = {column["name"] for column in inspector.get_columns("api_keys")}
+            if "deleted_at" not in api_key_columns:
+                column_type = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
+                with engine.begin() as conn:
+                    conn.execute(
+                        text(f"ALTER TABLE api_keys ADD COLUMN deleted_at {column_type} NULL")
+                    )
+
+        favorites_required = {
+            "favorite_projects",
+            "favorites",
+            "favorite_tags",
+            "favorite_tag_assignments",
+        }
+        if favorites_required - existing_tables:
+            db.create_all(bind_key="auth")
 
 
 def auth_db_is_configured() -> bool:

@@ -243,6 +243,86 @@ class AuthOAuthAuthorizationCode(db.Model):
     used_at = db.Column(db.DateTime, nullable=True)
 
 
+class FavoriteProject(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "favorite_projects"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    name = db.Column(db.String(120), nullable=False)
+    is_default = db.Column(db.Boolean, nullable=False, default=False)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "name", name="uq_favorite_projects_user_name"),
+    )
+
+
+class Favorite(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "favorites"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    project_id = db.Column(
+        db.String(36), db.ForeignKey("favorite_projects.id"), index=True, nullable=False
+    )
+    item_type = db.Column(db.String(16), nullable=False)
+    item_uuid = db.Column(db.String(36), nullable=False)
+    note = db.Column(db.Text, nullable=True)
+    context = db.Column(db.JSON, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=_utc_now_naive, onupdate=_utc_now_naive
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id", "item_type", "item_uuid", name="uq_favorites_user_item"
+        ),
+        db.Index("ix_favorites_user_type", "user_id", "item_type"),
+    )
+
+
+class FavoriteTag(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "favorite_tags"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    name = db.Column(db.String(64), nullable=False)
+    color = db.Column(db.String(16), nullable=False, default="slate")
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "name", name="uq_favorite_tags_user_name"),
+    )
+
+
+class FavoriteTagAssignment(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "favorite_tag_assignments"
+
+    favorite_id = db.Column(
+        db.String(36), db.ForeignKey("favorites.id"), primary_key=True
+    )
+    tag_id = db.Column(
+        db.String(36), db.ForeignKey("favorite_tags.id"), primary_key=True
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+
+    __table_args__ = (
+        db.Index("ix_favorite_tag_assignments_tag", "tag_id"),
+    )
+
+
 class AuthOAuthSigningKey(db.Model):
     __bind_key__ = "auth"
     __tablename__ = "auth_oauth_signing_keys"

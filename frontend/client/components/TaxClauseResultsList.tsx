@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
+import { StarButton } from "@/components/StarButton";
 import { cn } from "@/lib/utils";
 import type { TaxClauseSearchResult } from "@shared/tax-clauses";
 
@@ -186,6 +187,16 @@ export function TaxClauseResultsList({
                         Open agreement
                       </Link>
                     </Button>
+                    <StarButton
+                      itemType="tax_clause"
+                      itemUuid={result.clause_uuid}
+                      context={{
+                        agreement_uuid: result.agreement_uuid,
+                        target,
+                        acquirer,
+                      }}
+                      className="shrink-0"
+                    />
                     <FlagAsInaccurateButton
                       source="search_result"
                       agreement_uuid={result.agreement_uuid}

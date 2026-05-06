@@ -20,6 +20,7 @@ import {
   Tag,
   X,
 } from "lucide-react";
+import { StarButton } from "@/components/StarButton";
 import { useAgreement } from "@/hooks/use-agreement";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -759,6 +760,16 @@ export function AgreementReader({
                 </a>
               </Button>
             ) : null}
+            <StarButton
+              itemType="agreement"
+              itemUuid={agreementUuid}
+              context={{
+                target: agreement.target,
+                acquirer: agreement.acquirer,
+                filing_date: agreement.filing_date,
+              }}
+              className="shrink-0"
+            />
           </div>
 
           {/* Expanded: mobile subtitle + fact chips + mobile sheet buttons + redacted alert */}

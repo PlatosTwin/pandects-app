@@ -329,6 +329,15 @@ const ROUTE_MANIFEST = [
     pageDescription: "Manage your Pandects account, access, and saved settings.",
   }),
   defineRoute({
+    pathname: "/favorites",
+    title: "Favorites | Pandects",
+    description: "Sections, deals, and tax clauses you've starred on Pandects.",
+    robots: NOINDEX,
+    pageType: "WebPage",
+    pageName: "Favorites",
+    pageDescription: "Sections, deals, and tax clauses you've starred on Pandects.",
+  }),
+  defineRoute({
     pathname: "/auth/zitadel/callback",
     title: "Signing In | Pandects",
     description: "Completing your Pandects sign-in flow.",

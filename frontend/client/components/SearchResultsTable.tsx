@@ -37,6 +37,7 @@ import {
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { useToast } from "@/components/ui/use-toast";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
+import { StarButton } from "@/components/StarButton";
 import type { SearchResult } from "@shared/sections";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -646,6 +647,17 @@ export function SearchResultsTable({
 
                     {/* Actions: Flag + Open Agreement */}
                     <div className="flex w-full flex-wrap items-center gap-2 sm:ml-4 sm:w-auto sm:justify-end">
+                      <StarButton
+                        itemType="section"
+                        itemUuid={result.section_uuid}
+                        context={{
+                          agreement_uuid: result.agreement_uuid,
+                          target: result.target,
+                          acquirer: result.acquirer,
+                          position: resultNumber,
+                        }}
+                        className="shrink-0"
+                      />
                       <FlagAsInaccurateButton
                         source="search_result"
                         agreement_uuid={result.agreement_uuid}

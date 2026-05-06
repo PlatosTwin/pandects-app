@@ -12,6 +12,7 @@ import {
 } from "@/lib/analytics";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { FavoritesProvider } from "@/contexts/FavoritesContext";
 
 const Landing = lazy(() => import("./pages/Landing"));
 const SearchPage = lazy(() => import("./pages/Search"));
@@ -29,6 +30,7 @@ const Feedback = lazy(() => import("./pages/Feedback"));
 const Contribute = lazy(() => import("./pages/Contribute"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Account = lazy(() => import("./pages/Account"));
+const Favorites = lazy(() => import("./pages/Favorites"));
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -56,6 +58,7 @@ const App = () => {
 
   return (
     <AuthProvider>
+      <FavoritesProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -85,6 +88,7 @@ const App = () => {
               />
               <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/account" element={<Account />} />
+              <Route path="/favorites" element={<Favorites />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/license" element={<License />} />
@@ -100,6 +104,7 @@ const App = () => {
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+      </FavoritesProvider>
     </AuthProvider>
   );
 };
