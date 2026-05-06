@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Any, cast
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, request
+from marshmallow import Schema
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.routes.deps import AccessContextProtocol, UserLikeProtocol
@@ -50,7 +51,7 @@ class FavoritesDeps:
     _require_auth_db: Callable[[], None]
     _require_verified_user: Callable[[], tuple[UserLikeProtocol, AccessContextProtocol]]
     _auth_is_mocked: Callable[[], bool]
-    _load_json: Callable[[object], dict[str, object]]
+    _load_json: Callable[[Schema], dict[str, object]]
     _utc_now: Callable[[], datetime]
 
 

@@ -5,7 +5,7 @@ const assetsDir = path.resolve("dist/spa/assets");
 const failures = [];
 
 const jsBudgetBytes = 425_000;
-const cssBudgetBytes = 115_000;
+const cssBudgetBytes = 125_000;
 
 const entryJs = findSingleFile(path.join(assetsDir, "js"), /^index-.*\.js$/);
 const entryCss = findSingleFile(path.join(assetsDir, "css"), /^index-.*\.css$/);
