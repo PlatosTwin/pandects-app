@@ -399,10 +399,10 @@ export function SearchResultsTable({
                 role="listitem"
                 key={result.id}
                 className={cn(
-                  "group relative overflow-hidden rounded-lg border bg-card shadow-sm transition-all hover:shadow-md",
+                  "group relative overflow-hidden rounded-lg border border-l-4 bg-card shadow-sm transition-all hover:shadow-md",
                   isSelected
-                    ? "border-primary/40 bg-primary/5 shadow-md"
-                    : "border-border hover:border-border",
+                    ? "border-primary/40 border-l-primary bg-primary/5 shadow-md"
+                    : "border-border border-l-primary/35 hover:border-l-primary/60",
                 )}
               >
                 {/* Header with metadata and checkbox */}
@@ -654,6 +654,10 @@ export function SearchResultsTable({
                           agreement_uuid: result.agreement_uuid,
                           target: result.target,
                           acquirer: result.acquirer,
+                          article_title: result.article_title,
+                          section_title: result.section_title,
+                          standard_id: result.standard_id,
+                          xml: result.xml,
                           position: resultNumber,
                         }}
                         className="shrink-0"

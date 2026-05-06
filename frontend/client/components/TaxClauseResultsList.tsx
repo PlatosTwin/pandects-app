@@ -125,8 +125,10 @@ export function TaxClauseResultsList({
             <li
               key={result.id}
               className={cn(
-                "rounded-lg border border-border bg-card shadow-sm transition-colors",
-                isSelected && "ring-2 ring-primary/30",
+                "rounded-lg border border-l-4 bg-card shadow-sm transition-colors hover:border-l-primary/60",
+                isSelected
+                  ? "border-primary/40 border-l-primary ring-2 ring-primary/30"
+                  : "border-border border-l-primary/35",
                 isCompact ? "p-3" : "p-4",
               )}
             >

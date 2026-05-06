@@ -237,8 +237,10 @@ export function TransactionResultsList({
           <li
             key={result.agreement_uuid}
             className={cn(
-              "group relative overflow-hidden rounded-lg border bg-card shadow-sm transition-all hover:border-border hover:shadow-md",
-              isSelected ? "border-primary/40" : "border-border",
+              "group relative overflow-hidden rounded-lg border border-l-4 bg-card shadow-sm transition-all hover:border-border hover:shadow-md",
+              isSelected
+                ? "border-primary/40 border-l-primary"
+                : "border-border border-l-primary/35 hover:border-l-primary/60",
             )}
           >
             {/* Header */}
