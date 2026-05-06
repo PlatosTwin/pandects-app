@@ -252,6 +252,7 @@ class FavoriteProject(db.Model):
         db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
     )
     name = db.Column(db.String(120), nullable=False)
+    color = db.Column(db.String(16), nullable=False, default="slate")
     is_default = db.Column(db.Boolean, nullable=False, default=False)
     sort_order = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
@@ -320,6 +321,23 @@ class FavoriteTagAssignment(db.Model):
 
     __table_args__ = (
         db.Index("ix_favorite_tag_assignments_tag", "tag_id"),
+    )
+
+
+class FavoriteProjectAssignment(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "favorite_project_assignments"
+
+    favorite_id = db.Column(
+        db.String(36), db.ForeignKey("favorites.id"), primary_key=True
+    )
+    project_id = db.Column(
+        db.String(36), db.ForeignKey("favorite_projects.id"), primary_key=True
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+
+    __table_args__ = (
+        db.Index("ix_favorite_project_assignments_project", "project_id"),
     )
 
 

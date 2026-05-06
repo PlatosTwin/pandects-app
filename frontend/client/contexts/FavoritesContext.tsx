@@ -10,15 +10,21 @@ import {
 } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
+  createProject as apiCreateProject,
   createTag as apiCreateTag,
   deleteFavorite as apiDeleteFavorite,
+  deleteProject as apiDeleteProject,
   deleteTag as apiDeleteTag,
   favoritesExists,
+  getFavoriteTags as apiGetFavoriteTags,
+  listFavoriteProjects as apiListFavoriteProjects,
   listTags as apiListTags,
   patchFavorite as apiPatchFavorite,
+  patchProject as apiPatchProject,
   patchTag as apiPatchTag,
   setFavoriteTags as apiSetFavoriteTags,
   upsertFavorite as apiUpsertFavorite,
+  type FavoriteProject,
   type FavoriteCreateInput,
   type FavoriteItemType,
   type FavoriteTag,
@@ -36,7 +42,7 @@ interface FavoritesContextValue {
   ensureLoaded: (itemType: FavoriteItemType, itemUuids: string[]) => void;
   upsertFavorite: (
     input: FavoriteCreateInput,
-  ) => Promise<{ id: string; created: boolean }>;
+  ) => Promise<{ id: string; project_id: string; created: boolean }>;
   deleteFavorite: (
     itemType: FavoriteItemType,
     itemUuid: string,
@@ -46,6 +52,19 @@ interface FavoritesContextValue {
     favoriteId: string,
     patch: { note?: string | null; project_id?: string | null },
   ) => Promise<void>;
+  // Project catalog
+  projects: FavoriteProject[];
+  ensureProjectsLoaded: () => void;
+  reloadProjects: () => Promise<FavoriteProject[]>;
+  createProject: (name: string, color: TagColor) => Promise<FavoriteProject>;
+  updateProject: (
+    id: string,
+    patch: { name?: string; color?: TagColor; sort_order?: number },
+  ) => Promise<FavoriteProject>;
+  removeProject: (
+    id: string,
+    reassignProjectId?: string,
+  ) => Promise<{ reassigned_to_project_id: string; moved: number }>;
   // Tag catalog
   tags: FavoriteTag[];
   ensureTagsLoaded: () => void;
@@ -58,6 +77,7 @@ interface FavoritesContextValue {
   removeTag: (id: string) => Promise<void>;
   // Per-favorite tag cache
   tagsForFavorite: (favoriteId: string) => FavoriteTag[] | undefined;
+  loadTagsForFavorite: (favoriteId: string) => Promise<FavoriteTag[]>;
   setFavoriteTagsCache: (favoriteId: string, tags: FavoriteTag[]) => void;
   setFavoriteTags: (
     favoriteId: string,
@@ -78,10 +98,12 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   });
 
   const [tags, setTags] = useState<FavoriteTag[]>([]);
+  const [projects, setProjects] = useState<FavoriteProject[]>([]);
   const [favoriteTagsMap, setFavoriteTagsMap] = useState<
     Record<string, FavoriteTag[]>
   >({});
   const tagsLoadedRef = useRef<boolean>(false);
+  const projectsLoadedRef = useRef<boolean>(false);
 
   // Reset when user changes (sign-in/sign-out).
   const lastUserRef = useRef<string | null>(null);
@@ -95,8 +117,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         tax_clause: new Set(),
       };
       setTags([]);
+      setProjects([]);
       setFavoriteTagsMap({});
       tagsLoadedRef.current = false;
+      projectsLoadedRef.current = false;
     }
   }, [userId]);
 
@@ -155,7 +179,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       ...prev,
       [favorite.id]: favorite.tags ?? [],
     }));
-    return { id: favorite.id, created };
+    return { id: favorite.id, project_id: favorite.project_id, created };
   }, []);
 
   const deleteFavorite = useCallback(
@@ -203,6 +227,58 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       patch: { note?: string | null; project_id?: string | null },
     ) => {
       await apiPatchFavorite(favoriteId, patch);
+    },
+    [],
+  );
+
+  const reloadProjects = useCallback(async () => {
+    if (!userId) return [];
+    const fresh = await apiListFavoriteProjects();
+    setProjects(fresh);
+    projectsLoadedRef.current = true;
+    return fresh;
+  }, [userId]);
+
+  const ensureProjectsLoaded = useCallback(() => {
+    if (!userId || projectsLoadedRef.current) return;
+    projectsLoadedRef.current = true;
+    void reloadProjects().catch(() => {
+      projectsLoadedRef.current = false;
+    });
+  }, [userId, reloadProjects]);
+
+  const createProject = useCallback(async (name: string, color: TagColor) => {
+    const project = await apiCreateProject({ name, color });
+    setProjects((prev) =>
+      [...prev, project].sort((a, b) => a.sort_order - b.sort_order),
+    );
+    return project;
+  }, []);
+
+  const updateProject = useCallback(
+    async (
+      id: string,
+      patch: { name?: string; color?: TagColor; sort_order?: number },
+    ) => {
+      const updated = await apiPatchProject(id, patch);
+      setProjects((prev) =>
+        prev
+          .map((project) => (project.id === updated.id ? updated : project))
+          .sort((a, b) => a.sort_order - b.sort_order),
+      );
+      return updated;
+    },
+    [],
+  );
+
+  const removeProject = useCallback(
+    async (id: string, reassignProjectId?: string) => {
+      const result = await apiDeleteProject(id, reassignProjectId);
+      setProjects((prev) => prev.filter((project) => project.id !== id));
+      return {
+        reassigned_to_project_id: result.reassigned_to_project_id,
+        moved: result.moved,
+      };
     },
     [],
   );
@@ -279,6 +355,12 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const loadTagsForFavorite = useCallback(async (favoriteId: string) => {
+    const fresh = await apiGetFavoriteTags(favoriteId);
+    setFavoriteTagsMap((prev) => ({ ...prev, [favoriteId]: fresh }));
+    return fresh;
+  }, []);
+
   const setFavoriteTags = useCallback(
     async (favoriteId: string, tagIds: string[]) => {
       const fresh = await apiSetFavoriteTags(favoriteId, tagIds);
@@ -296,6 +378,12 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       upsertFavorite,
       deleteFavorite,
       patchFavorite,
+      projects,
+      ensureProjectsLoaded,
+      reloadProjects,
+      createProject,
+      updateProject,
+      removeProject,
       tags,
       ensureTagsLoaded,
       reloadTags,
@@ -303,6 +391,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       updateTag,
       removeTag,
       tagsForFavorite,
+      loadTagsForFavorite,
       setFavoriteTagsCache,
       setFavoriteTags,
     }),
@@ -313,6 +402,12 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       upsertFavorite,
       deleteFavorite,
       patchFavorite,
+      projects,
+      ensureProjectsLoaded,
+      reloadProjects,
+      createProject,
+      updateProject,
+      removeProject,
       tags,
       ensureTagsLoaded,
       reloadTags,
@@ -320,6 +415,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       updateTag,
       removeTag,
       tagsForFavorite,
+      loadTagsForFavorite,
       setFavoriteTagsCache,
       setFavoriteTags,
     ],

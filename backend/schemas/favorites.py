@@ -48,3 +48,32 @@ class TagUpdateSchema(Schema):
 
 class FavoriteTagsSetSchema(Schema):
     tag_ids = fields.List(fields.Str(), required=True)
+
+
+class FavoriteProjectsSetSchema(Schema):
+    project_ids = fields.List(fields.Str(), required=True)
+
+
+class ProjectCreateSchema(Schema):
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=120))
+    color = fields.Str(required=False, validate=validate.OneOf(TAG_COLORS))
+
+
+class ProjectUpdateSchema(Schema):
+    name = fields.Str(required=False, validate=validate.Length(min=1, max=120))
+    color = fields.Str(required=False, validate=validate.OneOf(TAG_COLORS))
+    sort_order = fields.Int(required=False)
+
+
+class ProjectDeleteQuerySchema(Schema):
+    reassign_project_id = fields.Str(required=False)
+
+
+class FavoritesBulkMoveSchema(Schema):
+    favorite_ids = fields.List(fields.Str(), required=True)
+    project_id = fields.Str(required=True)
+
+
+class FavoritesBulkCopySchema(Schema):
+    favorite_ids = fields.List(fields.Str(), required=True)
+    project_ids = fields.List(fields.Str(), required=True)

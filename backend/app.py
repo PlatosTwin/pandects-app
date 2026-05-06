@@ -43,6 +43,7 @@ from backend.models import (
     AuthUser,
     Favorite,
     FavoriteProject,
+    FavoriteProjectAssignment,
     FavoriteTag,
     FavoriteTagAssignment,
     LegalAcceptance,
@@ -1336,6 +1337,7 @@ def _register_app(target_app: Flask) -> None:
         deps=FavoritesDeps(
             Favorite=Favorite,
             FavoriteProject=FavoriteProject,
+            FavoriteProjectAssignment=FavoriteProjectAssignment,
             FavoriteTag=FavoriteTag,
             FavoriteTagAssignment=FavoriteTagAssignment,
             Sections=Sections,
@@ -1395,6 +1397,7 @@ def init_auth_db():
             "api_request_events",
             "api_usage_daily_ips",
             "favorite_projects",
+            "favorite_project_assignments",
             "favorites",
             "favorite_tags",
             "favorite_tag_assignments",

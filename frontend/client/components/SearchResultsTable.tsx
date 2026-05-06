@@ -10,7 +10,11 @@ import {
   Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BREAKPOINT_SM, DEFAULT_TRUNCATION_LENGTH, LONG_TRUNCATION_LENGTH } from "@/lib/constants";
+import {
+  BREAKPOINT_SM,
+  DEFAULT_TRUNCATION_LENGTH,
+  LONG_TRUNCATION_LENGTH,
+} from "@/lib/constants";
 import { truncateText } from "@/lib/text-utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -18,9 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  TooltipProvider,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -196,7 +198,6 @@ export function SearchResultsTable({
     });
   };
 
-
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -260,7 +261,9 @@ export function SearchResultsTable({
         <div className="hidden items-center gap-3 sm:flex">
           <div className="flex items-center gap-2">
             <Checkbox
-              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              checked={
+                allSelected ? true : someSelected ? "indeterminate" : false
+              }
               onCheckedChange={() => onToggleSelectAll()}
               className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
               aria-label="Select all results"
@@ -322,7 +325,10 @@ export function SearchResultsTable({
                   onSortResults(value as "year" | "target" | "acquirer")
                 }
               >
-                <SelectTrigger className="h-11 w-full sm:h-9 sm:w-[160px]" aria-label="Sort section results by">
+                <SelectTrigger
+                  className="h-11 w-full sm:h-9 sm:w-[160px]"
+                  aria-label="Sort section results by"
+                >
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -360,8 +366,14 @@ export function SearchResultsTable({
           )}
         >
           {searchResults.map((result, index) => {
-            const targetText = truncateText(result.target, DEFAULT_TRUNCATION_LENGTH);
-            const acquirerText = truncateText(result.acquirer, DEFAULT_TRUNCATION_LENGTH);
+            const targetText = truncateText(
+              result.target,
+              DEFAULT_TRUNCATION_LENGTH,
+            );
+            const acquirerText = truncateText(
+              result.acquirer,
+              DEFAULT_TRUNCATION_LENGTH,
+            );
             const isSelected = selectedResults.has(result.id);
             const isExpanded = expandedResults.has(result.id);
             const canExpand = expandableResults.has(result.id) || isExpanded;
@@ -372,8 +384,7 @@ export function SearchResultsTable({
             const matchedStandardId = standardIds.find(
               (value) => clauseTypePathByStandardId[value],
             );
-            const standard_id =
-              matchedStandardId ?? standardIds[0] ?? null;
+            const standard_id = matchedStandardId ?? standardIds[0] ?? null;
             const clauseTypePath = standard_id
               ? clauseTypePathByStandardId[standard_id]
               : undefined;
@@ -384,7 +395,10 @@ export function SearchResultsTable({
               ? truncateText(clauseTypeLabel, DEFAULT_TRUNCATION_LENGTH)
               : null;
             const sectionSummary = `${result.article_title} \u2192 ${result.section_title}`;
-            const sectionSummaryText = truncateText(sectionSummary, LONG_TRUNCATION_LENGTH);
+            const sectionSummaryText = truncateText(
+              sectionSummary,
+              LONG_TRUNCATION_LENGTH,
+            );
             const showDevFallbackPill =
               import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
 
@@ -433,7 +447,10 @@ export function SearchResultsTable({
                           <span className="text-xs font-semibold tabular-nums text-muted-foreground">
                             #{resultNumber}
                           </span>
-                          <Badge variant="outline" className="px-2 py-0.5 font-medium">
+                          <Badge
+                            variant="outline"
+                            className="px-2 py-0.5 font-medium"
+                          >
                             {result.year}
                           </Badge>
                           {result.verified ? (
@@ -444,11 +461,18 @@ export function SearchResultsTable({
                                   aria-label="Verified agreement"
                                   className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 transition-colors hover:bg-emerald-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:text-emerald-300"
                                 >
-                                  <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                                  <span className="hidden sm:inline">Verified</span>
+                                  <BadgeCheck
+                                    className="h-3.5 w-3.5"
+                                    aria-hidden="true"
+                                  />
+                                  <span className="hidden sm:inline">
+                                    Verified
+                                  </span>
                                 </button>
                               }
-                              content={<p>This agreement has been verified by hand.</p>}
+                              content={
+                                <p>This agreement has been verified by hand.</p>
+                              }
                               tooltipProps={{ side: "bottom" }}
                               popoverProps={{
                                 side: "bottom",
@@ -505,7 +529,9 @@ export function SearchResultsTable({
                                   </>
                                 ) : (
                                   <>
-                                    <p>Missing standard_id in search results.</p>
+                                    <p>
+                                      Missing standard_id in search results.
+                                    </p>
                                     <p>
                                       Restart the Flask API or deploy the latest
                                       backend so `/v1/sections` returns
@@ -548,7 +574,9 @@ export function SearchResultsTable({
                                 }}
                               />
                             ) : (
-                              <span className="break-words">{targetText.truncated}</span>
+                              <span className="break-words">
+                                {targetText.truncated}
+                              </span>
                             )}
                           </h3>
                           <div
@@ -575,7 +603,9 @@ export function SearchResultsTable({
                                 }}
                               />
                             ) : (
-                              <span className="break-words">{acquirerText.truncated}</span>
+                              <span className="break-words">
+                                {acquirerText.truncated}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -586,18 +616,34 @@ export function SearchResultsTable({
                             className="hidden items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground sm:inline-flex"
                             title={result.article_title}
                           >
-                            <Layers className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            <Layers
+                              className="h-3 w-3 shrink-0"
+                              aria-hidden="true"
+                            />
                             <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
-                              {truncateText(result.article_title, DEFAULT_TRUNCATION_LENGTH).truncated}
+                              {
+                                truncateText(
+                                  result.article_title,
+                                  DEFAULT_TRUNCATION_LENGTH,
+                                ).truncated
+                              }
                             </span>
                           </span>
                           <span
                             className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
                             title={result.section_title}
                           >
-                            <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            <FileText
+                              className="h-3 w-3 shrink-0"
+                              aria-hidden="true"
+                            />
                             <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
-                              {truncateText(result.section_title, DEFAULT_TRUNCATION_LENGTH).truncated}
+                              {
+                                truncateText(
+                                  result.section_title,
+                                  DEFAULT_TRUNCATION_LENGTH,
+                                ).truncated
+                              }
                             </span>
                           </span>
                         </div>
@@ -636,7 +682,12 @@ export function SearchResultsTable({
                                 title={result.purpose}
                               >
                                 <span className="max-w-[12rem] truncate">
-                                  {truncateText(result.purpose, DEFAULT_TRUNCATION_LENGTH).truncated}
+                                  {
+                                    truncateText(
+                                      result.purpose,
+                                      DEFAULT_TRUNCATION_LENGTH,
+                                    ).truncated
+                                  }
                                 </span>
                               </Badge>
                             )}
@@ -682,7 +733,12 @@ export function SearchResultsTable({
                 </div>
 
                 {/* Content area */}
-                <div className={cn("p-4", density === "compact" ? "sm:p-3" : "sm:p-4")}>
+                <div
+                  className={cn(
+                    "p-4",
+                    density === "compact" ? "sm:p-3" : "sm:p-4",
+                  )}
+                >
                   {/* Clause text */}
                   {result.xml ? (
                     <>
@@ -696,12 +752,14 @@ export function SearchResultsTable({
                       >
                         {/* Copy button - positioned in top-right corner of inner box */}
                         <div className="absolute right-2 top-2 z-10">
-                          <DropdownMenu onOpenChange={(open) => {
-                            if (!open) {
-                              // Process pending copy after dropdown closes
-                              processPendingCopy();
-                            }
-                          }}>
+                          <DropdownMenu
+                            onOpenChange={(open) => {
+                              if (!open) {
+                                // Process pending copy after dropdown closes
+                                processPendingCopy();
+                              }
+                            }}
+                          >
                             <DropdownMenuTrigger asChild>
                               <button
                                 type="button"
@@ -881,7 +939,11 @@ export function SearchResultsTable({
                       ) : null}
                     </>
                   ) : (
-                    <div className={cn(density === "compact" ? "sm:h-28" : "sm:h-36")}>
+                    <div
+                      className={cn(
+                        density === "compact" ? "sm:h-28" : "sm:h-36",
+                      )}
+                    >
                       <Alert className="h-full">
                         <AlertTitle>Section text not available</AlertTitle>
                         <AlertDescription>

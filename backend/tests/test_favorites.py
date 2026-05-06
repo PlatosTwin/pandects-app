@@ -27,7 +27,7 @@ os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
 
 from backend.app import create_test_app  # noqa: E402
 from backend.extensions import db  # noqa: E402
-from backend.models.auth import AuthUser, Favorite, FavoriteProject  # noqa: E402
+from backend.models.auth import AuthUser  # noqa: E402
 import backend.app as backend_app  # noqa: E402
 
 
@@ -48,6 +48,7 @@ class FavoritesRoutesTests(unittest.TestCase):
             engine = db.engines["auth"]
             with engine.begin() as conn:
                 conn.execute(text("DELETE FROM favorite_tag_assignments"))
+                conn.execute(text("DELETE FROM favorite_project_assignments"))
                 conn.execute(text("DELETE FROM favorite_tags"))
                 conn.execute(text("DELETE FROM favorites"))
                 conn.execute(text("DELETE FROM favorite_projects"))
@@ -330,6 +331,109 @@ class FavoritesRoutesTests(unittest.TestCase):
             f"/v1/me/favorites/{b_fav_id}/tags",
             json={"tag_ids": [a_tag_id]},
         )
+        self.assertEqual(res.status_code, 404)
+
+    def test_project_crud_filter_and_bulk_move(self):
+        client = self._client_with_bearer()
+
+        res = client.get("/v1/me/favorite-projects")
+        self.assertEqual(res.status_code, 200)
+        scratchpad = res.get_json()["projects"][0]
+        self.assertEqual(scratchpad["color"], "slate")
+
+        res = client.post(
+            "/v1/me/favorite-projects",
+            json={"name": "Diligence", "color": "teal"},
+        )
+        self.assertEqual(res.status_code, 201)
+        diligence = res.get_json()["project"]
+        self.assertEqual(diligence["name"], "Diligence")
+        self.assertEqual(diligence["color"], "teal")
+
+        res = client.patch(
+            f"/v1/me/favorite-projects/{diligence['id']}",
+            json={"name": "Board review", "color": "violet", "sort_order": 7},
+        )
+        self.assertEqual(res.status_code, 200)
+        updated_project = res.get_json()["project"]
+        self.assertEqual(updated_project["name"], "Board review")
+        self.assertEqual(updated_project["color"], "violet")
+        self.assertEqual(updated_project["sort_order"], 7)
+
+        fav_ids: list[str] = []
+        for idx in range(2):
+            res = client.post(
+                "/v1/me/favorites",
+                json={
+                    "item_type": "agreement",
+                    "item_uuid": f"cccccccc-cccc-cccc-cccc-ccccccccccc{idx}",
+                },
+            )
+            self.assertEqual(res.status_code, 201)
+            fav_ids.append(res.get_json()["favorite"]["id"])
+
+        res = client.post(
+            "/v1/me/favorites/bulk-move",
+            json={"favorite_ids": fav_ids, "project_id": diligence["id"]},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()["moved"], 2)
+
+        favs = client.get(
+            f"/v1/me/favorites?project_id={diligence['id']}"
+        ).get_json()["favorites"]
+        self.assertEqual({fav["id"] for fav in favs}, set(fav_ids))
+        self.assertEqual(set(favs[0]["project_ids"]), {diligence["id"]})
+
+        res = client.post(
+            "/v1/me/favorites/bulk-copy",
+            json={"favorite_ids": [fav_ids[0]], "project_ids": [scratchpad["id"]]},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()["copied"], 1)
+
+        favs = client.get(
+            f"/v1/me/favorites?project_id={scratchpad['id']}"
+        ).get_json()["favorites"]
+        self.assertEqual([fav["id"] for fav in favs], [fav_ids[0]])
+
+        res = client.put(
+            f"/v1/me/favorites/{fav_ids[0]}/projects",
+            json={"project_ids": [scratchpad["id"]]},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()["project_ids"], [scratchpad["id"]])
+
+        res = client.delete(
+            f"/v1/me/favorite-projects/{diligence['id']}"
+            f"?reassign_project_id={scratchpad['id']}"
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()["moved"], 1)
+
+        favs = client.get(
+            f"/v1/me/favorites?project_id={scratchpad['id']}"
+        ).get_json()["favorites"]
+        self.assertEqual({fav["id"] for fav in favs}, set(fav_ids))
+
+    def test_project_user_isolation(self):
+        client_a = self._client_with_bearer()
+        token_b = self._create_user_and_bearer(email="b@example.com")
+        client_b = self.app.test_client()
+        client_b.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_b}"
+
+        res = client_a.post(
+            "/v1/me/favorite-projects",
+            json={"name": "Mine", "color": "green"},
+        )
+        project_id = res.get_json()["project"]["id"]
+
+        res = client_b.patch(
+            f"/v1/me/favorite-projects/{project_id}",
+            json={"name": "Not mine"},
+        )
+        self.assertEqual(res.status_code, 404)
+        res = client_b.delete(f"/v1/me/favorite-projects/{project_id}")
         self.assertEqual(res.status_code, 404)
 
     def test_invalid_item_type_rejected(self):

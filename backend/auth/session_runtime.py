@@ -199,18 +199,42 @@ def ensure_auth_schema_upgrades(target_app: Flask) -> None:
             if "deleted_at" not in api_key_columns:
                 column_type = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
                 with engine.begin() as conn:
-                    conn.execute(
+                    _ = conn.execute(
                         text(f"ALTER TABLE api_keys ADD COLUMN deleted_at {column_type} NULL")
                     )
 
         favorites_required = {
             "favorite_projects",
+            "favorite_project_assignments",
             "favorites",
             "favorite_tags",
             "favorite_tag_assignments",
         }
         if favorites_required - existing_tables:
             db.create_all(bind_key="auth")
+        elif "favorite_projects" in existing_tables:
+            project_columns = {
+                column["name"] for column in inspector.get_columns("favorite_projects")
+            }
+            with engine.begin() as conn:
+                if "sort_order" not in project_columns:
+                    _ = conn.execute(
+                        text(
+                            (
+                                "ALTER TABLE favorite_projects "
+                                "ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+                            )
+                        )
+                    )
+                if "color" not in project_columns:
+                    _ = conn.execute(
+                        text(
+                            (
+                                "ALTER TABLE favorite_projects "
+                                "ADD COLUMN color VARCHAR(16) NOT NULL DEFAULT 'slate'"
+                            )
+                        )
+                    )
 
 
 def auth_db_is_configured() -> bool:

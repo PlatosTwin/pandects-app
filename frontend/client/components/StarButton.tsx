@@ -9,11 +9,18 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { TagEditor } from "@/components/favorites/TagEditor";
-import { TagPill } from "@/components/favorites/TagPill";
+import { TagPill, TagSwatch } from "@/components/favorites/TagPill";
 import { cn } from "@/lib/utils";
 import type { FavoriteItemType } from "@/lib/favorites-api";
 
@@ -48,8 +55,11 @@ export function StarButton({
     deleteFavorite,
     patchFavorite,
     ensureLoaded,
+    projects,
+    ensureProjectsLoaded,
     tags,
     tagsForFavorite,
+    loadTagsForFavorite,
     setFavoriteTags,
   } = useFavorites();
 
@@ -61,6 +71,7 @@ export function StarButton({
   const [savingNote, setSavingNote] = useState(false);
   const [openingFavorite, setOpeningFavorite] = useState(false);
   const [draftTagIds, setDraftTagIds] = useState<string[]>([]);
+  const [draftProjectId, setDraftProjectId] = useState<string | null>(null);
   const [optimisticStarred, setOptimisticStarred] = useState<boolean | null>(
     null,
   );
@@ -74,6 +85,12 @@ export function StarButton({
     }
   }, [user, itemType, itemUuid, ensureLoaded]);
 
+  useEffect(() => {
+    if (popoverOpen && user) {
+      ensureProjectsLoaded();
+    }
+  }, [popoverOpen, user, ensureProjectsLoaded]);
+
   useEffect(
     () => () => {
       if (clickTimerRef.current !== null) {
@@ -85,6 +102,15 @@ export function StarButton({
 
   const starred = user ? isStarred(itemType, itemUuid) : false;
   const displayedStarred = optimisticStarred ?? starred;
+  const favoriteId = favoriteIdFor(itemType, itemUuid);
+  const displayTags = favoriteId ? (tagsForFavorite(favoriteId) ?? []) : [];
+
+  useEffect(() => {
+    if (!displayedStarred || !favoriteId || tagsForFavorite(favoriteId)) return;
+    void loadTagsForFavorite(favoriteId).catch(() => {
+      // Tags are decorative in the star affordance; the editor can retry.
+    });
+  }, [displayedStarred, favoriteId, tagsForFavorite, loadTagsForFavorite]);
 
   useEffect(() => {
     if (optimisticStarred !== null && optimisticStarred === starred) {
@@ -116,9 +142,8 @@ export function StarButton({
     try {
       if (displayedStarred) {
         setOptimisticStarred(false);
-        const id = favoriteIdFor(itemType, itemUuid);
-        if (id) {
-          await deleteFavorite(itemType, itemUuid, id);
+        if (favoriteId) {
+          await deleteFavorite(itemType, itemUuid, favoriteId);
         }
       } else {
         setOptimisticStarred(true);
@@ -142,7 +167,7 @@ export function StarButton({
     displayedStarred,
     itemType,
     itemUuid,
-    favoriteIdFor,
+    favoriteId,
     deleteFavorite,
     upsertFavorite,
     baseContext,
@@ -200,6 +225,7 @@ export function StarButton({
       // Ensure favorited (idempotent on backend); preload existing note.
       setNote("");
       setDraftTagIds([]);
+      setDraftProjectId(null);
       setPopoverFavoriteId(favoriteIdFor(itemType, itemUuid));
       setPopoverOpen(true);
       try {
@@ -213,6 +239,7 @@ export function StarButton({
             context: baseContext(),
           });
           id = result.id;
+          setDraftProjectId(result.project_id);
         }
         const existing = id ? tagsForFavorite(id) : undefined;
         setPopoverFavoriteId(id);
@@ -237,6 +264,7 @@ export function StarButton({
       upsertFavorite,
       favoriteIdFor,
       tagsForFavorite,
+      ensureProjectsLoaded,
       baseContext,
       toast,
     ],
@@ -255,7 +283,10 @@ export function StarButton({
       const tagsChanged =
         existingIds.length !== draftSorted.length ||
         existingIds.some((v, i) => v !== draftSorted[i]);
-      await patchFavorite(favoriteId, { note: note.trim() || null });
+      await patchFavorite(favoriteId, {
+        note: note.trim() || null,
+        ...(draftProjectId ? { project_id: draftProjectId } : {}),
+      });
       if (tagsChanged) {
         await setFavoriteTags(favoriteId, draftTagIds);
       }
@@ -276,6 +307,7 @@ export function StarButton({
     popoverFavoriteId,
     tagsForFavorite,
     draftTagIds,
+    draftProjectId,
     itemType,
     itemUuid,
     patchFavorite,
@@ -301,7 +333,6 @@ export function StarButton({
       className={cn(
         "inline-flex h-8 w-8 select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         displayedStarred && "text-amber-500 hover:text-amber-500",
-        className,
       )}
       aria-label={
         ariaLabel ??
@@ -324,13 +355,14 @@ export function StarButton({
   );
 
   return (
-    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-      <PopoverTrigger asChild>{button}</PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-72 space-y-2"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className={cn("inline-flex flex-col items-center", className)}>
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger asChild>{button}</PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-[min(22rem,calc(100vw-2rem))] space-y-2"
+          onClick={(e) => e.stopPropagation()}
+        >
         <div className="text-sm font-medium">Add a note</div>
         <Textarea
           autoFocus
@@ -373,6 +405,26 @@ export function StarButton({
             )}
           </div>
         </div>
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground">
+            Project
+          </div>
+          <Select
+            value={draftProjectId ?? ""}
+            onValueChange={(value) => setDraftProjectId(value || null)}
+          >
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Leave unchanged" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex justify-end gap-2">
           <Button
             type="button"
@@ -392,7 +444,39 @@ export function StarButton({
             {savingNote ? "Saving…" : openingFavorite ? "Opening…" : "Save"}
           </Button>
         </div>
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+      {displayTags.length > 0 ? (
+        <div
+          className="mt-0.5 flex max-w-12 flex-wrap justify-center gap-0.5"
+          aria-label={`Tags: ${displayTags.map((tag) => tag.name).join(", ")}`}
+        >
+          {displayTags.slice(0, 6).map((tag) => (
+            <Popover key={tag.id}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-3 w-3 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                  aria-label={`Tag: ${tag.name}`}
+                  title={tag.name}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
+                >
+                  <TagSwatch color={tag.color} className="h-2 w-2" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="bottom"
+                align="center"
+                className="w-auto px-2 py-1 text-xs"
+              >
+                {tag.name}
+              </PopoverContent>
+            </Popover>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
