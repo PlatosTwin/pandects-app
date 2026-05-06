@@ -37,7 +37,7 @@ import {
   revokeApiKey,
 } from "@/lib/auth-api";
 import type { ApiKeySummary, UsageByDay, UsagePeriod } from "@/lib/auth-types";
-import { Check, Copy, Trash2 } from "lucide-react";
+import { Check, Copy, Star, Trash2 } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { trackEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/format-utils";
@@ -146,7 +146,7 @@ function MpcClientCard({ id, title, description, command, copied, onCopy }: MpcC
           <h3 id={titleId} className="text-sm font-semibold">
             {title}
           </h3>
-          <p id={descriptionId} className="mt-1 text-sm text-muted-foreground">
+          <p id={descriptionId} className="mt-1 text-sm prose-copy">
             {description}
           </p>
         </div>
@@ -519,7 +519,7 @@ export default function Account() {
       title="Account"
       subtitle={
         status === "anonymous" ? (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm prose-copy">
             Sign in to unlock full access, manage API keys, and view API usage.
           </span>
         ) : undefined
@@ -544,15 +544,38 @@ export default function Account() {
           {redactedReminder ? (
             <Alert>
               <AlertTitle>API access</AlertTitle>
-              <AlertDescription>{redactedReminder}</AlertDescription>
+              <AlertDescription className="prose-copy">{redactedReminder}</AlertDescription>
             </Alert>
           ) : null}
+
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold">Favorites</h2>
+            <div className="mx-auto mt-4 grid max-w-xl grid-cols-[auto_minmax(0,1fr)] items-center gap-3 text-left">
+              <Star
+                className="h-6 w-6 shrink-0 fill-none text-amber-500"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+              <p className="text-sm leading-6 prose-copy">
+                Save starred sections, deals, and tax clauses in one workspace.
+                Double-click stars to add tags, notes, and project organization.
+              </p>
+            </div>
+            <div className="mt-3 text-center">
+              <Link
+                to="/favorites"
+                className="text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                Go to Favorites
+              </Link>
+            </div>
+          </Card>
 
           <Card className="p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold">API keys</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm prose-copy">
                   Use <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">X-API-Key</code> for API access. Keep keys secret — you can view
                   a newly created key only once. Full API examples and reference are on the{" "}
                   <a
@@ -853,7 +876,7 @@ export default function Account() {
             <div className="flex flex-col gap-3">
               <div>
                 <h2 className="text-xl font-semibold">MCP</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm prose-copy">
                   Connect Pandects in Codex or Claude Code to discover agreements,
                   inspect sections, review tax clauses, and use taxonomy or filter
                   catalogs directly in your client.
@@ -864,7 +887,7 @@ export default function Account() {
                 <AlertTitle className="text-sm font-semibold text-foreground/80">
                   MCP uses account login, not API keys
                 </AlertTitle>
-                <AlertDescription className="text-muted-foreground">
+                <AlertDescription className="prose-copy">
                   Add the Pandects MCP server in your client, then start the client OAuth
                   flow and sign in with the same Pandects account you use on this site.
                 </AlertDescription>
@@ -915,7 +938,7 @@ export default function Account() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h2 className="text-xl font-semibold">Usage</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm prose-copy">
                   Total in selected {USAGE_RANGE_LABELS[usagePeriod]} period:{" "}
                   {usageTotal.toLocaleString()} API requests.
                 </p>
@@ -1091,7 +1114,7 @@ export default function Account() {
             <h2 className="text-xl font-semibold text-destructive">
               Delete account
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm prose-copy">
               This permanently deletes your account and revokes your API keys.
               Usage data is retained.
             </p>
@@ -1129,7 +1152,7 @@ export default function Account() {
           >
             <DialogHeader>
               <DialogTitle>New API key</DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="prose-copy">
                 Add an optional name so you can tell keys apart in the list. You can leave it
                 blank.
               </DialogDescription>
@@ -1172,7 +1195,7 @@ export default function Account() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Your new API key</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="prose-copy">
               Copy this now — you won’t be able to view it again.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1215,7 +1238,7 @@ export default function Account() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke API key?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="prose-copy">
               {revokeTargetKey ? (
                 <>
                   This will immediately disable{" "}
@@ -1253,7 +1276,7 @@ export default function Account() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete API key permanently?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="prose-copy">
               {permanentDeleteTargetKey ? (
                 <>
                   <span className="font-medium text-foreground">
@@ -1286,7 +1309,7 @@ export default function Account() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="prose-copy">
               Type <span className="font-mono">Delete</span> to confirm. This
               cannot be undone.
             </AlertDialogDescription>
