@@ -8,7 +8,6 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { lazy, useEffect } from "react";
 import {
   installGlobalErrorTracking,
-  scheduleAnalyticsScriptLoad,
   scheduleWhenBrowserIdle,
 } from "@/lib/analytics";
 import { AppLayout } from "@/components/AppLayout";
@@ -46,14 +45,12 @@ const DataLicense = lazy(() => import("./pages/DataLicense"));
 
 const App = () => {
   useEffect(() => {
-    const cancelScheduledAnalytics = scheduleAnalyticsScriptLoad();
     let cleanup = () => undefined;
     const cancelScheduledInstall = scheduleWhenBrowserIdle(() => {
       cleanup = installGlobalErrorTracking();
     });
 
     return () => {
-      cancelScheduledAnalytics();
       cancelScheduledInstall();
       cleanup();
     };
