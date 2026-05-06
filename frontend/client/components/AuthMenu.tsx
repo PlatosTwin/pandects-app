@@ -52,7 +52,7 @@ export function AuthMenu() {
   const emailLabel = truncateEmail(user.email);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"

@@ -117,7 +117,7 @@ function NavigationDesktopMenusComponent() {
             </Link>
           ),
         )}
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -159,7 +159,7 @@ function NavigationDesktopMenusComponent() {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
