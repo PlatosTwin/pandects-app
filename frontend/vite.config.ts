@@ -43,7 +43,13 @@ export default defineConfig(({ mode }) => {
           // Optimize chunk file names for better caching
           chunkFileNames: "assets/js/[name]-[hash].js",
           entryFileNames: "assets/js/[name]-[hash].js",
-          assetFileNames: "assets/[ext]/[name]-[hash].[ext]",
+          assetFileNames: (assetInfo) => {
+            const sourceName =
+              assetInfo.names?.[0] ?? assetInfo.originalFileNames?.[0] ?? "";
+            return sourceName.endsWith(".css")
+              ? "assets/css/[name]-[hash][extname]"
+              : "assets/[name]-[hash][extname]";
+          },
         },
       },
       // Increase chunk size warning limit since we're doing manual chunking
