@@ -258,6 +258,8 @@ export function SearchResultsTable({
     <div className={cn("space-y-4", className)}>
       {/* Header with Select All and Sort Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Search-result bulk selection is intentionally desktop-only; mobile
+            result cards stay focused on opening individual agreements. */}
         <div className="hidden items-center gap-3 sm:flex">
           <div className="flex items-center gap-2">
             <Checkbox
@@ -431,6 +433,8 @@ export function SearchResultsTable({
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex min-w-0 flex-1 items-start gap-3">
+                      {/* Per-row selection follows the desktop-only bulk action
+                          model for search results. */}
                       <div className="hidden shrink-0 items-center justify-center pt-0.5 sm:flex">
                         <Checkbox
                           checked={isSelected}

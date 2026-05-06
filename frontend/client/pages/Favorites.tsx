@@ -301,7 +301,7 @@ function FavoriteRow({
           <div className="flex flex-wrap items-center gap-1.5 sm:pr-48">
             <button
               type="button"
-              className="inline-flex h-6 w-6 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
+              className="inline-flex h-10 w-10 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing sm:h-6 sm:w-6"
               aria-label="Drag favorite to project"
               title="Drag to project"
               {...attributes}
@@ -410,6 +410,7 @@ function FavoriteRow({
             <div className="space-y-2">
               <Textarea
                 autoFocus
+                aria-label={`Note for ${heading}`}
                 value={noteDraft}
                 onChange={(e) => setNoteDraft(e.target.value)}
                 onKeyDown={(e) => {
@@ -446,7 +447,7 @@ function FavoriteRow({
             <button
               type="button"
               onClick={() => setEditingNote(true)}
-              className="block max-w-full whitespace-pre-wrap break-words text-left text-sm text-muted-foreground hover:text-foreground"
+              className="block min-h-11 max-w-full whitespace-pre-wrap break-words text-left text-sm text-muted-foreground hover:text-foreground sm:min-h-0"
             >
               {fav.note ?? "Add a note…"}
             </button>
@@ -545,7 +546,7 @@ function FilterBar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 gap-1 px-2 text-xs"
+                className="h-11 gap-1 px-3 text-xs sm:h-7 sm:px-2"
                 onClick={onClear}
               >
                 <X className="h-3 w-3" /> Clear
@@ -573,46 +574,50 @@ function FilterBar({
               <label className="space-y-1 text-xs">
                 <div className="text-muted-foreground">Target</div>
                 <Input
+                  aria-label="Target filter"
                   value={filters.target}
                   onChange={(e) =>
                     onChange({ ...filters, target: e.target.value })
                   }
                   placeholder="e.g. Acme"
-                  className="h-8 text-sm"
+                  className="h-11 text-sm sm:h-8"
                 />
               </label>
               <label className="space-y-1 text-xs">
                 <div className="text-muted-foreground">Acquirer</div>
                 <Input
+                  aria-label="Acquirer filter"
                   value={filters.acquirer}
                   onChange={(e) =>
                     onChange({ ...filters, acquirer: e.target.value })
                   }
                   placeholder="e.g. Globex"
-                  className="h-8 text-sm"
+                  className="h-11 text-sm sm:h-8"
                 />
               </label>
               <div className="space-y-1 text-xs">
                 <div className="text-muted-foreground">Year</div>
                 <div className="flex items-center gap-1">
                   <Input
+                    aria-label="Minimum year"
                     type="number"
                     value={filters.yearMin}
                     onChange={(e) =>
                       onChange({ ...filters, yearMin: e.target.value })
                     }
                     placeholder="From"
-                    className="h-8 text-sm"
+                    className="h-11 text-sm sm:h-8"
                   />
                   <span aria-hidden="true">-</span>
                   <Input
+                    aria-label="Maximum year"
                     type="number"
                     value={filters.yearMax}
                     onChange={(e) =>
                       onChange({ ...filters, yearMax: e.target.value })
                     }
                     placeholder="To"
-                    className="h-8 text-sm"
+                    className="h-11 text-sm sm:h-8"
                   />
                 </div>
               </div>
@@ -625,7 +630,10 @@ function FilterBar({
                     value={filters.sizeMinUsd || ANY_SIZE_VALUE}
                     onValueChange={(value) => setSize("sizeMinUsd", value)}
                   >
-                    <SelectTrigger className="h-8 text-sm">
+                    <SelectTrigger
+                      className="h-11 text-sm sm:h-8"
+                      aria-label="Minimum transaction size"
+                    >
                       <SelectValue placeholder="Min" />
                     </SelectTrigger>
                     <SelectContent>
@@ -642,7 +650,10 @@ function FilterBar({
                     value={filters.sizeMaxUsd || ANY_SIZE_VALUE}
                     onValueChange={(value) => setSize("sizeMaxUsd", value)}
                   >
-                    <SelectTrigger className="h-8 text-sm">
+                    <SelectTrigger
+                      className="h-11 text-sm sm:h-8"
+                      aria-label="Maximum transaction size"
+                    >
                       <SelectValue placeholder="Max" />
                     </SelectTrigger>
                     <SelectContent>
@@ -771,6 +782,7 @@ function TagsManager({
                     {editing ? (
                       <div className="space-y-2">
                         <Input
+                          aria-label={`Tag name for ${tag.name}`}
                           value={draftName}
                           onChange={(e) => setDraftName(e.target.value)}
                           onKeyDown={(e) => {
@@ -779,7 +791,7 @@ function TagsManager({
                               void handleSave(tag);
                             }
                           }}
-                          className="h-8 text-sm"
+                          className="h-11 text-sm sm:h-8"
                           autoFocus
                         />
                         <div className="flex flex-wrap gap-1.5">
@@ -791,7 +803,7 @@ function TagsManager({
                               aria-label={`Use ${color} color`}
                               aria-pressed={draftColor === color}
                               className={
-                                "relative inline-grid h-6 w-6 place-items-center rounded-full ring-1 ring-transparent transition-shadow " +
+                                "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-6 sm:w-6 " +
                                 (draftColor === color
                                   ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
                                   : "hover:ring-muted-foreground/40")
@@ -809,7 +821,7 @@ function TagsManager({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-xs"
+                            className="h-11 px-3 text-xs sm:h-7 sm:px-2"
                             onClick={cancelEdit}
                             disabled={busy}
                           >
@@ -818,7 +830,7 @@ function TagsManager({
                           <Button
                             type="button"
                             size="sm"
-                            className="h-7 px-2 text-xs"
+                            className="h-11 px-3 text-xs sm:h-7 sm:px-2"
                             onClick={() => void handleSave(tag)}
                             disabled={busy || !draftName.trim()}
                           >
@@ -834,7 +846,7 @@ function TagsManager({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-11 w-11 sm:h-7 sm:w-7"
                             aria-label={`Edit tag ${tag.name}`}
                             title={`Edit tag ${tag.name}`}
                             onClick={() => beginEdit(tag)}
@@ -846,7 +858,7 @@ function TagsManager({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            className="h-11 w-11 text-muted-foreground hover:text-destructive sm:h-7 sm:w-7"
                             aria-label={`Delete tag ${tag.name}`}
                             title={`Delete tag ${tag.name}`}
                             onClick={() => void handleDelete(tag)}
@@ -888,6 +900,7 @@ function ProjectDropButton({
       ref={setNodeRef}
       type="button"
       onClick={() => onSelect(project.id)}
+      aria-pressed={active}
       className={`flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition-colors ${
         active
           ? "border-primary bg-primary/10 text-foreground"
@@ -1027,7 +1040,7 @@ function ProjectSidebar({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-11 w-11 sm:h-7 sm:w-7"
                 aria-label={open ? "Collapse projects" : "Expand projects"}
               >
                 <ChevronDown
@@ -1044,6 +1057,7 @@ function ProjectSidebar({
             <button
               type="button"
               onClick={() => onSelectProject(null)}
+              aria-pressed={activeProjectId === null}
               className={`flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition-colors ${
                 activeProjectId === null
                   ? "border-primary bg-primary/10 text-foreground"
@@ -1060,6 +1074,7 @@ function ProjectSidebar({
                 {editingId === project.id ? (
                   <div className="space-y-2 rounded-md border p-2">
                     <Input
+                      aria-label={`Project name for ${project.name}`}
                       value={draftName}
                       onChange={(e) => setDraftName(e.target.value)}
                       onKeyDown={(e) => {
@@ -1068,7 +1083,7 @@ function ProjectSidebar({
                           void handleSave(project);
                         }
                       }}
-                      className="h-8 text-sm"
+                      className="h-11 text-sm sm:h-8"
                       autoFocus
                     />
                     <div className="flex flex-wrap gap-1.5">
@@ -1080,7 +1095,7 @@ function ProjectSidebar({
                           aria-label={`Use ${color} color`}
                           aria-pressed={draftColor === color}
                           className={
-                            "relative inline-grid h-6 w-6 place-items-center rounded-full ring-1 ring-transparent transition-shadow " +
+                            "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-6 sm:w-6 " +
                             (draftColor === color
                               ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
                               : "hover:ring-muted-foreground/40")
@@ -1098,7 +1113,7 @@ function ProjectSidebar({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs"
+                        className="h-11 px-3 text-xs sm:h-7 sm:px-2"
                         onClick={cancelEdit}
                         disabled={busy}
                       >
@@ -1107,7 +1122,7 @@ function ProjectSidebar({
                       <Button
                         type="button"
                         size="sm"
-                        className="h-7 px-2 text-xs"
+                        className="h-11 px-3 text-xs sm:h-7 sm:px-2"
                         onClick={() => void handleSave(project)}
                         disabled={busy || !draftName.trim()}
                       >
@@ -1128,7 +1143,7 @@ function ProjectSidebar({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
+                        className="h-11 w-11 sm:h-8 sm:w-8"
                         aria-label={`Edit project ${project.name}`}
                         title={`Edit project ${project.name}`}
                         onClick={() => beginEdit(project)}
@@ -1140,7 +1155,7 @@ function ProjectSidebar({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        className="h-11 w-11 text-muted-foreground hover:text-destructive sm:h-8 sm:w-8"
                         aria-label={`Delete project ${project.name}`}
                         title={`Delete project ${project.name}`}
                         onClick={() => void handleDelete(project)}
@@ -1160,6 +1175,7 @@ function ProjectSidebar({
               New project
             </div>
             <Input
+              aria-label="New project name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => {
@@ -1169,7 +1185,7 @@ function ProjectSidebar({
                 }
               }}
               placeholder="Project name"
-              className="h-8 text-sm"
+              className="h-11 text-sm sm:h-8"
             />
             <div className="flex flex-wrap gap-1.5">
               {TAG_COLORS.map((color) => (
@@ -1180,7 +1196,7 @@ function ProjectSidebar({
                   aria-label={`Use ${color} color`}
                   aria-pressed={newColor === color}
                   className={
-                    "relative inline-grid h-6 w-6 place-items-center rounded-full ring-1 ring-transparent transition-shadow " +
+                    "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-6 sm:w-6 " +
                     (newColor === color
                       ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
                       : "hover:ring-muted-foreground/40")
@@ -1196,7 +1212,7 @@ function ProjectSidebar({
             <Button
               type="button"
               size="sm"
-              className="h-8 w-full gap-1.5"
+              className="h-11 w-full gap-1.5 sm:h-8"
               onClick={() => void handleCreate()}
               disabled={busy || !newName.trim()}
             >
@@ -1736,7 +1752,10 @@ export default function FavoritesPage() {
                       value={bulkProjectId}
                       onValueChange={setBulkProjectId}
                     >
-                      <SelectTrigger className="h-8 w-full text-sm sm:w-44">
+                      <SelectTrigger
+                        className="h-11 w-full text-sm sm:h-8 sm:w-44"
+                        aria-label="Move selected favorites to project"
+                      >
                         <SelectValue placeholder="Move to project" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1750,7 +1769,7 @@ export default function FavoritesPage() {
                     <Button
                       type="button"
                       size="sm"
-                      className="h-8"
+                      className="h-11 sm:h-8"
                       disabled={!bulkProjectId}
                       onClick={() =>
                         void handleMoveFavorites(
@@ -1765,7 +1784,10 @@ export default function FavoritesPage() {
                       value={bulkCopyProjectId}
                       onValueChange={setBulkCopyProjectId}
                     >
-                      <SelectTrigger className="h-8 w-full text-sm sm:w-44">
+                      <SelectTrigger
+                        className="h-11 w-full text-sm sm:h-8 sm:w-44"
+                        aria-label="Copy selected favorites to project"
+                      >
                         <SelectValue placeholder="Copy to project" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1780,7 +1802,7 @@ export default function FavoritesPage() {
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-8"
+                      className="h-11 sm:h-8"
                       disabled={!bulkCopyProjectId}
                       onClick={() =>
                         void handleCopyFavorites(
@@ -1795,7 +1817,7 @@ export default function FavoritesPage() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-8"
+                      className="h-11 sm:h-8"
                       onClick={() => setSelectedIds(new Set())}
                     >
                       Clear

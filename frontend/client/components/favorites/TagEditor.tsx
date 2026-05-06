@@ -117,7 +117,7 @@ export function TagEditor({
             type="button"
             variant="outline"
             size="sm"
-            className="h-6 gap-1 px-2 text-xs"
+            className="h-11 gap-1 px-3 text-xs sm:h-6 sm:px-2"
           >
             <TagIcon className="h-3 w-3" aria-hidden="true" />
             {triggerLabel ??
@@ -125,7 +125,7 @@ export function TagEditor({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-72 space-y-2"
+          className="w-[min(18rem,calc(100vw-2rem))] space-y-2"
           onClick={(e) => e.stopPropagation()}
         >
           {tags.length > 0 ? (
@@ -138,7 +138,7 @@ export function TagEditor({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-2 text-xs"
+                  className="h-11 px-3 text-xs sm:h-6 sm:px-2"
                   onClick={() => setOpen(false)}
                 >
                   Done
@@ -148,11 +148,11 @@ export function TagEditor({
                 {tags.map((t) => (
                   <div
                     key={t.id}
-                    className="grid grid-cols-[1.5rem_auto] items-center gap-1.5"
+                    className="grid grid-cols-[2.75rem_auto] items-center gap-1.5 sm:grid-cols-[1.5rem_auto]"
                   >
                     <button
                       type="button"
-                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-6 sm:w-6"
                       aria-label={`Delete tag ${t.name}`}
                       title={`Delete tag ${t.name}`}
                       onClick={() => void handleDeleteTag(t)}
@@ -176,6 +176,7 @@ export function TagEditor({
           <div className="space-y-2 border-t pt-2">
             <div className="text-xs font-medium">New tag</div>
             <Input
+              aria-label="New tag name"
               placeholder="Tag name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -185,7 +186,7 @@ export function TagEditor({
                   if (!creating) void handleCreate();
                 }
               }}
-              className="h-8 text-sm"
+              className="h-11 text-sm sm:h-8"
             />
             <div className="flex flex-wrap items-center gap-1.5">
               {TAG_COLORS.map((color) => (
@@ -196,7 +197,7 @@ export function TagEditor({
                   aria-label={`Use ${color} color`}
                   aria-pressed={newColor === color}
                   className={
-                    "relative inline-grid h-5 w-5 place-items-center rounded-full ring-1 ring-transparent transition-shadow " +
+                    "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-5 sm:w-5 " +
                     (newColor === color
                       ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
                       : "hover:ring-muted-foreground/40")
@@ -211,7 +212,7 @@ export function TagEditor({
               <Button
                 type="button"
                 size="sm"
-                className="ml-auto h-7 gap-1 px-2 text-xs"
+                className="ml-auto h-11 gap-1 px-3 text-xs sm:h-7 sm:px-2"
                 onClick={() => void handleCreate()}
                 disabled={creating || !newName.trim()}
               >

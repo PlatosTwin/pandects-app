@@ -79,9 +79,11 @@ export function TagPill({
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
         tagPillClassName(color),
-        interactive && "cursor-pointer transition-shadow hover:shadow-sm",
+        interactive &&
+          "min-h-11 cursor-pointer transition-shadow hover:shadow-sm sm:min-h-0",
         selected &&
           "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-sm",
+        onRemove && "py-1 pr-1",
         className,
       )}
     >
@@ -98,7 +100,7 @@ export function TagPill({
             onRemove();
           }}
           aria-label={`Remove tag ${name}`}
-          className="ml-0.5 inline-flex rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+          className="ml-0.5 inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-5 sm:w-5 dark:hover:bg-white/10"
         >
           <X className="h-3 w-3" />
         </button>

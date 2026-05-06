@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Star } from "lucide-react";
+import { Pencil, Star } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -206,14 +206,60 @@ export function StarButton({
     [performToggle, user],
   );
 
+  const openFavoriteEditor = useCallback(async () => {
+    if (!user) {
+      requireSignIn();
+      return;
+    }
+
+    // Ensure favorited (idempotent on backend); preload existing note.
+    setNote("");
+    setDraftTagIds([]);
+    setDraftProjectId(null);
+    setPopoverFavoriteId(favoriteIdFor(itemType, itemUuid));
+    setPopoverOpen(true);
+    try {
+      let id = favoriteIdFor(itemType, itemUuid);
+      if (!displayedStarred) {
+        setOptimisticStarred(true);
+        setOpeningFavorite(true);
+        const result = await upsertFavorite({
+          item_type: itemType,
+          item_uuid: itemUuid,
+          context: baseContext(),
+        });
+        id = result.id;
+        setDraftProjectId(result.project_id);
+      }
+      const existing = id ? tagsForFavorite(id) : undefined;
+      setPopoverFavoriteId(id);
+      setDraftTagIds(existing ? existing.map((t) => t.id) : []);
+    } catch {
+      setPopoverOpen(false);
+      toast({
+        title: "Couldn't open favorite",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setOpeningFavorite(false);
+    }
+  }, [
+    user,
+    displayedStarred,
+    itemType,
+    itemUuid,
+    upsertFavorite,
+    favoriteIdFor,
+    tagsForFavorite,
+    baseContext,
+    toast,
+  ]);
+
   const handleDoubleClick = useCallback(
-    async (event: React.MouseEvent) => {
+    (event: React.MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      if (!user) {
-        requireSignIn();
-        return;
-      }
       // Cancel the pending single-click toggle.
       if (clickTimerRef.current !== null) {
         window.clearTimeout(clickTimerRef.current);
@@ -221,53 +267,22 @@ export function StarButton({
       }
       pendingClickRef.current = false;
       ignoreSingleRef.current = true;
-
-      // Ensure favorited (idempotent on backend); preload existing note.
-      setNote("");
-      setDraftTagIds([]);
-      setDraftProjectId(null);
-      setPopoverFavoriteId(favoriteIdFor(itemType, itemUuid));
-      setPopoverOpen(true);
-      try {
-        let id = favoriteIdFor(itemType, itemUuid);
-        if (!displayedStarred) {
-          setOptimisticStarred(true);
-          setOpeningFavorite(true);
-          const result = await upsertFavorite({
-            item_type: itemType,
-            item_uuid: itemUuid,
-            context: baseContext(),
-          });
-          id = result.id;
-          setDraftProjectId(result.project_id);
-        }
-        const existing = id ? tagsForFavorite(id) : undefined;
-        setPopoverFavoriteId(id);
-        setDraftTagIds(existing ? existing.map((t) => t.id) : []);
-      } catch {
-        setPopoverOpen(false);
-        toast({
-          title: "Couldn't open favorite",
-          description: "Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setOpeningFavorite(false);
-      }
+      void openFavoriteEditor();
     },
-    [
-      user,
-      starred,
-      displayedStarred,
-      itemType,
-      itemUuid,
-      upsertFavorite,
-      favoriteIdFor,
-      tagsForFavorite,
-      ensureProjectsLoaded,
-      baseContext,
-      toast,
-    ],
+    [openFavoriteEditor],
+  );
+
+  const handleEditClick = useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (popoverOpen) {
+        setPopoverOpen(false);
+        return;
+      }
+      void openFavoriteEditor();
+    },
+    [openFavoriteEditor, popoverOpen],
   );
 
   const handleSaveNote = useCallback(async () => {
@@ -326,22 +341,20 @@ export function StarButton({
     setDraftTagIds(nextTagIds);
   }, []);
 
-  const iconSize = size === "md" ? 18 : 16;
+  const iconSize = size === "md" ? 20 : 18;
   const button = (
     <button
       type="button"
       className={cn(
-        "inline-flex h-8 w-8 select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex h-11 w-11 select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         displayedStarred && "text-amber-500 hover:text-amber-500",
       )}
       aria-label={
         ariaLabel ??
-        (displayedStarred
-          ? "Unfavorite (double-click to add note)"
-          : "Favorite")
+        (displayedStarred ? "Remove from favorites" : "Add to favorites")
       }
       aria-pressed={displayedStarred}
-      title={displayedStarred ? "Starred — double-click to add a note" : "Star"}
+      title={displayedStarred ? "Remove from favorites" : "Add to favorites"}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
@@ -356,124 +369,135 @@ export function StarButton({
 
   return (
     <div className={cn("inline-flex flex-col items-center", className)}>
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-        <PopoverTrigger asChild>{button}</PopoverTrigger>
-        <PopoverContent
-          align="end"
-          className="w-[min(22rem,calc(100vw-2rem))] space-y-2"
-          onClick={(e) => e.stopPropagation()}
-        >
-        <div className="text-sm font-medium">Add a note</div>
-        <Textarea
-          autoFocus
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              if (canSaveNote) void handleSaveNote();
-            }
-          }}
-          placeholder="Why is this interesting? Anything to remember… (Enter to save, Shift+Enter for newline)"
-          rows={4}
-        />
-        <div className="space-y-1">
-          <div className="text-xs font-medium text-muted-foreground">Tags</div>
-          <TagEditor
-            selectedTagIds={draftTagIds}
-            onChange={handleDraftTagsChange}
-            showSelectedTags={false}
-            triggerLabel={draftTagIds.length === 0 ? "Add tags" : "Edit tags"}
-            helperText="Select tags, then save."
-          />
-          <div className="flex min-h-7 flex-wrap items-center gap-1.5 pt-1">
-            {draftTags.length > 0 ? (
-              draftTags.map((tag) => (
-                <TagPill
-                  key={tag.id}
-                  name={tag.name}
-                  color={tag.color}
-                  onRemove={() =>
-                    setDraftTagIds((prev) => prev.filter((id) => id !== tag.id))
+      <div className="inline-flex items-center gap-1">
+        {button}
+        {displayedStarred ? (
+          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                aria-label="Edit favorite details"
+                title="Edit favorite details"
+                onClick={handleEditClick}
+                disabled={openingFavorite}
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-[min(22rem,calc(100vw-2rem))] space-y-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-sm font-medium">Add a note</div>
+              <Textarea
+                autoFocus
+                aria-label="Favorite note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (canSaveNote) void handleSaveNote();
                   }
+                }}
+                placeholder="Why is this interesting? Anything to remember… (Enter to save, Shift+Enter for newline)"
+                rows={4}
+              />
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Tags
+                </div>
+                <TagEditor
+                  selectedTagIds={draftTagIds}
+                  onChange={handleDraftTagsChange}
+                  showSelectedTags={false}
+                  triggerLabel={
+                    draftTagIds.length === 0 ? "Add tags" : "Edit tags"
+                  }
+                  helperText="Select tags, then save."
                 />
-              ))
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                No tags selected.
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="space-y-1">
-          <div className="text-xs font-medium text-muted-foreground">
-            Project
-          </div>
-          <Select
-            value={draftProjectId ?? ""}
-            onValueChange={(value) => setDraftProjectId(value || null)}
-          >
-            <SelectTrigger className="h-8 text-sm">
-              <SelectValue placeholder="Leave unchanged" />
-            </SelectTrigger>
-            <SelectContent>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setPopoverOpen(false)}
-            disabled={savingNote}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => void handleSaveNote()}
-            disabled={!canSaveNote}
-          >
-            {savingNote ? "Saving…" : openingFavorite ? "Opening…" : "Save"}
-          </Button>
-        </div>
-        </PopoverContent>
-      </Popover>
+                <div className="flex min-h-7 flex-wrap items-center gap-1.5 pt-1">
+                  {draftTags.length > 0 ? (
+                    draftTags.map((tag) => (
+                      <TagPill
+                        key={tag.id}
+                        name={tag.name}
+                        color={tag.color}
+                        onRemove={() =>
+                          setDraftTagIds((prev) =>
+                            prev.filter((id) => id !== tag.id),
+                          )
+                        }
+                      />
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      No tags selected.
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Project
+                </div>
+                <Select
+                  value={draftProjectId ?? ""}
+                  onValueChange={(value) => setDraftProjectId(value || null)}
+                >
+                  <SelectTrigger
+                    className="h-11 text-sm"
+                    aria-label="Favorite project"
+                  >
+                    <SelectValue placeholder="Leave unchanged" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPopoverOpen(false)}
+                  disabled={savingNote}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void handleSaveNote()}
+                  disabled={!canSaveNote}
+                >
+                  {savingNote
+                    ? "Saving…"
+                    : openingFavorite
+                      ? "Opening…"
+                      : "Save"}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : null}
+      </div>
       {displayTags.length > 0 ? (
         <div
           className="mt-0.5 flex max-w-12 flex-wrap justify-center gap-0.5"
           aria-label={`Tags: ${displayTags.map((tag) => tag.name).join(", ")}`}
         >
           {displayTags.slice(0, 6).map((tag) => (
-            <Popover key={tag.id}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-3 w-3 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                  aria-label={`Tag: ${tag.name}`}
-                  title={tag.name}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                  }}
-                >
-                  <TagSwatch color={tag.color} className="h-2 w-2" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                side="bottom"
-                align="center"
-                className="w-auto px-2 py-1 text-xs"
-              >
-                {tag.name}
-              </PopoverContent>
-            </Popover>
+            <span key={tag.id} title={tag.name}>
+              <TagSwatch color={tag.color} className="h-2.5 w-2.5" />
+            </span>
           ))}
         </div>
       ) : null}
