@@ -92,10 +92,9 @@ function criticalCssPlugin(): Plugin {
         );
       }
 
-      // Add DNS prefetch and preconnect for external resources
+      // Add DNS prefetch for analytics, which is loaded after initial paint.
       const dnsPrefetch = `
-  <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-  <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />`;
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com" />`;
 
       nextHtml = nextHtml.replace("</head>", `${dnsPrefetch}</head>`);
 
@@ -133,23 +132,10 @@ function criticalCssPlugin(): Plugin {
         }
       }
 
-      return nextHtml.replace(/<link\s+[^>]*rel="stylesheet"[^>]*>/g, (match) => {
-        const hrefMatch = match.match(/href="([^"]+\.css)"/);
-        if (!hrefMatch) return match;
-        const href = hrefMatch[1];
-        const preservedAttrs = match
-          .replace(/<link\s+/g, "")
-          .replace(/>/g, "")
-          .replace(/rel="stylesheet"/g, "")
-          .replace(/href="[^"]+"/g, "")
-          .trim();
-        const attrString = preservedAttrs ? ` ${preservedAttrs}` : "";
-        return [
-          `<link rel="preload" as="style" href="${href}"${attrString}>`,
-          `<link rel="stylesheet" href="${href}"${attrString} media="print" onload="this.media='all'">`,
-          `<noscript><link rel="stylesheet" href="${href}"${attrString}></noscript>`,
-        ].join("");
-      });
+      return nextHtml.replace(
+        /<script\s+type="module"/g,
+        '<script type="module" data-cfasync="false"',
+      );
     },
     writeBundle(options, bundle) {
       // After bundle is written, inject logo preload hints only if not already present

@@ -1,6 +1,7 @@
 import { SearchFilters } from "@shared/sections";
 import type { SearchMode } from "@shared/search";
 import type { ClauseTypeTree } from "@/lib/clause-types";
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
 /**
  * Build URL search parameters from search filters
@@ -253,8 +254,12 @@ export function buildSearchStateParams({
   clauseTypesNested?: ClauseTypeTree;
 }): URLSearchParams {
   const params = buildSearchParams(filters, clauseTypesNested, true);
-  params.set("mode", mode);
-  if (sortBy) params.set("sort_by", sortBy);
-  params.set("sort_direction", sortDirection);
+  if (params.get("page") === String(DEFAULT_PAGE)) params.delete("page");
+  if (params.get("page_size") === String(DEFAULT_PAGE_SIZE)) {
+    params.delete("page_size");
+  }
+  if (mode !== "sections") params.set("mode", mode);
+  if (sortBy && sortBy !== "year") params.set("sort_by", sortBy);
+  if (sortDirection !== "desc") params.set("sort_direction", sortDirection);
   return params;
 }

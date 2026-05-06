@@ -121,21 +121,6 @@ const ROUTE_MANIFEST = [
     priority: "0.7",
   }),
   defineRoute({
-    pathname: "/examples",
-    title: "Research Examples | Pandects",
-    description:
-      "Worked examples of AI-assisted M&A legal research using Claude and the Pandects MCP: benchmark merger agreement clause language against comparable deals, with the full agent trace shown step by step.",
-    pageType: "CollectionPage",
-    pageName: "Research Examples",
-    pageDescription:
-      "Worked examples of AI-assisted M&A legal research using Claude and the Pandects MCP: benchmark merger agreement clause language against comparable deals, with the full agent trace shown step by step.",
-    sitemap: true,
-    renderStrategy: "prerender",
-    prerenderFilename: "examples.html",
-    changefreq: "monthly",
-    priority: "0.6",
-  }),
-  defineRoute({
     pathname: "/leaderboards",
     title: "Leaderboards | Pandects",
     description:
