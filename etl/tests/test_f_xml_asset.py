@@ -747,6 +747,8 @@ class XMLVerifyAssetTests(unittest.TestCase):
 
     def test_extract_article_number_accepts_numeric_formats_without_roman_false_positive(self) -> None:
         self.assertEqual(_extract_article_number("ARTICLE IV Representations"), 4)
+        self.assertEqual(_extract_article_number("ARTICLE IIIA Representations"), 3)
+        self.assertEqual(_extract_article_number("3A Signing Shareholders"), 3)
         self.assertEqual(_extract_article_number("1. Purchase and Sale"), 1)
         self.assertEqual(_extract_article_number("Section 2. Consideration"), 2)
         self.assertIsNone(_extract_article_number("Indemnification"))
@@ -775,6 +777,51 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 for v in violations
             )
         )
+        self.assertEqual(violations, [])
+
+    def test_find_hard_rule_violations_accepts_article_a_numbering(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
+                <article title="ARTICLE IIIA REPRESENTATIONS AND WARRANTIES OF THE SIGNING SHAREHOLDERS" order="4">
+                  <section title="3A.01 Capacity." pageUUID="page-4" />
+                  <section title="3A.02 Validity and Execution of Agreements." pageUUID="page-4" />
+                  <section title="3A.03 Company Common Stock Ownership." pageUUID="page-4" />
+                </article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-5" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertEqual(violations, [])
+
+    def test_find_hard_rule_violations_accepts_plural_sections_prefix(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-4" /></article>
+                <article title="ARTICLE VII">
+                  <section title="Sections 7.1 Survival" pageUUID="page-7" />
+                  <section title="sections 7.2 Indemnification of the Purchaser Indemnitees." pageUUID="page-7" />
+                </article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
         self.assertEqual(violations, [])
 
     def test_find_hard_rule_violations_rejects_section_prefix_without_space(self) -> None:

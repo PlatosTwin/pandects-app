@@ -94,7 +94,7 @@ XML_VERIFY_INSTRUCTIONS = (
     "unless the XML's own tableOfContents shows the same local section-number jump or the "
     "expected/skipped section number is absent from the body text and titles. "
     "3) Every section title must begin with a valid section number prefix in one of these forms: "
-    "`Section A.B ...`, `SECTION A.B ...`, or `A.B ...` where A and B are integers; "
+    "`Section A.B ...`, `Sections A.B ...`, `SECTION A.B ...`, `A.B ...`, or `3A.B ...`; "
     "titles that do not match this are invalid. "
     "4) In `<body>`, the first structural child must be an `<article>`, and the first article must be Article I/1. "
     "If any hard rule fails, return status='invalid'. "
@@ -105,12 +105,16 @@ ARTICLE_NUMBER_RE = re.compile(
     r"^\s*(?:ARTICLE\s+([IVXLCDM]+|\d+)|(?:SECTION\s+)?(\d+))(?=\b|[\s.:)\-])",
     re.IGNORECASE,
 )
+ARTICLE_A_NUMBER_RE = re.compile(
+    r"^\s*(?:ARTICLE\s+(?P<article_number>[IVXLCDM]+|\d+)A|(?:SECTION\s+)?(?P<numeric_number>\d+)A)(?=\b|[\s.:)\-])",
+    re.IGNORECASE,
+)
 SECTION_NUMBER_RE = re.compile(
-    r"^\s*(?:SECTION\s+)?(?P<article>\d+)\s*\.\s*(?P<section>\d+)",
+    r"^\s*(?:SECTIONS?\s+)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)",
     re.IGNORECASE,
 )
 TOC_SECTION_NUMBER_RE = re.compile(
-    r"(?<!\d)(?:SECTION\s+)?(?P<article>\d+)\s*\.\s*(?P<section>\d+)(?!\s*\.\s*\d)",
+    r"(?<!\d)(?:SECTIONS?\s+)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)(?!\s*\.\s*\d)",
     re.IGNORECASE,
 )
 SECTION_NONSEQ_DETAIL_RE = re.compile(
@@ -444,9 +448,20 @@ def _roman_to_int(value: str) -> int | None:
 
 def _extract_article_number(title: str) -> int | None:
     match = ARTICLE_NUMBER_RE.match(title)
-    if not match:
+    if match is None:
+        a_match = ARTICLE_A_NUMBER_RE.match(title)
+        if a_match is None:
+            return None
+        token = a_match.group("article_number") or a_match.group("numeric_number")
+        if token is None:
+            return None
+        if token.isdigit():
+            return int(token)
+        return _roman_to_int(token)
+    else:
+        token = match.group(1) or match.group(2)
+    if token is None:
         return None
-    token = match.group(1) or match.group(2)
     if token.isdigit():
         return int(token)
     return _roman_to_int(token)
@@ -510,7 +525,7 @@ def _article_text_starts_with_section_heading(
     if article_num is None:
         return False
     heading_pattern = re.compile(
-        rf"^\s*(?:SECTION\s+|Section\s+)?{article_num}\s*\.\s*\d+\s*\.?(?:\s+|$)",
+        rf"^\s*(?:SECTIONS?\s+)?{article_num}\s*\.\s*\d+\s*\.?(?:\s+|$)",
         re.IGNORECASE,
     )
     for node in article_elem.iter():
@@ -664,7 +679,7 @@ def _section_title_has_additional_numbering(title: str) -> bool:
     if match is None:
         return False
     suffix = title[match.end() :]
-    return re.search(r"\b(?:SECTION\s+)?\d+\s*\.\s*\d+\b", suffix, re.IGNORECASE) is not None
+    return re.search(r"\b(?:SECTIONS?\s+)?\d+\s*\.\s*\d+\b", suffix, re.IGNORECASE) is not None
 
 
 def _merge_page_uuid_targets(*page_uuid_groups: Tuple[str, ...]) -> Tuple[str, ...]:
@@ -691,7 +706,7 @@ def _section_title_mentions_number(
 
 
 def _section_number_search_pattern(article_num: int, section_num: int) -> re.Pattern[str]:
-    pattern = rf"(?<![\d.])(?:SECTION\s+)?{article_num}\s*\.\s*0*{section_num}"
+    pattern = rf"(?<![\d.])(?:SECTIONS?\s+)?{article_num}\s*\.\s*0*{section_num}"
     pattern += r"(?!\s*\.\s*\d)(?=\b|[\s.;:,\)\]\-])"
     return re.compile(pattern, re.IGNORECASE)
 
