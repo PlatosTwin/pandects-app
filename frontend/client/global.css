@@ -138,6 +138,7 @@
     max-width: 100%;
     overflow-x: hidden;
     font-family:
+      "Geist",
       "Inter Variable",
       ui-sans-serif,
       system-ui,
@@ -232,6 +233,7 @@
   .legal-example-notice code {
     @apply bg-transparent p-0 text-[0.95em] font-medium text-foreground;
     font-family:
+      "Geist",
       "Inter Variable",
       ui-sans-serif,
       system-ui,
