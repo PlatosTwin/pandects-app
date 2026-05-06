@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pencil, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ interface StarButtonProps {
 }
 
 const DOUBLE_CLICK_MS = 300;
+const TOUCH_LONG_PRESS_MS = 550;
 
 export function StarButton({
   itemType,
@@ -76,8 +77,10 @@ export function StarButton({
     null,
   );
   const clickTimerRef = useRef<number | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
   const pendingClickRef = useRef<boolean>(false);
   const ignoreSingleRef = useRef<boolean>(false);
+  const suppressNextClickRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (user && itemUuid) {
@@ -95,6 +98,9 @@ export function StarButton({
     () => () => {
       if (clickTimerRef.current !== null) {
         window.clearTimeout(clickTimerRef.current);
+      }
+      if (longPressTimerRef.current !== null) {
+        window.clearTimeout(longPressTimerRef.current);
       }
     },
     [],
@@ -178,6 +184,10 @@ export function StarButton({
     (event: React.MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
+      if (suppressNextClickRef.current) {
+        suppressNextClickRef.current = false;
+        return;
+      }
       if (!user) {
         requireSignIn();
         return;
@@ -272,17 +282,53 @@ export function StarButton({
     [openFavoriteEditor],
   );
 
-  const handleEditClick = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent) => {
+      if (event.pointerType !== "touch") return;
       event.stopPropagation();
-      if (popoverOpen) {
-        setPopoverOpen(false);
-        return;
-      }
-      void openFavoriteEditor();
+      cancelLongPress();
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressTimerRef.current = null;
+        suppressNextClickRef.current = true;
+        if (clickTimerRef.current !== null) {
+          window.clearTimeout(clickTimerRef.current);
+          clickTimerRef.current = null;
+        }
+        pendingClickRef.current = false;
+        void openFavoriteEditor();
+      }, TOUCH_LONG_PRESS_MS);
     },
-    [openFavoriteEditor, popoverOpen],
+    [cancelLongPress, openFavoriteEditor],
+  );
+
+  const handlePointerEnd = useCallback(() => {
+    cancelLongPress();
+  }, [cancelLongPress]);
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (
+        (event.key === "Enter" && event.shiftKey) ||
+        event.key === "ArrowDown"
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (clickTimerRef.current !== null) {
+          window.clearTimeout(clickTimerRef.current);
+          clickTimerRef.current = null;
+        }
+        pendingClickRef.current = false;
+        void openFavoriteEditor();
+      }
+    },
+    [openFavoriteEditor],
   );
 
   const handleSaveNote = useCallback(async () => {
@@ -342,6 +388,12 @@ export function StarButton({
   }, []);
 
   const iconSize = size === "md" ? 20 : 18;
+  const defaultAriaLabel = displayedStarred
+    ? "Remove from favorites. Press Shift Enter, Arrow Down, or touch and hold to edit favorite details."
+    : "Add to favorites. Press Shift Enter, Arrow Down, or touch and hold to add favorite details.";
+  const title = displayedStarred
+    ? "Remove from favorites; Shift+Enter, Arrow Down, or touch and hold to edit details"
+    : "Add to favorites; Shift+Enter, Arrow Down, or touch and hold to add details";
   const button = (
     <button
       type="button"
@@ -349,14 +401,16 @@ export function StarButton({
         "inline-flex h-11 w-11 select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         displayedStarred && "text-amber-500 hover:text-amber-500",
       )}
-      aria-label={
-        ariaLabel ??
-        (displayedStarred ? "Remove from favorites" : "Add to favorites")
-      }
+      aria-label={ariaLabel ?? defaultAriaLabel}
       aria-pressed={displayedStarred}
-      title={displayedStarred ? "Remove from favorites" : "Add to favorites"}
+      title={title}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onPointerLeave={handlePointerEnd}
+      onKeyDown={handleKeyDown}
     >
       <Star
         size={iconSize}
@@ -369,126 +423,104 @@ export function StarButton({
 
   return (
     <div className={cn("inline-flex flex-col items-center", className)}>
-      <div className="inline-flex items-center gap-1">
-        {button}
-        {displayedStarred ? (
-          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-                aria-label="Edit favorite details"
-                title="Edit favorite details"
-                onClick={handleEditClick}
-                disabled={openingFavorite}
-              >
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              className="w-[min(22rem,calc(100vw-2rem))] space-y-2"
-              onClick={(e) => e.stopPropagation()}
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger asChild>{button}</PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-[min(22rem,calc(100vw-2rem))] space-y-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-sm font-medium">Add a note</div>
+          <Textarea
+            autoFocus
+            aria-label="Favorite note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (canSaveNote) void handleSaveNote();
+              }
+            }}
+            placeholder="Why is this interesting? Anything to remember… (Enter to save, Shift+Enter for newline)"
+            rows={4}
+          />
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">
+              Tags
+            </div>
+            <TagEditor
+              selectedTagIds={draftTagIds}
+              onChange={handleDraftTagsChange}
+              showSelectedTags={false}
+              triggerLabel={draftTagIds.length === 0 ? "Add tags" : "Edit tags"}
+              helperText="Select tags, then save."
+            />
+            <div className="flex min-h-7 flex-wrap items-center gap-1.5 pt-1">
+              {draftTags.length > 0 ? (
+                draftTags.map((tag) => (
+                  <TagPill
+                    key={tag.id}
+                    name={tag.name}
+                    color={tag.color}
+                    onRemove={() =>
+                      setDraftTagIds((prev) =>
+                        prev.filter((id) => id !== tag.id),
+                      )
+                    }
+                  />
+                ))
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  No tags selected.
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">
+              Project
+            </div>
+            <Select
+              value={draftProjectId ?? ""}
+              onValueChange={(value) => setDraftProjectId(value || null)}
             >
-              <div className="text-sm font-medium">Add a note</div>
-              <Textarea
-                autoFocus
-                aria-label="Favorite note"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    if (canSaveNote) void handleSaveNote();
-                  }
-                }}
-                placeholder="Why is this interesting? Anything to remember… (Enter to save, Shift+Enter for newline)"
-                rows={4}
-              />
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Tags
-                </div>
-                <TagEditor
-                  selectedTagIds={draftTagIds}
-                  onChange={handleDraftTagsChange}
-                  showSelectedTags={false}
-                  triggerLabel={
-                    draftTagIds.length === 0 ? "Add tags" : "Edit tags"
-                  }
-                  helperText="Select tags, then save."
-                />
-                <div className="flex min-h-7 flex-wrap items-center gap-1.5 pt-1">
-                  {draftTags.length > 0 ? (
-                    draftTags.map((tag) => (
-                      <TagPill
-                        key={tag.id}
-                        name={tag.name}
-                        color={tag.color}
-                        onRemove={() =>
-                          setDraftTagIds((prev) =>
-                            prev.filter((id) => id !== tag.id),
-                          )
-                        }
-                      />
-                    ))
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      No tags selected.
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Project
-                </div>
-                <Select
-                  value={draftProjectId ?? ""}
-                  onValueChange={(value) => setDraftProjectId(value || null)}
-                >
-                  <SelectTrigger
-                    className="h-11 text-sm"
-                    aria-label="Favorite project"
-                  >
-                    <SelectValue placeholder="Leave unchanged" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPopoverOpen(false)}
-                  disabled={savingNote}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void handleSaveNote()}
-                  disabled={!canSaveNote}
-                >
-                  {savingNote
-                    ? "Saving…"
-                    : openingFavorite
-                      ? "Opening…"
-                      : "Save"}
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        ) : null}
-      </div>
+              <SelectTrigger
+                className="h-11 text-sm"
+                aria-label="Favorite project"
+              >
+                <SelectValue placeholder="Leave unchanged" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setPopoverOpen(false)}
+              disabled={savingNote}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void handleSaveNote()}
+              disabled={!canSaveNote}
+            >
+              {savingNote ? "Saving…" : openingFavorite ? "Opening…" : "Save"}
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
       {displayTags.length > 0 ? (
         <div
           className="mt-0.5 flex max-w-12 flex-wrap justify-center gap-0.5"
