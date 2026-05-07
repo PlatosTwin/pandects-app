@@ -95,7 +95,7 @@
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
-    "postcss": "^8.5.6",
+    "postcss": "^8.5.14",
     "prettier": "^3.5.3",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
@@ -115,5 +115,9 @@
     "vaul": "^0.9.3",
     "vite": "^6.4.2",
     "vitest": "^3.1.4"
+  },
+  "overrides": {
+    "diff": "^8.0.3",
+    "qs": "^6.15.1"
   }
 }

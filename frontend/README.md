@@ -72,6 +72,22 @@ Zitadel-related `VITE_*` values are maintainer-oriented or only needed when acti
 - Production deployment is on Fly and is not part of normal contributor onboarding.
 - The frontend may link to the docs site and API, but local development does not require deployment access.
 
+## Dependency security overrides
+
+`package.json` uses npm `overrides` only for targeted security patches where an upstream dependency has not yet relaxed its own transitive range. These overrides should not become permanent by default.
+
+Current overrides:
+
+- `qs`: keeps Express 4/body-parser on a patched parser version without forcing an Express 5 migration.
+- `diff`: keeps `@flydotio/dockerfile` on a patched `diff` version without accepting npm audit's downgrade suggestion for `@flydotio/dockerfile`.
+
+When reviewing npm vulnerabilities or refreshing dependencies:
+
+1. Run `npm audit`.
+2. Run `npm ls qs diff`.
+3. Check whether `express`/`body-parser` and `@flydotio/dockerfile` now resolve patched versions without overrides.
+4. Remove any override that is no longer needed, then run `npm install`, `npm audit`, `npm test`, `npm run typecheck`, and `npm run build`.
+
 ## Related docs
 
 - root [README.md](../README.md)
