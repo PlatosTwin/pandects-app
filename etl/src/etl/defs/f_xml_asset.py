@@ -806,6 +806,20 @@ def _article_heading_page_uuids_in_section(
     return tuple(page_uuids)
 
 
+def _toc_marker_page_uuids_in_section(section_elem: ET.Element) -> Tuple[str, ...]:
+    page_uuids: List[str] = []
+    for idx, child in enumerate(list(section_elem)):
+        if child.tag in {"page", "pageUUID"}:
+            continue
+        text_value = (child.text or "").strip()
+        if not text_value or re.search(r"\btable\s+of\s+contents\b", text_value, re.IGNORECASE) is None:
+            continue
+        for page_uuid in _nearest_page_uuid_for_child(section_elem, idx):
+            if page_uuid not in page_uuids:
+                page_uuids.append(page_uuid)
+    return tuple(page_uuids)
+
+
 def _target_section_article_mismatch_page_uuids(
     *,
     previous_section_elem: ET.Element | None,
@@ -818,9 +832,12 @@ def _target_section_article_mismatch_page_uuids(
         previous_section_elem,
         article_num=section_article_num,
     )
-    if previous_article_heading_page_uuids:
-        return previous_article_heading_page_uuids
-    return section_page_uuids
+    previous_toc_marker_page_uuids = _toc_marker_page_uuids_in_section(previous_section_elem)
+    return _merge_page_uuid_targets(
+        previous_article_heading_page_uuids,
+        previous_toc_marker_page_uuids,
+        section_page_uuids,
+    )
 
 
 def _iter_body_number_search_values(root: ET.Element) -> List[str]:
@@ -1025,7 +1042,6 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
         expected_section_num = 1
         previous_section_elem: ET.Element | None = None
         previous_section_page_uuids: Tuple[str, ...] = ()
-        article_mismatch_targets: Dict[int, Tuple[str, ...]] = {}
         for section_elem in section_children:
             section_title = section_elem.attrib.get("title", "")
             section_page_uuids = _collect_page_uuids(section_elem)
@@ -1042,15 +1058,11 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
 
             section_article_num, section_num = parsed_numbers
             if article_num is not None and section_article_num != article_num:
-                mismatch_page_uuids = article_mismatch_targets.get(section_article_num)
-                if mismatch_page_uuids is None:
-                    mismatch_page_uuids = _target_section_article_mismatch_page_uuids(
-                        previous_section_elem=previous_section_elem,
-                        section_article_num=section_article_num,
-                        section_page_uuids=section_page_uuids,
-                    )
-                    if mismatch_page_uuids != section_page_uuids:
-                        article_mismatch_targets[section_article_num] = mismatch_page_uuids
+                mismatch_page_uuids = _target_section_article_mismatch_page_uuids(
+                    previous_section_elem=previous_section_elem,
+                    section_article_num=section_article_num,
+                    section_page_uuids=section_page_uuids,
+                )
                 violations.append(
                     XMLHardRuleViolation(
                         reason_code=XML_REASON_SECTION_ARTICLE_MISMATCH,

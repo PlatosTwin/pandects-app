@@ -880,7 +880,8 @@ class XMLVerifyAssetTests(unittest.TestCase):
         ]
 
         self.assertEqual(len(violations), 2)
-        self.assertTrue(all(violation.page_uuids == ("page-6-heading",) for violation in violations))
+        self.assertEqual(violations[0].page_uuids, ("page-6-heading", "page-6-body"))
+        self.assertEqual(violations[1].page_uuids, ("page-6-body",))
 
     def test_section_article_mismatch_targets_current_page_without_missed_article_heading(self) -> None:
         root = ET.fromstring(
@@ -910,6 +911,34 @@ class XMLVerifyAssetTests(unittest.TestCase):
 
         self.assertEqual(len(violations), 1)
         self.assertEqual(violations[0].page_uuids, ("page-6-body",))
+
+    def test_section_article_mismatch_targets_toc_bleed_page_and_current_page(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE VI">
+                  <section title="6.1 Closing Conditions" pageUUID="page-30">
+                    <text>Some final condition text.</text>
+                    <pageUUID>page-31</pageUUID>
+                    <text>Table of Contents</text>
+                    <text>(F) By the Company at any time prior to stockholder approval.</text>
+                  </section>
+                  <section title="7.2 Effect of Termination" pageUUID="page-32" />
+                </article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = [
+            violation
+            for violation in find_hard_rule_violations(root)
+            if violation.reason_code == XML_REASON_SECTION_ARTICLE_MISMATCH
+        ]
+
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0].page_uuids, ("page-31", "page-32"))
 
     def test_find_hard_rule_violations_uses_section_page_uuid_attribute(self) -> None:
         root = ET.fromstring(
