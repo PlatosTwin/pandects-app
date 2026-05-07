@@ -854,6 +854,90 @@ class AuthFlowTests(unittest.TestCase):
                 ).fetchall()
             self.assertEqual(signons, [("zitadel", "login")])
 
+    def test_zitadel_google_intent_new_user_sends_signup_notification(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        os.environ["AUTH_ZITADEL_GOOGLE_IDP_ID"] = "google-idp-123"
+        client = self.app.test_client()
+
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+        original_send_resend_text_email = backend_app._send_resend_text_email
+        original_async_enabled = backend_app._ASYNC_SIDE_EFFECTS_ENABLED
+        sent_notifications: list[dict[str, str]] = []
+
+        def _fake_send_resend_text_email(*, to_email: str, subject: str, text: str) -> None:
+            sent_notifications.append({"to_email": to_email, "subject": subject, "text": text})
+
+        def _fake_oauth_fetch_json(
+            url: str,
+            *,
+            data: dict[str, str] | None = None,
+            json_body: dict[str, object] | None = None,
+            headers: dict[str, str] | None = None,
+            method: str | None = None,
+        ):
+            self.assertEqual(headers, {"Authorization": "Bearer test-zitadel-api-token"})
+            self.assertIsNone(data)
+            if url == "https://pandects-test-zitadel.example.com/v2/idp_intents":
+                self.assertEqual(method, "POST")
+                return {"authUrl": "https://accounts.google.com/o/oauth2/v2/auth?client_id=test"}
+            if url == "https://pandects-test-zitadel.example.com/v2/idp_intents/intent-123":
+                self.assertEqual(method, "POST")
+                self.assertEqual(json_body, {"idpIntentToken": "intent-token-123"})
+                return {
+                    "idpInformation": {
+                        "idpId": "google-idp-123",
+                        "rawInformation": {
+                            "User": {
+                                "sub": "google-sub-123",
+                                "email": "new-google@example.com",
+                                "email_verified": True,
+                                "name": "New Google",
+                                "given_name": "New",
+                                "family_name": "Google",
+                            }
+                        },
+                    }
+                }
+            if url == "https://pandects-test-zitadel.example.com/v2/users/human":
+                self.assertEqual(method, "POST")
+                self.assertIsInstance(json_body, dict)
+                assert json_body is not None
+                self.assertEqual(json_body["username"], "new-google@example.com")
+                self.assertEqual(self._dict_value(json_body, "profile")["displayName"], "New Google")
+                return {"userId": "zitadel-new-google-123"}
+            self.fail(f"Unexpected ZITADEL API request: {url}")
+
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        backend_app._send_resend_text_email = _fake_send_resend_text_email
+        backend_app._ASYNC_SIDE_EFFECTS_ENABLED = False
+        try:
+            start = client.get("/v1/auth/zitadel/google/start?next=/account")
+            self.assertEqual(start.status_code, 200)
+
+            res = client.post(
+                "/v1/auth/zitadel/complete",
+                json={"intent_id": "intent-123", "intent_token": "intent-token-123"},
+            )
+            self.assertEqual(res.status_code, 200)
+            payload = res.get_json()
+            self.assertEqual(payload["status"], "legal_required")
+            self.assertEqual(payload["user"]["email"], "new-google@example.com")
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+            backend_app._send_resend_text_email = original_send_resend_text_email
+            backend_app._ASYNC_SIDE_EFFECTS_ENABLED = original_async_enabled
+
+        self.assertEqual(len(sent_notifications), 1)
+        self.assertEqual(sent_notifications[0]["to_email"], "nmbogdan@alumni.stanford.edu")
+        self.assertEqual(sent_notifications[0]["subject"], "New Pandects signup")
+        self.assertIn("Full name: New Google", sent_notifications[0]["text"])
+        self.assertIn("Email: new-google@example.com", sent_notifications[0]["text"])
+        self.assertIn("Provider: google", sent_notifications[0]["text"])
+        self.assertRegex(sent_notifications[0]["text"], r"Signup date: \d{4}-\d{2}-\d{2}")
+        self.assertRegex(sent_notifications[0]["text"], r"Signup time: \d{2}:\d{2}:\d{2} UTC")
+
     def test_zitadel_google_intent_callback_retrieves_intent_before_using_existing_linked_subject(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         os.environ["MCP_IDENTITY_PROVIDER"] = "zitadel"
@@ -1414,8 +1498,14 @@ class AuthFlowTests(unittest.TestCase):
         client = self.app.test_client()
 
         original_oauth_fetch_json = backend_app._oauth_fetch_json
+        original_send_resend_text_email = backend_app._send_resend_text_email
+        original_async_enabled = backend_app._ASYNC_SIDE_EFFECTS_ENABLED
         sent_verification = {"called": False}
+        sent_notifications: list[dict[str, str]] = []
         created_signup_payloads: list[dict[str, object]] = []
+
+        def _fake_send_resend_text_email(*, to_email: str, subject: str, text: str) -> None:
+            sent_notifications.append({"to_email": to_email, "subject": subject, "text": text})
 
         def _fake_oauth_fetch_json(
             url: str,
@@ -1455,6 +1545,8 @@ class AuthFlowTests(unittest.TestCase):
             return {"userId": "zitadel-new-user"}
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        backend_app._send_resend_text_email = _fake_send_resend_text_email
+        backend_app._ASYNC_SIDE_EFFECTS_ENABLED = False
         try:
             res = client.post(
                 "/v1/auth/signup/password",
@@ -1481,12 +1573,22 @@ class AuthFlowTests(unittest.TestCase):
             )
         finally:
             backend_app._oauth_fetch_json = original_oauth_fetch_json
+            backend_app._send_resend_text_email = original_send_resend_text_email
+            backend_app._ASYNC_SIDE_EFFECTS_ENABLED = original_async_enabled
 
         self.assertEqual(finalize.status_code, 200)
         finalize_payload = finalize.get_json()
         self.assertEqual(finalize_payload["status"], "verification_required")
         self.assertEqual(len(created_signup_payloads), 1)
         self.assertTrue(sent_verification["called"])
+        self.assertEqual(len(sent_notifications), 1)
+        self.assertEqual(sent_notifications[0]["to_email"], "nmbogdan@alumni.stanford.edu")
+        self.assertEqual(sent_notifications[0]["subject"], "New Pandects signup")
+        self.assertIn("Full name: New User", sent_notifications[0]["text"])
+        self.assertIn("Email: new-password-user@example.com", sent_notifications[0]["text"])
+        self.assertIn("Provider: password", sent_notifications[0]["text"])
+        self.assertRegex(sent_notifications[0]["text"], r"Signup date: \d{4}-\d{2}-\d{2}")
+        self.assertRegex(sent_notifications[0]["text"], r"Signup time: \d{2}:\d{2}:\d{2} UTC")
 
     def test_password_signup_assigns_default_zitadel_project_roles_when_project_is_configured(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

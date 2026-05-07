@@ -509,9 +509,27 @@ if os.environ.get("R2_ACCESS_KEY_ID") and os.environ.get("R2_SECRET_ACCESS_KEY")
 _SIGNUP_NOTIFICATION_EMAIL = "nmbogdan@alumni.stanford.edu"
 
 
-def _send_signup_notification_email(*, new_user_email: str) -> None:
+def _send_signup_notification_email(
+    *,
+    new_user_email: str,
+    provider: str,
+    signed_up_at: datetime,
+    full_name: str | None = None,
+) -> None:
     subject = "New Pandects signup"
-    text = f"{new_user_email} just signed up as a new user on Pandects."
+    lines = [
+        "A new user just signed up on Pandects.",
+        "",
+        (
+            "Full name: "
+            f"{full_name.strip() if isinstance(full_name, str) and full_name.strip() else 'Not provided'}"
+        ),
+        f"Email: {new_user_email}",
+        f"Provider: {provider}",
+        f"Signup date: {signed_up_at:%Y-%m-%d}",
+        f"Signup time: {signed_up_at:%H:%M:%S} UTC",
+    ]
+    text = "\n".join(lines)
 
     def _send() -> None:
         _send_resend_text_email(

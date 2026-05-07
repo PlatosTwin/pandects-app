@@ -121,7 +121,14 @@ class RequireVerifiedUserProtocol(Protocol):
 
 
 class SendSignupNotificationEmailProtocol(Protocol):
-    def __call__(self, *, new_user_email: str) -> None: ...
+    def __call__(
+        self,
+        *,
+        new_user_email: str,
+        provider: str,
+        signed_up_at: datetime,
+        full_name: str | None = None,
+    ) -> None: ...
 
 
 class SendFlagNotificationEmailProtocol(Protocol):

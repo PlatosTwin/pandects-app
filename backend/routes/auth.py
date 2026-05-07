@@ -10,7 +10,7 @@ import uuid
 from html import escape
 from base64 import urlsafe_b64encode
 from hashlib import sha256
-from datetime import timedelta
+from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import cast
 from urllib.parse import urlencode, urlparse, urlunparse
@@ -990,10 +990,40 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             return None
         return deps.db.session.get(deps.AuthUser, existing_link.user_id)
 
-    def _complete_website_auth_for_identity(*, external_identity, next_path: str, provider_name: str):
+    def _full_name_from_parts(*parts: object) -> str | None:
+        full_name = " ".join(
+            part.strip() for part in parts if isinstance(part, str) and part.strip()
+        )
+        return full_name or None
+
+    def _user_created_at_or_now(*, user) -> datetime:
+        created_at = getattr(user, "created_at", None)
+        if isinstance(created_at, datetime):
+            return created_at
+        return deps._utc_now()
+
+    def _complete_website_auth_for_identity(
+        *,
+        external_identity,
+        next_path: str,
+        provider_name: str,
+        notification_provider: str | None = None,
+    ):
         action, user = _resolve_user_from_external_identity(external_identity=external_identity)
+        claims = getattr(external_identity, "claims", None)
+        signup_first_name = claims.get("given_name") if isinstance(claims, dict) else None
+        signup_last_name = claims.get("family_name") if isinstance(claims, dict) else None
+        signup_full_name = _full_name_from_parts(signup_first_name, signup_last_name)
+        signup_provider = notification_provider or provider_name
         if not deps._user_has_current_legal_acceptances(user_id=user.id):
             deps.db.session.commit()
+            if action == "register":
+                deps._send_signup_notification_email(
+                    new_user_email=user.email,
+                    provider=signup_provider,
+                    full_name=signup_full_name,
+                    signed_up_at=_user_created_at_or_now(user=user),
+                )
             return _pending_website_auth_response(
                 user=user,
                 next_path=next_path,
@@ -1003,6 +1033,13 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
         deps._record_signon_event(user_id=user.id, provider=provider_name, action=action)
         deps.db.session.commit()
+        if action == "register":
+            deps._send_signup_notification_email(
+                new_user_email=user.email,
+                provider=signup_provider,
+                full_name=signup_full_name,
+                signed_up_at=_user_created_at_or_now(user=user),
+            )
         return _auth_success_response(user=user, next_path=next_path)
 
     def _pending_website_auth_response(*, user, next_path: str, action: str, provider_name: str):
@@ -2349,11 +2386,13 @@ window.location.replace({json.dumps(login_url)});
                 external_identity=external_identity,
                 next_path=next_path,
                 provider_name=provider_name,
+                notification_provider="google" if flow == "google_intent" else None,
             )
         except HTTPException as exc:
             deps.db.session.rollback()
             current_app.logger.warning(
-                "ZITADEL website auth HTTP error: code=%s description=%s has_intent=%s data_keys=%s user_id=%s intent_id=%s",
+                "ZITADEL website auth HTTP error: "
+                "code=%s description=%s has_intent=%s data_keys=%s user_id=%s intent_id=%s",
                 exc.code,
                 exc.description,
                 has_intent,
@@ -2565,9 +2604,21 @@ window.location.replace({json.dumps(login_url)});
             if deps._user_has_current_legal_acceptances(user_id=user.id):
                 _send_zitadel_email_verification_for_user(user=user)
                 deps.db.session.commit()
+                deps._send_signup_notification_email(
+                    new_user_email=user.email,
+                    provider="password",
+                    full_name=_full_name_from_parts(first_name, last_name),
+                    signed_up_at=_user_created_at_or_now(user=user),
+                )
                 resp = _verification_required_response(user=user, next_path=next_path)
             else:
                 deps.db.session.commit()
+                deps._send_signup_notification_email(
+                    new_user_email=user.email,
+                    provider="password",
+                    full_name=_full_name_from_parts(first_name, last_name),
+                    signed_up_at=_user_created_at_or_now(user=user),
+                )
                 resp = _pending_website_auth_response(
                     user=user,
                     next_path=next_path,
