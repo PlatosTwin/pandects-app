@@ -4,6 +4,7 @@ import fs from "fs";
 import compression from "compression";
 import { handleDemo } from "./routes/demo";
 import { getPublicOrigin, getSeoForRequest, injectSeoDocument } from "./seo";
+import { FRONTEND_SECURITY_HEADERS } from "./security-headers";
 import { PRERENDER_ROUTES } from "../shared/route-manifest.mjs";
 
 const DOCS_SITE_URL = (process.env.PUBLIC_DOCS_URL || "https://docs.pandects.org")
@@ -32,29 +33,14 @@ export function createServer() {
   }
 
   app.use((_req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("X-Frame-Options", "SAMEORIGIN");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
-    if (process.env.NODE_ENV === "production") {
-      res.setHeader(
-        "Content-Security-Policy-Report-Only",
-        [
-          "default-src 'self'",
-          "base-uri 'self'",
-          "object-src 'none'",
-          "frame-ancestors 'none'",
-          "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://static.airtable.com",
-          "connect-src 'self' https:",
-          "img-src 'self' data: https:",
-          "style-src 'self' 'unsafe-inline'",
-          "font-src 'self' data:",
-        ].join("; "),
-      );
-    }
-    if (process.env.NODE_ENV === "production") {
-      res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+    for (const [name, value] of Object.entries(FRONTEND_SECURITY_HEADERS)) {
+      if (name === "Strict-Transport-Security" && process.env.NODE_ENV !== "production") {
+        continue;
+      }
+      if (name === "Content-Security-Policy" && process.env.NODE_ENV !== "production") {
+        continue;
+      }
+      res.setHeader(name, value);
     }
     next();
   });

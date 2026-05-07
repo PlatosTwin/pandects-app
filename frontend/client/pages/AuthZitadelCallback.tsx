@@ -14,6 +14,7 @@ import {
 import { setSessionToken } from "@/lib/auth-session";
 import { authSessionTransport } from "@/lib/auth-transport";
 import { navigateToNextPath, safeNextPath } from "@/lib/auth-next";
+import { navigateToMcpTokenResult } from "@/lib/mcp-token-result";
 import {
   AUTH_WAKEUP_MESSAGE,
   isAuthWakeupError,
@@ -26,8 +27,6 @@ type CallbackState =
   | { kind: "working" }
   | { kind: "error"; message: string }
   | { kind: "legal"; email: string; nextPath: string };
-
-const MCP_TOKEN_RESULT_STORAGE_KEY = "pandects.mcpTokenResult";
 
 export default function AuthZitadelCallback() {
   const navigate = useNavigate();
@@ -60,9 +59,8 @@ export default function AuthZitadelCallback() {
     };
 
     const finishMcpToken = async (payload: McpTokenResult) => {
-      sessionStorage.setItem(MCP_TOKEN_RESULT_STORAGE_KEY, JSON.stringify(payload));
       if (!cancelled) {
-        navigateToNextPath(navigate, payload.next_path, { replace: true });
+        navigateToMcpTokenResult(navigate, payload);
       }
     };
 

@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import { applySeoForLocation } from "@/lib/seo";
 import {
   installOutboundLinkTracking,
+  sanitizeAnalyticsPath,
   scheduleWhenBrowserIdle,
   trackPageview,
   trackTimeOnPage,
@@ -52,7 +53,7 @@ export function AppLayout() {
   }, []);
 
   useEffect(() => {
-    const path = `${location.pathname}${location.search}`;
+    const path = sanitizeAnalyticsPath(`${location.pathname}${location.search}`);
 
     if (routeTimerRef.current) {
       trackTimeOnPage(

@@ -101,6 +101,86 @@ describe("analytics", () => {
     ]);
   });
 
+  it("redacts sensitive account-control routes from pageviews", async () => {
+    const { fakeWindow } = installBrowserGlobals();
+    const { bootstrapAnalytics, trackPageview } = await importAnalytics();
+
+    bootstrapAnalytics();
+    trackPageview("/verify-email?user_id=user-1&code=secret&next=%2Fsearch");
+    trackPageview("/reset-password/confirm?userID=user-1&code=secret");
+    trackPageview("/auth/zitadel/callback?code=secret&state=state");
+
+    expect(fakeWindow.dataLayer.slice(-3)).toEqual([
+      [
+        "event",
+        "page_view",
+        {
+          page_path: "/verify-email",
+          page_location: "https://pandects.org/verify-email",
+          page_title: "Search | Pandects",
+        },
+      ],
+      [
+        "event",
+        "page_view",
+        {
+          page_path: "/reset-password/confirm",
+          page_location: "https://pandects.org/reset-password/confirm",
+          page_title: "Search | Pandects",
+        },
+      ],
+      [
+        "event",
+        "page_view",
+        {
+          page_path: "/auth/zitadel/callback",
+          page_location: "https://pandects.org/auth/zitadel/callback",
+          page_title: "Search | Pandects",
+        },
+      ],
+    ]);
+  });
+
+  it("strips sensitive query keys from otherwise normal routes", async () => {
+    const { fakeWindow } = installBrowserGlobals();
+    const { bootstrapAnalytics, trackPageview } = await importAnalytics();
+
+    bootstrapAnalytics();
+    trackPageview(
+      "/search?q=tax&code=secret&UserID=user-1&redirect_uri=https%3A%2F%2Fevil.example%2Fcb&page=2",
+    );
+
+    expect(fakeWindow.dataLayer[fakeWindow.dataLayer.length - 1]).toEqual([
+      "event",
+      "page_view",
+      {
+        page_path: "/search?q=tax&page=2",
+        page_location: "https://pandects.org/search?q=tax&page=2",
+        page_title: "Search | Pandects",
+      },
+    ]);
+  });
+
+  it("redacts sensitive routes from time-on-page events", async () => {
+    const { fakeWindow } = installBrowserGlobals();
+    const { bootstrapAnalytics, trackTimeOnPage } = await importAnalytics();
+
+    bootstrapAnalytics();
+    trackTimeOnPage("/account?next=%2Fsearch&email=user%40example.com", 1500);
+
+    expect(fakeWindow.dataLayer[fakeWindow.dataLayer.length - 1]).toEqual([
+      "event",
+      "time_on_page",
+      {
+        page_path: "/account",
+        page_location: "https://pandects.org/account",
+        page_title: "Search | Pandects",
+        duration_ms: 1500,
+        transport_type: "beacon",
+      },
+    ]);
+  });
+
   it("sanitizes event parameters before queuing them", async () => {
     const { fakeWindow } = installBrowserGlobals();
     const { bootstrapAnalytics, trackEvent } = await importAnalytics();

@@ -5,6 +5,30 @@ const DEFAULT_GA_MEASUREMENT_ID = "G-94X4EVQVHZ";
 const MAX_PARAM_STRING_LENGTH = 500;
 const GA_MEASUREMENT_ID =
   import.meta.env.VITE_GA_MEASUREMENT_ID?.trim() || DEFAULT_GA_MEASUREMENT_ID;
+const SENSITIVE_ANALYTICS_PATHS = new Set([
+  "/account",
+  "/auth/zitadel/callback",
+  "/login",
+  "/reset-password",
+  "/reset-password/confirm",
+  "/signup",
+  "/verify-email",
+]);
+const SENSITIVE_ANALYTICS_QUERY_KEYS = new Set([
+  "access_token",
+  "code",
+  "email",
+  "id_token",
+  "intent_token",
+  "next",
+  "redirect_uri",
+  "refresh_token",
+  "session_token",
+  "state",
+  "token",
+  "user_id",
+  "userid",
+]);
 let analyticsBootstrapped = false;
 let analyticsScriptLoaded = false;
 let analyticsScriptScheduled = false;
@@ -34,6 +58,29 @@ function sanitizeAnalyticsParams(params?: AnalyticsParams): AnalyticsParams | un
   }
 
   return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+}
+
+export function sanitizeAnalyticsPath(pagePath: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(pagePath, "https://pandects.local");
+  } catch {
+    return "/";
+  }
+
+  const pathname = parsed.pathname || "/";
+  if (SENSITIVE_ANALYTICS_PATHS.has(pathname)) {
+    return pathname;
+  }
+
+  for (const key of Array.from(parsed.searchParams.keys())) {
+    if (SENSITIVE_ANALYTICS_QUERY_KEYS.has(key.toLowerCase())) {
+      parsed.searchParams.delete(key);
+    }
+  }
+
+  const search = parsed.searchParams.toString();
+  return `${pathname}${search ? `?${search}` : ""}`;
 }
 
 export function scheduleWhenBrowserIdle(
@@ -130,12 +177,13 @@ export function trackEvent(eventName: string, params?: AnalyticsParams) {
 export function trackPageview(pagePath: string) {
   if (!isAnalyticsEnabled()) return;
   if (typeof window.gtag !== "function") return;
+  const safePagePath = sanitizeAnalyticsPath(pagePath);
   window.gtag(
     "event",
     "page_view",
     sanitizeAnalyticsParams({
-      page_path: pagePath,
-      page_location: `${window.location.origin}${pagePath}`,
+      page_path: safePagePath,
+      page_location: `${window.location.origin}${safePagePath}`,
       page_title: document.title,
     }),
   );
@@ -145,12 +193,13 @@ export function trackTimeOnPage(pagePath: string, durationMs: number) {
   if (!isAnalyticsEnabled()) return;
   if (typeof window.gtag !== "function") return;
   if (durationMs <= 1000) return;
+  const safePagePath = sanitizeAnalyticsPath(pagePath);
   window.gtag(
     "event",
     "time_on_page",
     sanitizeAnalyticsParams({
-      page_path: pagePath,
-      page_location: `${window.location.origin}${pagePath}`,
+      page_path: safePagePath,
+      page_location: `${window.location.origin}${safePagePath}`,
       page_title: document.title,
       duration_ms: Math.max(0, Math.round(durationMs)),
       transport_type: "beacon",
