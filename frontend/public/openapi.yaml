@@ -22,6 +22,24 @@ paths:
         explode: true
         style: form
       - in: query
+        name: year_min
+        schema:
+          type: integer
+          default: null
+          minimum: 1900
+          maximum: 2100
+          nullable: true
+        required: false
+      - in: query
+        name: year_max
+        schema:
+          type: integer
+          default: null
+          minimum: 1900
+          maximum: 2100
+          nullable: true
+        required: false
+      - in: query
         name: target
         description: Exact target company names to include.
         schema:
@@ -346,6 +364,14 @@ paths:
         schema:
           type: boolean
           default: true
+        required: false
+      - in: query
+        name: include_xml
+        description: Deprecated compatibility parameter. Section search results include
+          section XML for all callers.
+        schema:
+          type: boolean
+          default: false
         required: false
       responses:
         '422':
@@ -1097,6 +1123,24 @@ paths:
         explode: true
         style: form
       - in: query
+        name: year_min
+        schema:
+          type: integer
+          default: null
+          minimum: 1900
+          maximum: 2100
+          nullable: true
+        required: false
+      - in: query
+        name: year_max
+        schema:
+          type: integer
+          default: null
+          minimum: 1900
+          maximum: 2100
+          nullable: true
+        required: false
+      - in: query
         name: target
         description: Exact target company names to include.
         schema:
@@ -1415,6 +1459,14 @@ paths:
         schema:
           type: boolean
           default: true
+        required: false
+      - in: query
+        name: include_xml
+        description: Deprecated compatibility parameter. Section search results include
+          section XML for all callers.
+        schema:
+          type: boolean
+          default: false
         required: false
       responses:
         '422':

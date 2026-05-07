@@ -114,7 +114,7 @@ function docsPerfPlugin(): Plugin.PluginModule {
 const config: Config = {
   future: {
     // Keep this off for stability while integrating OpenAPI theme assets.
-    experimental_faster: false,
+    faster: false,
     v4: true,
   },
   title: "Pandects Docs",
