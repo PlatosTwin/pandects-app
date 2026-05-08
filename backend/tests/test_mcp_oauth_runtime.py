@@ -52,6 +52,16 @@ class McpOAuthRuntimeTests(unittest.TestCase):
         self.assertEqual(payload["subject_types_supported"], ["public"])
         self.assertEqual(payload["id_token_signing_alg_values_supported"], ["RS256"])
 
+    def test_oauth_metadata_advertises_refresh_token_grant(self) -> None:
+        payload = self.runtime.mcp_oauth_metadata()
+        self.assertIn("refresh_token", payload["grant_types_supported"])
+
+    def test_refresh_token_ttl_defaults_to_30_days(self) -> None:
+        import os
+        os.environ.pop("MCP_OAUTH_REFRESH_TOKEN_TTL_SECONDS", None)
+        ttl = self.runtime.mcp_oauth_refresh_token_ttl_seconds()
+        self.assertEqual(ttl, 2592000)
+
     def test_openid_configuration_endpoint_includes_required_oidc_arrays(self) -> None:
         client = self.app.test_client()
 

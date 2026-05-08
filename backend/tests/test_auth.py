@@ -2741,6 +2741,161 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(mcp.status_code, 200)
         self.assertEqual(mcp.get_json()["result"]["serverInfo"]["name"], "pandects-mcp")
 
+    def test_oauth_token_exchange_includes_refresh_token(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        user_id = self._create_local_user(email="refresh-issue@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="refresh-issue-zitadel-user",
+                )
+            )
+            db.session.commit()
+        self._set_cookie_session(client, email="refresh-issue@example.com")
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code", "refresh_token"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        good_challenge = _pkce_challenge("good-verifier")
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=refresh-state"
+            f"&code_challenge={good_challenge}"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+        auth_code = parse_qs(urlparse(authorize.headers["Location"]).query)["code"][0]
+
+        token = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client_id,
+                "code": auth_code,
+                "redirect_uri": "https://codex.example.com/callback",
+                "code_verifier": "good-verifier",
+            },
+        )
+        self.assertEqual(token.status_code, 200)
+        token_json = token.get_json()
+        self.assertIn("access_token", token_json)
+        self.assertIn("refresh_token", token_json)
+        self.assertEqual(token_json["token_type"], "Bearer")
+        self.assertIsInstance(token_json["expires_in"], int)
+
+    def test_refresh_token_grant_issues_new_pair_and_rotates_old_token(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        user_id = self._create_local_user(email="refresh-rotate@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="refresh-rotate-zitadel-user",
+                )
+            )
+            db.session.commit()
+        self._set_cookie_session(client, email="refresh-rotate@example.com")
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code", "refresh_token"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        client_id = register.get_json()["client_id"]
+
+        good_challenge = _pkce_challenge("rotate-verifier")
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            f"&code_challenge={good_challenge}"
+            "&code_challenge_method=S256"
+        )
+        auth_code = parse_qs(urlparse(authorize.headers["Location"]).query)["code"][0]
+
+        first_token = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client_id,
+                "code": auth_code,
+                "redirect_uri": "https://codex.example.com/callback",
+                "code_verifier": "rotate-verifier",
+            },
+        )
+        self.assertEqual(first_token.status_code, 200)
+        first_json = first_token.get_json()
+        refresh_token_v1 = first_json["refresh_token"]
+        access_token_v1 = first_json["access_token"]
+
+        # Use the refresh token to get a new pair.
+        refreshed = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": client_id,
+                "refresh_token": refresh_token_v1,
+            },
+        )
+        self.assertEqual(refreshed.status_code, 200)
+        refreshed_json = refreshed.get_json()
+        self.assertIn("access_token", refreshed_json)
+        self.assertIn("refresh_token", refreshed_json)
+        # New access token must differ from the original.
+        self.assertNotEqual(refreshed_json["access_token"], access_token_v1)
+        # New refresh token must differ from the original.
+        refresh_token_v2 = refreshed_json["refresh_token"]
+        self.assertNotEqual(refresh_token_v2, refresh_token_v1)
+
+        # Reusing the old refresh token must be rejected (rotation).
+        reuse = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": client_id,
+                "refresh_token": refresh_token_v1,
+            },
+        )
+        self.assertEqual(reuse.status_code, 400)
+
+        # The rotated token must still work.
+        second_refresh = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": client_id,
+                "refresh_token": refresh_token_v2,
+            },
+        )
+        self.assertEqual(second_refresh.status_code, 200)
+        self.assertIn("access_token", second_refresh.get_json())
+
     def test_oauth_authorize_returns_login_bridge_when_session_transport_is_bearer(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()

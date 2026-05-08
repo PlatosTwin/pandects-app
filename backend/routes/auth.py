@@ -33,6 +33,7 @@ from backend.auth.mcp_oauth_runtime import (
     mcp_oauth_jwks_uri,
     mcp_oauth_metadata,
     mcp_oauth_openid_configuration_url,
+    mcp_oauth_refresh_token_ttl_seconds,
     mcp_oauth_registration_endpoint,
     mcp_oauth_token_endpoint,
     public_jwk_from_private_pem,
@@ -1810,61 +1811,110 @@ window.location.replace({json.dumps(login_url)});
         _clear_oauth_authorize_cookie(resp)
         return resp
 
+    def _issue_token_pair(*, user_id: str, client_id: str, scope: str) -> dict[str, object]:
+        active_key = _oauth_active_signing_key()
+        access_token = encode_access_token(
+            private_pem=active_key.private_pem,
+            kid=active_key.kid,
+            claims=access_token_claims(
+                subject=user_id,
+                audience=mcp_resource_url(),
+                scope=scope,
+                token_id=str(uuid.uuid4()),
+            ),
+        )
+        raw_refresh = secrets.token_urlsafe(32)
+        refresh_record = deps.AuthOAuthRefreshToken(
+            token_hash=_oauth_code_hash(raw_refresh),
+            client_id=client_id,
+            user_id=user_id,
+            scope=scope,
+            expires_at=deps._utc_now() + timedelta(seconds=mcp_oauth_refresh_token_ttl_seconds()),
+        )
+        deps.db.session.add(refresh_record)
+        return {
+            "access_token": access_token,
+            "token_type": "Bearer",
+            "expires_in": mcp_oauth_access_token_ttl_seconds(),
+            "scope": scope,
+            "refresh_token": raw_refresh,
+        }
+
     @auth_blp.post("/oauth/token")
     def oauth_token():
         deps._require_auth_db()
         grant_type = request.form.get("grant_type", "").strip()
-        code = request.form.get("code", "").strip()
         client_id = request.form.get("client_id", "").strip()
-        redirect_uri = request.form.get("redirect_uri", "").strip()
-        code_verifier = request.form.get("code_verifier", "").strip()
-        if grant_type != "authorization_code":
-            abort(400, description="Only authorization_code grant_type is supported.")
-        if not code or not client_id or not redirect_uri or not code_verifier:
-            abort(400, description="Missing OAuth token exchange fields.")
-        client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
-        if client is None or not _oauth_redirect_uri_allowed(client, redirect_uri):
-            abort(400, description="Invalid OAuth client or redirect URI.")
-        auth_code = deps.AuthOAuthAuthorizationCode.query.filter_by(
-            code_hash=_oauth_code_hash(code),
-            client_id=client.client_id,
-        ).first()
-        if auth_code is None or auth_code.used_at is not None or auth_code.expires_at < deps._utc_now():
-            abort(400, description="Invalid or expired OAuth code.")
-        if auth_code.redirect_uri != redirect_uri:
-            abort(400, description="OAuth redirect URI mismatch.")
-        expected_challenge = _build_pkce_challenge(code_verifier)
-        if not secrets.compare_digest(expected_challenge, auth_code.code_challenge):
-            abort(400, description="OAuth PKCE verification failed.")
-        user = deps.db.session.get(deps.AuthUser, auth_code.user_id)
-        if user is None or cast(object, user.email_verified_at) is None:
-            abort(403, description="Linked Pandects account is not verified.")
-        active_key = _oauth_active_signing_key()
-        token = encode_access_token(
-            private_pem=active_key.private_pem,
-            kid=active_key.kid,
-            claims=access_token_claims(
-                subject=user.id,
-                audience=mcp_resource_url(),
+
+        if grant_type == "authorization_code":
+            code = request.form.get("code", "").strip()
+            redirect_uri = request.form.get("redirect_uri", "").strip()
+            code_verifier = request.form.get("code_verifier", "").strip()
+            if not code or not client_id or not redirect_uri or not code_verifier:
+                abort(400, description="Missing OAuth token exchange fields.")
+            client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
+            if client is None or not _oauth_redirect_uri_allowed(client, redirect_uri):
+                abort(400, description="Invalid OAuth client or redirect URI.")
+            auth_code = deps.AuthOAuthAuthorizationCode.query.filter_by(
+                code_hash=_oauth_code_hash(code),
+                client_id=client.client_id,
+            ).first()
+            if auth_code is None or auth_code.used_at is not None or auth_code.expires_at < deps._utc_now():
+                abort(400, description="Invalid or expired OAuth code.")
+            if auth_code.redirect_uri != redirect_uri:
+                abort(400, description="OAuth redirect URI mismatch.")
+            expected_challenge = _build_pkce_challenge(code_verifier)
+            if not secrets.compare_digest(expected_challenge, auth_code.code_challenge):
+                abort(400, description="OAuth PKCE verification failed.")
+            user = deps.db.session.get(deps.AuthUser, auth_code.user_id)
+            if user is None or cast(object, user.email_verified_at) is None:
+                abort(403, description="Linked Pandects account is not verified.")
+            auth_code.used_at = deps._utc_now()
+            token_payload = _issue_token_pair(
+                user_id=user.id,
+                client_id=client.client_id,
                 scope=auth_code.scope,
-                token_id=str(uuid.uuid4()),
-            ),
-        )
-        auth_code.used_at = deps._utc_now()
-        deps.db.session.commit()
-        resp = make_response(
-            jsonify(
-                {
-                    "access_token": token,
-                    "token_type": "Bearer",
-                    "expires_in": mcp_oauth_access_token_ttl_seconds(),
-                    "scope": auth_code.scope,
-                }
-            ),
-            200,
-        )
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
+            )
+            deps.db.session.commit()
+            resp = make_response(jsonify(token_payload), 200)
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+
+        if grant_type == "refresh_token":
+            raw_refresh = request.form.get("refresh_token", "").strip()
+            if not raw_refresh or not client_id:
+                abort(400, description="Missing OAuth refresh token fields.")
+            client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
+            if client is None:
+                abort(400, description="Invalid OAuth client.")
+            refresh_record = deps.AuthOAuthRefreshToken.query.filter_by(
+                token_hash=_oauth_code_hash(raw_refresh),
+                client_id=client.client_id,
+            ).first()
+            now = deps._utc_now()
+            if (
+                refresh_record is None
+                or refresh_record.revoked_at is not None
+                or refresh_record.used_at is not None
+                or refresh_record.expires_at < now
+            ):
+                abort(400, description="Invalid or expired refresh token.")
+            user = deps.db.session.get(deps.AuthUser, refresh_record.user_id)
+            if user is None or cast(object, user.email_verified_at) is None:
+                abort(403, description="Linked Pandects account is not verified.")
+            # Rotate: mark old token used, issue a new pair.
+            refresh_record.used_at = now
+            token_payload = _issue_token_pair(
+                user_id=user.id,
+                client_id=client.client_id,
+                scope=refresh_record.scope,
+            )
+            deps.db.session.commit()
+            resp = make_response(jsonify(token_payload), 200)
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+
+        abort(400, description="Unsupported grant_type.")
 
     @auth_blp.route("/me", methods=["GET"])
     def auth_me():

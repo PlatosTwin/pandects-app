@@ -351,3 +351,26 @@ class AuthOAuthSigningKey(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     activated_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     active = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class AuthOAuthRefreshToken(db.Model):
+    __bind_key__ = "auth"
+    __tablename__ = "auth_oauth_refresh_tokens"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    token_hash = db.Column(db.String(64), unique=True, index=True, nullable=False)
+    client_id = db.Column(
+        db.String(128), db.ForeignKey("auth_oauth_clients.client_id"), index=True, nullable=False
+    )
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    scope = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.Index("ix_auth_oauth_refresh_tokens_user_client", "user_id", "client_id"),
+    )

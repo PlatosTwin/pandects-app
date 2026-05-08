@@ -29,6 +29,7 @@ def main() -> None:
             "api_usage_daily_ips",
             "legal_acceptances",
             "auth_signon_events",
+            "auth_oauth_refresh_tokens",
         }
         existing = set(inspector.get_table_names())
         missing = sorted(expected - existing)

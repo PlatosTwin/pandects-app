@@ -107,6 +107,15 @@ def mcp_oauth_authorization_code_ttl_seconds() -> int:
     return max(60, parsed)
 
 
+def mcp_oauth_refresh_token_ttl_seconds() -> int:
+    raw = os.environ.get("MCP_OAUTH_REFRESH_TOKEN_TTL_SECONDS", "").strip()
+    try:
+        parsed = int(raw)
+    except ValueError:
+        parsed = 2592000  # 30 days
+    return max(300, parsed)
+
+
 def mcp_oauth_metadata() -> McpOAuthMetadata:
     issuer = mcp_oauth_issuer()
     return {
@@ -118,7 +127,7 @@ def mcp_oauth_metadata() -> McpOAuthMetadata:
         "subject_types_supported": ["public"],
         "id_token_signing_alg_values_supported": ["RS256"],
         "response_types_supported": ["code"],
-        "grant_types_supported": ["authorization_code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
         "token_endpoint_auth_methods_supported": ["none"],
         "code_challenge_methods_supported": ["S256"],
         "scopes_supported": [
@@ -229,6 +238,7 @@ __all__ = [
     "mcp_oauth_jwks_uri",
     "mcp_oauth_metadata",
     "mcp_oauth_openid_configuration_url",
+    "mcp_oauth_refresh_token_ttl_seconds",
     "mcp_oauth_registration_endpoint",
     "mcp_oauth_token_endpoint",
     "public_jwk_from_private_pem",

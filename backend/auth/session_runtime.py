@@ -203,6 +203,9 @@ def ensure_auth_schema_upgrades(target_app: Flask) -> None:
                         text(f"ALTER TABLE api_keys ADD COLUMN deleted_at {column_type} NULL")
                     )
 
+        if "auth_oauth_refresh_tokens" not in existing_tables:
+            db.create_all(bind_key="auth")
+
         favorites_required = {
             "favorite_projects",
             "favorite_project_assignments",

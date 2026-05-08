@@ -279,6 +279,7 @@ class AuthDeps:
     AuthExternalSubject: Any
     AuthOAuthAuthorizationCode: Any
     AuthOAuthClient: Any
+    AuthOAuthRefreshToken: Any
     AuthOAuthSigningKey: Any
     AuthExternalSubjectLinkSchema: type[Schema]
     AuthFlagInaccurateSchema: type[Schema]
