@@ -1,23 +1,27 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Float, and_, cast as sql_cast, or_, select
+from sqlalchemy import Float, Integer, Numeric, and_, cast as sql_cast, or_, select
 from sqlalchemy.sql.elements import ColumnElement
 
 
-_TRANSACTION_PRICE_BUCKETS: dict[str, tuple[float, float | None]] = {
-    "0 - 100M": (0.0, 100_000_000.0),
-    "100M - 250M": (100_000_000.0, 250_000_000.0),
-    "250M - 500M": (250_000_000.0, 500_000_000.0),
-    "500M - 750M": (500_000_000.0, 750_000_000.0),
-    "750M - 1B": (750_000_000.0, 1_000_000_000.0),
-    "1B - 5B": (1_000_000_000.0, 5_000_000_000.0),
-    "5B - 10B": (5_000_000_000.0, 10_000_000_000.0),
-    "10B - 20B": (10_000_000_000.0, 20_000_000_000.0),
-    "20B+": (20_000_000_000.0, None),
+_TRANSACTION_PRICE_BUCKETS: dict[str, tuple[Decimal, Decimal | None]] = {
+    "0 - 100M": (Decimal("0"), Decimal("100000000")),
+    "100M - 250M": (Decimal("100000000"), Decimal("250000000")),
+    "250M - 500M": (Decimal("250000000"), Decimal("500000000")),
+    "500M - 750M": (Decimal("500000000"), Decimal("750000000")),
+    "750M - 1B": (Decimal("750000000"), Decimal("1000000000")),
+    "1B - 5B": (Decimal("1000000000"), Decimal("5000000000")),
+    "5B - 10B": (Decimal("5000000000"), Decimal("10000000000")),
+    "10B - 20B": (Decimal("10000000000"), Decimal("20000000000")),
+    "20B+": (Decimal("20000000000"), None),
 }
+
+
+_NUMERIC_SQL_TYPES = (Float, Integer, Numeric)
 
 
 def build_transaction_price_bucket_filter(
@@ -25,7 +29,12 @@ def build_transaction_price_bucket_filter(
     selected_buckets: Iterable[str],
 ) -> ColumnElement[bool] | None:
     predicates: list[ColumnElement[bool]] = []
-    numeric_column = sql_cast(column, Float)
+    column_type = getattr(column, "type", None)
+    numeric_column = (
+        column
+        if isinstance(column_type, _NUMERIC_SQL_TYPES)
+        else sql_cast(column, Float)
+    )
 
     for bucket in selected_buckets:
         bounds = _TRANSACTION_PRICE_BUCKETS.get(bucket)

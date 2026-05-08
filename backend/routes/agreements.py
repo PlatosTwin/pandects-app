@@ -1157,8 +1157,15 @@ def register_agreements_routes(
 
             matched_sections_by_agreement: dict[str, list[dict[str, object]]] = defaultdict(list)
             if agreement_ids:
-                preview_rows = cast(
-                    list[object],
+                preview_rank = func.row_number().over(
+                    partition_by=latest.agreement_uuid,
+                    order_by=[
+                        asc(sections.article_order),
+                        asc(sections.section_order),
+                        asc(latest.section_uuid),
+                    ],
+                ).label("preview_rank")
+                preview_subquery = (
                     match_query.join(
                         sections,
                         sections.section_uuid == latest.section_uuid,
@@ -1172,13 +1179,20 @@ def register_agreements_routes(
                         sections.xml_content.label("xml_content"),
                         sections.article_order.label("article_order"),
                         sections.section_order.label("section_order"),
+                        preview_rank,
                     )
                     .filter(latest.agreement_uuid.in_(agreement_ids))
+                    .subquery()
+                )
+                preview_rows = cast(
+                    list[object],
+                    db.session.query(preview_subquery)
+                    .filter(preview_subquery.c.preview_rank <= 3)
                     .order_by(
-                        asc(latest.agreement_uuid),
-                        asc(sections.article_order),
-                        asc(sections.section_order),
-                        asc(latest.section_uuid),
+                        asc(preview_subquery.c.agreement_uuid),
+                        asc(preview_subquery.c.article_order),
+                        asc(preview_subquery.c.section_order),
+                        asc(preview_subquery.c.section_uuid),
                     )
                     .all(),
                 )

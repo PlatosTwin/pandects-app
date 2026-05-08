@@ -245,18 +245,9 @@ def run_tax_clauses(
         if isinstance(value, str):
             clause_uuids.append(value)
 
-    if count_mode == "exact" or page <= 1:
-        total_count = deps._to_int(q.count())
-        total_count_is_approximate = False
-        count_method = "query_count"
-    elif has_next:
-        total_count = ((page - 1) * page_size) + item_count + 1
-        total_count_is_approximate = True
-        count_method = "filtered_lower_bound"
-    else:
-        total_count = ((page - 1) * page_size) + item_count
-        total_count_is_approximate = False
-        count_method = "query_count"
+    total_count = deps._to_int(q.order_by(None).count())
+    total_count_is_approximate = False
+    count_method = "query_count"
 
     details_by_uuid: dict[str, dict[str, object]] = {}
     assignments_by_uuid: dict[str, list[str]] = {}
