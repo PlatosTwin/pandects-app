@@ -490,6 +490,16 @@ def _extract_section_numbers(title: str) -> Tuple[int, int] | None:
     return article_num, section_num
 
 
+def _article_uses_local_one_section_numbering(section_children: List[ET.Element]) -> bool:
+    if not section_children:
+        return False
+    for expected_section_num, section_elem in enumerate(section_children, start=1):
+        parsed_numbers = _extract_section_numbers(section_elem.attrib.get("title", ""))
+        if parsed_numbers != (1, expected_section_num):
+            return False
+    return True
+
+
 def _article_title_marks_intentionally_empty(title: str) -> bool:
     return OMITTED_EMPTY_ARTICLE_RE.search(title) is not None
 
@@ -1042,6 +1052,9 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
         expected_section_num = 1
         previous_section_elem: ET.Element | None = None
         previous_section_page_uuids: Tuple[str, ...] = ()
+        uses_local_one_section_numbering = _article_uses_local_one_section_numbering(
+            section_children
+        )
         for section_elem in section_children:
             section_title = section_elem.attrib.get("title", "")
             section_page_uuids = _collect_page_uuids(section_elem)
@@ -1057,7 +1070,17 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                 continue
 
             section_article_num, section_num = parsed_numbers
-            if article_num is not None and section_article_num != article_num:
+            local_one_numbering_mismatch = (
+                article_num is not None
+                and article_num != 1
+                and section_article_num == 1
+                and uses_local_one_section_numbering
+            )
+            if (
+                article_num is not None
+                and section_article_num != article_num
+                and not local_one_numbering_mismatch
+            ):
                 mismatch_page_uuids = _target_section_article_mismatch_page_uuids(
                     previous_section_elem=previous_section_elem,
                     section_article_num=section_article_num,

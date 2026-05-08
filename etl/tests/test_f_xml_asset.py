@@ -802,6 +802,72 @@ class XMLVerifyAssetTests(unittest.TestCase):
 
         self.assertEqual(violations, [])
 
+    def test_find_hard_rule_violations_accepts_local_one_section_numbering(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="Article I INTRODUCTION" order="1">
+                  <section title="Section 1.1 Definitions." order="1" pageUUID="page-1" />
+                </article>
+                <article title="Article II TRANSACTIONS" order="2">
+                  <section title="Section 2.1 The Merger." order="1" pageUUID="page-2" />
+                </article>
+                <article title="Article XI CONDITIONS TO OBLIGATIONS OF PARTIES" order="11">
+                  <section title="Section 1.1 Conditions to the Obligations of Each Party." order="1" pageUUID="page-11" />
+                  <section title="Section 1.2 Conditions to the Obligations of Parent Parties." order="2" pageUUID="page-11" />
+                  <section title="Section 1.3 Conditions to the Obligations of the Blockers and the Company." order="3" pageUUID="page-11" />
+                </article>
+                <article title="Article XII TERMINATION" order="12">
+                  <section title="Section 1.1 Termination." order="1" pageUUID="page-12" />
+                  <section title="Section 1.2 Effect of Termination." order="2" pageUUID="page-12" />
+                </article>
+                <article title="Article XIII MISCELLANEOUS" order="13">
+                  <section title="Section 1.1 Amendment and Waiver." order="1" pageUUID="page-13" />
+                  <section title="Section 1.2 Notices." order="2" pageUUID="page-13" />
+                  <section title="Section 1.3 Assignment." order="3" pageUUID="page-13" />
+                </article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertFalse(
+            any(
+                violation.reason_code == XML_REASON_SECTION_ARTICLE_MISMATCH
+                for violation in violations
+            )
+        )
+        self.assertEqual(violations, [])
+
+    def test_local_one_section_numbering_does_not_suppress_mixed_mismatch(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="Article I INTRODUCTION" order="1">
+                  <section title="Section 1.1 Definitions." order="1" pageUUID="page-1" />
+                </article>
+                <article title="Article XI CONDITIONS" order="11">
+                  <section title="Section 1.1 First condition." order="1" pageUUID="page-11" />
+                  <section title="Section 2.2 Second condition." order="2" pageUUID="page-11" />
+                </article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertTrue(
+            any(
+                violation.reason_code == XML_REASON_SECTION_ARTICLE_MISMATCH
+                for violation in violations
+            )
+        )
+
     def test_find_hard_rule_violations_accepts_plural_sections_prefix(self) -> None:
         root = ET.fromstring(
             """
