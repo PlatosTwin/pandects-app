@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from typing import cast
 
+from flask import Flask
 from sqlalchemy import text
 
 
@@ -25,9 +26,12 @@ _AUTH_DB_TEMP.close()
 os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
 
 
+from backend.auth.runtime import AccessContext  # noqa: E402
 from backend.app import create_test_app  # noqa: E402
 from backend.extensions import db  # noqa: E402
+from backend.models import Agreements, Clauses, Favorite, FavoriteProject, FavoriteProjectAssignment, FavoriteTag, FavoriteTagAssignment, Sections  # noqa: E402
 from backend.models.auth import AuthUser  # noqa: E402
+from backend.routes.favorites import FavoritesDeps, register_favorites_routes  # noqa: E402
 import backend.app as backend_app  # noqa: E402
 
 
@@ -74,6 +78,44 @@ class FavoritesRoutesTests(unittest.TestCase):
         client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
         return client
 
+    def _client_with_verified_non_user_tier(self, tier: str = "api_key"):
+        user = AuthUser()
+        user.id = "verified-non-user"
+        user.email = "tiered@example.com"
+        user.email_verified_at = backend_app._utc_now()
+
+        test_app = Flask(__name__)
+        test_app.config.update(
+            TESTING=True,
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={"auth": f"sqlite:///{_AUTH_DB_TEMP.name}"},
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        db.init_app(test_app)
+        register_favorites_routes(
+            test_app,
+            deps=FavoritesDeps(
+                Favorite=Favorite,
+                FavoriteProject=FavoriteProject,
+                FavoriteProjectAssignment=FavoriteProjectAssignment,
+                FavoriteTag=FavoriteTag,
+                FavoriteTagAssignment=FavoriteTagAssignment,
+                Sections=Sections,
+                Clauses=Clauses,
+                Agreements=Agreements,
+                db=db,
+                _require_auth_db=lambda: None,
+                _require_verified_user=lambda: (
+                    user,
+                    AccessContext(tier=tier, user_id=user.id),
+                ),
+                _auth_is_mocked=lambda: False,
+                _load_json=backend_app._load_json,
+                _utc_now=backend_app._utc_now,
+            ),
+        )
+        return test_app.test_client()
+
     def test_unauthenticated_listing_returns_401(self):
         client = self.app.test_client()
         res = client.get("/v1/me/favorites")
@@ -91,6 +133,24 @@ class FavoritesRoutesTests(unittest.TestCase):
         client = self.app.test_client()
         res = client.get("/v1/me/favorites", headers={"X-API-Key": api_key})
         self.assertIn(res.status_code, {401, 403})
+
+    def test_verified_api_key_tier_is_rejected_for_listing(self):
+        client = self._client_with_verified_non_user_tier()
+        res = client.get("/v1/me/favorites")
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("signed-in user session", res.get_data(as_text=True))
+
+    def test_verified_non_user_tier_is_rejected_for_create(self):
+        client = self._client_with_verified_non_user_tier(tier="mcp")
+        res = client.post(
+            "/v1/me/favorites",
+            json={
+                "item_type": "agreement",
+                "item_uuid": "66666666-6666-6666-6666-666666666666",
+            },
+        )
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("signed-in user session", res.get_data(as_text=True))
 
     def test_listing_creates_default_project_lazily(self):
         client = self._client_with_bearer()
@@ -211,7 +271,6 @@ class FavoritesRoutesTests(unittest.TestCase):
         )
         favorite_id = res.get_json()["favorite"]["id"]
 
-        # User B cannot see or mutate user A's favorite.
         res = client_b.get("/v1/me/favorites")
         self.assertEqual(res.get_json()["favorites"], [])
         res = client_b.delete(f"/v1/me/favorites/{favorite_id}")
@@ -220,14 +279,12 @@ class FavoritesRoutesTests(unittest.TestCase):
     def test_tag_create_list_and_assign(self):
         client = self._client_with_bearer()
 
-        # Empty palette returns the available colors
         res = client.get("/v1/me/tags")
         self.assertEqual(res.status_code, 200)
         body = res.get_json()
         self.assertEqual(body["tags"], [])
         self.assertIn("blue", body["available_colors"])
 
-        # Create tags
         res = client.post("/v1/me/tags", json={"name": "Important", "color": "red"})
         self.assertEqual(res.status_code, 201)
         red_tag = res.get_json()["tag"]
@@ -236,16 +293,13 @@ class FavoritesRoutesTests(unittest.TestCase):
         res = client.post("/v1/me/tags", json={"name": "Watch", "color": "amber"})
         amber_tag = res.get_json()["tag"]
 
-        # Bad color rejected
         res = client.post("/v1/me/tags", json={"name": "X", "color": "puce"})
         self.assertEqual(res.status_code, 400)
 
-        # Duplicate name returns existing
         res = client.post("/v1/me/tags", json={"name": "Important", "color": "red"})
         self.assertEqual(res.status_code, 200)
         self.assertFalse(res.get_json()["created"])
 
-        # Create a favorite, then assign tags
         res = client.post(
             "/v1/me/favorites",
             json={

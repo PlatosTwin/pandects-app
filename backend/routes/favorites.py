@@ -271,17 +271,17 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
         if deps._auth_is_mocked():
             abort(503, description="Favorites are unavailable in mock auth mode.")
 
-    def _require_favorites_user() -> tuple[UserLikeProtocol, AccessContextProtocol]:
+    def _require_favorites_user() -> UserLikeProtocol:
         user, ctx = deps._require_verified_user()
         if ctx.tier != "user":
             abort(403, description="Favorites require a signed-in user session.")
-        return user, ctx
+        return user
 
     @favorites_blp.route("/favorite-projects", methods=["GET"])
     def list_projects():
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         try:
             _ = _ensure_default_project(deps, user_id=user.id)
             _backfill_favorite_project_assignments(deps, user_id=user.id)
@@ -304,7 +304,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def create_project():
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(ProjectCreateSchema())
         name = cast(str, data["name"]).strip()
         if not name:
@@ -337,7 +337,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def update_project(project_id: str):
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(ProjectUpdateSchema())
         try:
             project = deps.FavoriteProject.query.filter_by(
@@ -370,7 +370,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def delete_project(project_id: str):
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         schema = ProjectDeleteQuerySchema()
         errors = schema.validate(request.args)
         if errors:
@@ -439,7 +439,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def list_favorites():
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         item_type = request.args.get("item_type")
         if item_type is not None and item_type not in ITEM_TYPES:
             abort(400, description="Invalid item_type filter.")
@@ -504,7 +504,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def exists_favorites():
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         schema = FavoriteExistsQuerySchema()
         errors = schema.validate(request.args)
         if errors:
@@ -535,7 +535,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def create_favorite():
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(FavoriteCreateSchema())
         minimal_response = request.args.get("view") == "minimal"
         item_type = cast(str, data["item_type"])
@@ -632,7 +632,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def update_favorite(favorite_id: str):
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(FavoriteUpdateSchema())
         try:
             fav = deps.Favorite.query.filter_by(
@@ -695,7 +695,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def bulk_move_favorites():
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(FavoritesBulkMoveSchema())
         raw_favorite_ids = cast(list[object], data["favorite_ids"])
         favorite_ids = [
@@ -748,7 +748,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def bulk_copy_favorites():
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(FavoritesBulkCopySchema())
         raw_favorite_ids = cast(list[object], data["favorite_ids"])
         favorite_ids = [
@@ -802,7 +802,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def delete_favorite(favorite_id: str):
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         try:
             fav = deps.Favorite.query.filter_by(
                 id=favorite_id, user_id=user.id
@@ -827,7 +827,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def list_tags():
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         try:
             tags = (
                 deps.FavoriteTag.query.filter_by(user_id=user.id)
@@ -848,7 +848,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def create_tag():
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(TagCreateSchema())
         name = cast(str, data["name"]).strip()
         if not name:
@@ -878,7 +878,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def update_tag(tag_id: str):
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(TagUpdateSchema())
         try:
             tag = deps.FavoriteTag.query.filter_by(
@@ -909,7 +909,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def delete_tag(tag_id: str):
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         try:
             tag = deps.FavoriteTag.query.filter_by(
                 id=tag_id, user_id=user.id
@@ -931,7 +931,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def get_favorite_tags(favorite_id: str):
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         try:
             fav = deps.Favorite.query.filter_by(
                 id=favorite_id, user_id=user.id
@@ -951,7 +951,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def set_favorite_tags(favorite_id: str):
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(FavoriteTagsSetSchema())
         raw_ids = data.get("tag_ids")
         if not isinstance(raw_ids, list):
@@ -998,7 +998,7 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
     def set_favorite_projects(favorite_id: str):
         _guard_not_mocked()
         deps._require_auth_db()
-        user, _ctx = _require_favorites_user()
+        user = _require_favorites_user()
         data = deps._load_json(FavoriteProjectsSetSchema())
         raw_ids = cast(list[object], data["project_ids"])
         project_ids = [value for value in (str(raw).strip() for raw in raw_ids) if value]
