@@ -83,6 +83,7 @@ XML_REASON_SECTION_TITLE_INVALID_NUMBERING = "section_title_invalid_numbering"
 XML_REASON_SECTION_ARTICLE_MISMATCH = "section_article_mismatch"
 XML_REASON_SECTION_NON_SEQUENTIAL = "section_non_sequential"
 XML_REASON_TOO_MANY_EMPTY_ARTICLES = "too_many_empty_articles"
+XML_REASON_ARTICLES_OUT_OF_ORDER = "articles_out_of_order"
 XML_VERIFY_BATCH_SCOPE_DEFAULT = "default"
 XML_VERIFY_BATCH_SCOPE_REPAIR = "repair"
 XML_VERIFY_INSTRUCTIONS = (
@@ -475,6 +476,35 @@ def _extract_article_number_from_elem(article_elem: ET.Element) -> int | None:
     order = article_elem.attrib.get("order")
     if order and order.isdigit():
         return int(order)
+    return None
+
+
+def _article_sort_key(title: str) -> float | None:
+    """Return a sortable float for an article title.
+
+    Plain articles (I, II, 3) map to their integer value.
+    A-suffix articles (IIIA, 3A) map to base + 0.5, placing them between
+    the base article and the next, e.g. III=3, IIIA=3.5, IV=4.
+    Returns None when the title cannot be parsed.
+    """
+    a_match = ARTICLE_A_NUMBER_RE.match(title)
+    if a_match is not None:
+        token = a_match.group("article_number") or a_match.group("numeric_number")
+        if token is None:
+            return None
+        base = int(token) if token.isdigit() else _roman_to_int(token)
+        if base is None:
+            return None
+        return base + 0.5
+    match = ARTICLE_NUMBER_RE.match(title)
+    if match is not None:
+        token = match.group(1) or match.group(2)
+        if token is None:
+            return None
+        n = int(token) if token.isdigit() else _roman_to_int(token)
+        if n is None:
+            return None
+        return float(n)
     return None
 
 
@@ -1025,6 +1055,23 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                 page_uuids=_collect_page_uuids(articles[0]),
             )
         )
+
+    prev_key: float | None = None
+    for article_elem in articles:
+        article_title = article_elem.attrib.get("title", "")
+        key = _article_sort_key(article_title)
+        if key is None:
+            continue
+        if prev_key is not None and key <= prev_key:
+            violations.append(
+                XMLHardRuleViolation(
+                    reason_code=XML_REASON_ARTICLES_OUT_OF_ORDER,
+                    reason_detail=f"Article out of order: {article_title!r} (key {key}) follows key {prev_key}.",
+                    page_uuids=_collect_page_uuids(article_elem),
+                )
+            )
+        else:
+            prev_key = key
 
     empty_article_count = 0
     empty_article_page_uuids: List[str] = []

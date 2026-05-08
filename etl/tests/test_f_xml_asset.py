@@ -18,6 +18,7 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_LLM_INVALID,
+    XML_REASON_ARTICLES_OUT_OF_ORDER,
     XML_REASON_TOO_FEW_ARTICLES,
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
     XML_VERIFY_INSTRUCTIONS,
@@ -1026,6 +1027,94 @@ class XMLVerifyAssetTests(unittest.TestCase):
             v for v in violations if v.reason_code == XML_REASON_SECTION_TITLE_INVALID_NUMBERING
         )
         self.assertEqual(target.page_uuids, ("page-22",))
+
+    def test_find_hard_rule_violations_rejects_articles_out_of_order(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-4" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-5" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertTrue(
+            any(v.reason_code == XML_REASON_ARTICLES_OUT_OF_ORDER for v in violations)
+        )
+
+    def test_find_hard_rule_violations_accepts_article_a_between_base_and_next(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
+                <article title="ARTICLE IIA"><section title="Section 2A.1 Extra" pageUUID="page-2a" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-4" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-5" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertFalse(
+            any(v.reason_code == XML_REASON_ARTICLES_OUT_OF_ORDER for v in violations)
+        )
+
+    def test_find_hard_rule_violations_accepts_article_a_without_base(self) -> None:
+        # Some agreements skip the base article and jump straight to the A-suffix variant
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
+                <article title="ARTICLE IIA"><section title="Section 2A.1 Extra" pageUUID="page-2a" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-4" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-5" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertFalse(
+            any(v.reason_code == XML_REASON_ARTICLES_OUT_OF_ORDER for v in violations)
+        )
+
+    def test_find_hard_rule_violations_rejects_article_a_after_next(self) -> None:
+        # ARTICLE IIA appearing after ARTICLE III is out of order
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
+                <article title="ARTICLE IIA"><section title="Section 2A.1 Extra" pageUUID="page-2a" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-4" /></article>
+                <article title="ARTICLE V"><section title="Section 5.1 Fifth" pageUUID="page-5" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertTrue(
+            any(v.reason_code == XML_REASON_ARTICLES_OUT_OF_ORDER for v in violations)
+        )
 
     def test_find_hard_rule_violations_rejects_fewer_than_five_articles(self) -> None:
         root = ET.fromstring(
