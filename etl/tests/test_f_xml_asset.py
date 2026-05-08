@@ -25,6 +25,7 @@ from etl.defs.f_xml_asset import (
     _apply_safe_xml_tag_repairs_to_df,
     _build_xml_verify_batch_request_body,
     _build_xml_verify_toc_context,
+    _article_sort_key,
     _extract_article_number,
     _hard_rule_result_for_df,
     _render_tag_tree_from_root,
@@ -1027,6 +1028,89 @@ class XMLVerifyAssetTests(unittest.TestCase):
             v for v in violations if v.reason_code == XML_REASON_SECTION_TITLE_INVALID_NUMBERING
         )
         self.assertEqual(target.page_uuids, ("page-22",))
+
+    def test_article_sort_key_a_suffix_variants(self) -> None:
+        cases = [
+            # no-separator (existing)
+            ("ARTICLE IIIA EXTRA", 3.5),
+            ("ARTICLE 3A EXTRA", 3.5),
+            # hyphen
+            ("ARTICLE III-A REPRESENTATIONS", 3.5),
+            ("ARTICLE III-B SUMMERFIELD", 3.5),
+            ("ARTICLE II-A REPRESENTATIONS", 2.5),
+            ("ARTICLE V-A REPRESENTATIONS", 5.5),
+            ("ARTICLE IV-A REPRESENTATIONS", 4.5),
+            # dot
+            ("ARTICLE III.A REPRESENTATIONS", 3.5),
+            ("ARTICLE III.A ADDITIONAL", 3.5),
+            # parenthesised
+            ("ARTICLE V(B) — REPRESENTATIONS", 5.5),
+            ("ARTICLE V(C) — REPRESENTATIONS", 5.5),
+            # space + single letter
+            ("ARTICLE 3 C REPRESENTATIONS", 3.5),
+            ("ARTICLE 3 D REPRESENTATIONS", 3.5),
+            # plain articles unaffected
+            ("ARTICLE III DEFINITIONS", 3.0),
+            ("ARTICLE V MISCELLANEOUS", 5.0),
+            # space-letter must not greedily match first letter of next word
+            ("ARTICLE 3 CONDITIONS PRECEDENT", 3.0),
+            ("ARTICLE 3 CLOSING", 3.0),
+        ]
+        for title, expected in cases:
+            with self.subTest(title=title):
+                self.assertEqual(_article_sort_key(title), expected)
+
+    def test_find_hard_rule_violations_accepts_hyphen_and_dot_a_suffix_articles(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I DEFINITIONS"><section title="Section 1.1 Defs" pageUUID="p1" /></article>
+                <article title="ARTICLE II PURCHASE"><section title="Section 2.1 Purchase" pageUUID="p2" /></article>
+                <article title="ARTICLE II-A ADDITIONAL REPS"><section title="Section 2A.1 Extra" pageUUID="p2a" /></article>
+                <article title="ARTICLE III CONDITIONS"><section title="Section 3.1 Conditions" pageUUID="p3" /></article>
+                <article title="ARTICLE III.A SELLER REPS"><section title="Section 3A.1 Seller" pageUUID="p3a" /></article>
+                <article title="ARTICLE IV CLOSING"><section title="Section 4.1 Closing" pageUUID="p4" /></article>
+                <article title="ARTICLE V MISC"><section title="Section 5.1 Misc" pageUUID="p5" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertFalse(
+            any(v.reason_code == XML_REASON_ARTICLES_OUT_OF_ORDER for v in violations)
+        )
+
+    def test_find_hard_rule_violations_accepts_paren_and_space_a_suffix_articles(self) -> None:
+        # Multiple A-suffix sub-articles at the same base (3C + 3D, V(B) + V(C))
+        # are all legal and should not trigger out-of-order violations.
+        # Sections use the base article number since non-A letters (C, D, B) are
+        # not parsed by SECTION_NUMBER_RE.
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I DEFS"><section title="Section 1.1 Defs" pageUUID="p1" /></article>
+                <article title="ARTICLE II PURCHASE"><section title="Section 2.1 Purchase" pageUUID="p2" /></article>
+                <article title="ARTICLE III REPS"><section title="Section 3.1 Reps" pageUUID="p3" /></article>
+                <article title="ARTICLE 3 C NORTHSTAR BLOCKER REPS"><section title="Section 3.1 Blocker" pageUUID="p3c" /></article>
+                <article title="ARTICLE 3 D NORTHSTAR GP REPS"><section title="Section 3.1 GP" pageUUID="p3d" /></article>
+                <article title="ARTICLE IV COVENANTS"><section title="Section 4.1 Covenants" pageUUID="p4" /></article>
+                <article title="ARTICLE V(B) SELLER REPS"><section title="Section 5.1 Seller" pageUUID="p5b" /></article>
+                <article title="ARTICLE V(C) PARENT REPS"><section title="Section 5.1 Parent" pageUUID="p5c" /></article>
+                <article title="ARTICLE VI MISC"><section title="Section 6.1 Misc" pageUUID="p6" /></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertFalse(
+            any(v.reason_code == XML_REASON_ARTICLES_OUT_OF_ORDER for v in violations)
+        )
 
     def test_find_hard_rule_violations_rejects_articles_out_of_order(self) -> None:
         root = ET.fromstring(

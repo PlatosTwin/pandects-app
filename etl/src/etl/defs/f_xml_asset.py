@@ -110,6 +110,13 @@ ARTICLE_A_NUMBER_RE = re.compile(
     r"^\s*(?:ARTICLE\s+(?P<article_number>[IVXLCDM]+|\d+)A|(?:SECTION\s+)?(?P<numeric_number>\d+)A)(?=\b|[\s.:)\-])",
     re.IGNORECASE,
 )
+# Handles separator variants of A-suffix articles: III-A, III.A, V(B), 3 C.
+# The space-letter form (3 C) requires a word boundary after the letter so it
+# doesn't greedily match the first letter of a following word (e.g. "3 CONDITIONS").
+ARTICLE_A_VARIANT_RE = re.compile(
+    r"^\s*ARTICLE\s+(?P<number>[IVXLCDM]+|\d+)(?:[-.](?P<dash>[A-Z])|\((?P<paren>[A-Z])\)|[ \t]+(?P<space>[A-Z]))(?=\b|[\s.:)\-]|$)",
+    re.IGNORECASE,
+)
 SECTION_NUMBER_RE = re.compile(
     r"^\s*(?:SECTIONS?\s+)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)",
     re.IGNORECASE,
@@ -483,8 +490,11 @@ def _article_sort_key(title: str) -> float | None:
     """Return a sortable float for an article title.
 
     Plain articles (I, II, 3) map to their integer value.
-    A-suffix articles (IIIA, 3A) map to base + 0.5, placing them between
-    the base article and the next, e.g. III=3, IIIA=3.5, IV=4.
+    A-suffix articles map to base + 0.5 — this covers all four forms:
+      - no separator:  IIIA, 3A        (ARTICLE_A_NUMBER_RE)
+      - hyphen/dot:    III-A, III.A    (ARTICLE_A_VARIANT_RE)
+      - parenthesised: V(B), V(C)      (ARTICLE_A_VARIANT_RE)
+      - space-letter:  3 C, 3 D        (ARTICLE_A_VARIANT_RE)
     Returns None when the title cannot be parsed.
     """
     a_match = ARTICLE_A_NUMBER_RE.match(title)
@@ -492,6 +502,13 @@ def _article_sort_key(title: str) -> float | None:
         token = a_match.group("article_number") or a_match.group("numeric_number")
         if token is None:
             return None
+        base = int(token) if token.isdigit() else _roman_to_int(token)
+        if base is None:
+            return None
+        return base + 0.5
+    v_match = ARTICLE_A_VARIANT_RE.match(title)
+    if v_match is not None:
+        token = v_match.group("number")
         base = int(token) if token.isdigit() else _roman_to_int(token)
         if base is None:
             return None
@@ -1062,7 +1079,14 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
         key = _article_sort_key(article_title)
         if key is None:
             continue
-        if prev_key is not None and key <= prev_key:
+        # Allow multiple A-suffix sub-articles at the same base (e.g. III-A, III-B
+        # or V(B), V(C)) — their keys are equal non-integers (base + 0.5).
+        # Still flag duplicate integer keys, which indicate truly repeated articles.
+        is_a_suffix = key != float(int(key))
+        out_of_order = prev_key is not None and (
+            key < prev_key or (key == prev_key and not is_a_suffix)
+        )
+        if out_of_order:
             violations.append(
                 XMLHardRuleViolation(
                     reason_code=XML_REASON_ARTICLES_OUT_OF_ORDER,
