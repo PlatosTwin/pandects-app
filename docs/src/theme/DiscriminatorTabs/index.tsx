@@ -33,7 +33,7 @@ function TabList({
   selectValue,
   tabValues,
 }: TabProps & ReturnType<typeof useTabs>) {
-  const tabRefs: (HTMLLIElement | null)[] = [];
+  const tabRefs = useRef<(HTMLLIElement | null)[]>([]);
   const { blockElementScrollPositionUntilNextRender } =
     useScrollPositionBlocker();
 
@@ -44,7 +44,7 @@ function TabList({
       | React.KeyboardEvent<HTMLLIElement>
   ) => {
     const newTab = event.currentTarget;
-    const newTabIndex = tabRefs.indexOf(newTab);
+    const newTabIndex = tabRefs.current.indexOf(newTab);
     const newTabValue = tabValues[newTabIndex]!.value;
 
     if (newTabValue !== selectedValue) {
@@ -62,13 +62,15 @@ function TabList({
         break;
       }
       case "ArrowRight": {
-        const nextTab = tabRefs.indexOf(event.currentTarget) + 1;
-        focusElement = tabRefs[nextTab] ?? tabRefs[0]!;
+        const nextTab = tabRefs.current.indexOf(event.currentTarget) + 1;
+        focusElement = tabRefs.current[nextTab] ?? tabRefs.current[0]!;
         break;
       }
       case "ArrowLeft": {
-        const prevTab = tabRefs.indexOf(event.currentTarget) - 1;
-        focusElement = tabRefs[prevTab] ?? tabRefs[tabRefs.length - 1]!;
+        const prevTab = tabRefs.current.indexOf(event.currentTarget) - 1;
+        focusElement =
+          tabRefs.current[prevTab] ??
+          tabRefs.current[tabRefs.current.length - 1]!;
         break;
       }
       default:
@@ -94,7 +96,11 @@ function TabList({
       }
     });
 
-    resizeObserver.observe(tabItemListContainerRef.current!);
+    if (!tabItemListContainerRef.current) {
+      return undefined;
+    }
+
+    resizeObserver.observe(tabItemListContainerRef.current);
 
     return () => {
       resizeObserver.disconnect();
@@ -114,7 +120,9 @@ function TabList({
       <div className="openapi-tabs__discriminator-container">
         {showTabArrows && (
           <button
+            type="button"
             className="openapi-tabs__arrow left"
+            aria-label="Scroll discriminator tabs left"
             onClick={handleLeftClick}
           />
         )}
@@ -139,7 +147,9 @@ function TabList({
               aria-selected={selectedValue === value}
               key={value}
               ref={(tabControl) => {
-                tabRefs.push(tabControl);
+                tabRefs.current[
+                  tabValues.findIndex((tab) => tab.value === value)
+                ] = tabControl;
               }}
               onKeyDown={handleKeydown}
               onClick={handleTabChange}
@@ -161,7 +171,9 @@ function TabList({
         </ul>
         {showTabArrows && (
           <button
+            type="button"
             className="openapi-tabs__arrow right"
+            aria-label="Scroll discriminator tabs right"
             onClick={handleRightClick}
           />
         )}

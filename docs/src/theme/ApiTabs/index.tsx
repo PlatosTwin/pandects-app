@@ -92,7 +92,11 @@ function TabList({
       }
     });
 
-    resizeObserver.observe(tabItemListContainerRef.current!);
+    if (!tabItemListContainerRef.current) {
+      return undefined;
+    }
+
+    resizeObserver.observe(tabItemListContainerRef.current);
 
     return () => {
       resizeObserver.disconnect();
@@ -139,7 +143,9 @@ function TabList({
               aria-selected={selectedValue === value}
               key={value}
               ref={(tabControl) => {
-                tabRefs.current.push(tabControl);
+                tabRefs.current[
+                  tabValues.findIndex((tab) => tab.value === value)
+                ] = tabControl;
               }}
               onKeyDown={handleKeydown}
               onClick={handleTabChange}

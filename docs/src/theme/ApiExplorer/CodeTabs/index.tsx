@@ -76,7 +76,7 @@ function TabList({
         container.scrollLeft = scrollOffset;
       }
     }
-  }, []);
+  }, [selectedValue]);
 
   const handleTabChange = (
     event:
@@ -167,9 +167,8 @@ function TabList({
           aria-selected={selectedValue === value}
           key={value}
           ref={(tabControl) => {
-            if (tabControl) {
-              tabRefs.current.push(tabControl);
-            }
+            tabRefs.current[tabValues.findIndex((tab) => tab.value === value)] =
+              tabControl;
           }}
           onKeyDown={handleKeydown}
           onClick={handleTabChange}
