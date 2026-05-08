@@ -16,8 +16,10 @@ import React, {
 import {
   sanitizeTabsChildren,
   TabProps,
+  TabsProvider,
   useScrollPositionBlocker,
   useTabs,
+  useTabsContextValue,
 } from "@docusaurus/theme-common/internal";
 import { TabItemProps } from "@docusaurus/theme-common/lib/utils/tabsUtils";
 import useIsBrowser from "@docusaurus/useIsBrowser";
@@ -205,7 +207,7 @@ function TabContent({
 }
 
 function TabsComponent(props: SchemaTabsProps): React.JSX.Element {
-  const tabs = useTabs(props);
+  const tabs = useTabs();
 
   return (
     <div className="openapi-tabs__schema-container">
@@ -219,10 +221,13 @@ export default function SchemaTabs(
   props: SchemaTabsProps
 ): React.JSX.Element {
   const isBrowser = useIsBrowser();
+  const value = useTabsContextValue(props);
 
   return (
-    <TabsComponent key={String(isBrowser)} {...props}>
-      {sanitizeTabsChildren(props.children)}
-    </TabsComponent>
+    <TabsProvider value={value} key={String(isBrowser)}>
+      <TabsComponent {...props}>
+        {sanitizeTabsChildren(props.children)}
+      </TabsComponent>
+    </TabsProvider>
   );
 }
