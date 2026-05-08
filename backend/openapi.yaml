@@ -1598,12 +1598,12 @@ info:
 tags:
 - name: sections_list
   description: List merger agreement sections
-- name: tax_clauses_list
-  description: List tax clause precedents extracted from merger agreements
 - name: agreements
   description: Retrieve full text for a given agreement
 - name: sections
   description: Retrieve full text for a given section
+- name: tax-clauses
+  description: List tax clause precedents extracted from merger agreements
 - name: agreements_search
   description: Search agreements and return one result per deal with matched section
     previews.

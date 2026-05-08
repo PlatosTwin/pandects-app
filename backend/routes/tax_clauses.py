@@ -24,8 +24,8 @@ class TaxClausesDeps:
 
 def register_tax_clauses_routes(*, deps: TaxClausesDeps) -> Blueprint:
     tax_clauses_blp = Blueprint(
-        "tax_clauses_list",
-        "tax_clauses_list",
+        "tax-clauses",
+        "tax-clauses",
         url_prefix="/v1/tax-clauses",
         description="List tax clause precedents extracted from merger agreements",
     )

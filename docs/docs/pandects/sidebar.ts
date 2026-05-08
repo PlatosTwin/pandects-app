@@ -70,6 +70,22 @@ const sidebar: SidebarsConfig = {
     },
     {
       type: "category",
+      label: "tax-clauses",
+      link: {
+        type: "doc",
+        id: "pandects/tax-clauses",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "pandects/list-tax-clauses",
+          label: "/v1/tax-clauses",
+          className: "api-method get",
+        },
+      ],
+    },
+    {
+      type: "category",
       label: "agreements_search",
       link: {
         type: "doc",
@@ -160,18 +176,6 @@ const sidebar: SidebarsConfig = {
           type: "doc",
           id: "pandects/list-dumps",
           label: "/v1/dumps",
-          className: "api-method get",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "tax-clauses",
-      items: [
-        {
-          type: "doc",
-          id: "pandects/list-tax-clauses",
-          label: "/v1/tax-clauses",
           className: "api-method get",
         },
       ],
