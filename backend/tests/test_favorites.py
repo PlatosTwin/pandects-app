@@ -79,6 +79,19 @@ class FavoritesRoutesTests(unittest.TestCase):
         res = client.get("/v1/me/favorites")
         self.assertEqual(res.status_code, 401)
 
+    def test_api_key_access_is_forbidden(self):
+        with self.app.app_context():
+            user = AuthUser()
+            user.email = "api-key@example.com"
+            user.password_hash = backend_app.generate_password_hash("password123")
+            user.email_verified_at = backend_app._utc_now()
+            db.session.add(user)
+            db.session.commit()
+            _, api_key = backend_app._create_api_key(user_id=user.id, name="favorites")
+        client = self.app.test_client()
+        res = client.get("/v1/me/favorites", headers={"X-API-Key": api_key})
+        self.assertIn(res.status_code, {401, 403})
+
     def test_listing_creates_default_project_lazily(self):
         client = self._client_with_bearer()
         res = client.get("/v1/me/favorite-projects")
