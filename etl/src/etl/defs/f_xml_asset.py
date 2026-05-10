@@ -1090,7 +1090,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
             violations.append(
                 XMLHardRuleViolation(
                     reason_code=XML_REASON_ARTICLES_OUT_OF_ORDER,
-                    reason_detail=f"Article out of order: {article_title!r} (key {key}) follows key {prev_key}.",
+                    reason_detail=f"Article out of order: {article_title[:200]!r} (key {key}) follows key {prev_key}.",
                     page_uuids=_collect_page_uuids(article_elem),
                 )
             )
@@ -1134,7 +1134,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                 violations.append(
                     XMLHardRuleViolation(
                         reason_code=XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
-                        reason_detail=f"Section title is not a valid numbered section: {section_title!r} in article {article_title!r}.",
+                        reason_detail=f"Section title is not a valid numbered section: {section_title[:200]!r} in article {article_title[:200]!r}.",
                         page_uuids=section_page_uuids,
                     )
                 )
@@ -1160,7 +1160,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                 violations.append(
                     XMLHardRuleViolation(
                         reason_code=XML_REASON_SECTION_ARTICLE_MISMATCH,
-                        reason_detail=f"Section {section_article_num}.{section_num} does not match article {article_num} ({article_title!r}).",
+                        reason_detail=f"Section {section_article_num}.{section_num} does not match article {article_num} ({article_title[:200]!r}).",
                         page_uuids=mismatch_page_uuids,
                     )
                 )
@@ -1184,7 +1184,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                     violations.append(
                         XMLHardRuleViolation(
                             reason_code=XML_REASON_SECTION_NON_SEQUENTIAL,
-                            reason_detail=f"Non-sequential section number in article {article_title!r}: expected {expected_section_num}, found {section_num}.",
+                            reason_detail=f"Non-sequential section number in article {article_title[:200]!r}: expected {expected_section_num}, found {section_num}.",
                             page_uuids=_target_section_non_sequential_page_uuids(
                                 previous_section_elem=previous_section_elem,
                                 current_section_elem=section_elem,
@@ -1991,7 +1991,7 @@ def _replace_xml_status_reasons(
                 "agreement_uuid": agreement_uuid,
                 "version": version,
                 "reason_code": row["reason_code"],
-                "reason_detail": row["reason_detail"],
+                "reason_detail": row["reason_detail"][:16000] if row["reason_detail"] is not None else None,
                 "page_uuid": row["page_uuid"],
             },
         )
@@ -2015,7 +2015,8 @@ def _set_xml_status_with_reasons(
         version=version,
     )
     primary_reason_code = deduped_rows[0]["reason_code"] if status == "invalid" and deduped_rows else None
-    primary_reason_detail = deduped_rows[0]["reason_detail"] if status == "invalid" and deduped_rows else None
+    _raw_detail = deduped_rows[0]["reason_detail"] if status == "invalid" and deduped_rows else None
+    primary_reason_detail = _raw_detail[:16000] if _raw_detail is not None else None
     result = conn.execute(
         text(
             f"""
