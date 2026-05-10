@@ -230,10 +230,12 @@ def classify_exhibit_candidates(
     Includes MinHash for near-duplicate detection.
     
     Args:
-        days_override: If provided, overrides pipeline_config.staging_days_to_fetch.
+        days_override: Number of days to fetch starting from start_date.
                        Useful for day-by-day processing.
     """
-    days_to_fetch = days_override if days_override is not None else pipeline_config.staging_days_to_fetch
+    if days_override is None:
+        raise ValueError("days_override is required for classify_exhibit_candidates.")
+    days_to_fetch = days_override
     exhibit_candidates = fetch_material_exhibit_links(
         start_date=start_date,
         days=days_to_fetch,
@@ -363,7 +365,7 @@ def fetch_new_filings_sec_index(
     target and acquirer, possibly with minor differences in title/signature pages).
     
     Args:
-        days_override: If provided, overrides pipeline_config.staging_days_to_fetch.
+        days_override: Number of days to fetch starting from start_date.
                        Useful for day-by-day processing with incremental commits.
     """
     all_candidates = classify_exhibit_candidates(
@@ -1027,15 +1029,14 @@ def _run_cli() -> None:
     start_date = cast(str, args.start_date)
     days = cast(int, args.days)
     classifier = ExhibitClassifier.load(model_path)
-    pipeline_config = PipelineConfig(
-        staging_days_to_fetch=days,
-    )
+    pipeline_config = PipelineConfig()
     # Use classify_exhibit_candidates to get ALL candidates for logging
     results = classify_exhibit_candidates(
         exhibit_classifier=classifier,
         context=_CliContext(),
         start_date=start_date,
         pipeline_config=pipeline_config,
+        days_override=days,
     )
 
     # Write ALL results to output file (not just M&A filings)

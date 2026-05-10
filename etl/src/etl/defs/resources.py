@@ -107,7 +107,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     embed_focus_section: str = ""  # section_standard_id value when embed_target=section
     embed_focus_section_batch_size: int = 100  # used in 11_embed_sections when embed_target=section
     embed_target: EmbedTarget = EmbedTarget.SECTION  # agreement | section
-    staging_days_to_fetch: int = 2  # used in staging_asset alt flow
+    staging_target_date: str = ""  # yyyy-mm-dd: staging asset ingests through and including this date
     staging_rate_limit_max_requests: int = 10  # used in staging_asset alt flow
     staging_rate_limit_window_seconds: float = 1.025  # used in staging_asset alt flow
     staging_max_workers: int = 8  # used in staging_asset alt flow
@@ -322,7 +322,7 @@ def get_resources() -> dict[str, object]:
         "embed_focus_section",
         "embed_focus_section_batch_size",
         "embed_target",
-        "staging_days_to_fetch",
+        "staging_target_date",
         "staging_rate_limit_max_requests",
         "staging_rate_limit_window_seconds",
         "staging_max_workers",
@@ -461,8 +461,8 @@ def get_resources() -> dict[str, object]:
         target_str = str(yaml_config["embed_target"]).lower()
         pipeline_config_kwargs["embed_target"] = EmbedTarget(target_str)
     
-    if "staging_days_to_fetch" in yaml_config:
-        pipeline_config_kwargs["staging_days_to_fetch"] = int(yaml_config["staging_days_to_fetch"])
+    if "staging_target_date" in yaml_config:
+        pipeline_config_kwargs["staging_target_date"] = str(yaml_config["staging_target_date"]).strip()
     
     if "staging_rate_limit_max_requests" in yaml_config:
         pipeline_config_kwargs["staging_rate_limit_max_requests"] = int(yaml_config["staging_rate_limit_max_requests"])

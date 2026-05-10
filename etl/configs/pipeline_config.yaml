@@ -24,7 +24,7 @@ resources:
       embed_focus_section: ""
       embed_focus_section_batch_size: 100
       embed_target: section
-      staging_days_to_fetch: 7
+      staging_target_date: "2026-05-09"
       staging_rate_limit_max_requests: 10
       staging_rate_limit_window_seconds: 1.025
       staging_max_workers: 8

@@ -160,7 +160,7 @@ class StagingAssetTests(unittest.TestCase):
         engine = _FakeEngine(conn)
         context = SimpleNamespace(log=_FakeLog())
         db = SimpleNamespace(database="pdx", get_engine=lambda: engine)
-        pipeline_config = PipelineConfig(staging_days_to_fetch=4)
+        pipeline_config = PipelineConfig(staging_target_date="2026-03-14")
         unavailable = SecDailyIndexUnavailable(
             "https://www.sec.gov/Archives/edgar/daily-index/2026/QTR1/form.20260312.idx"
         )
@@ -170,6 +170,10 @@ class StagingAssetTests(unittest.TestCase):
             patch(
                 "etl.defs.a_staging_asset._latest_sec_index_date_available",
                 return_value=datetime.date(2026, 3, 13),
+            ),
+            patch(
+                "etl.defs.a_staging_asset._today_eastern",
+                return_value=datetime.date(2026, 3, 15),
             ),
             patch(
                 "etl.defs.a_staging_asset.fetch_new_filings_sec_index",
@@ -205,7 +209,7 @@ class StagingAssetTests(unittest.TestCase):
         engine = _FakeEngine(conn)
         context = SimpleNamespace(log=_FakeLog())
         db = SimpleNamespace(database="pdx", get_engine=lambda: engine)
-        pipeline_config = PipelineConfig(staging_days_to_fetch=7)
+        pipeline_config = PipelineConfig(staging_target_date="2026-03-17")
         unavailable = SecDailyIndexUnavailable(
             "https://www.sec.gov/Archives/edgar/daily-index/2026/QTR1/form.20260314.idx"
         )
@@ -215,6 +219,10 @@ class StagingAssetTests(unittest.TestCase):
             patch(
                 "etl.defs.a_staging_asset._latest_sec_index_date_available",
                 return_value=datetime.date(2026, 3, 13),
+            ),
+            patch(
+                "etl.defs.a_staging_asset._today_eastern",
+                return_value=datetime.date(2026, 3, 18),
             ),
             patch(
                 "etl.defs.a_staging_asset.fetch_new_filings_sec_index",

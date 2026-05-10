@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, cast
+from zoneinfo import ZoneInfo
 
 import dagster as dg
 from dagster import AssetExecutionContext
@@ -37,6 +38,32 @@ UpsertAgreements = Callable[[Sequence[FilingMetadata], str, Connection], None]
 upsert_agreements = cast(UpsertAgreements, _upsert_agreements)
 _CROSS_DAY_DEDUPE_LOOKBACK_DAYS = 30
 _CROSS_DAY_DEDUPE_MINHASH_THRESHOLD = 0.85
+_EASTERN_TZ = ZoneInfo("America/New_York")
+
+
+def _today_eastern() -> date:
+    return datetime.now(_EASTERN_TZ).date()
+
+
+def _parse_staging_target_date(raw: str) -> date:
+    value = raw.strip()
+    if not value:
+        raise ValueError(
+            "pipeline_config.staging_target_date is required (yyyy-mm-dd)."
+        )
+    try:
+        target_date = datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise ValueError(
+            f"pipeline_config.staging_target_date must be in yyyy-mm-dd format, got {raw!r}."
+        ) from exc
+    today_eastern = _today_eastern()
+    if target_date >= today_eastern:
+        raise ValueError(
+            f"pipeline_config.staging_target_date ({target_date}) must be before "
+            f"today's date in Eastern time ({today_eastern})."
+        )
+    return target_date
 
 
 @dataclass(frozen=True)
@@ -435,11 +462,12 @@ def _run_staging(
     db: DBResource,
     pipeline_config: PipelineConfig,
 ) -> tuple[int, list[str]]:
+    target_date = _parse_staging_target_date(pipeline_config.staging_target_date)
     engine = db.get_engine()
     schema = db.database
     agreements_table = f"{schema}.agreements"
     pipeline_runs_table = f"{schema}.pipeline_runs"
-    context.log.info("Running staging")
+    context.log.info(f"Running staging through target date {target_date}")
 
     # Resume from the latest recorded pull boundary even if the previous run failed later.
     with engine.begin() as conn:
@@ -460,7 +488,12 @@ def _run_staging(
     classifier = ExhibitClassifier.load(_get_exhibit_classifier_path())
     staging_context = _DagsterContextAdapter(context)
 
-    days_to_fetch = pipeline_config.staging_days_to_fetch
+    days_to_fetch = max(0, (target_date - last_run.date()).days)
+    if days_to_fetch == 0:
+        context.log.info(
+            f"Target date {target_date} is on or before last pulled date "
+            f"{last_run.date()}; no days to process."
+        )
 
     # Record the run before processing so day-by-day progress survives partial failures.
     last_run_date = datetime.combine(last_run.date(), datetime.min.time())
