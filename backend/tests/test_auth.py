@@ -863,6 +863,7 @@ class AuthFlowTests(unittest.TestCase):
 
         original_oauth_fetch_json = backend_app._oauth_fetch_json
         original_send_resend_text_email = backend_app._send_resend_text_email
+        original_send_welcome_email = backend_app._send_welcome_email
         original_async_enabled = backend_app._ASYNC_SIDE_EFFECTS_ENABLED
         sent_notifications: list[dict[str, str]] = []
 
@@ -911,6 +912,7 @@ class AuthFlowTests(unittest.TestCase):
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         backend_app._send_resend_text_email = _fake_send_resend_text_email
+        backend_app._send_welcome_email = lambda **_kwargs: None
         backend_app._ASYNC_SIDE_EFFECTS_ENABLED = False
         try:
             start = client.get("/v1/auth/zitadel/google/start?next=/account")
@@ -927,6 +929,7 @@ class AuthFlowTests(unittest.TestCase):
         finally:
             backend_app._oauth_fetch_json = original_oauth_fetch_json
             backend_app._send_resend_text_email = original_send_resend_text_email
+            backend_app._send_welcome_email = original_send_welcome_email
             backend_app._ASYNC_SIDE_EFFECTS_ENABLED = original_async_enabled
 
         self.assertEqual(len(sent_notifications), 1)
@@ -1499,6 +1502,7 @@ class AuthFlowTests(unittest.TestCase):
 
         original_oauth_fetch_json = backend_app._oauth_fetch_json
         original_send_resend_text_email = backend_app._send_resend_text_email
+        original_send_welcome_email = backend_app._send_welcome_email
         original_async_enabled = backend_app._ASYNC_SIDE_EFFECTS_ENABLED
         sent_verification = {"called": False}
         sent_notifications: list[dict[str, str]] = []
@@ -1546,6 +1550,7 @@ class AuthFlowTests(unittest.TestCase):
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
         backend_app._send_resend_text_email = _fake_send_resend_text_email
+        backend_app._send_welcome_email = lambda **_kwargs: None
         backend_app._ASYNC_SIDE_EFFECTS_ENABLED = False
         try:
             res = client.post(
@@ -1574,6 +1579,7 @@ class AuthFlowTests(unittest.TestCase):
         finally:
             backend_app._oauth_fetch_json = original_oauth_fetch_json
             backend_app._send_resend_text_email = original_send_resend_text_email
+            backend_app._send_welcome_email = original_send_welcome_email
             backend_app._ASYNC_SIDE_EFFECTS_ENABLED = original_async_enabled
 
         self.assertEqual(finalize.status_code, 200)
