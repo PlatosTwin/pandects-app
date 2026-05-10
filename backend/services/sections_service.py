@@ -208,7 +208,7 @@ def _sections_interpretation_payload(
             }
         )
 
-    for range_field in ("year_min", "year_max"):
+    for range_field in ("year_min", "year_max", "filed_after", "filed_before"):
         if parsed_args[range_field] is not None:
             applied_filters.append(
                 {
@@ -265,6 +265,8 @@ def run_sections(
     years = parsed_args["year"]
     year_min = parsed_args["year_min"]
     year_max = parsed_args["year_max"]
+    filed_after = parsed_args["filed_after"]
+    filed_before = parsed_args["filed_before"]
     targets = parsed_args["target"]
     acquirers = parsed_args["acquirer"]
     standard_ids = parsed_args["standard_id"]
@@ -319,6 +321,10 @@ def run_sections(
         q = q.filter(latest.filing_date >= f"{year_min:04d}-01-01")
     if year_max is not None:
         q = q.filter(latest.filing_date < f"{year_max + 1:04d}-01-01")
+    if filed_after:
+        q = q.filter(latest.filing_date >= filed_after)
+    if filed_before:
+        q = q.filter(latest.filing_date < filed_before)
 
     if targets:
         q = q.filter(latest.target.in_(targets))
@@ -440,6 +446,8 @@ def run_sections(
             years,
             year_min is not None,
             year_max is not None,
+            filed_after,
+            filed_before,
             targets,
             acquirers,
             standard_ids,
@@ -520,6 +528,7 @@ def run_sections(
             latest.acquirer.label("acquirer"),
             latest.target.label("target"),
             latest.filing_date.label("filing_date"),
+            latest.transaction_price_total.label("transaction_price_total"),
             latest.verified.label("verified"),
         ]
         if include_xml:
@@ -571,6 +580,8 @@ def run_sections(
             "section_title": detail_row.get("section_title"),
             "acquirer": detail_row.get("acquirer"),
             "target": detail_row.get("target"),
+            "filing_date": detail_row.get("filing_date"),
+            "transaction_price_total": detail_row.get("transaction_price_total"),
             "year": year_from_filing_date(detail_row.get("filing_date")),
             "verified": (
                 bool(detail_row.get("verified"))
@@ -587,8 +598,14 @@ def run_sections(
             }
         results.append(result_payload)
 
+    unique_agreement_count = len({
+        str(r["agreement_uuid"])
+        for r in results
+        if r.get("agreement_uuid") is not None
+    })
     return {
         "results": results,
+        "unique_agreement_count": unique_agreement_count,
         "access": {
             "tier": ctx.tier,
             "message": None

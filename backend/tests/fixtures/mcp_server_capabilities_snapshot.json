@@ -443,6 +443,16 @@
       "use_when": "Use when comparing clause language across many sections; replaces N calls to get_section_snippet."
     },
     {
+      "do_not_use_for": "Do not use for snippets or excerpts \u2014 use get_section_snippets_batch instead.",
+      "tool": "get_sections_batch",
+      "use_when": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section."
+    },
+    {
+      "do_not_use_for": "Limited to 10 sections per call; split into multiple calls for larger sets.",
+      "tool": "get_sections_batch",
+      "use_when": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section."
+    },
+    {
       "do_not_use_for": "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly.",
       "tool": "get_server_capabilities",
       "use_when": "Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows."
@@ -567,6 +577,26 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "filed_after": {
+            "description": "Include only agreements with filing_date >= this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_min.",
+            "examples": [
+              "2022-06-01"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filed_before": {
+            "description": "Include only agreements with filing_date < this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_max.",
+            "examples": [
+              "2024-01-01"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "include_dump": {
             "description": "When false, omit `dump_version` from the response body. The `X-Pandects-Dump-Hash` response header is always included.",
@@ -693,7 +723,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -717,7 +748,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -741,7 +773,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -765,7 +798,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -783,6 +817,8 @@
           },
           "year_max": {
             "description": "Latest filing year to include (inclusive). Use with year_min for a range.",
+            "maximum": 2100,
+            "minimum": 1900,
             "type": [
               "integer",
               "null"
@@ -790,6 +826,8 @@
           },
           "year_min": {
             "description": "Earliest filing year to include (inclusive). Use with year_max for a range; use year for specific individual years.",
+            "maximum": 2100,
+            "minimum": 1900,
             "type": [
               "integer",
               "null"
@@ -1150,6 +1188,26 @@
             },
             "type": "array"
           },
+          "filed_after": {
+            "description": "Include only agreements with filing_date >= this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_min.",
+            "examples": [
+              "2022-06-01"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filed_before": {
+            "description": "Include only agreements with filing_date < this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_max.",
+            "examples": [
+              "2024-01-01"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "include_dump": {
             "description": "When false, omit `dump_version` from the response body. The `X-Pandects-Dump-Hash` response header is always included.",
             "type": "boolean"
@@ -1318,7 +1376,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -1342,7 +1401,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -1366,7 +1426,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -1390,7 +1451,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -1412,6 +1474,8 @@
           },
           "year_max": {
             "description": "Latest filing year to include (inclusive). Use with year_min for a range.",
+            "maximum": 2100,
+            "minimum": 1900,
             "type": [
               "integer",
               "null"
@@ -1419,6 +1483,8 @@
           },
           "year_min": {
             "description": "Earliest filing year to include (inclusive). Use with year_max for a range; use year for specific individual years.",
+            "maximum": 2100,
+            "minimum": 1900,
             "type": [
               "integer",
               "null"
@@ -1610,6 +1676,12 @@
                     "null"
                   ]
                 },
+                "filing_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "id": {
                   "type": "string"
                 },
@@ -1635,6 +1707,12 @@
                 "target": {
                   "type": [
                     "string",
+                    "null"
+                  ]
+                },
+                "transaction_price_total": {
+                  "type": [
+                    "number",
                     "null"
                   ]
                 },
@@ -1671,6 +1749,9 @@
             "type": "boolean"
           },
           "total_pages": {
+            "type": "integer"
+          },
+          "unique_agreement_count": {
             "type": "integer"
           }
         },
@@ -1898,7 +1979,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -1922,7 +2004,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -1946,7 +2029,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -1970,7 +2054,8 @@
                 "250M - 500M",
                 "500M - 750M",
                 "750M - 1B",
-                "1B - 5B",
+                "1B - 2B",
+                "2B - 5B",
                 "5B - 10B",
                 "10B - 20B",
                 "20B+"
@@ -3418,6 +3503,12 @@
             },
             "type": "array"
           },
+          "industry_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
           "purposes": {
             "items": {
               "type": "string"
@@ -3561,6 +3652,8 @@
             "type": "string"
           },
           "top_k": {
+            "maximum": 10,
+            "minimum": 1,
             "type": "integer"
           }
         },
@@ -3706,6 +3799,8 @@
             "type": "array"
           },
           "max_chars": {
+            "maximum": 1200,
+            "minimum": 120,
             "type": "integer"
           },
           "section_uuid": {
@@ -3733,6 +3828,12 @@
             ]
           },
           "matched_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "monetary_values": {
             "items": {
               "type": "string"
             },
@@ -3768,7 +3869,8 @@
           "section_title",
           "snippet",
           "matched_terms",
-          "source_length"
+          "source_length",
+          "monetary_values"
         ],
         "type": "object"
       }
@@ -3820,6 +3922,8 @@
             "type": "array"
           },
           "max_chars": {
+            "maximum": 1200,
+            "minimum": 120,
             "type": "integer"
           },
           "section_uuids": {
@@ -3859,6 +3963,12 @@
                   },
                   "type": "array"
                 },
+                "monetary_values": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
                 "section_title": {
                   "type": [
                     "string",
@@ -3889,7 +3999,174 @@
                 "section_title",
                 "snippet",
                 "matched_terms",
-                "source_length"
+                "source_length",
+                "monetary_values"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "returned_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "returned_count"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_sections_batch",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "selection_hint": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section.",
+      "negative_guidance": [
+        "Do not use for snippets or excerpts \u2014 use get_section_snippets_batch instead.",
+        "Limited to 10 sections per call; split into multiple calls for larger sets."
+      ],
+      "response_examples": [
+        {
+          "content": {
+            "results": [
+              {
+                "acquirer": "Acquirer B",
+                "filing_date": "2022-03-15",
+                "monetary_values": [
+                  "$1.5 billion"
+                ],
+                "section_uuid": "00000000-0000-0000-0000-000000000001",
+                "target": "Target A",
+                "transaction_price_total": 1500000000.0,
+                "xml": "<section>...</section>",
+                "year": 2022
+              }
+            ],
+            "returned_count": 2
+          },
+          "description": "Batch full-section result."
+        }
+      ],
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
+      "limits": {
+        "mode": "none"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_xml_chars": {
+            "maximum": 20000,
+            "minimum": 500,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "section_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "section_uuids"
+        ],
+        "type": "object"
+      },
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "acquirer": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "agreement_uuid": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "article_title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "filing_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "monetary_values": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "section_title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "section_uuid": {
+                  "type": "string"
+                },
+                "standard_id": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "target": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "transaction_price_total": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "xml": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "xml_truncated": {
+                  "type": "boolean"
+                },
+                "year": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "section_uuid",
+                "standard_id",
+                "xml_truncated",
+                "monetary_values"
               ],
               "type": "object"
             },

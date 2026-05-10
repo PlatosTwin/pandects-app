@@ -42,7 +42,8 @@ _TRANSACTION_PRICE_BUCKET_OPTIONS = (
     "250M - 500M",
     "500M - 750M",
     "750M - 1B",
-    "1B - 5B",
+    "1B - 2B",
+    "2B - 5B",
     "5B - 10B",
     "10B - 20B",
     "20B+",
@@ -147,6 +148,15 @@ def _one_of_choices(validators: list[object]) -> list[object] | None:
     return None
 
 
+def _range_validator_bounds(field: ma_fields.Field[Any]) -> tuple[int | None, int | None]:
+    for v in getattr(field, "validators", []):
+        if isinstance(v, validate.Range):
+            mn = v.min
+            mx = v.max
+            return (int(mn) if mn is not None else None), (int(mx) if mx is not None else None)
+    return None, None
+
+
 def _field_json_schema(field: ma_fields.Field[Any]) -> dict[str, object]:
     schema: dict[str, object]
     if isinstance(field, ma_fields.List):
@@ -157,6 +167,11 @@ def _field_json_schema(field: ma_fields.Field[Any]) -> dict[str, object]:
         schema = {"type": "array", "items": item_schema}
     elif isinstance(field, ma_fields.Int):
         schema = {"type": "integer"}
+        mn, mx = _range_validator_bounds(field)
+        if mn is not None:
+            schema["minimum"] = mn
+        if mx is not None:
+            schema["maximum"] = mx
     elif isinstance(field, ma_fields.Bool):
         schema = {"type": "boolean"}
     elif isinstance(field, ma_fields.Float):
@@ -388,6 +403,8 @@ class McpSearchAgreementsExtraArgsSchema(Schema):
     any_counsel = ma_fields.List(ma_fields.Str(), load_default=[])
     year_min = ma_fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
     year_max = ma_fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
+    filed_after = ma_fields.Str(load_default=None, allow_none=True, validate=validate.Regexp(r'^\d{4}-\d{2}-\d{2}$'))
+    filed_before = ma_fields.Str(load_default=None, allow_none=True, validate=validate.Regexp(r'^\d{4}-\d{2}-\d{2}$'))
 
 
 class McpFilterOptionsArgsSchema(Schema):
@@ -591,8 +608,8 @@ def _agreement_filter_interpretation(parsed_args: AgreementsBulkArgsPayload, *, 
                     "match_kind": "exact_metadata_filter",
                 }
             )
-    for range_field in ("year_min", "year_max"):
-        if cast(int | None, parsed_args.get(range_field)) is not None:
+    for range_field in ("year_min", "year_max", "filed_after", "filed_before"):
+        if parsed_args.get(range_field) is not None:
             applied_filters.append(
                 {
                     "field": range_field,
@@ -918,6 +935,27 @@ def _focused_snippet(text_content: str, *, focus_terms: list[str], max_chars: in
     if end < len(cleaned_text):
         snippet = snippet.rstrip(" .,;:") + "..."
     return snippet, matched_terms
+
+
+_MONEY_RE = re.compile(
+    r'\$\s*[\d,]+(?:\.\d+)?(?:\s*(?:billion|million|trillion|thousand|B|M|T|K))?'
+    r'|[\d,]+(?:\.\d+)?\s+(?:billion|million|trillion|thousand)\s+dollars?',
+    re.IGNORECASE,
+)
+
+
+def _extract_monetary_values(text: str) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for m in _MONEY_RE.finditer(text):
+        val = m.group(0).strip()
+        norm = val.lower()
+        if norm not in seen:
+            seen.add(norm)
+            out.append(val)
+        if len(out) >= 20:
+            break
+    return out
 
 
 def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object, deps: ReferenceDataDeps) -> dict[str, object]:
@@ -1611,6 +1649,17 @@ def _search_agreements(
         q = q.filter(clause)
         count_q = count_q.filter(clause)
 
+    filed_after = cast(str | None, parsed_args.get("filed_after"))
+    filed_before = cast(str | None, parsed_args.get("filed_before"))
+    if filed_after:
+        clause = agreements.filing_date >= filed_after
+        q = q.filter(clause)
+        count_q = count_q.filter(clause)
+    if filed_before:
+        clause = agreements.filing_date < filed_before
+        q = q.filter(clause)
+        count_q = count_q.filter(clause)
+
     list_filters = (
         ("target", agreements.target),
         ("acquirer", agreements.acquirer),
@@ -2032,6 +2081,7 @@ def _get_section_snippet(
         "snippet": snippet,
         "matched_terms": matched_terms,
         "source_length": len(xml_text),
+        "monetary_values": _extract_monetary_values(xml_text),
     }
     return McpToolResult(
         text=f"Returned a focused snippet for section {section_uuid}.",
@@ -2107,6 +2157,7 @@ def _get_section_snippets_batch(
                 "snippet": snippet,
                 "matched_terms": matched_terms,
                 "source_length": len(xml_text),
+                "monetary_values": _extract_monetary_values(xml_text),
             }
         )
 
@@ -2116,6 +2167,109 @@ def _get_section_snippets_batch(
     }
     return McpToolResult(
         text=f"Returned snippets for {len(results)} section(s).",
+        structured_content=response,
+    )
+
+
+def _get_sections_batch(
+    deps: AgreementsDeps,
+    *,
+    principal: McpPrincipal,
+    payload: dict[str, object],
+) -> McpToolResult:
+    _require_scope(principal, "sections:search")
+    parsed_args = _validate_payload(
+        _schema_from_fields(
+            "McpBatchSectionsArgs",
+            {
+                "section_uuids": ma_fields.List(
+                    ma_fields.Str(),
+                    required=True,
+                    validate=validate.Length(min=1, max=10),
+                ),
+                "max_xml_chars": ma_fields.Int(load_default=10000, allow_none=True, validate=validate.Range(min=500, max=20000)),
+            },
+        ),
+        payload,
+    )
+    section_uuids = [s.strip() for s in cast(list[str], parsed_args["section_uuids"]) if s.strip()]
+    if not section_uuids:
+        abort(400, description="No valid section_uuids provided.")
+    for suuid in section_uuids:
+        if not deps._SECTION_ID_RE.match(suuid):
+            abort(400, description=f"Invalid section_uuid: {suuid}")
+
+    sections = deps.Sections
+    xml = deps.XML
+    agreements = deps.Agreements
+    db = deps.db
+    year_expr = deps._agreement_year_expr().label("year")
+
+    rows = cast(
+        list[object],
+        db.session.query(
+            sections.agreement_uuid.label("agreement_uuid"),
+            sections.section_uuid.label("section_uuid"),
+            deps._coalesced_section_standard_ids().label("section_standard_ids"),
+            sections.article_title.label("article_title"),
+            sections.section_title.label("section_title"),
+            sections.xml_content.label("xml_content"),
+            year_expr,
+            agreements.target.label("target"),
+            agreements.acquirer.label("acquirer"),
+            agreements.filing_date.label("filing_date"),
+            agreements.transaction_price_total.label("transaction_price_total"),
+        )
+        .join(xml, deps._section_latest_xml_join_condition())
+        .join(agreements, agreements.agreement_uuid == sections.agreement_uuid)
+        .filter(sections.section_uuid.in_(section_uuids))
+        .all(),
+    )
+
+    max_xml_chars = cast(int | None, parsed_args["max_xml_chars"])
+
+    row_by_uuid: dict[str, dict[str, object]] = {}
+    for row in rows:
+        row_map = deps._row_mapping_as_dict(cast(object, row))
+        suuid = row_map.get("section_uuid")
+        if isinstance(suuid, str):
+            row_by_uuid[suuid] = row_map
+
+    results: list[dict[str, object]] = []
+    for suuid in section_uuids:
+        row_map = row_by_uuid.get(suuid)
+        if row_map is None:
+            continue
+        xml_content = row_map.get("xml_content")
+        xml_text = _extract_text_from_xml(xml_content)
+        xml_truncated = False
+        if max_xml_chars is not None and isinstance(xml_content, str) and len(xml_content) > max_xml_chars:
+            xml_content = xml_content[:max_xml_chars]
+            xml_truncated = True
+        results.append(
+            {
+                "agreement_uuid": row_map.get("agreement_uuid"),
+                "section_uuid": suuid,
+                "standard_id": deps._parse_section_standard_ids(row_map.get("section_standard_ids")),
+                "article_title": row_map.get("article_title"),
+                "section_title": row_map.get("section_title"),
+                "xml": xml_content,
+                "xml_truncated": xml_truncated,
+                "target": row_map.get("target"),
+                "acquirer": row_map.get("acquirer"),
+                "year": _json_compatible_value(row_map.get("year")),
+                "filing_date": _json_compatible_value(row_map.get("filing_date")),
+                "transaction_price_total": _json_compatible_value(row_map.get("transaction_price_total")),
+                "monetary_values": _extract_monetary_values(xml_text),
+            }
+        )
+
+    response: dict[str, object] = {
+        "results": results,
+        "returned_count": len(results),
+    }
+    return McpToolResult(
+        text=f"Returned {len(results)} full section(s).",
         structured_content=response,
     )
 
@@ -2726,6 +2880,27 @@ def _list_filter_options(
     if "acquirer_pes" in selected_fields:
         payload_out["acquirer_pes"] = ["true", "false"]
 
+    industry_fields_present = {"target_industries", "acquirer_industries"} & set(selected_fields)
+    if industry_fields_present:
+        all_industry_codes: set[str] = set()
+        for _field_key in industry_fields_present:
+            all_industry_codes.update(cast(list[str], payload_out.get(_field_key, [])))
+        if all_industry_codes:
+            sector_rows = db.session.execute(
+                text(f"SELECT CAST(sector_code AS CHAR), sector_desc FROM {schema_prefix()}naics_sectors")
+            ).fetchall()
+            sub_sector_rows = db.session.execute(
+                text(f"SELECT CAST(sub_sector_code AS CHAR), sub_sector_desc FROM {schema_prefix()}naics_sub_sectors")
+            ).fetchall()
+            industry_labels: dict[str, str] = {}
+            for _code, _desc in sector_rows:
+                if str(_code) in all_industry_codes and _desc:
+                    industry_labels[str(_code)] = str(_desc)
+            for _code, _desc in sub_sector_rows:
+                if str(_code) in all_industry_codes and _desc:
+                    industry_labels[str(_code)] = str(_desc)
+            payload_out["industry_labels"] = industry_labels
+
     filter_metadata = _filter_option_metadata()
     response = {
         "fields": list(selected_fields),
@@ -2942,6 +3117,8 @@ def _section_result_schema() -> dict[str, object]:
             "acquirer": {"type": ["string", "null"]},
             "target": {"type": ["string", "null"]},
             "year": {"type": ["integer", "null"]},
+            "filing_date": {"type": ["string", "null"]},
+            "transaction_price_total": {"type": ["number", "null"]},
             "verified": {"type": "boolean"},
             "metadata": {"type": "object", "additionalProperties": True},
         },
@@ -3049,6 +3226,7 @@ def _search_sections_output_schema() -> dict[str, object]:
     properties.update(
         {
             "results": _array_of(_section_result_schema()),
+            "unique_agreement_count": {"type": "integer"},
             "access": _access_schema(),
             "count_metadata": _count_metadata_schema(),
             "interpretation": _interpretation_schema(),
@@ -3133,8 +3311,39 @@ def _batch_section_snippet_output_schema() -> dict[str, object]:
             "snippet": {"type": "string"},
             "matched_terms": _array_of({"type": "string"}),
             "source_length": {"type": "integer"},
+            "monetary_values": _array_of({"type": "string"}),
         },
-        required=["agreement_uuid", "section_uuid", "standard_id", "article_title", "section_title", "snippet", "matched_terms", "source_length"],
+        required=["agreement_uuid", "section_uuid", "standard_id", "article_title", "section_title", "snippet", "matched_terms", "source_length", "monetary_values"],
+        additional_properties=False,
+    )
+    return _object_schema(
+        {
+            "results": _array_of(item_schema),
+            "returned_count": {"type": "integer"},
+        },
+        required=["results", "returned_count"],
+        additional_properties=False,
+    )
+
+
+def _batch_sections_output_schema() -> dict[str, object]:
+    item_schema = _object_schema(
+        {
+            "agreement_uuid": {"type": ["string", "null"]},
+            "section_uuid": {"type": "string"},
+            "standard_id": _array_of({"type": "string"}),
+            "article_title": {"type": ["string", "null"]},
+            "section_title": {"type": ["string", "null"]},
+            "xml": {"type": ["string", "null"]},
+            "xml_truncated": {"type": "boolean"},
+            "target": {"type": ["string", "null"]},
+            "acquirer": {"type": ["string", "null"]},
+            "year": {"type": ["integer", "null"]},
+            "filing_date": {"type": ["string", "null"]},
+            "transaction_price_total": {"type": ["number", "null"]},
+            "monetary_values": _array_of({"type": "string"}),
+        },
+        required=["section_uuid", "standard_id", "xml_truncated", "monetary_values"],
         additional_properties=False,
     )
     return _object_schema(
@@ -3250,6 +3459,7 @@ def _section_snippet_output_schema() -> dict[str, object]:
             "snippet": {"type": "string"},
             "matched_terms": _array_of({"type": "string"}),
             "source_length": {"type": "integer"},
+            "monetary_values": _array_of({"type": "string"}),
         },
         required=[
             "agreement_uuid",
@@ -3260,6 +3470,7 @@ def _section_snippet_output_schema() -> dict[str, object]:
             "snippet",
             "matched_terms",
             "source_length",
+            "monetary_values",
         ],
         additional_properties=False,
     )
@@ -3356,6 +3567,7 @@ def _list_filter_options_output_schema() -> dict[str, object]:
         "fields": _array_of({"type": "string", "enum": list(_FILTER_OPTIONS_FIELDS)}),
         "retrieval_parameter_map": {"type": "object", "additionalProperties": {"type": "string"}},
         "field_metadata": {"type": "object", "additionalProperties": _filter_option_metadata_schema()},
+        "industry_labels": {"type": "object", "additionalProperties": {"type": "string"}},
     }
     for field_name in _FILTER_OPTIONS_FIELDS:
         properties[field_name] = _array_of({"type": "string"})
@@ -3781,6 +3993,16 @@ _YEAR_RANGE_OVERRIDES: dict[str, dict[str, object]] = {
         "type": ["integer", "null"],
         "description": "Latest filing year to include (inclusive). Use with year_min for a range.",
     },
+    "filed_after": {
+        "type": ["string", "null"],
+        "description": "Include only agreements with filing_date >= this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_min.",
+        "examples": ["2022-06-01"],
+    },
+    "filed_before": {
+        "type": ["string", "null"],
+        "description": "Include only agreements with filing_date < this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_max.",
+        "examples": ["2024-01-01"],
+    },
 }
 
 
@@ -4156,6 +4378,41 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             redaction_behavior="none",
             fulltext_scope=None,
             handler=_get_section_snippets_batch,
+        ),
+        McpToolSpec(
+            name="get_sections_batch",
+            description="Fetch full XML content for up to 10 sections in a single call, with inline agreement metadata (target, acquirer, year, filing_date, transaction_price_total) and extracted monetary values. Eliminates N sequential get_section calls when you need the complete authoritative text for multiple sections. XML is capped at max_xml_chars per section (default 10000) to prevent context overload; xml_truncated signals when a result was cut. Pass max_xml_chars=null only if you specifically need uncapped XML. Use get_section_snippets_batch instead when only excerpts are needed.",
+            input_schema=_schema_input_schema(
+                _schema_from_fields(
+                    "McpBatchSectionsArgs",
+                    {
+                        "section_uuids": ma_fields.List(
+                            ma_fields.Str(),
+                            required=True,
+                            validate=validate.Length(min=1, max=10),
+                        ),
+                        "max_xml_chars": ma_fields.Int(load_default=10000, allow_none=True, validate=validate.Range(min=500, max=20000)),
+                    },
+                )
+            ),
+            output_schema=_batch_sections_output_schema(),
+            examples=(
+                {"description": "Fetch full XML for sections from multiple agreements at once.", "arguments": {"section_uuids": ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]}},
+            ),
+            response_examples=(
+                {"description": "Batch full-section result.", "content": {"returned_count": 2, "results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "target": "Target A", "acquirer": "Acquirer B", "year": 2022, "filing_date": "2022-03-15", "transaction_price_total": 1500000000.0, "monetary_values": ["$1.5 billion"], "xml": "<section>...</section>"}]}},
+            ),
+            scopes=("sections:search",),
+            selection_hint="Use when you need full section XML for multiple sections at once; replaces N calls to get_section.",
+            negative_guidance=(
+                "Do not use for snippets or excerpts — use get_section_snippets_batch instead.",
+                "Limited to 10 sections per call; split into multiple calls for larger sets.",
+            ),
+            pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
+            handler=_get_sections_batch,
         ),
         McpToolSpec(
             name="get_server_metrics",
@@ -4630,7 +4887,7 @@ def call_tool(
     if spec is None:
         raise KeyError(name)
     handler_kwargs: dict[str, object] = {"principal": principal}
-    if name in {"search_agreements", "list_agreements", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "get_agreements_summary"}:
+    if name in {"search_agreements", "list_agreements", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_sections_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "get_agreements_summary"}:
         handler_kwargs["deps"] = agreements_deps
     if name in {"search_sections", "list_agreement_sections", "list_agreement_sections_batch"}:
         handler_kwargs["deps"] = sections_service_deps
@@ -4638,7 +4895,7 @@ def call_tool(
         handler_kwargs["agreements_deps"] = agreements_deps
     if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families"}:
         handler_kwargs["deps"] = reference_data_deps
-    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "get_counsel_catalog", "get_server_capabilities"}:
+    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_sections_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "get_counsel_catalog", "get_server_capabilities"}:
         handler_kwargs["payload"] = arguments
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps

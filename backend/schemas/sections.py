@@ -58,6 +58,8 @@ class SectionsArgsPayload(TypedDict):
     target_pe: list[str]
     acquirer_pe: list[str]
     metadata: list[str]
+    filed_after: str | None
+    filed_before: str | None
     agreement_uuid: str | None
     section_uuid: str | None
     include_dump: bool
@@ -80,6 +82,8 @@ class SectionsArgsSchema(Schema):
     )
     year_min = fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
     year_max = fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
+    filed_after = fields.Str(load_default=None, allow_none=True, validate=validate.Regexp(r'^\d{4}-\d{2}-\d{2}$'))
+    filed_before = fields.Str(load_default=None, allow_none=True, validate=validate.Regexp(r'^\d{4}-\d{2}-\d{2}$'))
     target = fields.List(
         fields.Str(),
         load_default=[],

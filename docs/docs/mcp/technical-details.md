@@ -41,8 +41,9 @@ Use these when the client needs to find the right agreement first or fetch one a
 - `get_section`
 - `get_section_snippet`
 - `get_section_snippets_batch`
+- `get_sections_batch`
 
-Use these when the client needs to search clause language across the corpus, navigate sections inside one agreement, inspect a known section directly, or extract a shorter plain-text excerpt from one section. `list_agreement_sections_batch` and `get_section_snippets_batch` accept a list of agreement or section UUIDs and return results in a single call, reducing round-trips for multi-agreement workflows.
+Use these when the client needs to search clause language across the corpus, navigate sections inside one agreement, inspect a known section directly, or extract a shorter plain-text excerpt from one section. `list_agreement_sections_batch`, `get_section_snippets_batch`, and `get_sections_batch` accept a list of agreement or section UUIDs and return results in a single call, reducing round-trips for multi-agreement workflows. `get_sections_batch` returns full section XML (capped by default at 10 000 characters per section); `get_section_snippets_batch` returns focused plain-text excerpts and is the right choice when the full XML is not needed.
 
 ### Discovery Helpers
 
@@ -90,6 +91,7 @@ The current MCP tools are:
 - `get_section`
 - `get_section_snippet`
 - `get_section_snippets_batch`
+- `get_sections_batch`
 - `get_agreement_tax_clauses`
 - `get_section_tax_clauses`
 - `list_filter_options`
@@ -116,6 +118,10 @@ The current MCP tools are:
 - `suggest_clause_families` exists to bridge plain-English concepts to taxonomy ids and now reports fit/confidence metadata so clients can distinguish canonical matches from broader proxies
 - `get_section_snippet` is a focused reading aid, not a replacement for `get_section` or a canonical extracted-facts surface
 - `get_section_snippets_batch` and `list_agreement_sections_batch` accept arrays of UUIDs and collapse multiple single-item calls into one round-trip; use them when a workflow would otherwise fan out across many agreements or sections
+- `get_sections_batch` fetches full section XML for up to 10 sections in one call; XML is capped at `max_xml_chars` per section (default 10 000, range 500–20 000) to prevent context overload; when a section is truncated the result includes `xml_truncated: true`; pass `max_xml_chars: null` only if uncapped XML is explicitly needed
+- `search_sections` results include `filing_date` and `transaction_price_total` inline on every result without needing to request them via `metadata`
+- `get_section_snippet`, `get_section_snippets_batch`, and `get_sections_batch` all include a `monetary_values` list — dollar amounts and value expressions extracted from the section text — so clients can surface deal economics without parsing XML
+- `search_sections` and `search_agreements` both accept `filed_after` and `filed_before` (ISO 8601 date strings, `YYYY-MM-DD`) for sub-year filing-date precision; `year`/`year_min`/`year_max` filter on the agreement year; `filed_after`/`filed_before` filter on the exact filing date
 - `get_agreement` preserves the current redaction and full-text access behavior
 - `get_server_capabilities` is the main machine-readable semantics surface; it includes auth guidance, field inventory, concept notes, and negative guidance about when not to use a tool
 - The server exposes a small set of MCP resources (`pandects://capabilities`, `pandects://auth-help`) that mirror `get_server_capabilities` for clients that prefer the `resources/read` primitive over calling a tool
