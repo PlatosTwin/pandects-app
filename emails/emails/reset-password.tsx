@@ -81,7 +81,7 @@ ResetPassword.PreviewProps = {
 export default ResetPassword;
 
 const main = {
-  backgroundColor: '#fbfaf5',
+  backgroundColor: '#eef1f6',
   fontFamily:
     'ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif',
   padding: '12px',
@@ -115,7 +115,7 @@ const title = {
 };
 
 const copy = {
-  color: '#334155',
+  color: '#344964',
   fontSize: '14px',
   lineHeight: '22px',
   margin: '0',

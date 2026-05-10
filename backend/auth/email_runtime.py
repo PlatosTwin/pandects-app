@@ -7,6 +7,7 @@ import os
 import subprocess
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
@@ -179,6 +180,8 @@ def _send_resend_email(
     subject: str,
     text: str | None = None,
     html: str | None = None,
+    reply_to: str | None = None,
+    scheduled_at: str | None = None,
     raise_on_error: bool,
 ) -> None:
     api_key = resend_api_key()
@@ -200,6 +203,10 @@ def _send_resend_email(
         "subject": subject,
         "headers": {"X-Entity-Ref-ID": uuid.uuid4().hex},
     }
+    if isinstance(reply_to, str) and reply_to.strip():
+        payload["reply_to"] = [reply_to]
+    if isinstance(scheduled_at, str) and scheduled_at.strip():
+        payload["scheduled_at"] = scheduled_at
     if isinstance(text, str) and text.strip():
         payload["text"] = text
     if isinstance(html, str) and html.strip():
@@ -239,12 +246,22 @@ def send_resend_text_email(*, to_email: str, subject: str, text: str) -> None:
     _send_resend_email(to_email=to_email, subject=subject, text=text, raise_on_error=False)
 
 
-def send_resend_html_email(*, to_email: str, subject: str, html: str, text: str | None = None) -> None:
+def send_resend_html_email(
+    *,
+    to_email: str,
+    subject: str,
+    html: str,
+    text: str | None = None,
+    reply_to: str | None = None,
+    scheduled_at: str | None = None,
+) -> None:
     _send_resend_email(
         to_email=to_email,
         subject=subject,
         html=html,
         text=text,
+        reply_to=reply_to,
+        scheduled_at=scheduled_at,
         raise_on_error=True,
     )
 
@@ -290,3 +307,37 @@ def send_pandects_auth_email(
     if isinstance(code, str) and code.strip():
         text = f"{text}\n\nVerification code: {code.strip()}"
     send_resend_html_email(to_email=to_email, subject=subject, html=html, text=text)
+
+
+_WELCOME_REPLY_TO = "nmbogdan@alumni.stanford.edu"
+_WELCOME_DELAY_MINUTES = 7
+
+
+def send_welcome_email(*, to_email: str, name: str | None) -> None:
+    year = str(datetime.now(timezone.utc).year)
+    display_name = (name.strip().split()[0] if isinstance(name, str) and name.strip() else None) or "there"
+    html = render_react_email_template(
+        template_name="welcome",
+        props={"NAME": display_name, "YEAR": year},
+    )
+    text = (
+        f"Hi {display_name},\n\n"
+        "Thanks for signing up for an account with Pandects!\n\n"
+        "As you browse the platform, keep in mind that this is an open-source project, "
+        "meaning that if you've spotted a bug or would like to contribute a feature, "
+        "you can open an issue (https://github.com/PlatosTwin/pandects-app/issues) "
+        "or PR (https://github.com/PlatosTwin/pandects-app/pulls) on GitHub—or, "
+        "feel free to respond here, which is my personal email address.\n\n"
+        "All best,\n\nNikita\nKeeper of the Agreements"
+    )
+    scheduled_at = (
+        datetime.now(timezone.utc) + timedelta(minutes=_WELCOME_DELAY_MINUTES)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    send_resend_html_email(
+        to_email=to_email,
+        subject="Thanks for trying Pandects",
+        html=html,
+        text=text,
+        reply_to=_WELCOME_REPLY_TO,
+        scheduled_at=scheduled_at,
+    )

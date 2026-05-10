@@ -169,6 +169,7 @@ from backend.auth.runtime import (
     revoke_session_token as _revoke_session_token,
     safe_next_path as _safe_next_path,
     send_resend_text_email as _send_resend_text_email,
+    send_welcome_email as _send_welcome_email,
     set_auth_cookies as _set_auth_cookies,
     set_csrf_cookie as _set_csrf_cookie,
     turnstile_enabled as _turnstile_enabled,
@@ -538,6 +539,7 @@ def _send_signup_notification_email(
             subject=subject,
             text=text,
         )
+        _send_welcome_email(to_email=new_user_email, name=full_name)
 
     runner = _async_task_runner()
     if runner is None or not runner.enqueue(_send):

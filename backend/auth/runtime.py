@@ -13,6 +13,7 @@ from backend.auth.email_runtime import (
     send_pandects_auth_email,
     send_resend_html_email,
     send_resend_text_email,
+    send_welcome_email,
     verify_zitadel_signature,
     zitadel_notification_signing_key,
 )
@@ -109,6 +110,7 @@ __all__ = [
     "send_pandects_auth_email",
     "send_resend_html_email",
     "send_resend_text_email",
+    "send_welcome_email",
     "session_token_hash",
     "set_auth_cookies",
     "set_csrf_cookie",
