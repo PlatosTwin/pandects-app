@@ -71,6 +71,30 @@ export const formatFilterOption = (option: string): string => {
 };
 
 /**
+ * Decode the common XML/HTML entities that show up inside attribute values
+ * (e.g. titles pulled out of the agreement XML with regex).
+ */
+export const decodeXmlEntities = (value: string): string =>
+  value.replace(
+    /&(#\d+|#x[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g,
+    (match, entity: string) => {
+      if (entity === "amp") return "&";
+      if (entity === "lt") return "<";
+      if (entity === "gt") return ">";
+      if (entity === "quot") return '"';
+      if (entity === "apos") return "'";
+      if (entity[0] === "#") {
+        const code =
+          entity[1] === "x" || entity[1] === "X"
+            ? parseInt(entity.slice(2), 16)
+            : parseInt(entity.slice(1), 10);
+        return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+      }
+      return match;
+    },
+  );
+
+/**
  * Pluralize a word with proper handling of common rules
  */
 export const pluralize = (word: string): string => {

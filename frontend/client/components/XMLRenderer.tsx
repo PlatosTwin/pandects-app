@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { decodeXmlEntities } from "@/lib/text-utils";
 
 interface XMLNode {
   type: "text" | "tag";
@@ -51,7 +52,7 @@ const AGREEMENT_REGION_LABELS = new Map([
 ]);
 
 export function normalizeXmlText(content: string) {
-  return content.replace(NON_BREAKING_CHARS_RE, " ");
+  return decodeXmlEntities(content.replace(NON_BREAKING_CHARS_RE, " "));
 }
 
 export function normalizeAgreementTableOfContentsText(
@@ -378,7 +379,7 @@ export function XMLRenderer({
         // Extract title from attributes
         const titleMatch = node.content.match(/title="([^"]*)"/);
         const title = titleMatch
-          ? titleMatch[1]
+          ? decodeXmlEntities(titleMatch[1])
           : `${node.tagName} ${index + 1}`;
 
         const headerLevel =

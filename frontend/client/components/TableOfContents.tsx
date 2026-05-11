@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { decodeXmlEntities } from "@/lib/text-utils";
 import { logger } from "@/lib/logger";
 import { TOCItem } from "@shared/agreement";
 
@@ -179,7 +180,7 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
       // Extract title from article attributes
       const titleMatch = articleAttributes.match(/title="([^"]*)"/);
       const articleTitle = titleMatch
-        ? titleMatch[1]
+        ? decodeXmlEntities(titleMatch[1])
         : `Article ${itemCounter + 1}`;
 
       // Extract UUID from article attributes
@@ -205,7 +206,7 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
         // Extract title from section attributes
         const sectionTitleMatch = sectionAttributes.match(/title="([^"]*)"/);
         const sectionTitle = sectionTitleMatch
-          ? sectionTitleMatch[1]
+          ? decodeXmlEntities(sectionTitleMatch[1])
           : `Section ${articleItem.children!.length + 1}`;
 
         // Extract UUID from section attributes
@@ -249,7 +250,7 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
 
       const titleMatch = sectionAttributes.match(/title="([^"]*)"/);
       const sectionTitle = titleMatch
-        ? titleMatch[1]
+        ? decodeXmlEntities(titleMatch[1])
         : `Section ${itemCounter + 1}`;
 
       const uuidMatch = sectionAttributes.match(/uuid="([^"]*)"/);
