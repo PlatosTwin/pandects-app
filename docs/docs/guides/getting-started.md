@@ -55,6 +55,15 @@ X-Pandects-Dump-Hash: 3a7f9b2c...
 
 To omit `dump_version` from the JSON body, pass `?include_dump=false`. The header is always set regardless.
 
+## For LLMs and agents
+
+Plaintext, machine-readable mirrors of these docs are published for use by coding assistants and agents:
+
+- [`/llms.txt`](pathname:///llms.txt) — index of guides and endpoints in the [llms.txt](https://llmstxt.org/) format
+- [`/llms-full.txt`](pathname:///llms-full.txt) — concatenated full documentation in one file
+- [`/openapi.yaml`](pathname:///openapi.yaml) — canonical OpenAPI 3 spec
+- [`/llms/pandects/<operationId>.md`](pathname:///llms/pandects/searchAgreements.md) — one plain-markdown page per endpoint
+
 ## Next step
 
 Continue with `Request Patterns` for common query combinations and endpoint workflows.
