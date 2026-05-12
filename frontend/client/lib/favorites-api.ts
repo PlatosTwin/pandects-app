@@ -172,6 +172,34 @@ export async function bulkCopyFavorites(
   });
 }
 
+export async function bulkUpdateFavoriteTags(
+  favoriteIds: string[],
+  tagIds: string[],
+  action: "add" | "remove",
+): Promise<{
+  action: "add" | "remove";
+  tag_ids: string[];
+  favorite_ids: string[];
+  tags_by_favorite: Record<string, FavoriteTag[]>;
+  updated: number;
+}> {
+  return authFetchJson<{
+    action: "add" | "remove";
+    tag_ids: string[];
+    favorite_ids: string[];
+    tags_by_favorite: Record<string, FavoriteTag[]>;
+    updated: number;
+  }>(apiUrl("v1/me/favorites/bulk-tags"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      favorite_ids: favoriteIds,
+      tag_ids: tagIds,
+      action,
+    }),
+  });
+}
+
 export async function setFavoriteProjects(
   favoriteId: string,
   projectIds: string[],

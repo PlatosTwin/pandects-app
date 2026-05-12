@@ -26,6 +26,7 @@ from backend.schemas.favorites import (
     FavoriteExistsQuerySchema,
     FavoriteProjectsSetSchema,
     FavoriteTagsSetSchema,
+    FavoritesBulkTagsSchema,
     FavoritesBulkCopySchema,
     FavoritesBulkMoveSchema,
     FavoriteUpdateSchema,
@@ -795,6 +796,97 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
                 "project_ids": project_ids,
                 "favorite_ids": [row.id for row in rows],
                 "copied": len(rows),
+            }
+        )
+
+    @favorites_blp.route("/favorites/bulk-tags", methods=["POST"])
+    def bulk_update_favorite_tags():
+        _guard_not_mocked()
+        deps._require_auth_db()
+        user = _require_favorites_user()
+        data = deps._load_json(FavoritesBulkTagsSchema())
+        raw_favorite_ids = cast(list[object], data["favorite_ids"])
+        favorite_ids = list(
+            dict.fromkeys(
+                value
+                for value in (str(raw).strip() for raw in raw_favorite_ids)
+                if value
+            )
+        )
+        raw_tag_ids = cast(list[object], data["tag_ids"])
+        tag_ids = list(
+            dict.fromkeys(
+                value for value in (str(raw).strip() for raw in raw_tag_ids) if value
+            )
+        )
+        action = cast(str, data["action"])
+        if not favorite_ids or not tag_ids:
+            abort(400, description="favorite_ids and tag_ids are required.")
+        if len(favorite_ids) > 500:
+            abort(400, description="Too many favorite_ids (max 500).")
+        try:
+            rows = (
+                deps.Favorite.query.filter(
+                    deps.Favorite.user_id == user.id,
+                    deps.Favorite.id.in_(favorite_ids),
+                ).all()
+            )
+            if {row.id for row in rows} != set(favorite_ids):
+                abort(404, description="One or more favorites not found.")
+            tags = (
+                deps.FavoriteTag.query.filter(
+                    deps.FavoriteTag.user_id == user.id,
+                    deps.FavoriteTag.id.in_(tag_ids),
+                ).all()
+            )
+            valid_tag_ids = [tag.id for tag in tags]
+            if len(valid_tag_ids) != len(set(tag_ids)):
+                abort(404, description="One or more tags not found.")
+
+            session = _db_session(deps)
+            now = deps._utc_now()
+            if action == "add":
+                existing = {
+                    (favorite_id, tag_id)
+                    for favorite_id, tag_id in session.query(
+                        deps.FavoriteTagAssignment.favorite_id,
+                        deps.FavoriteTagAssignment.tag_id,
+                    )
+                    .filter(deps.FavoriteTagAssignment.favorite_id.in_(favorite_ids))
+                    .filter(deps.FavoriteTagAssignment.tag_id.in_(valid_tag_ids))
+                    .all()
+                }
+                for favorite_id in favorite_ids:
+                    for tag_id in valid_tag_ids:
+                        if (favorite_id, tag_id) in existing:
+                            continue
+                        assignment = deps.FavoriteTagAssignment()  # type: ignore[call-arg]
+                        assignment.favorite_id = favorite_id
+                        assignment.tag_id = tag_id
+                        session.add(assignment)
+            else:
+                session.query(deps.FavoriteTagAssignment).filter(
+                    deps.FavoriteTagAssignment.favorite_id.in_(favorite_ids),
+                    deps.FavoriteTagAssignment.tag_id.in_(valid_tag_ids),
+                ).delete(synchronize_session=False)
+            for fav in rows:
+                fav.updated_at = now
+            session.commit()
+            tag_map = _load_tags_for_favorites(
+                deps, favorite_ids=[row.id for row in rows]
+            )
+        except SQLAlchemyError:
+            _db_session(deps).rollback()
+            abort(503, description="Favorites backend is unavailable right now.")
+        return _no_store(
+            {
+                "action": action,
+                "tag_ids": valid_tag_ids,
+                "favorite_ids": [row.id for row in rows],
+                "tags_by_favorite": {
+                    row.id: tag_map.get(row.id, []) for row in rows
+                },
+                "updated": len(rows),
             }
         )
 

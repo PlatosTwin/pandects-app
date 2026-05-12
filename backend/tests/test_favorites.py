@@ -400,6 +400,86 @@ class FavoritesRoutesTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 404)
 
+    def test_bulk_add_and_remove_tags(self):
+        client = self._client_with_bearer()
+
+        res = client.post("/v1/me/tags", json={"name": "Review", "color": "blue"})
+        review_tag = res.get_json()["tag"]
+        res = client.post("/v1/me/tags", json={"name": "Urgent", "color": "red"})
+        urgent_tag = res.get_json()["tag"]
+
+        fav_ids: list[str] = []
+        for idx in range(2):
+            res = client.post(
+                "/v1/me/favorites",
+                json={
+                    "item_type": "agreement",
+                    "item_uuid": f"dddddddd-dddd-dddd-dddd-ddddddddddd{idx}",
+                },
+            )
+            self.assertEqual(res.status_code, 201)
+            fav_ids.append(res.get_json()["favorite"]["id"])
+
+        res = client.post(
+            "/v1/me/favorites/bulk-tags",
+            json={
+                "favorite_ids": fav_ids,
+                "tag_ids": [review_tag["id"], urgent_tag["id"]],
+                "action": "add",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["updated"], 2)
+        for favorite_id in fav_ids:
+            self.assertEqual(
+                sorted(tag["name"] for tag in body["tags_by_favorite"][favorite_id]),
+                ["Review", "Urgent"],
+            )
+
+        res = client.post(
+            "/v1/me/favorites/bulk-tags",
+            json={
+                "favorite_ids": fav_ids,
+                "tag_ids": [urgent_tag["id"]],
+                "action": "remove",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        for favorite_id in fav_ids:
+            self.assertEqual(
+                [tag["name"] for tag in body["tags_by_favorite"][favorite_id]],
+                ["Review"],
+            )
+
+    def test_bulk_tags_user_isolation(self):
+        client_a = self._client_with_bearer()
+        token_b = self._create_user_and_bearer(email="b@example.com")
+        client_b = self.app.test_client()
+        client_b.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token_b}"
+
+        res = client_a.post("/v1/me/tags", json={"name": "Mine", "color": "blue"})
+        a_tag_id = res.get_json()["tag"]["id"]
+        res = client_b.post(
+            "/v1/me/favorites",
+            json={
+                "item_type": "agreement",
+                "item_uuid": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            },
+        )
+        b_fav_id = res.get_json()["favorite"]["id"]
+
+        res = client_b.post(
+            "/v1/me/favorites/bulk-tags",
+            json={
+                "favorite_ids": [b_fav_id],
+                "tag_ids": [a_tag_id],
+                "action": "add",
+            },
+        )
+        self.assertEqual(res.status_code, 404)
+
     def test_project_crud_filter_and_bulk_move(self):
         client = self._client_with_bearer()
 

@@ -50,6 +50,12 @@ class FavoriteTagsSetSchema(Schema):
     tag_ids = fields.List(fields.Str(), required=True)
 
 
+class FavoritesBulkTagsSchema(Schema):
+    favorite_ids = fields.List(fields.Str(), required=True)
+    tag_ids = fields.List(fields.Str(), required=True)
+    action = fields.Str(required=True, validate=validate.OneOf(("add", "remove")))
+
+
 class FavoriteProjectsSetSchema(Schema):
     project_ids = fields.List(fields.Str(), required=True)
 
