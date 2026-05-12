@@ -9,7 +9,6 @@ import { PRERENDER_ROUTES } from "@shared/route-manifest.mjs";
 import About from "@/pages/About";
 import AgreementIndex from "@/pages/AgreementIndex";
 import BulkData from "@/pages/BulkData";
-import Contribute from "@/pages/Contribute";
 import DataLicense from "@/pages/DataLicense";
 import Feedback from "@/pages/Feedback";
 import Landing from "@/pages/Landing";
@@ -19,6 +18,7 @@ import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import Search from "@/pages/Search";
 import SoftwareLicense from "@/pages/SoftwareLicense";
 import SourcesMethods from "@/pages/SourcesMethods";
+import Support from "@/pages/Support";
 import Taxonomy from "@/pages/Taxonomy";
 import Terms from "@/pages/Terms";
 import TrendsAnalyses from "@/pages/TrendsAnalyses";
@@ -29,7 +29,6 @@ const PRERENDER_COMPONENTS: Record<string, JSX.Element> = {
   "/about": <About />,
   "/agreement-index": <AgreementIndex />,
   "/bulk-data": <BulkData />,
-  "/contribute": <Contribute />,
   "/feedback": <Feedback />,
   "/leaderboards": <Leaderboards />,
   "/license": <License />,
@@ -38,6 +37,7 @@ const PRERENDER_COMPONENTS: Record<string, JSX.Element> = {
   "/privacy-policy": <PrivacyPolicy />,
   "/search": <Search />,
   "/sources-methods": <SourcesMethods />,
+  "/support": <Support />,
   "/taxonomy": <Taxonomy />,
   "/terms": <Terms />,
   "/trends-analyses": <TrendsAnalyses />,

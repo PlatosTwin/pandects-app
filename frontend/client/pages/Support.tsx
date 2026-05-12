@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Coffee } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 
-export default function Contribute() {
+export default function Support() {
   return (
     <PageShell
       size="xl"
-      title="Contribute"
+      title="Support"
     >
       <div className="mb-8">
         <div className="prose prose-copy max-w-none space-y-4">

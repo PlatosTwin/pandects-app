@@ -47,7 +47,7 @@ function NavigationDesktopMenusComponent() {
     () => [
       { to: "/about", label: "About", pandaTarget: "nav-about" },
       { to: "/feedback", label: "Feedback" },
-      { to: "/contribute", label: "Contribute", pandaTarget: "nav-contribute" },
+      { to: "/support", label: "Support", pandaTarget: "nav-support" },
     ],
     [],
   );

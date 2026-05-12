@@ -180,17 +180,17 @@ const ROUTE_MANIFEST = [
     priority: "0.6",
   }),
   defineRoute({
-    pathname: "/contribute",
-    title: "Contribute | Pandects",
+    pathname: "/support",
+    title: "Support | Pandects",
     description:
-      "Contribute to Pandects to help maintain and expand open access to M&A agreement research data.",
+      "Support Pandects to help maintain and expand open access to M&A agreement research data.",
     robots: NOINDEX_FOLLOW,
     pageType: "WebPage",
-    pageName: "Contribute",
+    pageName: "Support",
     pageDescription:
-      "Contribute to Pandects to help maintain and expand open access to M&A agreement research data.",
+      "Support Pandects to help maintain and expand open access to M&A agreement research data.",
     renderStrategy: "prerender",
-    prerenderFilename: "contribute.html",
+    prerenderFilename: "support.html",
     changefreq: "monthly",
     priority: "0.6",
   }),

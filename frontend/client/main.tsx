@@ -27,7 +27,7 @@ const Taxonomy = lazy(() => import("./pages/Taxonomy"));
 const Leaderboards = lazy(() => import("./pages/Leaderboards"));
 const TrendsAnalyses = lazy(() => import("./pages/TrendsAnalyses"));
 const Feedback = lazy(() => import("./pages/Feedback"));
-const Contribute = lazy(() => import("./pages/Contribute"));
+const Support = lazy(() => import("./pages/Support"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Account = lazy(() => import("./pages/Account"));
 const Favorites = lazy(() => import("./pages/Favorites"));
@@ -78,7 +78,7 @@ const App = () => {
               <Route path="/trends-analyses" element={<TrendsAnalyses />} />
               <Route path="/about" element={<About />} />
               <Route path="/feedback" element={<Feedback />} />
-              <Route path="/contribute" element={<Contribute />} />
+              <Route path="/support" element={<Support />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/reset-password" element={<ResetPassword />} />

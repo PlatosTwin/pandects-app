@@ -50,7 +50,7 @@ function NavigationMobileMenuComponent() {
     () => [
       { to: "/about", label: "About" },
       { to: "/feedback", label: "Feedback" },
-      { to: "/contribute", label: "Contribute" },
+      { to: "/support", label: "Support" },
     ],
     [],
   );
