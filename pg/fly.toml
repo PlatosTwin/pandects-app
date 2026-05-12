@@ -9,6 +9,10 @@ primary_region = 'iad'
 [env]
   PRIMARY_REGION = 'iad'
 
+[[vm]]
+  size = 'shared-cpu-2x'
+  memory = '512mb'
+
 [[mounts]]
   source = 'pg_data'
   destination = '/data'
