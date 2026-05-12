@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/accordion";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
-import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
+import { useAgreementSummary } from "@/hooks/use-agreement-summary";
 import { cn } from "@/lib/utils";
 import { scheduleWhenBrowserIdle } from "@/lib/analytics";
 import { Link } from "react-router-dom";
@@ -81,12 +81,6 @@ type AgreementIndexResponse = {
   total_pages: number;
   has_next: boolean;
   has_prev: boolean;
-};
-
-type AgreementIndexSummary = {
-  agreements: number;
-  sections: number;
-  pages: number;
 };
 
 type SortColumn = "year" | "target" | "acquirer";
@@ -123,20 +117,14 @@ const summaryCards = [
     description: "Pages parsed across filings",
   },
 ] as const;
-const AGREEMENT_SUMMARY_CACHE_KEY = "agreement-index-summary:v1";
-const AGREEMENT_SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000;
-
 export default function AgreementIndex() {
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
   const [isPending, startPageTransition] = useTransition();
-  const [summary, setSummary] = useState<AgreementIndexSummary | null>(() =>
-    readSessionCache<AgreementIndexSummary>(
-      AGREEMENT_SUMMARY_CACHE_KEY,
-      AGREEMENT_SUMMARY_CACHE_TTL_MS,
-    ),
-  );
-  const [summaryLoading, setSummaryLoading] = useState(summary === null);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const {
+    summary,
+    isLoading: summaryLoading,
+    error: summaryError,
+  } = useAgreementSummary();
   const [hasLoadedOverview, setHasLoadedOverview] = useState(false);
   const [showSupplementaryPanels, setShowSupplementaryPanels] = useState(false);
 
@@ -151,63 +139,6 @@ export default function AgreementIndex() {
   const [sort_dir, setSortDir] = useState<SortDirection>("desc");
   const [filterInput, setFilterInput] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
-  useEffect(() => {
-    let cancelled = false;
-    let timeoutId: number | null = null;
-    let idleId: number | null = null;
-
-    const fetchSummary = async () => {
-      try {
-        setSummaryLoading(true);
-        setSummaryError(null);
-        const res = await authFetch(apiUrl("v1/agreements-summary"));
-        if (!res.ok) {
-          throw new Error(`Summary request failed (${res.status})`);
-        }
-        const data = (await res.json()) as AgreementIndexSummary;
-        if (!cancelled) {
-          setSummary(data);
-          writeSessionCache(AGREEMENT_SUMMARY_CACHE_KEY, data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setSummaryError(
-            err instanceof Error
-              ? err.message
-              : "Unable to load agreement summary.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setSummaryLoading(false);
-        }
-      }
-    };
-
-    const scheduleFetch = () => {
-      if (cancelled) return;
-      void fetchSummary();
-    };
-
-    const browserWindow = typeof window !== "undefined" ? window : null;
-
-    if (browserWindow && "requestIdleCallback" in browserWindow) {
-      idleId = browserWindow.requestIdleCallback(scheduleFetch, { timeout: 1500 });
-    } else {
-      timeoutId = window.setTimeout(scheduleFetch, 800);
-    }
-
-    return () => {
-      cancelled = true;
-      if (idleId !== null && browserWindow && "cancelIdleCallback" in browserWindow) {
-        browserWindow.cancelIdleCallback(idleId);
-      }
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();

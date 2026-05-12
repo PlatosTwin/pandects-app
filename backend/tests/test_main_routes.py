@@ -303,6 +303,20 @@ class MainRoutesTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "CREATE TABLE IF NOT EXISTS summary_data ("
+                        "count_agreements INTEGER NOT NULL, "
+                        "count_sections INTEGER NOT NULL, "
+                        "count_pages INTEGER NOT NULL)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO summary_data (count_agreements, count_sections, count_pages) "
+                        "VALUES (4, 3, 12)"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO agreement_deal_type_summary (year, deal_type, count) VALUES "
                         "(2020, 'merger', 1), "
                         "(2021, 'stock_acquisition', 2)"
@@ -608,6 +622,40 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("total_count"), 2)
         self.assertEqual(body.get("total_pages"), 1)
         self.assertEqual(len(body.get("results", [])), 2)
+
+    def test_agreements_summary_includes_latest_filing_date(self):
+        self.app_module._agreements_summary_cache["payload"] = None
+        self.app_module._agreements_summary_cache["ts"] = 0
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS agreement_overview_summary ("
+                        "singleton_key INTEGER NOT NULL PRIMARY KEY, "
+                        "metadata_covered_agreements INTEGER NULL, "
+                        "metadata_coverage_pct REAL NULL, "
+                        "taxonomy_covered_sections INTEGER NULL, "
+                        "taxonomy_coverage_pct REAL NULL, "
+                        "latest_filing_date TEXT NULL)"
+                    )
+                )
+                conn.execute(text("DELETE FROM agreement_overview_summary"))
+                conn.execute(
+                    text(
+                        "INSERT INTO agreement_overview_summary "
+                        "(singleton_key, metadata_covered_agreements, metadata_coverage_pct, taxonomy_covered_sections, taxonomy_coverage_pct, latest_filing_date) VALUES "
+                        "(1, 123, 61.5, 4567, 87.2, '2023-04-01')"
+                    )
+                )
+        client = self.app.test_client()
+        res = client.get("/v1/agreements-summary")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body.get("agreements"), 4)
+        self.assertEqual(body.get("sections"), 3)
+        self.assertEqual(body.get("pages"), 12)
+        self.assertEqual(body.get("latest_filing_date"), "2023-04-01")
 
     def test_agreements_bulk_cursor_pagination(self):
         client = self.app.test_client()
