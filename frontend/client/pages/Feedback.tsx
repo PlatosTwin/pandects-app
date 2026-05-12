@@ -1,204 +1,213 @@
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { PageShell } from "@/components/PageShell";
 import { trackEvent } from "@/lib/analytics";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Bug, ExternalLink, GitPullRequest, MessageSquare } from "lucide-react";
+
+const generalFeedbackUrl =
+  "https://airtable.com/embed/appsaasOdbK3k0JIR/pagX6sJC7D7wihUto/form";
+
+function ensureHeadLink(rel: string, href: string) {
+  if (typeof document === "undefined") return;
+  const selector = `link[rel="${rel}"][href="${href}"]`;
+  if (document.head.querySelector(selector)) return;
+
+  const link = document.createElement("link");
+  link.rel = rel;
+  link.href = href;
+  document.head.appendChild(link);
+}
 
 export default function Feedback() {
-  const [openSection, setOpenSection] = useState<string>("");
-  const [mountedSections, setMountedSections] = useState<
-    Record<"general-feedback", boolean>
-  >({
-    "general-feedback": false,
-  });
-  const [loadedSections, setLoadedSections] = useState<
-    Record<"general-feedback", boolean>
-  >({
-    "general-feedback": false,
-  });
-  const [loadTimeouts, setLoadTimeouts] = useState<
-    Record<"general-feedback", boolean>
-  >({
-    "general-feedback": false,
-  });
+  const [loaded, setLoaded] = useState(false);
+  const [loadTimeout, setLoadTimeout] = useState(false);
+  const trackedRef = useRef(false);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (document.querySelector("script[data-airtable-embed]")) return;
 
-    const loadScript = () => {
-      const script = document.createElement("script");
-      script.async = true;
-      script.src = "https://static.airtable.com/js/embed/embed_snippet_v1.js";
-      script.dataset.airtableEmbed = "true";
-      document.head.appendChild(script);
-    };
-
-    if (window.requestIdleCallback) {
-      window.requestIdleCallback(loadScript);
-    } else {
-      window.setTimeout(loadScript, 500);
+    if (!trackedRef.current) {
+      trackedRef.current = true;
+      trackEvent("feedback_form_view", { section: "general_feedback" });
     }
+
+    ensureHeadLink("preconnect", "https://airtable.com");
+    ensureHeadLink("preconnect", "https://static.airtable.com");
+    ensureHeadLink("dns-prefetch", "https://airtable.com");
+    ensureHeadLink("dns-prefetch", "https://static.airtable.com");
   }, []);
 
-  const handleSectionChange = (value: string) => {
-    setOpenSection(value);
-    if (value === "general-feedback") {
-      setMountedSections((prev) => ({ ...prev, [value]: true }));
-    }
-  };
-
   useEffect(() => {
-    if (!mountedSections["general-feedback"] || loadedSections["general-feedback"]) return;
-    const timer = window.setTimeout(
-      () => setLoadTimeouts((prev) => ({ ...prev, "general-feedback": true })),
-      10000,
-    );
+    if (loaded) return;
+    const timer = window.setTimeout(() => setLoadTimeout(true), 10000);
     return () => window.clearTimeout(timer);
-  }, [mountedSections["general-feedback"], loadedSections["general-feedback"]]);
-
-  const generalFeedbackUrl =
-    "https://airtable.com/embed/appsaasOdbK3k0JIR/pagX6sJC7D7wihUto/form";
-
-  const skeletonBySection = useMemo(
-    () => ({
-      "general-feedback": (
-        <div
-          className="h-[895px] rounded-lg border border-border bg-muted/30 p-6"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="sr-only">Loading feedback form</span>
-          <div className="h-4 w-48 animate-pulse rounded bg-muted" />
-          <div className="mt-4 h-3 w-full animate-pulse rounded bg-muted" />
-          <div className="mt-2 h-3 w-5/6 animate-pulse rounded bg-muted" />
-          <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
-        </div>
-      ),
-    }),
-    [],
-  );
+  }, [loaded]);
 
   return (
-    <PageShell size="xl" title="Feedback">
-      <div className="mb-8">
-        <div className="prose prose-copy max-w-none space-y-4 mb-8">
-          <p>
-            To submit questions, flag issues, or propose improvements, use our
-            general feedback form below. You can also{" "}
+    <PageShell size="lg" title="Feedback">
+      <article>
+        <section
+          id="channels"
+          className="scroll-mt-24 first:pt-0"
+          aria-labelledby="channels-heading"
+        >
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
+              01
+            </span>
+            <h2
+              id="channels-heading"
+              className="text-2xl font-semibold tracking-tight text-foreground"
+            >
+              Channels
+            </h2>
+          </div>
+
+          <p className="prose-copy mt-4">
+            Questions, bug reports, and feature requests are welcome. Choose the
+            path that matches the shape of the feedback.
+          </p>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <a
+              href="#form"
+              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/40"
+            >
+              <MessageSquare className="mb-2 h-5 w-5 text-primary" />
+              <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                Feedback
+              </div>
+              <div className="mt-1 text-sm font-medium leading-5 text-foreground">
+                Use the form
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Best for quick notes, questions, and product suggestions.
+              </p>
+            </a>
             <a
               href="https://github.com/PlatosTwin/pandects-app/issues"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2 hover:underline"
               aria-label="Open an issue (opens in a new tab)"
+              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/40"
             >
-              open an issue
-            </a>{" "}
-            on GitHub or be the change you want to see and submit a pull
-            request. For more on contributing, see the{" "}
+              <Bug className="mb-2 h-5 w-5 text-primary" />
+              <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                GitHub
+              </div>
+              <div className="mt-1 text-sm font-medium leading-5 text-foreground">
+                Open an issue
+                <ExternalLink
+                  className="ml-0.5 inline-block h-3 w-3 align-baseline opacity-60"
+                  aria-hidden="true"
+                />
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Best for reproducible bugs and scoped feature requests.
+              </p>
+            </a>
             <a
-              href="https://github.com/PlatosTwin/pandects-app"
+              href="https://github.com/PlatosTwin/pandects-app/compare"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2 hover:underline"
-              aria-label="Main GitHub repository (opens in a new tab)"
+              aria-label="Open a pull request on GitHub (opens in a new tab)"
+              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/40"
             >
-              main GitHub repository
+              <GitPullRequest className="mb-2 h-5 w-5 text-primary" />
+              <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                Contributions
+              </div>
+              <div className="mt-1 text-sm font-medium leading-5 text-foreground">
+                Open a PR
+                <ExternalLink
+                  className="ml-0.5 inline-block h-3 w-3 align-baseline opacity-60"
+                  aria-hidden="true"
+                />
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Best when the fix or improvement is already in code.
+              </p>
             </a>
-            .
-          </p>
-          <p className="font-medium text-foreground">
-            Thanks for helping make Pandects better!
-          </p>
-        </div>
-      </div>
+          </div>
+        </section>
 
-      <Accordion
-        type="single"
-        collapsible
-        value={openSection}
-        onValueChange={handleSectionChange}
-        className="w-full space-y-4"
-      >
-        <AccordionItem
-          value="general-feedback"
-          className="bg-card rounded-lg shadow-sm border border-border"
+        <section
+          id="form"
+          className="scroll-mt-24 pt-12"
+          aria-labelledby="form-heading"
         >
-          <AccordionTrigger
-            headingLevel="h2"
-            className="px-6 py-4 text-xl font-semibold text-foreground"
-            onClick={() =>
-              trackEvent("feedback_section_click", {
-                section: "general_feedback",
-              })
-            }
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
+              02
+            </span>
+            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2
+                id="form-heading"
+                className="text-2xl font-semibold tracking-tight text-foreground"
+              >
+                Feedback form
+              </h2>
+              <a
+                href={generalFeedbackUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+              >
+                Open in new tab
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+          <div
+            className="mt-6 relative"
+            aria-busy={!loaded}
+            role="status"
+            aria-live="polite"
           >
-            <div className="flex flex-col items-start gap-1 text-left">
-              <span>General Feedback</span>
-              <span className="text-sm font-normal text-muted-foreground">
-                May take a few seconds to load
-              </span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-6 pb-6">
-            <div className="bg-card rounded-lg">
-              {!mountedSections["general-feedback"] ? (
-                skeletonBySection["general-feedback"]
-              ) : (
-                <div
-                  className="relative"
-                  aria-busy={!loadedSections["general-feedback"]}
+            <span className="sr-only">Loading feedback form</span>
+            {!loaded && (
+              <div
+                className="absolute inset-0 h-[895px] rounded-lg border border-border bg-muted/30 p-6"
+                aria-hidden="true"
+              >
+                <div className="h-5 w-40 bg-muted/60 rounded animate-pulse" />
+                <div className="h-10 w-full bg-muted/50 rounded animate-pulse mt-4" />
+                <div className="h-10 w-3/4 bg-muted/50 rounded animate-pulse mt-4" />
+                <div className="h-10 w-full bg-muted/50 rounded animate-pulse mt-4" />
+                <div className="h-24 w-full bg-muted/50 rounded animate-pulse mt-4" />
+                <div className="h-10 w-32 bg-muted/60 rounded-md animate-pulse mt-6" />
+              </div>
+            )}
+            <iframe
+              loading="eager"
+              className="airtable-embed w-full rounded-lg border border-border"
+              style={{ background: "transparent", opacity: loaded ? 1 : 0 }}
+              src={generalFeedbackUrl}
+              title="Pandects general feedback form"
+              width="100%"
+              height="895"
+              onLoad={() => setLoaded(true)}
+            />
+            {loadTimeout && !loaded && (
+              <div className="mt-4 rounded-lg border border-border bg-background/60 p-4 text-sm text-muted-foreground">
+                The form is taking longer than expected to load.{" "}
+                <a
+                  href={generalFeedbackUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline underline-offset-2 hover:underline"
                 >
-                  {!loadedSections["general-feedback"] && (
-                    <div className="absolute inset-0" aria-hidden="true">
-                      {skeletonBySection["general-feedback"]}
-                    </div>
-                  )}
-                  <iframe
-                    loading="lazy"
-                    className="airtable-embed w-full rounded-lg"
-                    style={{
-                      background: "transparent",
-                      border: "1px solid #ccc",
-                      opacity: loadedSections["general-feedback"] ? 1 : 0,
-                    }}
-                    src={generalFeedbackUrl}
-                    title="Pandects general feedback form"
-                    width="100%"
-                    height="895"
-                    onLoad={() =>
-                      setLoadedSections((prev) => ({
-                        ...prev,
-                        "general-feedback": true,
-                      }))
-                    }
-                  />
-                  {loadTimeouts["general-feedback"] &&
-                    !loadedSections["general-feedback"] && (
-                      <div className="mt-4 rounded-lg border border-border bg-background/60 p-4 text-sm text-muted-foreground">
-                        The form is taking longer than expected to load.{" "}
-                        <a
-                          href={generalFeedbackUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary underline underline-offset-2 hover:underline"
-                        >
-                          Open the form in a new tab
-                        </a>
-                        .
-                      </div>
-                    )}
-                </div>
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+                  Open the form in a new tab
+                </a>
+                <ExternalLink
+                  className="ml-0.5 inline-block h-3 w-3 opacity-60"
+                  aria-hidden="true"
+                />
+                .
+              </div>
+            )}
+          </div>
+        </section>
+      </article>
     </PageShell>
   );
 }
