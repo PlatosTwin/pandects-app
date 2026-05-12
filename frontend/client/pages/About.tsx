@@ -22,6 +22,15 @@ import { formatDateValue } from "@/lib/format-utils";
 import { Link } from "react-router-dom";
 
 const docsUrl = "https://docs.pandects.org/docs/guides/getting-started";
+const ssrnUrl =
+  "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6653778";
+const pandectsBibtex = String.raw`@article{Bogdanov2026Pandects,
+  author  = {Bogdanov, Nikita},
+  title   = {Pandects: An Open-Source Database of Publicly Filed M\&A Agreements},
+  journal = {SSRN Electronic Journal},
+  year    = {2026},
+  url     = {https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6653778}
+}`;
 
 function A11ySymbol(props: SVGProps<SVGSVGElement>) {
   return (
@@ -497,6 +506,50 @@ export default function About() {
                 Josh Carty (early help and brainstorming).
               </dd>
             </dl>
+          </section>
+
+          <section
+            id="cite-pandects"
+            className="scroll-mt-24 pt-12"
+            aria-labelledby="cite-pandects-heading"
+          >
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
+                04
+              </span>
+              <h2
+                id="cite-pandects-heading"
+                className="text-2xl font-semibold tracking-tight text-foreground"
+              >
+                Cite Pandects
+              </h2>
+            </div>
+
+            <p className="prose-copy mt-6">
+              If you use Pandects in academic work, please cite:
+            </p>
+            <p className="prose-copy mt-3">
+              Bogdanov, Nikita.{" "}
+              <em>
+                Pandects: An Open-Source Database of Publicly Filed M&amp;A
+                Agreements
+              </em>
+              . 2026. Available at SSRN:{" "}
+              <a
+                href={ssrnUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Pandects SSRN paper (opens in a new tab)"
+                className="underline underline-offset-2"
+              >
+                {ssrnUrl}
+                {extIcon}
+              </a>
+              .
+            </p>
+            <pre className="mt-4 overflow-x-auto rounded-lg border border-border bg-card p-4 text-xs leading-5 text-foreground">
+              <code>{pandectsBibtex}</code>
+            </pre>
           </section>
         </article>
       </div>
