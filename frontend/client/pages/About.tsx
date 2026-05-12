@@ -1,31 +1,92 @@
-import { useEffect, useState } from "react";
 import {
-  Accessibility,
+  ArrowRight,
+  BookOpen,
   CalendarClock,
   Cpu,
   ExternalLink,
   FileCode2,
-  Github,
+  FileText,
   LineChart,
+  Layers,
   ListTree,
   Plug,
   Search,
   Shield,
   Tags,
 } from "lucide-react";
+import type { SVGProps } from "react";
 import { PageShell } from "@/components/PageShell";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAgreementSummary } from "@/hooks/use-agreement-summary";
+import { formatDateValue } from "@/lib/format-utils";
+import { Link } from "react-router-dom";
 
 const docsUrl = "https://docs.pandects.org/docs/guides/getting-started";
 
-const SECTION_IDS = ["overview", "contributing", "credits"] as const;
-type SectionId = (typeof SECTION_IDS)[number];
+function A11ySymbol(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="7" r="1" />
+      <path d="M7.5 10h9" />
+      <path d="M12 10v3.5" />
+      <path d="m9.5 18 2.5-4.5 2.5 4.5" />
+    </svg>
+  );
+}
 
 const quickFacts = [
-  { icon: CalendarClock, eyebrow: "Cadence", value: "Monthly refresh" },
-  { icon: FileCode2, eyebrow: "Format", value: "XML + taxonomy" },
-  { icon: Plug, eyebrow: "Access", value: "Free API + MCP" },
-  { icon: Github, eyebrow: "Source", value: "Open source" },
+  {
+    icon: FileText,
+    eyebrow: "Coverage",
+    value: "Definitive merger agreements",
+  },
+  {
+    icon: FileCode2,
+    eyebrow: "Structure",
+    value: "XML",
+  },
+  {
+    icon: Plug,
+    eyebrow: "Access",
+    value: "UI Search, API, MCP, bulk",
+  },
+  {
+    icon: CalendarClock,
+    eyebrow: "Cadence",
+    value: "Monthly refresh",
+  },
 ];
+
+const corpusMetrics = [
+  {
+    key: "agreements",
+    icon: FileText,
+    label: "Agreements",
+    detail: "Ingested",
+  },
+  {
+    key: "sections",
+    icon: Layers,
+    label: "Sections",
+    detail: "Indexed",
+  },
+  {
+    key: "pages",
+    icon: BookOpen,
+    label: "Pages",
+    detail: "Parsed",
+  },
+] as const;
 
 const helpAreas = [
   {
@@ -34,7 +95,7 @@ const helpAreas = [
     description: "Including OAuth flow reviews.",
   },
   {
-    icon: Accessibility,
+    icon: A11ySymbol,
     title: "Accessibility",
     description: "Keyboard, focus, contrast.",
   },
@@ -74,12 +135,6 @@ const roadmapItems: {
   },
 ];
 
-const tocItems: { id: SectionId; label: string }[] = [
-  { id: "overview", label: "01 · Overview" },
-  { id: "contributing", label: "02 · Contributing" },
-  { id: "credits", label: "03 · Credits" },
-];
-
 const extIcon = (
   <ExternalLink
     className="ml-0.5 inline-block h-3 w-3 align-baseline opacity-60"
@@ -88,46 +143,23 @@ const extIcon = (
 );
 
 export default function About() {
-  const [activeId, setActiveId] = useState<SectionId>("overview");
-
-  useEffect(() => {
-    const elements = SECTION_IDS.map((id) =>
-      document.getElementById(id),
-    ).filter((el): el is HTMLElement => el !== null);
-
-    if (elements.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const intersecting = entries.filter((e) => e.isIntersecting);
-        if (intersecting.length === 0) return;
-        const topmost = intersecting.reduce((a, b) =>
-          a.boundingClientRect.top < b.boundingClientRect.top ? a : b,
-        );
-        setActiveId(topmost.target.id as SectionId);
-      },
-      { threshold: [0, 0.25, 0.5] },
-    );
-
-    elements.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
+  const {
+    summary,
+    isLoading: summaryLoading,
+    error: summaryError,
+  } = useAgreementSummary();
+  const latestFilingDate =
+    summary?.latest_filing_date && !summaryError
+      ? formatDateValue(summary.latest_filing_date)
+      : null;
+  const coverageValue = latestFilingDate
+    ? `Jan. 1, 2000 - ${latestFilingDate}`
+    : "Since Jan. 1, 2000";
 
   return (
-    <PageShell size="xl" title="About">
-      <div className="lg:grid lg:grid-cols-[1fr_180px] lg:gap-12">
+    <PageShell size="lg" title="About">
+      <div className="w-full">
         <article>
-          <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              PROJECT · ABOUT
-            </div>
-            <p className="mt-3 text-lg text-muted-foreground max-w-[68ch]">
-              An open-source M&amp;A research platform — XML, taxonomy, API,
-              and MCP server over definitive merger agreements.
-            </p>
-            <div className="mt-6 h-px w-12 bg-primary/70" />
-          </div>
-
           <section
             id="overview"
             className="scroll-mt-24 first:pt-0 pt-12"
@@ -145,7 +177,7 @@ export default function About() {
               </h2>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {quickFacts.map(({ icon: Icon, eyebrow, value }) => (
                 <div
                   key={eyebrow}
@@ -155,14 +187,71 @@ export default function About() {
                   <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     {eyebrow}
                   </div>
-                  <div className="text-sm font-medium text-foreground mt-1">
-                    {value}
+                  <div className="mt-1 text-sm font-medium leading-5 text-foreground">
+                    {eyebrow === "Coverage" ? coverageValue : value}
                   </div>
                 </div>
               ))}
             </div>
 
-            <p className="prose prose-copy max-w-[68ch] mt-6">
+            <div className="mt-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="max-w-2xl">
+                  <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                    Agreement Index
+                  </div>
+                  <p className="mt-1 text-sm prose-copy">
+                    Browse the corpus by year, party, and processing status.
+                  </p>
+                </div>
+                <Link
+                  to="/agreement-index"
+                  className="inline-flex w-fit items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/50 hover:bg-primary/15"
+                >
+                  Browse the index
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </div>
+
+              {!summaryError && (
+                <div
+                  className="mt-4 grid gap-3 md:grid-cols-3"
+                  aria-busy={summaryLoading}
+                  aria-live="polite"
+                >
+                  {corpusMetrics.map(({ key, icon: Icon, label, detail }) => (
+                    <div
+                      key={key}
+                      className="flex min-h-[5.5rem] items-center gap-3 rounded-md border border-border bg-background/80 p-3"
+                    >
+                      <div className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          {label}
+                        </div>
+                        <div className="flex min-h-7 items-center text-xl font-semibold tabular-nums text-foreground">
+                          {summaryLoading ? (
+                            <>
+                              <Skeleton className="h-6 w-20" />
+                              <span className="sr-only">Loading {label}</span>
+                            </>
+                          ) : (
+                            (summary?.[key] ?? 0).toLocaleString("en-US")
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {detail}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p className="prose-copy mt-6">
               Pandects is an <strong>open-source M&A research platform</strong>{" "}
               built to make it easier to browse and analyze sections across
               definitive merger agreements. Unlike other corpora, we update our
@@ -174,7 +263,7 @@ export default function About() {
               comprehensive taxonomy, and enrich each deal with detailed
               metadata.
             </p>
-            <p className="prose prose-copy max-w-[68ch] mt-4">
+            <p className="prose-copy mt-4">
               While we expose a web-based search interface, the real power of
               the Pandects platform lies in the <strong>API </strong>and
               associated <strong>MCP server</strong>. By creating a free
@@ -237,7 +326,7 @@ export default function About() {
               </h2>
             </div>
 
-            <p className="prose prose-copy max-w-[68ch] mt-6">
+            <p className="prose-copy mt-6">
               This is an open-source project, and contributions are welcome.
               See the{" "}
               <a
@@ -410,27 +499,6 @@ export default function About() {
             </dl>
           </section>
         </article>
-
-        <aside className="hidden lg:block">
-          <nav className="sticky top-24 text-xs">
-            {tocItems.map(({ id, label }) => {
-              const active = activeId === id;
-              return (
-                <a
-                  key={id}
-                  href={`#${id}`}
-                  className={
-                    active
-                      ? "block py-1 transition-colors text-primary font-medium border-l-2 border-primary pl-2 -ml-2"
-                      : "block py-1 text-muted-foreground hover:text-foreground transition-colors"
-                  }
-                >
-                  {label}
-                </a>
-              );
-            })}
-          </nav>
-        </aside>
       </div>
     </PageShell>
   );

@@ -11,6 +11,7 @@ from flask import Flask, Response, abort, current_app, g, jsonify, request
 from flask.views import MethodView
 from flask_smorest import Blueprint
 from sqlalchemy import and_, asc, bindparam, desc, func, or_, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from backend.counsel_leaderboards import build_counsel_leaderboards_from_summary_rows
 from backend.filtering import (
@@ -1829,19 +1830,42 @@ def register_agreements_routes(
                 """
             )
         ).mappings().first()
+        try:
+            overview_row = db.session.execute(
+                text(
+                    f"""
+                    SELECT latest_filing_date
+                    FROM {deps._schema_prefix()}agreement_overview_summary
+                    LIMIT 1
+                    """
+                )
+            ).mappings().first()
+        except SQLAlchemyError:
+            overview_row = None
 
         row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
-        payload: dict[str, int] = {
+        overview_row_dict = (
+            deps._row_mapping_as_dict(cast(object, overview_row))
+            if overview_row is not None
+            else {}
+        )
+        latest_filing_date = overview_row_dict.get("latest_filing_date")
+        if isinstance(latest_filing_date, (date, datetime)):
+            latest_filing_date = latest_filing_date.isoformat()
+        elif latest_filing_date is not None:
+            latest_filing_date = str(latest_filing_date)
+        payload: dict[str, object] = {
             "agreements": deps._to_int(cast(object, row_dict.get("agreements"))),
             "sections": deps._to_int(cast(object, row_dict.get("sections"))),
             "pages": deps._to_int(cast(object, row_dict.get("pages"))),
+            "latest_filing_date": latest_filing_date,
         }
         with deps._agreements_summary_lock:
             deps._agreements_summary_cache["payload"] = payload
             deps._agreements_summary_cache["ts"] = now
 
         return _cacheable_json_response(
-            cast(dict[str, object], payload),
+            payload,
             max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
         )
 
