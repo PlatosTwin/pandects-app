@@ -671,6 +671,52 @@ def extract_body_page_uuid_article_map(root: ET.Element) -> Dict[str, Tuple[int,
     }
 
 
+def article_number_from_title(title: str) -> int | None:
+    """Public alias for parsing the leading article number from a title string."""
+    return _extract_article_number(title)
+
+
+def section_heading_first_page_uuid(
+    root: ET.Element,
+    *,
+    article_num: int,
+    section_num: int,
+) -> str | None:
+    """First pageUUID inside the body's `(article_num, section_num)` section, or
+    None if no section in that article carries that section number."""
+    body = root.find("body")
+    if body is None:
+        return None
+    for article_elem in [child for child in list(body) if child.tag == "article"]:
+        if _extract_article_number_from_elem(article_elem) != article_num:
+            continue
+        for section_elem in [child for child in list(article_elem) if child.tag == "section"]:
+            parsed = _extract_section_numbers(section_elem.attrib.get("title", ""))
+            if parsed != (article_num, section_num):
+                continue
+            page_uuids = _collect_page_uuids(section_elem)
+            return page_uuids[0] if page_uuids else None
+    return None
+
+
+def article_heading_first_page_uuid(
+    root: ET.Element,
+    *,
+    article_num: int,
+) -> str | None:
+    """First pageUUID inside the body's article element for `article_num`, or
+    None if the article isn't present."""
+    body = root.find("body")
+    if body is None:
+        return None
+    for article_elem in [child for child in list(body) if child.tag == "article"]:
+        if _extract_article_number_from_elem(article_elem) != article_num:
+            continue
+        page_uuids = _collect_page_uuids(article_elem)
+        return page_uuids[0] if page_uuids else None
+    return None
+
+
 def toc_consistent_article_numbers(root: ET.Element) -> set[int]:
     toc_sequences = extract_toc_section_sequences(root)
     body_sequences = extract_body_section_sequences(root)

@@ -27,16 +27,20 @@ import time
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.defs.resources import AIRepairAttemptPriority
 from etl.defs.f_xml_asset import (
+    SECTION_NONSEQ_DETAIL_RE,
     XML_REASON_BODY_STARTS_NON_ARTICLE,
     XML_REASON_FIRST_ARTICLE_NOT_ONE,
     XML_REASON_SECTION_ARTICLE_MISMATCH,
     XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
+    article_heading_first_page_uuid,
+    article_number_from_title,
     extract_body_page_uuid_article_map,
     ingestion_cleanup_a_xml_verify_asset,
     extract_toc_section_sequences,
     regular_ingest_xml_verify_asset,
+    section_heading_first_page_uuid,
 )
 from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.pipeline_state_sql import canonical_ai_repair_enqueue_queue_sql
@@ -93,6 +97,7 @@ XML_REASON_LLM_SOURCE_TEXT_BYPASS = "llm_source_text_hard_rule_bypass"
 SOURCE_TEXT_BYPASS_CONFIDENCE_THRESHOLD = 0.90
 SOURCE_VERDICT_MAX_FLAGGED_PAGES = 4
 SOURCE_VERDICT_MAX_CONTEXT_PAGES = 9
+SOURCE_VERDICT_FALLBACK_CONTEXT_RADIUS = 3
 _ALLOWED_FULL_MODE_TAGS: Tuple[str, ...] = (
     "<article>",
     "</article>",
@@ -472,6 +477,67 @@ def _fetch_candidates(
     return selected_page_rows
 
 
+def _parse_section_non_sequential_gaps(
+    reason_rows: List[Dict[str, Any]],
+) -> List[Tuple[int, int, int]]:
+    """Return `(article_num, expected_section_num, found_section_num)` tuples
+    parsed from `section_non_sequential` reason_detail strings."""
+    gaps: List[Tuple[int, int, int]] = []
+    for row in reason_rows:
+        if row.get("reason_code") != XML_REASON_SECTION_NON_SEQUENTIAL:
+            continue
+        detail = row.get("reason_detail")
+        if not isinstance(detail, str):
+            continue
+        match = SECTION_NONSEQ_DETAIL_RE.search(detail)
+        if match is None:
+            continue
+        article_num = article_number_from_title(match.group("title").strip("'"))
+        if article_num is None:
+            continue
+        gaps.append(
+            (article_num, int(match.group("expected")), int(match.group("found")))
+        )
+    return gaps
+
+
+def _bounding_page_uuids_for_gaps(
+    xml_text: str,
+    gaps: List[Tuple[int, int, int]],
+) -> Tuple[List[str], bool]:
+    """For each `(article, expected, found)` gap, locate the heading page of
+    the last-correct section (expected-1, falling back to the article heading)
+    and the heading page of the found section. Returns the merged list of
+    distinct page_uuids plus a flag set when every gap's bounds were resolved."""
+    if not gaps or not xml_text.strip():
+        return [], False
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return [], False
+    bounding: List[str] = []
+    seen: Set[str] = set()
+    all_resolved = True
+    for article_num, expected, found in gaps:
+        if expected > 1:
+            lower = section_heading_first_page_uuid(
+                root, article_num=article_num, section_num=expected - 1
+            )
+        else:
+            lower = article_heading_first_page_uuid(root, article_num=article_num)
+        upper = section_heading_first_page_uuid(
+            root, article_num=article_num, section_num=found
+        )
+        if lower is None or upper is None:
+            all_resolved = False
+        for page_uuid in (lower, upper):
+            if page_uuid is None or page_uuid in seen:
+                continue
+            seen.add(page_uuid)
+            bounding.append(page_uuid)
+    return bounding, all_resolved
+
+
 def _fetch_source_verdict_candidates(
     conn: Connection,
     schema: str,
@@ -697,16 +763,69 @@ def _fetch_source_verdict_candidates(
     if not ranked_agreements:
         return []
 
+    xml_text_by_agreement = _fetch_latest_xml_text_by_agreement(
+        conn, schema, agreement_uuids=ranked_agreements
+    )
+    bounding_page_uuids_by_agreement: Dict[str, List[str]] = {}
+    bounds_resolved_by_agreement: Dict[str, bool] = {}
+    for agreement_uuid in ranked_agreements:
+        gaps = _parse_section_non_sequential_gaps(
+            reasons_by_agreement.get(agreement_uuid, [])
+        )
+        bounding_uuids, resolved = _bounding_page_uuids_for_gaps(
+            xml_text_by_agreement.get(agreement_uuid, ""),
+            gaps,
+        )
+        # Bounds only count as "resolved" when there were gaps to resolve in
+        # the first place — agreements with no parseable non-sequential gaps
+        # (e.g. mismatch-only) fall through to the radius fallback below.
+        bounding_page_uuids_by_agreement[agreement_uuid] = bounding_uuids
+        bounds_resolved_by_agreement[agreement_uuid] = bool(gaps) and resolved
+
+    bounding_page_uuid_pool: Set[str] = set()
+    for page_uuids in bounding_page_uuids_by_agreement.values():
+        bounding_page_uuid_pool.update(page_uuids)
+    bounding_orders_by_agreement: Dict[str, Set[int]] = {}
+    if bounding_page_uuid_pool:
+        bounding_rows = (
+            conn.execute(
+                text(
+                    f"""
+                    SELECT agreement_uuid, page_uuid, page_order
+                    FROM {pages_table}
+                    WHERE page_uuid IN :pids
+                    """
+                ).bindparams(bindparam("pids", expanding=True)),
+                {"pids": sorted(bounding_page_uuid_pool)},
+            )
+            .mappings()
+            .fetchall()
+        )
+        for row in bounding_rows:
+            bounding_orders_by_agreement.setdefault(
+                str(row["agreement_uuid"]), set()
+            ).add(int(row["page_order"]))
+
     context_orders_by_agreement: Dict[str, Set[int]] = {}
     for agreement_uuid in ranked_agreements:
-        context_orders: Set[int] = set()
-        for page_order in target_orders_by_agreement[agreement_uuid]:
-            context_orders.update({page_order - 1, page_order, page_order + 1})
+        target_orders = target_orders_by_agreement[agreement_uuid]
+        bounding_orders = bounding_orders_by_agreement.get(agreement_uuid, set())
+        all_resolved = bounds_resolved_by_agreement.get(agreement_uuid, False)
+        if all_resolved and bounding_orders:
+            anchor_orders = target_orders | bounding_orders
+            context_orders = set(range(min(anchor_orders), max(anchor_orders) + 1))
+        else:
+            context_orders = set()
+            for page_order in target_orders:
+                for delta in range(
+                    -SOURCE_VERDICT_FALLBACK_CONTEXT_RADIUS,
+                    SOURCE_VERDICT_FALLBACK_CONTEXT_RADIUS + 1,
+                ):
+                    context_orders.add(page_order + delta)
+        context_orders = {page_order for page_order in context_orders if page_order > 0}
         if len(context_orders) > SOURCE_VERDICT_MAX_CONTEXT_PAGES:
             continue
-        context_orders_by_agreement[agreement_uuid] = {
-            page_order for page_order in context_orders if page_order > 0
-        }
+        context_orders_by_agreement[agreement_uuid] = context_orders
 
     if not context_orders_by_agreement:
         return []
