@@ -1408,7 +1408,16 @@ export default function SourcesMethods() {
                 filings that are sufficiently similar to bona fide filings,
                 assumes they are from legitimate M&A deals, and then fills in
                 deal metadata after the fact. This means that we might pull in
-                some filings that are not properly M&A agreements.
+                some filings that are not properly M&A agreements. This also
+                means that the deal universe from 2000 through 2020 may not be
+                comparable to the deal universe from 2021 onwards.
+              </li>
+              <li>
+                We source all deal metadata via OpenAI enabled with the
+                web-search tool. While we've built in some validations, we have
+                no way of validating metadata at scale, meaning that
+                consideration types and totals, industry values, and other
+                derived metadata may contain errors.
               </li>
               <li>
                 We apply our taxonomy at the <em>section</em> level, meaning
@@ -1457,7 +1466,7 @@ export default function SourcesMethods() {
             </h2>
             <p className="prose-copy">
               Validation happens at several points in the pipeline rather than
-              in a single end-of-run review step. In practice, we use four
+              in a single end-of-run review step. In practice, we use five
               checks:
             </p>
             <ol className="list-decimal ml-6 space-y-4 prose-copy">
@@ -1498,6 +1507,23 @@ export default function SourcesMethods() {
                   LLM for full-page repair. Those repairs are reconciled back
                   into the tagged text, XML is rebuilt, and the rebuilt XML is
                   verified again.
+                </div>
+              </li>
+              <li className="space-y-2">
+                <div>
+                  <strong>Deal metadata:</strong> We require deal metadata to
+                  pass certain baseline checks—response JSON must contain the
+                  expected fields; enum, boolean, date, price, and NAICS values
+                  must use the expected formats; consideration type must be
+                  internally consistent with the cash, stock, and asset
+                  components; close dates cannot precede announcement dates
+                  unless the target-public-company exception applies; completed
+                  deals must have close dates and pending deals must not; each
+                  non-null core output field must have a valid citation; and
+                  non-USD price notes require all purchase-price fields to be
+                  null. Note, however, that these are basic validations that are
+                  designed to catch internal inconsistencies and impossibilities,
+                  rather than to ensure complete metadata accuracy.
                 </div>
               </li>
             </ol>
