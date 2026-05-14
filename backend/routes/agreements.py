@@ -19,6 +19,7 @@ from backend.filtering import (
     build_transaction_price_bucket_filter,
 )
 from backend.routes.deps import AgreementsDeps
+from backend.search_counts import count_metadata_payload, search_total_count_metadata
 from backend.summary_specs import METADATA_FIELD_COVERAGE_CONFIG
 from backend.schemas.public_api import (
     AgreementArgsPayload,
@@ -97,6 +98,10 @@ def _build_agreement_search_match_query(
     latest = deps.LatestSectionsSearch
 
     years = parsed_args["year"]
+    year_min = parsed_args["year_min"]
+    year_max = parsed_args["year_max"]
+    filed_after = parsed_args["filed_after"]
+    filed_before = parsed_args["filed_before"]
     targets = parsed_args["target"]
     acquirers = parsed_args["acquirer"]
     standard_ids = parsed_args["standard_id"]
@@ -144,6 +149,15 @@ def _build_agreement_search_match_query(
             for year in years
         )
         q = q.filter(or_(*year_filters))
+
+    if year_min is not None:
+        q = q.filter(latest.filing_date >= f"{year_min:04d}-01-01")
+    if year_max is not None:
+        q = q.filter(latest.filing_date < f"{year_max + 1:04d}-01-01")
+    if filed_after:
+        q = q.filter(latest.filing_date >= filed_after)
+    if filed_before:
+        q = q.filter(latest.filing_date < filed_before)
 
     if targets:
         q = q.filter(latest.target.in_(targets))
@@ -261,6 +275,40 @@ def _strip_xml_snippet(xml_value: object, *, max_chars: int = 220) -> str | None
     return f"{normalized[: max_chars - 1].rstrip()}…"
 
 
+def _sections_search_has_filters(parsed_args: SectionsArgsPayload) -> bool:
+    return any(
+        (
+            parsed_args["year"],
+            parsed_args["year_min"] is not None,
+            parsed_args["year_max"] is not None,
+            parsed_args["filed_after"],
+            parsed_args["filed_before"],
+            parsed_args["target"],
+            parsed_args["acquirer"],
+            parsed_args["standard_id"],
+            parsed_args["transaction_price_total"],
+            parsed_args["transaction_price_stock"],
+            parsed_args["transaction_price_cash"],
+            parsed_args["transaction_price_assets"],
+            parsed_args["transaction_consideration"],
+            parsed_args["target_type"],
+            parsed_args["acquirer_type"],
+            parsed_args["target_counsel"],
+            parsed_args["acquirer_counsel"],
+            parsed_args["target_industry"],
+            parsed_args["acquirer_industry"],
+            parsed_args["deal_status"],
+            parsed_args["attitude"],
+            parsed_args["deal_type"],
+            parsed_args["purpose"],
+            parsed_args["target_pe"],
+            parsed_args["acquirer_pe"],
+            parsed_args["agreement_uuid"] and parsed_args["agreement_uuid"].strip(),
+            parsed_args["section_uuid"] and parsed_args["section_uuid"].strip(),
+        )
+    )
+
+
 def _apply_agreement_metadata_filters(
     q: Any,
     *,
@@ -272,6 +320,10 @@ def _apply_agreement_metadata_filters(
     parsed_args: SectionsArgsPayload | AgreementsBulkArgsPayload,
 ) -> Any:
     years = parsed_args["year"]
+    year_min = parsed_args.get("year_min")
+    year_max = parsed_args.get("year_max")
+    filed_after = parsed_args.get("filed_after")
+    filed_before = parsed_args.get("filed_before")
     targets = parsed_args["target"]
     acquirers = parsed_args["acquirer"]
     transaction_price_totals = parsed_args["transaction_price_total"]
@@ -303,6 +355,15 @@ def _apply_agreement_metadata_filters(
             for year in years
         )
         q = q.filter(or_(*year_filters))
+
+    if isinstance(year_min, int):
+        q = q.filter(agreements.filing_date >= f"{year_min:04d}-01-01")
+    if isinstance(year_max, int):
+        q = q.filter(agreements.filing_date < f"{year_max + 1:04d}-01-01")
+    if isinstance(filed_after, str) and filed_after:
+        q = q.filter(agreements.filing_date >= filed_after)
+    if isinstance(filed_before, str) and filed_before:
+        q = q.filter(agreements.filing_date < filed_before)
 
     if targets:
         q = q.filter(agreements.target.in_(targets))
@@ -914,6 +975,8 @@ def register_agreements_routes(
             max_page_size = 100 if ctx.is_authenticated else 10
             if page_size < 1 or page_size > max_page_size:
                 page_size = min(25, max_page_size)
+            count_mode = parsed_args["count_mode"]
+            has_filters = _sections_search_has_filters(parsed_args)
 
             clause_context_requested = bool(
                 parsed_args["standard_id"] or (
@@ -923,36 +986,7 @@ def register_agreements_routes(
 
             if not clause_context_requested:
                 direct_query = (
-                    db.session.query(
-                        agreements.agreement_uuid.label("agreement_uuid"),
-                        deps._agreement_year_expr().label("year"),
-                        agreements.target.label("target"),
-                        agreements.acquirer.label("acquirer"),
-                        agreements.filing_date.label("filing_date"),
-                        agreements.prob_filing.label("prob_filing"),
-                        agreements.filing_company_name.label("filing_company_name"),
-                        agreements.filing_company_cik.label("filing_company_cik"),
-                        agreements.form_type.label("form_type"),
-                        agreements.exhibit_type.label("exhibit_type"),
-                        agreements.transaction_price_total.label("transaction_price_total"),
-                        agreements.transaction_price_stock.label("transaction_price_stock"),
-                        agreements.transaction_price_cash.label("transaction_price_cash"),
-                        agreements.transaction_price_assets.label("transaction_price_assets"),
-                        agreements.transaction_consideration.label("transaction_consideration"),
-                        agreements.target_type.label("target_type"),
-                        agreements.acquirer_type.label("acquirer_type"),
-                        agreements.target_industry.label("target_industry"),
-                        agreements.acquirer_industry.label("acquirer_industry"),
-                        agreements.announce_date.label("announce_date"),
-                        agreements.close_date.label("close_date"),
-                        agreements.deal_status.label("deal_status"),
-                        agreements.attitude.label("attitude"),
-                        agreements.deal_type.label("deal_type"),
-                        agreements.purpose.label("purpose"),
-                        agreements.target_pe.label("target_pe"),
-                        agreements.acquirer_pe.label("acquirer_pe"),
-                        agreements.url.label("url"),
-                    )
+                    db.session.query(agreements.agreement_uuid.label("agreement_uuid"))
                     .join(xml, deps._agreement_latest_xml_join_condition())
                     .filter(_agreement_is_public_eligible_expr(agreements))
                 )
@@ -991,8 +1025,17 @@ def register_agreements_routes(
                 )
                 has_next = len(page_rows_raw) > page_size
                 page_rows = page_rows_raw[:page_size]
-                total_count = deps._to_int(direct_query.order_by(None).count())
-                total_count_is_approximate = False
+                total_count, total_count_is_approximate, count_method = search_total_count_metadata(
+                    deps,
+                    query=direct_query,
+                    page=page,
+                    page_size=page_size,
+                    item_count=len(page_rows),
+                    has_next=has_next,
+                    has_filters=has_filters,
+                    count_mode=count_mode,
+                    estimated_query_row_count_fn=deps._estimated_query_row_count,
+                )
 
                 meta = deps._pagination_metadata(
                     total_count=total_count,
@@ -1002,12 +1045,65 @@ def register_agreements_routes(
                     total_count_is_approximate=total_count_is_approximate,
                 )
 
+                agreement_ids = [
+                    agreement_id
+                    for row in page_rows
+                    for agreement_id in [
+                        deps._row_mapping_as_dict(cast(object, row)).get("agreement_uuid")
+                    ]
+                    if isinstance(agreement_id, str)
+                ]
+                agreement_details_by_id: dict[str, dict[str, object]] = {}
+                if agreement_ids:
+                    detail_rows = cast(
+                        list[object],
+                        db.session.query(
+                            agreements.agreement_uuid.label("agreement_uuid"),
+                            deps._agreement_year_expr().label("year"),
+                            agreements.target.label("target"),
+                            agreements.acquirer.label("acquirer"),
+                            agreements.filing_date.label("filing_date"),
+                            agreements.prob_filing.label("prob_filing"),
+                            agreements.filing_company_name.label("filing_company_name"),
+                            agreements.filing_company_cik.label("filing_company_cik"),
+                            agreements.form_type.label("form_type"),
+                            agreements.exhibit_type.label("exhibit_type"),
+                            agreements.transaction_price_total.label("transaction_price_total"),
+                            agreements.transaction_price_stock.label("transaction_price_stock"),
+                            agreements.transaction_price_cash.label("transaction_price_cash"),
+                            agreements.transaction_price_assets.label("transaction_price_assets"),
+                            agreements.transaction_consideration.label("transaction_consideration"),
+                            agreements.target_type.label("target_type"),
+                            agreements.acquirer_type.label("acquirer_type"),
+                            agreements.target_industry.label("target_industry"),
+                            agreements.acquirer_industry.label("acquirer_industry"),
+                            agreements.announce_date.label("announce_date"),
+                            agreements.close_date.label("close_date"),
+                            agreements.deal_status.label("deal_status"),
+                            agreements.attitude.label("attitude"),
+                            agreements.deal_type.label("deal_type"),
+                            agreements.purpose.label("purpose"),
+                            agreements.target_pe.label("target_pe"),
+                            agreements.acquirer_pe.label("acquirer_pe"),
+                            agreements.url.label("url"),
+                        )
+                        .filter(agreements.agreement_uuid.in_(agreement_ids))
+                        .all(),
+                    )
+                    for row in detail_rows:
+                        row_map = deps._row_mapping_as_dict(cast(object, row))
+                        agreement_id = row_map.get("agreement_uuid")
+                        if isinstance(agreement_id, str):
+                            agreement_details_by_id[agreement_id] = row_map
+
                 results = []
-                for row in page_rows:
-                    row_map = deps._row_mapping_as_dict(cast(object, row))
+                for agreement_id in agreement_ids:
+                    row_map = agreement_details_by_id.get(agreement_id)
+                    if row_map is None:
+                        continue
                     results.append(
                         {
-                            "agreement_uuid": row_map.get("agreement_uuid"),
+                            "agreement_uuid": agreement_id,
                             "year": row_map.get("year"),
                             "target": row_map.get("target"),
                             "acquirer": row_map.get("acquirer"),
@@ -1048,6 +1144,11 @@ def register_agreements_routes(
                         if ctx.is_authenticated
                         else "Sign in to view full agreement text and unlock higher page sizes.",
                     },
+                    "count_metadata": count_metadata_payload(
+                        total_count_is_approximate=total_count_is_approximate,
+                        count_method=count_method,
+                        exact_count_requested=count_mode == "exact",
+                    ),
                     **meta,
                 }
 
@@ -1091,8 +1192,17 @@ def register_agreements_routes(
             )
             has_next = len(page_rows_raw) > page_size
             page_rows = page_rows_raw[:page_size]
-            total_count = deps._to_int(aggregated_query.order_by(None).count())
-            total_count_is_approximate = False
+            total_count, total_count_is_approximate, count_method = search_total_count_metadata(
+                deps,
+                query=aggregated_query,
+                page=page,
+                page_size=page_size,
+                item_count=len(page_rows),
+                has_next=has_next,
+                has_filters=has_filters,
+                count_mode=count_mode,
+                estimated_query_row_count_fn=deps._estimated_query_row_count,
+            )
 
             meta = deps._pagination_metadata(
                 total_count=total_count,
@@ -1265,6 +1375,11 @@ def register_agreements_routes(
                     if ctx.is_authenticated
                     else "Sign in to view full agreement text and unlock higher page sizes.",
                 },
+                "count_metadata": count_metadata_payload(
+                    total_count_is_approximate=total_count_is_approximate,
+                    count_method=count_method,
+                    exact_count_requested=count_mode == "exact",
+                ),
                 **meta,
             }
             dump_version = getattr(g, "dump_version", None)

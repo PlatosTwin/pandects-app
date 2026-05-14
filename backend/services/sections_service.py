@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol, cast
+from typing import cast
 
 from sqlalchemy import text, and_, or_, asc, desc
 from sqlalchemy.exc import SQLAlchemyError
@@ -10,61 +10,16 @@ from backend.filtering import (
     build_transaction_price_bucket_filter,
 )
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
+from backend.search_counts import (
+    count_metadata_payload,
+    estimated_query_row_count as _shared_estimated_query_row_count,
+    search_total_count_metadata,
+)
 from backend.schemas.sections import SectionsArgsPayload
 
 
-class _CompilableStatement(Protocol):
-    def compile(
-        self,
-        *,
-        dialect: object,
-        compile_kwargs: dict[str, object],
-    ) -> object:
-        ...
-
-
-class _StatementQuery(Protocol):
-    def order_by(self, *clauses: object) -> "_StatementQuery":
-        ...
-
-    def count(self) -> object:
-        ...
-
-    @property
-    def statement(self) -> _CompilableStatement:
-        ...
-
-
 def estimated_query_row_count(deps: SectionsServiceDeps, query: object) -> int | None:
-    """Ask the database for an approximate row count when exact counts are too expensive."""
-    if not deps._SEARCH_EXPLAIN_ESTIMATE_ENABLED:
-        return None
-    db = deps.db
-    to_int = deps._to_int
-    bind = db.session.get_bind()
-    if bind.dialect.name == "sqlite":
-        return None
-    try:
-        typed_query = cast(_StatementQuery, query)
-        selectable = typed_query.order_by(None).statement
-        compiled = selectable.compile(
-            dialect=bind.dialect,
-            compile_kwargs={"literal_binds": True},
-        )
-        explain_rows = (
-            db.session.execute(text(f"EXPLAIN {compiled}"))
-            .mappings()
-            .all()
-        )
-    except SQLAlchemyError:
-        return None
-
-    max_rows = 0
-    for explain_row in explain_rows:
-        row_estimate = to_int(explain_row.get("rows"))
-        if row_estimate > max_rows:
-            max_rows = row_estimate
-    return max_rows if max_rows > 0 else None
+    return _shared_estimated_query_row_count(deps, query)
 
 
 def estimated_latest_sections_search_table_rows(deps: SectionsServiceDeps) -> int | None:
@@ -106,42 +61,19 @@ def sections_total_count_metadata(
     has_filters: bool,
     count_mode: str,
 ) -> tuple[int, bool, str]:
-    """Return `(total_count, is_approximate, method)` without forcing exact counts unless requested.
-
-    Filtered searches prefer conservative lower bounds once the user paginates past the
-    first page. Unfiltered searches can fall back to the table-level estimate because the
-    endpoint already reads from a denormalized latest-sections table.
-    """
-    estimated_query_row_count_fn = deps._estimated_query_row_count
-    estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
-    if count_mode == "exact":
-        exact_total = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
-        return exact_total, False, "query_count"
-
-    if has_filters:
-        if page <= 1:
-            exact_total = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
-            return exact_total, False, "query_count"
-
-        exact_total = ((page - 1) * page_size) + item_count
-        if not has_next:
-            return exact_total, False, "query_count"
-
-        minimum_total = exact_total + 1
-        estimate = estimated_query_row_count_fn(query)
-        if estimate is not None:
-            adjusted_estimate = max(minimum_total, estimate)
-            return adjusted_estimate, True, "table_estimate"
-
-        return minimum_total, True, "filtered_lower_bound"
-
-    table_rows = estimated_table_rows_fn()
-    if table_rows is None:
-        table_rows = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
-        total_count = max(item_count, table_rows)
-        return total_count, False, "query_count"
-    total_count = max(item_count, table_rows)
-    return total_count, True, "table_estimate"
+    """Return `(total_count, is_approximate, method)` without fake lower bounds."""
+    return search_total_count_metadata(
+        deps,
+        query=query,
+        page=page,
+        page_size=page_size,
+        item_count=item_count,
+        has_next=has_next,
+        has_filters=has_filters,
+        count_mode=count_mode,
+        estimated_query_row_count_fn=deps._estimated_query_row_count,
+        estimated_table_rows_fn=deps._estimated_latest_sections_search_table_rows,
+    )
 
 
 def _sections_count_metadata_payload(
@@ -150,15 +82,11 @@ def _sections_count_metadata_payload(
     count_method: str,
     exact_count_requested: bool,
 ) -> dict[str, object]:
-    planning_reliability = "high"
-    if total_count_is_approximate:
-        planning_reliability = "medium" if count_method == "table_estimate" else "low"
-    return {
-        "mode": "estimated" if total_count_is_approximate else "exact",
-        "method": count_method,
-        "planning_reliability": planning_reliability,
-        "exact_count_requested": exact_count_requested,
-    }
+    return count_metadata_payload(
+        total_count_is_approximate=total_count_is_approximate,
+        count_method=count_method,
+        exact_count_requested=exact_count_requested,
+    )
 
 
 def _sections_interpretation_payload(

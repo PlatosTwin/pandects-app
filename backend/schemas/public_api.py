@@ -278,6 +278,7 @@ class AgreementSearchResponseSchema(Schema):
     page_size = fields.Int(required=True)
     total_count = fields.Int(required=True)
     total_count_is_approximate = fields.Bool(required=True)
+    count_metadata = fields.Dict()
     total_pages = fields.Int(required=True)
     has_next = fields.Bool(required=True)
     has_prev = fields.Bool(required=True)

@@ -57,6 +57,22 @@ class PaginationAndAccessTests(unittest.TestCase):
         self.assertFalse(meta["has_next"])
         self.assertFalse(meta["has_prev"])
 
+    def test_search_gets_have_higher_rate_limits_for_pagination(self):
+        ctx = backend_app.AccessContext(tier="anonymous")
+        with self.app.test_request_context("/v1/sections?page=42", method="GET"):
+            self.assertEqual(backend_app._rate_limit_for_request(ctx, 60), 300)
+        with self.app.test_request_context("/v1/search/agreements?page=42", method="GET"):
+            self.assertEqual(backend_app._rate_limit_for_request(ctx, 60), 300)
+        with self.app.test_request_context("/v1/tax-clauses?page=42", method="GET"):
+            self.assertEqual(backend_app._rate_limit_for_request(ctx, 60), 300)
+
+    def test_non_search_rate_limits_stay_unchanged(self):
+        ctx = backend_app.AccessContext(tier="anonymous")
+        with self.app.test_request_context("/v1/auth/me", method="GET"):
+            self.assertEqual(backend_app._rate_limit_for_request(ctx, 60), 60)
+        with self.app.test_request_context("/v1/auth/flag-inaccurate", method="POST"):
+            self.assertEqual(backend_app._rate_limit_for_request(ctx, 60), 60)
+
     def test_csrf_required_cookie_transport(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         with self.app.test_request_context("/v1/auth/logout", method="POST"):

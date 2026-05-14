@@ -208,6 +208,7 @@ class AgreementsDeps:
     _AGREEMENTS_SUMMARY_TTL_SECONDS: int
     _FILTER_OPTIONS_TTL_SECONDS: int
     _SECTION_ID_RE: Pattern[str]
+    _SEARCH_EXPLAIN_ESTIMATE_ENABLED: bool
     _agreement_latest_xml_join_condition: Callable[[], object]
     _agreement_year_expr: Callable[..., Any]
     _agreements_summary_cache: dict[str, Any]

@@ -905,6 +905,27 @@ def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
     return f"anon:{ip}", 60
 
 
+_SEARCH_GET_RATE_LIMITS_BY_TIER = {
+    "anonymous": 300,
+    "user": 600,
+    "api_key": 1200,
+}
+
+_SEARCH_GET_RATE_LIMIT_PATHS = {
+    "/v1/sections",
+    "/v1/search/agreements",
+    "/v1/tax-clauses",
+}
+
+
+def _rate_limit_for_request(ctx: AccessContext, default_per_minute: int) -> int:
+    if request.method != "GET":
+        return default_per_minute
+    if request.path in _SEARCH_GET_RATE_LIMIT_PATHS or request.path.startswith("/v1/filter-options/"):
+        return _SEARCH_GET_RATE_LIMITS_BY_TIER.get(ctx.tier, default_per_minute)
+    return default_per_minute
+
+
 _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
     ("POST", "/v1/auth/flag-inaccurate"): 10,
 }
@@ -996,6 +1017,7 @@ def _check_rate_limit(ctx: AccessContext) -> None:
         return
 
     key, per_minute = _rate_limit_key(ctx)
+    per_minute = _rate_limit_for_request(ctx, per_minute)
     now = time.time()
     window = _RATE_LIMIT_WINDOW_SECONDS
     with _rate_limit_lock:
@@ -1152,7 +1174,9 @@ def _build_tax_clauses_service_deps() -> TaxClausesServiceDeps:
         Counsel=Counsel,
         TaxClauseAssignment=TaxClauseAssignment,
         XML=XML,
+        _SEARCH_EXPLAIN_ESTIMATE_ENABLED=_SEARCH_EXPLAIN_ESTIMATE_ENABLED,
         _to_int=_to_int,
+        _estimated_query_row_count=_estimated_query_row_count,
         _row_mapping_as_dict=_row_mapping_as_dict,
         _pagination_metadata=_pagination_metadata,
         _expand_tax_clause_taxonomy_standard_ids_cached=_expand_tax_clause_taxonomy_standard_ids_cached,
@@ -1186,6 +1210,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _AGREEMENTS_SUMMARY_TTL_SECONDS=_AGREEMENTS_SUMMARY_TTL_SECONDS,
         _FILTER_OPTIONS_TTL_SECONDS=_FILTER_OPTIONS_TTL_SECONDS,
         _SECTION_ID_RE=_SECTION_ID_RE,
+        _SEARCH_EXPLAIN_ESTIMATE_ENABLED=_SEARCH_EXPLAIN_ESTIMATE_ENABLED,
         _agreement_latest_xml_join_condition=_agreement_latest_xml_join_condition,
         _agreement_year_expr=_agreement_year_expr,
         _agreements_summary_cache=cast(

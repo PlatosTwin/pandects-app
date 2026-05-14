@@ -18,6 +18,7 @@ from backend.routes.deps import (
     RowMappingAsDictProtocol,
     ToIntProtocol,
 )
+from backend.search_counts import count_metadata_payload, search_total_count_metadata
 from backend.schemas.tax_clauses import TaxClausesArgsPayload
 
 
@@ -30,7 +31,9 @@ class TaxClausesServiceDeps:
     Counsel: Any
     TaxClauseAssignment: Any
     XML: Any
+    _SEARCH_EXPLAIN_ESTIMATE_ENABLED: bool
     _to_int: ToIntProtocol
+    _estimated_query_row_count: Callable[[object], int | None]
     _row_mapping_as_dict: RowMappingAsDictProtocol
     _pagination_metadata: PaginationMetadataProtocol
     _expand_tax_clause_taxonomy_standard_ids_cached: Callable[
@@ -245,9 +248,17 @@ def run_tax_clauses(
         if isinstance(value, str):
             clause_uuids.append(value)
 
-    total_count = deps._to_int(q.order_by(None).count())
-    total_count_is_approximate = False
-    count_method = "query_count"
+    total_count, total_count_is_approximate, count_method = search_total_count_metadata(
+        deps,
+        query=q,
+        page=page,
+        page_size=page_size,
+        item_count=item_count,
+        has_next=has_next,
+        has_filters=_tax_clauses_has_filters(parsed_args),
+        count_mode=count_mode,
+        estimated_query_row_count_fn=deps._estimated_query_row_count,
+    )
 
     details_by_uuid: dict[str, dict[str, object]] = {}
     assignments_by_uuid: dict[str, list[str]] = {}
@@ -293,7 +304,9 @@ def run_tax_clauses(
         )
         for clause_uuid_value, standard_id_value in assignment_rows:
             if isinstance(clause_uuid_value, str) and isinstance(standard_id_value, str):
-                assignments_by_uuid.setdefault(clause_uuid_value, []).append(standard_id_value)
+                assignments_by_uuid.setdefault(clause_uuid_value, []).append(
+                    standard_id_value
+                )
 
     meta = pagination_metadata(
         total_count=total_count,
@@ -320,7 +333,9 @@ def run_tax_clauses(
                 "anchor_label": detail.get("anchor_label"),
                 "context_type": detail.get("context_type"),
                 "source_method": detail.get("source_method"),
-                "tax_standard_ids": sorted(set(assignments_by_uuid.get(clause_uuid_value, []))),
+                "tax_standard_ids": sorted(
+                    set(assignments_by_uuid.get(clause_uuid_value, []))
+                ),
                 "year": year_from_filing_date(detail.get("filing_date")),
                 "target": detail.get("target"),
                 "acquirer": detail.get("acquirer"),
@@ -346,14 +361,45 @@ def run_tax_clauses(
             if ctx.is_authenticated
             else "Limited mode: sign in to view clause text, unlock full pagination, and use the MCP server.",
         },
-        "count_metadata": {
-            "mode": "estimated" if total_count_is_approximate else "exact",
-            "method": count_method,
-            "planning_reliability": "low" if total_count_is_approximate else "high",
-            "exact_count_requested": count_mode == "exact",
-        },
+        "count_metadata": count_metadata_payload(
+            total_count_is_approximate=total_count_is_approximate,
+            count_method=count_method,
+            exact_count_requested=count_mode == "exact",
+        ),
         **meta,
     }
+
+
+def _tax_clauses_has_filters(parsed_args: TaxClausesArgsPayload) -> bool:
+    return any(
+        (
+            parsed_args["year"],
+            parsed_args["target"],
+            parsed_args["acquirer"],
+            parsed_args["tax_standard_id"],
+            parsed_args["transaction_price_total"],
+            parsed_args["transaction_price_stock"],
+            parsed_args["transaction_price_cash"],
+            parsed_args["transaction_price_assets"],
+            parsed_args["transaction_consideration"],
+            parsed_args["target_type"],
+            parsed_args["acquirer_type"],
+            parsed_args["target_counsel"],
+            parsed_args["acquirer_counsel"],
+            parsed_args["target_industry"],
+            parsed_args["acquirer_industry"],
+            parsed_args["deal_status"],
+            parsed_args["attitude"],
+            parsed_args["deal_type"],
+            parsed_args["purpose"],
+            parsed_args["target_pe"],
+            parsed_args["acquirer_pe"],
+            parsed_args["agreement_uuid"] and parsed_args["agreement_uuid"].strip(),
+            parsed_args["section_uuid"] and parsed_args["section_uuid"].strip(),
+            parsed_args["clause_uuid"] and parsed_args["clause_uuid"].strip(),
+            parsed_args["include_rep_warranty"],
+        )
+    )
 
 
 __all__ = [
