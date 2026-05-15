@@ -83,6 +83,15 @@ export async function authFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
 ): Promise<Response> {
+  if (typeof window === "undefined") {
+    // During prerender SSR the QueryClient is fresh per renderPage() call and
+    // fetched data is discarded. We confirmed nothing reaches this path today
+    // — useQuery callers are gated on IS_SERVER_RENDER. If something starts
+    // reaching it, surface a hard error so the regression is obvious.
+    throw new Error(
+      `authFetch called during SSR (url=${String(input)}). Gate the caller on IS_SERVER_RENDER.`,
+    );
+  }
   const headers = new Headers(init.headers);
 
   const transport = authSessionTransport();
