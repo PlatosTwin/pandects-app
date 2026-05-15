@@ -65,7 +65,7 @@ export function FeaturedAgreements({
         </h2>
         <Link
           to="/agreement-index"
-          className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="-mx-2 inline-flex min-h-11 items-center rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:mx-0 sm:min-h-0 sm:px-0"
           onClick={() =>
             trackEvent("landing_featured_agreements_view_all", {
               to_path: "/agreement-index",
