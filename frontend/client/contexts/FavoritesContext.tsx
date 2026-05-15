@@ -8,7 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { IS_SERVER_RENDER } from "@/lib/query-client";
+import { keys } from "@/lib/query-keys";
 import {
   createProject as apiCreateProject,
   createTag as apiCreateTag,
@@ -87,49 +90,76 @@ interface FavoritesContextValue {
 
 const FavoritesContext = createContext<FavoritesContextValue | null>(null);
 
+const sortProjects = (list: FavoriteProject[]) =>
+  [...list].sort((a, b) => a.sort_order - b.sort_order);
+const sortTags = (list: FavoriteTag[]) =>
+  [...list].sort((a, b) => a.name.localeCompare(b.name));
+
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const queryClient = useQueryClient();
 
+  // Lazy existence map: keyed by (itemType, itemUuid) → favoriteId. The model
+  // is "incremental, request-on-demand for a specific uuid set" — not a great
+  // fit for one RQ key per uuid, so we keep it as local state and dedupe
+  // requested uuids via a ref.
   const [byType, setByType] = useState<Record<FavoriteItemType, StarMap>>({
     section: {},
     agreement: {},
     tax_clause: {},
   });
-
-  const [tags, setTags] = useState<FavoriteTag[]>([]);
-  const [projects, setProjects] = useState<FavoriteProject[]>([]);
-  const [favoriteTagsMap, setFavoriteTagsMap] = useState<
-    Record<string, FavoriteTag[]>
-  >({});
-  const tagsLoadedRef = useRef<boolean>(false);
-  const projectsLoadedRef = useRef<boolean>(false);
-
-  // Reset when user changes (sign-in/sign-out).
-  const lastUserRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (lastUserRef.current !== userId) {
-      lastUserRef.current = userId;
-      setByType({ section: {}, agreement: {}, tax_clause: {} });
-      requestedRef.current = {
-        section: new Set(),
-        agreement: new Set(),
-        tax_clause: new Set(),
-      };
-      setTags([]);
-      setProjects([]);
-      setFavoriteTagsMap({});
-      tagsLoadedRef.current = false;
-      projectsLoadedRef.current = false;
-    }
-  }, [userId]);
-
   const requestedRef = useRef<Record<FavoriteItemType, Set<string>>>({
     section: new Set(),
     agreement: new Set(),
     tax_clause: new Set(),
   });
 
+  // Per-favorite tag cache. Same shape rationale as byType.
+  const [favoriteTagsMap, setFavoriteTagsMap] = useState<
+    Record<string, FavoriteTag[]>
+  >({});
+
+  // Lazy-enable gates for catalogs: caller signals interest via
+  // ensureTagsLoaded/ensureProjectsLoaded, and useQuery picks up the work.
+  const [tagsEnabled, setTagsEnabled] = useState(false);
+  const [projectsEnabled, setProjectsEnabled] = useState(false);
+
+  // Reset all state on sign-in/sign-out.
+  const lastUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastUserRef.current === userId) return;
+    lastUserRef.current = userId;
+    setByType({ section: {}, agreement: {}, tax_clause: {} });
+    requestedRef.current = {
+      section: new Set(),
+      agreement: new Set(),
+      tax_clause: new Set(),
+    };
+    setFavoriteTagsMap({});
+    setTagsEnabled(false);
+    setProjectsEnabled(false);
+    queryClient.removeQueries({ queryKey: keys.favorites.all });
+  }, [userId, queryClient]);
+
+  // --- Catalogs via React Query ---
+  const tagsQuery = useQuery({
+    queryKey: keys.favorites.tags,
+    queryFn: async () => sortTags(await apiListTags()),
+    enabled: !!userId && tagsEnabled && !IS_SERVER_RENDER,
+    staleTime: 5 * 60 * 1000,
+  });
+  const tags = tagsQuery.data ?? [];
+
+  const projectsQuery = useQuery({
+    queryKey: keys.favorites.projects,
+    queryFn: async () => sortProjects(await apiListFavoriteProjects()),
+    enabled: !!userId && projectsEnabled && !IS_SERVER_RENDER,
+    staleTime: 5 * 60 * 1000,
+  });
+  const projects = projectsQuery.data ?? [];
+
+  // --- Existence map ---
   const ensureLoaded = useCallback(
     (itemType: FavoriteItemType, itemUuids: string[]) => {
       if (!userId) return;
@@ -137,7 +167,6 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       const missing = itemUuids.filter((u) => u && !requested.has(u));
       if (missing.length === 0) return;
       missing.forEach((u) => requested.add(u));
-      // Bulk-load existence; non-existence is recorded by absence.
       void favoritesExists(itemType, missing)
         .then((map) => {
           if (Object.keys(map).length === 0) return;
@@ -147,7 +176,6 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
           }));
         })
         .catch(() => {
-          // Soft-fail: forget so a later visit can retry.
           missing.forEach((u) => requested.delete(u));
         });
     },
@@ -166,21 +194,25 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     [byType],
   );
 
-  const upsertFavorite = useCallback(async (input: FavoriteCreateInput) => {
-    const { favorite, created } = await apiUpsertFavorite(input);
-    setByType((prev) => ({
-      ...prev,
-      [favorite.item_type]: {
-        ...prev[favorite.item_type],
-        [favorite.item_uuid]: favorite.id,
-      },
-    }));
-    setFavoriteTagsMap((prev) => ({
-      ...prev,
-      [favorite.id]: favorite.tags ?? [],
-    }));
-    return { id: favorite.id, project_id: favorite.project_id, created };
-  }, []);
+  // --- Favorite mutations ---
+  const upsertFavorite = useCallback(
+    async (input: FavoriteCreateInput) => {
+      const { favorite, created } = await apiUpsertFavorite(input);
+      setByType((prev) => ({
+        ...prev,
+        [favorite.item_type]: {
+          ...prev[favorite.item_type],
+          [favorite.item_uuid]: favorite.id,
+        },
+      }));
+      setFavoriteTagsMap((prev) => ({
+        ...prev,
+        [favorite.id]: favorite.tags ?? [],
+      }));
+      return { id: favorite.id, project_id: favorite.project_id, created };
+    },
+    [],
+  );
 
   const deleteFavorite = useCallback(
     async (
@@ -231,29 +263,31 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const reloadProjects = useCallback(async () => {
-    if (!userId) return [];
-    const fresh = await apiListFavoriteProjects();
-    setProjects(fresh);
-    projectsLoadedRef.current = true;
-    return fresh;
+  // --- Projects ---
+  const ensureProjectsLoaded = useCallback(() => {
+    if (!userId) return;
+    setProjectsEnabled(true);
   }, [userId]);
 
-  const ensureProjectsLoaded = useCallback(() => {
-    if (!userId || projectsLoadedRef.current) return;
-    projectsLoadedRef.current = true;
-    void reloadProjects().catch(() => {
-      projectsLoadedRef.current = false;
-    });
-  }, [userId, reloadProjects]);
+  const reloadProjects = useCallback(async () => {
+    if (!userId) return [];
+    setProjectsEnabled(true);
+    const fresh = sortProjects(await apiListFavoriteProjects());
+    queryClient.setQueryData<FavoriteProject[]>(keys.favorites.projects, fresh);
+    return fresh;
+  }, [userId, queryClient]);
 
-  const createProject = useCallback(async (name: string, color: TagColor) => {
-    const project = await apiCreateProject({ name, color });
-    setProjects((prev) =>
-      [...prev, project].sort((a, b) => a.sort_order - b.sort_order),
-    );
-    return project;
-  }, []);
+  const createProject = useCallback(
+    async (name: string, color: TagColor) => {
+      const project = await apiCreateProject({ name, color });
+      queryClient.setQueryData<FavoriteProject[]>(
+        keys.favorites.projects,
+        (prev) => sortProjects([...(prev ?? []), project]),
+      );
+      return project;
+    },
+    [queryClient],
+  );
 
   const updateProject = useCallback(
     async (
@@ -261,61 +295,70 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       patch: { name?: string; color?: TagColor; sort_order?: number },
     ) => {
       const updated = await apiPatchProject(id, patch);
-      setProjects((prev) =>
-        prev
-          .map((project) => (project.id === updated.id ? updated : project))
-          .sort((a, b) => a.sort_order - b.sort_order),
+      queryClient.setQueryData<FavoriteProject[]>(
+        keys.favorites.projects,
+        (prev) =>
+          sortProjects(
+            (prev ?? []).map((p) => (p.id === updated.id ? updated : p)),
+          ),
       );
       return updated;
     },
-    [],
+    [queryClient],
   );
 
   const removeProject = useCallback(
     async (id: string, reassignProjectId?: string) => {
       const result = await apiDeleteProject(id, reassignProjectId);
-      setProjects((prev) => prev.filter((project) => project.id !== id));
+      queryClient.setQueryData<FavoriteProject[]>(
+        keys.favorites.projects,
+        (prev) => (prev ?? []).filter((p) => p.id !== id),
+      );
       return {
         reassigned_to_project_id: result.reassigned_to_project_id,
         moved: result.moved,
       };
     },
-    [],
+    [queryClient],
   );
+
+  // --- Tags ---
+  const ensureTagsLoaded = useCallback(() => {
+    if (!userId) return;
+    setTagsEnabled(true);
+  }, [userId]);
 
   const reloadTags = useCallback(async () => {
     if (!userId) return;
+    setTagsEnabled(true);
     try {
-      const fresh = await apiListTags();
-      setTags(fresh);
-      tagsLoadedRef.current = true;
+      const fresh = sortTags(await apiListTags());
+      queryClient.setQueryData<FavoriteTag[]>(keys.favorites.tags, fresh);
     } catch {
       // Soft-fail; consumers can retry by calling reloadTags.
     }
-  }, [userId]);
+  }, [userId, queryClient]);
 
-  const ensureTagsLoaded = useCallback(() => {
-    if (!userId || tagsLoadedRef.current) return;
-    tagsLoadedRef.current = true;
-    void reloadTags();
-  }, [userId, reloadTags]);
-
-  const createTag = useCallback(async (name: string, color: TagColor) => {
-    const { tag } = await apiCreateTag({ name, color });
-    setTags((prev) => {
-      if (prev.some((t) => t.id === tag.id)) return prev;
-      return [...prev, tag].sort((a, b) => a.name.localeCompare(b.name));
-    });
-    return tag;
-  }, []);
+  const createTag = useCallback(
+    async (name: string, color: TagColor) => {
+      const { tag } = await apiCreateTag({ name, color });
+      queryClient.setQueryData<FavoriteTag[]>(keys.favorites.tags, (prev) => {
+        const list = prev ?? [];
+        if (list.some((t) => t.id === tag.id)) return list;
+        return sortTags([...list, tag]);
+      });
+      return tag;
+    },
+    [queryClient],
+  );
 
   const updateTag = useCallback(
     async (id: string, patch: { name?: string; color?: TagColor }) => {
       const updated = await apiPatchTag(id, patch);
-      setTags((prev) =>
-        prev
-          .map((t) => (t.id === updated.id ? updated : t))
-          .sort((a, b) => a.name.localeCompare(b.name)),
+      queryClient.setQueryData<FavoriteTag[]>(keys.favorites.tags, (prev) =>
+        sortTags(
+          (prev ?? []).map((t) => (t.id === updated.id ? updated : t)),
+        ),
       );
       setFavoriteTagsMap((prev) => {
         const next: Record<string, FavoriteTag[]> = {};
@@ -328,21 +371,27 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       });
       return updated;
     },
-    [],
+    [queryClient],
   );
 
-  const removeTag = useCallback(async (id: string) => {
-    await apiDeleteTag(id);
-    setTags((prev) => prev.filter((t) => t.id !== id));
-    setFavoriteTagsMap((prev) => {
-      const next: Record<string, FavoriteTag[]> = {};
-      for (const [favId, ts] of Object.entries(prev)) {
-        next[favId] = ts.filter((t) => t.id !== id);
-      }
-      return next;
-    });
-  }, []);
+  const removeTag = useCallback(
+    async (id: string) => {
+      await apiDeleteTag(id);
+      queryClient.setQueryData<FavoriteTag[]>(keys.favorites.tags, (prev) =>
+        (prev ?? []).filter((t) => t.id !== id),
+      );
+      setFavoriteTagsMap((prev) => {
+        const next: Record<string, FavoriteTag[]> = {};
+        for (const [favId, ts] of Object.entries(prev)) {
+          next[favId] = ts.filter((t) => t.id !== id);
+        }
+        return next;
+      });
+    },
+    [queryClient],
+  );
 
+  // --- Per-favorite tags ---
   const tagsForFavorite = useCallback(
     (favoriteId: string) => favoriteTagsMap[favoriteId],
     [favoriteTagsMap],

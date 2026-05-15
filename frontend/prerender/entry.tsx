@@ -1,9 +1,11 @@
 import { renderToString } from "react-dom/server";
 import { Route, Routes } from "react-router-dom";
 import { StaticRouter } from "react-router-dom/server";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { createQueryClient } from "@/lib/query-client";
 import { PRERENDER_ROUTES } from "@shared/route-manifest.mjs";
 
 import About from "@/pages/About";
@@ -49,24 +51,27 @@ export function renderPage(pathname: string): string {
     throw new Error(`Unsupported prerender path: ${pathname}`);
   }
 
+  const queryClient = createQueryClient();
   const app = (
-    <AuthProvider>
-      <TooltipProvider>
-        <StaticRouter location={pathname}>
-          <Routes>
-            <Route element={<AppLayout />}>
-              {PRERENDER_ROUTES.map((route) => (
-                <Route
-                  key={route.pathname}
-                  path={route.pathname}
-                  element={PRERENDER_COMPONENTS[route.pathname]}
-                />
-              ))}
-            </Route>
-          </Routes>
-        </StaticRouter>
-      </TooltipProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <StaticRouter location={pathname}>
+            <Routes>
+              <Route element={<AppLayout />}>
+                {PRERENDER_ROUTES.map((route) => (
+                  <Route
+                    key={route.pathname}
+                    path={route.pathname}
+                    element={PRERENDER_COMPONENTS[route.pathname]}
+                  />
+                ))}
+              </Route>
+            </Routes>
+          </StaticRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 
   return renderToString(app);

@@ -26,6 +26,11 @@ for (const route of PRERENDER_ROUTES) {
   fs.writeFileSync(path.join(outDir, route.prerenderFilename), html, "utf-8");
 }
 
+// SSR renders may schedule timers (e.g. React Query GC, retry backoff) that
+// keep the Node event loop alive even though the file output is complete.
+// Exit explicitly so the build pipeline doesn't stall.
+process.exit(0);
+
 function injectRootHtml(html, rendered) {
   const needle = '<div id="root"></div>';
   const replacement = `<div id="root">${rendered}</div>`;

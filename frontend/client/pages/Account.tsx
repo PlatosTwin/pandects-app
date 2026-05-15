@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,6 @@ import { Check, Copy, Star, Trash2 } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { trackEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/format-utils";
-import { safeNextPath } from "@/lib/auth-next";
 import {
   AUTH_WAKEUP_MESSAGE,
   isAuthWakeupError,
@@ -181,11 +180,6 @@ function MpcClientCard({ id, title, description, command, copied, onCopy }: MpcC
 export default function Account() {
   const { status, user, logout, wakePending } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const requestedNextPath = useMemo(
-    () => safeNextPath(new URLSearchParams(location.search).get("next")),
-    [location.search],
-  );
   const [apiKeysPending, setApiKeysPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const accountForegroundRefreshInFlightRef = useRef(false);
@@ -537,8 +531,6 @@ export default function Account() {
         <Card className="p-6" role="status" aria-live="polite">
           {wakePending ? AUTH_WAKEUP_MESSAGE : "Loading…"}
         </Card>
-      ) : status === "anonymous" ? (
-        <Navigate to={`/login?next=${encodeURIComponent(requestedNextPath)}`} replace />
       ) : (
         <div className="grid gap-6">
           {redactedReminder ? (

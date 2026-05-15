@@ -16,12 +16,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { toast } from "@/hooks/use-toast";
 
-async function showToast(kind: "success" | "error", message: string) {
+function showToast(kind: "success" | "error", message: string) {
   if (typeof window === "undefined") return;
-  const { toast } = await import("sonner");
-  if (kind === "success") toast.success(message);
-  else toast.error(message);
+  toast({
+    title: message,
+    variant: kind === "error" ? "destructive" : "default",
+  });
 }
 
 interface DumpInfo {
