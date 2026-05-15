@@ -206,7 +206,7 @@ export default function Landing() {
                 <Button
                   asChild
                   variant="link"
-                  className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
+                  className="min-h-11 gap-2 px-2 py-2 text-sm text-muted-foreground hover:text-foreground sm:min-h-0 sm:p-0"
                 >
                   <a
                     href={`${docsUrl}/docs/mcp/using`}
@@ -238,7 +238,7 @@ export default function Landing() {
                 <Button
                   asChild
                   variant="link"
-                  className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
+                  className="min-h-11 gap-2 px-2 py-2 text-sm text-muted-foreground hover:text-foreground sm:min-h-0 sm:p-0"
                 >
                   <a
                     href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
@@ -261,7 +261,7 @@ export default function Landing() {
               <Button
                 asChild
                 variant="link"
-                className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
+                className="min-h-11 gap-2 px-2 py-2 text-sm text-muted-foreground hover:text-foreground sm:min-h-0 sm:p-0"
               >
                 <Link
                   to="/sources-methods"
