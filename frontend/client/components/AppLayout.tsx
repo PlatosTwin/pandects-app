@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Suspense, useEffect, useRef } from "react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { applySeoForLocation } from "@/lib/seo";
 import {
   installOutboundLinkTracking,
@@ -99,9 +100,14 @@ export function AppLayout() {
         tabIndex={-1}
         className="flex-1 outline-none"
       >
-        <Suspense fallback={<RouteFallback />}>
-          <Outlet />
-        </Suspense>
+        <ErrorBoundary
+          key={location.pathname}
+          scope={`route:${location.pathname}`}
+        >
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
+        </ErrorBoundary>
       </main>
       <Footer />
     </div>
