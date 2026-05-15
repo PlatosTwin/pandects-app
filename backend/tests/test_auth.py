@@ -44,7 +44,7 @@ os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
 
 from backend.app import create_test_app  # noqa: E402
 from backend.extensions import db  # noqa: E402
-from backend.models.auth import ApiKey, ApiUsageDaily, AuthExternalSubject, AuthOAuthRefreshToken, AuthUser, LegalAcceptance  # noqa: E402
+from backend.models.auth import ApiKey, ApiUsageDaily, AuthExternalSubject, AuthOAuthAuthorizationCode, AuthOAuthClient, AuthOAuthRefreshToken, AuthUser, LegalAcceptance  # noqa: E402
 import backend.app as backend_app  # noqa: E402
 import backend.routes.auth as auth_routes  # noqa: E402
 from werkzeug.exceptions import Conflict, NotFound, Unauthorized  # noqa: E402
@@ -2952,6 +2952,62 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(refreshed.status_code, 400)
+
+    def test_authorization_code_grant_rejects_client_without_authorization_code_registration(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        user_id = self._create_local_user(email="authcode-disallowed@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="authcode-disallowed-zitadel-user",
+                )
+            )
+            db.session.commit()
+        self._set_cookie_session(client, email="authcode-disallowed@example.com")
+
+        # Seed an OAuth client whose grant_types list omits authorization_code.
+        # We bypass /oauth/register here so the test is decoupled from any
+        # validation that endpoint may layer on top of the registered grants.
+        client_id = "client-without-authcode"
+        redirect_uri = "https://codex.example.com/callback"
+        raw_code = "seeded-auth-code"
+        challenge = _pkce_challenge("good-verifier")
+        with self.app.app_context():
+            oauth_client = AuthOAuthClient()
+            oauth_client.client_id = client_id
+            oauth_client.client_name = "Refresh-only client"
+            oauth_client.redirect_uris = [redirect_uri]
+            oauth_client.token_endpoint_auth_method = "none"
+            oauth_client.grant_types = ["refresh_token"]
+            oauth_client.response_types = []
+            db.session.add(oauth_client)
+
+            auth_code = AuthOAuthAuthorizationCode()
+            auth_code.code_hash = hashlib.sha256(raw_code.encode("utf-8")).hexdigest()
+            auth_code.client_id = client_id
+            auth_code.user_id = user_id
+            auth_code.redirect_uri = redirect_uri
+            auth_code.scope = "agreements:read"
+            auth_code.code_challenge = challenge
+            auth_code.code_challenge_method = "S256"
+            auth_code.expires_at = backend_app._utc_now() + timedelta(minutes=5)
+            db.session.add(auth_code)
+            db.session.commit()
+
+        token = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client_id,
+                "code": raw_code,
+                "redirect_uri": redirect_uri,
+                "code_verifier": "good-verifier",
+            },
+        )
+        self.assertEqual(token.status_code, 400)
 
     def test_oauth_authorize_returns_login_bridge_when_session_transport_is_bearer(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
