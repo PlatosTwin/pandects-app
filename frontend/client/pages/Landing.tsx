@@ -8,11 +8,35 @@ import { Link } from "react-router-dom";
 import { trackEvent } from "@/lib/analytics";
 import { Code, Database } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { FeaturedAgreements } from "@/components/FeaturedAgreements";
+import { useAgreementSummary } from "@/hooks/use-agreement-summary";
+import { formatNumber } from "@/lib/format-utils";
 import brandLinks from "@branding/links.json";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const LATEST_FILING_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "short",
+});
+
+function formatLatestFiling(value: string | null): string | null {
+  if (!value) return null;
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return null;
+  return LATEST_FILING_FORMATTER.format(dt);
+}
 
 export default function Landing() {
   const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const { summary } = useAgreementSummary();
+  const liveStats = useMemo(() => {
+    if (!summary) return null;
+    const latestFiling = formatLatestFiling(summary.latest_filing_date);
+    return {
+      agreements: formatNumber(summary.agreements),
+      latestFiling,
+    };
+  }, [summary]);
   const headerBadgeRef = useRef<HTMLDivElement | null>(null);
   const sourcedTextRef = useRef<HTMLSpanElement | null>(null);
   const updatedTextRef = useRef<HTMLSpanElement | null>(null);
@@ -136,6 +160,26 @@ export default function Landing() {
               The fastest way to query deal data, open-source.
             </p>
 
+            {liveStats ? (
+              <p
+                className="mt-2 text-sm text-muted-foreground"
+                aria-live="polite"
+              >
+                <span className="font-medium text-foreground/80">
+                  {liveStats.agreements}
+                </span>{" "}
+                agreements indexed
+                {liveStats.latestFiling ? (
+                  <>
+                    <span aria-hidden="true" className="mx-2 text-foreground/40">
+                      ·
+                    </span>
+                    Latest filing {liveStats.latestFiling}
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+
             <div className="mt-12 flex w-full flex-col items-center gap-3">
               <Button
                 asChild
@@ -155,12 +199,14 @@ export default function Landing() {
               </Button>
             </div>
 
-            <div className="mt-6 flex flex-col items-center gap-3 sm:mt-4">
+            <FeaturedAgreements className="mt-10" />
+
+            <div className="mt-8 flex flex-col items-center gap-3 sm:mt-6">
               <div className="flex flex-wrap items-center justify-center gap-3 text-sm sm:gap-4">
                 <Button
                   asChild
                   variant="link"
-                  className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
+                  className="min-h-11 gap-2 px-2 py-2 text-sm text-muted-foreground hover:text-foreground sm:min-h-0 sm:p-0"
                 >
                   <a
                     href={`${docsUrl}/docs/mcp/using`}
@@ -192,7 +238,7 @@ export default function Landing() {
                 <Button
                   asChild
                   variant="link"
-                  className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
+                  className="min-h-11 gap-2 px-2 py-2 text-sm text-muted-foreground hover:text-foreground sm:min-h-0 sm:p-0"
                 >
                   <a
                     href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
@@ -215,7 +261,7 @@ export default function Landing() {
               <Button
                 asChild
                 variant="link"
-                className="h-auto gap-2 p-0 text-sm text-muted-foreground hover:text-foreground"
+                className="min-h-11 gap-2 px-2 py-2 text-sm text-muted-foreground hover:text-foreground sm:min-h-0 sm:p-0"
               >
                 <Link
                   to="/sources-methods"
