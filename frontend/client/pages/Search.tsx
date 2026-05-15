@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import { formatFilterOption } from "@/lib/text-utils";
@@ -38,7 +38,6 @@ import { scheduleWhenBrowserIdle, trackEvent } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
-import { Skeleton } from "@/components/ui/skeleton";
 import { buildSearchStateParams, parseSearchFilters } from "@/lib/url-params";
 import {
   stashCompareClauses,
@@ -49,102 +48,17 @@ import { parseSearchMode, type SearchMode } from "@shared/search";
 import type { TransactionSearchResult } from "@shared/transactions";
 import type { TaxClauseSearchResult } from "@shared/tax-clauses";
 
-const SearchPagination = lazy(() =>
-  import("@/components/SearchPagination").then((mod) => ({
-    default: mod.SearchPagination,
-  })),
-);
-const SearchResultsTable = lazy(() =>
-  import("@/components/SearchResultsTable").then((mod) => ({
-    default: mod.SearchResultsTable,
-  })),
-);
-const SearchSidebar = lazy(() =>
-  import("@/components/SearchSidebar").then((mod) => ({
-    default: mod.SearchSidebar,
-  })),
-);
-const TransactionResultsList = lazy(() =>
-  import("@/components/TransactionResultsList").then((mod) => ({
-    default: mod.TransactionResultsList,
-  })),
-);
-const TaxClauseResultsList = lazy(() =>
-  import("@/components/TaxClauseResultsList").then((mod) => ({
-    default: mod.TaxClauseResultsList,
-  })),
-);
-
-function SearchSidebarFallback({
-  variant = "sidebar",
-}: {
-  variant?: "sidebar" | "sheet";
-}) {
-  const content = (
-    <div className="space-y-5 p-4">
-      <Skeleton className="h-5 w-28" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-24 w-full" />
-      <Skeleton className="h-24 w-full" />
-      <Skeleton className="h-24 w-full" />
-    </div>
-  );
-
-  if (variant === "sheet") {
-    return <div className="h-full overflow-y-auto">{content}</div>;
-  }
-
-  return (
-    <div className="hidden h-screen w-80 border-r border-b border-border bg-card lg:block">
-      {content}
-    </div>
-  );
-}
-
-function SearchPaginationFallback() {
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <Skeleton className="h-9 w-56" />
-      <Skeleton className="h-9 w-48" />
-    </div>
-  );
-}
-
-function SearchResultsTableFallback() {
-  return (
-    <div className="space-y-4">
-      {Array.from({ length: 4 }).map((_, index) => (
-        <div
-          key={index}
-          className="rounded-lg border border-border bg-card p-4 shadow-sm"
-        >
-          <Skeleton className="h-5 w-48" />
-          <Skeleton className="mt-3 h-4 w-full" />
-          <Skeleton className="mt-2 h-4 w-5/6" />
-          <Skeleton className="mt-4 h-20 w-full" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TransactionResultsFallback() {
-  return (
-    <div className="space-y-4">
-      {Array.from({ length: 3 }).map((_, index) => (
-        <div
-          key={index}
-          className="rounded-lg border border-border bg-card p-5 shadow-sm"
-        >
-          <Skeleton className="h-6 w-72" />
-          <Skeleton className="mt-3 h-4 w-full" />
-          <Skeleton className="mt-2 h-4 w-5/6" />
-          <Skeleton className="mt-5 h-24 w-full" />
-        </div>
-      ))}
-    </div>
-  );
-}
+import {
+  SearchPagination,
+  SearchPaginationFallback,
+  SearchResultsTable,
+  SearchResultsTableFallback,
+  SearchSidebar,
+  SearchSidebarFallback,
+  TaxClauseResultsList,
+  TransactionResultsFallback,
+  TransactionResultsList,
+} from "./search/lazy";
 
 export default function Search() {
   const { status: authStatus } = useAuth();
