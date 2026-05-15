@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildSearchParams } from "@/lib/url-params";
 import { logger } from "@/lib/logger";
 import { LARGE_PAGE_SIZE_FOR_CSV, DEFAULT_PAGE } from "@/lib/constants";
+import { keys } from "@/lib/query-keys";
 import {
   formatCompactCurrencyValue,
   formatDateValue,
@@ -17,6 +19,7 @@ import type {
 } from "@shared/transactions";
 
 export function useTransactionSearch() {
+  const queryClient = useQueryClient();
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<TransactionSearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -61,14 +64,20 @@ export function useTransactionSearch() {
           params.set("sort_by", sortBy);
           params.set("sort_direction", sortDirection);
         }
-        const response = await authFetch(
-          apiUrl(`v1/search/agreements?${params.toString()}`),
-        );
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const payload = (await response.json()) as TransactionSearchResponse;
+        const queryString = params.toString();
+        const payload = await queryClient.fetchQuery({
+          queryKey: keys.transactions.search({ q: queryString }),
+          queryFn: async () => {
+            const response = await authFetch(
+              apiUrl(`v1/search/agreements?${queryString}`),
+            );
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return (await response.json()) as TransactionSearchResponse;
+          },
+          staleTime: 60 * 1000,
+        });
         setResults(payload.results);
         setAccess(payload.access);
         setTotalCount(payload.total_count);
@@ -93,7 +102,7 @@ export function useTransactionSearch() {
         setIsSearching(false);
       }
     },
-    [],
+    [queryClient],
   );
 
   const clear = useCallback(() => {

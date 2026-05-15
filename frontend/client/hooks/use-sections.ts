@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/sections";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams } from "@/lib/url-params";
@@ -11,9 +12,11 @@ import {
   LARGE_PAGE_SIZE_FOR_CSV,
 } from "@/lib/constants";
 import { logger } from "@/lib/logger";
+import { keys } from "@/lib/query-keys";
 
 /** Sections filters, results, pagination, and actions (performSearch, downloadCSV, etc.). */
 export function useSections() {
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<SearchFilters>({
     year: [],
     target: [],
@@ -200,24 +203,25 @@ export function useSections() {
         }
 
         const queryString = params.toString();
-        const res = await authFetch(apiUrl(`v1/sections?${queryString}`));
-
-        // Check if the response is ok (status 200-299)
-        if (!res.ok) {
-          if (res.status === 404) {
-            return;
-          }
-          trackEvent("api_error", {
-            endpoint: "api/sections",
-            status: res.status,
-            status_text: res.statusText,
-          });
-          // Other HTTP errors
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
-
-        // Parse as SearchResponse with pagination metadata
-        const searchResponse = (await res.json()) as SearchResponse;
+        const searchResponse = await queryClient.fetchQuery({
+          queryKey: keys.sections.search({ q: queryString }),
+          queryFn: async () => {
+            const res = await authFetch(apiUrl(`v1/sections?${queryString}`));
+            if (!res.ok) {
+              if (res.status === 404) {
+                throw new Error("NOT_FOUND");
+              }
+              trackEvent("api_error", {
+                endpoint: "api/sections",
+                status: res.status,
+                status_text: res.statusText,
+              });
+              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return (await res.json()) as SearchResponse;
+          },
+          staleTime: 60 * 1000,
+        });
 
         if (!filtersOverride) {
           setFilters((prev) => ({
@@ -255,6 +259,9 @@ export function useSections() {
           });
         }
       } catch (error) {
+        if (error instanceof Error && error.message === "NOT_FOUND") {
+          return;
+        }
         logger.error("Search failed:", error);
         setSearchResults([]);
         searchResultsRef.current = [];
@@ -286,7 +293,7 @@ export function useSections() {
         setIsSearching(false);
       }
     },
-    [filters, currentSort, sort_direction, sortResultsArray],
+    [filters, currentSort, sort_direction, sortResultsArray, queryClient],
   );
 
   // Helper function to check if any filters are applied

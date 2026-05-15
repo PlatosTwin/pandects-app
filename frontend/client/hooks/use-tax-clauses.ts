@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { SearchFilters } from "@shared/sections";
 import type {
   TaxClauseSearchResponse,
@@ -14,6 +15,7 @@ import {
   LARGE_PAGE_SIZE_FOR_CSV,
 } from "@/lib/constants";
 import { logger } from "@/lib/logger";
+import { keys } from "@/lib/query-keys";
 
 export interface TaxClauseFilters extends SearchFilters {
   include_rep_warranty?: boolean;
@@ -69,6 +71,7 @@ function buildTaxClauseParams(
 type SortField = "year" | "target" | "acquirer";
 
 export function useTaxClauses() {
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<TaxClauseFilters>({ ...EMPTY_FILTERS });
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<TaxClauseSearchResult[]>([]);
@@ -167,18 +170,26 @@ export function useTaxClauses() {
           });
         }
 
-        const res = await authFetch(apiUrl(`v1/tax-clauses?${params.toString()}`));
-        if (!res.ok) {
-          if (res.status === 404) return;
-          trackEvent("api_error", {
-            endpoint: "api/tax-clauses",
-            status: res.status,
-            status_text: res.statusText,
-          });
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
-
-        const body = (await res.json()) as TaxClauseSearchResponse;
+        const queryString = params.toString();
+        const body = await queryClient.fetchQuery({
+          queryKey: keys.taxClauses.search({ q: queryString }),
+          queryFn: async () => {
+            const res = await authFetch(apiUrl(`v1/tax-clauses?${queryString}`));
+            if (!res.ok) {
+              if (res.status === 404) {
+                throw new Error("NOT_FOUND");
+              }
+              trackEvent("api_error", {
+                endpoint: "api/tax-clauses",
+                status: res.status,
+                status_text: res.statusText,
+              });
+              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return (await res.json()) as TaxClauseSearchResponse;
+          },
+          staleTime: 60 * 1000,
+        });
         if (!filtersOverride) {
           setFilters((prev) => ({
             ...prev,
@@ -206,6 +217,9 @@ export function useTaxClauses() {
           });
         }
       } catch (error) {
+        if (error instanceof Error && error.message === "NOT_FOUND") {
+          return;
+        }
         logger.error("Tax clause search failed:", error);
         setSearchResults([]);
         searchResultsRef.current = [];
@@ -227,7 +241,7 @@ export function useTaxClauses() {
         setIsSearching(false);
       }
     },
-    [filters, currentSort, sort_direction],
+    [filters, currentSort, sort_direction, queryClient],
   );
 
   const downloadCSV = useCallback(async () => {
