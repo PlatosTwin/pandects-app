@@ -94,8 +94,6 @@ export function useSections() {
   // Pagination metadata from API
   const [has_next, setHasNext] = useState(false);
   const [has_prev, setHasPrev] = useState(false);
-  const [next_num, setNextNum] = useState<number | null>(null);
-  const [prev_num, setPrevNum] = useState<number | null>(null);
   const [access, setAccess] = useState<SearchResponse["access"]>({
     tier: "anonymous",
   });
@@ -247,8 +245,6 @@ export function useSections() {
         setTotalPages(searchResponse.total_pages);
         setHasNext(searchResponse.has_next);
         setHasPrev(searchResponse.has_prev);
-        setNextNum(searchResponse.next_num);
-        setPrevNum(searchResponse.prev_num);
 
         if (markAsSearched) {
           trackEvent("sections_results_loaded", {
@@ -480,8 +476,6 @@ export function useSections() {
     setTotalPages(0);
     setHasNext(false);
     setHasPrev(false);
-    setNextNum(null);
-    setPrevNum(null);
   }, []);
 
   const goToPage = useCallback(

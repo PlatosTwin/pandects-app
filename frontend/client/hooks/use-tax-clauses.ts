@@ -82,8 +82,6 @@ export function useTaxClauses() {
   const [total_pages, setTotalPages] = useState(0);
   const [has_next, setHasNext] = useState(false);
   const [has_prev, setHasPrev] = useState(false);
-  const [next_num, setNextNum] = useState<number | null>(null);
-  const [prev_num, setPrevNum] = useState<number | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [sort_direction, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -205,8 +203,6 @@ export function useTaxClauses() {
         setTotalPages(body.total_pages);
         setHasNext(body.has_next);
         setHasPrev(body.has_prev);
-        setNextNum(body.next_num);
-        setPrevNum(body.prev_num);
 
         if (markAsSearched) {
           trackEvent("tax_clauses_results_loaded", {
@@ -325,8 +321,6 @@ export function useTaxClauses() {
     setTotalPages(0);
     setHasNext(false);
     setHasPrev(false);
-    setNextNum(null);
-    setPrevNum(null);
   }, []);
 
   const goToPage = useCallback(
@@ -400,8 +394,6 @@ export function useTaxClauses() {
     total_pages,
     has_next,
     has_prev,
-    next_num,
-    prev_num,
     currentSort,
     currentPage: filters.page || DEFAULT_PAGE,
     page_size: filters.page_size || DEFAULT_PAGE_SIZE,
