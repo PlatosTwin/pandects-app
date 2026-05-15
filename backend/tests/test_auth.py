@@ -44,7 +44,7 @@ os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
 
 from backend.app import create_test_app  # noqa: E402
 from backend.extensions import db  # noqa: E402
-from backend.models.auth import ApiKey, ApiUsageDaily, AuthExternalSubject, AuthUser, LegalAcceptance  # noqa: E402
+from backend.models.auth import ApiKey, ApiUsageDaily, AuthExternalSubject, AuthOAuthRefreshToken, AuthUser, LegalAcceptance  # noqa: E402
 import backend.app as backend_app  # noqa: E402
 import backend.routes.auth as auth_routes  # noqa: E402
 from werkzeug.exceptions import Conflict, NotFound, Unauthorized  # noqa: E402
@@ -2737,7 +2737,9 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(token.status_code, 200)
-        access_token = token.get_json()["access_token"]
+        token_json = token.get_json()
+        self.assertNotIn("refresh_token", token_json)
+        access_token = token_json["access_token"]
 
         mcp = client.post(
             "/mcp",
@@ -2901,6 +2903,55 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(second_refresh.status_code, 200)
         self.assertIn("access_token", second_refresh.get_json())
+
+    def test_refresh_token_grant_rejects_client_without_refresh_token_registration(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        user_id = self._create_local_user(email="refresh-disallowed@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="refresh-disallowed-zitadel-user",
+                )
+            )
+            db.session.commit()
+        self._set_cookie_session(client, email="refresh-disallowed@example.com")
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        with self.app.app_context():
+            refresh = AuthOAuthRefreshToken()
+            refresh.client_id = client_id
+            refresh.user_id = user_id
+            refresh.scope = "agreements:read"
+            refresh.expires_at = backend_app._utc_now() + timedelta(hours=1)
+            raw_refresh = "seeded-refresh-token"
+            refresh.token_hash = hashlib.sha256(raw_refresh.encode("utf-8")).hexdigest()
+            db.session.add(refresh)
+            db.session.commit()
+
+        refreshed = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": client_id,
+                "refresh_token": raw_refresh,
+            },
+        )
+        self.assertEqual(refreshed.status_code, 400)
 
     def test_oauth_authorize_returns_login_bridge_when_session_transport_is_bearer(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
