@@ -41,7 +41,7 @@ export function SearchSidebarFallback({
   variant?: "sidebar" | "sheet";
 }) {
   const content = (
-    <div className="space-y-5 p-4">
+    <div className="space-y-5 p-4" aria-hidden="true">
       <Skeleton className="h-5 w-28" />
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-24 w-full" />
@@ -63,7 +63,10 @@ export function SearchSidebarFallback({
 
 export function SearchPaginationFallback() {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      aria-hidden="true"
+    >
       <Skeleton className="h-9 w-56" />
       <Skeleton className="h-9 w-48" />
     </div>
@@ -72,7 +75,7 @@ export function SearchPaginationFallback() {
 
 export function SearchResultsTableFallback() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-hidden="true">
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
@@ -90,7 +93,7 @@ export function SearchResultsTableFallback() {
 
 export function TransactionResultsFallback() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-hidden="true">
       {Array.from({ length: 3 }).map((_, index) => (
         <div
           key={index}

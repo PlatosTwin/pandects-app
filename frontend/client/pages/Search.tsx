@@ -69,6 +69,11 @@ export default function Search() {
   const [searchMode, setSearchMode] = useState<SearchMode>(() =>
     parseSearchMode(searchParams.get("mode")),
   );
+  const modeButtonRefs = useRef<Record<SearchMode, HTMLButtonElement | null>>({
+    sections: null,
+    transactions: null,
+    tax: null,
+  });
   const isHydratingFromUrlRef = useRef(true);
   const {
     filters,
@@ -168,7 +173,6 @@ export default function Search() {
     taxSearch.actions.clearSelection();
   };
 
-  // Auto-collapse sidebar on tablet and mobile
   useEffect(() => {
     const handleResize = () => {
       const isDesktop = window.innerWidth >= BREAKPOINT_LG;
@@ -176,10 +180,7 @@ export default function Search() {
       setSidebarCollapsed(!isDesktop);
     };
 
-    // Set initial state
     handleResize();
-
-    // Listen for window resize
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -638,12 +639,19 @@ export default function Search() {
                               (e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 1) +
                               order.length) %
                             order.length;
-                    void handleModeChange(order[nextIdx]);
+                    const nextMode = order[nextIdx];
+                    void handleModeChange(nextMode);
+                    requestAnimationFrame(() => {
+                      modeButtonRefs.current[nextMode]?.focus();
+                    });
                   }}
                 >
                   {(["sections", "transactions", "tax"] as const).map((mode) => (
                     <button
                       key={mode}
+                      ref={(node) => {
+                        modeButtonRefs.current[mode] = node;
+                      }}
                       type="button"
                       role="radio"
                       aria-checked={searchMode === mode}
