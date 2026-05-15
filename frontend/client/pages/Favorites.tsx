@@ -11,7 +11,7 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Check,
   ChevronDown,
@@ -1425,7 +1425,6 @@ function fetchSectionDetails(
 
 export default function FavoritesPage() {
   const { status, user } = useAuth();
-  const location = useLocation();
   const { toast } = useToast();
   const { clause_types } = useFilterOptions({ fields: ["clause_types"] });
   const clauseTypeLabelById = useMemo(
@@ -1647,15 +1646,12 @@ export default function FavoritesPage() {
     });
   }, [visible]);
 
-  if (status === "loading") {
+  if (status === "loading" || !user) {
     return (
       <PageShell title="Favorites">
         <div className="text-sm text-muted-foreground">Loading…</div>
       </PageShell>
     );
-  }
-  if (!user) {
-    return <Navigate to="/account" state={{ from: location }} replace />;
   }
 
   const handleUpdated = (next: Favorite) =>

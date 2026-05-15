@@ -49,6 +49,18 @@ const ROUTE_MANIFEST = [
     priority: "0.9",
   }),
   defineRoute({
+    pathname: "/compare/tax",
+    title: "Compare Tax Clauses | Pandects",
+    description:
+      "Compare tax clauses side-by-side across merger agreements in the Pandects database.",
+    pageType: "WebPage",
+    pageName: "Compare Tax Clauses",
+    pageDescription:
+      "Compare selected tax clauses across merger agreements to spot drafting differences.",
+    robots: NOINDEX_FOLLOW,
+    renderStrategy: "runtime",
+  }),
+  defineRoute({
     pathname: "/bulk-data",
     title: "Bulk M&A Data Downloads | Pandects",
     description:
