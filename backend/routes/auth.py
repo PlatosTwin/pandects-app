@@ -1498,6 +1498,17 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 return True
         return False
 
+    def _oauth_client_supports_grant_type(client, grant_type: str) -> bool:
+        raw_grant_types = getattr(client, "grant_types", None)
+        if not isinstance(raw_grant_types, list):
+            return False
+        normalized = {
+            str(item).strip()
+            for item in raw_grant_types
+            if isinstance(item, str) and item.strip()
+        }
+        return grant_type in normalized
+
     def _valid_oauth_redirect_uri(redirect_uri: str) -> bool:
         if "\\" in redirect_uri:
             return False
@@ -1823,22 +1834,25 @@ window.location.replace({json.dumps(login_url)});
                 token_id=str(uuid.uuid4()),
             ),
         )
-        raw_refresh = secrets.token_urlsafe(32)
-        refresh_record = deps.AuthOAuthRefreshToken(
-            token_hash=_oauth_code_hash(raw_refresh),
-            client_id=client_id,
-            user_id=user_id,
-            scope=scope,
-            expires_at=deps._utc_now() + timedelta(seconds=mcp_oauth_refresh_token_ttl_seconds()),
-        )
-        deps.db.session.add(refresh_record)
-        return {
+        token_payload: dict[str, object] = {
             "access_token": access_token,
             "token_type": "Bearer",
             "expires_in": mcp_oauth_access_token_ttl_seconds(),
             "scope": scope,
-            "refresh_token": raw_refresh,
         }
+        client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
+        if client is not None and _oauth_client_supports_grant_type(client, "refresh_token"):
+            raw_refresh = secrets.token_urlsafe(32)
+            refresh_record = deps.AuthOAuthRefreshToken(
+                token_hash=_oauth_code_hash(raw_refresh),
+                client_id=client_id,
+                user_id=user_id,
+                scope=scope,
+                expires_at=deps._utc_now() + timedelta(seconds=mcp_oauth_refresh_token_ttl_seconds()),
+            )
+            deps.db.session.add(refresh_record)
+            token_payload["refresh_token"] = raw_refresh
+        return token_payload
 
     @auth_blp.post("/oauth/token")
     def oauth_token():
@@ -1855,6 +1869,8 @@ window.location.replace({json.dumps(login_url)});
             client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
             if client is None or not _oauth_redirect_uri_allowed(client, redirect_uri):
                 abort(400, description="Invalid OAuth client or redirect URI.")
+            if not _oauth_client_supports_grant_type(client, "authorization_code"):
+                abort(400, description="OAuth client does not support the authorization_code grant.")
             auth_code = deps.AuthOAuthAuthorizationCode.query.filter_by(
                 code_hash=_oauth_code_hash(code),
                 client_id=client.client_id,
@@ -1887,6 +1903,8 @@ window.location.replace({json.dumps(login_url)});
             client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
             if client is None:
                 abort(400, description="Invalid OAuth client.")
+            if not _oauth_client_supports_grant_type(client, "refresh_token"):
+                abort(400, description="OAuth client does not support the refresh_token grant.")
             refresh_record = deps.AuthOAuthRefreshToken.query.filter_by(
                 token_hash=_oauth_code_hash(raw_refresh),
                 client_id=client.client_id,
