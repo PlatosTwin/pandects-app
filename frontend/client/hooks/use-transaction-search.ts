@@ -1,10 +1,11 @@
-import { useCallback, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildSearchParams } from "@/lib/url-params";
 import { logger } from "@/lib/logger";
 import { LARGE_PAGE_SIZE_FOR_CSV, DEFAULT_PAGE } from "@/lib/constants";
+import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
 import {
   formatCompactCurrencyValue,
@@ -18,24 +19,84 @@ import type {
   TransactionSearchResult,
 } from "@shared/transactions";
 
+interface CommittedQuery {
+  filters: SearchFilters;
+  clauseTypesNested?: ClauseTypeTree;
+  sortBy: "year" | "target" | "acquirer" | null;
+  sortDirection: "asc" | "desc";
+}
+
+const EMPTY_ACCESS: TransactionSearchResponse["access"] = { tier: "anonymous" };
+
+function buildTransactionQueryString(committed: CommittedQuery): string {
+  const params = buildSearchParams(committed.filters, committed.clauseTypesNested);
+  if (committed.sortBy) {
+    params.set("sort_by", committed.sortBy);
+    params.set("sort_direction", committed.sortDirection);
+  }
+  return params.toString();
+}
+
+/**
+ * Declarative transaction (deal) search. Unlike `useTaxClauses` / `useSections`,
+ * this hook does not own a filter draft — the parent passes filters in via
+ * `performSearch(...)`. The hook only tracks the committed snapshot that drives
+ * `useQuery`.
+ */
 export function useTransactionSearch() {
   const queryClient = useQueryClient();
-  const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState<TransactionSearchResult[]>([]);
+  const [committed, setCommitted] = useState<CommittedQuery | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalCountIsApproximate, setTotalCountIsApproximate] = useState(false);
-  const [totalPages, setTotalPages] = useState(0);
-  const [hasNext, setHasNext] = useState(false);
-  const [hasPrev, setHasPrev] = useState(false);
-  const [access, setAccess] = useState<TransactionSearchResponse["access"]>({
-    tier: "anonymous",
-  });
-  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedResults, setSelectedResults] = useState<Set<string>>(new Set());
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [selectedResults, setSelectedResults] = useState<Set<string>>(
-    new Set(),
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const committedQueryString = useMemo(
+    () => (committed ? buildTransactionQueryString(committed) : ""),
+    [committed],
   );
+
+  const query = useQuery<TransactionSearchResponse>({
+    queryKey: keys.transactions.search({ q: committedQueryString }),
+    enabled: !IS_SERVER_RENDER && committed !== null,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const response = await authFetch(
+        apiUrl(`v1/search/agreements?${committedQueryString}`),
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return (await response.json()) as TransactionSearchResponse;
+    },
+  });
+
+  const responseData: TransactionSearchResponse | null = query.data ?? null;
+  const results = responseData?.results ?? [];
+  const totalCount = responseData?.total_count ?? 0;
+  const totalCountIsApproximate = responseData?.total_count_is_approximate ?? false;
+  const totalPages = responseData?.total_pages ?? 0;
+  const hasNext = responseData?.has_next ?? false;
+  const hasPrev = responseData?.has_prev ?? false;
+  const access = responseData?.access ?? EMPTY_ACCESS;
+  const isSearching = query.isFetching;
+
+  // Clear selection whenever a new committed query is issued.
+  useEffect(() => {
+    if (committed !== null) {
+      setSelectedResults(new Set());
+    }
+  }, [committed]);
+
+  // Surface real errors via the error modal.
+  useEffect(() => {
+    if (!query.error) return;
+    logger.error("Agreement search failed:", query.error);
+    setErrorMessage(
+      "Network error: unable to reach the back end database. Check your connection and try again.",
+    );
+    setShowErrorModal(true);
+  }, [query.error]);
 
   const performSearch = useCallback(
     async ({
@@ -51,69 +112,16 @@ export function useTransactionSearch() {
       sortDirection: "asc" | "desc";
       markAsSearched?: boolean;
     }) => {
-      setIsSearching(true);
       setShowErrorModal(false);
-      setSelectedResults(new Set());
-      if (markAsSearched) {
-        setHasSearched(true);
-      }
-
-      try {
-        const params = buildSearchParams(filters, clauseTypesNested);
-        if (sortBy) {
-          params.set("sort_by", sortBy);
-          params.set("sort_direction", sortDirection);
-        }
-        const queryString = params.toString();
-        const payload = await queryClient.fetchQuery({
-          queryKey: keys.transactions.search({ q: queryString }),
-          queryFn: async () => {
-            const response = await authFetch(
-              apiUrl(`v1/search/agreements?${queryString}`),
-            );
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return (await response.json()) as TransactionSearchResponse;
-          },
-          staleTime: 60 * 1000,
-        });
-        setResults(payload.results);
-        setAccess(payload.access);
-        setTotalCount(payload.total_count);
-        setTotalCountIsApproximate(payload.total_count_is_approximate);
-        setTotalPages(payload.total_pages);
-        setHasNext(payload.has_next);
-        setHasPrev(payload.has_prev);
-      } catch (error) {
-        logger.error("Agreement search failed:", error);
-        setResults([]);
-        setAccess({ tier: "anonymous" });
-        setTotalCount(0);
-        setTotalCountIsApproximate(false);
-        setTotalPages(0);
-        setHasNext(false);
-        setHasPrev(false);
-        setErrorMessage(
-          "Network error: unable to reach the back end database. Check your connection and try again.",
-        );
-        setShowErrorModal(true);
-      } finally {
-        setIsSearching(false);
-      }
+      if (markAsSearched) setHasSearched(true);
+      setCommitted({ filters, clauseTypesNested, sortBy, sortDirection });
     },
-    [queryClient],
+    [],
   );
 
   const clear = useCallback(() => {
-    setResults([]);
+    setCommitted(null);
     setHasSearched(false);
-    setTotalCount(0);
-    setTotalCountIsApproximate(false);
-    setTotalPages(0);
-    setHasNext(false);
-    setHasPrev(false);
-    setAccess({ tier: "anonymous" });
     setSelectedResults(new Set());
   }, []);
 
@@ -162,18 +170,21 @@ export function useTransactionSearch() {
             page: undefined,
             page_size: undefined,
           };
-          const params = buildSearchParams(
-            searchFilters,
-            clauseTypesNested,
-            false,
-          );
+          const params = buildSearchParams(searchFilters, clauseTypesNested, false);
           params.append("page_size", LARGE_PAGE_SIZE_FOR_CSV.toString());
           params.append("page", DEFAULT_PAGE.toString());
-          const res = await authFetch(
-            apiUrl(`v1/search/agreements?${params.toString()}`),
-          );
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const payload = (await res.json()) as TransactionSearchResponse;
+          const queryString = params.toString();
+          const payload = await queryClient.fetchQuery({
+            queryKey: keys.transactions.search({ q: queryString, csv: true }),
+            queryFn: async () => {
+              const res = await authFetch(
+                apiUrl(`v1/search/agreements?${queryString}`),
+              );
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              return (await res.json()) as TransactionSearchResponse;
+            },
+            staleTime: 60 * 1000,
+          });
           rows = payload.results;
         } catch (error) {
           logger.error("Failed to fetch all transactions for CSV:", error);
@@ -239,7 +250,7 @@ export function useTransactionSearch() {
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     },
-    [results, selectedResults],
+    [results, selectedResults, queryClient],
   );
 
   const closeErrorModal = useCallback(() => {
