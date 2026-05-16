@@ -1533,10 +1533,10 @@ class McpTests(unittest.TestCase):
         self.assertIn("get_server_metrics", payload["tool_calls"])
 
     def test_json_compatible_value_normalizes_dates_and_decimals(self):
-        import backend.mcp.tools as tools_module
+        from backend.mcp.tools.shared import _json_compatible_value
 
-        self.assertEqual(tools_module._json_compatible_value(date(2020, 1, 1)), "2020-01-01")
-        self.assertEqual(tools_module._json_compatible_value(Decimal("12.50")), 12.5)
+        self.assertEqual(_json_compatible_value(date(2020, 1, 1)), "2020-01-01")
+        self.assertEqual(_json_compatible_value(Decimal("12.50")), 12.5)
 
     def test_client_harness_compatibility_flow(self):
         client = McpClientHarness(self)
