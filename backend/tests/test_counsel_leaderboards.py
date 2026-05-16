@@ -1,7 +1,7 @@
 import unittest
 from typing import cast
 
-from backend.counsel_leaderboards import (
+from backend.services.counsel_leaderboards import (
     build_counsel_leaderboards,
     canonicalize_counsel_name,
     format_counsel_display_name,
