@@ -63,6 +63,8 @@ _FIELD_REPRESENTATION_VALUES = (
     "derived_from_text",
     "not_represented",
 )
+_CAPABILITIES_SECTIONS_ALL = ("server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools")
+_CAPABILITIES_SECTIONS_DEFAULT = ("server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows")
 _COUNT_MODE_VALUES = ("auto", "exact")
 _COUNT_METHOD_VALUES = ("query_count", "table_estimate", "filtered_lower_bound")
 _COUNT_RELIABILITY_VALUES = ("high", "medium", "low")
