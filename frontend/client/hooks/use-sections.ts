@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/sections";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams } from "@/lib/url-params";
@@ -12,91 +12,202 @@ import {
   LARGE_PAGE_SIZE_FOR_CSV,
 } from "@/lib/constants";
 import { logger } from "@/lib/logger";
+import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
 
-/** Sections filters, results, pagination, and actions (performSearch, downloadCSV, etc.). */
+type SortField = "year" | "target" | "acquirer";
+
+interface CommittedQuery {
+  filters: SearchFilters;
+  clauseTypesNested?: ClauseTypeTree;
+  sortBy: SortField | null;
+  sortDirection: "asc" | "desc";
+}
+
+const EMPTY_FILTERS: SearchFilters = {
+  year: [],
+  target: [],
+  acquirer: [],
+  clauseType: [],
+  standard_id: [],
+  transaction_price_total: [],
+  transaction_price_stock: [],
+  transaction_price_cash: [],
+  transaction_price_assets: [],
+  transaction_consideration: [],
+  target_type: [],
+  acquirer_type: [],
+  target_counsel: [],
+  acquirer_counsel: [],
+  target_industry: [],
+  acquirer_industry: [],
+  deal_status: [],
+  attitude: [],
+  deal_type: [],
+  purpose: [],
+  target_pe: [],
+  acquirer_pe: [],
+  page: DEFAULT_PAGE,
+  page_size: DEFAULT_PAGE_SIZE,
+};
+
+const EMPTY_ACCESS: SearchResponse["access"] = { tier: "anonymous" };
+
+class SectionsNotFoundError extends Error {
+  constructor() {
+    super("NOT_FOUND");
+    this.name = "SectionsNotFoundError";
+  }
+}
+
+function sortResultsArray(
+  results: SearchResult[],
+  sort_by: SortField | null,
+  direction: "asc" | "desc",
+): SearchResult[] {
+  if (!sort_by) return results;
+  return [...results].sort((a, b) => {
+    let comparison = 0;
+    switch (sort_by) {
+      case "year":
+        comparison = parseInt(a.year, 10) - parseInt(b.year, 10);
+        break;
+      case "target":
+        comparison = a.target.localeCompare(b.target);
+        break;
+      case "acquirer":
+        comparison = a.acquirer.localeCompare(b.acquirer);
+        break;
+      default:
+        return 0;
+    }
+    return direction === "desc" ? -comparison : comparison;
+  });
+}
+
+function buildSectionsQueryString(committed: CommittedQuery): string {
+  const params = buildSearchParams(committed.filters, committed.clauseTypesNested);
+  if (committed.sortBy) {
+    params.append("sort_by", committed.sortBy);
+    params.append("sort_direction", committed.sortDirection);
+  }
+  return params.toString();
+}
+
+/**
+ * Declarative sections search.
+ *
+ * `filters` is the draft (what the sidebar is editing). Results come from a
+ * `useQuery` driven by `committed` — the snapshot last submitted via
+ * `performSearch`, `goToPage`, etc. Editing a sidebar filter does NOT refetch.
+ *
+ * Sort changes are applied both server-side (via the committed query) and
+ * client-side via a `useMemo` over `query.data`. The client-side pass keeps
+ * the visible order responsive when the user clicks a sort header before the
+ * follow-up fetch lands.
+ */
 export function useSections() {
   const queryClient = useQueryClient();
-  const [filters, setFilters] = useState<SearchFilters>({
-    year: [],
-    target: [],
-    acquirer: [],
-    clauseType: [],
-    standard_id: [],
-    transaction_price_total: [],
-    transaction_price_stock: [],
-    transaction_price_cash: [],
-    transaction_price_assets: [],
-    transaction_consideration: [],
-    target_type: [],
-    acquirer_type: [],
-    target_counsel: [],
-    acquirer_counsel: [],
-    target_industry: [],
-    acquirer_industry: [],
-    deal_status: [],
-    attitude: [],
-    deal_type: [],
-    purpose: [],
-    target_pe: [],
-    acquirer_pe: [],
-    page: DEFAULT_PAGE,
-    page_size: DEFAULT_PAGE_SIZE,
-  });
-
-  // Helper function to sort results
-  const sortResultsArray = useCallback((
-    results: SearchResult[],
-    sort_by: "year" | "target" | "acquirer" | null,
-    direction: "asc" | "desc",
-  ): SearchResult[] => {
-    if (!sort_by) return results;
-
-    return [...results].sort((a, b) => {
-      let comparison = 0;
-      switch (sort_by) {
-        case "year":
-          comparison = parseInt(a.year, 10) - parseInt(b.year, 10);
-          break;
-        case "target":
-          comparison = a.target.localeCompare(b.target);
-          break;
-        case "acquirer":
-          comparison = a.acquirer.localeCompare(b.acquirer);
-          break;
-        default:
-          return 0;
-      }
-      return direction === "desc" ? -comparison : comparison;
-    });
-  }, []);
-
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [selectedResults, setSelectedResults] = useState<Set<string>>(
-    new Set(),
-  );
-  const [hasSearched, setHasSearched] = useState(false);
-  const [total_count, setTotalCount] = useState(0);
-  const [totalCountIsApproximate, setTotalCountIsApproximate] = useState(false);
-  const [total_pages, setTotalPages] = useState(0);
+  const [filters, setFilters] = useState<SearchFilters>({ ...EMPTY_FILTERS });
+  const [currentSort, setCurrentSort] = useState<SortField | null>("year");
+  const [sort_direction, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [committed, setCommitted] = useState<CommittedQuery | null>(null);
+  const [selectedResults, setSelectedResults] = useState<Set<string>>(new Set());
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [sort_direction, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [currentSort, setCurrentSort] = useState<
-    "year" | "target" | "acquirer" | null
-  >("year");
-  const searchResultsRef = useRef<SearchResult[]>([]);
-  const lastSortRef = useRef<{ sort_by: typeof currentSort; direction: "asc" | "desc" }>({
-    sort_by: "year",
-    direction: "desc",
+  const fireResultsLoadedRef = useRef(false);
+
+  const committedQueryString = useMemo(
+    () => (committed ? buildSectionsQueryString(committed) : ""),
+    [committed],
+  );
+
+  const query = useQuery<SearchResponse>({
+    queryKey: keys.sections.search({ q: committedQueryString }),
+    enabled: !IS_SERVER_RENDER && committed !== null,
+    staleTime: 60 * 1000,
+    retry: (failureCount, error) =>
+      !(error instanceof SectionsNotFoundError) && failureCount < 1,
+    queryFn: async () => {
+      const res = await authFetch(apiUrl(`v1/sections?${committedQueryString}`));
+      if (!res.ok) {
+        if (res.status === 404) throw new SectionsNotFoundError();
+        trackEvent("api_error", {
+          endpoint: "api/sections",
+          status: res.status,
+          status_text: res.statusText,
+        });
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      return (await res.json()) as SearchResponse;
+    },
   });
-  // Pagination metadata from API
-  const [has_next, setHasNext] = useState(false);
-  const [has_prev, setHasPrev] = useState(false);
-  const [access, setAccess] = useState<SearchResponse["access"]>({
-    tier: "anonymous",
-  });
+
+  const responseData: SearchResponse | null = query.data ?? null;
+  const searchResults = useMemo(
+    () =>
+      responseData
+        ? sortResultsArray(responseData.results, currentSort, sort_direction)
+        : [],
+    [responseData, currentSort, sort_direction],
+  );
+  const total_count = responseData?.total_count ?? 0;
+  const totalCountIsApproximate = responseData?.total_count_is_approximate ?? false;
+  const total_pages = responseData?.total_pages ?? 0;
+  const has_next = responseData?.has_next ?? false;
+  const has_prev = responseData?.has_prev ?? false;
+  const access = responseData?.access ?? EMPTY_ACCESS;
+  const hasSearched = committed !== null;
+  const isSearching = query.isFetching;
+
+  // Clear selection whenever a new committed query is issued.
+  useEffect(() => {
+    if (committed !== null) {
+      setSelectedResults(new Set());
+    }
+  }, [committed]);
+
+  // Fire results-loaded telemetry exactly once per Search/Enter commit.
+  useEffect(() => {
+    if (!responseData || !fireResultsLoadedRef.current || !committed) return;
+    fireResultsLoadedRef.current = false;
+    trackEvent("sections_results_loaded", {
+      total_count: responseData.total_count,
+      total_pages: responseData.total_pages,
+      page: committed.filters.page,
+      page_size: committed.filters.page_size,
+    });
+  }, [responseData, committed]);
+
+  // Mirror committed page/page_size into the draft so pagination controls,
+  // URL sync, and CSV use what we actually fetched.
+  useEffect(() => {
+    if (!responseData) return;
+    setFilters((prev) =>
+      prev.page === responseData.page && prev.page_size === responseData.page_size
+        ? prev
+        : { ...prev, page: responseData.page, page_size: responseData.page_size },
+    );
+  }, [responseData]);
+
+  // Surface real errors (non-404) via the error modal. 404 stays silent and
+  // preserves prior results, matching the imperative hook's behavior.
+  useEffect(() => {
+    if (!query.error) return;
+    if (query.error instanceof SectionsNotFoundError) return;
+    logger.error("Search failed:", query.error);
+    trackEvent("api_error", {
+      endpoint: "api/sections",
+      kind:
+        query.error instanceof TypeError && query.error.message.includes("fetch")
+          ? "network"
+          : "unknown",
+    });
+    setErrorMessage(
+      "Network error: unable to reach the back end database. Check your connection and try again.",
+    );
+    setShowErrorModal(true);
+  }, [query.error]);
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[] | number) => {
@@ -121,7 +232,6 @@ export function useSections() {
   const toggleFilterValue = useCallback(
     (field: keyof SearchFilters, value: string) => {
       if (field === "page" || field === "page_size") return;
-
       setFilters((prev) => {
         const currentValues = (prev[field] as string[]) || [];
         const newValues = currentValues.includes(value)
@@ -136,7 +246,6 @@ export function useSections() {
   const setTextFilterValue = useCallback(
     (field: keyof SearchFilters, value: string) => {
       if (field === "page" || field === "page_size") return;
-
       const trimmedValue = value.trim();
       setFilters((prev) => ({
         ...prev,
@@ -156,217 +265,81 @@ export function useSections() {
       clauseTypesNested?: ClauseTypeTree,
       markAsSearched: boolean = resetPage,
       filtersOverride?: SearchFilters,
-      overrideSortBy?: typeof currentSort,
-      overrideSortDirection?: typeof sort_direction,
+      overrideSortBy?: SortField | null,
+      overrideSortDirection?: "asc" | "desc",
     ) => {
-      setIsSearching(true);
+      const baseFilters = filtersOverride ?? filters;
+      const effective: SearchFilters = resetPage
+        ? { ...baseFilters, page: 1 }
+        : baseFilters;
+      if (resetPage && !filtersOverride) {
+        setFilters((prev) => ({ ...prev, page: 1 }));
+      }
+      const sortBy = overrideSortBy ?? currentSort;
+      const sortDir = overrideSortDirection ?? sort_direction;
+
       setShowErrorModal(false);
-      setSelectedResults(new Set()); // Clear selected results when performing new search
 
       if (markAsSearched) {
-        setHasSearched(true);
-      }
-
-      try {
-        const baseFilters = filtersOverride ?? filters;
-        const searchFilters = resetPage
-          ? { ...baseFilters, page: 1 }
-          : baseFilters;
-
-        if (resetPage && !filtersOverride) {
-          setFilters((prev) => ({ ...prev, page: 1 }));
-        }
-
-        if (markAsSearched) {
-          trackEvent("sections_performed", {
-            years_count: searchFilters.year?.length ?? 0,
-            targets_count: searchFilters.target?.length ?? 0,
-            acquirers_count: searchFilters.acquirer?.length ?? 0,
-            clause_types_count: searchFilters.clauseType?.length ?? 0,
-            standard_ids_count: searchFilters.standard_id?.length ?? 0,
-            page: searchFilters.page,
-            page_size: searchFilters.page_size,
-            sort_by: currentSort ?? "none",
-            sort_direction: sort_direction,
-          });
-        }
-
-        const params = buildSearchParams(searchFilters, clauseTypesNested);
-        // Add sort parameters to the API request
-        const effectiveSortBy = overrideSortBy ?? currentSort;
-        const effectiveSortDirection = overrideSortDirection ?? sort_direction;
-        if (effectiveSortBy) {
-          params.append("sort_by", effectiveSortBy);
-          params.append("sort_direction", effectiveSortDirection);
-        }
-
-        const queryString = params.toString();
-        const searchResponse = await queryClient.fetchQuery({
-          queryKey: keys.sections.search({ q: queryString }),
-          queryFn: async () => {
-            const res = await authFetch(apiUrl(`v1/sections?${queryString}`));
-            if (!res.ok) {
-              if (res.status === 404) {
-                throw new Error("NOT_FOUND");
-              }
-              trackEvent("api_error", {
-                endpoint: "api/sections",
-                status: res.status,
-                status_text: res.statusText,
-              });
-              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-            }
-            return (await res.json()) as SearchResponse;
-          },
-          staleTime: 60 * 1000,
+        fireResultsLoadedRef.current = true;
+        trackEvent("sections_performed", {
+          years_count: effective.year?.length ?? 0,
+          targets_count: effective.target?.length ?? 0,
+          acquirers_count: effective.acquirer?.length ?? 0,
+          clause_types_count: effective.clauseType?.length ?? 0,
+          standard_ids_count: effective.standard_id?.length ?? 0,
+          page: effective.page,
+          page_size: effective.page_size,
+          sort_by: sortBy ?? "none",
+          sort_direction: sortDir,
         });
-
-        if (!filtersOverride) {
-          setFilters((prev) => ({
-            ...prev,
-            page: searchResponse.page,
-            page_size: searchResponse.page_size,
-          }));
-        }
-
-        // Apply client-side sorting to the current page results
-        const sortedResults = sortResultsArray(
-          searchResponse.results,
-          currentSort ?? "year",
-          sort_direction,
-        );
-
-        setSearchResults(sortedResults);
-        // Update the ref to track current results
-        searchResultsRef.current = sortedResults;
-        setAccess(searchResponse.access);
-        setTotalCount(searchResponse.total_count);
-        setTotalCountIsApproximate(searchResponse.total_count_is_approximate);
-        setTotalPages(searchResponse.total_pages);
-        setHasNext(searchResponse.has_next);
-        setHasPrev(searchResponse.has_prev);
-
-        if (markAsSearched) {
-          trackEvent("sections_results_loaded", {
-            total_count: searchResponse.total_count,
-            total_pages: searchResponse.total_pages,
-            page: searchFilters.page,
-            page_size: searchFilters.page_size,
-          });
-        }
-      } catch (error) {
-        if (error instanceof Error && error.message === "NOT_FOUND") {
-          return;
-        }
-        logger.error("Search failed:", error);
-        setSearchResults([]);
-        searchResultsRef.current = [];
-        setTotalCount(0);
-        setTotalCountIsApproximate(false);
-        setTotalPages(0);
-
-        // Check if it's a network error
-        if (error instanceof TypeError && error.message.includes("fetch")) {
-          trackEvent("api_error", {
-            endpoint: "api/sections",
-            kind: "network",
-          });
-          setErrorMessage(
-            "Network error: unable to reach the back end database. Check your connection and try again.",
-          );
-          setShowErrorModal(true);
-        } else {
-          trackEvent("api_error", {
-            endpoint: "api/sections",
-            kind: "unknown",
-          });
-          setErrorMessage(
-            "Network error: unable to reach the back end database. Check your connection and try again.",
-          );
-          setShowErrorModal(true);
-        }
-      } finally {
-        setIsSearching(false);
       }
-    },
-    [filters, currentSort, sort_direction, sortResultsArray, queryClient],
-  );
 
-  // Helper function to check if any filters are applied
-  const hasFiltersApplied = (searchFilters: SearchFilters) => {
-    return !!(
-      (searchFilters.year && searchFilters.year.length > 0) ||
-      (searchFilters.target && searchFilters.target.length > 0) ||
-      (searchFilters.acquirer && searchFilters.acquirer.length > 0) ||
-      (searchFilters.clauseType && searchFilters.clauseType.length > 0) ||
-      (searchFilters.transaction_price_total &&
-        searchFilters.transaction_price_total.length > 0) ||
-      (searchFilters.transaction_price_stock &&
-        searchFilters.transaction_price_stock.length > 0) ||
-      (searchFilters.transaction_price_cash &&
-        searchFilters.transaction_price_cash.length > 0) ||
-      (searchFilters.transaction_price_assets &&
-        searchFilters.transaction_price_assets.length > 0) ||
-      (searchFilters.transaction_consideration &&
-        searchFilters.transaction_consideration.length > 0) ||
-      (searchFilters.target_type && searchFilters.target_type.length > 0) ||
-      (searchFilters.acquirer_type && searchFilters.acquirer_type.length > 0) ||
-      (searchFilters.target_counsel && searchFilters.target_counsel.length > 0) ||
-      (searchFilters.acquirer_counsel &&
-        searchFilters.acquirer_counsel.length > 0) ||
-      (searchFilters.target_industry && searchFilters.target_industry.length > 0) ||
-      (searchFilters.acquirer_industry &&
-        searchFilters.acquirer_industry.length > 0) ||
-      (searchFilters.deal_status && searchFilters.deal_status.length > 0) ||
-      (searchFilters.attitude && searchFilters.attitude.length > 0) ||
-      (searchFilters.deal_type && searchFilters.deal_type.length > 0) ||
-      (searchFilters.purpose && searchFilters.purpose.length > 0) ||
-      (searchFilters.target_pe && searchFilters.target_pe.length > 0) ||
-      (searchFilters.acquirer_pe && searchFilters.acquirer_pe.length > 0)
-    );
-  };
+      setCommitted({
+        filters: effective,
+        clauseTypesNested,
+        sortBy,
+        sortDirection: sortDir,
+      });
+    },
+    [filters, currentSort, sort_direction],
+  );
 
   const downloadCSV = useCallback(
     async (clauseTypesNested?: ClauseTypeTree) => {
       let resultsToDownload: SearchResult[] = [];
 
       if (selectedResults.size > 0) {
-        // If we have selected results, only download those from current page
         resultsToDownload = searchResults.filter((result) =>
           selectedResults.has(result.id),
         );
       } else {
-        // If no selected results, we need to fetch all results for the current filters
-        // This requires making a new API call without pagination to get all results
         try {
           const searchFilters = {
             ...filters,
             page: undefined,
             page_size: undefined,
           };
-          const params = buildSearchParams(
-            searchFilters,
-            clauseTypesNested,
-            false,
-          );
-
-          // Set a very large page size to get all results
+          const params = buildSearchParams(searchFilters, clauseTypesNested, false);
           params.append("page_size", LARGE_PAGE_SIZE_FOR_CSV.toString());
           params.append("page", DEFAULT_PAGE.toString());
-
           const queryString = params.toString();
-          const res = await fetch(apiUrl(`v1/sections?${queryString}`));
-
-          if (!res.ok) {
-            trackEvent("api_error", {
-              endpoint: "api/sections",
-              status: res.status,
-              status_text: res.statusText,
-            });
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-          }
-
-          const searchResponse = (await res.json()) as SearchResponse;
+          const searchResponse = await queryClient.fetchQuery({
+            queryKey: keys.sections.search({ q: queryString, csv: true }),
+            queryFn: async () => {
+              const res = await authFetch(apiUrl(`v1/sections?${queryString}`));
+              if (!res.ok) {
+                trackEvent("api_error", {
+                  endpoint: "api/sections",
+                  status: res.status,
+                  status_text: res.statusText,
+                });
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+              }
+              return (await res.json()) as SearchResponse;
+            },
+            staleTime: 60 * 1000,
+          });
           resultsToDownload = searchResponse.results;
         } catch (error) {
           logger.error("Failed to fetch all results for CSV:", error);
@@ -377,7 +350,6 @@ export function useSections() {
                 ? "network"
                 : "unknown",
           });
-          // Fallback to current page results
           resultsToDownload = searchResults;
         }
       }
@@ -395,7 +367,6 @@ export function useSections() {
         standard_ids_count: filters.standard_id?.length ?? 0,
       });
 
-      // Create CSV content
       const headers = [
         "Year",
         "Target",
@@ -423,7 +394,6 @@ export function useSections() {
         ),
       ].join("\n");
 
-      // Create and download file
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       const objectUrl = URL.createObjectURL(blob);
@@ -435,47 +405,17 @@ export function useSections() {
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     },
-    [filters, searchResults, selectedResults],
+    [filters, searchResults, selectedResults, queryClient],
   );
 
   const clearFilters = useCallback(() => {
     setFilters({
-      year: [],
-      target: [],
-      acquirer: [],
-      clauseType: [],
-      standard_id: [],
-      transaction_price_total: [],
-      transaction_price_stock: [],
-      transaction_price_cash: [],
-      transaction_price_assets: [],
-      transaction_consideration: [],
-      target_type: [],
-      acquirer_type: [],
-      target_counsel: [],
-      acquirer_counsel: [],
-      target_industry: [],
-      acquirer_industry: [],
-      deal_status: [],
-      attitude: [],
-      deal_type: [],
-      purpose: [],
-      target_pe: [],
-      acquirer_pe: [],
+      ...EMPTY_FILTERS,
       agreement_uuid: undefined,
       section_uuid: undefined,
-      page: DEFAULT_PAGE,
-      page_size: DEFAULT_PAGE_SIZE,
     });
-    setSearchResults([]);
-    searchResultsRef.current = [];
     setSelectedResults(new Set());
-    setHasSearched(false);
-    setTotalCount(0);
-    setTotalCountIsApproximate(false);
-    setTotalPages(0);
-    setHasNext(false);
-    setHasPrev(false);
+    setCommitted(null);
   }, []);
 
   const goToPage = useCallback(
@@ -501,32 +441,19 @@ export function useSections() {
     setErrorMessage("");
   }, []);
 
-  const sortResults = useCallback(
-    (sort_by: "year" | "target" | "acquirer") => {
-      setCurrentSort(sort_by);
-      setSearchResults((prev) => {
-        const sorted = sortResultsArray(prev, sort_by, sort_direction);
-        searchResultsRef.current = sorted;
-        return sorted;
-      });
-    },
-    [sort_direction, sortResultsArray],
-  );
+  const sortResults = useCallback((sort_by: SortField) => {
+    setCurrentSort(sort_by);
+  }, []);
 
   const toggleSortDirection = useCallback(() => {
-    const newDirection = sort_direction === "asc" ? "desc" : "asc";
-    setSortDirection(newDirection);
-  }, [sort_direction]);
+    setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+  }, []);
 
-  // Result selection handlers
   const toggleResultSelection = useCallback((resultId: string) => {
     setSelectedResults((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(resultId)) {
-        newSet.delete(resultId);
-      } else {
-        newSet.add(resultId);
-      }
+      if (newSet.has(resultId)) newSet.delete(resultId);
+      else newSet.add(resultId);
       return newSet;
     });
   }, []);
@@ -535,31 +462,20 @@ export function useSections() {
     const allSelected = searchResults.every((result) =>
       selectedResults.has(result.id),
     );
-    if (allSelected) {
-      // Deselect all current page results
-      setSelectedResults((prev) => {
-        const newSet = new Set(prev);
+    setSelectedResults((prev) => {
+      const newSet = new Set(prev);
+      if (allSelected) {
         searchResults.forEach((result) => newSet.delete(result.id));
-        return newSet;
-      });
-    } else {
-      // Select all current page results
-      setSelectedResults((prev) => {
-        const newSet = new Set(prev);
+      } else {
         searchResults.forEach((result) => newSet.add(result.id));
-        return newSet;
-      });
-    }
+      }
+      return newSet;
+    });
   }, [searchResults, selectedResults]);
 
   const clearSelection = useCallback(() => {
     setSelectedResults(new Set());
   }, []);
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    searchResultsRef.current = searchResults;
-  }, [searchResults]);
 
   return {
     filters,
