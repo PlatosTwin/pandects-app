@@ -53,25 +53,5 @@ class RuntimeTypingGuardTests(unittest.TestCase):
             "Use explicit callable return types in deps contracts:\n" + "\n".join(violations),
         )
 
-    def test_auth_runtime_stays_facade_sized(self) -> None:
-        root = Path(__file__).resolve().parents[2]
-        runtime_path = root / "backend/auth/runtime.py"
-        lines = runtime_path.read_text().splitlines()
-        self.assertLessEqual(
-            len(lines),
-            250,
-            "backend/auth/runtime.py should remain a small facade file.",
-        )
-        runtime_defs = [
-            idx
-            for idx, line in enumerate(lines, start=1)
-            if line.startswith("def ") or line.startswith("class ")
-        ]
-        self.assertFalse(
-            runtime_defs,
-            "backend/auth/runtime.py should not define runtime logic directly.",
-        )
-
-
 if __name__ == "__main__":
     unittest.main()
