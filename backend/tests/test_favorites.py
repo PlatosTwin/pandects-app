@@ -26,7 +26,7 @@ _AUTH_DB_TEMP.close()
 os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
 
 
-from backend.auth.runtime import AccessContext  # noqa: E402
+from backend.auth.session_runtime import AccessContext  # noqa: E402
 from backend.app import create_test_app  # noqa: E402
 from backend.extensions import db  # noqa: E402
 from backend.models import Agreements, Clauses, Favorite, FavoriteProject, FavoriteProjectAssignment, FavoriteTag, FavoriteTagAssignment, Sections  # noqa: E402

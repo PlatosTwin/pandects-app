@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
-from backend.auth.runtime import public_api_base_url
+from backend.auth.email_runtime import public_api_base_url
 
 
 class McpOAuthMetadata(TypedDict):

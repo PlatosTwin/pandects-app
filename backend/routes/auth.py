@@ -38,7 +38,7 @@ from backend.auth.mcp_oauth_runtime import (
     mcp_oauth_token_endpoint,
     public_jwk_from_private_pem,
 )
-from backend.auth.runtime import cookie_settings
+from backend.auth.session_runtime import cookie_settings
 from backend.auth.email_runtime import send_pandects_auth_email, verify_zitadel_signature
 from backend.auth.mcp_runtime import (
     ExternalIdentity,

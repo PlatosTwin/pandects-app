@@ -137,11 +137,33 @@ from backend.core.runtime_utils import (
     utc_now as _utc_now,
     utc_today as _utc_today,
 )
-from backend.auth.runtime import (
+from backend.auth.captcha_runtime import (
+    require_captcha_token as _require_captcha_token,
+    turnstile_enabled as _turnstile_enabled,
+    turnstile_site_key as _turnstile_site_key,
+    verify_turnstile_token as _verify_turnstile_token,
+)
+from backend.auth.email_runtime import (
+    frontend_base_url as _frontend_base_url,
+    is_email_like as _is_email_like,
+    normalize_email as _normalize_email,
+    send_resend_text_email as _send_resend_text_email,
+    send_welcome_email as _send_welcome_email,
+)
+from backend.auth.legal_runtime import (
+    _LEGAL_DOCS,
+    ensure_current_legal_acceptances as _ensure_current_legal_acceptances,
+    record_signon_event as _record_signon_event,
+    require_legal_acceptance as _require_legal_acceptance,
+    user_has_current_legal_acceptances as _user_has_current_legal_acceptances,
+)
+from backend.auth.oauth_runtime import (
+    oauth_fetch_json as _oauth_fetch_json,
+)
+from backend.auth.session_runtime import (
     AUTH_DATABASE_URI,
     AccessContext,
     _CSRF_COOKIE_NAME,
-    _LEGAL_DOCS,
     _SESSION_COOKIE_NAME,
     _mock_auth,
     auth_db_is_configured as _auth_db_is_configured,
@@ -152,30 +174,16 @@ from backend.auth.runtime import (
     csrf_required as _csrf_required,
     ensure_auth_schema_upgrades as _ensure_auth_schema_upgrades_auth_runtime,
     ensure_auth_tables_exist as _ensure_auth_tables_exist_auth_runtime,
-    ensure_current_legal_acceptances as _ensure_current_legal_acceptances,
-    frontend_base_url as _frontend_base_url,
-    oauth_fetch_json as _oauth_fetch_json,
-    issue_session_token as _issue_session_token,
     is_running_on_fly as _is_running_on_fly_auth_runtime,
-    is_email_like as _is_email_like,
+    issue_session_token as _issue_session_token,
     load_session_token as _load_session_token,
-    normalize_email as _normalize_email,
-    record_signon_event as _record_signon_event,
     request_ip_address as _request_ip_address,
     request_user_agent as _request_user_agent,
     require_auth_db as _require_auth_db,
-    require_captcha_token as _require_captcha_token,
-    require_legal_acceptance as _require_legal_acceptance,
     revoke_session_token as _revoke_session_token,
     safe_next_path as _safe_next_path,
-    send_resend_text_email as _send_resend_text_email,
-    send_welcome_email as _send_welcome_email,
     set_auth_cookies as _set_auth_cookies,
     set_csrf_cookie as _set_csrf_cookie,
-    turnstile_enabled as _turnstile_enabled,
-    turnstile_site_key as _turnstile_site_key,
-    user_has_current_legal_acceptances as _user_has_current_legal_acceptances,
-    verify_turnstile_token as _verify_turnstile_token,
 )
 from backend.services.async_tasks import AsyncTaskRunner
 from backend.services.sections_service import (
