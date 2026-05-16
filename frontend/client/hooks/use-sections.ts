@@ -22,6 +22,11 @@ interface CommittedQuery {
   clauseTypesNested?: ClauseTypeTree;
   sortBy: SortField | null;
   sortDirection: "asc" | "desc";
+  // Bumped on every commit so the queryKey is distinct even when filters/sort
+  // are unchanged from the previous attempt. Without this, a Search re-click
+  // after a failed fetch wouldn't refetch — React Query would just return the
+  // cached error for the same key.
+  nonce: number;
 }
 
 const EMPTY_FILTERS: SearchFilters = {
@@ -116,6 +121,7 @@ export function useSections() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const fireResultsLoadedRef = useRef(false);
+  const nonceRef = useRef(0);
 
   const committedQueryString = useMemo(
     () => (committed ? buildSectionsQueryString(committed) : ""),
@@ -123,7 +129,10 @@ export function useSections() {
   );
 
   const query = useQuery<SearchResponse>({
-    queryKey: keys.sections.search({ q: committedQueryString }),
+    queryKey: keys.sections.search({
+      q: committedQueryString,
+      n: committed?.nonce ?? 0,
+    }),
     enabled: !IS_SERVER_RENDER && committed !== null,
     staleTime: 60 * 1000,
     retry: (failureCount, error) =>
@@ -295,11 +304,13 @@ export function useSections() {
         });
       }
 
+      nonceRef.current += 1;
       setCommitted({
         filters: effective,
         clauseTypesNested,
         sortBy,
         sortDirection: sortDir,
+        nonce: nonceRef.current,
       });
     },
     [filters, currentSort, sort_direction],

@@ -28,6 +28,11 @@ interface CommittedQuery {
   filters: TaxClauseFilters;
   sortBy: SortField | null;
   sortDirection: "asc" | "desc";
+  // Bumped on every commit so the queryKey is distinct even when filters/sort
+  // are unchanged from the previous attempt. Without this, a Search re-click
+  // after a failed fetch wouldn't refetch — React Query would just return the
+  // cached error for the same key.
+  nonce: number;
 }
 
 const EMPTY_FILTERS: TaxClauseFilters = {
@@ -111,6 +116,7 @@ export function useTaxClauses() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const fireResultsLoadedRef = useRef(false);
+  const nonceRef = useRef(0);
 
   const committedQueryString = useMemo(
     () => (committed ? buildCommittedQueryString(committed) : ""),
@@ -118,7 +124,10 @@ export function useTaxClauses() {
   );
 
   const query = useQuery<TaxClauseSearchResponse>({
-    queryKey: keys.taxClauses.search({ q: committedQueryString }),
+    queryKey: keys.taxClauses.search({
+      q: committedQueryString,
+      n: committed?.nonce ?? 0,
+    }),
     enabled: !IS_SERVER_RENDER && committed !== null,
     staleTime: 60 * 1000,
     retry: (failureCount, error) =>
@@ -268,7 +277,13 @@ export function useTaxClauses() {
         });
       }
 
-      setCommitted({ filters: effective, sortBy, sortDirection: sortDir });
+      nonceRef.current += 1;
+      setCommitted({
+        filters: effective,
+        sortBy,
+        sortDirection: sortDir,
+        nonce: nonceRef.current,
+      });
     },
     [filters, currentSort, sort_direction],
   );

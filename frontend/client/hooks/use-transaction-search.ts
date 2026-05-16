@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
@@ -24,6 +24,11 @@ interface CommittedQuery {
   clauseTypesNested?: ClauseTypeTree;
   sortBy: "year" | "target" | "acquirer" | null;
   sortDirection: "asc" | "desc";
+  // Bumped on every commit so the queryKey is distinct even when filters/sort
+  // are unchanged from the previous attempt. Without this, a Search re-click
+  // after a failed fetch wouldn't refetch — React Query would just return the
+  // cached error for the same key.
+  nonce: number;
 }
 
 const EMPTY_ACCESS: TransactionSearchResponse["access"] = { tier: "anonymous" };
@@ -50,6 +55,7 @@ export function useTransactionSearch() {
   const [selectedResults, setSelectedResults] = useState<Set<string>>(new Set());
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const nonceRef = useRef(0);
 
   const committedQueryString = useMemo(
     () => (committed ? buildTransactionQueryString(committed) : ""),
@@ -57,7 +63,10 @@ export function useTransactionSearch() {
   );
 
   const query = useQuery<TransactionSearchResponse>({
-    queryKey: keys.transactions.search({ q: committedQueryString }),
+    queryKey: keys.transactions.search({
+      q: committedQueryString,
+      n: committed?.nonce ?? 0,
+    }),
     enabled: !IS_SERVER_RENDER && committed !== null,
     staleTime: 60 * 1000,
     queryFn: async () => {
@@ -114,7 +123,14 @@ export function useTransactionSearch() {
     }) => {
       setShowErrorModal(false);
       if (markAsSearched) setHasSearched(true);
-      setCommitted({ filters, clauseTypesNested, sortBy, sortDirection });
+      nonceRef.current += 1;
+      setCommitted({
+        filters,
+        clauseTypesNested,
+        sortBy,
+        sortDirection,
+        nonce: nonceRef.current,
+      });
     },
     [],
   );
