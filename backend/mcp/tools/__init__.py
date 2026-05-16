@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -9,7 +8,7 @@ from difflib import SequenceMatcher
 from decimal import Decimal
 from functools import lru_cache
 from html import unescape
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 from flask import abort
 from marshmallow import Schema, ValidationError, fields as ma_fields, validate
@@ -18,6 +17,52 @@ from sqlalchemy import and_, asc, desc, func, or_, text
 from backend.auth.mcp_runtime import McpPrincipal
 from backend.filtering import build_any_counsel_agreement_uuid_subquery, build_canonical_counsel_agreement_uuid_subquery, build_transaction_price_bucket_filter
 from backend.mcp.metrics import get_mcp_metrics_registry
+from backend.mcp.tools.args_schemas import (
+    McpAgreementArgsSchema,
+    McpAgreementIdentifierSchema,
+    McpBatchAgreementSectionsArgsSchema,
+    McpFilterOptionsArgsSchema,
+    McpListAgreementSectionsArgsSchema,
+    McpSearchAgreementsExtraArgsSchema,
+    McpSectionArgsSchema,
+)
+from backend.mcp.tools.constants import (
+    _CLAUSE_CONFIDENCE_VALUES,
+    _CLAUSE_FIT_VALUES,
+    _COUNT_METHOD_VALUES,
+    _COUNT_MODE_VALUES,
+    _COUNT_RELIABILITY_VALUES,
+    _FIELD_REPRESENTATION_VALUES,
+    _FILTER_OPTIONS_FIELDS,
+    _SECTION_LIST_SORT_FIELDS,
+    _STRUCTURED_FILTER_ARRAY_FIELDS,
+    _TAXONOMY_MATCH_MODE_VALUES,
+    _TRANSACTION_PRICE_BUCKET_OPTIONS,
+)
+from backend.mcp.tools.dispatch import (
+    McpOutputValidationError,
+    McpToolResult,
+    McpToolSpec,
+    _matches_schema_type,
+    _require_scope,
+    _validate_output_against_schema,
+    _validate_payload,
+)
+from backend.mcp.tools.schema_utils import (
+    _array_of,
+    _array_schema_for_filter,
+    _enum_array_schema,
+    _field_json_schema,
+    _filter_option_metadata,
+    _merge_schema_instances,
+    _object_schema,
+    _one_of_choices,
+    _pagination_response_properties,
+    _range_validator_bounds,
+    _schema_from_fields,
+    _schema_input_schema,
+    _structured_filter_properties,
+)
 from backend.routes.agreements import (
     _agreement_is_public_eligible_expr,
     _normalize_industry_label,
@@ -35,507 +80,6 @@ from backend.schemas.public_api import (
 from backend.schemas.sections import SECTIONS_RESULT_METADATA_FIELDS, SectionsArgsPayload, SectionsArgsSchema
 from backend.services.sections_service import run_sections
 
-_SECTION_LIST_SORT_FIELDS = ("article_title", "section_title", "section_uuid", "document_order")
-_TRANSACTION_PRICE_BUCKET_OPTIONS = (
-    "0 - 100M",
-    "100M - 250M",
-    "250M - 500M",
-    "500M - 750M",
-    "750M - 1B",
-    "1B - 2B",
-    "2B - 5B",
-    "5B - 10B",
-    "10B - 20B",
-    "20B+",
-)
-_FILTER_OPTIONS_FIELDS = (
-    "targets",
-    "acquirers",
-    "transaction_price_totals",
-    "transaction_price_stocks",
-    "transaction_price_cashes",
-    "transaction_price_assets",
-    "transaction_considerations",
-    "target_types",
-    "acquirer_types",
-    "target_counsels",
-    "acquirer_counsels",
-    "target_industries",
-    "acquirer_industries",
-    "deal_statuses",
-    "attitudes",
-    "deal_types",
-    "purposes",
-    "target_pes",
-    "acquirer_pes",
-)
-_STRUCTURED_FILTER_ARRAY_FIELDS = (
-    "year",
-    "target",
-    "acquirer",
-    "transaction_price_total",
-    "transaction_price_stock",
-    "transaction_price_cash",
-    "transaction_price_assets",
-    "transaction_consideration",
-    "target_type",
-    "acquirer_type",
-    "target_counsel",
-    "acquirer_counsel",
-    "target_industry",
-    "acquirer_industry",
-    "deal_status",
-    "attitude",
-    "deal_type",
-    "purpose",
-    "target_pe",
-    "acquirer_pe",
-)
-_FIELD_REPRESENTATION_VALUES = (
-    "first_class_agreement_field",
-    "first_class_section_field",
-    "taxonomy_assignment",
-    "derived_from_text",
-    "not_represented",
-)
-_COUNT_MODE_VALUES = ("auto", "exact")
-_COUNT_METHOD_VALUES = ("query_count", "table_estimate", "filtered_lower_bound")
-_COUNT_RELIABILITY_VALUES = ("high", "medium", "low")
-_TAXONOMY_MATCH_MODE_VALUES = ("exact_node", "expanded_descendants")
-_CLAUSE_FIT_VALUES = ("canonical", "proxy", "broad_match")
-_CLAUSE_CONFIDENCE_VALUES = ("high", "medium", "low")
-
-_FieldOverrides = Mapping[str, Mapping[str, object]]
-
-
-def _merge_schema_instances(*schemas: Schema) -> Schema:
-    merged_fields: dict[str, ma_fields.Field[Any]] = {}
-    for schema in schemas:
-        for field_name, field in schema.fields.items():
-            merged_fields[field_name] = field
-    merged_type = Schema.from_dict(merged_fields, name="MergedSchema")
-    return cast(Schema, merged_type())
-
-
-def _schema_from_fields(name: str, field_map: Mapping[str, ma_fields.Field[Any]]) -> Schema:
-    schema_type = Schema.from_dict(dict(field_map), name=name)
-    return cast(Schema, schema_type())
-
-
-def _array_schema_for_filter(field_name: str) -> dict[str, object]:
-    item_type = "integer" if field_name == "year" else "string"
-    return {"type": "array", "items": {"type": item_type}}
-
-
-def _enum_array_schema(
-    values: tuple[str, ...],
-    *,
-    description: str | None = None,
-    examples: list[object] | None = None,
-) -> dict[str, object]:
-    schema: dict[str, object] = {"type": "array", "items": {"type": "string", "enum": list(values)}}
-    if description is not None:
-        schema["description"] = description
-    if examples is not None:
-        schema["examples"] = examples
-    return schema
-
-
-def _one_of_choices(validators: list[object]) -> list[object] | None:
-    for validator_obj in validators:
-        if isinstance(validator_obj, validate.OneOf):
-            return list(validator_obj.choices)
-    return None
-
-
-def _range_validator_bounds(field: ma_fields.Field[Any]) -> tuple[int | None, int | None]:
-    for v in getattr(field, "validators", []):
-        if isinstance(v, validate.Range):
-            mn = v.min
-            mx = v.max
-            return (int(mn) if mn is not None else None), (int(mx) if mx is not None else None)
-    return None, None
-
-
-def _field_json_schema(field: ma_fields.Field[Any]) -> dict[str, object]:
-    schema: dict[str, object]
-    if isinstance(field, ma_fields.List):
-        item_schema = _field_json_schema(field.inner)
-        item_schema.pop("description", None)
-        item_schema.pop("example", None)
-        item_schema.pop("examples", None)
-        schema = {"type": "array", "items": item_schema}
-    elif isinstance(field, ma_fields.Int):
-        schema = {"type": "integer"}
-        mn, mx = _range_validator_bounds(field)
-        if mn is not None:
-            schema["minimum"] = mn
-        if mx is not None:
-            schema["maximum"] = mx
-    elif isinstance(field, ma_fields.Bool):
-        schema = {"type": "boolean"}
-    elif isinstance(field, ma_fields.Float):
-        schema = {"type": "number"}
-    else:
-        schema = {"type": "string"}
-
-    enum_choices = _one_of_choices(list(getattr(field, "validators", [])))
-    if enum_choices is not None:
-        schema["enum"] = enum_choices
-
-    if field.allow_none and "type" in schema:
-        schema["type"] = [cast(object, schema["type"]), "null"]
-
-    description = field.metadata.get("description")
-    if isinstance(description, str) and description.strip():
-        schema["description"] = description
-    example = field.metadata.get("example")
-    if example is not None:
-        schema["example"] = example
-    examples = field.metadata.get("examples")
-    if isinstance(examples, list) and examples:
-        schema["examples"] = examples
-    return schema
-
-
-def _schema_input_schema(
-    schema: Schema,
-    *,
-    additional_properties: bool = False,
-    field_overrides: _FieldOverrides | None = None,
-) -> dict[str, object]:
-    properties: dict[str, object] = {}
-    required: list[str] = []
-    for field_name, field in schema.fields.items():
-        field_schema = _field_json_schema(field)
-        if field_overrides and field_name in field_overrides:
-            field_schema.update(field_overrides[field_name])
-        properties[field_name] = field_schema
-        if field.required:
-            required.append(field_name)
-    payload: dict[str, object] = {
-        "type": "object",
-        "properties": properties,
-        "additionalProperties": additional_properties,
-    }
-    if required:
-        payload["required"] = required
-    return payload
-
-
-def _object_schema(
-    properties: dict[str, object],
-    *,
-    required: list[str] | None = None,
-    additional_properties: bool = True,
-) -> dict[str, object]:
-    schema: dict[str, object] = {
-        "type": "object",
-        "properties": properties,
-        "additionalProperties": additional_properties,
-    }
-    if required:
-        schema["required"] = required
-    return schema
-
-
-def _array_of(item_schema: dict[str, object]) -> dict[str, object]:
-    return {"type": "array", "items": item_schema}
-
-
-def _pagination_response_properties() -> dict[str, object]:
-    return {
-        "page": {"type": "integer"},
-        "page_size": {"type": "integer"},
-        "total_count": {"type": "integer"},
-        "total_count_is_approximate": {"type": "boolean"},
-        "total_pages": {"type": "integer"},
-        "has_next": {"type": "boolean"},
-        "has_prev": {"type": "boolean"},
-        "next_num": {"type": ["integer", "null"]},
-        "prev_num": {"type": ["integer", "null"]},
-    }
-
-
-def _filter_option_metadata() -> dict[str, dict[str, object]]:
-    return {
-        "targets": {"retrieval_parameter": "target", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"], "examples": [["Target A"]]},
-        "acquirers": {"retrieval_parameter": "acquirer", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"], "examples": [["Acquirer A"]]},
-        "transaction_price_totals": {
-            "retrieval_parameter": "transaction_price_total",
-            "applies_to": ["agreements", "sections"],
-            "value_kind": "bucket",
-            "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
-            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
-            "examples": [["100M - 250M"]],
-        },
-        "transaction_price_stocks": {
-            "retrieval_parameter": "transaction_price_stock",
-            "applies_to": ["agreements", "sections"],
-            "value_kind": "bucket",
-            "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
-            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
-        },
-        "transaction_price_cashes": {
-            "retrieval_parameter": "transaction_price_cash",
-            "applies_to": ["agreements", "sections"],
-            "value_kind": "bucket",
-            "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
-            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
-        },
-        "transaction_price_assets": {
-            "retrieval_parameter": "transaction_price_assets",
-            "applies_to": ["agreements", "sections"],
-            "value_kind": "bucket",
-            "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
-            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
-        },
-        "transaction_considerations": {"retrieval_parameter": "transaction_consideration", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "target_types": {"retrieval_parameter": "target_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "acquirer_types": {"retrieval_parameter": "acquirer_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "target_counsels": {"retrieval_parameter": "target_counsel", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"], "examples": [["Wachtell, Lipton, Rosen & Katz"]]},
-        "acquirer_counsels": {"retrieval_parameter": "acquirer_counsel", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "target_industries": {"retrieval_parameter": "target_industry", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "acquirer_industries": {"retrieval_parameter": "acquirer_industry", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "deal_statuses": {"retrieval_parameter": "deal_status", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "attitudes": {"retrieval_parameter": "attitude", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "deal_types": {"retrieval_parameter": "deal_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "purposes": {"retrieval_parameter": "purpose", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
-        "target_pes": {
-            "retrieval_parameter": "target_pe",
-            "applies_to": ["agreements", "sections"],
-            "value_kind": "string_boolean",
-            "allowed_values": ["true", "false"],
-            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
-        },
-        "acquirer_pes": {
-            "retrieval_parameter": "acquirer_pe",
-            "applies_to": ["agreements", "sections"],
-            "value_kind": "string_boolean",
-            "allowed_values": ["true", "false"],
-            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
-        },
-    }
-
-
-def _structured_filter_properties(*, include_cursor: bool = False, include_xml: bool = False) -> dict[str, dict[str, object]]:
-    properties: dict[str, dict[str, object]] = {}
-    if include_cursor:
-        properties["cursor"] = {"type": ["string", "null"], "description": "Opaque cursor from a previous list_agreements call."}
-    properties["page_size"] = {"type": "integer", "description": "Maximum number of results to return."}
-    if include_xml:
-        properties["include_xml"] = {
-            "type": "boolean",
-            "description": "When true, include full agreement XML. Requires agreements:read_fulltext.",
-        }
-    for field_name in _STRUCTURED_FILTER_ARRAY_FIELDS:
-        if field_name == "year":
-            properties[field_name] = {
-                "type": "array",
-                "items": {"type": "integer"},
-                "description": "Agreement filing years to include.",
-            }
-        elif field_name in {
-            "transaction_price_total",
-            "transaction_price_stock",
-            "transaction_price_cash",
-            "transaction_price_assets",
-        }:
-            properties[field_name] = _enum_array_schema(
-                _TRANSACTION_PRICE_BUCKET_OPTIONS,
-                description="Transaction-price bucket filters.",
-                examples=[["100M - 250M", "250M - 500M"]],
-            )
-        elif field_name in {"target_pe", "acquirer_pe"}:
-            properties[field_name] = _enum_array_schema(
-                ("true", "false"),
-                description="Boolean-like PE filter values encoded as strings.",
-                examples=[["true"]],
-            )
-        else:
-            properties[field_name] = _array_schema_for_filter(field_name)
-    properties["agreement_uuid"] = {"type": ["string", "null"], "description": "Filter to one agreement UUID."}
-    properties["section_uuid"] = {"type": ["string", "null"], "description": "Filter to one section UUID."}
-    return properties
-
-
-class McpAgreementArgsSchema(AgreementArgsSchema):
-    agreement_uuid = ma_fields.Str(required=True)
-
-
-class McpAgreementIdentifierSchema(Schema):
-    agreement_uuid = ma_fields.Str(required=True)
-
-
-class McpSectionArgsSchema(Schema):
-    section_uuid = ma_fields.Str(required=True)
-
-
-class McpListAgreementSectionsArgsSchema(Schema):
-    agreement_uuid = ma_fields.Str(required=True)
-    standard_id = ma_fields.List(ma_fields.Str(), load_default=[])
-    include_standard_ids = ma_fields.Bool(load_default=True)
-    page = ma_fields.Int(load_default=1)
-    page_size = ma_fields.Int(load_default=25)
-    sort_by = ma_fields.Str(
-        load_default="document_order",
-        validate=validate.OneOf(list(_SECTION_LIST_SORT_FIELDS)),
-    )
-    sort_direction = ma_fields.Str(load_default="asc", validate=validate.OneOf(["asc", "desc"]))
-
-
-class McpBatchAgreementSectionsArgsSchema(Schema):
-    agreement_uuids = ma_fields.List(
-        ma_fields.Str(),
-        required=True,
-        validate=validate.Length(min=1, max=20),
-    )
-    standard_id = ma_fields.List(ma_fields.Str(), load_default=[])
-    include_standard_ids = ma_fields.Bool(load_default=True)
-    sort_by = ma_fields.Str(
-        load_default="document_order",
-        validate=validate.OneOf(list(_SECTION_LIST_SORT_FIELDS)),
-    )
-    sort_direction = ma_fields.Str(load_default="asc", validate=validate.OneOf(["asc", "desc"]))
-
-
-class McpSearchAgreementsExtraArgsSchema(Schema):
-    any_counsel = ma_fields.List(ma_fields.Str(), load_default=[])
-    year_min = ma_fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
-    year_max = ma_fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
-    filed_after = ma_fields.Str(load_default=None, allow_none=True, validate=validate.Regexp(r'^\d{4}-\d{2}-\d{2}$'))
-    filed_before = ma_fields.Str(load_default=None, allow_none=True, validate=validate.Regexp(r'^\d{4}-\d{2}-\d{2}$'))
-
-
-class McpFilterOptionsArgsSchema(Schema):
-    fields = cast(
-        Any,
-        ma_fields.List(
-            ma_fields.Str(validate=validate.OneOf(list(_FILTER_OPTIONS_FIELDS))),
-            load_default=[],
-        ),
-    )
-
-
-@dataclass(frozen=True)
-class McpToolResult:
-    text: str
-    structured_content: object
-
-
-class McpOutputValidationError(ValueError):
-    def __init__(self, messages: dict[str, object]):
-        super().__init__("Tool result did not match the advertised output schema.")
-        self.messages = messages
-
-
-@dataclass(frozen=True)
-class McpToolSpec:
-    name: str
-    description: str
-    input_schema: dict[str, object]
-    output_schema: dict[str, object]
-    examples: tuple[dict[str, object], ...]
-    response_examples: tuple[dict[str, object], ...]
-    scopes: tuple[str, ...]
-    selection_hint: str
-    negative_guidance: tuple[str, ...]
-    pagination: str
-    access_behavior: str
-    redaction_behavior: str
-    fulltext_scope: str | None
-    handler: Callable[..., McpToolResult]
-
-
-def _require_scope(principal: McpPrincipal, scope: str) -> None:
-    if scope in principal.scopes:
-        return
-    raise PermissionError(f"Missing required scope: {scope}")
-
-
-def _validate_payload(schema: Schema, payload: dict[str, object]) -> dict[str, object]:
-    try:
-        loaded = schema.load(payload)
-    except ValidationError:
-        raise
-    return cast(dict[str, object], loaded)
-
-
-def _matches_schema_type(expected_type: object, value: object) -> bool:
-    if expected_type == "object":
-        return isinstance(value, dict)
-    if expected_type == "array":
-        return isinstance(value, list)
-    if expected_type == "string":
-        return isinstance(value, str)
-    if expected_type == "integer":
-        return isinstance(value, int) and not isinstance(value, bool)
-    if expected_type == "number":
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
-    if expected_type == "boolean":
-        return isinstance(value, bool)
-    if expected_type == "null":
-        return value is None
-    return True
-
-
-def _validate_output_against_schema(
-    schema: dict[str, object],
-    value: object,
-    *,
-    path: str = "structuredContent",
-) -> dict[str, object]:
-    errors: dict[str, object] = {}
-    expected_type = schema.get("type")
-    if isinstance(expected_type, list):
-        if not any(_matches_schema_type(type_name, value) for type_name in expected_type):
-            errors[path] = f"Expected one of {expected_type}, got {type(value).__name__}."
-            return errors
-    elif expected_type is not None and not _matches_schema_type(expected_type, value):
-        errors[path] = f"Expected {expected_type}, got {type(value).__name__}."
-        return errors
-
-    if isinstance(value, dict):
-        properties = cast(dict[str, dict[str, object]], schema.get("properties", {}))
-        required = cast(list[str], schema.get("required", []))
-        for field_name in required:
-            if field_name not in value:
-                errors[f"{path}.{field_name}"] = "Missing required field."
-        for field_name, field_schema in properties.items():
-            if field_name in value:
-                errors.update(
-                    _validate_output_against_schema(
-                        field_schema,
-                        value[field_name],
-                        path=f"{path}.{field_name}",
-                    )
-                )
-        additional_properties = schema.get("additionalProperties", True)
-        extra_keys = [field_name for field_name in value.keys() if field_name not in properties]
-        if additional_properties is False:
-            for field_name in extra_keys:
-                errors[f"{path}.{field_name}"] = "Unexpected field."
-        elif isinstance(additional_properties, dict):
-            for field_name in extra_keys:
-                errors.update(
-                    _validate_output_against_schema(
-                        additional_properties,
-                        value[field_name],
-                        path=f"{path}.{field_name}",
-                    )
-                )
-        return errors
-
-    if isinstance(value, list):
-        item_schema = cast(dict[str, object], schema.get("items", {}))
-        for index, item in enumerate(value):
-            errors.update(_validate_output_against_schema(item_schema, item, path=f"{path}[{index}]"))
-        return errors
-
-    enum_values = schema.get("enum")
-    if isinstance(enum_values, list) and value not in enum_values:
-        errors[path] = f"Unexpected enum value: {value!r}."
-    return errors
 
 
 def _normalized_page(page: int) -> int:
