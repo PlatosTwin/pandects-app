@@ -16,7 +16,6 @@ from typing import cast
 from urllib.parse import urlencode, urlparse, urlunparse
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
@@ -38,415 +37,54 @@ from backend.auth.mcp_oauth_runtime import (
     mcp_oauth_token_endpoint,
     public_jwk_from_private_pem,
 )
-from backend.auth.session_runtime import cookie_settings
 from backend.auth.email_runtime import send_pandects_auth_email, verify_zitadel_signature
 from backend.auth.mcp_runtime import (
     ExternalIdentity,
     McpAuthError,
-    mcp_jwt_algorithms,
-    mcp_jwks_url,
-    mcp_oidc_audiences,
     mcp_oidc_issuer,
     mcp_resource_url,
     mcp_supported_scopes,
 )
+from backend.routes.auth.cookies import (
+    _clear_oauth_authorize_cookie,
+    _clear_oauth_browser_cookie,
+    _clear_zitadel_link_cookie,
+    _clear_zitadel_pending_cookie,
+    _clear_zitadel_web_cookie,
+    _load_oauth_authorize_cookie,
+    _load_oauth_browser_cookie,
+    _load_zitadel_link_cookie,
+    _load_zitadel_pending_cookie,
+    _load_zitadel_web_cookie,
+    _set_oauth_authorize_cookie,
+    _set_oauth_browser_cookie,
+    _set_zitadel_link_cookie,
+    _set_zitadel_pending_cookie,
+    _set_zitadel_web_cookie,
+)
+from backend.routes.auth.zitadel_config import (
+    _build_pkce_challenge,
+    _decode_zitadel_id_token,
+    _website_zitadel_redirect_uri,
+    _zitadel_api_client_id,
+    _zitadel_api_key_id,
+    _zitadel_api_private_key,
+    _zitadel_api_token,
+    _zitadel_audience,
+    _zitadel_authorization_endpoint,
+    _zitadel_client_id,
+    _zitadel_default_role_keys,
+    _zitadel_google_idp_id,
+    _zitadel_project_id,
+    _zitadel_redirect_uri,
+    _zitadel_resource,
+    _zitadel_scopes,
+    _zitadel_token_endpoint,
+)
 from backend.routes.deps import AuthDeps
 
-_ZITADEL_LINK_COOKIE_NAME = "pdcts_zitadel_link"
-_ZITADEL_LINK_COOKIE_MAX_AGE = 60 * 10
-_ZITADEL_WEB_COOKIE_NAME = "pdcts_zitadel_web"
-_ZITADEL_WEB_COOKIE_MAX_AGE = 60 * 10
-_ZITADEL_PENDING_COOKIE_NAME = "pdcts_zitadel_pending"
-_ZITADEL_PENDING_COOKIE_MAX_AGE = 60 * 20
-_OAUTH_BROWSER_COOKIE_NAME = "pdcts_oauth_browser"
-_OAUTH_BROWSER_COOKIE_MAX_AGE = 60 * 20
-_OAUTH_AUTHORIZE_COOKIE_NAME = "pdcts_oauth_authorize"
-_OAUTH_AUTHORIZE_COOKIE_MAX_AGE = 60 * 20
 _ZITADEL_API_TOKEN_CACHE: dict[str, object] = {}
 _OAUTH_LOOPBACK_REDIRECT_HOSTS = {"localhost", "127.0.0.1", "::1"}
-
-
-def _zitadel_link_cookie_serializer() -> URLSafeTimedSerializer:
-    secret = os.environ.get("AUTH_SECRET_KEY")
-    if not secret:
-        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
-    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-zitadel-link-cookie")
-
-
-def _zitadel_web_cookie_serializer() -> URLSafeTimedSerializer:
-    secret = os.environ.get("AUTH_SECRET_KEY")
-    if not secret:
-        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
-    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-zitadel-web-cookie")
-
-
-def _zitadel_pending_cookie_serializer() -> URLSafeTimedSerializer:
-    secret = os.environ.get("AUTH_SECRET_KEY")
-    if not secret:
-        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
-    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-zitadel-pending-cookie")
-
-
-def _oauth_browser_cookie_serializer() -> URLSafeTimedSerializer:
-    secret = os.environ.get("AUTH_SECRET_KEY")
-    if not secret:
-        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
-    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-oauth-browser-cookie")
-
-
-def _oauth_authorize_cookie_serializer() -> URLSafeTimedSerializer:
-    secret = os.environ.get("AUTH_SECRET_KEY")
-    if not secret:
-        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
-    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-oauth-authorize-cookie")
-
-
-def _zitadel_client_id() -> str:
-    client_id = os.environ.get("MCP_ZITADEL_CLIENT_ID", "").strip()
-    if not client_id:
-        abort(503, description="ZITADEL linking is not configured (missing MCP_ZITADEL_CLIENT_ID).")
-    return client_id
-
-
-def _zitadel_redirect_uri(deps: AuthDeps) -> str:
-    explicit = os.environ.get("MCP_ZITADEL_REDIRECT_URI", "").strip()
-    if explicit:
-        return explicit
-    return f"{deps._frontend_base_url()}/auth/zitadel/callback"
-
-
-def _website_zitadel_redirect_uri(deps: AuthDeps) -> str:
-    explicit = os.environ.get("AUTH_ZITADEL_REDIRECT_URI", "").strip()
-    if explicit:
-        return explicit
-    return f"{deps._frontend_base_url()}/auth/zitadel/callback"
-
-
-def _zitadel_scopes() -> str:
-    raw = os.environ.get("MCP_ZITADEL_SCOPES", "").strip()
-    if raw:
-        return " ".join(part for part in raw.split() if part)
-    scopes: list[str] = [
-        "openid",
-        "profile",
-        "email",
-        *mcp_supported_scopes(),
-        "urn:iam:org:project:roles",
-        "urn:zitadel:iam:org:project:roles",
-    ]
-    project_id = _zitadel_project_id(optional=True)
-    if project_id:
-        scopes.append(f"urn:zitadel:iam:org:project:{project_id}:roles")
-    return " ".join(scopes)
-
-
-def _zitadel_audience() -> str | None:
-    raw = os.environ.get("MCP_ZITADEL_AUDIENCE", "").strip()
-    if raw:
-        return raw
-    audiences = mcp_oidc_audiences()
-    return audiences[0] if audiences else None
-
-
-def _zitadel_resource() -> str | None:
-    raw = os.environ.get("MCP_ZITADEL_RESOURCE", "").strip()
-    if raw:
-        return raw
-    return _zitadel_audience()
-
-
-def _zitadel_authorization_endpoint() -> str:
-    raw = os.environ.get("MCP_OIDC_AUTHORIZATION_ENDPOINT", "").strip()
-    if raw:
-        return raw
-    return f"{mcp_oidc_issuer()}/oauth/v2/authorize"
-
-
-def _zitadel_token_endpoint() -> str:
-    raw = os.environ.get("MCP_OIDC_TOKEN_ENDPOINT", "").strip()
-    if raw:
-        return raw
-    return f"{mcp_oidc_issuer()}/oauth/v2/token"
-
-
-def _zitadel_api_token() -> str:
-    raw = os.environ.get("AUTH_ZITADEL_API_TOKEN", "").strip()
-    if not raw:
-        abort(503, description="ZITADEL API access is not configured.")
-    return raw
-
-
-def _zitadel_api_client_id() -> str | None:
-    raw = os.environ.get("AUTH_ZITADEL_API_CLIENT_ID", "").strip()
-    return raw or None
-
-
-def _zitadel_api_key_id() -> str | None:
-    raw = os.environ.get("AUTH_ZITADEL_API_KEY_ID", "").strip()
-    return raw or None
-
-
-def _zitadel_api_private_key() -> str | None:
-    raw = os.environ.get("AUTH_ZITADEL_API_PRIVATE_KEY", "").strip()
-    if not raw:
-        return None
-    return raw.replace("\\n", "\n")
-
-
-def _zitadel_google_idp_id() -> str:
-    raw = os.environ.get("AUTH_ZITADEL_GOOGLE_IDP_ID", "").strip()
-    if raw:
-        return raw
-    raw = os.environ.get("AUTH_ZITADEL_GOOGLE_IDP_HINT", "").strip()
-    if raw:
-        return raw
-    abort(503, description="ZITADEL Google auth is not configured (missing AUTH_ZITADEL_GOOGLE_IDP_ID).")
-
-
-def _zitadel_default_role_keys() -> tuple[str, ...]:
-    raw = os.environ.get("AUTH_ZITADEL_DEFAULT_ROLE_KEYS", "").strip()
-    if raw:
-        return tuple(part.strip() for part in raw.split(",") if part.strip())
-    return (
-        "sections_search",
-        "agreements_search",
-        "agreements_read",
-        "agreements_read_fulltext",
-    )
-
-
-def _zitadel_project_id(*, optional: bool = False) -> str | None:
-    explicit = os.environ.get("AUTH_ZITADEL_PROJECT_ID", "").strip()
-    if explicit:
-        return explicit
-    if optional:
-        return None
-    abort(
-        503,
-        description=(
-            "ZITADEL project configuration is incomplete. "
-            "Set AUTH_ZITADEL_PROJECT_ID."
-        ),
-    )
-
-
-def _decode_zitadel_id_token(id_token: str) -> dict[str, object] | None:
-    try:
-        import jwt
-        from jwt import PyJWKClient
-        from jwt.exceptions import InvalidTokenError, PyJWKClientError
-    except ImportError:
-        return None
-
-    try:
-        jwk_client = PyJWKClient(mcp_jwks_url())
-        signing_key = jwk_client.get_signing_key_from_jwt(id_token).key
-        payload_obj = jwt.decode(
-            id_token,
-            signing_key,
-            algorithms=list(mcp_jwt_algorithms()),
-            audience=_zitadel_client_id(),
-            issuer=mcp_oidc_issuer(),
-            leeway=60,
-        )
-    except (InvalidTokenError, PyJWKClientError, RuntimeError):
-        return None
-    if not isinstance(payload_obj, dict):
-        return None
-    return payload_obj
-
-
-def _build_pkce_challenge(code_verifier: str) -> str:
-    digest = sha256(code_verifier.encode("utf-8")).digest()
-    return urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-
-
-def _set_signed_cookie(
-    *,
-    name: str,
-    serializer: URLSafeTimedSerializer,
-    payload: dict[str, str],
-    max_age: int,
-    path: str,
-    resp,
-) -> None:
-    value = serializer.dumps(payload)
-    samesite, secure = cookie_settings()
-    resp.set_cookie(
-        name,
-        value,
-        max_age=max_age,
-        httponly=True,
-        secure=secure,
-        samesite=samesite.capitalize() if samesite != "none" else "None",
-        path=path,
-    )
-
-
-def _load_signed_cookie(
-    *,
-    name: str,
-    serializer: URLSafeTimedSerializer,
-    max_age: int,
-) -> dict[str, str] | None:
-    raw = request.cookies.get(name)
-    if not isinstance(raw, str) or not raw.strip():
-        return None
-    try:
-        payload_obj = serializer.loads(raw, max_age=max_age)
-    except (BadSignature, SignatureExpired):
-        return None
-    if not isinstance(payload_obj, dict):
-        return None
-    payload = payload_obj
-    if not all(isinstance(value, str) for value in payload.values()):
-        return None
-    return payload
-
-
-def _clear_signed_cookie(*, name: str, path: str, resp) -> None:
-    samesite, secure = cookie_settings()
-    resp.delete_cookie(
-        name,
-        path=path,
-        secure=secure,
-        samesite=samesite.capitalize() if samesite != "none" else "None",
-    )
-
-
-def _set_zitadel_link_cookie(resp, payload: dict[str, str]) -> None:
-    _set_signed_cookie(
-        name=_ZITADEL_LINK_COOKIE_NAME,
-        serializer=_zitadel_link_cookie_serializer(),
-        payload=payload,
-        max_age=_ZITADEL_LINK_COOKIE_MAX_AGE,
-        path="/v1/auth/external-subjects/zitadel/complete",
-        resp=resp,
-    )
-
-
-def _load_zitadel_link_cookie() -> dict[str, str] | None:
-    return _load_signed_cookie(
-        name=_ZITADEL_LINK_COOKIE_NAME,
-        serializer=_zitadel_link_cookie_serializer(),
-        max_age=_ZITADEL_LINK_COOKIE_MAX_AGE,
-    )
-
-
-def _clear_zitadel_link_cookie(resp) -> None:
-    _clear_signed_cookie(
-        name=_ZITADEL_LINK_COOKIE_NAME,
-        path="/v1/auth/external-subjects/zitadel/complete",
-        resp=resp,
-    )
-
-
-def _set_zitadel_web_cookie(resp, payload: dict[str, str]) -> None:
-    _set_signed_cookie(
-        name=_ZITADEL_WEB_COOKIE_NAME,
-        serializer=_zitadel_web_cookie_serializer(),
-        payload=payload,
-        max_age=_ZITADEL_WEB_COOKIE_MAX_AGE,
-        path="/v1/auth/zitadel/complete",
-        resp=resp,
-    )
-
-
-def _load_zitadel_web_cookie() -> dict[str, str] | None:
-    return _load_signed_cookie(
-        name=_ZITADEL_WEB_COOKIE_NAME,
-        serializer=_zitadel_web_cookie_serializer(),
-        max_age=_ZITADEL_WEB_COOKIE_MAX_AGE,
-    )
-
-
-def _clear_zitadel_web_cookie(resp) -> None:
-    _clear_signed_cookie(
-        name=_ZITADEL_WEB_COOKIE_NAME,
-        path="/v1/auth/zitadel/complete",
-        resp=resp,
-    )
-
-
-def _set_zitadel_pending_cookie(resp, payload: dict[str, str]) -> None:
-    _set_signed_cookie(
-        name=_ZITADEL_PENDING_COOKIE_NAME,
-        serializer=_zitadel_pending_cookie_serializer(),
-        payload=payload,
-        max_age=_ZITADEL_PENDING_COOKIE_MAX_AGE,
-        path="/v1/auth/zitadel/finalize",
-        resp=resp,
-    )
-
-
-def _load_zitadel_pending_cookie() -> dict[str, str] | None:
-    return _load_signed_cookie(
-        name=_ZITADEL_PENDING_COOKIE_NAME,
-        serializer=_zitadel_pending_cookie_serializer(),
-        max_age=_ZITADEL_PENDING_COOKIE_MAX_AGE,
-    )
-
-
-def _clear_zitadel_pending_cookie(resp) -> None:
-    _clear_signed_cookie(
-        name=_ZITADEL_PENDING_COOKIE_NAME,
-        path="/v1/auth/zitadel/finalize",
-        resp=resp,
-    )
-
-
-def _set_oauth_browser_cookie(resp, payload: dict[str, str]) -> None:
-    _set_signed_cookie(
-        name=_OAUTH_BROWSER_COOKIE_NAME,
-        serializer=_oauth_browser_cookie_serializer(),
-        payload=payload,
-        max_age=_OAUTH_BROWSER_COOKIE_MAX_AGE,
-        path="/v1/auth/oauth",
-        resp=resp,
-    )
-
-
-def _load_oauth_browser_cookie() -> dict[str, str] | None:
-    return _load_signed_cookie(
-        name=_OAUTH_BROWSER_COOKIE_NAME,
-        serializer=_oauth_browser_cookie_serializer(),
-        max_age=_OAUTH_BROWSER_COOKIE_MAX_AGE,
-    )
-
-
-def _clear_oauth_browser_cookie(resp) -> None:
-    _clear_signed_cookie(
-        name=_OAUTH_BROWSER_COOKIE_NAME,
-        path="/v1/auth/oauth",
-        resp=resp,
-    )
-
-
-def _set_oauth_authorize_cookie(resp, payload: dict[str, str]) -> None:
-    _set_signed_cookie(
-        name=_OAUTH_AUTHORIZE_COOKIE_NAME,
-        serializer=_oauth_authorize_cookie_serializer(),
-        payload=payload,
-        max_age=_OAUTH_AUTHORIZE_COOKIE_MAX_AGE,
-        path="/v1/auth/oauth/authorize",
-        resp=resp,
-    )
-
-
-def _load_oauth_authorize_cookie() -> dict[str, str] | None:
-    return _load_signed_cookie(
-        name=_OAUTH_AUTHORIZE_COOKIE_NAME,
-        serializer=_oauth_authorize_cookie_serializer(),
-        max_age=_OAUTH_AUTHORIZE_COOKIE_MAX_AGE,
-    )
-
-
-def _clear_oauth_authorize_cookie(resp) -> None:
-    _clear_signed_cookie(
-        name=_OAUTH_AUTHORIZE_COOKIE_NAME,
-        path="/v1/auth/oauth/authorize",
-        resp=resp,
-    )
 
 
 def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
