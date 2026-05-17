@@ -9,9 +9,9 @@ state, not part of the public API.
 from __future__ import annotations
 
 import uuid
-from typing import Any, cast
+from typing import cast
 
-from flask import Blueprint, Flask, abort, jsonify, make_response, request
+from flask import Blueprint, Flask, abort, request
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.routes.deps import UserLikeProtocol
