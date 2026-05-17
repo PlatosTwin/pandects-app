@@ -931,7 +931,7 @@ class McpTests(unittest.TestCase):
             "at": datetime(2020, 1, 1, 12, 30, 0),
         }
         with patch(
-            "backend.mcp.routes.call_tool",
+            "backend.mcp.routes.helpers.call_tool",
             return_value=McpToolResult(
                 text="Returned decimal payload.",
                 structured_content=structured_content,
