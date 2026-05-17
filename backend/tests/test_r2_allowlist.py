@@ -9,7 +9,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _PUSH_TO_R2_PATH = _REPO_ROOT / "bulk" / "push_to_r2.sh"
 _MAIN_DB_MODELS_PATH = _REPO_ROOT / "backend" / "models" / "main_db.py"
 _PUBLIC_API_SOURCE_PATHS = (
-    _REPO_ROOT / "backend" / "routes" / "agreements.py",
+    _REPO_ROOT / "backend" / "routes" / "agreements" / "__init__.py",
+    _REPO_ROOT / "backend" / "routes" / "agreements" / "helpers.py",
     _REPO_ROOT / "backend" / "routes" / "reference_data.py",
     _REPO_ROOT / "backend" / "services" / "sections_service.py",
 )
