@@ -506,7 +506,25 @@ def _introspect_access_token(token: str) -> dict[str, object]:
             action="relogin",
             client_message="Your access token is invalid or expired. Sign in again and retry.",
         )
-    return cast(dict[str, object], payload_obj)
+    # Defense-in-depth: the JWT decode path validates `aud` via PyJWT; the
+    # introspection path only sees what the AS returns, so re-check the
+    # audience against the configured allowlist before trusting the payload.
+    payload = cast(dict[str, object], payload_obj)
+    expected_audiences = frozenset(mcp_oidc_audiences())
+    token_audiences = _audience_set(payload)
+    if expected_audiences and not (token_audiences & expected_audiences):
+        raise _auth_error(
+            status_code=401,
+            message="Invalid bearer token.",
+            www_authenticate=_bearer_challenge(
+                error="invalid_token",
+                description="The bearer access token audience does not match this resource.",
+            ),
+            reason="invalid_token",
+            action="relogin",
+            client_message="Your access token was issued for a different resource. Sign in again and retry.",
+        )
+    return payload
 
 
 def _normalize_external_identity(payload: dict[str, object]) -> ExternalIdentity:

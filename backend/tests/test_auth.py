@@ -3046,9 +3046,14 @@ class AuthFlowTests(unittest.TestCase):
         self.assertNotIn("pandects.sessionToken", body)
         self.assertNotIn("/v1/auth/oauth/browser-session", body)
         self.assertIn("%2Fv1%2Fauth%2Foauth%2Fauthorize", body)
-        self.assertNotIn("redirect_uri%3Dhttps%253A%252F%252Fcodex.example.com%252Fcallback", body)
+        # The post-login resume URL must carry the original OAuth params so that
+        # the consent flow is bound to the request the client initiated, not to
+        # a server-side pending cookie that a different user could finalize.
+        self.assertIn("redirect_uri%3Dhttps%253A%252F%252Fcodex.example.com%252Fcallback", body)
+        self.assertIn("code_challenge%3Dtest-challenge", body)
+        self.assertIn("state%3Dtest-state", body)
 
-    def test_oauth_authorize_login_redirect_resumes_pending_request_from_cookie(self):
+    def test_oauth_authorize_login_redirect_carries_request_params_for_resume(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
 
@@ -3079,7 +3084,16 @@ class AuthFlowTests(unittest.TestCase):
         parsed = urlparse(authorize.headers["Location"])
         self.assertEqual(parsed.path, "/login")
         next_path = parse_qs(parsed.query)["next"][0]
-        self.assertEqual(next_path, "/v1/auth/oauth/authorize")
+        # Resume binding: the OAuth params must be embedded in the post-login
+        # `next` URL so that the request that user A initiated cannot be
+        # finalized by user B logging in on the same browser.
+        next_parsed = urlparse(next_path)
+        self.assertEqual(next_parsed.path, "/v1/auth/oauth/authorize")
+        next_query = parse_qs(next_parsed.query)
+        self.assertEqual(next_query["client_id"], [client_id])
+        self.assertEqual(next_query["redirect_uri"], ["https://codex.example.com/callback"])
+        self.assertEqual(next_query["state"], ["test-state"])
+        self.assertEqual(next_query["code_challenge"], ["test-challenge"])
 
         user_id = self._create_local_user(email="oauth-resume@example.com", verified=True, legal=True)
         with self.app.app_context():
@@ -3093,7 +3107,12 @@ class AuthFlowTests(unittest.TestCase):
             db.session.commit()
 
         self._set_cookie_session(client, email="oauth-resume@example.com")
-        resumed = client.get("/v1/auth/oauth/authorize")
+        # Resume must re-supply the OAuth params (the SPA reads them from the
+        # next= URL); a bare GET is now an error.
+        bare_resume = client.get("/v1/auth/oauth/authorize")
+        self.assertEqual(bare_resume.status_code, 400)
+
+        resumed = client.get(next_path)
         self.assertEqual(resumed.status_code, 302)
         resumed_parsed = urlparse(resumed.headers["Location"])
         self.assertEqual(resumed_parsed.scheme, "https")
@@ -3135,7 +3154,7 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(partial.status_code, 400)
         self.assertIn("Missing OAuth client_id or redirect_uri.", partial.get_data(as_text=True))
 
-    def test_oauth_authorize_legal_redirect_uses_constant_resume_path(self):
+    def test_oauth_authorize_legal_redirect_carries_request_params_for_resume(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
 
@@ -3177,7 +3196,13 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(authorize.status_code, 302)
         parsed = urlparse(authorize.headers["Location"])
         self.assertEqual(parsed.path, "/login")
-        self.assertEqual(parse_qs(parsed.query)["next"], ["/v1/auth/oauth/authorize"])
+        next_path = parse_qs(parsed.query)["next"][0]
+        next_parsed = urlparse(next_path)
+        self.assertEqual(next_parsed.path, "/v1/auth/oauth/authorize")
+        next_query = parse_qs(next_parsed.query)
+        self.assertEqual(next_query["client_id"], [client_id])
+        self.assertEqual(next_query["state"], ["test-state"])
+        self.assertEqual(next_query["code_challenge"], ["test-challenge"])
 
     def test_oauth_register_accepts_refresh_token_metadata_for_public_code_clients(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

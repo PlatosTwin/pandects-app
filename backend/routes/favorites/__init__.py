@@ -550,6 +550,8 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
             abort(400, description="favorite_ids and project_ids are required.")
         if len(favorite_ids) > 500:
             abort(400, description="Too many favorite_ids (max 500).")
+        if len(project_ids) > 50:
+            abort(400, description="Too many project_ids (max 50).")
         try:
             projects = (
                 deps.FavoriteProject.query.filter(
