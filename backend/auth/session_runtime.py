@@ -205,6 +205,25 @@ def ensure_auth_schema_upgrades(target_app: Flask) -> None:
 
         if "auth_oauth_refresh_tokens" not in existing_tables:
             db.create_all(bind_key="auth")
+        else:
+            refresh_columns = {
+                column["name"]
+                for column in inspector.get_columns("auth_oauth_refresh_tokens")
+            }
+            if "family_id" not in refresh_columns:
+                with engine.begin() as conn:
+                    _ = conn.execute(
+                        text(
+                            "ALTER TABLE auth_oauth_refresh_tokens "
+                            "ADD COLUMN family_id VARCHAR(36) NULL"
+                        )
+                    )
+                    _ = conn.execute(
+                        text(
+                            "UPDATE auth_oauth_refresh_tokens "
+                            "SET family_id = id WHERE family_id IS NULL"
+                        )
+                    )
 
         favorites_required = {
             "favorite_projects",

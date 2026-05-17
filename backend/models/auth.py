@@ -366,6 +366,7 @@ class AuthOAuthRefreshToken(db.Model):
         db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
     )
     scope = db.Column(db.Text, nullable=False)
+    family_id = db.Column(db.String(36), index=True, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     expires_at = db.Column(db.DateTime, nullable=False)
     used_at = db.Column(db.DateTime, nullable=True)

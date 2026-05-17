@@ -16,6 +16,7 @@ from typing import cast
 from urllib.parse import urlencode, urlparse, urlunparse
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
+from sqlalchemy import update
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
@@ -1460,7 +1461,13 @@ window.location.replace({json.dumps(login_url)});
         _clear_oauth_authorize_cookie(resp)
         return resp
 
-    def _issue_token_pair(*, user_id: str, client_id: str, scope: str) -> dict[str, object]:
+    def _issue_token_pair(
+        *,
+        user_id: str,
+        client_id: str,
+        scope: str,
+        family_id: str | None = None,
+    ) -> dict[str, object]:
         active_key = _oauth_active_signing_key()
         access_token = encode_access_token(
             private_pem=active_key.private_pem,
@@ -1486,6 +1493,7 @@ window.location.replace({json.dumps(login_url)});
                 client_id=client_id,
                 user_id=user_id,
                 scope=scope,
+                family_id=family_id or str(uuid.uuid4()),
                 expires_at=deps._utc_now() + timedelta(seconds=mcp_oauth_refresh_token_ttl_seconds()),
             )
             deps.db.session.add(refresh_record)
@@ -1513,7 +1521,8 @@ window.location.replace({json.dumps(login_url)});
                 code_hash=_oauth_code_hash(code),
                 client_id=client.client_id,
             ).first()
-            if auth_code is None or auth_code.used_at is not None or auth_code.expires_at < deps._utc_now():
+            now = deps._utc_now()
+            if auth_code is None or auth_code.used_at is not None or auth_code.expires_at < now:
                 abort(400, description="Invalid or expired OAuth code.")
             if auth_code.redirect_uri != redirect_uri:
                 abort(400, description="OAuth redirect URI mismatch.")
@@ -1523,7 +1532,19 @@ window.location.replace({json.dumps(login_url)});
             user = deps.db.session.get(deps.AuthUser, auth_code.user_id)
             if user is None or cast(object, user.email_verified_at) is None:
                 abort(403, description="Linked Pandects account is not verified.")
-            auth_code.used_at = deps._utc_now()
+            # Atomic claim: only succeeds if used_at IS NULL. Prevents two concurrent
+            # token exchanges from minting parallel tokens for the same code.
+            claim_result = deps.db.session.execute(
+                update(deps.AuthOAuthAuthorizationCode)
+                .where(
+                    deps.AuthOAuthAuthorizationCode.id == auth_code.id,
+                    deps.AuthOAuthAuthorizationCode.used_at.is_(None),
+                )
+                .values(used_at=now)
+            )
+            if claim_result.rowcount != 1:
+                deps.db.session.rollback()
+                abort(400, description="Invalid or expired OAuth code.")
             token_payload = _issue_token_pair(
                 user_id=user.id,
                 client_id=client.client_id,
@@ -1548,22 +1569,51 @@ window.location.replace({json.dumps(login_url)});
                 client_id=client.client_id,
             ).first()
             now = deps._utc_now()
-            if (
-                refresh_record is None
-                or refresh_record.revoked_at is not None
-                or refresh_record.used_at is not None
-                or refresh_record.expires_at < now
-            ):
+            if refresh_record is None or refresh_record.expires_at < now:
+                abort(400, description="Invalid or expired refresh token.")
+            # Reuse detection: a presented token that has already been rotated or
+            # revoked indicates theft. Revoke the entire token family (RFC 6819 §5.2.2.3).
+            if refresh_record.used_at is not None or refresh_record.revoked_at is not None:
+                _ = deps.db.session.execute(
+                    update(deps.AuthOAuthRefreshToken)
+                    .where(
+                        deps.AuthOAuthRefreshToken.family_id == refresh_record.family_id,
+                        deps.AuthOAuthRefreshToken.revoked_at.is_(None),
+                    )
+                    .values(revoked_at=now)
+                )
+                deps.db.session.commit()
                 abort(400, description="Invalid or expired refresh token.")
             user = deps.db.session.get(deps.AuthUser, refresh_record.user_id)
             if user is None or cast(object, user.email_verified_at) is None:
                 abort(403, description="Linked Pandects account is not verified.")
-            # Rotate: mark old token used, issue a new pair.
-            refresh_record.used_at = now
+            # Atomic rotation: only succeeds if used_at IS NULL. A concurrent rotation
+            # losing this race is treated as reuse and revokes the family.
+            rotate_result = deps.db.session.execute(
+                update(deps.AuthOAuthRefreshToken)
+                .where(
+                    deps.AuthOAuthRefreshToken.id == refresh_record.id,
+                    deps.AuthOAuthRefreshToken.used_at.is_(None),
+                    deps.AuthOAuthRefreshToken.revoked_at.is_(None),
+                )
+                .values(used_at=now)
+            )
+            if rotate_result.rowcount != 1:
+                _ = deps.db.session.execute(
+                    update(deps.AuthOAuthRefreshToken)
+                    .where(
+                        deps.AuthOAuthRefreshToken.family_id == refresh_record.family_id,
+                        deps.AuthOAuthRefreshToken.revoked_at.is_(None),
+                    )
+                    .values(revoked_at=now)
+                )
+                deps.db.session.commit()
+                abort(400, description="Invalid or expired refresh token.")
             token_payload = _issue_token_pair(
                 user_id=user.id,
                 client_id=client.client_id,
                 scope=refresh_record.scope,
+                family_id=refresh_record.family_id,
             )
             deps.db.session.commit()
             resp = make_response(jsonify(token_payload), 200)
@@ -2402,32 +2452,26 @@ window.location.replace({json.dumps(login_url)});
         if not deps._is_email_like(email):
             abort(400, description="Enter a valid email address.")
 
+        # Always respond with the same shape regardless of whether the account
+        # exists or is already verified. Distinguishing those states would let an
+        # unauthenticated caller enumerate registered emails.
         user = _local_user_by_email(email=email)
-        if user is None:
-            abort(404, description="Account not found.")
-        if user.email_verified_at is not None:
-            abort(400, description="Email is already verified.")
-
-        try:
-            if not _send_zitadel_email_verification_for_user(user=user):
-                abort(
-                    400,
-                    description="Resume account setup from signup so we can send your verification email.",
-                )
-            deps.db.session.commit()
-        except HTTPException:
-            deps.db.session.rollback()
-            raise
-        except SQLAlchemyError:
-            deps.db.session.rollback()
-            abort(503, description="Auth backend is unavailable right now.")
-        except Exception:
-            deps.db.session.rollback()
-            current_app.logger.exception("Email verification resend failed.")
-            abort(503, description="Remote auth provider is unavailable right now.")
+        if user is not None and user.email_verified_at is None:
+            try:
+                if _send_zitadel_email_verification_for_user(user=user):
+                    deps.db.session.commit()
+                else:
+                    deps.db.session.rollback()
+            except HTTPException:
+                deps.db.session.rollback()
+            except SQLAlchemyError:
+                deps.db.session.rollback()
+            except Exception:
+                deps.db.session.rollback()
+                current_app.logger.exception("Email verification resend failed.")
 
         resp = make_response(
-            jsonify({"status": "verification_required", "user": {"id": user.id, "email": user.email}})
+            jsonify({"status": "verification_required", "user": {"email": email}})
         )
         resp.headers["Cache-Control"] = "no-store"
         return resp

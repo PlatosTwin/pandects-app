@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import time
+import uuid
 from base64 import urlsafe_b64encode
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta
@@ -2881,7 +2882,9 @@ class AuthFlowTests(unittest.TestCase):
         refresh_token_v2 = refreshed_json["refresh_token"]
         self.assertNotEqual(refresh_token_v2, refresh_token_v1)
 
-        # Reusing the old refresh token must be rejected (rotation).
+        # Reusing the old refresh token must be rejected (rotation) AND revoke
+        # the entire family — re-presentation of a rotated refresh token signals
+        # token theft per RFC 6819 §5.2.2.3.
         reuse = client.post(
             "/v1/auth/oauth/token",
             data={
@@ -2892,7 +2895,8 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(reuse.status_code, 400)
 
-        # The rotated token must still work.
+        # The rotated token must now also be rejected because the family was
+        # revoked when reuse of v1 was detected.
         second_refresh = client.post(
             "/v1/auth/oauth/token",
             data={
@@ -2901,8 +2905,7 @@ class AuthFlowTests(unittest.TestCase):
                 "refresh_token": refresh_token_v2,
             },
         )
-        self.assertEqual(second_refresh.status_code, 200)
-        self.assertIn("access_token", second_refresh.get_json())
+        self.assertEqual(second_refresh.status_code, 400)
 
     def test_refresh_token_grant_rejects_client_without_refresh_token_registration(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
@@ -2937,6 +2940,7 @@ class AuthFlowTests(unittest.TestCase):
             refresh.client_id = client_id
             refresh.user_id = user_id
             refresh.scope = "agreements:read"
+            refresh.family_id = str(uuid.uuid4())
             refresh.expires_at = backend_app._utc_now() + timedelta(hours=1)
             raw_refresh = "seeded-refresh-token"
             refresh.token_hash = hashlib.sha256(raw_refresh.encode("utf-8")).hexdigest()
