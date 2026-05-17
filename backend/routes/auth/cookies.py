@@ -24,7 +24,6 @@ _ZITADEL_PENDING_COOKIE_MAX_AGE = 60 * 20
 _OAUTH_BROWSER_COOKIE_NAME = "pdcts_oauth_browser"
 _OAUTH_BROWSER_COOKIE_MAX_AGE = 60 * 20
 _OAUTH_AUTHORIZE_COOKIE_NAME = "pdcts_oauth_authorize"
-_OAUTH_AUTHORIZE_COOKIE_MAX_AGE = 60 * 20
 
 
 def _zitadel_link_cookie_serializer() -> URLSafeTimedSerializer:
@@ -53,13 +52,6 @@ def _oauth_browser_cookie_serializer() -> URLSafeTimedSerializer:
     if not secret:
         abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
     return URLSafeTimedSerializer(secret_key=secret, salt="pandects-oauth-browser-cookie")
-
-
-def _oauth_authorize_cookie_serializer() -> URLSafeTimedSerializer:
-    secret = os.environ.get("AUTH_SECRET_KEY")
-    if not secret:
-        abort(503, description="Auth is not configured (missing AUTH_SECRET_KEY).")
-    return URLSafeTimedSerializer(secret_key=secret, salt="pandects-oauth-authorize-cookie")
 
 
 def _set_signed_cookie(
@@ -220,25 +212,6 @@ def _clear_oauth_browser_cookie(resp) -> None:
         name=_OAUTH_BROWSER_COOKIE_NAME,
         path="/v1/auth/oauth",
         resp=resp,
-    )
-
-
-def _set_oauth_authorize_cookie(resp, payload: dict[str, str]) -> None:
-    _set_signed_cookie(
-        name=_OAUTH_AUTHORIZE_COOKIE_NAME,
-        serializer=_oauth_authorize_cookie_serializer(),
-        payload=payload,
-        max_age=_OAUTH_AUTHORIZE_COOKIE_MAX_AGE,
-        path="/v1/auth/oauth/authorize",
-        resp=resp,
-    )
-
-
-def _load_oauth_authorize_cookie() -> dict[str, str] | None:
-    return _load_signed_cookie(
-        name=_OAUTH_AUTHORIZE_COOKIE_NAME,
-        serializer=_oauth_authorize_cookie_serializer(),
-        max_age=_OAUTH_AUTHORIZE_COOKIE_MAX_AGE,
     )
 
 
