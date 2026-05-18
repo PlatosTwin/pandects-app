@@ -203,9 +203,8 @@ def embed_sections_asset(
     update_sql = text(
         f"""
         UPDATE {sections_table}
-        SET embedding = :embedding
+        SET embedding = VEC_FromText(:embedding)
         WHERE section_uuid = :section_uuid
-          AND NOT (embedding <=> :embedding)
         """
     )
 
