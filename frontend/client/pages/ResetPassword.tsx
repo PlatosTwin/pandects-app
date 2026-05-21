@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { fetchCaptchaSiteKey, requestPasswordReset } from "@/lib/auth-api";
 import { navigateToNextPath, nextPathRequiresDocumentNavigation, safeNextPath } from "@/lib/auth-next";
+import { withAuthWakeRetry } from "@/lib/auth-wake";
 
 export default function ResetPassword() {
   const { status } = useAuth();
@@ -25,17 +26,19 @@ export default function ResetPassword() {
   const [error, setError] = useState<string | null>(null);
   const [captchaSiteKey, setCaptchaSiteKey] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResolved, setCaptchaResolved] = useState(false);
 
   useEffect(() => {
     let canceled = false;
-    void fetchCaptchaSiteKey()
+    void withAuthWakeRetry(() => fetchCaptchaSiteKey())
       .then((result) => {
         if (canceled) return;
         if (result.enabled) setCaptchaSiteKey(result.site_key);
+        setCaptchaResolved(true);
       })
       .catch(() => {
-        // Site-key endpoint failure leaves captcha disabled; the BE will
-        // reject the submit with a clear 412 if captcha is actually required.
+        if (canceled) return;
+        setCaptchaResolved(true);
       });
     return () => {
       canceled = true;
@@ -120,7 +123,11 @@ export default function ResetPassword() {
             <div className="flex justify-center pt-1">
               <Button
                 type="submit"
-                disabled={submitting || (captchaSiteKey !== null && !captchaToken)}
+                disabled={
+                  submitting ||
+                  !captchaResolved ||
+                  (captchaSiteKey !== null && !captchaToken)
+                }
                 className="min-w-[10rem] rounded-full px-6"
               >
                 {submitting ? "Sending reset link…" : "Send reset link"}

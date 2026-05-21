@@ -72,6 +72,7 @@ export default function Signup() {
   const [legalCheckedAtMs, setLegalCheckedAtMs] = useState<number | null>(null);
   const [captchaSiteKey, setCaptchaSiteKey] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResolved, setCaptchaResolved] = useState(false);
 
   useEffect(() => {
     void prewarmAuthBackend();
@@ -79,14 +80,18 @@ export default function Signup() {
 
   useEffect(() => {
     let canceled = false;
-    void fetchCaptchaSiteKey()
+    void withAuthWakeRetry(() => fetchCaptchaSiteKey())
       .then((result) => {
         if (canceled) return;
         if (result.enabled) setCaptchaSiteKey(result.site_key);
+        setCaptchaResolved(true);
       })
       .catch(() => {
-        // Site-key endpoint failure leaves captcha disabled; the BE will
-        // reject the submit with a clear 412 if captcha is actually required.
+        if (canceled) return;
+        // Mark resolved so the submit button is no longer indefinitely
+        // disabled; if the BE actually requires captcha, the submit will
+        // surface a clear 412 captcha_required error.
+        setCaptchaResolved(true);
       });
     return () => {
       canceled = true;
@@ -345,7 +350,11 @@ export default function Signup() {
                 <div className="flex justify-center pt-1">
                   <Button
                     type="submit"
-                    disabled={submitting || (captchaSiteKey !== null && !captchaToken)}
+                    disabled={
+                      submitting ||
+                      !captchaResolved ||
+                      (captchaSiteKey !== null && !captchaToken)
+                    }
                     className="min-w-[12rem] rounded-full px-6"
                   >
                     {submitting ? (
