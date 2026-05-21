@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { LegalAcceptancePrompt } from "@/components/auth/LegalAcceptancePrompt";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useAuth } from "@/hooks/use-auth";
 import {
+  fetchCaptchaSiteKey,
   finalizeZitadelWebsiteAuth,
   signupWithPassword,
   startZitadelGoogleWebsiteAuth,
@@ -68,9 +70,27 @@ export default function Signup() {
   const [error, setError] = useState<string | null>(null);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [legalCheckedAtMs, setLegalCheckedAtMs] = useState<number | null>(null);
+  const [captchaSiteKey, setCaptchaSiteKey] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   useEffect(() => {
     void prewarmAuthBackend();
+  }, []);
+
+  useEffect(() => {
+    let canceled = false;
+    void fetchCaptchaSiteKey()
+      .then((result) => {
+        if (canceled) return;
+        if (result.enabled) setCaptchaSiteKey(result.site_key);
+      })
+      .catch(() => {
+        // Site-key endpoint failure leaves captcha disabled; the BE will
+        // reject the submit with a clear 412 if captcha is actually required.
+      });
+    return () => {
+      canceled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -112,6 +132,7 @@ export default function Signup() {
         first_name: firstName || undefined,
         last_name: lastName || undefined,
         next: nextPath,
+        captcha_token: captchaToken ?? undefined,
       });
       if (result.status === "legal_required") {
         setState({
@@ -314,10 +335,17 @@ export default function Signup() {
                   When you continue, you'll be prompted to accept our terms; then, you can finish
                   activation by verifying your email address.
                 </p>
+                {captchaSiteKey ? (
+                  <TurnstileWidget
+                    siteKey={captchaSiteKey}
+                    onToken={setCaptchaToken}
+                    onError={setError}
+                  />
+                ) : null}
                 <div className="flex justify-center pt-1">
                   <Button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || (captchaSiteKey !== null && !captchaToken)}
                     className="min-w-[12rem] rounded-full px-6"
                   >
                     {submitting ? (

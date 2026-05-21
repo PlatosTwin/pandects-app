@@ -137,6 +137,7 @@ export async function signupWithPassword(payload: {
   first_name?: string;
   last_name?: string;
   next?: string;
+  captcha_token?: string;
 }) {
   return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/signup/password"), {
     method: "POST",
@@ -145,12 +146,23 @@ export async function signupWithPassword(payload: {
   });
 }
 
-export async function requestPasswordReset(payload: { email: string }) {
+export async function requestPasswordReset(payload: {
+  email: string;
+  captcha_token?: string;
+}) {
   return authFetchJson<{ status: "requested" }>(apiUrl("v1/auth/password-reset/request"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+export type CaptchaSiteKeyResponse =
+  | { enabled: false }
+  | { enabled: true; site_key: string };
+
+export async function fetchCaptchaSiteKey() {
+  return authFetchJson<CaptchaSiteKeyResponse>(apiUrl("v1/auth/captcha/site-key"));
 }
 
 export async function confirmPasswordReset(payload: {
