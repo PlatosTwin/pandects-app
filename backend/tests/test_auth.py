@@ -1791,6 +1791,80 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(payload["status"], "legal_required")
         self.assertEqual(payload["user"]["email"], "resume-signup@example.com")
 
+    def test_password_signup_masks_existing_verified_account_to_prevent_enumeration(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+        with self.app.app_context():
+            user_id = self._create_local_user(
+                email="taken@example.com",
+                password="Secr3tP4ss!",
+                verified=True,
+                legal=True,
+            )
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="zitadel-taken-user",
+                )
+            )
+            db.session.commit()
+
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+
+        def _fail_oauth_fetch_json(*args, **kwargs):
+            self.fail("Masked-existing-account signup must not call the remote auth provider.")
+
+        backend_app._oauth_fetch_json = _fail_oauth_fetch_json
+        try:
+            res = client.post(
+                "/v1/auth/signup/password",
+                json={
+                    "email": "taken@example.com",
+                    "password": "AnotherP4ss!",
+                    "next": "/account",
+                },
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()
+        self.assertEqual(payload["status"], "verification_required")
+        self.assertEqual(payload["user"]["email"], "taken@example.com")
+        # Masked response must mint a throwaway UUID, not echo the real user
+        # id and not return an obviously-fake empty string — both would let
+        # an unauthenticated caller distinguish "existing" from "new".
+        masked_id = payload["user"]["id"]
+        self.assertIsInstance(masked_id, str)
+        self.assertNotEqual(masked_id, user_id)
+        self.assertNotEqual(masked_id, "")
+        self.assertEqual(len(masked_id), 36)
+
+    def test_password_signup_requires_captcha_token_when_turnstile_enabled(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["TURNSTILE_ENABLED"] = "1"
+        os.environ["TURNSTILE_SITE_KEY"] = "test-site-key"
+        os.environ["TURNSTILE_SECRET_KEY"] = "test-secret-key"
+        client = self.app.test_client()
+        try:
+            res = client.post(
+                "/v1/auth/signup/password",
+                json={
+                    "email": "needs-captcha@example.com",
+                    "password": "Secr3tP4ss!",
+                    "next": "/account",
+                },
+            )
+        finally:
+            os.environ.pop("TURNSTILE_ENABLED", None)
+            os.environ.pop("TURNSTILE_SITE_KEY", None)
+            os.environ.pop("TURNSTILE_SECRET_KEY", None)
+
+        self.assertEqual(res.status_code, 412)
+        payload = res.get_json()
+        self.assertEqual(payload["error"], "captcha_required")
+
     def test_password_signup_pending_no_legal_and_unverified_returns_legal_required(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"

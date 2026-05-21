@@ -23,10 +23,12 @@ class AuthPasswordSignupSchema(Schema):
     first_name = fields.Str(required=False, allow_none=True)
     last_name = fields.Str(required=False, allow_none=True)
     next = fields.Str(required=False, allow_none=True)
+    captcha_token = fields.Str(required=False, allow_none=True)
 
 
 class AuthPasswordResetRequestSchema(Schema):
     email = fields.Email(required=True)
+    captcha_token = fields.Str(required=False, allow_none=True)
 
 
 class AuthPasswordResetConfirmSchema(Schema):

@@ -718,7 +718,11 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             _send_zitadel_email_verification_for_user(user=user)
             deps.db.session.commit()
             return _verification_required_response(user=user, next_path=next_path)
-        return _auth_success_response(user=user, next_path=next_path)
+        # Fully provisioned accounts must authenticate via /login/password.
+        # Returning a session here would let any caller take over an account
+        # by posting the signup endpoint with the victim's email — the
+        # submitted password is never verified on this path.
+        return None
 
     def _zitadel_email_verify_url_template(*, deps: AuthDeps) -> str:
         return (
@@ -2281,6 +2285,9 @@ window.location.replace({json.dumps(login_url)});
             abort(501, description="Signup is unavailable in mocked auth mode.")
 
         data = deps._load_json(deps.AuthPasswordSignupSchema())
+        if deps._turnstile_enabled():
+            captcha_token = deps._require_captcha_token(data)
+            deps._verify_turnstile_token(token=captcha_token)
         email_raw = data.get("email")
         password = data.get("password")
         first_name = data.get("first_name")
@@ -2329,7 +2336,26 @@ window.location.replace({json.dumps(login_url)});
             )
             if resumed is not None:
                 return resumed
-            abort(409, description="An account with that email already exists. Sign in or reset your password.")
+            # Existing fully-provisioned account. Return the same shape as a
+            # fresh signup so an unauthenticated caller can't use this endpoint
+            # to enumerate registered emails. The id is a throwaway UUID so the
+            # response is shape-indistinguishable from a legitimate new signup.
+            # The real user will be told to check their email; if no message
+            # arrives, they can sign in or use the password-reset flow.
+            current_app.logger.info(
+                "signup_password_existing_account_masked email=%s", email
+            )
+            resp = make_response(
+                jsonify(
+                    {
+                        "status": "verification_required",
+                        "next_path": next_path,
+                        "user": {"id": str(uuid.uuid4()), "email": email},
+                    }
+                )
+            )
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
 
         try:
             external_identity = _create_zitadel_human_user(
@@ -2501,6 +2527,9 @@ window.location.replace({json.dumps(login_url)});
             abort(501, description="Password reset is unavailable in mocked auth mode.")
 
         data = deps._load_json(deps.AuthPasswordResetRequestSchema())
+        if deps._turnstile_enabled():
+            captcha_token = deps._require_captcha_token(data)
+            deps._verify_turnstile_token(token=captcha_token)
         email_raw = data.get("email")
         if not isinstance(email_raw, str) or not email_raw.strip():
             abort(400, description="Email is required.")

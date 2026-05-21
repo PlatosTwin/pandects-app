@@ -1,14 +1,16 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
-import { requestPasswordReset } from "@/lib/auth-api";
+import { fetchCaptchaSiteKey, requestPasswordReset } from "@/lib/auth-api";
 import { navigateToNextPath, nextPathRequiresDocumentNavigation, safeNextPath } from "@/lib/auth-next";
+import { withAuthWakeRetry } from "@/lib/auth-wake";
 
 export default function ResetPassword() {
   const { status } = useAuth();
@@ -22,6 +24,26 @@ export default function ResetPassword() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaSiteKey, setCaptchaSiteKey] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResolved, setCaptchaResolved] = useState(false);
+
+  useEffect(() => {
+    let canceled = false;
+    void withAuthWakeRetry(() => fetchCaptchaSiteKey())
+      .then((result) => {
+        if (canceled) return;
+        if (result.enabled) setCaptchaSiteKey(result.site_key);
+        setCaptchaResolved(true);
+      })
+      .catch(() => {
+        if (canceled) return;
+        setCaptchaResolved(true);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (status !== "authenticated" || !nextPathRequiresDocumentNavigation(nextPath)) {
@@ -42,7 +64,7 @@ export default function ResetPassword() {
     setSubmitting(true);
     setError(null);
     try {
-      await requestPasswordReset({ email });
+      await requestPasswordReset({ email, captcha_token: captchaToken ?? undefined });
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -91,8 +113,23 @@ export default function ResetPassword() {
                 className="h-11 border-border bg-background"
               />
             </div>
+            {captchaSiteKey ? (
+              <TurnstileWidget
+                siteKey={captchaSiteKey}
+                onToken={setCaptchaToken}
+                onError={setError}
+              />
+            ) : null}
             <div className="flex justify-center pt-1">
-              <Button type="submit" disabled={submitting} className="min-w-[10rem] rounded-full px-6">
+              <Button
+                type="submit"
+                disabled={
+                  submitting ||
+                  !captchaResolved ||
+                  (captchaSiteKey !== null && !captchaToken)
+                }
+                className="min-w-[10rem] rounded-full px-6"
+              >
                 {submitting ? "Sending reset link…" : "Send reset link"}
               </Button>
             </div>

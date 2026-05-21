@@ -915,6 +915,9 @@ def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
 
 _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
     ("POST", "/v1/auth/flag-inaccurate"): 10,
+    ("POST", "/v1/auth/signup/password"): 5,
+    ("POST", "/v1/auth/login/password"): 10,
+    ("POST", "/v1/auth/password-reset/request"): 3,
 }
 
 
