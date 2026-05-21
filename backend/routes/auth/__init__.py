@@ -2338,9 +2338,10 @@ window.location.replace({json.dumps(login_url)});
                 return resumed
             # Existing fully-provisioned account. Return the same shape as a
             # fresh signup so an unauthenticated caller can't use this endpoint
-            # to enumerate registered emails. The real user will be told to
-            # check their email; if no message arrives, they can still sign in
-            # or use the password-reset flow.
+            # to enumerate registered emails. The id is a throwaway UUID so the
+            # response is shape-indistinguishable from a legitimate new signup.
+            # The real user will be told to check their email; if no message
+            # arrives, they can sign in or use the password-reset flow.
             current_app.logger.info(
                 "signup_password_existing_account_masked email=%s", email
             )
@@ -2349,7 +2350,7 @@ window.location.replace({json.dumps(login_url)});
                     {
                         "status": "verification_required",
                         "next_path": next_path,
-                        "user": {"id": "", "email": email},
+                        "user": {"id": str(uuid.uuid4()), "email": email},
                     }
                 )
             )

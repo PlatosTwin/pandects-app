@@ -1832,7 +1832,14 @@ class AuthFlowTests(unittest.TestCase):
         payload = res.get_json()
         self.assertEqual(payload["status"], "verification_required")
         self.assertEqual(payload["user"]["email"], "taken@example.com")
-        self.assertEqual(payload["user"]["id"], "")
+        # Masked response must mint a throwaway UUID, not echo the real user
+        # id and not return an obviously-fake empty string — both would let
+        # an unauthenticated caller distinguish "existing" from "new".
+        masked_id = payload["user"]["id"]
+        self.assertIsInstance(masked_id, str)
+        self.assertNotEqual(masked_id, user_id)
+        self.assertNotEqual(masked_id, "")
+        self.assertEqual(len(masked_id), 36)
 
     def test_password_signup_requires_captcha_token_when_turnstile_enabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
