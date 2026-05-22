@@ -3298,6 +3298,25 @@ class AuthFlowTests(unittest.TestCase):
             ["authorization_code", "refresh_token"],
         )
 
+    def test_oauth_register_is_rate_limited_per_ip(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        payload = {
+            "client_name": "Codex MCP",
+            "redirect_uris": ["https://codex.example.com/callback"],
+            "grant_types": ["authorization_code"],
+            "response_types": ["code"],
+            "token_endpoint_auth_method": "none",
+        }
+        limit = backend_app._ENDPOINT_RATE_LIMITS[("POST", "/v1/auth/oauth/register")]
+        statuses = [
+            client.post("/v1/auth/oauth/register", json=payload).status_code
+            for _ in range(limit + 1)
+        ]
+        self.assertTrue(all(code == 201 for code in statuses[:limit]), statuses)
+        self.assertEqual(statuses[-1], 429)
+
     def test_oauth_register_rejects_unsafe_redirect_uris(self):
         client = self.app.test_client()
 
