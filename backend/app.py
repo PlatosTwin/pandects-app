@@ -918,6 +918,7 @@ _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
     ("POST", "/v1/auth/signup/password"): 5,
     ("POST", "/v1/auth/login/password"): 10,
     ("POST", "/v1/auth/password-reset/request"): 3,
+    ("POST", "/v1/auth/oauth/register"): 10,
 }
 
 
