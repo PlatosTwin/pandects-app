@@ -45,7 +45,7 @@ os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
 
 from backend.app import create_test_app  # noqa: E402
 from backend.extensions import db  # noqa: E402
-from backend.models.auth import ApiKey, ApiUsageDaily, AuthExternalSubject, AuthOAuthAuthorizationCode, AuthOAuthClient, AuthOAuthRefreshToken, AuthUser, LegalAcceptance  # noqa: E402
+from backend.models.auth import ApiKey, ApiUsageDaily, AuthExternalSubject, AuthOAuthAuthorizationCode, AuthOAuthClient, AuthOAuthRefreshToken, AuthOAuthUserGrant, AuthUser, LegalAcceptance  # noqa: E402
 import backend.app as backend_app  # noqa: E402
 import backend.routes.auth as auth_routes  # noqa: E402
 from werkzeug.exceptions import Conflict, NotFound, Unauthorized  # noqa: E402
@@ -175,6 +175,28 @@ class AuthFlowTests(unittest.TestCase):
         token = self._issue_bearer_session(email=email)
         client.set_cookie("pdcts_session", token, path="/")
         return token
+
+    def _grant_oauth_consent(self, *, email: str, client_id: str, scope: str) -> None:
+        """Pre-record per-client OAuth consent so /oauth/authorize will mint a
+        code instead of returning consent_required. Tests that drive the full
+        authorize -> token flow as an already-trusted client should call this
+        after registering the DCR client and before the first authorize."""
+        with self.app.app_context():
+            user = self._require_user(email)
+            normalized = " ".join(sorted({s for s in scope.split(" ") if s}))
+            existing = AuthOAuthUserGrant.query.filter_by(
+                user_id=user.id, client_id=client_id
+            ).first()
+            if existing is None:
+                grant = AuthOAuthUserGrant()
+                grant.user_id = user.id
+                grant.client_id = client_id
+                grant.scope = normalized
+                db.session.add(grant)
+            else:
+                existing.scope = normalized
+                existing.revoked_at = None
+            db.session.commit()
 
     def _zitadel_signature_headers(self, payload: Mapping[str, object]) -> dict[str, str]:
         os.environ["AUTH_ZITADEL_NOTIFICATION_SIGNING_KEY"] = "test-zitadel-notification-signing-key"
@@ -2760,6 +2782,14 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(register.status_code, 201)
         client_id = register.get_json()["client_id"]
 
+        # Pre-grant consent so /authorize mints a code instead of returning
+        # the consent_required envelope.
+        self._grant_oauth_consent(
+            email="oauth-facade@example.com",
+            client_id=client_id,
+            scope="agreements:read",
+        )
+
         authorize = client.get(
             "/v1/auth/oauth/authorize"
             f"?client_id={client_id}"
@@ -2852,6 +2882,12 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(register.status_code, 201)
         client_id = register.get_json()["client_id"]
 
+        self._grant_oauth_consent(
+            email="refresh-issue@example.com",
+            client_id=client_id,
+            scope="agreements:read",
+        )
+
         good_challenge = _pkce_challenge("good-verifier")
         authorize = client.get(
             "/v1/auth/oauth/authorize"
@@ -2909,6 +2945,12 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         client_id = register.get_json()["client_id"]
+
+        self._grant_oauth_consent(
+            email="refresh-rotate@example.com",
+            client_id=client_id,
+            scope="agreements:read",
+        )
 
         good_challenge = _pkce_challenge("rotate-verifier")
         authorize = client.get(
@@ -3181,6 +3223,11 @@ class AuthFlowTests(unittest.TestCase):
             db.session.commit()
 
         self._set_cookie_session(client, email="oauth-resume@example.com")
+        self._grant_oauth_consent(
+            email="oauth-resume@example.com",
+            client_id=client_id,
+            scope="agreements:read",
+        )
         # Resume must re-supply the OAuth params (the SPA reads them from the
         # next= URL); a bare GET is now an error.
         bare_resume = client.get("/v1/auth/oauth/authorize")
@@ -3409,6 +3456,13 @@ class AuthFlowTests(unittest.TestCase):
             )
             db.session.commit()
         token = self._issue_bearer_session(email="scope-default@example.com")
+        # The request omits ?scope=, so /authorize falls back to the full
+        # supported-scope list — pre-grant exactly that set so we mint a code.
+        self._grant_oauth_consent(
+            email="scope-default@example.com",
+            client_id=client_id,
+            scope="sections:search agreements:search agreements:read agreements:read_fulltext",
+        )
 
         authorize = client.get(
             "/v1/auth/oauth/authorize"

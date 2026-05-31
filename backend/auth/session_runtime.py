@@ -203,6 +203,23 @@ def ensure_auth_schema_upgrades(target_app: Flask) -> None:
                         text(f"ALTER TABLE api_keys ADD COLUMN deleted_at {column_type} NULL")
                     )
 
+        if "auth_oauth_user_grants" not in existing_tables:
+            db.create_all(bind_key="auth")
+
+        if "auth_oauth_clients" in existing_tables:
+            client_columns = {
+                column["name"] for column in inspector.get_columns("auth_oauth_clients")
+            }
+            if "last_used_at" not in client_columns:
+                column_type = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
+                with engine.begin() as conn:
+                    _ = conn.execute(
+                        text(
+                            f"ALTER TABLE auth_oauth_clients "
+                            f"ADD COLUMN last_used_at {column_type} NULL"
+                        )
+                    )
+
         if "auth_oauth_refresh_tokens" not in existing_tables:
             db.create_all(bind_key="auth")
         else:

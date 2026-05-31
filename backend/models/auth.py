@@ -220,6 +220,40 @@ class AuthOAuthClient(db.Model):
     response_types = db.Column(db.JSON, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
     created_by_ip = db.Column(db.String(64), nullable=True)
+    # NULL until the client successfully completes its first authorize/token
+    # exchange. Used by the DCR sweep to evict clients that were registered
+    # but never connected (the common pattern for spammed registrations).
+    last_used_at = db.Column(db.DateTime, nullable=True)
+
+
+class AuthOAuthUserGrant(db.Model):
+    """A user's consent for a specific DCR-registered OAuth client to receive
+    tokens with the listed scopes. /oauth/authorize is gated on the presence of
+    a matching, un-revoked grant; without it the authorize endpoint returns a
+    consent_required response instead of minting a code."""
+
+    __bind_key__ = "auth"
+    __tablename__ = "auth_oauth_user_grants"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    client_id = db.Column(
+        db.String(128),
+        db.ForeignKey("auth_oauth_clients.client_id"),
+        index=True,
+        nullable=False,
+    )
+    # Space-separated scope list, sorted alphabetically when persisted so we
+    # can check `granted ⊇ requested` without re-parsing.
+    scope = db.Column(db.Text, nullable=False)
+    granted_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "client_id", name="uq_oauth_user_grant"),
+    )
 
 
 class AuthOAuthAuthorizationCode(db.Model):
