@@ -1225,7 +1225,15 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             params["client_name"] = client_name
         if state:
             params["state"] = state
-        url = f"{deps._frontend_base_url()}/oauth/consent?{urlencode(params)}"
+        # Defense-in-depth: an open redirect here would be a phishing primitive.
+        # The scheme/host/path are fixed by server config (_frontend_base_url)
+        # and tainted values only enter via urlencode (query string), but enforce
+        # the invariant explicitly so a future refactor that breaks it fails
+        # loudly instead of silently turning into an open redirect.
+        frontend_base = deps._frontend_base_url()
+        url = f"{frontend_base}/oauth/consent?{urlencode(params)}"
+        if not url.startswith(f"{frontend_base}/oauth/consent?"):
+            abort(500, description="Refusing to build malformed consent redirect.")
         resp = redirect(url, code=302)
         resp.headers["Cache-Control"] = "no-store"
         return resp
