@@ -225,6 +225,15 @@ const ROUTE_MANIFEST = [
     pageDescription: "Create a Pandects account.",
   }),
   defineRoute({
+    pathname: "/oauth/consent",
+    title: "Authorize Access | Pandects",
+    description: "Review the access an external application is requesting from your Pandects account.",
+    robots: NOINDEX,
+    pageType: "WebPage",
+    pageName: "Authorize Access",
+    pageDescription: "Review the access an external application is requesting from your Pandects account.",
+  }),
+  defineRoute({
     pathname: "/reset-password",
     title: "Reset Password | Pandects",
     description: "Request a password reset for your Pandects account.",

@@ -3480,6 +3480,195 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(parsed.netloc, "codex.example.com")
         self.assertIn("code", parse_qs(parsed.query))
 
+    def test_oauth_authorize_without_grant_redirects_to_consent_page(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        os.environ["PUBLIC_FRONTEND_BASE_URL"] = "https://pandects.example"
+        client = self.app.test_client()
+        user_id = self._create_local_user(email="consent-redirect@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer=os.environ["MCP_OIDC_ISSUER"],
+                    subject="zitadel|consent-redirect",
+                )
+            )
+            db.session.commit()
+        self._set_cookie_session(client, email="consent-redirect@example.com")
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        # No prior grant -> /authorize must redirect to the SPA consent page
+        # instead of minting a code. The redirect carries every param the page
+        # needs to replay /authorize after the user clicks Allow.
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=consent-state"
+            "&code_challenge=consent-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+        location = urlparse(authorize.headers["Location"])
+        self.assertEqual(location.scheme, "https")
+        self.assertEqual(location.netloc, "pandects.example")
+        self.assertEqual(location.path, "/oauth/consent")
+        query = parse_qs(location.query)
+        self.assertEqual(query["client_id"], [client_id])
+        self.assertEqual(query["client_name"], ["Codex MCP"])
+        self.assertEqual(query["redirect_uri"], ["https://codex.example.com/callback"])
+        self.assertEqual(query["response_type"], ["code"])
+        self.assertEqual(query["scope"], ["agreements:read"])
+        self.assertEqual(query["state"], ["consent-state"])
+        self.assertEqual(query["code_challenge"], ["consent-challenge"])
+        self.assertEqual(query["code_challenge_method"], ["S256"])
+
+    def test_oauth_consent_endpoint_records_grant_and_lets_authorize_mint_code(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        os.environ["PUBLIC_FRONTEND_BASE_URL"] = "https://pandects.example"
+        client = self.app.test_client()
+        user_id = self._create_local_user(email="consent-grant@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer=os.environ["MCP_OIDC_ISSUER"],
+                    subject="zitadel|consent-grant",
+                )
+            )
+            db.session.commit()
+        self._set_cookie_session(client, email="consent-grant@example.com")
+        client.get("/v1/auth/csrf")
+        csrf = self._csrf_cookie_value(client)
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+            headers={"X-CSRF-Token": csrf},
+        )
+        client_id = register.get_json()["client_id"]
+
+        # POST /oauth/consent records the grant; the next /authorize hit mints
+        # a code instead of redirecting.
+        consent = client.post(
+            "/v1/auth/oauth/consent",
+            json={"client_id": client_id, "scope": "agreements:read"},
+            headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
+        )
+        self.assertEqual(consent.status_code, 200)
+        body = consent.get_json()
+        self.assertEqual(body["status"], "granted")
+        self.assertEqual(body["client_id"], client_id)
+        self.assertEqual(body["scope"], "agreements:read")
+
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=after-consent"
+            "&code_challenge=after-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+        parsed = urlparse(authorize.headers["Location"])
+        self.assertEqual(parsed.netloc, "codex.example.com")
+        self.assertIn("code", parse_qs(parsed.query))
+
+    def test_oauth_consent_endpoint_rejects_unsupported_scope_and_unknown_client(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        self._create_local_user(email="consent-reject@example.com")
+        self._set_cookie_session(client, email="consent-reject@example.com")
+        client.get("/v1/auth/csrf")
+        csrf = self._csrf_cookie_value(client)
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+            headers={"X-CSRF-Token": csrf},
+        )
+        client_id = register.get_json()["client_id"]
+
+        bad_scope = client.post(
+            "/v1/auth/oauth/consent",
+            json={"client_id": client_id, "scope": "totally:made-up"},
+            headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
+        )
+        self.assertEqual(bad_scope.status_code, 400)
+
+        unknown_client = client.post(
+            "/v1/auth/oauth/consent",
+            json={"client_id": "does-not-exist", "scope": "agreements:read"},
+            headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
+        )
+        self.assertEqual(unknown_client.status_code, 400)
+
+    def test_oauth_consent_endpoint_widens_existing_grant(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        self._create_local_user(email="consent-widen@example.com")
+        self._set_cookie_session(client, email="consent-widen@example.com")
+        client.get("/v1/auth/csrf")
+        csrf = self._csrf_cookie_value(client)
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+            headers={"X-CSRF-Token": csrf},
+        )
+        client_id = register.get_json()["client_id"]
+
+        first = client.post(
+            "/v1/auth/oauth/consent",
+            json={"client_id": client_id, "scope": "agreements:read"},
+            headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
+        )
+        self.assertEqual(first.status_code, 200)
+
+        second = client.post(
+            "/v1/auth/oauth/consent",
+            json={"client_id": client_id, "scope": "agreements:search"},
+            headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
+        )
+        self.assertEqual(second.status_code, 200)
+        merged_scope = second.get_json()["scope"].split(" ")
+        self.assertIn("agreements:read", merged_scope)
+        self.assertIn("agreements:search", merged_scope)
+
     def test_legacy_password_reset_routes_are_disabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()

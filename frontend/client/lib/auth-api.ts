@@ -85,6 +85,17 @@ export async function fetchUsage(params?: { period?: UsagePeriod; apiKeyId?: str
   );
 }
 
+export async function grantOAuthConsent(payload: { client_id: string; scope: string }) {
+  return authFetchJson<{ status: "granted"; client_id: string; scope: string }>(
+    apiUrl("v1/auth/oauth/consent"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
 export async function deleteAccount(payload: { confirm: string }) {
   return authFetchJson<{ status: "deleted" }>(apiUrl("v1/auth/account/delete"), {
     method: "POST",

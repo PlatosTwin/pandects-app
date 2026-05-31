@@ -1194,28 +1194,39 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         granted = _oauth_scope_set(grant.scope) if isinstance(grant.scope, str) else set()
         return _oauth_scope_set(requested_scope).issubset(granted)
 
-    def _consent_required_response(*, client, requested_scope: str, redirect_uri: str, state: str | None):
+    def _consent_redirect_response(
+        *,
+        client,
+        requested_scope: str,
+        redirect_uri: str,
+        response_type: str,
+        state: str | None,
+        code_challenge: str,
+        code_challenge_method: str,
+    ):
+        """Redirect the browser to the SPA consent screen, carrying every
+        param needed to (a) render the page and (b) replay /oauth/authorize
+        after the user clicks Allow. The page POSTs /v1/auth/oauth/consent
+        to record the grant, then navigates to /v1/auth/oauth/authorize."""
         client_name = (
             client.client_name.strip()
             if isinstance(client.client_name, str) and client.client_name.strip()
-            else None
+            else ""
         )
-        payload = {
-            "status": "consent_required",
-            "client": {
-                "client_id": client.client_id,
-                "client_name": client_name,
-                "redirect_uri": redirect_uri,
-            },
-            "requested_scope": requested_scope,
-            "scopes": sorted(_oauth_scope_set(requested_scope)),
-            "state": state,
-            # Where the UI should POST { client_id, scope } once the user
-            # accepts. Frontend consent screen is a follow-up; for now this is
-            # the contract the SPA will target.
-            "decision_endpoint": "/v1/auth/oauth/consent",
+        params: dict[str, str] = {
+            "client_id": client.client_id,
+            "redirect_uri": redirect_uri,
+            "response_type": response_type,
+            "scope": requested_scope,
+            "code_challenge": code_challenge,
+            "code_challenge_method": code_challenge_method,
         }
-        resp = make_response(jsonify(payload), 200)
+        if client_name:
+            params["client_name"] = client_name
+        if state:
+            params["state"] = state
+        url = f"{deps._frontend_base_url()}/oauth/consent?{urlencode(params)}"
+        resp = redirect(url, code=302)
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
@@ -1508,11 +1519,13 @@ window.location.replace({json.dumps(login_url)});
                     granted_at=now,
                 )
                 deps.db.session.add(grant)
+                stored_scope = normalized_scope
             else:
                 # Widen the existing grant to cover any additional scopes
                 # the user is approving in this round; never narrow.
                 merged = _oauth_scope_set(existing.scope) | _oauth_scope_set(normalized_scope)
-                existing.scope = " ".join(sorted(merged))
+                stored_scope = " ".join(sorted(merged))
+                existing.scope = stored_scope
                 existing.granted_at = now
                 existing.revoked_at = None
             deps.db.session.commit()
@@ -1525,7 +1538,7 @@ window.location.replace({json.dumps(login_url)});
                 {
                     "status": "granted",
                     "client_id": client.client_id,
-                    "scope": normalized_scope,
+                    "scope": stored_scope,
                 }
             ),
             200,
@@ -1596,17 +1609,20 @@ window.location.replace({json.dumps(login_url)});
 
         # Per-client consent gate: a DCR client can be registered by anyone, so
         # don't mint a code until the user has explicitly granted this client
-        # the requested scopes. The SPA consent screen is a follow-up; for now
-        # callers see a `consent_required` JSON envelope that includes the
-        # info the future UI needs.
+        # the requested scopes. Redirect the browser to the SPA consent screen,
+        # which POSTs /v1/auth/oauth/consent to record the grant and then
+        # re-navigates to /v1/auth/oauth/authorize.
         if not _user_has_grant_for_scope(
             user_id=user.id, client_id=client.client_id, requested_scope=scope
         ):
-            return _consent_required_response(
+            return _consent_redirect_response(
                 client=client,
                 requested_scope=scope,
                 redirect_uri=redirect_uri,
+                response_type=response_type,
                 state=state,
+                code_challenge=code_challenge,
+                code_challenge_method=code_challenge_method,
             )
 
         raw_code = secrets.token_urlsafe(32)
