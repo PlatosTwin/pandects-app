@@ -1271,13 +1271,19 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             if not stale_clients:
                 return
             stale_ids = [c.client_id for c in stale_clients]
-            # Delete dependents first; FKs reference auth_oauth_clients.client_id
-            # and we don't have ON DELETE CASCADE configured.
+            # Delete every table that has a FK pointing at auth_oauth_clients
+            # BEFORE the client row itself; we don't configure ON DELETE
+            # CASCADE so on Postgres the parent DELETE would otherwise fail
+            # with a FK violation. SQLite doesn't enforce FKs by default so
+            # the symptom would only surface in production.
             deps.AuthOAuthRefreshToken.query.filter(
                 deps.AuthOAuthRefreshToken.client_id.in_(stale_ids)
             ).delete(synchronize_session=False)
             deps.AuthOAuthAuthorizationCode.query.filter(
                 deps.AuthOAuthAuthorizationCode.client_id.in_(stale_ids)
+            ).delete(synchronize_session=False)
+            deps.AuthOAuthUserGrant.query.filter(
+                deps.AuthOAuthUserGrant.client_id.in_(stale_ids)
             ).delete(synchronize_session=False)
             deps.AuthOAuthClient.query.filter(
                 deps.AuthOAuthClient.client_id.in_(stale_ids)

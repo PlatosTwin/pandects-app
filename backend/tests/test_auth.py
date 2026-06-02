@@ -85,9 +85,16 @@ class AuthFlowTests(unittest.TestCase):
                 conn.execute(text("DELETE FROM legal_acceptances"))
                 conn.execute(text("DELETE FROM auth_external_subjects"))
                 conn.execute(text("DELETE FROM auth_signon_events"))
+                # OAuth tables: FK order matters — codes/refresh/grants
+                # reference clients; grants also reference users.
+                conn.execute(text("DELETE FROM auth_oauth_authorization_codes"))
+                conn.execute(text("DELETE FROM auth_oauth_refresh_tokens"))
+                conn.execute(text("DELETE FROM auth_oauth_user_grants"))
+                conn.execute(text("DELETE FROM auth_oauth_clients"))
                 conn.execute(text("DELETE FROM auth_users"))
         backend_app._rate_limit_state.clear()
         backend_app._endpoint_rate_limit_state.clear()
+        backend_app._account_login_failure_state.clear()
         backend_app._api_key_last_used_touch_state.clear()
         auth_routes._ZITADEL_API_TOKEN_CACHE.clear()
 
@@ -3668,6 +3675,322 @@ class AuthFlowTests(unittest.TestCase):
         merged_scope = second.get_json()["scope"].split(" ")
         self.assertIn("agreements:read", merged_scope)
         self.assertIn("agreements:search", merged_scope)
+
+    def test_login_per_account_throttle_blocks_after_repeated_failures(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        client = self.app.test_client()
+        self._create_local_user(
+            email="brute@example.com", password="password123", verified=True, legal=True
+        )
+
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+
+        def _fake_oauth_fetch_json(url, *, data=None, json_body=None, headers=None, method=None):
+            # Every Zitadel session-create call fails → drops into the
+            # _maybe_migrate_local_password_user path; wrong passwords there
+            # return None → abort(401) → throttle increments.
+            if url.endswith("/v2/sessions"):
+                raise Unauthorized(description="Invalid credentials.")
+            self.fail(f"Unexpected URL: {url}")
+
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        try:
+            for _ in range(backend_app._ACCOUNT_LOGIN_FAILURE_LIMIT):
+                res = client.post(
+                    "/v1/auth/login/password",
+                    json={"email": "brute@example.com", "password": "wrong"},
+                )
+                self.assertEqual(res.status_code, 401)
+
+            # Account is now locked. The next attempt — even with the CORRECT
+            # password — must 429, proving the throttle is account-scoped and
+            # not just a wrong-password counter.
+            locked = client.post(
+                "/v1/auth/login/password",
+                json={"email": "brute@example.com", "password": "password123"},
+            )
+            self.assertEqual(locked.status_code, 429)
+            self.assertIn("Retry-After", locked.headers)
+            body = locked.get_json()
+            self.assertEqual(body.get("error"), "rate_limited")
+
+            # A different email is untouched.
+            self._create_local_user(
+                email="bystander@example.com", password="password123", verified=True, legal=True
+            )
+            other = client.post(
+                "/v1/auth/login/password",
+                json={"email": "bystander@example.com", "password": "wrong"},
+            )
+            self.assertEqual(other.status_code, 401)
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+    def test_login_success_clears_per_account_failure_counter(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        client = self.app.test_client()
+        user_id = self._create_local_user(
+            email="reset-throttle@example.com",
+            password="password123",
+            verified=True,
+            legal=True,
+        )
+        # Simulate prior failures right up to the threshold but not over.
+        for _ in range(backend_app._ACCOUNT_LOGIN_FAILURE_LIMIT - 1):
+            backend_app._record_account_login_failure("reset-throttle@example.com")
+
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+
+        def _fake_oauth_fetch_json(url, *, data=None, json_body=None, headers=None, method=None):
+            # First /v2/sessions call: rejected, falls through to local
+            # migration which succeeds because the password matches.
+            if url.endswith("/v2/sessions"):
+                raise Unauthorized(description="Invalid credentials.")
+            if url.endswith("/v2/users/human"):
+                return {"userId": "zitadel-reset-throttle"}
+            if "/users/grants/_search" in url:
+                return {"result": []}
+            if url.endswith("/users/zitadel-reset-throttle/grants"):
+                return {"id": "grant-reset"}
+            self.fail(f"Unexpected URL: {url}")
+
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        try:
+            ok = client.post(
+                "/v1/auth/login/password",
+                json={"email": "reset-throttle@example.com", "password": "password123"},
+            )
+            self.assertEqual(ok.status_code, 200)
+            self.assertEqual(ok.get_json()["status"], "authenticated")
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+        # Counter cleared — a fresh batch of failures shouldn't trip the lock
+        # before reaching the limit again.
+        self.assertNotIn(
+            backend_app._account_login_key("reset-throttle@example.com"),
+            backend_app._account_login_failure_state,
+        )
+        _ = user_id
+
+    def test_email_verify_resend_is_rate_limited_per_ip(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+        limit = backend_app._ENDPOINT_RATE_LIMITS[("POST", "/v1/auth/email/verify/resend")]
+        statuses = []
+        for _ in range(limit + 2):
+            res = client.post(
+                "/v1/auth/email/verify/resend",
+                json={"email": "verify-bomb@example.com"},
+            )
+            statuses.append(res.status_code)
+        # All in-budget calls must return the verification-required envelope;
+        # over-budget calls must 429.
+        self.assertTrue(all(s == 200 for s in statuses[:limit]))
+        self.assertEqual(statuses[-1], 429)
+
+    def test_oauth_register_sweeps_stale_and_inactive_clients(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+
+        # Pre-seed two clients that should be swept:
+        #  - "stale_unused": registered >24h ago, never used
+        #  - "stale_inactive": last_used_at older than 90d
+        # And one that should survive: recent and never used (inside grace).
+        with self.app.app_context():
+            now = backend_app._utc_now()
+            unused = AuthOAuthClient()
+            unused.client_id = "stale_unused"
+            unused.redirect_uris = ["https://example.com/cb"]
+            unused.grant_types = ["authorization_code"]
+            unused.response_types = ["code"]
+            unused.created_at = now - timedelta(hours=48)
+            db.session.add(unused)
+
+            inactive = AuthOAuthClient()
+            inactive.client_id = "stale_inactive"
+            inactive.redirect_uris = ["https://example.com/cb"]
+            inactive.grant_types = ["authorization_code"]
+            inactive.response_types = ["code"]
+            inactive.created_at = now - timedelta(days=365)
+            inactive.last_used_at = now - timedelta(days=120)
+            db.session.add(inactive)
+
+            recent = AuthOAuthClient()
+            recent.client_id = "recent_unused"
+            recent.redirect_uris = ["https://example.com/cb"]
+            recent.grant_types = ["authorization_code"]
+            recent.response_types = ["code"]
+            recent.created_at = now - timedelta(hours=1)
+            db.session.add(recent)
+            db.session.commit()
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Fresh MCP",
+                "redirect_uris": ["https://example.com/cb"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+
+        with self.app.app_context():
+            remaining = {row.client_id for row in AuthOAuthClient.query.all()}
+            self.assertNotIn("stale_unused", remaining)
+            self.assertNotIn("stale_inactive", remaining)
+            self.assertIn("recent_unused", remaining)
+
+    def test_oauth_register_sweep_cascades_codes_refresh_tokens_and_grants(self):
+        """All three tables referencing auth_oauth_clients (codes, refresh
+        tokens, user grants) must be cleared before the client row is deleted.
+        We don't configure ON DELETE CASCADE, so on Postgres a missed table
+        would fail the sweep with a FK violation; SQLite hides the bug because
+        Flask-SQLAlchemy doesn't enable FK enforcement by default."""
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+        user_id = self._create_local_user(
+            email="sweep-cascade@example.com", verified=True, legal=True
+        )
+
+        with self.app.app_context():
+            now = backend_app._utc_now()
+            stale_client = AuthOAuthClient()
+            stale_client.client_id = "cascade_target"
+            stale_client.redirect_uris = ["https://example.com/cb"]
+            stale_client.grant_types = ["authorization_code", "refresh_token"]
+            stale_client.response_types = ["code"]
+            stale_client.created_at = now - timedelta(days=2)
+            db.session.add(stale_client)
+
+            code = AuthOAuthAuthorizationCode()
+            code.code_hash = "deadbeef" * 8
+            code.client_id = "cascade_target"
+            code.user_id = user_id
+            code.redirect_uri = "https://example.com/cb"
+            code.scope = "agreements:read"
+            code.code_challenge = "x"
+            code.code_challenge_method = "S256"
+            code.expires_at = now + timedelta(minutes=3)
+            db.session.add(code)
+
+            refresh = AuthOAuthRefreshToken()
+            refresh.token_hash = "feedface" * 8
+            refresh.client_id = "cascade_target"
+            refresh.user_id = user_id
+            refresh.scope = "agreements:read"
+            refresh.family_id = "fam-1"
+            refresh.expires_at = now + timedelta(days=30)
+            db.session.add(refresh)
+
+            grant = AuthOAuthUserGrant()
+            grant.user_id = user_id
+            grant.client_id = "cascade_target"
+            grant.scope = "agreements:read"
+            db.session.add(grant)
+            db.session.commit()
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Fresh MCP",
+                "redirect_uris": ["https://example.com/cb"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+
+        with self.app.app_context():
+            self.assertIsNone(AuthOAuthClient.query.filter_by(client_id="cascade_target").first())
+            self.assertEqual(
+                AuthOAuthAuthorizationCode.query.filter_by(client_id="cascade_target").count(), 0
+            )
+            self.assertEqual(
+                AuthOAuthRefreshToken.query.filter_by(client_id="cascade_target").count(), 0
+            )
+            self.assertEqual(
+                AuthOAuthUserGrant.query.filter_by(client_id="cascade_target").count(), 0
+            )
+
+    def test_oauth_authorize_and_token_touch_client_last_used_at(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        user_id = self._create_local_user(email="touch-lastused@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer=os.environ["MCP_OIDC_ISSUER"],
+                    subject="zitadel|touch-lastused",
+                )
+            )
+            db.session.commit()
+        self._set_cookie_session(client, email="touch-lastused@example.com")
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        client_id = register.get_json()["client_id"]
+
+        # Fresh client: last_used_at is NULL until somebody actually authorizes.
+        with self.app.app_context():
+            row = AuthOAuthClient.query.filter_by(client_id=client_id).first()
+            self.assertIsNone(row.last_used_at)
+
+        self._grant_oauth_consent(
+            email="touch-lastused@example.com",
+            client_id=client_id,
+            scope="agreements:read",
+        )
+
+        good_challenge = _pkce_challenge("touch-verifier")
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            "&state=touch-state"
+            f"&code_challenge={good_challenge}"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+
+        with self.app.app_context():
+            row = AuthOAuthClient.query.filter_by(client_id=client_id).first()
+            self.assertIsNotNone(row.last_used_at)
+            after_authorize = row.last_used_at
+
+        auth_code = parse_qs(urlparse(authorize.headers["Location"]).query)["code"][0]
+        token = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client_id,
+                "code": auth_code,
+                "redirect_uri": "https://codex.example.com/callback",
+                "code_verifier": "touch-verifier",
+            },
+        )
+        self.assertEqual(token.status_code, 200)
+
+        with self.app.app_context():
+            row = AuthOAuthClient.query.filter_by(client_id=client_id).first()
+            self.assertIsNotNone(row.last_used_at)
+            self.assertGreaterEqual(row.last_used_at, after_authorize)
 
     def test_legacy_password_reset_routes_are_disabled(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
