@@ -889,12 +889,22 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
     def _pending_login_block_response(*, user, next_path: str):
         has_legal = deps._user_has_current_legal_acceptances(user_id=user.id)
+        blocked_reason: str | None = None
         if user.email_verified_at is None and not has_legal:
-            abort(400, description="You need to accept the terms and verify your email before signing in.")
-        if user.email_verified_at is None:
-            abort(400, description="Verify your email before signing in.")
-        if not has_legal:
-            abort(400, description="You need to accept the terms before signing in.")
+            blocked_reason = "You need to accept the terms and verify your email before signing in."
+        elif user.email_verified_at is None:
+            blocked_reason = "Verify your email before signing in."
+        elif not has_legal:
+            blocked_reason = "You need to accept the terms before signing in."
+        if blocked_reason is not None:
+            # All three abort branches reveal "account exists with a Zitadel
+            # link" via a local fast-path. Delay so the timing matches a real
+            # Zitadel round-trip. Pay the delay only on the abort path —
+            # adding it to the helper's pass-through (verified + legal user)
+            # would slow the legitimate login by ~250ms and create a new
+            # timing oracle vs. the no-link path.
+            deps._auth_enumeration_delay()
+            abort(400, description=blocked_reason)
         return None
 
     def _ensure_pending_signup_user(
@@ -2466,6 +2476,11 @@ window.location.replace({json.dumps(login_url)});
                 issuer=mcp_oidc_issuer(),
             ).first()
             if existing_link is not None:
+                # Helper aborts with 400 when this account is pending
+                # (unverified email / missing legal). The helper internally
+                # delays before aborting so the abort-vs-Zitadel timing is
+                # indistinguishable. If it returns None we continue to the
+                # real Zitadel call without an artificial delay.
                 _pending_login_block_response(user=existing_user, next_path=next_path)
 
         try:
@@ -2473,6 +2488,9 @@ window.location.replace({json.dumps(login_url)});
                 external_identity = _zitadel_session_identity(email=email, password=password)
             except HTTPException as exc:
                 if exc.code == 400 and exc.description == "Verify your email before signing in.":
+                    # Reveals "account exists but unverified". Equalize timing
+                    # with the invalid-credentials path below.
+                    deps._auth_enumeration_delay()
                     raise
                 if exc.code in {400, 401, 403, 404, 409}:
                     migrated = _maybe_migrate_local_password_user(email=email, password=password)
@@ -2513,6 +2531,10 @@ window.location.replace({json.dumps(login_url)});
             abort(501, description="Signup is unavailable in mocked auth mode.")
 
         data = deps._load_json(deps.AuthPasswordSignupSchema())
+        # Fail-closed on production deployments where Turnstile keys are
+        # missing — better to surface a 503 than to silently lose the captcha
+        # gate on a high-abuse endpoint.
+        deps._require_turnstile_configured()
         if deps._turnstile_enabled():
             captcha_token = deps._require_captcha_token(data)
             deps._verify_turnstile_token(token=captcha_token)
@@ -2755,6 +2777,7 @@ window.location.replace({json.dumps(login_url)});
             abort(501, description="Password reset is unavailable in mocked auth mode.")
 
         data = deps._load_json(deps.AuthPasswordResetRequestSchema())
+        deps._require_turnstile_configured()
         if deps._turnstile_enabled():
             captcha_token = deps._require_captcha_token(data)
             deps._verify_turnstile_token(token=captcha_token)

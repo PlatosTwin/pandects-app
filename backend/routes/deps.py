@@ -330,6 +330,7 @@ class AuthDeps:
     _set_csrf_cookie: SetCsrfCookieProtocol
     _status_response: StatusResponseProtocol
     _turnstile_enabled: Callable[[], bool]
+    _require_turnstile_configured: Callable[[], None]
     _turnstile_site_key: Callable[[], str]
     _user_has_current_legal_acceptances: UserHasCurrentLegalAcceptancesProtocol
     _utc_now: Callable[[], datetime]

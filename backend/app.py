@@ -141,6 +141,7 @@ from backend.core.runtime_utils import (
 )
 from backend.auth.captcha_runtime import (
     require_captcha_token as _require_captcha_token,
+    require_turnstile_configured as _require_turnstile_configured,
     turnstile_enabled as _turnstile_enabled,
     turnstile_site_key as _turnstile_site_key,
     verify_turnstile_token as _verify_turnstile_token,
@@ -1445,6 +1446,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _set_csrf_cookie=_set_csrf_cookie,
         _status_response=_status_response,
         _turnstile_enabled=_turnstile_enabled,
+        _require_turnstile_configured=_require_turnstile_configured,
         _turnstile_site_key=_turnstile_site_key,
         _user_has_current_legal_acceptances=_user_has_current_legal_acceptances,
         _utc_now=_utc_now,
