@@ -889,12 +889,22 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
     def _pending_login_block_response(*, user, next_path: str):
         has_legal = deps._user_has_current_legal_acceptances(user_id=user.id)
+        blocked_reason: str | None = None
         if user.email_verified_at is None and not has_legal:
-            abort(400, description="You need to accept the terms and verify your email before signing in.")
-        if user.email_verified_at is None:
-            abort(400, description="Verify your email before signing in.")
-        if not has_legal:
-            abort(400, description="You need to accept the terms before signing in.")
+            blocked_reason = "You need to accept the terms and verify your email before signing in."
+        elif user.email_verified_at is None:
+            blocked_reason = "Verify your email before signing in."
+        elif not has_legal:
+            blocked_reason = "You need to accept the terms before signing in."
+        if blocked_reason is not None:
+            # All three abort branches reveal "account exists with a Zitadel
+            # link" via a local fast-path. Delay so the timing matches a real
+            # Zitadel round-trip. Pay the delay only on the abort path —
+            # adding it to the helper's pass-through (verified + legal user)
+            # would slow the legitimate login by ~250ms and create a new
+            # timing oracle vs. the no-link path.
+            deps._auth_enumeration_delay()
+            abort(400, description=blocked_reason)
         return None
 
     def _ensure_pending_signup_user(
@@ -2466,9 +2476,11 @@ window.location.replace({json.dumps(login_url)});
                 issuer=mcp_oidc_issuer(),
             ).first()
             if existing_link is not None:
-                # Local fast-path that reveals "this email has an account" —
-                # delay so the timing matches a real Zitadel round-trip.
-                deps._auth_enumeration_delay()
+                # Helper aborts with 400 when this account is pending
+                # (unverified email / missing legal). The helper internally
+                # delays before aborting so the abort-vs-Zitadel timing is
+                # indistinguishable. If it returns None we continue to the
+                # real Zitadel call without an artificial delay.
                 _pending_login_block_response(user=existing_user, next_path=next_path)
 
         try:

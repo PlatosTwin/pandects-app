@@ -146,14 +146,17 @@ def _expose_swagger_ui() -> bool:
     # Swagger UI pulls scripts from cdn.jsdelivr.net (not in our CSP) and
     # enumerates every authenticated endpoint with parameter schemas — useful
     # recon. Keep it on by default for local dev, opt-in on Fly.
+    #
+    # Fly detection is inlined (rather than importing is_running_on_fly from
+    # backend.auth.session_runtime) because session_runtime already imports
+    # from this module — pulling it back the other way creates a cycle.
     raw = os.environ.get("EXPOSE_SWAGGER_UI", "").strip()
     if raw == "1":
         return True
     if raw == "0":
         return False
-    from backend.auth.session_runtime import is_running_on_fly
-
-    return not is_running_on_fly()
+    on_fly = bool(os.environ.get("FLY_APP_NAME") or os.environ.get("FLY_REGION"))
+    return not on_fly
 
 
 def configure_openapi(target_app: Flask) -> None:
