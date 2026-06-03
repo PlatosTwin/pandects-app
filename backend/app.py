@@ -1,3 +1,4 @@
+import hashlib
 import os
 from typing import Any, Protocol, TypedDict, cast
 from collections.abc import Iterable
@@ -40,6 +41,7 @@ from backend.models import (
     AuthOAuthClient,
     AuthOAuthRefreshToken,
     AuthOAuthSigningKey,
+    AuthOAuthUserGrant,
     AuthSession,
     AuthUser,
     Favorite,
@@ -918,8 +920,101 @@ _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
     ("POST", "/v1/auth/signup/password"): 5,
     ("POST", "/v1/auth/login/password"): 10,
     ("POST", "/v1/auth/password-reset/request"): 3,
+    ("POST", "/v1/auth/email/verify/resend"): 5,
     ("POST", "/v1/auth/oauth/register"): 10,
 }
+
+# Per-account login-failure throttle. Layers on top of the per-IP endpoint
+# limit so an attacker can't spread credential-stuffing attempts across many
+# IPs against the same email. Keyed on SHA-256(email) so plaintext addresses
+# never sit in process memory or logs. Counts are local to each process — on
+# a horizontally scaled deployment the effective limit is N × the per-process
+# threshold; not perfect, but a meaningful raise on the bar.
+_account_login_failure_lock = Lock()
+_account_login_failure_state: dict[str, dict[str, float | int]] = {}
+_ACCOUNT_LOGIN_FAILURE_WINDOW_SECONDS = 15 * 60
+_ACCOUNT_LOGIN_FAILURE_LIMIT = 8
+_ACCOUNT_LOGIN_BACKOFF_SECONDS = 15 * 60
+_ACCOUNT_LOGIN_STATE_MAX_KEYS = int(
+    os.environ.get("ACCOUNT_LOGIN_STATE_MAX_KEYS", "50000")
+)
+
+
+def _account_login_key(email_normalized: str) -> str:
+    return hashlib.sha256(email_normalized.encode("utf-8")).hexdigest()
+
+
+def _prune_account_login_state_locked(now: float) -> None:
+    cutoff = now - _ACCOUNT_LOGIN_FAILURE_WINDOW_SECONDS
+    stale_keys = [
+        key
+        for key, payload in _account_login_failure_state.items()
+        if float(payload["ts"]) < cutoff and float(payload.get("blocked_until", 0)) <= now
+    ]
+    for key in stale_keys:
+        _ = _account_login_failure_state.pop(key, None)
+    overflow = len(_account_login_failure_state) - _ACCOUNT_LOGIN_STATE_MAX_KEYS
+    if overflow > 0:
+        oldest_keys = [
+            existing_key
+            for existing_key, _payload in sorted(
+                _account_login_failure_state.items(),
+                key=lambda item: float(item[1]["ts"]),
+            )[:overflow]
+        ]
+        for existing_key in oldest_keys:
+            _ = _account_login_failure_state.pop(existing_key, None)
+
+
+def _check_account_login_rate_limit(email_normalized: str) -> None:
+    key = _account_login_key(email_normalized)
+    now = time.time()
+    with _account_login_failure_lock:
+        _prune_account_login_state_locked(now)
+        state = _account_login_failure_state.get(key)
+        if state is None:
+            return
+        blocked_until = float(state.get("blocked_until", 0))
+        if blocked_until > now:
+            retry_after = max(1, int(blocked_until - now))
+        else:
+            return
+    abort(
+        _json_error(
+            429,
+            error="rate_limited",
+            message="Too many failed sign-in attempts for this account. Please retry shortly.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    )
+
+
+def _record_account_login_failure(email_normalized: str) -> None:
+    key = _account_login_key(email_normalized)
+    now = time.time()
+    with _account_login_failure_lock:
+        state = _account_login_failure_state.get(key)
+        if state is None or (
+            now - float(state["ts"]) >= _ACCOUNT_LOGIN_FAILURE_WINDOW_SECONDS
+            and float(state.get("blocked_until", 0)) <= now
+        ):
+            _account_login_failure_state[key] = {
+                "ts": now,
+                "count": 1,
+                "blocked_until": 0.0,
+            }
+            return
+        new_count = int(state["count"]) + 1
+        state["count"] = new_count
+        state["ts"] = now
+        if new_count >= _ACCOUNT_LOGIN_FAILURE_LIMIT:
+            state["blocked_until"] = now + _ACCOUNT_LOGIN_BACKOFF_SECONDS
+
+
+def _record_account_login_success(email_normalized: str) -> None:
+    key = _account_login_key(email_normalized)
+    with _account_login_failure_lock:
+        _ = _account_login_failure_state.pop(key, None)
 
 
 def _endpoint_rate_limit_key(method: str, path: str) -> tuple[str, int] | None:
@@ -1301,6 +1396,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         AuthOAuthClient=AuthOAuthClient,
         AuthOAuthRefreshToken=AuthOAuthRefreshToken,
         AuthOAuthSigningKey=AuthOAuthSigningKey,
+        AuthOAuthUserGrant=AuthOAuthUserGrant,
         AuthExternalSubjectLinkSchema=AuthExternalSubjectLinkSchema,
         AuthFlagInaccurateSchema=AuthFlagInaccurateSchema,
         AuthPasswordLoginSchema=AuthPasswordLoginSchema,
@@ -1315,6 +1411,9 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _UUID_RE=_UUID_RE,
         _auth_db_is_configured=_auth_db_is_configured,
         _auth_enumeration_delay=_auth_enumeration_delay,
+        _check_account_login_rate_limit=_check_account_login_rate_limit,
+        _record_account_login_failure=_record_account_login_failure,
+        _record_account_login_success=_record_account_login_success,
         _auth_is_mocked=_auth_is_mocked,
         _auth_session_transport=_auth_session_transport,
         _authenticate_external_identity=_authenticate_external_identity_for_routes,
@@ -1430,6 +1529,7 @@ def init_auth_db():
             "api_usage_hourly",
             "api_request_events",
             "api_usage_daily_ips",
+            "auth_oauth_user_grants",
             "favorite_projects",
             "favorite_project_assignments",
             "favorites",

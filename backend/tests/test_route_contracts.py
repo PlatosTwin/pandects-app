@@ -64,6 +64,11 @@ class RouteContractTests(unittest.TestCase):
             "/v1/auth/zitadel/complete",
             "/v1/auth/zitadel/finalize",
             "/v1/auth/zitadel/notifications/email",
+            "/v1/auth/oauth/register",
+            "/v1/auth/oauth/authorize",
+            "/v1/auth/oauth/token",
+            "/v1/auth/oauth/consent",
+            "/v1/auth/email/verify/resend",
         }
         for route in expected:
             self.assertIn(route, rules)

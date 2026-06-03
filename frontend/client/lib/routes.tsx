@@ -99,6 +99,11 @@ export const ROUTES: ReadonlyArray<RouteEntry> = [
     component: lazyPage(() => import("@/pages/AuthZitadelCallback")),
   },
   {
+    path: "/oauth/consent",
+    component: lazyPage(() => import("@/pages/OAuthConsent")),
+    protected: true,
+  },
+  {
     path: "*",
     component: lazyPage(() => import("@/pages/NotFound")),
     catchAll: true,

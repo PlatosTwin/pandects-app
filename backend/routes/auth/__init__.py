@@ -16,7 +16,7 @@ from typing import cast
 from urllib.parse import urlencode, urlparse, urlunparse
 
 from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
-from sqlalchemy import update
+from sqlalchemy import and_, or_, update
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
@@ -84,6 +84,11 @@ from backend.routes.deps import AuthDeps
 
 _ZITADEL_API_TOKEN_CACHE: dict[str, object] = {}
 _OAUTH_LOOPBACK_REDIRECT_HOSTS = {"localhost", "127.0.0.1", "::1"}
+# DCR clients are world-registerable. Sweep clients that were registered but
+# never used after this grace period, and clients that haven't been touched
+# in this long — keeps the table from accumulating abandoned/spammed entries.
+_DCR_UNUSED_GRACE_HOURS = 24
+_DCR_INACTIVE_DAYS = 90
 
 
 def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
@@ -1169,6 +1174,125 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         query = f"{parsed.query}&{encoded_params}" if parsed.query else encoded_params
         return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, query, ""))
 
+    def _oauth_scope_set(scope: str) -> set[str]:
+        return {part for part in scope.split(" ") if part}
+
+    def _normalize_granted_scope(scope: str) -> str:
+        return " ".join(sorted(_oauth_scope_set(scope)))
+
+    def _user_grant_for_client(*, user_id: str, client_id: str):
+        return deps.AuthOAuthUserGrant.query.filter_by(
+            user_id=user_id,
+            client_id=client_id,
+            revoked_at=None,
+        ).first()
+
+    def _user_has_grant_for_scope(*, user_id: str, client_id: str, requested_scope: str) -> bool:
+        grant = _user_grant_for_client(user_id=user_id, client_id=client_id)
+        if grant is None:
+            return False
+        granted = _oauth_scope_set(grant.scope) if isinstance(grant.scope, str) else set()
+        return _oauth_scope_set(requested_scope).issubset(granted)
+
+    def _consent_redirect_response(
+        *,
+        client,
+        requested_scope: str,
+        redirect_uri: str,
+        response_type: str,
+        state: str | None,
+        code_challenge: str,
+        code_challenge_method: str,
+    ):
+        """Redirect the browser to the SPA consent screen, carrying every
+        param needed to (a) render the page and (b) replay /oauth/authorize
+        after the user clicks Allow. The page POSTs /v1/auth/oauth/consent
+        to record the grant, then navigates to /v1/auth/oauth/authorize."""
+        client_name = (
+            client.client_name.strip()
+            if isinstance(client.client_name, str) and client.client_name.strip()
+            else ""
+        )
+        params: dict[str, str] = {
+            "client_id": client.client_id,
+            "redirect_uri": redirect_uri,
+            "response_type": response_type,
+            "scope": requested_scope,
+            "code_challenge": code_challenge,
+            "code_challenge_method": code_challenge_method,
+        }
+        if client_name:
+            params["client_name"] = client_name
+        if state:
+            params["state"] = state
+        # Defense-in-depth: an open redirect here would be a phishing primitive.
+        # The scheme/host/path are fixed by server config (_frontend_base_url)
+        # and tainted values only enter via urlencode (query string), but enforce
+        # the invariant explicitly so a future refactor that breaks it fails
+        # loudly instead of silently turning into an open redirect.
+        frontend_base = deps._frontend_base_url()
+        url = f"{frontend_base}/oauth/consent?{urlencode(params)}"
+        if not url.startswith(f"{frontend_base}/oauth/consent?"):
+            abort(500, description="Refusing to build malformed consent redirect.")
+        resp = redirect(url, code=302)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    def _touch_oauth_client_last_used(client_id: str) -> None:
+        """Best-effort: mark a DCR client as actively in use so the sweep keeps it."""
+        try:
+            deps.db.session.execute(
+                update(deps.AuthOAuthClient)
+                .where(deps.AuthOAuthClient.client_id == client_id)
+                .values(last_used_at=deps._utc_now())
+            )
+        except SQLAlchemyError:
+            current_app.logger.exception("Failed to update OAuth client last_used_at.")
+            deps.db.session.rollback()
+
+    def _sweep_stale_oauth_clients() -> None:
+        """Evict DCR clients that look abandoned: never-used past the grace
+        window, or used long ago. Runs best-effort from /oauth/register so the
+        table doesn't grow without bound from spammed registrations. Failures
+        are swallowed — sweep is a hygiene measure, not a correctness barrier."""
+        now = deps._utc_now()
+        unused_cutoff = now - timedelta(hours=_DCR_UNUSED_GRACE_HOURS)
+        inactive_cutoff = now - timedelta(days=_DCR_INACTIVE_DAYS)
+        try:
+            stale_clients = deps.AuthOAuthClient.query.filter(
+                or_(
+                    and_(
+                        deps.AuthOAuthClient.last_used_at.is_(None),
+                        deps.AuthOAuthClient.created_at < unused_cutoff,
+                    ),
+                    deps.AuthOAuthClient.last_used_at < inactive_cutoff,
+                )
+            ).limit(500).all()
+            if not stale_clients:
+                return
+            stale_ids = [c.client_id for c in stale_clients]
+            # Delete every table that has a FK pointing at auth_oauth_clients
+            # BEFORE the client row itself; we don't configure ON DELETE
+            # CASCADE so on Postgres the parent DELETE would otherwise fail
+            # with a FK violation. SQLite doesn't enforce FKs by default so
+            # the symptom would only surface in production.
+            deps.AuthOAuthRefreshToken.query.filter(
+                deps.AuthOAuthRefreshToken.client_id.in_(stale_ids)
+            ).delete(synchronize_session=False)
+            deps.AuthOAuthAuthorizationCode.query.filter(
+                deps.AuthOAuthAuthorizationCode.client_id.in_(stale_ids)
+            ).delete(synchronize_session=False)
+            deps.AuthOAuthUserGrant.query.filter(
+                deps.AuthOAuthUserGrant.client_id.in_(stale_ids)
+            ).delete(synchronize_session=False)
+            deps.AuthOAuthClient.query.filter(
+                deps.AuthOAuthClient.client_id.in_(stale_ids)
+            ).delete(synchronize_session=False)
+            deps.db.session.commit()
+        except SQLAlchemyError:
+            current_app.logger.exception("OAuth client sweep failed.")
+            deps.db.session.rollback()
+
     def _oauth_active_signing_key():
         key = deps.AuthOAuthSigningKey.query.filter_by(active=True).first()
         if key is not None:
@@ -1286,6 +1410,9 @@ window.location.replace({json.dumps(login_url)});
     @auth_blp.post("/oauth/register")
     def oauth_register():
         deps._require_auth_db()
+        # World-open endpoint; sweep abandoned/spammed clients before adding a
+        # new row so the table can't grow without bound.
+        _sweep_stale_oauth_clients()
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             abort(400, description="Invalid client registration payload.")
@@ -1366,6 +1493,73 @@ window.location.replace({json.dumps(login_url)});
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
+    @auth_blp.post("/oauth/consent")
+    def oauth_consent():
+        """Record a user's consent for a DCR-registered client to receive the
+        requested scopes. Required before /oauth/authorize will mint a code.
+
+        Auth: verified user session + CSRF (standard /v1/* path). The grant is
+        scoped to (user, client) so cross-user replay is impossible. The
+        client_id and scope are validated server-side; the caller can't grant
+        a scope the client didn't register for or that the server doesn't
+        support."""
+        deps._require_auth_db()
+        user, _ctx = deps._require_verified_user()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description="Invalid consent payload.")
+        client_id = data.get("client_id")
+        scope_raw = data.get("scope")
+        if not isinstance(client_id, str) or not client_id.strip():
+            abort(400, description="client_id is required.")
+        if not isinstance(scope_raw, str) or not scope_raw.strip():
+            abort(400, description="scope is required.")
+        # Re-runs the same scope normalization the authorize endpoint applies,
+        # so an unsupported scope is rejected with the identical error.
+        scope = _oauth_scope_string(scope_raw)
+        client = deps.AuthOAuthClient.query.filter_by(client_id=client_id.strip()).first()
+        if client is None:
+            abort(400, description="Invalid OAuth client.")
+
+        now = deps._utc_now()
+        normalized_scope = _normalize_granted_scope(scope)
+        try:
+            existing = _user_grant_for_client(user_id=user.id, client_id=client.client_id)
+            if existing is None:
+                grant = deps.AuthOAuthUserGrant(
+                    user_id=user.id,
+                    client_id=client.client_id,
+                    scope=normalized_scope,
+                    granted_at=now,
+                )
+                deps.db.session.add(grant)
+                stored_scope = normalized_scope
+            else:
+                # Widen the existing grant to cover any additional scopes
+                # the user is approving in this round; never narrow.
+                merged = _oauth_scope_set(existing.scope) | _oauth_scope_set(normalized_scope)
+                stored_scope = " ".join(sorted(merged))
+                existing.scope = stored_scope
+                existing.granted_at = now
+                existing.revoked_at = None
+            deps.db.session.commit()
+        except SQLAlchemyError:
+            deps.db.session.rollback()
+            abort(503, description="Auth backend is unavailable right now.")
+
+        resp = make_response(
+            jsonify(
+                {
+                    "status": "granted",
+                    "client_id": client.client_id,
+                    "scope": stored_scope,
+                }
+            ),
+            200,
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     @auth_blp.post("/oauth/browser-session")
     def oauth_browser_session():
         deps._require_auth_db()
@@ -1427,6 +1621,24 @@ window.location.replace({json.dumps(login_url)});
         if not linked_subject:
             return _oauth_error_response("Pandects could not link this account to MCP identity.", code=403)
 
+        # Per-client consent gate: a DCR client can be registered by anyone, so
+        # don't mint a code until the user has explicitly granted this client
+        # the requested scopes. Redirect the browser to the SPA consent screen,
+        # which POSTs /v1/auth/oauth/consent to record the grant and then
+        # re-navigates to /v1/auth/oauth/authorize.
+        if not _user_has_grant_for_scope(
+            user_id=user.id, client_id=client.client_id, requested_scope=scope
+        ):
+            return _consent_redirect_response(
+                client=client,
+                requested_scope=scope,
+                redirect_uri=redirect_uri,
+                response_type=response_type,
+                state=state,
+                code_challenge=code_challenge,
+                code_challenge_method=code_challenge_method,
+            )
+
         raw_code = secrets.token_urlsafe(32)
         code = deps.AuthOAuthAuthorizationCode(
             code_hash=_oauth_code_hash(raw_code),
@@ -1439,6 +1651,7 @@ window.location.replace({json.dumps(login_url)});
             expires_at=deps._utc_now() + timedelta(seconds=mcp_oauth_authorization_code_ttl_seconds()),
         )
         deps.db.session.add(code)
+        _touch_oauth_client_last_used(client.client_id)
         deps.db.session.commit()
         _params = {"code": raw_code}
         if state:
@@ -1537,6 +1750,7 @@ window.location.replace({json.dumps(login_url)});
                 client_id=client.client_id,
                 scope=auth_code.scope,
             )
+            _touch_oauth_client_last_used(client.client_id)
             deps.db.session.commit()
             resp = make_response(jsonify(token_payload), 200)
             resp.headers["Cache-Control"] = "no-store"
@@ -1602,6 +1816,7 @@ window.location.replace({json.dumps(login_url)});
                 scope=refresh_record.scope,
                 family_id=refresh_record.family_id,
             )
+            _touch_oauth_client_last_used(client.client_id)
             deps.db.session.commit()
             resp = make_response(jsonify(token_payload), 200)
             resp.headers["Cache-Control"] = "no-store"
@@ -2239,6 +2454,11 @@ window.location.replace({json.dumps(login_url)});
         if not deps._is_email_like(email):
             abort(400, description="Enter a valid email address.")
 
+        # Per-account throttle layered on top of the per-IP endpoint limit.
+        # Prevents credential stuffing where attempts are spread across many
+        # source IPs against the same email. Aborts 429 if backed off.
+        deps._check_account_login_rate_limit(email)
+
         existing_user = _local_user_by_email(email=email)
         if existing_user is not None:
             existing_link = deps.AuthExternalSubject.query.filter_by(
@@ -2257,6 +2477,13 @@ window.location.replace({json.dumps(login_url)});
                 if exc.code in {400, 401, 403, 404, 409}:
                     migrated = _maybe_migrate_local_password_user(email=email, password=password)
                     if migrated is None:
+                        # "No such user" (Zitadel 404, fast) and "wrong
+                        # password" (Zitadel verification, slow) both reach
+                        # this abort. Record the failure for the per-account
+                        # throttle and add randomized jitter so the response
+                        # times are indistinguishable.
+                        deps._record_account_login_failure(email)
+                        deps._auth_enumeration_delay()
                         abort(401, description="Invalid email or password.")
                     external_identity = migrated
                 else:
@@ -2266,6 +2493,7 @@ window.location.replace({json.dumps(login_url)});
                 next_path=next_path,
                 provider_name="zitadel",
             )
+            deps._record_account_login_success(email)
         except HTTPException:
             deps.db.session.rollback()
             raise
@@ -2562,6 +2790,11 @@ window.location.replace({json.dumps(login_url)});
             current_app.logger.exception("Password reset request failed.")
             abort(503, description="Remote auth provider is unavailable right now.")
 
+        # Same-shape response regardless of account existence — pair it with a
+        # randomized delay so existing vs. non-existing addresses also can't
+        # be distinguished by timing (the Zitadel call only fires for the
+        # former).
+        deps._auth_enumeration_delay()
         resp = deps._status_response("requested")
         resp.headers["Cache-Control"] = "no-store"
         return resp

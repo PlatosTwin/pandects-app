@@ -281,6 +281,7 @@ class AuthDeps:
     AuthOAuthClient: Any
     AuthOAuthRefreshToken: Any
     AuthOAuthSigningKey: Any
+    AuthOAuthUserGrant: Any
     AuthExternalSubjectLinkSchema: type[Schema]
     AuthFlagInaccurateSchema: type[Schema]
     AuthPasswordLoginSchema: type[Schema]
@@ -295,6 +296,9 @@ class AuthDeps:
     _UUID_RE: Pattern[str]
     _auth_db_is_configured: Callable[[], bool]
     _auth_enumeration_delay: Callable[[], None]
+    _check_account_login_rate_limit: Callable[[str], None]
+    _record_account_login_failure: Callable[[str], None]
+    _record_account_login_success: Callable[[str], None]
     _auth_is_mocked: Callable[[], bool]
     _auth_session_transport: Callable[[], str]
     _authenticate_external_identity: AuthenticateExternalIdentityProtocol
