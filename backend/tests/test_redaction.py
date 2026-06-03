@@ -66,6 +66,21 @@ class TestXmlRedaction(unittest.TestCase):
         with self.assertRaises(ValueError):
             redact_agreement_xml("<document/>", focus_section_uuid=None, neighbor_sections=6)
 
+    def test_billion_laughs_rejected_by_defusedxml(self) -> None:
+        # defusedxml refuses entity expansion attacks even when the input is
+        # technically well-formed XML. Confirms the parser swap took effect.
+        from defusedxml.common import EntitiesForbidden
+
+        bomb = (
+            '<?xml version="1.0"?>'
+            '<!DOCTYPE doc ['
+            '<!ENTITY a "AAAAAAAAAA">'
+            '<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">'
+            ']><doc>&b;</doc>'
+        )
+        with self.assertRaises(EntitiesForbidden):
+            redact_agreement_xml(bomb, focus_section_uuid=None, neighbor_sections=0)
+
 
 if __name__ == "__main__":
     unittest.main()

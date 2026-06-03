@@ -142,31 +142,45 @@ def max_content_length() -> int:
     return 1 * 1024 * 1024
 
 
+def _expose_swagger_ui() -> bool:
+    # Swagger UI pulls scripts from cdn.jsdelivr.net (not in our CSP) and
+    # enumerates every authenticated endpoint with parameter schemas — useful
+    # recon. Keep it on by default for local dev, opt-in on Fly.
+    raw = os.environ.get("EXPOSE_SWAGGER_UI", "").strip()
+    if raw == "1":
+        return True
+    if raw == "0":
+        return False
+    from backend.auth.session_runtime import is_running_on_fly
+
+    return not is_running_on_fly()
+
+
 def configure_openapi(target_app: Flask) -> None:
     config = app_config_map(target_app)
-    config.update(
-        {
-            "API_TITLE": "Pandects API",
-            "API_VERSION": "v1",
-            "OPENAPI_VERSION": "3.0.2",
-            "API_SPEC_OPTIONS": {
-                "servers": [
-                    {
-                        "url": "https://api.pandects.org",
-                        "description": "Production API",
-                    },
-                    {
-                        "url": "http://localhost:5113",
-                        "description": "Local development API",
-                    },
-                ]
-            },
-            "OPENAPI_URL_PREFIX": "/",
-            "OPENAPI_SWAGGER_UI_PATH": "/swagger-ui",
-            "OPENAPI_SWAGGER_UI_URL": "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
-            "MAX_CONTENT_LENGTH": None,
-        }
-    )
+    openapi_config: dict[str, object] = {
+        "API_TITLE": "Pandects API",
+        "API_VERSION": "v1",
+        "OPENAPI_VERSION": "3.0.2",
+        "API_SPEC_OPTIONS": {
+            "servers": [
+                {
+                    "url": "https://api.pandects.org",
+                    "description": "Production API",
+                },
+                {
+                    "url": "http://localhost:5113",
+                    "description": "Local development API",
+                },
+            ]
+        },
+        "OPENAPI_URL_PREFIX": "/",
+        "MAX_CONTENT_LENGTH": None,
+    }
+    if _expose_swagger_ui():
+        openapi_config["OPENAPI_SWAGGER_UI_PATH"] = "/swagger-ui"
+        openapi_config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
+    config.update(openapi_config)
     config["MAX_CONTENT_LENGTH"] = max_content_length()
 
 

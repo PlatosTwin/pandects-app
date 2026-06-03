@@ -1,4 +1,9 @@
+# Parse with defusedxml to harden against billion-laughs / quadratic-blowup
+# even though today's input is trusted (own DB). Serialize with stdlib ET —
+# defusedxml does not provide a tostring/SubElement constructor.
 import xml.etree.ElementTree as ET
+
+import defusedxml.ElementTree as DET
 
 
 def redact_agreement_xml(
@@ -12,7 +17,7 @@ def redact_agreement_xml(
             return tag.rsplit("}", 1)[-1]
         return tag
 
-    root = ET.fromstring(xml_content)
+    root = DET.fromstring(xml_content)
     sections: list[ET.Element] = [
         el for el in root.iter() if _local_name(el.tag).lower() == "section"
     ]

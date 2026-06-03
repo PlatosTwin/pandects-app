@@ -27,6 +27,21 @@ def turnstile_enabled() -> bool:
     )
 
 
+def turnstile_required() -> bool:
+    # In production (Fly) we want captcha to be a hard requirement on the
+    # high-abuse endpoints. If the keys are missing on Fly we'd rather refuse
+    # the request than silently fall back to "no captcha".
+    raw = os.environ.get("TURNSTILE_ENABLED", "").strip()
+    if raw == "0":
+        return False
+    return is_running_on_fly()
+
+
+def require_turnstile_configured() -> None:
+    if turnstile_required() and not turnstile_enabled():
+        abort(503, description="Captcha is not configured (missing TURNSTILE keys).")
+
+
 def turnstile_site_key() -> str:
     site_key = os.environ.get("TURNSTILE_SITE_KEY", "").strip()
     if not site_key:

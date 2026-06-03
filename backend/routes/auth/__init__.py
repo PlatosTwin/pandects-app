@@ -2466,6 +2466,9 @@ window.location.replace({json.dumps(login_url)});
                 issuer=mcp_oidc_issuer(),
             ).first()
             if existing_link is not None:
+                # Local fast-path that reveals "this email has an account" —
+                # delay so the timing matches a real Zitadel round-trip.
+                deps._auth_enumeration_delay()
                 _pending_login_block_response(user=existing_user, next_path=next_path)
 
         try:
@@ -2473,6 +2476,9 @@ window.location.replace({json.dumps(login_url)});
                 external_identity = _zitadel_session_identity(email=email, password=password)
             except HTTPException as exc:
                 if exc.code == 400 and exc.description == "Verify your email before signing in.":
+                    # Reveals "account exists but unverified". Equalize timing
+                    # with the invalid-credentials path below.
+                    deps._auth_enumeration_delay()
                     raise
                 if exc.code in {400, 401, 403, 404, 409}:
                     migrated = _maybe_migrate_local_password_user(email=email, password=password)
@@ -2513,6 +2519,10 @@ window.location.replace({json.dumps(login_url)});
             abort(501, description="Signup is unavailable in mocked auth mode.")
 
         data = deps._load_json(deps.AuthPasswordSignupSchema())
+        # Fail-closed on production deployments where Turnstile keys are
+        # missing — better to surface a 503 than to silently lose the captcha
+        # gate on a high-abuse endpoint.
+        deps._require_turnstile_configured()
         if deps._turnstile_enabled():
             captcha_token = deps._require_captcha_token(data)
             deps._verify_turnstile_token(token=captcha_token)
@@ -2755,6 +2765,7 @@ window.location.replace({json.dumps(login_url)});
             abort(501, description="Password reset is unavailable in mocked auth mode.")
 
         data = deps._load_json(deps.AuthPasswordResetRequestSchema())
+        deps._require_turnstile_configured()
         if deps._turnstile_enabled():
             captcha_token = deps._require_captcha_token(data)
             deps._verify_turnstile_token(token=captcha_token)

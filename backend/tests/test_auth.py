@@ -4437,6 +4437,97 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 404)
 
+    def test_password_login_pending_block_path_invokes_enumeration_delay(self):
+        # Verified-but-no-legal user with a Zitadel link triggers the local
+        # fast-path that reveals account existence. We need the randomized
+        # delay to fire so its timing matches a real Zitadel round-trip.
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+        with self.app.app_context():
+            user_id = self._create_local_user(
+                email="pending-block@example.com",
+                verified=True,
+                legal=False,
+            )
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="zitadel-pending-block-user",
+                )
+            )
+            db.session.commit()
+
+        from unittest.mock import patch
+
+        with patch("backend.app.time.sleep") as sleep_mock:
+            res = client.post(
+                "/v1/auth/login/password",
+                json={
+                    "email": "pending-block@example.com",
+                    "password": "password123",
+                },
+            )
+
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("terms", (res.get_json() or {}).get("message", "").lower())
+        sleep_mock.assert_called()
+
+    def test_password_reset_request_fails_closed_when_turnstile_unconfigured_on_fly(self):
+        # On Fly (production proxy) we want hard 503 if TURNSTILE keys are
+        # missing rather than silently dropping the captcha gate.
+        os.environ["FLY_APP_NAME"] = "pandects-test"
+        _ = os.environ.pop("TURNSTILE_ENABLED", None)
+        _ = os.environ.pop("TURNSTILE_SITE_KEY", None)
+        _ = os.environ.pop("TURNSTILE_SECRET_KEY", None)
+        client = self.app.test_client()
+        try:
+            res = client.post(
+                "/v1/auth/password-reset/request",
+                json={"email": "reset-fail-closed@example.com"},
+            )
+        finally:
+            os.environ.pop("FLY_APP_NAME", None)
+
+        self.assertEqual(res.status_code, 503)
+
+    def test_password_signup_fails_closed_when_turnstile_unconfigured_on_fly(self):
+        os.environ["FLY_APP_NAME"] = "pandects-test"
+        _ = os.environ.pop("TURNSTILE_ENABLED", None)
+        _ = os.environ.pop("TURNSTILE_SITE_KEY", None)
+        _ = os.environ.pop("TURNSTILE_SECRET_KEY", None)
+        client = self.app.test_client()
+        try:
+            res = client.post(
+                "/v1/auth/signup/password",
+                json={
+                    "email": "signup-fail-closed@example.com",
+                    "password": "Secr3tP4ss!",
+                    "next": "/account",
+                },
+            )
+        finally:
+            os.environ.pop("FLY_APP_NAME", None)
+
+        self.assertEqual(res.status_code, 503)
+
+    def test_password_reset_request_allowed_when_turnstile_explicitly_disabled(self):
+        # Explicit opt-out (TURNSTILE_ENABLED=0) must keep working even on Fly
+        # so the operator can disable captcha for a specific deployment.
+        os.environ["FLY_APP_NAME"] = "pandects-test"
+        os.environ["TURNSTILE_ENABLED"] = "0"
+        client = self.app.test_client()
+        try:
+            res = client.post(
+                "/v1/auth/password-reset/request",
+                json={"email": "no-such-account@example.com"},
+            )
+        finally:
+            os.environ.pop("FLY_APP_NAME", None)
+            os.environ["TURNSTILE_ENABLED"] = "0"
+
+        self.assertEqual(res.status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()
