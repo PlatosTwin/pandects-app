@@ -147,6 +147,7 @@ from backend.auth.captcha_runtime import (
     verify_turnstile_token as _verify_turnstile_token,
 )
 from backend.auth.email_runtime import (
+    assert_zitadel_notification_signing_key_configured as _assert_zitadel_notification_signing_key_configured,
     frontend_base_url as _frontend_base_url,
     is_email_like as _is_email_like,
     normalize_email as _normalize_email,
@@ -1491,6 +1492,7 @@ def _register_app(target_app: Flask) -> None:
 def create_app(*, config_overrides: dict[str, object] | None = None) -> Flask:
     target_app = Flask(__name__)
     _configure_app(target_app, config_overrides=config_overrides)
+    _assert_zitadel_notification_signing_key_configured()
     _register_app(target_app)
     _ensure_auth_tables_exist(target_app)
     return target_app

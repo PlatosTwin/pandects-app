@@ -4511,6 +4511,74 @@ class AuthFlowTests(unittest.TestCase):
 
         self.assertEqual(res.status_code, 503)
 
+    def test_signup_existing_account_log_does_not_leak_raw_email(self):
+        # The endpoint masks existing-vs-new in its response shape; the log
+        # line must not leak the answer back to whoever has log access.
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        existing_email = "log-leak@example.com"
+        with self.app.app_context():
+            user_id = self._create_local_user(
+                email=existing_email, verified=True, legal=True
+            )
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="zitadel-log-leak-user",
+                )
+            )
+            db.session.commit()
+        client = self.app.test_client()
+
+        import logging
+        from io import StringIO
+
+        buffer = StringIO()
+        handler = logging.StreamHandler(buffer)
+        handler.setLevel(logging.INFO)
+        self.app.logger.addHandler(handler)
+        previous_level = self.app.logger.level
+        self.app.logger.setLevel(logging.INFO)
+        try:
+            res = client.post(
+                "/v1/auth/signup/password",
+                json={
+                    "email": existing_email,
+                    "password": "Secr3tP4ss!",
+                    "next": "/account",
+                },
+            )
+        finally:
+            self.app.logger.removeHandler(handler)
+            self.app.logger.setLevel(previous_level)
+
+        self.assertEqual(res.status_code, 200)
+        log_output = buffer.getvalue()
+        self.assertIn("signup_password_existing_account_masked", log_output)
+        self.assertNotIn(existing_email, log_output)
+        self.assertIn("email_sha256=", log_output)
+
+    def test_flag_inaccurate_rejects_overlong_message(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        self._create_local_user(email="flag-len@example.com")
+        client = self.app.test_client()
+        headers = {
+            "Authorization": f"Bearer {self._issue_bearer_session(email='flag-len@example.com')}"
+        }
+        res = client.post(
+            "/v1/auth/flag-inaccurate",
+            headers=headers,
+            json={
+                "source": "search_result",
+                "agreement_uuid": "a1",
+                "section_uuid": "s1",
+                "message": "x" * 2001,
+                "request_follow_up": False,
+                "issue_types": ["Incorrect metadata"],
+            },
+        )
+        self.assertIn(res.status_code, (400, 422))
+
     def test_password_reset_request_allowed_when_turnstile_explicitly_disabled(self):
         # Explicit opt-out (TURNSTILE_ENABLED=0) must keep working even on Fly
         # so the operator can disable captcha for a specific deployment.

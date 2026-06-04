@@ -91,6 +91,23 @@ def zitadel_notification_signing_key() -> str | None:
     return key or None
 
 
+def assert_zitadel_notification_signing_key_configured() -> None:
+    # On Fly (production) we must have the signing key — otherwise
+    # verify_zitadel_signature() rejects every incoming notification and
+    # email delivery silently breaks. Fail fast at startup instead of
+    # discovering this via user reports.
+    from backend.auth.session_runtime import is_running_on_fly
+
+    if not is_running_on_fly():
+        return
+    if zitadel_notification_signing_key() is None:
+        raise RuntimeError(
+            "AUTH_ZITADEL_NOTIFICATION_SIGNING_KEY is required on Fly: "
+            "without it ZITADEL email notifications are rejected and "
+            "verification / password-reset mails stop being delivered."
+        )
+
+
 def verify_zitadel_signature(*, raw_body: bytes, signature_header: str | None) -> bool:
     signing_key = zitadel_notification_signing_key()
     if signing_key is None:

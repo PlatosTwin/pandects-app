@@ -2592,8 +2592,13 @@ window.location.replace({json.dumps(login_url)});
             # response is shape-indistinguishable from a legitimate new signup.
             # The real user will be told to check their email; if no message
             # arrives, they can sign in or use the password-reset flow.
+            # Log the hashed email rather than the raw address — the log
+            # line is the enumeration signal the response is supposed to
+            # mask, so anyone with log access shouldn't be able to read
+            # which addresses already had accounts.
             current_app.logger.info(
-                "signup_password_existing_account_masked email=%s", email
+                "signup_password_existing_account_masked email_sha256=%s",
+                sha256(email.encode("utf-8")).hexdigest()[:16],
             )
             resp = make_response(
                 jsonify(
