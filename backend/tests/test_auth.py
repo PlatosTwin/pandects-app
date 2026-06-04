@@ -4179,6 +4179,121 @@ class AuthFlowTests(unittest.TestCase):
             links = AuthExternalSubject.query.filter_by(user_id=user_id).all()
             self.assertEqual(links, [])
 
+    def test_delete_account_still_tombstones_when_zitadel_delete_fails(self):
+        # Privacy guarantee: even if the remote auth provider is down or
+        # returns 5xx, the local-side deletion must succeed so the user
+        # actually loses their local account. The Zitadel orphan is logged
+        # for out-of-band cleanup and the user still sees a 200.
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        client = self.app.test_client()
+
+        user_id = self._create_local_user(email="delete-flaky@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="zitadel-flaky-user",
+                )
+            )
+            db.session.commit()
+
+        client.get("/v1/auth/csrf")
+        self._set_cookie_session(client, email="delete-flaky@example.com")
+        csrf = self._csrf_cookie_value(client)
+
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+
+        def _fake_oauth_fetch_json(*args, **kwargs):
+            from werkzeug.exceptions import ServiceUnavailable
+
+            raise ServiceUnavailable(description="ZITADEL is down for maintenance.")
+
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        try:
+            res = client.post(
+                "/v1/auth/account/delete",
+                json={"confirm": "Delete"},
+                headers={"X-CSRF-Token": csrf},
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+        # User still sees success — local privacy guarantee is what matters.
+        self.assertEqual(res.status_code, 200)
+        with self.app.app_context():
+            deleted_user = db.session.get(AuthUser, user_id)
+            self.assertIsNotNone(deleted_user)
+            assert deleted_user is not None
+            self.assertTrue(deleted_user.email.endswith("@deleted.invalid"))
+            self.assertIsNone(deleted_user.password_hash)
+            links = AuthExternalSubject.query.filter_by(user_id=user_id).all()
+            self.assertEqual(links, [])
+
+    def test_delete_account_collects_zitadel_subjects_before_local_commit(self):
+        # Regression guard for the ordering bug: the Zitadel DELETE call
+        # must happen AFTER the local commit and use the subject captured
+        # BEFORE the external_subject row was wiped. If the helper read
+        # subjects from a post-commit query it would find nothing and
+        # silently leak the Zitadel orphan.
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        client = self.app.test_client()
+
+        user_id = self._create_local_user(email="delete-order@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="zitadel-order-user",
+                )
+            )
+            db.session.commit()
+
+        client.get("/v1/auth/csrf")
+        self._set_cookie_session(client, email="delete-order@example.com")
+        csrf = self._csrf_cookie_value(client)
+
+        observed: dict[str, object] = {}
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+
+        def _fake_oauth_fetch_json(url: str, *, method: str | None = None, **_):
+            # By the time Zitadel is called the local row must already be
+            # tombstoned. Check from inside the mock.
+            with self.app.app_context():
+                u = db.session.get(AuthUser, user_id)
+                observed["email_at_zitadel_call"] = u.email if u else None
+                observed["links_at_zitadel_call"] = (
+                    AuthExternalSubject.query.filter_by(user_id=user_id).count()
+                )
+            observed["zitadel_url"] = url
+            observed["zitadel_method"] = method
+            return {"details": {}}
+
+        backend_app._oauth_fetch_json = _fake_oauth_fetch_json
+        try:
+            res = client.post(
+                "/v1/auth/account/delete",
+                json={"confirm": "Delete"},
+                headers={"X-CSRF-Token": csrf},
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(observed["zitadel_method"], "DELETE")
+        self.assertEqual(
+            observed["zitadel_url"],
+            "https://pandects-test-zitadel.example.com/v2/users/zitadel-order-user",
+        )
+        # Local commit happened first.
+        self.assertTrue(
+            str(observed["email_at_zitadel_call"]).endswith("@deleted.invalid")
+        )
+        self.assertEqual(observed["links_at_zitadel_call"], 0)
+
     def test_api_key_whitespace_is_ignored_for_last_used(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()

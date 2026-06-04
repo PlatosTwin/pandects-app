@@ -939,22 +939,40 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             )
         return user
 
-    def _delete_zitadel_user_if_linked(*, user) -> None:
+    def _collect_zitadel_subjects_for_user(*, user) -> list[str]:
         links = (
             deps.AuthExternalSubject.query.filter_by(user_id=user.id, issuer=mcp_oidc_issuer())
             .order_by(deps.AuthExternalSubject.id.asc())
             .all()
         )
-        for link in links:
+        return [
+            link.subject
+            for link in links
+            if isinstance(link.subject, str) and link.subject.strip()
+        ]
+
+    def _delete_zitadel_subjects_best_effort(subjects: list[str], *, user_id: str) -> None:
+        # Called AFTER the local tombstone is committed. A failure here
+        # leaves a Zitadel orphan but does not roll back the local-side
+        # privacy guarantee — losing the local row is the part the user
+        # is asking for. Log the orphan so it can be cleaned up out of
+        # band rather than aborting and leaving the caller's account in
+        # a half-deleted state.
+        for subject in subjects:
             try:
                 _zitadel_api_request(
-                    path=f"/v2/users/{link.subject}",
+                    path=f"/v2/users/{subject}",
                     method="DELETE",
                 )
             except HTTPException as exc:
                 if exc.code == 404:
                     continue
-                raise
+                current_app.logger.warning(
+                    "account_delete_zitadel_orphan local_user_id=%s zitadel_subject=%s code=%s",
+                    user_id,
+                    subject,
+                    exc.code,
+                )
 
     def _search_zitadel_user_id_by_login_name(*, login_name: str) -> str | None:
         payload = _zitadel_api_request(
@@ -3138,9 +3156,16 @@ window.location.replace({json.dumps(login_url)});
         if deps._auth_is_mocked():
             abort(501, description="Account deletion is unavailable in mock auth mode.")
 
+        # Capture the Zitadel subjects BEFORE the local commit. We delete
+        # them from Zitadel only after the local tombstone has committed —
+        # otherwise a failed local commit would leave the Zitadel account
+        # gone but the local row active, producing an "I'm deleted but
+        # can't sign in" state that's impossible to recover from on the
+        # next attempt.
         try:
+            zitadel_subjects = _collect_zitadel_subjects_for_user(user=user)
+            local_user_id = user.id
             now = deps._utc_now()
-            _delete_zitadel_user_if_linked(user=user)
             deps.AuthExternalSubject.query.filter_by(user_id=user.id).delete(
                 synchronize_session=False
             )
@@ -3156,6 +3181,8 @@ window.location.replace({json.dumps(login_url)});
             deps.db.session.commit()
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
+
+        _delete_zitadel_subjects_best_effort(zitadel_subjects, user_id=local_user_id)
 
         resp = deps._status_response("deleted")
         resp.headers["Cache-Control"] = "no-store"
