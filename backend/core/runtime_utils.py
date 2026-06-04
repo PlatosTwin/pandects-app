@@ -215,14 +215,15 @@ def utc_datetime_from_ms(value: object, *, field: str) -> datetime:
 
 def request_ip_address(*, is_running_on_fly: bool) -> str | None:
     if is_running_on_fly:
+        # Fly's edge proxy always sets Fly-Client-IP. We deliberately do NOT
+        # fall back to X-Forwarded-For here — XFF's first hop is client-
+        # injectable if the edge ever fails to strip it, which would let an
+        # attacker spoof the IP for rate-limiting / audit fields. If
+        # Fly-Client-IP is missing the request is treated as IP-unknown.
         fly_client_ip = request.headers.get("Fly-Client-IP")
         if isinstance(fly_client_ip, str) and fly_client_ip.strip():
             return fly_client_ip.strip()
-
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if isinstance(forwarded_for, str) and forwarded_for.strip():
-            first = forwarded_for.split(",", 1)[0].strip()
-            return first or None
+        return None
     remote = request.remote_addr
     return remote.strip() if isinstance(remote, str) and remote.strip() else None
 
