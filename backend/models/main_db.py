@@ -103,6 +103,10 @@ _ = _mysql_dialect_ischema_names.setdefault("vector", _MySQLVector)
 if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
     engine = create_engine(
         main_db_uri_from_env(),
+        # Machines suspend/resume on idle; pooled sockets die during the gap.
+        # pre_ping validates (and transparently reconnects) on checkout.
+        pool_pre_ping=True,
+        pool_recycle=240,
         execution_options={
             "schema_translate_map": schema_translate_map(main_db_schema_from_env())
         },
