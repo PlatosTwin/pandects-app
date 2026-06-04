@@ -2,8 +2,6 @@ import os
 import tempfile
 import unittest
 
-from backend.app import api, create_test_app, db
-
 
 def _set_default_env() -> None:
     os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
@@ -19,6 +17,8 @@ def _set_default_env() -> None:
     os.environ.setdefault("AUTH_SESSION_TRANSPORT", "bearer")
 
 
+# Env must be set before importing backend.app — module load triggers
+# create_app(), which otherwise tries to connect to a real Postgres host.
 _set_default_env()
 _AUTH_DB_TEMP = tempfile.NamedTemporaryFile(
     prefix="pandects_auth_routes_",
@@ -27,6 +27,8 @@ _AUTH_DB_TEMP = tempfile.NamedTemporaryFile(
 )
 _AUTH_DB_TEMP.close()
 os.environ.setdefault("AUTH_DATABASE_URI", f"sqlite:///{_AUTH_DB_TEMP.name}")
+
+from backend.app import api, create_test_app, db  # noqa: E402
 
 
 class RouteContractTests(unittest.TestCase):
