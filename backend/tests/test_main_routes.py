@@ -392,8 +392,14 @@ class MainRoutesTests(unittest.TestCase):
                 )
 
     def setUp(self) -> None:
+        # Reset every shared mutable state on backend.app that a request
+        # path could touch — otherwise a test that exercises the login
+        # throttle or API-key last-used touch leaves residue for the next
+        # test and produces order-dependent failures.
         self.app_module._rate_limit_state.clear()
         self.app_module._endpoint_rate_limit_state.clear()
+        self.app_module._account_login_failure_state.clear()
+        self.app_module._api_key_last_used_touch_state.clear()
         self._restore_base_dataset()
 
     def _restore_base_dataset(self) -> None:
