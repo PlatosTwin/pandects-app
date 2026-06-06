@@ -61,6 +61,8 @@ class RequestIpAddressOnFlyTests(unittest.TestCase):
     fall back to X-Forwarded-For, since XFF's first hop is client-injectable
     if the edge ever fails to strip it."""
 
+    app: Flask = Flask(__name__)
+
     def setUp(self) -> None:
         self.app = Flask(__name__)
 
