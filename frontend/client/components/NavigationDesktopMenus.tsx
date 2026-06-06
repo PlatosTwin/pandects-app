@@ -12,6 +12,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Pure constants — hoisted out of the component so the array identity is
+// stable across renders without needing useMemo(..., []).
+type AboutLink = { to: string; label: string; pandaTarget?: string };
+const ABOUT_LINKS: readonly AboutLink[] = [
+  { to: "/about", label: "About", pandaTarget: "nav-about" },
+  { to: "/feedback", label: "Feedback" },
+  { to: "/support", label: "Support", pandaTarget: "nav-support" },
+];
+
+const DATA_LINKS = [
+  { type: "link", to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
+  { type: "link", to: "/agreement-index", label: "Agreement Index" },
+  { type: "link", to: "/sources-methods", label: "Sources & Methods" },
+  { type: "link", to: "/xml-schema", label: "XML Schema" },
+  { type: "link", to: "/taxonomy", label: "Taxonomy" },
+  { type: "separator", key: "data-divider-1" },
+  { type: "link", to: "/leaderboards", label: "Leaderboards" },
+  { type: "link", to: "/trends-analyses", label: "Trends & Analyses" },
+] as const;
+
+const DATA_NAV_LINKS = DATA_LINKS.filter((item) => item.type === "link");
+
 const AuthMenu = lazy(() =>
   import("@/components/AuthMenu").then((mod) => ({ default: mod.AuthMenu })),
 );
@@ -43,30 +65,8 @@ function NavigationDesktopMenusComponent() {
     ],
     [docsHomeUrl],
   );
-  const aboutLinks = useMemo(
-    () => [
-      { to: "/about", label: "About", pandaTarget: "nav-about" },
-      { to: "/feedback", label: "Feedback" },
-      { to: "/support", label: "Support", pandaTarget: "nav-support" },
-    ],
-    [],
-  );
-  const dataLinks = useMemo(
-    () => [
-      { type: "link", to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
-      { type: "link", to: "/agreement-index", label: "Agreement Index" },
-      { type: "link", to: "/sources-methods", label: "Sources & Methods" },
-      { type: "link", to: "/xml-schema", label: "XML Schema" },
-      { type: "link", to: "/taxonomy", label: "Taxonomy" },
-      { type: "separator", key: "data-divider-1" },
-      { type: "link", to: "/leaderboards", label: "Leaderboards" },
-      { type: "link", to: "/trends-analyses", label: "Trends & Analyses" },
-    ] as const,
-    [],
-  );
-  const dataNavLinks = dataLinks.filter((item) => item.type === "link");
-  const isDataActive = dataNavLinks.some((link) => isActive(link.to));
-  const isAboutActive = aboutLinks.some((link) => isActive(link.to));
+  const isDataActive = DATA_NAV_LINKS.some((link) => isActive(link.to));
+  const isAboutActive = ABOUT_LINKS.some((link) => isActive(link.to));
 
   return (
     <div className="hidden items-center gap-1 md:flex">
@@ -135,7 +135,7 @@ function NavigationDesktopMenusComponent() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            {dataLinks.map((item) =>
+            {DATA_LINKS.map((item) =>
               item.type === "separator" ? (
                 <DropdownMenuSeparator key={item.key} className={dataSeparatorClass} />
               ) : (
@@ -177,7 +177,7 @@ function NavigationDesktopMenusComponent() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            {aboutLinks.map((link) => (
+            {ABOUT_LINKS.map((link) => (
               <DropdownMenuItem key={link.to} asChild>
                 <Link
                   to={link.to}
