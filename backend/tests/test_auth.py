@@ -3948,6 +3948,7 @@ class AuthFlowTests(unittest.TestCase):
         # Fresh client: last_used_at is NULL until somebody actually authorizes.
         with self.app.app_context():
             row = AuthOAuthClient.query.filter_by(client_id=client_id).first()
+            assert row is not None
             self.assertIsNone(row.last_used_at)
 
         self._grant_oauth_consent(
@@ -3971,6 +3972,7 @@ class AuthFlowTests(unittest.TestCase):
 
         with self.app.app_context():
             row = AuthOAuthClient.query.filter_by(client_id=client_id).first()
+            assert row is not None
             self.assertIsNotNone(row.last_used_at)
             after_authorize = row.last_used_at
 
@@ -3989,6 +3991,7 @@ class AuthFlowTests(unittest.TestCase):
 
         with self.app.app_context():
             row = AuthOAuthClient.query.filter_by(client_id=client_id).first()
+            assert row is not None
             self.assertIsNotNone(row.last_used_at)
             self.assertGreaterEqual(row.last_used_at, after_authorize)
 
