@@ -69,9 +69,7 @@ from backend.routes.auth.zitadel_config import (
     _zitadel_audience,
     _zitadel_authorization_endpoint,
     _zitadel_client_id,
-    _zitadel_default_role_keys,
     _zitadel_google_idp_id,
-    _zitadel_project_id,
     _zitadel_redirect_uri,
     _zitadel_resource,
     _zitadel_scopes,
@@ -167,261 +165,8 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
 
     zitadel_api = ZitadelApiClient(deps)
 
-    def _ensure_zitadel_default_user_grant(*, user_id: str) -> None:
-        role_keys = list(_zitadel_default_role_keys())
-        if not role_keys:
-            return
-        project_id = _zitadel_project_id(optional=True)
-        if not project_id:
-            return
-        payload = zitadel_api.request(
-            path="/management/v1/users/grants/_search",
-            method="POST",
-            json_body={
-                "queries": [
-                    {"user_id_query": {"user_id": user_id}},
-                    {"project_id_query": {"project_id": project_id}},
-                ]
-            },
-        )
-        result = payload.get("result")
-        existing_grant = result[0] if isinstance(result, list) and result else None
-        existing_role_keys: set[str] = set()
-        grant_id: str | None = None
-        if isinstance(existing_grant, dict):
-            raw_roles = existing_grant.get("roleKeys")
-            if isinstance(raw_roles, list):
-                existing_role_keys = {
-                    str(role_key).strip()
-                    for role_key in raw_roles
-                    if str(role_key).strip()
-                }
-            raw_grant_id = existing_grant.get("id") or existing_grant.get("grantId")
-            if isinstance(raw_grant_id, str) and raw_grant_id.strip():
-                grant_id = raw_grant_id.strip()
-
-        merged_role_keys = sorted(existing_role_keys.union(role_keys))
-        if merged_role_keys == sorted(existing_role_keys):
-            return
-
-        if grant_id:
-            zitadel_api.request(
-                path=f"/management/v1/users/{user_id}/grants/{grant_id}",
-                method="PUT",
-                json_body={
-                    "projectId": project_id,
-                    "roleKeys": merged_role_keys,
-                },
-            )
-            return
-
-        zitadel_api.request(
-            path=f"/management/v1/users/{user_id}/grants",
-            method="POST",
-            json_body={
-                "projectId": project_id,
-                "roleKeys": merged_role_keys,
-            },
-        )
-
-    def _build_external_identity(
-        *,
-        subject: str,
-        email: str,
-        email_verified: bool = True,
-        display_name: str | None = None,
-        given_name: str | None = None,
-        family_name: str | None = None,
-        picture: str | None = None,
-    ) -> ExternalIdentity:
-        claims: dict[str, object] = {
-            "email": email,
-            "email_verified": email_verified,
-        }
-        if isinstance(display_name, str) and display_name.strip():
-            claims["name"] = display_name.strip()
-        if isinstance(given_name, str) and given_name.strip():
-            claims["given_name"] = given_name.strip()
-        if isinstance(family_name, str) and family_name.strip():
-            claims["family_name"] = family_name.strip()
-        if isinstance(picture, str) and picture.strip():
-            claims["picture"] = picture.strip()
-        return ExternalIdentity(
-            issuer=mcp_oidc_issuer(),
-            subject=subject,
-            scopes=frozenset(),
-            audiences=frozenset(),
-            claims=claims,
-        )
-
-    def _zitadel_human_payload(
-        *,
-        email: str,
-        password: str,
-        first_name: str | None = None,
-        last_name: str | None = None,
-        email_is_verified: bool,
-        verify_url_template: str | None = None,
-    ) -> dict[str, object]:
-        display_name = " ".join(
-            part.strip() for part in (first_name, last_name) if isinstance(part, str) and part.strip()
-        )
-        if not display_name:
-            display_name = email
-        profile: dict[str, object] = {"displayName": display_name}
-        if isinstance(first_name, str) and first_name.strip():
-            profile["givenName"] = first_name.strip()
-        if isinstance(last_name, str) and last_name.strip():
-            profile["familyName"] = last_name.strip()
-        email_payload: dict[str, object] = {
-            "email": email,
-        }
-        if isinstance(verify_url_template, str) and verify_url_template.strip():
-            email_payload["sendCode"] = {"urlTemplate": verify_url_template.strip()}
-        else:
-            email_payload["isVerified"] = email_is_verified
-        return {
-            "userId": str(uuid.uuid4()),
-            "username": email,
-            "profile": profile,
-            "email": email_payload,
-            "password": {
-                "password": password,
-                "changeRequired": False,
-            },
-        }
-
-    def _create_zitadel_human_user(
-        *,
-        email: str,
-        password: str,
-        first_name: str | None = None,
-        last_name: str | None = None,
-        email_is_verified: bool,
-        verify_url_template: str | None = None,
-    ):
-        created = zitadel_api.json(
-            path="/v2/users/human",
-            json_body=_zitadel_human_payload(
-                email=email,
-                password=password,
-                first_name=first_name,
-                last_name=last_name,
-                email_is_verified=email_is_verified,
-                verify_url_template=verify_url_template,
-            ),
-        )
-        user_id = created.get("userId") or created.get("user_id")
-        if not isinstance(user_id, str) or not user_id.strip():
-            abort(502, description="ZITADEL did not return a user identifier.")
-        _ensure_zitadel_default_user_grant(user_id=user_id.strip())
-        return _build_external_identity(
-            subject=user_id.strip(),
-            email=email,
-            email_verified=email_is_verified,
-            display_name=" ".join(
-                part.strip()
-                for part in (first_name, last_name)
-                if isinstance(part, str) and part.strip()
-            )
-            or email,
-            given_name=first_name,
-            family_name=last_name,
-        )
-
     def _local_user_by_email(*, email: str):
         return deps.AuthUser.query.filter_by(email=email).first()
-
-    def _zitadel_session_identity(*, email: str, password: str):
-        created = zitadel_api.json(
-            path="/v2/sessions",
-            json_body={"checks": {"user": {"loginName": email}}},
-        )
-        session_id = created.get("sessionId") or created.get("session_id")
-        if not isinstance(session_id, str) or not session_id.strip():
-            abort(502, description="ZITADEL did not return a session identifier.")
-        zitadel_api.request(
-            path=f"/v2/sessions/{session_id.strip()}",
-            method="PATCH",
-            json_body={"checks": {"password": {"password": password}}},
-        )
-        session_payload = zitadel_api.request(
-            path=f"/v2/sessions/{session_id.strip()}",
-            method="GET",
-        )
-        session = session_payload.get("session")
-        if not isinstance(session, dict):
-            abort(502, description="ZITADEL did not return session details.")
-        factors = session.get("factors")
-        if not isinstance(factors, dict):
-            abort(502, description="ZITADEL did not return verified session factors.")
-        user_factor = factors.get("user")
-        if not isinstance(user_factor, dict):
-            abort(401, description="Invalid email or password.")
-        password_factor = factors.get("password")
-        if not isinstance(password_factor, dict):
-            abort(401, description="Invalid email or password.")
-        user_id = user_factor.get("id")
-        if not isinstance(user_id, str) or not user_id.strip():
-            abort(502, description="ZITADEL did not return a user identifier.")
-        try:
-            return _zitadel_user_identity(user_id=user_id.strip())
-        except HTTPException as exc:
-            if exc.code == 400 and exc.description == "Auth provider did not return a verified email address.":
-                abort(400, description="Verify your email before signing in.")
-            raise
-
-    def _zitadel_user_identity(*, user_id: str):
-        payload = zitadel_api.request(
-            path=f"/v2/users/{user_id}",
-            method="GET",
-        )
-        user_payload = payload.get("user")
-        if not isinstance(user_payload, dict):
-            abort(502, description="ZITADEL did not return the user record.")
-        human = user_payload.get("human")
-        if not isinstance(human, dict):
-            abort(502, description="ZITADEL did not return a human user record.")
-        email_payload = human.get("email")
-        if not isinstance(email_payload, dict):
-            abort(502, description="ZITADEL did not return the user email.")
-        email = email_payload.get("email")
-        is_verified = email_payload.get("isVerified")
-        if not isinstance(email, str) or not email.strip() or is_verified is not True:
-            abort(400, description="Auth provider did not return a verified email address.")
-        profile = human.get("profile")
-        profile_dict = profile if isinstance(profile, dict) else {}
-        display_name = profile_dict.get("displayName")
-        given_name = profile_dict.get("givenName")
-        family_name = profile_dict.get("familyName")
-        avatar_url = profile_dict.get("avatarUrl")
-        return _build_external_identity(
-            subject=user_id.strip(),
-            email=email.strip(),
-            display_name=display_name if isinstance(display_name, str) else email.strip(),
-            given_name=given_name if isinstance(given_name, str) else None,
-            family_name=family_name if isinstance(family_name, str) else None,
-            picture=avatar_url if isinstance(avatar_url, str) else None,
-        )
-
-    def _zitadel_user_email_matches(*, user_id: str, email: str) -> bool:
-        payload = zitadel_api.request(
-            path=f"/v2/users/{user_id}",
-            method="GET",
-        )
-        user_payload = payload.get("user")
-        if not isinstance(user_payload, dict):
-            return False
-        human = user_payload.get("human")
-        if not isinstance(human, dict):
-            return False
-        email_payload = human.get("email")
-        if not isinstance(email_payload, dict):
-            return False
-        remote_email = email_payload.get("email")
-        if not isinstance(remote_email, str) or not remote_email.strip():
-            return False
-        return deps._normalize_email(remote_email) == email
 
     def _ensure_zitadel_user_for_local_password_user(*, user, password: str):
         existing_link = deps.AuthExternalSubject.query.filter_by(
@@ -429,8 +174,8 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             issuer=mcp_oidc_issuer(),
         ).first()
         if existing_link is not None:
-            return _build_external_identity(subject=existing_link.subject, email=user.email)
-        return _create_zitadel_human_user(
+            return zitadel_api.build_external_identity(subject=existing_link.subject, email=user.email)
+        return zitadel_api.create_human_user(
             email=user.email,
             password=password,
             email_is_verified=True,
@@ -460,7 +205,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             return existing_link.subject
         if isinstance(user.password_hash, str) and user.password_hash.strip():
             try:
-                migrated = _create_zitadel_human_user(
+                migrated = zitadel_api.create_human_user(
                     email=user.email,
                     password=secrets.token_urlsafe(24),
                     email_is_verified=user.email_verified_at is not None,
@@ -468,10 +213,10 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             except HTTPException as exc:
                 description = exc.description if isinstance(exc.description, str) else ""
                 if exc.code == 409 and "already exists" in description.lower():
-                    existing_user_id = _search_zitadel_user_id_by_login_name(login_name=user.email)
+                    existing_user_id = zitadel_api.search_user_id_by_login_name(login_name=user.email)
                     if not isinstance(existing_user_id, str) or not existing_user_id.strip():
                         raise
-                    migrated = _build_external_identity(
+                    migrated = zitadel_api.build_external_identity(
                         subject=existing_user_id.strip(),
                         email=user.email,
                     )
@@ -654,12 +399,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             "?user_id={{.UserID}}&code={{.Code}}&org_id={{.OrgID}}"
         )
 
-    def _send_zitadel_email_verification(*, user_id: str, url_template: str) -> None:
-        zitadel_api.json(
-            path=f"/v2/users/{user_id}/email/send",
-            json_body={"sendCode": {"urlTemplate": url_template}},
-        )
-
     def _ensure_linked_zitadel_subject_for_user(*, user) -> str | None:
         existing_link = deps.AuthExternalSubject.query.filter_by(
             user_id=user.id,
@@ -667,7 +406,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         ).first()
         if existing_link is not None and isinstance(existing_link.subject, str) and existing_link.subject.strip():
             return existing_link.subject.strip()
-        searched_user_id = _search_zitadel_user_id_by_login_name(login_name=user.email)
+        searched_user_id = zitadel_api.search_user_id_by_login_name(login_name=user.email)
         if isinstance(searched_user_id, str) and searched_user_id.strip():
             resolved_user_id = searched_user_id.strip()
             deps.db.session.add(
@@ -687,12 +426,12 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             return False
         url_template = _zitadel_email_verify_url_template(deps=deps)
         try:
-            _send_zitadel_email_verification(user_id=subject, url_template=url_template)
+            zitadel_api.send_email_verification(user_id=subject, url_template=url_template)
             return True
         except HTTPException as exc:
             description = exc.description if isinstance(exc.description, str) else ""
             if exc.code in {400, 404} and "email not found" in description.lower():
-                refreshed_subject = _search_zitadel_user_id_by_login_name(login_name=user.email)
+                refreshed_subject = zitadel_api.search_user_id_by_login_name(login_name=user.email)
                 if (
                     isinstance(refreshed_subject, str)
                     and refreshed_subject.strip()
@@ -713,7 +452,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                     else:
                         existing_link.subject = refreshed_subject.strip()
                     deps.db.session.flush()
-                    _send_zitadel_email_verification(
+                    zitadel_api.send_email_verification(
                         user_id=refreshed_subject.strip(),
                         url_template=url_template,
                     )
@@ -739,7 +478,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         subject = _ensure_linked_zitadel_subject_for_user(user=user)
         if isinstance(subject, str) and subject.strip():
             try:
-                if _zitadel_user_email_matches(user_id=subject.strip(), email=user.email):
+                if zitadel_api.user_email_matches(user_id=subject.strip(), email=user.email):
                     return subject.strip()
             except HTTPException as exc:
                 if exc.code == 404:
@@ -753,7 +492,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 else:
                     raise
         try:
-            external_identity = _create_zitadel_human_user(
+            external_identity = zitadel_api.create_human_user(
                 email=user.email,
                 password=password,
                 first_name=first_name,
@@ -766,10 +505,10 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         except HTTPException as exc:
             description = exc.description if isinstance(exc.description, str) else ""
             if exc.code == 409 and "already exists" in description.lower():
-                existing_user_id = _search_zitadel_user_id_by_login_name(login_name=user.email)
+                existing_user_id = zitadel_api.search_user_id_by_login_name(login_name=user.email)
                 if not isinstance(existing_user_id, str) or not existing_user_id.strip():
                     return None
-                external_identity = _build_external_identity(
+                external_identity = zitadel_api.build_external_identity(
                     subject=existing_user_id.strip(),
                     email=user.email,
                     email_verified=False,
@@ -893,33 +632,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                     exc.code,
                 )
 
-    def _search_zitadel_user_id_by_login_name(*, login_name: str) -> str | None:
-        payload = zitadel_api.request(
-            path="/v2/users",
-            method="POST",
-            json_body={
-                "pagination": {"limit": 1},
-                "queries": [
-                    {
-                        "loginNameQuery": {
-                            "loginName": login_name,
-                            "method": "TEXT_QUERY_METHOD_EQUALS",
-                        }
-                    }
-                ],
-            },
-        )
-        result = payload.get("result")
-        if not isinstance(result, list) or not result:
-            return None
-        first = result[0]
-        if not isinstance(first, dict):
-            return None
-        user_id = first.get("userId")
-        if not isinstance(user_id, str) or not user_id.strip():
-            return None
-        return user_id.strip()
-
     def _zitadel_google_identity_from_intent(*, payload: dict[str, object], user_id: str | None):
         idp_information = payload.get("idpInformation")
         if not isinstance(idp_information, dict):
@@ -977,12 +689,12 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 user_id_candidate = created.get("userId") or created.get("user_id")
                 if not isinstance(user_id_candidate, str) or not user_id_candidate.strip():
                     abort(502, description="ZITADEL did not return a user identifier for the Google login.")
-                _ensure_zitadel_default_user_grant(user_id=user_id_candidate.strip())
+                zitadel_api.ensure_default_user_grant(user_id=user_id_candidate.strip())
                 resolved_user_id = user_id_candidate.strip()
             except HTTPException as exc:
                 description = exc.description if isinstance(exc.description, str) else ""
                 if exc.code == 409 and "already exists" in description.lower():
-                    existing_user_id = _search_zitadel_user_id_by_login_name(login_name=email.strip())
+                    existing_user_id = zitadel_api.search_user_id_by_login_name(login_name=email.strip())
                     if isinstance(existing_user_id, str) and existing_user_id.strip():
                         resolved_user_id = existing_user_id.strip()
                     else:
@@ -2422,7 +2134,7 @@ window.location.replace({json.dumps(login_url)});
 
         try:
             try:
-                external_identity = _zitadel_session_identity(email=email, password=password)
+                external_identity = zitadel_api.session_identity(email=email, password=password)
             except HTTPException as exc:
                 if exc.code == 400 and exc.description == "Verify your email before signing in.":
                     # Reveals "account exists but unverified". Equalize timing
@@ -2550,7 +2262,7 @@ window.location.replace({json.dumps(login_url)});
             return resp
 
         try:
-            external_identity = _create_zitadel_human_user(
+            external_identity = zitadel_api.create_human_user(
                 email=email,
                 password=password,
                 first_name=first_name if isinstance(first_name, str) else None,
@@ -2619,7 +2331,7 @@ window.location.replace({json.dumps(login_url)});
                 path=f"/v2/users/{user_id.strip()}/email/verify",
                 json_body={"verificationCode": code.strip()},
             )
-            external_identity = _zitadel_user_identity(user_id=user_id.strip())
+            external_identity = zitadel_api.user_identity(user_id=user_id.strip())
             resp = _complete_website_auth_for_identity(
                 external_identity=external_identity,
                 next_path=next_path,
