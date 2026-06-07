@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import secrets
-import time
 import uuid
 from html import escape
 from base64 import urlsafe_b64encode
@@ -61,14 +60,12 @@ from backend.routes.auth.cookies import (
     _set_zitadel_pending_cookie,
     _set_zitadel_web_cookie,
 )
+from backend.routes.auth.zitadel_api import ZitadelApiClient
+from backend.routes.auth.zitadel_api import _TOKEN_CACHE as _ZITADEL_API_TOKEN_CACHE
 from backend.routes.auth.zitadel_config import (
     _build_pkce_challenge,
     _decode_zitadel_id_token,
     _website_zitadel_redirect_uri,
-    _zitadel_api_client_id,
-    _zitadel_api_key_id,
-    _zitadel_api_private_key,
-    _zitadel_api_token,
     _zitadel_audience,
     _zitadel_authorization_endpoint,
     _zitadel_client_id,
@@ -82,7 +79,6 @@ from backend.routes.auth.zitadel_config import (
 )
 from backend.routes.deps import AuthDeps
 
-_ZITADEL_API_TOKEN_CACHE: dict[str, object] = {}
 _OAUTH_LOOPBACK_REDIRECT_HOSTS = {"localhost", "127.0.0.1", "::1"}
 # DCR clients are world-registerable. Sweep clients that were registered but
 # never used after this grace period, and clients that haven't been touched
@@ -169,84 +165,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
-    def _zitadel_api_access_token() -> str:
-        explicit = _zitadel_api_token().strip() if os.environ.get("AUTH_ZITADEL_API_TOKEN", "").strip() else ""
-        if explicit:
-            return explicit
-
-        client_id = _zitadel_api_client_id()
-        key_id = _zitadel_api_key_id()
-        private_key = _zitadel_api_private_key()
-        if not client_id or not key_id or not private_key:
-            abort(
-                503,
-                description=(
-                    "ZITADEL API access is not configured. Set AUTH_ZITADEL_API_TOKEN or "
-                    "AUTH_ZITADEL_API_CLIENT_ID, AUTH_ZITADEL_API_KEY_ID, and AUTH_ZITADEL_API_PRIVATE_KEY."
-                ),
-            )
-
-        cached_token = _ZITADEL_API_TOKEN_CACHE.get("token")
-        cached_expires_at = _ZITADEL_API_TOKEN_CACHE.get("expires_at")
-        now = int(time.time())
-        if isinstance(cached_token, str) and isinstance(cached_expires_at, int) and cached_expires_at - 30 > now:
-            return cached_token
-
-        try:
-            import jwt
-        except ImportError:
-            abort(503, description="JWT support is unavailable for ZITADEL API authentication.")
-
-        assertion = jwt.encode(
-            {
-                "iss": client_id,
-                "sub": client_id,
-                "aud": _zitadel_token_endpoint(),
-                "iat": now,
-                "exp": now + 300,
-                "jti": secrets.token_urlsafe(24),
-            },
-            private_key,
-            algorithm="RS256",
-            headers={"kid": key_id},
-        )
-        token_payload = deps._oidc_fetch_json(
-            _zitadel_token_endpoint(),
-            data={
-                "grant_type": "client_credentials",
-                "scope": "urn:zitadel:iam:org:project:id:zitadel:aud",
-                "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-                "client_assertion": assertion,
-            },
-        )
-        access_token = token_payload.get("access_token")
-        expires_in = token_payload.get("expires_in")
-        if not isinstance(access_token, str) or not access_token.strip():
-            abort(502, description="ZITADEL did not return an API access token.")
-        expires_at = now + (int(expires_in) if isinstance(expires_in, int) else 300)
-        _ZITADEL_API_TOKEN_CACHE["token"] = access_token.strip()
-        _ZITADEL_API_TOKEN_CACHE["expires_at"] = expires_at
-        return access_token.strip()
-
-    def _zitadel_api_json(
-        *,
-        path: str,
-        json_body: dict[str, object],
-    ) -> dict[str, object]:
-        return _zitadel_api_request(path=path, method="POST", json_body=json_body)
-
-    def _zitadel_api_request(
-        *,
-        path: str,
-        method: str,
-        json_body: dict[str, object] | None = None,
-    ) -> dict[str, object]:
-        return deps._oidc_fetch_json(
-            f"{mcp_oidc_issuer()}{path}",
-            json_body=json_body,
-            headers={"Authorization": f"Bearer {_zitadel_api_access_token()}"},
-            method=method,
-        )
+    zitadel_api = ZitadelApiClient(deps)
 
     def _ensure_zitadel_default_user_grant(*, user_id: str) -> None:
         role_keys = list(_zitadel_default_role_keys())
@@ -255,7 +174,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         project_id = _zitadel_project_id(optional=True)
         if not project_id:
             return
-        payload = _zitadel_api_request(
+        payload = zitadel_api.request(
             path="/management/v1/users/grants/_search",
             method="POST",
             json_body={
@@ -286,7 +205,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             return
 
         if grant_id:
-            _zitadel_api_request(
+            zitadel_api.request(
                 path=f"/management/v1/users/{user_id}/grants/{grant_id}",
                 method="PUT",
                 json_body={
@@ -296,7 +215,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             )
             return
 
-        _zitadel_api_request(
+        zitadel_api.request(
             path=f"/management/v1/users/{user_id}/grants",
             method="POST",
             json_body={
@@ -381,7 +300,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         email_is_verified: bool,
         verify_url_template: str | None = None,
     ):
-        created = _zitadel_api_json(
+        created = zitadel_api.json(
             path="/v2/users/human",
             json_body=_zitadel_human_payload(
                 email=email,
@@ -414,19 +333,19 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         return deps.AuthUser.query.filter_by(email=email).first()
 
     def _zitadel_session_identity(*, email: str, password: str):
-        created = _zitadel_api_json(
+        created = zitadel_api.json(
             path="/v2/sessions",
             json_body={"checks": {"user": {"loginName": email}}},
         )
         session_id = created.get("sessionId") or created.get("session_id")
         if not isinstance(session_id, str) or not session_id.strip():
             abort(502, description="ZITADEL did not return a session identifier.")
-        _zitadel_api_request(
+        zitadel_api.request(
             path=f"/v2/sessions/{session_id.strip()}",
             method="PATCH",
             json_body={"checks": {"password": {"password": password}}},
         )
-        session_payload = _zitadel_api_request(
+        session_payload = zitadel_api.request(
             path=f"/v2/sessions/{session_id.strip()}",
             method="GET",
         )
@@ -453,7 +372,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             raise
 
     def _zitadel_user_identity(*, user_id: str):
-        payload = _zitadel_api_request(
+        payload = zitadel_api.request(
             path=f"/v2/users/{user_id}",
             method="GET",
         )
@@ -486,7 +405,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         )
 
     def _zitadel_user_email_matches(*, user_id: str, email: str) -> bool:
-        payload = _zitadel_api_request(
+        payload = zitadel_api.request(
             path=f"/v2/users/{user_id}",
             method="GET",
         )
@@ -736,7 +655,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         )
 
     def _send_zitadel_email_verification(*, user_id: str, url_template: str) -> None:
-        _zitadel_api_json(
+        zitadel_api.json(
             path=f"/v2/users/{user_id}/email/send",
             json_body={"sendCode": {"urlTemplate": url_template}},
         )
@@ -960,7 +879,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         # a half-deleted state.
         for subject in subjects:
             try:
-                _zitadel_api_request(
+                zitadel_api.request(
                     path=f"/v2/users/{subject}",
                     method="DELETE",
                 )
@@ -975,7 +894,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
                 )
 
     def _search_zitadel_user_id_by_login_name(*, login_name: str) -> str | None:
-        payload = _zitadel_api_request(
+        payload = zitadel_api.request(
             path="/v2/users",
             method="POST",
             json_body={
@@ -1054,7 +973,7 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             if isinstance(family_name, str) and family_name.strip():
                 cast(dict[str, object], create_payload["profile"])["familyName"] = family_name.strip()
             try:
-                created = _zitadel_api_json(path="/v2/users/human", json_body=create_payload)
+                created = zitadel_api.json(path="/v2/users/human", json_body=create_payload)
                 user_id_candidate = created.get("userId") or created.get("user_id")
                 if not isinstance(user_id_candidate, str) or not user_id_candidate.strip():
                     abort(502, description="ZITADEL did not return a user identifier for the Google login.")
@@ -2236,7 +2155,7 @@ window.location.replace({json.dumps(login_url)});
         }
         callback_url = _website_zitadel_redirect_uri(deps)
         try:
-            start_payload = _zitadel_api_json(
+            start_payload = zitadel_api.json(
                 path="/v2/idp_intents",
                 json_body={
                     "idpId": _zitadel_google_idp_id(),
@@ -2294,7 +2213,7 @@ window.location.replace({json.dumps(login_url)});
                     resp = _website_auth_error_payload("Invalid authorization state.")
                     _clear_zitadel_web_cookie(resp)
                     return resp
-                retrieved = _zitadel_api_json(
+                retrieved = zitadel_api.json(
                     path=f"/v2/idp_intents/{cast(str, intent_id).strip()}",
                     json_body={"idpIntentToken": cast(str, intent_token).strip()},
                 )
@@ -2696,7 +2615,7 @@ window.location.replace({json.dumps(login_url)});
             abort(400, description="Verification code is required.")
 
         try:
-            _zitadel_api_json(
+            zitadel_api.json(
                 path=f"/v2/users/{user_id.strip()}/email/verify",
                 json_body={"verificationCode": code.strip()},
             )
@@ -2814,7 +2733,7 @@ window.location.replace({json.dumps(login_url)});
         try:
             subject = _linked_zitadel_subject_for_email(email=email, allow_unverified=True)
             if isinstance(subject, str) and subject.strip():
-                _zitadel_api_json(
+                zitadel_api.json(
                     path=f"/v2/users/{subject}/password_reset",
                     json_body={
                         "sendLink": {
@@ -2863,7 +2782,7 @@ window.location.replace({json.dumps(login_url)});
             abort(400, description="New password is required.")
 
         try:
-            _zitadel_api_json(
+            zitadel_api.json(
                 path=f"/v2/users/{user_id.strip()}/password",
                 json_body={
                     "verificationCode": code.strip(),
