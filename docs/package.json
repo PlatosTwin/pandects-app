@@ -20,6 +20,13 @@
     "clean-api": "docusaurus clean-api-docs pandects",
     "dev:clean": "npm run clear && docusaurus start --port 3001"
   },
+  "resolutions": {
+    "qs": "^6.15.2",
+    "ws": "^8.21.0",
+    "uuid": "^11.1.1",
+    "serialize-javascript": "^7.0.5",
+    "webpack-dev-server": "^5.2.4"
+  },
   "dependencies": {
     "@docusaurus/core": "^3.10.1",
     "@docusaurus/faster": "^3.10.1",
