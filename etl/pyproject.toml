@@ -3,7 +3,7 @@ name = "etl"
 requires-python = ">=3.11,<=3.13.3"
 version = "0.1.0"
 dependencies = [
-    "dagster==1.12.20",
+    "dagster==1.13.1",
     "datasketch>=1.6.0",
     "beautifulsoup4>=4.13",
     "pandas>=2.3",
@@ -26,13 +26,14 @@ dependencies = [
     "tensorboard>=2.20",
     "huggingface-hub>=0.34",
     "mysqlclient>=2.2",
+    "pyarrow>=23",
     "basedpyright>=1.39",
 ]
 
 [dependency-groups]
 dev = [
-    "dagster-webserver==1.12.20",
-    "dagster-dg-cli==1.12.20",
+    "dagster-webserver==1.13.1",
+    "dagster-dg-cli==1.13.1",
 ]
 
 [build-system]
