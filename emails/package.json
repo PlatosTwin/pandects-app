@@ -22,5 +22,8 @@
     "@types/react-dom": "^19.0.1",
     "react-email": "5.1.0",
     "tsx": "^4.19.2"
+  },
+  "overrides": {
+    "next": "^16.2.6"
   }
 }
