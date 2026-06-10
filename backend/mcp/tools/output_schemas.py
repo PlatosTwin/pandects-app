@@ -367,10 +367,11 @@ def _get_agreement_output_schema() -> dict[str, object]:
             "target_pe": {"type": ["integer", "null"]},
             "acquirer_pe": {"type": ["integer", "null"]},
             "url": {"type": ["string", "null"]},
-            "xml": {"type": "string"},
+            "xml_included": {"type": "boolean"},
+            "xml": {"type": ["string", "null"]},
             "is_redacted": {"type": "boolean"},
         },
-        required=["xml"],
+        required=["xml_included"],
     )
 
 
@@ -718,6 +719,7 @@ def _agreement_trends_output_schema() -> dict[str, object]:
     )
     return _object_schema(
         {
+            "sections_returned": _array_of({"type": "string"}),
             "ownership": _object_schema(
                 {
                     "mix_by_year": _array_of(ownership_mix_item),
@@ -732,7 +734,6 @@ def _agreement_trends_output_schema() -> dict[str, object]:
                     "target_industries_by_year": _array_of(target_industry_item),
                     "pairings": _array_of(pairing_item),
                 },
-                required=["target_industries_by_year", "pairings"],
                 additional_properties=False,
             ),
             "catalogs": _object_schema(
@@ -741,7 +742,7 @@ def _agreement_trends_output_schema() -> dict[str, object]:
                 additional_properties=False,
             ),
         },
-        required=["ownership", "industries", "catalogs"],
+        required=["sections_returned"],
         additional_properties=False,
     )
 

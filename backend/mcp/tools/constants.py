@@ -65,6 +65,10 @@ _FIELD_REPRESENTATION_VALUES = (
 )
 _CAPABILITIES_SECTIONS_ALL = ("server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools")
 _CAPABILITIES_SECTIONS_DEFAULT = ("server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows")
+_TRENDS_SECTIONS_ALL = ("ownership", "target_industries", "pairings", "naics_catalog")
+# pairings (every industry x industry cell) and naics_catalog (full hierarchy) are
+# large; exclude them by default so the response stays small enough for an LLM context.
+_TRENDS_SECTIONS_DEFAULT = ("ownership", "target_industries")
 _COUNT_MODE_VALUES = ("auto", "exact")
 _COUNT_METHOD_VALUES = ("query_count", "table_estimate", "filtered_lower_bound")
 _COUNT_RELIABILITY_VALUES = ("high", "medium", "low")

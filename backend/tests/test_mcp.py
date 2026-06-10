@@ -1612,7 +1612,7 @@ class McpTests(unittest.TestCase):
             client.initialize()
             client.list_tools()
 
-            redacted_payload = client.call_tool("get_agreement", {"agreement_uuid": "a1"})
+            redacted_payload = client.call_tool("get_agreement", {"agreement_uuid": "a1", "include_xml": True})
             self.assertTrue(cast(bool, redacted_payload["is_redacted"]))
 
         with LiveMcpHttpClientHarness(
@@ -1621,7 +1621,7 @@ class McpTests(unittest.TestCase):
         ) as fulltext_client:
             fulltext_client.initialize()
             fulltext_client.list_tools()
-            fulltext_payload = fulltext_client.call_tool("get_agreement", {"agreement_uuid": "a1"})
+            fulltext_payload = fulltext_client.call_tool("get_agreement", {"agreement_uuid": "a1", "include_xml": True})
             self.assertFalse(cast(bool, fulltext_payload["is_redacted"]))
 
     def test_tools_list_contract_snapshot(self):
@@ -1841,6 +1841,7 @@ class McpTests(unittest.TestCase):
                     "name": "get_agreement",
                     "arguments": {
                         "agreement_uuid": "a1",
+                        "include_xml": True,
                         "focus_section_uuid": "00000000-0000-0000-0000-000000000001",
                         "neighbor_sections": 0,
                     },
@@ -1863,7 +1864,7 @@ class McpTests(unittest.TestCase):
                 "method": "tools/call",
                 "params": {
                     "name": "get_agreement",
-                    "arguments": {"agreement_uuid": "a1"},
+                    "arguments": {"agreement_uuid": "a1", "include_xml": True},
                 },
             },
         )
@@ -1871,6 +1872,35 @@ class McpTests(unittest.TestCase):
         payload = res.get_json()["result"]["structuredContent"]
         self.assertFalse(payload["is_redacted"])
         self.assertIn("<text>KEEP</text>", payload["xml"])
+
+    def test_get_agreement_defaults_to_metadata_only(self):
+        res = self._call_tool("get_agreement", {"agreement_uuid": "a1"}, scope="agreements:read")
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["target"], "Target A")
+        self.assertFalse(payload["xml_included"])
+        self.assertNotIn("xml", payload)
+        self.assertNotIn("is_redacted", payload)
+
+    def test_get_agreement_trends_defaults_exclude_pairings_and_catalog(self):
+        res = self._call_tool("get_agreement_trends", {})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["sections_returned"], ["ownership", "target_industries"])
+        self.assertIn("ownership", payload)
+        self.assertIn("target_industries_by_year", payload["industries"])
+        self.assertNotIn("pairings", payload["industries"])
+        self.assertNotIn("catalogs", payload)
+
+    def test_get_agreement_trends_opt_in_sections(self):
+        res = self._call_tool("get_agreement_trends", {"sections": ["pairings", "naics_catalog"]})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["sections_returned"], ["naics_catalog", "pairings"])
+        self.assertIn("pairings", payload["industries"])
+        self.assertNotIn("target_industries_by_year", payload["industries"])
+        self.assertIn("catalogs", payload)
+        self.assertNotIn("ownership", payload)
 
     def test_missing_scope_is_403(self):
         client = self.app.test_client()
