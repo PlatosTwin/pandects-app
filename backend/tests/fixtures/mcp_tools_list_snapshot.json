@@ -590,17 +590,18 @@
   },
   {
     "name": "search_sections",
-    "description": "Search individual sections (clause-level text) across the corpus by taxonomy node, keywords, and the same M&A filters as search_agreements. Returns clause language and the agreement context, not extracted document-level facts. Pair with suggest_clause_families when you only know the concept in plain English.",
+    "description": "Search individual sections (clause-level text) across the corpus by clause-family taxonomy node (standard_id) and the same structured M&A filters as search_agreements. There is no free-text/keyword parameter: to go from a plain-English concept to the right standard_id, call suggest_clause_families (or browse get_clause_taxonomy) first, then pass the resulting standard_id here. Returns clause language and the agreement context, not extracted document-level facts.",
     "annotations": {
       "negativeGuidance": [
         "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
-        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first."
+        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
+        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it."
       ],
       "pagination": "page",
       "requiredScopes": [
         "sections:search"
       ],
-      "selectionHint": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling."
+      "selectionHint": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
     },
     "inputSchema": {
       "additionalProperties": false,

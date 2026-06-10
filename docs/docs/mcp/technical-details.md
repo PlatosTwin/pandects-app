@@ -112,7 +112,7 @@ The current MCP tools are:
 - `search_agreements` is the discovery-oriented agreement search; accepts a `standard_id` list to filter to agreements that contain at least one section tagged with any of the given taxonomy ids
 - `list_agreements` is the exact-filter, cursor-based agreement listing surface; also accepts `standard_id` for taxonomy-based agreement filtering
 - `list_agreement_sections` is an MCP convenience tool for within-agreement navigation
-- `search_sections` is a clause-language retrieval surface, not a normalized document-facts surface
+- `search_sections` is a clause-language retrieval surface, not a normalized document-facts surface; it has **no free-text/keyword parameter** — it searches by clause-family `standard_id` and the structured M&A filters only. Use `suggest_clause_families` (or `get_clause_taxonomy`) to translate a plain-English concept into a `standard_id`, then filter by it
 - `search_sections` exposes `count_mode` and returns `count_metadata` plus `interpretation` so clients can tell when totals are exact versus estimated and when taxonomy is acting as a proxy
 - `search_agreements` returns exact totals today and also includes `count_metadata` plus `interpretation`
 - `standard_id` values are opaque 16-character hex node IDs obtained from `get_clause_taxonomy` or `suggest_clause_families` — they are not dotted decimal numbers. Unrecognized IDs are ignored (they silently match nothing) and are echoed back under `interpretation.unrecognized_standard_ids`, alongside `interpretation.taxonomy_filters`, so clients can detect a mistyped or stale ID rather than mistaking an empty result for "no matches"

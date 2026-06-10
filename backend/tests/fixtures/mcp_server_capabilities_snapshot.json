@@ -390,12 +390,17 @@
     {
       "do_not_use_for": "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling."
+      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
     },
     {
       "do_not_use_for": "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling."
+      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
+    },
+    {
+      "do_not_use_for": "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it.",
+      "tool": "search_sections",
+      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
     },
     {
       "do_not_use_for": "Do not use this tool for free-text exploration; prefer search_agreements when you are still discovering names or years.",
@@ -1077,10 +1082,11 @@
         "sections:search"
       ],
       "pagination": "page",
-      "selection_hint": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling.",
+      "selection_hint": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling.",
       "negative_guidance": [
         "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
-        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first."
+        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
+        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it."
       ],
       "response_examples": [
         {
