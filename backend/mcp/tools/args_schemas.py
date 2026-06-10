@@ -4,12 +4,45 @@ from typing import Any, cast
 
 from marshmallow import Schema, fields as ma_fields, validate
 
-from backend.mcp.tools.constants import _FILTER_OPTIONS_FIELDS, _SECTION_LIST_SORT_FIELDS
+from backend.mcp.tools.constants import (
+    _FILTER_OPTIONS_FIELDS,
+    _SECTION_LIST_SORT_FIELDS,
+    _TRENDS_SECTIONS_ALL,
+    _TRENDS_SECTIONS_DEFAULT,
+)
 from backend.schemas.public_api import AgreementArgsSchema
 
 
 class McpAgreementArgsSchema(AgreementArgsSchema):
     agreement_uuid = ma_fields.Str(required=True)
+    include_xml = ma_fields.Bool(
+        load_default=False,
+        metadata={
+            "description": (
+                "When true, include the agreement XML (redacted to headings/structure "
+                "unless the caller holds the agreements:read_fulltext scope). Defaults to "
+                "false: metadata only, which keeps the response small. focus_section_uuid "
+                "and neighbor_sections only take effect when include_xml is true and the "
+                "response is redacted."
+            ),
+        },
+    )
+
+
+class McpAgreementTrendsArgsSchema(Schema):
+    sections = ma_fields.List(
+        ma_fields.Str(validate=validate.OneOf(list(_TRENDS_SECTIONS_ALL))),
+        load_default=list(_TRENDS_SECTIONS_DEFAULT),
+        metadata={
+            "description": (
+                "Subset of trend sections to return. Valid values: ownership, "
+                "target_industries, pairings, naics_catalog. Defaults to "
+                "[ownership, target_industries]. pairings (every industry-by-industry "
+                "cell) and naics_catalog (the full NAICS hierarchy) are large; request "
+                "them explicitly, or call get_naics_catalog for the catalog."
+            ),
+        },
+    )
 
 
 class McpAgreementIdentifierSchema(Schema):

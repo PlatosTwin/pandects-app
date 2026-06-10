@@ -10,6 +10,7 @@ from backend.mcp.metrics import get_mcp_metrics_registry
 from backend.mcp.tools.args_schemas import (
     McpAgreementArgsSchema,
     McpAgreementIdentifierSchema,
+    McpAgreementTrendsArgsSchema,
     McpBatchAgreementSectionsArgsSchema,
     McpFilterOptionsArgsSchema,
     McpListAgreementSectionsArgsSchema,
@@ -309,15 +310,17 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement",
-            description="Fetch one agreement by UUID, including its metadata (parties, counsel, consideration, deal status) and the agreement XML. XML is redacted to headings and structure unless the caller holds the full-text scope; metadata fields are always returned.",
+            description="Fetch one agreement by UUID. Returns metadata (parties, counsel, consideration, deal status) only by default, which keeps the response small. Pass include_xml=true to also return the agreement XML (redacted to headings and structure unless the caller holds the full-text scope). The response always reports xml_included.",
             input_schema=_schema_input_schema(McpAgreementArgsSchema()),
             output_schema=_get_agreement_output_schema(),
             examples=(
-                {"description": "Fetch one agreement body.", "arguments": {"agreement_uuid": "a1"}},
+                {"description": "Fetch agreement metadata only (default).", "arguments": {"agreement_uuid": "a1"}},
+                {"description": "Fetch agreement metadata plus XML.", "arguments": {"agreement_uuid": "a1", "include_xml": True}},
             ),
             response_examples=(
-                {"description": "Redacted agreement response without fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml": "<document />", "is_redacted": True}},
-                {"description": "Full agreement response with fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml": "<document><article>...</article></document>", "is_redacted": False}},
+                {"description": "Metadata-only response (default).", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml_included": False}},
+                {"description": "Redacted agreement response with include_xml=true and no fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml_included": True, "xml": "<document />", "is_redacted": True}},
+                {"description": "Full agreement response with include_xml=true and fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml_included": True, "xml": "<document><article>...</article></document>", "is_redacted": False}},
             ),
             scopes=("agreements:read",),
             selection_hint="Use when you already know the exact agreement UUID and need the agreement payload or XML.",
@@ -711,12 +714,13 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement_trends",
-            description="Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use for quick macro context; use list_agreements for row-level breakdowns.",
-            input_schema=_empty_schema(),
+            description="Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use `sections` to request only the parts you need; defaults to [ownership, target_industries]. The large `pairings` (every industry-by-industry cell) and `naics_catalog` sections are opt-in. Use for quick macro context; use list_agreements for row-level breakdowns.",
+            input_schema=_schema_input_schema(McpAgreementTrendsArgsSchema()),
             output_schema=_agreement_trends_output_schema(),
             examples=(
-                {"description": "Inspect ownership and industry trends.", "arguments": {}},
-                {"description": "Compare public/private deal mix and buyer-type patterns by year.", "arguments": {}},
+                {"description": "Inspect ownership and industry trends (default sections).", "arguments": {}},
+                {"description": "Fetch only the ownership mix.", "arguments": {"sections": ["ownership"]}},
+                {"description": "Include the industry-by-industry pairing matrix.", "arguments": {"sections": ["target_industries", "pairings"]}},
             ),
             response_examples=(
                 {"description": "Aggregated trend payload.", "content": {"ownership": {"mix_by_year": [{"year": 2020, "public_deal_count": 1}]}, "industries": {"target_industries_by_year": [{"year": 2020, "industry": "Crop Production"}]}}},
@@ -1015,6 +1019,7 @@ def call_tool(
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps
         handler_kwargs["reference_data_deps"] = reference_data_deps
+        handler_kwargs["payload"] = arguments
     result = spec.handler(**handler_kwargs)
     normalized_content = _json_compatible_structure(result.structured_content)
     output_errors = _validate_output_against_schema(spec.output_schema, normalized_content)

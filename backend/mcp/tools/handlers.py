@@ -16,6 +16,7 @@ from backend.filtering import (
 )
 from backend.mcp.tools.args_schemas import (
     McpAgreementArgsSchema,
+    McpAgreementTrendsArgsSchema,
     McpBatchAgreementSectionsArgsSchema,
     McpFilterOptionsArgsSchema,
     McpListAgreementSectionsArgsSchema,
@@ -25,6 +26,7 @@ from backend.mcp.tools.args_schemas import (
 from backend.mcp.tools.constants import (
     _FILTER_OPTIONS_FIELDS,
     _TRANSACTION_PRICE_BUCKET_OPTIONS,
+    _TRENDS_SECTIONS_DEFAULT,
 )
 from backend.mcp.tools.dispatch import McpToolResult, _require_scope, _validate_payload
 from backend.mcp.tools.schema_utils import (
@@ -655,10 +657,9 @@ def _get_agreement(
     payload: dict[str, object],
 ) -> McpToolResult:
     _require_scope(principal, "agreements:read")
-    parsed_args = cast(
-        AgreementArgsPayload,
-        cast(object, _validate_payload(McpAgreementArgsSchema(), payload)),
-    )
+    validated_args = _validate_payload(McpAgreementArgsSchema(), payload)
+    parsed_args = cast(AgreementArgsPayload, cast(object, validated_args))
+    include_xml = bool(validated_args.get("include_xml", False))
     agreement_uuid = cast(str, payload["agreement_uuid"]).strip()
     focus_section_uuid = parsed_args.get("focus_section_uuid")
     if focus_section_uuid is not None:
@@ -672,37 +673,41 @@ def _get_agreement(
     xml = deps.XML
     db = deps.db
     year_expr = deps._agreement_year_expr().label("year")
+    columns: list[object] = [
+        year_expr,
+        agreements.target,
+        agreements.acquirer,
+        agreements.filing_date,
+        agreements.prob_filing,
+        agreements.filing_company_name,
+        agreements.filing_company_cik,
+        agreements.form_type,
+        agreements.exhibit_type,
+        agreements.transaction_price_total,
+        agreements.transaction_price_stock,
+        agreements.transaction_price_cash,
+        agreements.transaction_price_assets,
+        agreements.transaction_consideration,
+        agreements.target_type,
+        agreements.acquirer_type,
+        agreements.target_industry,
+        agreements.acquirer_industry,
+        agreements.announce_date,
+        agreements.close_date,
+        agreements.deal_status,
+        agreements.attitude,
+        agreements.deal_type,
+        agreements.purpose,
+        agreements.target_pe,
+        agreements.acquirer_pe,
+        agreements.url,
+    ]
+    # Only transfer the (large) XML blob when the caller asks for it; the join is
+    # retained either way so agreements without a latest XML row still 404.
+    if include_xml:
+        columns.append(xml.xml)
     row = (
-        db.session.query(
-            year_expr,
-            agreements.target,
-            agreements.acquirer,
-            agreements.filing_date,
-            agreements.prob_filing,
-            agreements.filing_company_name,
-            agreements.filing_company_cik,
-            agreements.form_type,
-            agreements.exhibit_type,
-            agreements.transaction_price_total,
-            agreements.transaction_price_stock,
-            agreements.transaction_price_cash,
-            agreements.transaction_price_assets,
-            agreements.transaction_consideration,
-            agreements.target_type,
-            agreements.acquirer_type,
-            agreements.target_industry,
-            agreements.acquirer_industry,
-            agreements.announce_date,
-            agreements.close_date,
-            agreements.deal_status,
-            agreements.attitude,
-            agreements.deal_type,
-            agreements.purpose,
-            agreements.target_pe,
-            agreements.acquirer_pe,
-            agreements.url,
-            xml.xml,
-        )
+        db.session.query(*columns)
         .join(xml, deps._agreement_latest_xml_join_condition())
         .filter(agreements.agreement_uuid == agreement_uuid)
         .first()
@@ -711,8 +716,6 @@ def _get_agreement(
         abort(404)
 
     row_map = deps._row_mapping_as_dict(cast(object, row))
-    xml_content_obj = row_map.get("xml")
-    xml_content = xml_content_obj if isinstance(xml_content_obj, str) else ""
     response = {
         "year": _json_compatible_value(row_map.get("year")),
         "target": _json_compatible_value(row_map.get("target")),
@@ -741,17 +744,21 @@ def _get_agreement(
         "target_pe": _json_compatible_value(row_map.get("target_pe")),
         "acquirer_pe": _json_compatible_value(row_map.get("acquirer_pe")),
         "url": _json_compatible_value(row_map.get("url")),
+        "xml_included": include_xml,
     }
-    if allow_fulltext:
-        response["xml"] = xml_content
-        response["is_redacted"] = False
-    else:
-        response["xml"] = deps._redact_agreement_xml(
-            xml_content,
-            focus_section_uuid=focus_section_uuid,
-            neighbor_sections=neighbor_sections_int,
-        )
-        response["is_redacted"] = True
+    if include_xml:
+        xml_content_obj = row_map.get("xml")
+        xml_content = xml_content_obj if isinstance(xml_content_obj, str) else ""
+        if allow_fulltext:
+            response["xml"] = xml_content
+            response["is_redacted"] = False
+        else:
+            response["xml"] = deps._redact_agreement_xml(
+                xml_content,
+                focus_section_uuid=focus_section_uuid,
+                neighbor_sections=neighbor_sections_int,
+            )
+            response["is_redacted"] = True
     return McpToolResult(
         text=f"Fetched agreement {agreement_uuid}.",
         structured_content=response,
@@ -1851,10 +1858,17 @@ def _get_agreement_trends(
     deps: AgreementsDeps,
     *,
     principal: McpPrincipal,
+    payload: dict[str, object],
     reference_data_deps: ReferenceDataDeps,
 ) -> McpToolResult:
     _require_scope(principal, "agreements:search")
-    response = _agreement_trends_payload(deps, reference_data_deps=reference_data_deps)
+    parsed_args = _validate_payload(McpAgreementTrendsArgsSchema(), payload)
+    sections: list[str] = [s for s in cast(list[str], parsed_args["sections"]) if s]
+    if not sections:
+        sections = list(_TRENDS_SECTIONS_DEFAULT)
+    response = _agreement_trends_payload(
+        deps, reference_data_deps=reference_data_deps, sections=sections
+    )
     return McpToolResult(
         text="Returned agreement trend analytics.",
         structured_content=response,
