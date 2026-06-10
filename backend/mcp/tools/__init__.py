@@ -213,22 +213,23 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="search_sections",
-            description="Search individual sections (clause-level text) across the corpus by taxonomy node, keywords, and the same M&A filters as search_agreements. Returns clause language and the agreement context, not extracted document-level facts. Pair with suggest_clause_families when you only know the concept in plain English.",
+            description="Search individual sections (clause-level text) across the corpus by clause-family taxonomy node (standard_id) and the same structured M&A filters as search_agreements. There is no free-text/keyword parameter: to go from a plain-English concept to the right standard_id, call suggest_clause_families (or browse get_clause_taxonomy) first, then pass the resulting standard_id here. Returns clause language and the agreement context, not extracted document-level facts.",
             input_schema=_schema_input_schema(SectionsArgsSchema(), field_overrides=sections_search_overrides),
             output_schema=_search_sections_output_schema(),
             examples=(
                 {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["s1"], "page_size": 10}},
-                {"description": "Search no-shop style sections with counsel filtering.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "metadata": ["deal_type"]}},
+                {"description": "Map a concept to taxonomy first, then search by the returned standard_id.", "arguments": {"standard_id": ["1a7aeab47932d0d4"], "metadata": ["deal_type"]}},
                 {"description": "Get an exact total count for pagination planning.", "arguments": {"standard_id": ["2.1"], "count_mode": "exact", "page_size": 10}},
             ),
             response_examples=(
                 {"description": "Section search result page.", "content": {"results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["s1"]}], "access": {"tier": "mcp"}}},
             ),
             scopes=("sections:search",),
-            selection_hint="Use for clause-language retrieval, taxonomy searches, and agreement-section sampling.",
+            selection_hint="Use for clause-language retrieval by taxonomy node, and agreement-section sampling.",
             negative_guidance=(
                 "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
                 "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
+                "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it.",
             ),
             pagination="page",
             access_behavior="strict_scope_required",

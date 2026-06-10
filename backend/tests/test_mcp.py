@@ -1204,6 +1204,15 @@ class McpTests(unittest.TestCase):
         self.assertEqual(body["error"]["message"], "Invalid tool arguments.")
         self.assertIn("target_counsels", body["error"]["data"])
 
+    def test_search_sections_has_no_free_text_query_parameter(self):
+        # search_sections is taxonomy + structured filters only; a free-text query is
+        # rejected rather than silently ignored. Locks the documented contract.
+        res = self._call_tool("search_sections", {"query": "termination fee"})
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["error"]["code"], -32602)
+        self.assertIn("query", body["error"]["data"])
+
     def test_tools_list_advertises_structured_counsel_filters(self):
         client = self.app.test_client()
         res = client.post(
