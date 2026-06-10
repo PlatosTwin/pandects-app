@@ -16,6 +16,7 @@ from backend.filtering import (
 )
 from backend.mcp.tools.args_schemas import (
     McpAgreementArgsSchema,
+    McpAgreementTrendsArgsSchema,
     McpBatchAgreementSectionsArgsSchema,
     McpFilterOptionsArgsSchema,
     McpListAgreementSectionsArgsSchema,
@@ -25,6 +26,7 @@ from backend.mcp.tools.args_schemas import (
 from backend.mcp.tools.constants import (
     _FILTER_OPTIONS_FIELDS,
     _TRANSACTION_PRICE_BUCKET_OPTIONS,
+    _TRENDS_SECTIONS_DEFAULT,
 )
 from backend.mcp.tools.dispatch import McpToolResult, _require_scope, _validate_payload
 from backend.mcp.tools.schema_utils import (
@@ -59,6 +61,42 @@ from backend.schemas.public_api import (
 )
 from backend.schemas.sections import SectionsArgsPayload, SectionsArgsSchema
 from backend.services.sections_service import run_sections
+
+
+def _partition_known_standard_ids(
+    agreements_deps: AgreementsDeps, standard_ids: list[str]
+) -> tuple[list[str], list[str]]:
+    """Split provided standard_ids into (recognized, unrecognized) order-preserving lists.
+
+    A standard_id is recognized only if it exists as a node in the L1/L2/L3 clause
+    taxonomy. Taxonomy expansion always echoes the raw input back, so membership must
+    be checked against the taxonomy tables directly to detect ids that silently match
+    nothing.
+    """
+    if not standard_ids:
+        return [], []
+    unique_ids = {value for value in standard_ids if value}
+    if not unique_ids:
+        return [], []
+    db = agreements_deps.db
+    known: set[str] = set()
+    for model in (agreements_deps.TaxonomyL1, agreements_deps.TaxonomyL2, agreements_deps.TaxonomyL3):
+        rows = cast(
+            list[tuple[object]],
+            db.session.query(cast(Any, model).standard_id)
+            .filter(cast(Any, model).standard_id.in_(unique_ids))
+            .all(),
+        )
+        known.update(value for (value,) in rows if isinstance(value, str))
+    recognized: list[str] = []
+    unrecognized: list[str] = []
+    seen: set[str] = set()
+    for sid in standard_ids:
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        (recognized if sid in known else unrecognized).append(sid)
+    return recognized, unrecognized
 
 
 def _list_agreements(
@@ -531,13 +569,29 @@ def _search_agreements(
         count_q = count_q.filter(section_exists)
 
     standard_ids = [v for v in cast(list[str], parsed_args["standard_id"]) if v]
+    standard_ids_expanded = False
+    taxonomy_filters: list[dict[str, str]] = []
+    unrecognized_standard_ids: list[str] = []
     if standard_ids:
+        _, unrecognized_standard_ids = _partition_known_standard_ids(deps, standard_ids)
         standard_ids_key = tuple(sorted(set(standard_ids)))
         expanded = list(deps._expand_taxonomy_standard_ids_cached(standard_ids_key))
+        standard_ids_expanded = set(expanded) != set(standard_ids_key)
         if expanded:
             std_id_clause = deps._standard_id_agreement_filter_expr(agreements.agreement_uuid, expanded)
             q = q.filter(std_id_clause)
             count_q = count_q.filter(std_id_clause)
+        seen_taxonomy: set[str] = set()
+        for sid in standard_ids:
+            if sid in seen_taxonomy:
+                continue
+            seen_taxonomy.add(sid)
+            taxonomy_filters.append(
+                {
+                    "standard_id": sid,
+                    "match_mode": "expanded_descendants" if standard_ids_expanded else "exact_node",
+                }
+            )
 
     if query:
         if query.isdigit():
@@ -585,6 +639,8 @@ def _search_agreements(
         "interpretation": _agreement_filter_interpretation(
             cast(AgreementsBulkArgsPayload, cast(object, parsed_args)),
             query=query,
+            taxonomy_filters=taxonomy_filters,
+            unrecognized_standard_ids=unrecognized_standard_ids,
         ),
         **meta,
     }
@@ -601,10 +657,9 @@ def _get_agreement(
     payload: dict[str, object],
 ) -> McpToolResult:
     _require_scope(principal, "agreements:read")
-    parsed_args = cast(
-        AgreementArgsPayload,
-        cast(object, _validate_payload(McpAgreementArgsSchema(), payload)),
-    )
+    validated_args = _validate_payload(McpAgreementArgsSchema(), payload)
+    parsed_args = cast(AgreementArgsPayload, cast(object, validated_args))
+    include_xml = bool(validated_args.get("include_xml", False))
     agreement_uuid = cast(str, payload["agreement_uuid"]).strip()
     focus_section_uuid = parsed_args.get("focus_section_uuid")
     if focus_section_uuid is not None:
@@ -618,37 +673,41 @@ def _get_agreement(
     xml = deps.XML
     db = deps.db
     year_expr = deps._agreement_year_expr().label("year")
+    columns: list[object] = [
+        year_expr,
+        agreements.target,
+        agreements.acquirer,
+        agreements.filing_date,
+        agreements.prob_filing,
+        agreements.filing_company_name,
+        agreements.filing_company_cik,
+        agreements.form_type,
+        agreements.exhibit_type,
+        agreements.transaction_price_total,
+        agreements.transaction_price_stock,
+        agreements.transaction_price_cash,
+        agreements.transaction_price_assets,
+        agreements.transaction_consideration,
+        agreements.target_type,
+        agreements.acquirer_type,
+        agreements.target_industry,
+        agreements.acquirer_industry,
+        agreements.announce_date,
+        agreements.close_date,
+        agreements.deal_status,
+        agreements.attitude,
+        agreements.deal_type,
+        agreements.purpose,
+        agreements.target_pe,
+        agreements.acquirer_pe,
+        agreements.url,
+    ]
+    # Only transfer the (large) XML blob when the caller asks for it; the join is
+    # retained either way so agreements without a latest XML row still 404.
+    if include_xml:
+        columns.append(xml.xml)
     row = (
-        db.session.query(
-            year_expr,
-            agreements.target,
-            agreements.acquirer,
-            agreements.filing_date,
-            agreements.prob_filing,
-            agreements.filing_company_name,
-            agreements.filing_company_cik,
-            agreements.form_type,
-            agreements.exhibit_type,
-            agreements.transaction_price_total,
-            agreements.transaction_price_stock,
-            agreements.transaction_price_cash,
-            agreements.transaction_price_assets,
-            agreements.transaction_consideration,
-            agreements.target_type,
-            agreements.acquirer_type,
-            agreements.target_industry,
-            agreements.acquirer_industry,
-            agreements.announce_date,
-            agreements.close_date,
-            agreements.deal_status,
-            agreements.attitude,
-            agreements.deal_type,
-            agreements.purpose,
-            agreements.target_pe,
-            agreements.acquirer_pe,
-            agreements.url,
-            xml.xml,
-        )
+        db.session.query(*columns)
         .join(xml, deps._agreement_latest_xml_join_condition())
         .filter(agreements.agreement_uuid == agreement_uuid)
         .first()
@@ -657,8 +716,6 @@ def _get_agreement(
         abort(404)
 
     row_map = deps._row_mapping_as_dict(cast(object, row))
-    xml_content_obj = row_map.get("xml")
-    xml_content = xml_content_obj if isinstance(xml_content_obj, str) else ""
     response = {
         "year": _json_compatible_value(row_map.get("year")),
         "target": _json_compatible_value(row_map.get("target")),
@@ -687,17 +744,21 @@ def _get_agreement(
         "target_pe": _json_compatible_value(row_map.get("target_pe")),
         "acquirer_pe": _json_compatible_value(row_map.get("acquirer_pe")),
         "url": _json_compatible_value(row_map.get("url")),
+        "xml_included": include_xml,
     }
-    if allow_fulltext:
-        response["xml"] = xml_content
-        response["is_redacted"] = False
-    else:
-        response["xml"] = deps._redact_agreement_xml(
-            xml_content,
-            focus_section_uuid=focus_section_uuid,
-            neighbor_sections=neighbor_sections_int,
-        )
-        response["is_redacted"] = True
+    if include_xml:
+        xml_content_obj = row_map.get("xml")
+        xml_content = xml_content_obj if isinstance(xml_content_obj, str) else ""
+        if allow_fulltext:
+            response["xml"] = xml_content
+            response["is_redacted"] = False
+        else:
+            response["xml"] = deps._redact_agreement_xml(
+                xml_content,
+                focus_section_uuid=focus_section_uuid,
+                neighbor_sections=neighbor_sections_int,
+            )
+            response["is_redacted"] = True
     return McpToolResult(
         text=f"Fetched agreement {agreement_uuid}.",
         structured_content=response,
@@ -1268,6 +1329,22 @@ def _search_sections(
         for item in results:
             item.pop("xml", None)
 
+    requested_standard_ids = [v for v in cast(list[str], parsed_args["standard_id"]) if v]
+    if requested_standard_ids:
+        _, unrecognized_standard_ids = _partition_known_standard_ids(
+            agreements_deps, requested_standard_ids
+        )
+        interpretation = response.get("interpretation")
+        if unrecognized_standard_ids and isinstance(interpretation, dict):
+            interpretation["unrecognized_standard_ids"] = unrecognized_standard_ids
+            notes = interpretation.get("notes")
+            if isinstance(notes, list):
+                notes.append(
+                    "Ignored unrecognized standard_id(s): "
+                    + ", ".join(unrecognized_standard_ids)
+                    + ". Use get_clause_taxonomy or suggest_clause_families to obtain valid taxonomy IDs."
+                )
+
     all_standard_ids: set[str] = set()
     for item in results:
         for sid in cast(list[str], item.get("standard_id", [])):
@@ -1781,10 +1858,17 @@ def _get_agreement_trends(
     deps: AgreementsDeps,
     *,
     principal: McpPrincipal,
+    payload: dict[str, object],
     reference_data_deps: ReferenceDataDeps,
 ) -> McpToolResult:
     _require_scope(principal, "agreements:search")
-    response = _agreement_trends_payload(deps, reference_data_deps=reference_data_deps)
+    parsed_args = _validate_payload(McpAgreementTrendsArgsSchema(), payload)
+    sections: list[str] = [s for s in cast(list[str], parsed_args["sections"]) if s]
+    if not sections:
+        sections = list(_TRENDS_SECTIONS_DEFAULT)
+    response = _agreement_trends_payload(
+        deps, reference_data_deps=reference_data_deps, sections=sections
+    )
     return McpToolResult(
         text="Returned agreement trend analytics.",
         structured_content=response,

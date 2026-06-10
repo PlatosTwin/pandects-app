@@ -661,7 +661,10 @@
             "type": "string"
           },
           "standard_id": {
-            "description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections.",
+            "description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections: opaque 16-character hex node IDs from get_clause_taxonomy or suggest_clause_families (not dotted numbers). Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
+            "example": [
+              "4207f2e8f6698935"
+            ],
             "items": {
               "type": "string"
             },
@@ -953,6 +956,12 @@
                     "match_mode"
                   ],
                   "type": "object"
+                },
+                "type": "array"
+              },
+              "unrecognized_standard_ids": {
+                "items": {
+                  "type": "string"
                 },
                 "type": "array"
               }
@@ -1307,10 +1316,10 @@
             "type": "string"
           },
           "standard_id": {
-            "description": "Clause type taxonomy standard IDs (Clause Type in the Search UI). Parent IDs expand to include descendant taxonomy nodes.",
+            "description": "Clause type taxonomy standard IDs (Clause Type in the Search UI). These are opaque 16-character hex node IDs obtained from get_clause_taxonomy or suggest_clause_families \u2014 not dotted numbers. Parent IDs expand to include descendant taxonomy nodes. Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
             "example": [
-              "1.1",
-              "1.2.3"
+              "4207f2e8f6698935",
+              "fe2f63338a1eaf30"
             ],
             "items": {
               "type": "string"
@@ -1632,6 +1641,12 @@
                   "type": "object"
                 },
                 "type": "array"
+              },
+              "unrecognized_standard_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
               }
             },
             "required": [
@@ -1918,7 +1933,10 @@
             ]
           },
           "standard_id": {
-            "description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections.",
+            "description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections: opaque 16-character hex node IDs from get_clause_taxonomy or suggest_clause_families (not dotted numbers). Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
+            "example": [
+              "4207f2e8f6698935"
+            ],
             "items": {
               "type": "string"
             },
@@ -2717,20 +2735,30 @@
         {
           "content": {
             "acquirer": "Acquirer A",
+            "target": "Target A",
+            "xml_included": false
+          },
+          "description": "Metadata-only response (default)."
+        },
+        {
+          "content": {
+            "acquirer": "Acquirer A",
             "is_redacted": true,
             "target": "Target A",
-            "xml": "<document />"
+            "xml": "<document />",
+            "xml_included": true
           },
-          "description": "Redacted agreement response without fulltext scope."
+          "description": "Redacted agreement response with include_xml=true and no fulltext scope."
         },
         {
           "content": {
             "acquirer": "Acquirer A",
             "is_redacted": false,
             "target": "Target A",
-            "xml": "<document><article>...</article></document>"
+            "xml": "<document><article>...</article></document>",
+            "xml_included": true
           },
-          "description": "Full agreement response with fulltext scope."
+          "description": "Full agreement response with include_xml=true and fulltext scope."
         }
       ],
       "access": {
@@ -2755,6 +2783,10 @@
               "string",
               "null"
             ]
+          },
+          "include_xml": {
+            "description": "When true, include the agreement XML (redacted to headings/structure unless the caller holds the agreements:read_fulltext scope). Defaults to false: metadata only, which keeps the response small. focus_section_uuid and neighbor_sections only take effect when include_xml is true and the response is redacted.",
+            "type": "boolean"
           },
           "neighbor_sections": {
             "description": "Number of neighboring sections to include around `focus_section_uuid` when response XML is redacted.",
@@ -2930,7 +2962,13 @@
             ]
           },
           "xml": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "xml_included": {
+            "type": "boolean"
           },
           "year": {
             "type": [
@@ -2940,7 +2978,7 @@
           }
         },
         "required": [
-          "xml"
+          "xml_included"
         ],
         "type": "object"
       }
@@ -5236,7 +5274,21 @@
       },
       "input_schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "sections": {
+            "description": "Subset of trend sections to return. Valid values: ownership, target_industries, pairings, naics_catalog. Defaults to [ownership, target_industries]. pairings (every industry-by-industry cell) and naics_catalog (the full NAICS hierarchy) are large; request them explicitly, or call get_naics_catalog for the catalog.",
+            "items": {
+              "enum": [
+                "ownership",
+                "target_industries",
+                "pairings",
+                "naics_catalog"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
         "type": "object"
       },
       "output_schema": {
@@ -5365,10 +5417,6 @@
                 "type": "array"
               }
             },
-            "required": [
-              "target_industries_by_year",
-              "pairings"
-            ],
             "type": "object"
           },
           "ownership": {
@@ -5507,12 +5555,16 @@
               "buyer_type_matrix"
             ],
             "type": "object"
+          },
+          "sections_returned": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
-          "ownership",
-          "industries",
-          "catalogs"
+          "sections_returned"
         ],
         "type": "object"
       }
