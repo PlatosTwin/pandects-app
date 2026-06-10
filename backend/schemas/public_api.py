@@ -79,7 +79,10 @@ class AgreementsBulkArgsSchema(Schema):
     standard_id = fields.List(
         fields.Str(),
         load_default=[],
-        metadata={"description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections."},
+        metadata={
+            "description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections: opaque 16-character hex node IDs from get_clause_taxonomy or suggest_clause_families (not dotted numbers). Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
+            "example": ["4207f2e8f6698935"],
+        },
     )
 
 

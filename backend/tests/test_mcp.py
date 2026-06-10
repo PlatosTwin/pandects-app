@@ -1134,6 +1134,84 @@ class McpTests(unittest.TestCase):
         self.assertEqual(contents[0]["uri"], "pandects://capabilities")
         self.assertIn("application/json", contents[0]["mimeType"])
 
+    def test_json_compatible_structure_normalizes_nested_temporal_and_decimal(self):
+        from backend.mcp.tools.shared import _json_compatible_structure
+
+        raw = {
+            "results": [
+                {
+                    "filing_date": date(2020, 1, 1),
+                    "price": Decimal("12.5"),
+                    "at": datetime(2020, 1, 1, 12, 0, 0),
+                }
+            ],
+            "nested": {"days": (date(2021, 6, 15),)},
+        }
+        normalized = cast(dict[str, object], _json_compatible_structure(raw))
+        results = cast(list[dict[str, object]], normalized["results"])
+        self.assertEqual(results[0]["filing_date"], "2020-01-01")
+        self.assertEqual(results[0]["price"], 12.5)
+        self.assertEqual(results[0]["at"], "2020-01-01T12:00:00")
+        nested = cast(dict[str, object], normalized["nested"])
+        self.assertEqual(cast(list[object], nested["days"])[0], "2021-06-15")
+
+    def test_section_result_with_raw_date_only_validates_after_normalization(self):
+        # Regression lock for the production search_sections crash: output-schema
+        # validation runs on the in-memory result, so a raw `date` (as MariaDB
+        # returns for filing_date) must be normalized before validation or every
+        # non-empty response violates the advertised contract.
+        from backend.mcp.tools.dispatch import _validate_output_against_schema
+        from backend.mcp.tools.output_schemas import _section_result_schema
+        from backend.mcp.tools.shared import _json_compatible_structure
+
+        schema = _section_result_schema()
+        raw_item: dict[str, object] = {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "section_uuid": "00000000-0000-0000-0000-000000000003",
+            "standard_id": ["2.1.1"],
+            "verified": False,
+            "filing_date": date(2020, 1, 1),
+            "transaction_price_total": Decimal("28399583416"),
+        }
+        self.assertTrue(_validate_output_against_schema(schema, raw_item))
+        normalized = _json_compatible_structure(raw_item)
+        self.assertEqual(_validate_output_against_schema(schema, normalized), {})
+
+    def test_search_sections_with_results_satisfies_output_contract(self):
+        res = self._call_tool("search_sections", {"standard_id": ["2.1.1"]})
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertNotIn("error", body)
+        structured = body["result"]["structuredContent"]
+        self.assertGreater(len(structured["results"]), 0)
+        taxonomy_filters = structured["interpretation"]["taxonomy_filters"]
+        self.assertIn("2.1.1", [entry["standard_id"] for entry in taxonomy_filters])
+        self.assertNotIn("unrecognized_standard_ids", structured["interpretation"])
+
+    def test_search_sections_reports_unrecognized_standard_id(self):
+        res = self._call_tool("search_sections", {"standard_id": ["not-a-real-node"]})
+        self.assertEqual(res.status_code, 200)
+        interpretation = res.get_json()["result"]["structuredContent"]["interpretation"]
+        self.assertEqual(interpretation["unrecognized_standard_ids"], ["not-a-real-node"])
+        self.assertTrue(
+            any("unrecognized standard_id" in note for note in interpretation["notes"])
+        )
+
+    def test_search_agreements_echoes_taxonomy_filter_and_flags_unrecognized(self):
+        valid = self._call_tool("search_agreements", {"standard_id": ["2.1.1"]})
+        self.assertEqual(valid.status_code, 200)
+        valid_interp = valid.get_json()["result"]["structuredContent"]["interpretation"]
+        self.assertEqual(
+            [entry["standard_id"] for entry in valid_interp["taxonomy_filters"]],
+            ["2.1.1"],
+        )
+        self.assertNotIn("unrecognized_standard_ids", valid_interp)
+
+        bogus = self._call_tool("search_agreements", {"standard_id": ["bogus-id"]})
+        self.assertEqual(bogus.status_code, 200)
+        bogus_interp = bogus.get_json()["result"]["structuredContent"]["interpretation"]
+        self.assertEqual(bogus_interp["unrecognized_standard_ids"], ["bogus-id"])
+
     def test_tool_call_returns_jsonrpc_result_contract(self):
         client = self.app.test_client()
         with self.assertLogs("backend.mcp.routes", level="INFO") as log_context:
