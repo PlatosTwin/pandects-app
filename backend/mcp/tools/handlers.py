@@ -63,6 +63,42 @@ from backend.schemas.sections import SectionsArgsPayload, SectionsArgsSchema
 from backend.services.sections_service import run_sections
 
 
+def _partition_known_standard_ids(
+    agreements_deps: AgreementsDeps, standard_ids: list[str]
+) -> tuple[list[str], list[str]]:
+    """Split provided standard_ids into (recognized, unrecognized) order-preserving lists.
+
+    A standard_id is recognized only if it exists as a node in the L1/L2/L3 clause
+    taxonomy. Taxonomy expansion always echoes the raw input back, so membership must
+    be checked against the taxonomy tables directly to detect ids that silently match
+    nothing.
+    """
+    if not standard_ids:
+        return [], []
+    unique_ids = {value for value in standard_ids if value}
+    if not unique_ids:
+        return [], []
+    db = agreements_deps.db
+    known: set[str] = set()
+    for model in (agreements_deps.TaxonomyL1, agreements_deps.TaxonomyL2, agreements_deps.TaxonomyL3):
+        rows = cast(
+            list[tuple[object]],
+            db.session.query(cast(Any, model).standard_id)
+            .filter(cast(Any, model).standard_id.in_(unique_ids))
+            .all(),
+        )
+        known.update(value for (value,) in rows if isinstance(value, str))
+    recognized: list[str] = []
+    unrecognized: list[str] = []
+    seen: set[str] = set()
+    for sid in standard_ids:
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        (recognized if sid in known else unrecognized).append(sid)
+    return recognized, unrecognized
+
+
 def _list_agreements(
     deps: AgreementsDeps,
     *,
@@ -533,13 +569,29 @@ def _search_agreements(
         count_q = count_q.filter(section_exists)
 
     standard_ids = [v for v in cast(list[str], parsed_args["standard_id"]) if v]
+    standard_ids_expanded = False
+    taxonomy_filters: list[dict[str, str]] = []
+    unrecognized_standard_ids: list[str] = []
     if standard_ids:
+        _, unrecognized_standard_ids = _partition_known_standard_ids(deps, standard_ids)
         standard_ids_key = tuple(sorted(set(standard_ids)))
         expanded = list(deps._expand_taxonomy_standard_ids_cached(standard_ids_key))
+        standard_ids_expanded = set(expanded) != set(standard_ids_key)
         if expanded:
             std_id_clause = deps._standard_id_agreement_filter_expr(agreements.agreement_uuid, expanded)
             q = q.filter(std_id_clause)
             count_q = count_q.filter(std_id_clause)
+        seen_taxonomy: set[str] = set()
+        for sid in standard_ids:
+            if sid in seen_taxonomy:
+                continue
+            seen_taxonomy.add(sid)
+            taxonomy_filters.append(
+                {
+                    "standard_id": sid,
+                    "match_mode": "expanded_descendants" if standard_ids_expanded else "exact_node",
+                }
+            )
 
     if query:
         if query.isdigit():
@@ -587,6 +639,8 @@ def _search_agreements(
         "interpretation": _agreement_filter_interpretation(
             cast(AgreementsBulkArgsPayload, cast(object, parsed_args)),
             query=query,
+            taxonomy_filters=taxonomy_filters,
+            unrecognized_standard_ids=unrecognized_standard_ids,
         ),
         **meta,
     }
@@ -1274,6 +1328,22 @@ def _search_sections(
     if not include_xml:
         for item in results:
             item.pop("xml", None)
+
+    requested_standard_ids = [v for v in cast(list[str], parsed_args["standard_id"]) if v]
+    if requested_standard_ids:
+        _, unrecognized_standard_ids = _partition_known_standard_ids(
+            agreements_deps, requested_standard_ids
+        )
+        interpretation = response.get("interpretation")
+        if unrecognized_standard_ids and isinstance(interpretation, dict):
+            interpretation["unrecognized_standard_ids"] = unrecognized_standard_ids
+            notes = interpretation.get("notes")
+            if isinstance(notes, list):
+                notes.append(
+                    "Ignored unrecognized standard_id(s): "
+                    + ", ".join(unrecognized_standard_ids)
+                    + ". Use get_clause_taxonomy or suggest_clause_families to obtain valid taxonomy IDs."
+                )
 
     all_standard_ids: set[str] = set()
     for item in results:

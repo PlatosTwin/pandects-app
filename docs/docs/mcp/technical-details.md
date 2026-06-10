@@ -115,6 +115,7 @@ The current MCP tools are:
 - `search_sections` is a clause-language retrieval surface, not a normalized document-facts surface
 - `search_sections` exposes `count_mode` and returns `count_metadata` plus `interpretation` so clients can tell when totals are exact versus estimated and when taxonomy is acting as a proxy
 - `search_agreements` returns exact totals today and also includes `count_metadata` plus `interpretation`
+- `standard_id` values are opaque 16-character hex node IDs obtained from `get_clause_taxonomy` or `suggest_clause_families` — they are not dotted decimal numbers. Unrecognized IDs are ignored (they silently match nothing) and are echoed back under `interpretation.unrecognized_standard_ids`, alongside `interpretation.taxonomy_filters`, so clients can detect a mistyped or stale ID rather than mistaking an empty result for "no matches"
 - `suggest_clause_families` exists to bridge plain-English concepts to taxonomy ids and now reports fit/confidence metadata so clients can distinguish canonical matches from broader proxies
 - `get_section_snippet` is a focused reading aid, not a replacement for `get_section` or a canonical extracted-facts surface
 - `get_section_snippets_batch` and `list_agreement_sections_batch` accept arrays of UUIDs and collapse multiple single-item calls into one round-trip; use them when a workflow would otherwise fan out across many agreements or sections

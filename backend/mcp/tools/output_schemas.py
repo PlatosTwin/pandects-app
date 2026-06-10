@@ -166,6 +166,7 @@ def _interpretation_schema() -> dict[str, object]:
         {
             "applied_filters": _array_of(_interpretation_filter_schema()),
             "taxonomy_filters": _array_of(_taxonomy_filter_schema()),
+            "unrecognized_standard_ids": _array_of({"type": "string"}),
             "heuristics_used": _array_of({"type": "string"}),
             "notes": _array_of({"type": "string"}),
         },

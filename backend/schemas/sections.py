@@ -106,9 +106,13 @@ class SectionsArgsSchema(Schema):
         metadata={
             "description": (
                 "Clause type taxonomy standard IDs (Clause Type in the Search UI). "
-                "Parent IDs expand to include descendant taxonomy nodes."
+                "These are opaque 16-character hex node IDs obtained from "
+                "get_clause_taxonomy or suggest_clause_families — not dotted numbers. "
+                "Parent IDs expand to include descendant taxonomy nodes. "
+                "Unrecognized IDs are ignored and reported under "
+                "interpretation.unrecognized_standard_ids."
             ),
-            "example": ["1.1", "1.2.3"],
+            "example": ["4207f2e8f6698935", "fe2f63338a1eaf30"],
         },
     )
     transaction_price_total = fields.List(fields.Str(), load_default=[])

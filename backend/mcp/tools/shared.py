@@ -35,6 +35,22 @@ def _json_compatible_value(value: object) -> object:
     return value
 
 
+def _json_compatible_structure(value: object) -> object:
+    """Recursively coerce a tool result into JSON-native types.
+
+    Handlers occasionally surface raw SQLAlchemy values (``date``/``Decimal``)
+    that are JSON-serializable only at the HTTP encoding layer. Output-schema
+    validation runs on the in-memory object, so normalize the whole structure
+    here to keep validation and serialization in agreement regardless of which
+    handler produced the payload.
+    """
+    if isinstance(value, dict):
+        return {str(key): _json_compatible_structure(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_compatible_structure(item) for item in value]
+    return _json_compatible_value(value)
+
+
 def _count_metadata_payload(
     *,
     mode: str,
@@ -54,18 +70,28 @@ def _interpretation_payload(
     *,
     applied_filters: list[dict[str, str]],
     taxonomy_filters: list[dict[str, str]] | None = None,
+    unrecognized_standard_ids: list[str] | None = None,
     heuristics_used: list[str] | None = None,
     notes: list[str] | None = None,
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "applied_filters": applied_filters,
         "taxonomy_filters": taxonomy_filters or [],
         "heuristics_used": heuristics_used or [],
         "notes": notes or [],
     }
+    if unrecognized_standard_ids:
+        payload["unrecognized_standard_ids"] = unrecognized_standard_ids
+    return payload
 
 
-def _agreement_filter_interpretation(parsed_args: AgreementsBulkArgsPayload, *, query: str) -> dict[str, object]:
+def _agreement_filter_interpretation(
+    parsed_args: AgreementsBulkArgsPayload,
+    *,
+    query: str,
+    taxonomy_filters: list[dict[str, str]] | None = None,
+    unrecognized_standard_ids: list[str] | None = None,
+) -> dict[str, object]:
     applied_filters: list[dict[str, str]] = []
     for field_name in _STRUCTURED_FILTER_ARRAY_FIELDS:
         values = cast(list[object], parsed_args[field_name])
@@ -111,8 +137,18 @@ def _agreement_filter_interpretation(parsed_args: AgreementsBulkArgsPayload, *, 
         else:
             heuristics_used.append("prefix_name_match")
             notes.append("The free-text query uses prefix matching on target and acquirer names.")
+    if taxonomy_filters:
+        notes.append("Taxonomy filters reflect clause-family assignments and may act as proxies for broader legal concepts.")
+    if unrecognized_standard_ids:
+        notes.append(
+            "Ignored unrecognized standard_id(s): "
+            + ", ".join(unrecognized_standard_ids)
+            + ". Use get_clause_taxonomy or suggest_clause_families to obtain valid taxonomy IDs."
+        )
     return _interpretation_payload(
         applied_filters=applied_filters,
+        taxonomy_filters=taxonomy_filters,
+        unrecognized_standard_ids=unrecognized_standard_ids,
         heuristics_used=heuristics_used,
         notes=notes,
     )

@@ -29,6 +29,7 @@ from backend.mcp.tools.dispatch import (
     McpToolSpec,
     _validate_output_against_schema,
 )
+from backend.mcp.tools.shared import _json_compatible_structure
 from backend.mcp.tools.handlers import (
     _get_agreement,
     _get_agreement_tax_clauses,
@@ -1020,10 +1021,11 @@ def call_tool(
         handler_kwargs["reference_data_deps"] = reference_data_deps
         handler_kwargs["payload"] = arguments
     result = spec.handler(**handler_kwargs)
-    output_errors = _validate_output_against_schema(spec.output_schema, result.structured_content)
+    normalized_content = _json_compatible_structure(result.structured_content)
+    output_errors = _validate_output_against_schema(spec.output_schema, normalized_content)
     if output_errors:
         raise McpOutputValidationError(output_errors)
-    return result
+    return McpToolResult(text=result.text, structured_content=normalized_content)
 
 
 __all__ = ["McpOutputValidationError", "McpToolResult", "call_tool", "tool_definitions"]
