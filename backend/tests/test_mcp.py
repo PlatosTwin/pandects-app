@@ -711,6 +711,41 @@ class McpTests(unittest.TestCase):
         body = res.get_json()
         self.assertEqual(body["error"]["message"], "Tool request was invalid.")
 
+    def test_tool_http_exception_response_maps_status_codes(self):
+        from werkzeug.exceptions import InternalServerError, NotFound
+
+        from backend.mcp.routes.helpers import _tool_http_exception_response
+
+        bad_request_code, _, bad_request_data = _tool_http_exception_response(BadRequest())
+        self.assertEqual(bad_request_code, -32602)
+        self.assertIsNone(bad_request_data)
+
+        not_found_code, not_found_message, not_found_data = _tool_http_exception_response(NotFound())
+        self.assertEqual(not_found_code, -32002)
+        self.assertIn("not found", not_found_message.lower())
+        self.assertEqual(not_found_data, {"category": "not_found", "status_code": 404})
+
+        failed_code, failed_message, failed_data = _tool_http_exception_response(InternalServerError())
+        self.assertEqual(failed_code, -32004)
+        self.assertEqual(failed_message, "Tool request failed.")
+        self.assertIsNone(failed_data)
+
+    def test_get_section_not_found_returns_distinct_error(self):
+        res = self._call_tool(
+            "get_section", {"section_uuid": "00000000-0000-0000-0000-000000000099"}
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["error"]["code"], -32002)
+        self.assertIn("not found", body["error"]["message"].lower())
+        self.assertEqual(body["error"]["data"], {"category": "not_found", "status_code": 404})
+
+    def test_invalid_section_uuid_stays_invalid_arguments_not_not_found(self):
+        res = self._call_tool("get_section", {"section_uuid": "not-a-uuid"})
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["error"]["code"], -32602)
+
     def test_mcp_requires_bearer_token(self):
         client = self.app.test_client()
         res = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})

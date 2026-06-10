@@ -21,7 +21,6 @@ from backend.auth.mcp_runtime import (
 from backend.mcp.routes.deps import McpDeps
 from backend.mcp.routes.helpers import (
     AUTHORIZATION_ERROR_MESSAGE,
-    BAD_TOOL_REQUEST_MESSAGE,
     INVALID_JSON_RPC_PAYLOAD_MESSAGE,
     PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE,
     _apply_protocol_headers,
@@ -39,6 +38,7 @@ from backend.mcp.routes.helpers import (
     _resource_definitions,
     _sse_retry_probe_response,
     _stream_tool_call_response,
+    _tool_http_exception_response,
     metrics_registry,
 )
 from backend.mcp.tools import McpOutputValidationError, call_tool, tool_definitions
@@ -353,10 +353,12 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     scope_count=len(principal.scopes),
                     error_category="http_exception",
                 )
+                error_code, error_message, error_data = _tool_http_exception_response(exc)
                 return _json_rpc_error(
                     request_id=request_id,
-                    code=-32602 if exc.code == 400 else -32004,
-                    message=BAD_TOOL_REQUEST_MESSAGE if exc.code == 400 else "Tool request failed.",
+                    code=error_code,
+                    message=error_message,
+                    data=error_data,
                 )
             latency_ms = max(0, int((time.perf_counter() - started_at) * 1000))
             if tool_name == "get_server_metrics" and isinstance(result.structured_content, dict):

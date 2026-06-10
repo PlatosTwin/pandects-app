@@ -136,6 +136,16 @@ The current MCP tools are:
 - Every response carries an `MCP-Protocol-Version` header echoing the negotiated protocol version.
 - Advertised server capabilities: `tools`, `resources` (listChanged=false, subscribe=false), `prompts` (listChanged=false), and `logging` (`logging/setLevel` is accepted as a no-op).
 
+### Tool error codes
+
+`tools/call` failures use distinct JSON-RPC error codes so a client can tell a fixable request from a server-side fault. The codes are identical across the JSON and SSE response paths:
+
+- `-32602` — invalid tool arguments (schema/validation failure or a malformed identifier)
+- `-32002` — the tool ran but the requested resource was not found (e.g. an unknown agreement or section UUID); the error `data` is `{"category": "not_found", "status_code": 404}`. Verify the identifier with a search or list tool and retry — this is not a transient error.
+- `-32003` — missing scope / authorization
+- `-32603` — the tool result violated its advertised output schema
+- `-32004` — a genuine tool failure (server-side)
+
 ### Progress notifications
 
 When a `tools/call` request includes `params._meta.progressToken` **and** the client advertises `Accept: text/event-stream`, the server returns a multi-event SSE stream:
