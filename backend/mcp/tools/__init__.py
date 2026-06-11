@@ -219,12 +219,12 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             input_schema=_schema_input_schema(SectionsArgsSchema(), field_overrides=sections_search_overrides),
             output_schema=_search_sections_output_schema(),
             examples=(
-                {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["s1"], "page_size": 10}},
+                {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["5e59453aaa9255c4"], "page_size": 10}},
                 {"description": "Map a concept to taxonomy first, then search by the returned standard_id.", "arguments": {"standard_id": ["1a7aeab47932d0d4"], "metadata": ["deal_type"]}},
-                {"description": "Get an exact total count for pagination planning.", "arguments": {"standard_id": ["2.1"], "count_mode": "exact", "page_size": 10}},
+                {"description": "Get an exact total count for pagination planning.", "arguments": {"standard_id": ["4207f2e8f6698935"], "count_mode": "exact", "page_size": 10}},
             ),
             response_examples=(
-                {"description": "Section search result page.", "content": {"results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["s1"]}], "access": {"tier": "mcp"}}},
+                {"description": "Section search result page.", "content": {"results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["5e59453aaa9255c4"]}], "access": {"tier": "mcp"}}},
             ),
             scopes=("sections:search",),
             selection_hint="Use for clause-language retrieval by taxonomy node, and agreement-section sampling.",
@@ -343,7 +343,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Fetch one section after search_sections.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
             ),
             response_examples=(
-                {"description": "Exact section payload.", "content": {"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["s1"]}},
+                {"description": "Exact section payload.", "content": {"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["5e59453aaa9255c4"]}},
             ),
             scopes=("agreements:read",),
             selection_hint="Use when you already have a section UUID and want the exact section payload.",
@@ -449,7 +449,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Extract a short excerpt around a carveout phrase.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001", "focus_terms": ["disproportionate effects"], "max_chars": 350}},
             ),
             response_examples=(
-                {"description": "Focused section snippet.", "content": {"agreement_uuid": "a1", "section_uuid": "00000000-0000-0000-0000-000000000001", "standard_id": ["1.2"], "article_title": "ARTICLE I", "section_title": "Material Adverse Effect", "snippet": "...disproportionate effects on the Company relative to others in the industry...", "matched_terms": ["disproportionate effects"], "source_length": 512}},
+                {"description": "Focused section snippet.", "content": {"agreement_uuid": "a1", "section_uuid": "00000000-0000-0000-0000-000000000001", "standard_id": ["1314b4b7cda311c9"], "article_title": "ARTICLE I", "section_title": "Material Adverse Effect", "snippet": "...disproportionate effects on the Company relative to others in the industry...", "matched_terms": ["disproportionate effects"], "source_length": 512}},
             ),
             scopes=("sections:search",),
             selection_hint="Use after search_sections when you need a quick excerpt for comparison or quoting.",
