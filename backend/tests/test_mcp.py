@@ -1169,6 +1169,84 @@ class McpTests(unittest.TestCase):
         self.assertEqual(contents[0]["uri"], "pandects://capabilities")
         self.assertIn("application/json", contents[0]["mimeType"])
 
+    def test_json_compatible_structure_normalizes_nested_temporal_and_decimal(self):
+        from backend.mcp.tools.shared import _json_compatible_structure
+
+        raw = {
+            "results": [
+                {
+                    "filing_date": date(2020, 1, 1),
+                    "price": Decimal("12.5"),
+                    "at": datetime(2020, 1, 1, 12, 0, 0),
+                }
+            ],
+            "nested": {"days": (date(2021, 6, 15),)},
+        }
+        normalized = cast(dict[str, object], _json_compatible_structure(raw))
+        results = cast(list[dict[str, object]], normalized["results"])
+        self.assertEqual(results[0]["filing_date"], "2020-01-01")
+        self.assertEqual(results[0]["price"], 12.5)
+        self.assertEqual(results[0]["at"], "2020-01-01T12:00:00")
+        nested = cast(dict[str, object], normalized["nested"])
+        self.assertEqual(cast(list[object], nested["days"])[0], "2021-06-15")
+
+    def test_section_result_with_raw_date_only_validates_after_normalization(self):
+        # Regression lock for the production search_sections crash: output-schema
+        # validation runs on the in-memory result, so a raw `date` (as MariaDB
+        # returns for filing_date) must be normalized before validation or every
+        # non-empty response violates the advertised contract.
+        from backend.mcp.tools.dispatch import _validate_output_against_schema
+        from backend.mcp.tools.output_schemas import _section_result_schema
+        from backend.mcp.tools.shared import _json_compatible_structure
+
+        schema = _section_result_schema()
+        raw_item: dict[str, object] = {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "section_uuid": "00000000-0000-0000-0000-000000000003",
+            "standard_id": ["2.1.1"],
+            "verified": False,
+            "filing_date": date(2020, 1, 1),
+            "transaction_price_total": Decimal("28399583416"),
+        }
+        self.assertTrue(_validate_output_against_schema(schema, raw_item))
+        normalized = _json_compatible_structure(raw_item)
+        self.assertEqual(_validate_output_against_schema(schema, normalized), {})
+
+    def test_search_sections_with_results_satisfies_output_contract(self):
+        res = self._call_tool("search_sections", {"standard_id": ["2.1.1"]})
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertNotIn("error", body)
+        structured = body["result"]["structuredContent"]
+        self.assertGreater(len(structured["results"]), 0)
+        taxonomy_filters = structured["interpretation"]["taxonomy_filters"]
+        self.assertIn("2.1.1", [entry["standard_id"] for entry in taxonomy_filters])
+        self.assertNotIn("unrecognized_standard_ids", structured["interpretation"])
+
+    def test_search_sections_reports_unrecognized_standard_id(self):
+        res = self._call_tool("search_sections", {"standard_id": ["not-a-real-node"]})
+        self.assertEqual(res.status_code, 200)
+        interpretation = res.get_json()["result"]["structuredContent"]["interpretation"]
+        self.assertEqual(interpretation["unrecognized_standard_ids"], ["not-a-real-node"])
+        self.assertTrue(
+            any("unrecognized standard_id" in note for note in interpretation["notes"])
+        )
+
+    def test_search_agreements_echoes_taxonomy_filter_and_flags_unrecognized(self):
+        valid = self._call_tool("search_agreements", {"standard_id": ["2.1.1"]})
+        self.assertEqual(valid.status_code, 200)
+        valid_interp = valid.get_json()["result"]["structuredContent"]["interpretation"]
+        self.assertEqual(
+            [entry["standard_id"] for entry in valid_interp["taxonomy_filters"]],
+            ["2.1.1"],
+        )
+        self.assertNotIn("unrecognized_standard_ids", valid_interp)
+
+        bogus = self._call_tool("search_agreements", {"standard_id": ["bogus-id"]})
+        self.assertEqual(bogus.status_code, 200)
+        bogus_interp = bogus.get_json()["result"]["structuredContent"]["interpretation"]
+        self.assertEqual(bogus_interp["unrecognized_standard_ids"], ["bogus-id"])
+
     def test_tool_call_returns_jsonrpc_result_contract(self):
         client = self.app.test_client()
         with self.assertLogs("backend.mcp.routes", level="INFO") as log_context:
@@ -1238,6 +1316,15 @@ class McpTests(unittest.TestCase):
         self.assertEqual(body["error"]["code"], -32602)
         self.assertEqual(body["error"]["message"], "Invalid tool arguments.")
         self.assertIn("target_counsels", body["error"]["data"])
+
+    def test_search_sections_has_no_free_text_query_parameter(self):
+        # search_sections is taxonomy + structured filters only; a free-text query is
+        # rejected rather than silently ignored. Locks the documented contract.
+        res = self._call_tool("search_sections", {"query": "termination fee"})
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["error"]["code"], -32602)
+        self.assertIn("query", body["error"]["data"])
 
     def test_tools_list_advertises_structured_counsel_filters(self):
         client = self.app.test_client()
@@ -1647,7 +1734,7 @@ class McpTests(unittest.TestCase):
             client.initialize()
             client.list_tools()
 
-            redacted_payload = client.call_tool("get_agreement", {"agreement_uuid": "a1"})
+            redacted_payload = client.call_tool("get_agreement", {"agreement_uuid": "a1", "include_xml": True})
             self.assertTrue(cast(bool, redacted_payload["is_redacted"]))
 
         with LiveMcpHttpClientHarness(
@@ -1656,7 +1743,7 @@ class McpTests(unittest.TestCase):
         ) as fulltext_client:
             fulltext_client.initialize()
             fulltext_client.list_tools()
-            fulltext_payload = fulltext_client.call_tool("get_agreement", {"agreement_uuid": "a1"})
+            fulltext_payload = fulltext_client.call_tool("get_agreement", {"agreement_uuid": "a1", "include_xml": True})
             self.assertFalse(cast(bool, fulltext_payload["is_redacted"]))
 
     def test_tools_list_contract_snapshot(self):
@@ -1876,6 +1963,7 @@ class McpTests(unittest.TestCase):
                     "name": "get_agreement",
                     "arguments": {
                         "agreement_uuid": "a1",
+                        "include_xml": True,
                         "focus_section_uuid": "00000000-0000-0000-0000-000000000001",
                         "neighbor_sections": 0,
                     },
@@ -1898,7 +1986,7 @@ class McpTests(unittest.TestCase):
                 "method": "tools/call",
                 "params": {
                     "name": "get_agreement",
-                    "arguments": {"agreement_uuid": "a1"},
+                    "arguments": {"agreement_uuid": "a1", "include_xml": True},
                 },
             },
         )
@@ -1906,6 +1994,35 @@ class McpTests(unittest.TestCase):
         payload = res.get_json()["result"]["structuredContent"]
         self.assertFalse(payload["is_redacted"])
         self.assertIn("<text>KEEP</text>", payload["xml"])
+
+    def test_get_agreement_defaults_to_metadata_only(self):
+        res = self._call_tool("get_agreement", {"agreement_uuid": "a1"}, scope="agreements:read")
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["target"], "Target A")
+        self.assertFalse(payload["xml_included"])
+        self.assertNotIn("xml", payload)
+        self.assertNotIn("is_redacted", payload)
+
+    def test_get_agreement_trends_defaults_exclude_pairings_and_catalog(self):
+        res = self._call_tool("get_agreement_trends", {})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["sections_returned"], ["ownership", "target_industries"])
+        self.assertIn("ownership", payload)
+        self.assertIn("target_industries_by_year", payload["industries"])
+        self.assertNotIn("pairings", payload["industries"])
+        self.assertNotIn("catalogs", payload)
+
+    def test_get_agreement_trends_opt_in_sections(self):
+        res = self._call_tool("get_agreement_trends", {"sections": ["pairings", "naics_catalog"]})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["sections_returned"], ["naics_catalog", "pairings"])
+        self.assertIn("pairings", payload["industries"])
+        self.assertNotIn("target_industries_by_year", payload["industries"])
+        self.assertIn("catalogs", payload)
+        self.assertNotIn("ownership", payload)
 
     def test_missing_scope_is_403(self):
         client = self.app.test_client()

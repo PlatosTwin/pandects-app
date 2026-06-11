@@ -173,7 +173,10 @@
           "type": "string"
         },
         "standard_id": {
-          "description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections.",
+          "description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections: opaque 16-character hex node IDs from get_clause_taxonomy or suggest_clause_families (not dotted numbers). Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
+          "example": [
+            "4207f2e8f6698935"
+          ],
           "items": {
             "type": "string"
           },
@@ -467,6 +470,12 @@
                 "type": "object"
               },
               "type": "array"
+            },
+            "unrecognized_standard_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             }
           },
           "required": [
@@ -581,17 +590,18 @@
   },
   {
     "name": "search_sections",
-    "description": "Search individual sections (clause-level text) across the corpus by taxonomy node, keywords, and the same M&A filters as search_agreements. Returns clause language and the agreement context, not extracted document-level facts. Pair with suggest_clause_families when you only know the concept in plain English.",
+    "description": "Search individual sections (clause-level text) across the corpus by clause-family taxonomy node (standard_id) and the same structured M&A filters as search_agreements. There is no free-text/keyword parameter: to go from a plain-English concept to the right standard_id, call suggest_clause_families (or browse get_clause_taxonomy) first, then pass the resulting standard_id here. Returns clause language and the agreement context, not extracted document-level facts.",
     "annotations": {
       "negativeGuidance": [
         "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
-        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first."
+        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
+        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it."
       ],
       "pagination": "page",
       "requiredScopes": [
         "sections:search"
       ],
-      "selectionHint": "Use for clause-language retrieval, taxonomy searches, and agreement-section sampling."
+      "selectionHint": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
     },
     "inputSchema": {
       "additionalProperties": false,
@@ -791,10 +801,10 @@
           "type": "string"
         },
         "standard_id": {
-          "description": "Clause type taxonomy standard IDs (Clause Type in the Search UI). Parent IDs expand to include descendant taxonomy nodes.",
+          "description": "Clause type taxonomy standard IDs (Clause Type in the Search UI). These are opaque 16-character hex node IDs obtained from get_clause_taxonomy or suggest_clause_families \u2014 not dotted numbers. Parent IDs expand to include descendant taxonomy nodes. Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
           "example": [
-            "1.1",
-            "1.2.3"
+            "4207f2e8f6698935",
+            "fe2f63338a1eaf30"
           ],
           "items": {
             "type": "string"
@@ -1116,6 +1126,12 @@
                 "type": "object"
               },
               "type": "array"
+            },
+            "unrecognized_standard_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             }
           },
           "required": [
@@ -1376,7 +1392,10 @@
           ]
         },
         "standard_id": {
-          "description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections.",
+          "description": "Filter to agreements that contain at least one section tagged with any of these taxonomy standard_ids. Accepts the same ids as search_sections: opaque 16-character hex node IDs from get_clause_taxonomy or suggest_clause_families (not dotted numbers). Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
+          "example": [
+            "4207f2e8f6698935"
+          ],
           "items": {
             "type": "string"
           },
@@ -2119,7 +2138,7 @@
   },
   {
     "name": "get_agreement",
-    "description": "Fetch one agreement by UUID, including its metadata (parties, counsel, consideration, deal status) and the agreement XML. XML is redacted to headings and structure unless the caller holds the full-text scope; metadata fields are always returned.",
+    "description": "Fetch one agreement by UUID. Returns metadata (parties, counsel, consideration, deal status) only by default, which keeps the response small. Pass include_xml=true to also return the agreement XML (redacted to headings and structure unless the caller holds the full-text scope). The response always reports xml_included.",
     "annotations": {
       "negativeGuidance": [
         "Do not use this tool for bulk discovery or corpus filtering."
@@ -2143,6 +2162,10 @@
             "string",
             "null"
           ]
+        },
+        "include_xml": {
+          "description": "When true, include the agreement XML (redacted to headings/structure unless the caller holds the agreements:read_fulltext scope). Defaults to false: metadata only, which keeps the response small. focus_section_uuid and neighbor_sections only take effect when include_xml is true and the response is redacted.",
+          "type": "boolean"
         },
         "neighbor_sections": {
           "description": "Number of neighboring sections to include around `focus_section_uuid` when response XML is redacted.",
@@ -2318,7 +2341,13 @@
           ]
         },
         "xml": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "xml_included": {
+          "type": "boolean"
         },
         "year": {
           "type": [
@@ -2328,7 +2357,7 @@
         }
       },
       "required": [
-        "xml"
+        "xml_included"
       ],
       "type": "object"
     }
@@ -4240,7 +4269,7 @@
   },
   {
     "name": "get_agreement_trends",
-    "description": "Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use for quick macro context; use list_agreements for row-level breakdowns.",
+    "description": "Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use `sections` to request only the parts you need; defaults to [ownership, target_industries]. The large `pairings` (every industry-by-industry cell) and `naics_catalog` sections are opt-in. Use for quick macro context; use list_agreements for row-level breakdowns.",
     "annotations": {
       "negativeGuidance": [],
       "pagination": "none",
@@ -4251,7 +4280,21 @@
     },
     "inputSchema": {
       "additionalProperties": false,
-      "properties": {},
+      "properties": {
+        "sections": {
+          "description": "Subset of trend sections to return. Valid values: ownership, target_industries, pairings, naics_catalog. Defaults to [ownership, target_industries]. pairings (every industry-by-industry cell) and naics_catalog (the full NAICS hierarchy) are large; request them explicitly, or call get_naics_catalog for the catalog.",
+          "items": {
+            "enum": [
+              "ownership",
+              "target_industries",
+              "pairings",
+              "naics_catalog"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
       "type": "object"
     },
     "outputSchema": {
@@ -4380,10 +4423,6 @@
               "type": "array"
             }
           },
-          "required": [
-            "target_industries_by_year",
-            "pairings"
-          ],
           "type": "object"
         },
         "ownership": {
@@ -4522,12 +4561,16 @@
             "buyer_type_matrix"
           ],
           "type": "object"
+        },
+        "sections_returned": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
-        "ownership",
-        "industries",
-        "catalogs"
+        "sections_returned"
       ],
       "type": "object"
     }

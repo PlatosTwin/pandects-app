@@ -10,6 +10,7 @@ from backend.mcp.metrics import get_mcp_metrics_registry
 from backend.mcp.tools.args_schemas import (
     McpAgreementArgsSchema,
     McpAgreementIdentifierSchema,
+    McpAgreementTrendsArgsSchema,
     McpBatchAgreementSectionsArgsSchema,
     McpFilterOptionsArgsSchema,
     McpListAgreementSectionsArgsSchema,
@@ -28,6 +29,7 @@ from backend.mcp.tools.dispatch import (
     McpToolSpec,
     _validate_output_against_schema,
 )
+from backend.mcp.tools.shared import _json_compatible_structure
 from backend.mcp.tools.handlers import (
     _get_agreement,
     _get_agreement_tax_clauses,
@@ -213,22 +215,23 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="search_sections",
-            description="Search individual sections (clause-level text) across the corpus by taxonomy node, keywords, and the same M&A filters as search_agreements. Returns clause language and the agreement context, not extracted document-level facts. Pair with suggest_clause_families when you only know the concept in plain English.",
+            description="Search individual sections (clause-level text) across the corpus by clause-family taxonomy node (standard_id) and the same structured M&A filters as search_agreements. There is no free-text/keyword parameter: to go from a plain-English concept to the right standard_id, call suggest_clause_families (or browse get_clause_taxonomy) first, then pass the resulting standard_id here. Returns clause language and the agreement context, not extracted document-level facts.",
             input_schema=_schema_input_schema(SectionsArgsSchema(), field_overrides=sections_search_overrides),
             output_schema=_search_sections_output_schema(),
             examples=(
                 {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["s1"], "page_size": 10}},
-                {"description": "Search no-shop style sections with counsel filtering.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "metadata": ["deal_type"]}},
+                {"description": "Map a concept to taxonomy first, then search by the returned standard_id.", "arguments": {"standard_id": ["1a7aeab47932d0d4"], "metadata": ["deal_type"]}},
                 {"description": "Get an exact total count for pagination planning.", "arguments": {"standard_id": ["2.1"], "count_mode": "exact", "page_size": 10}},
             ),
             response_examples=(
                 {"description": "Section search result page.", "content": {"results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["s1"]}], "access": {"tier": "mcp"}}},
             ),
             scopes=("sections:search",),
-            selection_hint="Use for clause-language retrieval, taxonomy searches, and agreement-section sampling.",
+            selection_hint="Use for clause-language retrieval by taxonomy node, and agreement-section sampling.",
             negative_guidance=(
                 "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
                 "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
+                "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it.",
             ),
             pagination="page",
             access_behavior="strict_scope_required",
@@ -308,15 +311,17 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement",
-            description="Fetch one agreement by UUID, including its metadata (parties, counsel, consideration, deal status) and the agreement XML. XML is redacted to headings and structure unless the caller holds the full-text scope; metadata fields are always returned.",
+            description="Fetch one agreement by UUID. Returns metadata (parties, counsel, consideration, deal status) only by default, which keeps the response small. Pass include_xml=true to also return the agreement XML (redacted to headings and structure unless the caller holds the full-text scope). The response always reports xml_included.",
             input_schema=_schema_input_schema(McpAgreementArgsSchema()),
             output_schema=_get_agreement_output_schema(),
             examples=(
-                {"description": "Fetch one agreement body.", "arguments": {"agreement_uuid": "a1"}},
+                {"description": "Fetch agreement metadata only (default).", "arguments": {"agreement_uuid": "a1"}},
+                {"description": "Fetch agreement metadata plus XML.", "arguments": {"agreement_uuid": "a1", "include_xml": True}},
             ),
             response_examples=(
-                {"description": "Redacted agreement response without fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml": "<document />", "is_redacted": True}},
-                {"description": "Full agreement response with fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml": "<document><article>...</article></document>", "is_redacted": False}},
+                {"description": "Metadata-only response (default).", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml_included": False}},
+                {"description": "Redacted agreement response with include_xml=true and no fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml_included": True, "xml": "<document />", "is_redacted": True}},
+                {"description": "Full agreement response with include_xml=true and fulltext scope.", "content": {"target": "Target A", "acquirer": "Acquirer A", "xml_included": True, "xml": "<document><article>...</article></document>", "is_redacted": False}},
             ),
             scopes=("agreements:read",),
             selection_hint="Use when you already know the exact agreement UUID and need the agreement payload or XML.",
@@ -710,12 +715,13 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement_trends",
-            description="Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use for quick macro context; use list_agreements for row-level breakdowns.",
-            input_schema=_empty_schema(),
+            description="Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use `sections` to request only the parts you need; defaults to [ownership, target_industries]. The large `pairings` (every industry-by-industry cell) and `naics_catalog` sections are opt-in. Use for quick macro context; use list_agreements for row-level breakdowns.",
+            input_schema=_schema_input_schema(McpAgreementTrendsArgsSchema()),
             output_schema=_agreement_trends_output_schema(),
             examples=(
-                {"description": "Inspect ownership and industry trends.", "arguments": {}},
-                {"description": "Compare public/private deal mix and buyer-type patterns by year.", "arguments": {}},
+                {"description": "Inspect ownership and industry trends (default sections).", "arguments": {}},
+                {"description": "Fetch only the ownership mix.", "arguments": {"sections": ["ownership"]}},
+                {"description": "Include the industry-by-industry pairing matrix.", "arguments": {"sections": ["target_industries", "pairings"]}},
             ),
             response_examples=(
                 {"description": "Aggregated trend payload.", "content": {"ownership": {"mix_by_year": [{"year": 2020, "public_deal_count": 1}]}, "industries": {"target_industries_by_year": [{"year": 2020, "industry": "Crop Production"}]}}},
@@ -1014,11 +1020,13 @@ def call_tool(
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps
         handler_kwargs["reference_data_deps"] = reference_data_deps
+        handler_kwargs["payload"] = arguments
     result = spec.handler(**handler_kwargs)
-    output_errors = _validate_output_against_schema(spec.output_schema, result.structured_content)
+    normalized_content = _json_compatible_structure(result.structured_content)
+    output_errors = _validate_output_against_schema(spec.output_schema, normalized_content)
     if output_errors:
         raise McpOutputValidationError(output_errors)
-    return result
+    return McpToolResult(text=result.text, structured_content=normalized_content)
 
 
 __all__ = ["McpOutputValidationError", "McpToolResult", "call_tool", "tool_definitions"]
