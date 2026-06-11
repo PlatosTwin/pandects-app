@@ -148,6 +148,8 @@ The current MCP tools are:
 - `-32603` — the tool result violated its advertised output schema
 - `-32004` — a genuine tool failure (server-side)
 
+In `get_server_metrics`, a not-found tool result is counted under its own `not_found` error category (not the generic `http_exception`), since a bad identifier is a client mistake rather than a server fault. Note that metrics counters are per-process: in a multi-worker deployment each `get_server_metrics` call reports only the worker that served it, not a server-wide total.
+
 ### Progress notifications
 
 When a `tools/call` request includes `params._meta.progressToken` **and** the client advertises `Accept: text/event-stream`, the server returns a multi-event SSE stream:

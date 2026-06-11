@@ -730,6 +730,17 @@ class McpTests(unittest.TestCase):
         self.assertEqual(failed_message, "Tool request failed.")
         self.assertIsNone(failed_data)
 
+    def test_tool_http_exception_category_separates_not_found(self):
+        from werkzeug.exceptions import InternalServerError, NotFound
+
+        from backend.mcp.routes.helpers import _tool_http_exception_category
+
+        # A 404 is a client mistake (bad identifier), so it gets its own metrics bucket
+        # rather than being lumped under the generic http_exception category.
+        self.assertEqual(_tool_http_exception_category(BadRequest()), "validation")
+        self.assertEqual(_tool_http_exception_category(NotFound()), "not_found")
+        self.assertEqual(_tool_http_exception_category(InternalServerError()), "http_exception")
+
     def test_get_section_not_found_returns_distinct_error(self):
         res = self._call_tool(
             "get_section", {"section_uuid": "00000000-0000-0000-0000-000000000099"}

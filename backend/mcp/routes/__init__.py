@@ -38,6 +38,7 @@ from backend.mcp.routes.helpers import (
     _resource_definitions,
     _sse_retry_probe_response,
     _stream_tool_call_response,
+    _tool_http_exception_category,
     _tool_http_exception_response,
     metrics_registry,
 )
@@ -351,7 +352,7 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
                     request_id=request_id,
                     scope_count=len(principal.scopes),
-                    error_category="http_exception",
+                    error_category=_tool_http_exception_category(exc),
                 )
                 error_code, error_message, error_data = _tool_http_exception_response(exc)
                 return _json_rpc_error(
