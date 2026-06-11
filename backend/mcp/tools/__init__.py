@@ -535,7 +535,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_server_metrics",
-            description="Operator-oriented MCP telemetry: per-tool call counts, latency buckets, error categories, and auth-failure counts since the server started. Not needed for research workflows.",
+            description="Operator-oriented MCP telemetry: per-tool call counts, latency buckets, error categories, and auth-failure counts since the server started. Counters are per-process, so in a multi-worker deployment each call reports only the worker that served it, not a server-wide total. Not needed for research workflows.",
             input_schema=_empty_schema(),
             output_schema=_metrics_output_schema(),
             examples=(

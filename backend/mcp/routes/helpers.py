@@ -59,6 +59,20 @@ def _tool_http_exception_response(
     return -32004, "Tool request failed.", None
 
 
+def _tool_http_exception_category(exc: HTTPException) -> str:
+    """Metrics error category for a tool HTTPException.
+
+    A 404 is a client mistake (bad identifier), not a server fault, so it gets its own
+    bucket instead of being lumped under the generic ``http_exception`` category. Mirrors
+    the code mapping in ``_tool_http_exception_response``.
+    """
+    if exc.code == 400:
+        return "validation"
+    if exc.code == 404:
+        return "not_found"
+    return "http_exception"
+
+
 def _client_prefers_sse() -> bool:
     accept_header = request.headers.get("Accept", "") or ""
     if not accept_header:
@@ -319,7 +333,7 @@ def _stream_tool_call_response(
                 latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
                 request_id=request_id,
                 scope_count=scope_count,
-                error_category="http_exception",
+                error_category=_tool_http_exception_category(exc),
             )
             error_code, error_message, error_data = _tool_http_exception_response(exc)
             error_payload: dict[str, object] = {"code": error_code, "message": error_message}
