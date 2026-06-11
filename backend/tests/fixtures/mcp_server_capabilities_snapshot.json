@@ -1099,7 +1099,7 @@
                 "agreement_uuid": "a1",
                 "section_uuid": "00000000-0000-0000-0000-000000000001",
                 "standard_id": [
-                  "s1"
+                  "5e59453aaa9255c4"
                 ]
               }
             ]
@@ -2997,7 +2997,7 @@
             "agreement_uuid": "a1",
             "section_uuid": "00000000-0000-0000-0000-000000000001",
             "standard_id": [
-              "s1"
+              "5e59453aaa9255c4"
             ]
           },
           "description": "Exact section payload."
@@ -3818,7 +3818,7 @@
             "snippet": "...disproportionate effects on the Company relative to others in the industry...",
             "source_length": 512,
             "standard_id": [
-              "1.2"
+              "1314b4b7cda311c9"
             ]
           },
           "description": "Focused section snippet."
