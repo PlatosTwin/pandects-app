@@ -32,6 +32,31 @@ PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE = "Protected resource metadata is unavail
 INVALID_JSON_RPC_PAYLOAD_MESSAGE = "Request body must be a JSON object."
 AUTHORIZATION_ERROR_MESSAGE = "You do not have permission to call this tool."
 BAD_TOOL_REQUEST_MESSAGE = "Tool request was invalid."
+NOT_FOUND_MESSAGE = (
+    "The requested resource was not found. Verify the identifier (e.g. UUID) with a "
+    "search or list tool before retrying; this is a bad-request condition, not a "
+    "transient server error."
+)
+# JSON-RPC application error code for a tool that ran but found no matching resource.
+# Distinct from -32004 (a genuine tool failure) so callers can tell a fixable request
+# from a server-side fault. Stays clear of -32001/-32003 (auth) and -32602 (bad args).
+NOT_FOUND_ERROR_CODE = -32002
+
+
+def _tool_http_exception_response(
+    exc: HTTPException,
+) -> tuple[int, str, dict[str, object] | None]:
+    """Map a tool HTTPException to a (jsonrpc_code, message, data) triple.
+
+    Distinguishes invalid-argument (400) and not-found (404) so an agent can tell a
+    fixable request from a genuine server failure. Other statuses stay opaque. Used by
+    both the JSON and SSE dispatch paths to keep their error contracts identical.
+    """
+    if exc.code == 400:
+        return -32602, BAD_TOOL_REQUEST_MESSAGE, None
+    if exc.code == 404:
+        return NOT_FOUND_ERROR_CODE, NOT_FOUND_MESSAGE, {"category": "not_found", "status_code": 404}
+    return -32004, "Tool request failed.", None
 
 
 def _client_prefers_sse() -> bool:
@@ -296,14 +321,15 @@ def _stream_tool_call_response(
                 scope_count=scope_count,
                 error_category="http_exception",
             )
+            error_code, error_message, error_data = _tool_http_exception_response(exc)
+            error_payload: dict[str, object] = {"code": error_code, "message": error_message}
+            if error_data is not None:
+                error_payload["data"] = error_data
             yield _encode_sse_event(
                 {
                     "jsonrpc": "2.0",
                     "id": request_id,
-                    "error": {
-                        "code": -32602 if exc.code == 400 else -32004,
-                        "message": BAD_TOOL_REQUEST_MESSAGE if exc.code == 400 else "Tool request failed.",
-                    },
+                    "error": error_payload,
                 }
             )
             return
