@@ -14,7 +14,7 @@ import time
 import uuid
 
 from flask import abort
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import BadRequest
 
 from backend.auth.mcp_runtime import ExternalIdentity, mcp_oidc_issuer
 from backend.routes.auth.zitadel_config import (
@@ -31,6 +31,24 @@ from backend.routes.deps import AuthDeps
 # Module-level cache so tests can clear it between cases without reaching into
 # the client instance owned by the blueprint closure.
 _TOKEN_CACHE: dict[str, object] = {}
+
+
+class ZitadelUnverifiedEmailError(BadRequest):
+    """ZITADEL returned the user, but without a verified email address.
+
+    Subclasses ``BadRequest`` so generic HTTPException handling (error
+    handlers, rollbacks, response shaping) is unchanged; callers that need
+    to branch on this condition catch the type instead of matching the
+    description string.
+    """
+
+    description = "Auth provider did not return a verified email address."
+
+
+class ZitadelEmailVerificationRequiredError(BadRequest):
+    """Password sign-in reached an account whose email is not yet verified."""
+
+    description = "Verify your email before signing in."
 
 
 class ZitadelApiClient:
@@ -330,10 +348,8 @@ class ZitadelApiClient:
             abort(502, description="ZITADEL did not return a user identifier.")
         try:
             return self.user_identity(user_id=user_id.strip())
-        except HTTPException as exc:
-            if exc.code == 400 and exc.description == "Auth provider did not return a verified email address.":
-                abort(400, description="Verify your email before signing in.")
-            raise
+        except ZitadelUnverifiedEmailError:
+            raise ZitadelEmailVerificationRequiredError()
 
     def user_identity(self, *, user_id: str) -> ExternalIdentity:
         payload = self.request(
@@ -352,7 +368,7 @@ class ZitadelApiClient:
         email = email_payload.get("email")
         is_verified = email_payload.get("isVerified")
         if not isinstance(email, str) or not email.strip() or is_verified is not True:
-            abort(400, description="Auth provider did not return a verified email address.")
+            raise ZitadelUnverifiedEmailError()
         profile = human.get("profile")
         profile_dict = profile if isinstance(profile, dict) else {}
         display_name = profile_dict.get("displayName")

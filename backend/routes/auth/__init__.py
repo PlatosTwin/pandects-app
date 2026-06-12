@@ -35,7 +35,10 @@ from backend.routes.auth.cookies import (
     _set_zitadel_web_cookie,
 )
 from backend.routes.auth.mcp_oauth import register_mcp_oauth_routes
-from backend.routes.auth.zitadel_api import ZitadelApiClient
+from backend.routes.auth.zitadel_api import (
+    ZitadelApiClient,
+    ZitadelEmailVerificationRequiredError,
+)
 from backend.routes.auth.zitadel_api import _TOKEN_CACHE as _ZITADEL_API_TOKEN_CACHE
 from backend.routes.auth.zitadel_config import (
     _build_pkce_challenge,
@@ -1386,12 +1389,12 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         try:
             try:
                 external_identity = zitadel_api.session_identity(email=email, password=password)
+            except ZitadelEmailVerificationRequiredError:
+                # Reveals "account exists but unverified". Equalize timing
+                # with the invalid-credentials path below.
+                deps._auth_enumeration_delay()
+                raise
             except HTTPException as exc:
-                if exc.code == 400 and exc.description == "Verify your email before signing in.":
-                    # Reveals "account exists but unverified". Equalize timing
-                    # with the invalid-credentials path below.
-                    deps._auth_enumeration_delay()
-                    raise
                 if exc.code in {400, 401, 403, 404, 409}:
                     migrated = _maybe_migrate_local_password_user(email=email, password=password)
                     if migrated is None:
