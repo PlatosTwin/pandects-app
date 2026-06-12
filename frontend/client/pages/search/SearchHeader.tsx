@@ -49,6 +49,9 @@ export function SearchHeader({
           <div
             role="radiogroup"
             aria-label="Search mode"
+            // Roving focus lives on the radio buttons; the group itself is
+            // only programmatically focusable.
+            tabIndex={-1}
             className="grid min-h-10 w-full grid-cols-3 items-center rounded-lg border border-border bg-muted/40 p-1 sm:w-auto sm:rounded-full"
             onKeyDown={(e) => {
               if (

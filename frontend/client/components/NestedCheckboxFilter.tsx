@@ -126,8 +126,14 @@ export function NestedCheckboxFilter({
     return `${totalSelected} selected`;
   }, [label, labelById, selectedValues, totalSelected, totalOptions]);
 
-  const searchLeafValues = useMemo(
-    () => (obj: ClauseTypeTree, query: string, path: string[] = []) => {
+  const searchLeafValues = useMemo(() => {
+    // Hoisted declaration so the recursive self-reference resolves without
+    // reading the const binding before it is initialized.
+    function walk(
+      obj: ClauseTypeTree,
+      query: string,
+      path: string[] = [],
+    ): SearchResult[] {
       const results: SearchResult[] = [];
       for (const [key, value] of Object.entries(obj)) {
         if (isLeafNode(value)) {
@@ -140,16 +146,14 @@ export function NestedCheckboxFilter({
         } else {
           const children = getChildren(value);
           if (children) {
-            results.push(
-              ...searchLeafValues(children, query, [...path, key]),
-            );
+            results.push(...walk(children, query, [...path, key]));
           }
         }
       }
       return results;
-    },
-    [],
-  );
+    }
+    return walk;
+  }, []);
 
   useEffect(() => {
     if (!searchTerm.trim()) {

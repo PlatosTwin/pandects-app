@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildSearchParams } from "@/lib/url-params";
 import { logger } from "@/lib/logger";
 import { LARGE_PAGE_SIZE_FOR_CSV, DEFAULT_PAGE } from "@/lib/constants";
-import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
 import {
   formatCompactCurrencyValue,
@@ -18,22 +17,18 @@ import type {
   TransactionSearchResponse,
   TransactionSearchResult,
 } from "@shared/transactions";
-
-interface CommittedQuery {
-  filters: SearchFilters;
-  clauseTypesNested?: ClauseTypeTree;
-  sortBy: "year" | "target" | "acquirer" | null;
-  sortDirection: "asc" | "desc";
-  // Bumped on every commit so the queryKey is distinct even when filters/sort
-  // are unchanged from the previous attempt. Without this, a Search re-click
-  // after a failed fetch wouldn't refetch — React Query would just return the
-  // cached error for the same key.
-  nonce: number;
-}
+import {
+  useCommittedSearchCore,
+  type CommittedQuery,
+  type SortDirection,
+  type SortField,
+} from "@/hooks/use-committed-search";
 
 const EMPTY_ACCESS: TransactionSearchResponse["access"] = { tier: "anonymous" };
 
-function buildTransactionQueryString(committed: CommittedQuery): string {
+function buildTransactionQueryString(
+  committed: CommittedQuery<SearchFilters>,
+): string {
   const params = buildSearchParams(committed.filters, committed.clauseTypesNested);
   if (committed.sortBy) {
     params.set("sort_by", committed.sortBy);
@@ -41,6 +36,18 @@ function buildTransactionQueryString(committed: CommittedQuery): string {
   }
   return params.toString();
 }
+
+const TRANSACTIONS_SEARCH_CONFIG = {
+  buildQueryString: buildTransactionQueryString,
+  fetchUrl: (queryString: string) =>
+    apiUrl(`v1/search/agreements?${queryString}`),
+  queryKey: (params: { q: string; n: number }) =>
+    keys.transactions.search(params),
+  getResults: (response: TransactionSearchResponse) => response.results,
+  getResultId: (result: TransactionSearchResult) => result.agreement_uuid,
+  silentNotFound: false,
+  logLabel: "Agreement search failed:",
+};
 
 /**
  * Declarative transaction (deal) search. Unlike `useTaxClauses` / `useSections`,
@@ -50,62 +57,22 @@ function buildTransactionQueryString(committed: CommittedQuery): string {
  */
 export function useTransactionSearch() {
   const queryClient = useQueryClient();
-  const [committed, setCommitted] = useState<CommittedQuery | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [selectedResults, setSelectedResults] = useState<Set<string>>(new Set());
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const nonceRef = useRef(0);
 
-  const committedQueryString = useMemo(
-    () => (committed ? buildTransactionQueryString(committed) : ""),
-    [committed],
-  );
+  const core = useCommittedSearchCore<
+    SearchFilters,
+    TransactionSearchResponse,
+    TransactionSearchResult
+  >(TRANSACTIONS_SEARCH_CONFIG);
+  const { responseData } = core;
 
-  const query = useQuery<TransactionSearchResponse>({
-    queryKey: keys.transactions.search({
-      q: committedQueryString,
-      n: committed?.nonce ?? 0,
-    }),
-    enabled: !IS_SERVER_RENDER && committed !== null,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const response = await authFetch(
-        apiUrl(`v1/search/agreements?${committedQueryString}`),
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return (await response.json()) as TransactionSearchResponse;
-    },
-  });
-
-  const responseData: TransactionSearchResponse | null = query.data ?? null;
-  const results = responseData?.results ?? [];
+  const results = core.results;
   const totalCount = responseData?.total_count ?? 0;
   const totalCountIsApproximate = responseData?.total_count_is_approximate ?? false;
   const totalPages = responseData?.total_pages ?? 0;
   const hasNext = responseData?.has_next ?? false;
   const hasPrev = responseData?.has_prev ?? false;
   const access = responseData?.access ?? EMPTY_ACCESS;
-  const isSearching = query.isFetching;
-
-  // Clear selection whenever a new committed query is issued.
-  useEffect(() => {
-    if (committed !== null) {
-      setSelectedResults(new Set());
-    }
-  }, [committed]);
-
-  // Surface real errors via the error modal.
-  useEffect(() => {
-    if (!query.error) return;
-    logger.error("Agreement search failed:", query.error);
-    setErrorMessage(
-      "Network error: unable to reach the back end database. Check your connection and try again.",
-    );
-    setShowErrorModal(true);
-  }, [query.error]);
 
   const performSearch = useCallback(
     async ({
@@ -117,55 +84,25 @@ export function useTransactionSearch() {
     }: {
       filters: SearchFilters;
       clauseTypesNested?: ClauseTypeTree;
-      sortBy: "year" | "target" | "acquirer" | null;
-      sortDirection: "asc" | "desc";
+      sortBy: SortField | null;
+      sortDirection: SortDirection;
       markAsSearched?: boolean;
     }) => {
-      setShowErrorModal(false);
       if (markAsSearched) setHasSearched(true);
-      nonceRef.current += 1;
-      setCommitted({
+      core.commit({
         filters,
         clauseTypesNested,
         sortBy,
         sortDirection,
-        nonce: nonceRef.current,
       });
     },
-    [],
+    [core.commit],
   );
 
   const clear = useCallback(() => {
-    setCommitted(null);
+    core.uncommit();
     setHasSearched(false);
-    setSelectedResults(new Set());
-  }, []);
-
-  const toggleResultSelection = useCallback((agreementUuid: string) => {
-    setSelectedResults((prev) => {
-      const next = new Set(prev);
-      if (next.has(agreementUuid)) next.delete(agreementUuid);
-      else next.add(agreementUuid);
-      return next;
-    });
-  }, []);
-
-  const toggleSelectAll = useCallback(() => {
-    setSelectedResults((prev) => {
-      const allSelected = results.every((r) => prev.has(r.agreement_uuid));
-      const next = new Set(prev);
-      if (allSelected) {
-        results.forEach((r) => next.delete(r.agreement_uuid));
-      } else {
-        results.forEach((r) => next.add(r.agreement_uuid));
-      }
-      return next;
-    });
-  }, [results]);
-
-  const clearSelection = useCallback(() => {
-    setSelectedResults(new Set());
-  }, []);
+  }, [core.uncommit]);
 
   const csvEscape = (value: string | number | null | undefined): string => {
     if (value === null || value === undefined || value === "") return "";
@@ -177,8 +114,8 @@ export function useTransactionSearch() {
     async (clauseTypesNested?: ClauseTypeTree, filters?: SearchFilters) => {
       let rows: TransactionSearchResult[] = [];
 
-      if (selectedResults.size > 0) {
-        rows = results.filter((r) => selectedResults.has(r.agreement_uuid));
+      if (core.selectedResults.size > 0) {
+        rows = results.filter((r) => core.selectedResults.has(r.agreement_uuid));
       } else if (filters) {
         try {
           const searchFilters = {
@@ -259,23 +196,18 @@ export function useTransactionSearch() {
       const link = document.createElement("a");
       const objectUrl = URL.createObjectURL(blob);
       link.href = objectUrl;
-      const selectedText = selectedResults.size > 0 ? "_selected" : "";
+      const selectedText = core.selectedResults.size > 0 ? "_selected" : "";
       link.download = `ma_deals${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     },
-    [results, selectedResults, queryClient],
+    [results, core.selectedResults, queryClient],
   );
 
-  const closeErrorModal = useCallback(() => {
-    setShowErrorModal(false);
-    setErrorMessage("");
-  }, []);
-
   return {
-    isSearching,
+    isSearching: core.isSearching,
     results,
     hasSearched,
     totalCount,
@@ -284,15 +216,15 @@ export function useTransactionSearch() {
     hasNext,
     hasPrev,
     access,
-    showErrorModal,
-    errorMessage,
-    selectedResults,
+    showErrorModal: core.showErrorModal,
+    errorMessage: core.errorMessage,
+    selectedResults: core.selectedResults,
     performSearch,
     clear,
-    closeErrorModal,
-    toggleResultSelection,
-    toggleSelectAll,
-    clearSelection,
+    closeErrorModal: core.closeErrorModal,
+    toggleResultSelection: core.toggleResultSelection,
+    toggleSelectAll: core.toggleSelectAll,
+    clearSelection: core.clearSelection,
     downloadCSV,
   };
 }

@@ -87,11 +87,6 @@ const TrendsPercentLineChart = lazy(async () => {
   return { default: module.TrendsPercentLineChart };
 });
 
-type LabeledKey = {
-  key: string;
-  label: string;
-};
-
 type TrendsHeatmapCell = {
   displayValue: string;
   intensity: number;

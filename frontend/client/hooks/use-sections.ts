@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { SearchFilters, SearchResult, SearchResponse } from "@shared/sections";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams } from "@/lib/url-params";
@@ -12,22 +12,13 @@ import {
   LARGE_PAGE_SIZE_FOR_CSV,
 } from "@/lib/constants";
 import { logger } from "@/lib/logger";
-import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
-
-type SortField = "year" | "target" | "acquirer";
-
-interface CommittedQuery {
-  filters: SearchFilters;
-  clauseTypesNested?: ClauseTypeTree;
-  sortBy: SortField | null;
-  sortDirection: "asc" | "desc";
-  // Bumped on every commit so the queryKey is distinct even when filters/sort
-  // are unchanged from the previous attempt. Without this, a Search re-click
-  // after a failed fetch wouldn't refetch — React Query would just return the
-  // cached error for the same key.
-  nonce: number;
-}
+import {
+  useCommittedSearchCore,
+  type CommittedQuery,
+  type SortDirection,
+  type SortField,
+} from "@/hooks/use-committed-search";
 
 const EMPTY_FILTERS: SearchFilters = {
   year: [],
@@ -58,17 +49,10 @@ const EMPTY_FILTERS: SearchFilters = {
 
 const EMPTY_ACCESS: SearchResponse["access"] = { tier: "anonymous" };
 
-class SectionsNotFoundError extends Error {
-  constructor() {
-    super("NOT_FOUND");
-    this.name = "SectionsNotFoundError";
-  }
-}
-
 function sortResultsArray(
   results: SearchResult[],
   sort_by: SortField | null,
-  direction: "asc" | "desc",
+  direction: SortDirection,
 ): SearchResult[] {
   if (!sort_by) return results;
   return [...results].sort((a, b) => {
@@ -90,7 +74,9 @@ function sortResultsArray(
   });
 }
 
-function buildSectionsQueryString(committed: CommittedQuery): string {
+function buildSectionsQueryString(
+  committed: CommittedQuery<SearchFilters>,
+): string {
   const params = buildSearchParams(committed.filters, committed.clauseTypesNested);
   if (committed.sortBy) {
     params.append("sort_by", committed.sortBy);
@@ -98,6 +84,32 @@ function buildSectionsQueryString(committed: CommittedQuery): string {
   }
   return params.toString();
 }
+
+const SECTIONS_SEARCH_CONFIG = {
+  buildQueryString: buildSectionsQueryString,
+  fetchUrl: (queryString: string) => apiUrl(`v1/sections?${queryString}`),
+  queryKey: (params: { q: string; n: number }) => keys.sections.search(params),
+  getResults: (response: SearchResponse) => response.results,
+  getResultId: (result: SearchResult) => result.id,
+  silentNotFound: true,
+  logLabel: "Search failed:",
+  trackHttpError: (status: number, statusText: string) => {
+    trackEvent("api_error", {
+      endpoint: "api/sections",
+      status,
+      status_text: statusText,
+    });
+  },
+  trackFailure: (error: unknown) => {
+    trackEvent("api_error", {
+      endpoint: "api/sections",
+      kind:
+        error instanceof TypeError && error.message.includes("fetch")
+          ? "network"
+          : "unknown",
+    });
+  },
+};
 
 /**
  * Declarative sections search.
@@ -107,58 +119,25 @@ function buildSectionsQueryString(committed: CommittedQuery): string {
  * `performSearch`, `goToPage`, etc. Editing a sidebar filter does NOT refetch.
  *
  * Sort changes are applied both server-side (via the committed query) and
- * client-side via a `useMemo` over `query.data`. The client-side pass keeps
- * the visible order responsive when the user clicks a sort header before the
- * follow-up fetch lands.
+ * client-side via a `useMemo` over the fetched results. The client-side pass
+ * keeps the visible order responsive when the user clicks a sort header
+ * before the follow-up fetch lands.
  */
 export function useSections() {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<SearchFilters>({ ...EMPTY_FILTERS });
   const [currentSort, setCurrentSort] = useState<SortField | null>("year");
-  const [sort_direction, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [committed, setCommitted] = useState<CommittedQuery | null>(null);
-  const [selectedResults, setSelectedResults] = useState<Set<string>>(new Set());
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [sort_direction, setSortDirection] = useState<SortDirection>("desc");
   const fireResultsLoadedRef = useRef(false);
-  const nonceRef = useRef(0);
 
-  const committedQueryString = useMemo(
-    () => (committed ? buildSectionsQueryString(committed) : ""),
-    [committed],
+  const core = useCommittedSearchCore<SearchFilters, SearchResponse, SearchResult>(
+    SECTIONS_SEARCH_CONFIG,
   );
+  const { committed, responseData } = core;
 
-  const query = useQuery<SearchResponse>({
-    queryKey: keys.sections.search({
-      q: committedQueryString,
-      n: committed?.nonce ?? 0,
-    }),
-    enabled: !IS_SERVER_RENDER && committed !== null,
-    staleTime: 60 * 1000,
-    retry: (failureCount, error) =>
-      !(error instanceof SectionsNotFoundError) && failureCount < 1,
-    queryFn: async () => {
-      const res = await authFetch(apiUrl(`v1/sections?${committedQueryString}`));
-      if (!res.ok) {
-        if (res.status === 404) throw new SectionsNotFoundError();
-        trackEvent("api_error", {
-          endpoint: "api/sections",
-          status: res.status,
-          status_text: res.statusText,
-        });
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
-      return (await res.json()) as SearchResponse;
-    },
-  });
-
-  const responseData: SearchResponse | null = query.data ?? null;
   const searchResults = useMemo(
-    () =>
-      responseData
-        ? sortResultsArray(responseData.results, currentSort, sort_direction)
-        : [],
-    [responseData, currentSort, sort_direction],
+    () => sortResultsArray(core.results, currentSort, sort_direction),
+    [core.results, currentSort, sort_direction],
   );
   const total_count = responseData?.total_count ?? 0;
   const totalCountIsApproximate = responseData?.total_count_is_approximate ?? false;
@@ -167,14 +146,6 @@ export function useSections() {
   const has_prev = responseData?.has_prev ?? false;
   const access = responseData?.access ?? EMPTY_ACCESS;
   const hasSearched = committed !== null;
-  const isSearching = query.isFetching;
-
-  // Clear selection whenever a new committed query is issued.
-  useEffect(() => {
-    if (committed !== null) {
-      setSelectedResults(new Set());
-    }
-  }, [committed]);
 
   // Fire results-loaded telemetry exactly once per Search/Enter commit.
   useEffect(() => {
@@ -198,25 +169,6 @@ export function useSections() {
         : { ...prev, page: responseData.page, page_size: responseData.page_size },
     );
   }, [responseData]);
-
-  // Surface real errors (non-404) via the error modal. 404 stays silent and
-  // preserves prior results, matching the imperative hook's behavior.
-  useEffect(() => {
-    if (!query.error) return;
-    if (query.error instanceof SectionsNotFoundError) return;
-    logger.error("Search failed:", query.error);
-    trackEvent("api_error", {
-      endpoint: "api/sections",
-      kind:
-        query.error instanceof TypeError && query.error.message.includes("fetch")
-          ? "network"
-          : "unknown",
-    });
-    setErrorMessage(
-      "Network error: unable to reach the back end database. Check your connection and try again.",
-    );
-    setShowErrorModal(true);
-  }, [query.error]);
 
   const updateFilter = useCallback(
     (field: keyof SearchFilters, value: string | string[] | number) => {
@@ -264,7 +216,7 @@ export function useSections() {
     [],
   );
 
-  const setSortDirectionDirect = useCallback((direction: "asc" | "desc") => {
+  const setSortDirectionDirect = useCallback((direction: SortDirection) => {
     setSortDirection(direction);
   }, []);
 
@@ -275,7 +227,7 @@ export function useSections() {
       markAsSearched: boolean = resetPage,
       filtersOverride?: SearchFilters,
       overrideSortBy?: SortField | null,
-      overrideSortDirection?: "asc" | "desc",
+      overrideSortDirection?: SortDirection,
     ) => {
       const baseFilters = filtersOverride ?? filters;
       const effective: SearchFilters = resetPage
@@ -286,8 +238,6 @@ export function useSections() {
       }
       const sortBy = overrideSortBy ?? currentSort;
       const sortDir = overrideSortDirection ?? sort_direction;
-
-      setShowErrorModal(false);
 
       if (markAsSearched) {
         fireResultsLoadedRef.current = true;
@@ -304,25 +254,23 @@ export function useSections() {
         });
       }
 
-      nonceRef.current += 1;
-      setCommitted({
+      core.commit({
         filters: effective,
         clauseTypesNested,
         sortBy,
         sortDirection: sortDir,
-        nonce: nonceRef.current,
       });
     },
-    [filters, currentSort, sort_direction],
+    [filters, currentSort, sort_direction, core.commit],
   );
 
   const downloadCSV = useCallback(
     async (clauseTypesNested?: ClauseTypeTree) => {
       let resultsToDownload: SearchResult[] = [];
 
-      if (selectedResults.size > 0) {
+      if (core.selectedResults.size > 0) {
         resultsToDownload = searchResults.filter((result) =>
-          selectedResults.has(result.id),
+          core.selectedResults.has(result.id),
         );
       } else {
         try {
@@ -368,8 +316,8 @@ export function useSections() {
       if (resultsToDownload.length === 0) return;
 
       trackEvent("sections_csv_download_click", {
-        mode: selectedResults.size > 0 ? "selected" : "all",
-        selected_count: selectedResults.size,
+        mode: core.selectedResults.size > 0 ? "selected" : "all",
+        selected_count: core.selectedResults.size,
         downloaded_count: resultsToDownload.length,
         years_count: filters.year?.length ?? 0,
         targets_count: filters.target?.length ?? 0,
@@ -409,14 +357,14 @@ export function useSections() {
       const link = document.createElement("a");
       const objectUrl = URL.createObjectURL(blob);
       link.href = objectUrl;
-      const selectedText = selectedResults.size > 0 ? "_selected" : "";
+      const selectedText = core.selectedResults.size > 0 ? "_selected" : "";
       link.download = `ma_clauses${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     },
-    [filters, searchResults, selectedResults, queryClient],
+    [filters, searchResults, core.selectedResults, queryClient],
   );
 
   const clearFilters = useCallback(() => {
@@ -425,9 +373,8 @@ export function useSections() {
       agreement_uuid: undefined,
       section_uuid: undefined,
     });
-    setSelectedResults(new Set());
-    setCommitted(null);
-  }, []);
+    core.uncommit();
+  }, [core.uncommit]);
 
   const goToPage = useCallback(
     async (page: number, clauseTypesNested?: ClauseTypeTree) => {
@@ -447,11 +394,6 @@ export function useSections() {
     [filters, performSearch],
   );
 
-  const closeErrorModal = useCallback(() => {
-    setShowErrorModal(false);
-    setErrorMessage("");
-  }, []);
-
   const sortResults = useCallback((sort_by: SortField) => {
     setCurrentSort(sort_by);
   }, []);
@@ -460,39 +402,11 @@ export function useSections() {
     setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
   }, []);
 
-  const toggleResultSelection = useCallback((resultId: string) => {
-    setSelectedResults((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(resultId)) newSet.delete(resultId);
-      else newSet.add(resultId);
-      return newSet;
-    });
-  }, []);
-
-  const toggleSelectAll = useCallback(() => {
-    const allSelected = searchResults.every((result) =>
-      selectedResults.has(result.id),
-    );
-    setSelectedResults((prev) => {
-      const newSet = new Set(prev);
-      if (allSelected) {
-        searchResults.forEach((result) => newSet.delete(result.id));
-      } else {
-        searchResults.forEach((result) => newSet.add(result.id));
-      }
-      return newSet;
-    });
-  }, [searchResults, selectedResults]);
-
-  const clearSelection = useCallback(() => {
-    setSelectedResults(new Set());
-  }, []);
-
   return {
     filters,
-    isSearching,
+    isSearching: core.isSearching,
     searchResults,
-    selectedResults,
+    selectedResults: core.selectedResults,
     hasSearched,
     access,
     total_count,
@@ -503,8 +417,8 @@ export function useSections() {
     currentSort,
     currentPage: filters.page || 1,
     page_size: filters.page_size || DEFAULT_PAGE_SIZE,
-    showErrorModal,
-    errorMessage,
+    showErrorModal: core.showErrorModal,
+    errorMessage: core.errorMessage,
     sort_direction,
     actions: {
       updateFilter,
@@ -516,13 +430,13 @@ export function useSections() {
       clearFilters,
       goToPage,
       changePageSize,
-      closeErrorModal,
+      closeErrorModal: core.closeErrorModal,
       sortResults,
       toggleSortDirection,
       setSortDirection: setSortDirectionDirect,
-      toggleResultSelection,
-      toggleSelectAll,
-      clearSelection,
+      toggleResultSelection: core.toggleResultSelection,
+      toggleSelectAll: core.toggleSelectAll,
+      clearSelection: core.clearSelection,
     },
   };
 }

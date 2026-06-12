@@ -190,7 +190,6 @@ export default function Account() {
   const [usageTotal, setUsageTotal] = useState(0);
   const [usagePeriod, setUsagePeriod] = useState<UsagePeriod>("1m");
   const [usageKeyFilter, setUsageKeyFilter] = useState("all");
-  const [usageLoading, setUsageLoading] = useState(false);
   const usagePeriodRef = useRef<UsagePeriod>("1m");
   const usageKeyFilterRef = useRef("all");
   const usageRequestRunRef = useRef(0);
@@ -225,31 +224,22 @@ export default function Account() {
   );
 
   const loadUsageData = useCallback(
-    async (
-      { period, keyId, silent = false }: { period: UsagePeriod; keyId: string; silent?: boolean },
-    ) => {
+    async ({ period, keyId }: { period: UsagePeriod; keyId: string }) => {
       const runId = ++usageRequestRunRef.current;
-      if (!silent) setUsageLoading(true);
-      try {
-        const usage = await withAuthWakeRetry(async () => {
-          try {
-            return await fetchUsageForSelection(period, keyId);
-          } catch (error) {
-            if (isAuthWakeupError(error)) {
-              setAuthWakePending(true);
-            }
-            throw error;
+      const usage = await withAuthWakeRetry(async () => {
+        try {
+          return await fetchUsageForSelection(period, keyId);
+        } catch (error) {
+          if (isAuthWakeupError(error)) {
+            setAuthWakePending(true);
           }
-        });
-        if (usageRequestRunRef.current !== runId) return;
-        setUsageByDay(usage.by_day);
-        setUsageTotal(usage.total);
-        setAuthWakePending(false);
-      } finally {
-        if (!silent && usageRequestRunRef.current === runId) {
-          setUsageLoading(false);
+          throw error;
         }
-      }
+      });
+      if (usageRequestRunRef.current !== runId) return;
+      setUsageByDay(usage.by_day);
+      setUsageTotal(usage.total);
+      setAuthWakePending(false);
     },
     [fetchUsageForSelection],
   );
@@ -280,7 +270,6 @@ export default function Account() {
       await loadUsageData({
         period: usagePeriodRef.current,
         keyId: usageKey,
-        silent: true,
       });
       setAccountDataLoaded(true);
       setAccountDataError(null);
@@ -315,7 +304,6 @@ export default function Account() {
       setUsageKeyFilter("all");
       usagePeriodRef.current = "1m";
       usageKeyFilterRef.current = "all";
-      setUsageLoading(false);
       setAccountDataLoaded(false);
       setAccountDataLoading(false);
       setAccountDataError(null);

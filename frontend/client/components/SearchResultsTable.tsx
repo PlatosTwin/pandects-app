@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import {
   BREAKPOINT_SM,
   DEFAULT_TRUNCATION_LENGTH,
-  LONG_TRUNCATION_LENGTH,
 } from "@/lib/constants";
 import { truncateText } from "@/lib/text-utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -318,9 +317,9 @@ export function SearchResultsTable({
 
             {/* Sort */}
             <div className="flex items-center gap-2">
-              <label className="hidden text-sm text-muted-foreground sm:inline">
+              <span className="hidden text-sm text-muted-foreground sm:inline">
                 Sort by:
-              </label>
+              </span>
               <Select
                 value={sort_by}
                 onValueChange={(value) =>
@@ -396,11 +395,6 @@ export function SearchResultsTable({
             const clauseTypeText = clauseTypeLabel
               ? truncateText(clauseTypeLabel, DEFAULT_TRUNCATION_LENGTH)
               : null;
-            const sectionSummary = `${result.article_title} \u2192 ${result.section_title}`;
-            const sectionSummaryText = truncateText(
-              sectionSummary,
-              LONG_TRUNCATION_LENGTH,
-            );
             const showDevFallbackPill =
               import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
 

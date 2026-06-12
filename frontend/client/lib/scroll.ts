@@ -4,7 +4,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-const easeOutCubic: EasingFn = (t) => 1 - Math.pow(1 - t, 3);
 const easeOutExpo: EasingFn = (t) =>
   t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
 

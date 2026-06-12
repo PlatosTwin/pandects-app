@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { SearchFilters } from "@shared/sections";
 import type {
   TaxClauseSearchResponse,
@@ -15,24 +15,16 @@ import {
   LARGE_PAGE_SIZE_FOR_CSV,
 } from "@/lib/constants";
 import { logger } from "@/lib/logger";
-import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
+import {
+  useCommittedSearchCore,
+  type CommittedQuery,
+  type SortDirection,
+  type SortField,
+} from "@/hooks/use-committed-search";
 
 export interface TaxClauseFilters extends SearchFilters {
   include_rep_warranty?: boolean;
-}
-
-type SortField = "year" | "target" | "acquirer";
-
-interface CommittedQuery {
-  filters: TaxClauseFilters;
-  sortBy: SortField | null;
-  sortDirection: "asc" | "desc";
-  // Bumped on every commit so the queryKey is distinct even when filters/sort
-  // are unchanged from the previous attempt. Without this, a Search re-click
-  // after a failed fetch wouldn't refetch — React Query would just return the
-  // cached error for the same key.
-  nonce: number;
 }
 
 const EMPTY_FILTERS: TaxClauseFilters = {
@@ -82,7 +74,9 @@ function buildTaxClauseParams(
   return params;
 }
 
-function buildCommittedQueryString(committed: CommittedQuery): string {
+function buildCommittedQueryString(
+  committed: CommittedQuery<TaxClauseFilters>,
+): string {
   const params = buildTaxClauseParams(committed.filters);
   if (committed.sortBy) {
     params.append("sort_by", committed.sortBy);
@@ -91,12 +85,32 @@ function buildCommittedQueryString(committed: CommittedQuery): string {
   return params.toString();
 }
 
-class TaxClauseNotFoundError extends Error {
-  constructor() {
-    super("NOT_FOUND");
-    this.name = "TaxClauseNotFoundError";
-  }
-}
+const TAX_CLAUSES_SEARCH_CONFIG = {
+  buildQueryString: buildCommittedQueryString,
+  fetchUrl: (queryString: string) => apiUrl(`v1/tax-clauses?${queryString}`),
+  queryKey: (params: { q: string; n: number }) =>
+    keys.taxClauses.search(params),
+  getResults: (response: TaxClauseSearchResponse) => response.results,
+  getResultId: (result: TaxClauseSearchResult) => result.id,
+  silentNotFound: true,
+  logLabel: "Tax clause search failed:",
+  trackHttpError: (status: number, statusText: string) => {
+    trackEvent("api_error", {
+      endpoint: "api/tax-clauses",
+      status,
+      status_text: statusText,
+    });
+  },
+  trackFailure: (error: unknown) => {
+    trackEvent("api_error", {
+      endpoint: "api/tax-clauses",
+      kind:
+        error instanceof TypeError && error.message.includes("fetch")
+          ? "network"
+          : "unknown",
+    });
+  },
+};
 
 /**
  * Declarative tax-clause search.
@@ -110,47 +124,17 @@ export function useTaxClauses() {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<TaxClauseFilters>({ ...EMPTY_FILTERS });
   const [currentSort, setCurrentSort] = useState<SortField | null>("year");
-  const [sort_direction, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [committed, setCommitted] = useState<CommittedQuery | null>(null);
-  const [selectedResults, setSelectedResults] = useState<Set<string>>(new Set());
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [sort_direction, setSortDirection] = useState<SortDirection>("desc");
   const fireResultsLoadedRef = useRef(false);
-  const nonceRef = useRef(0);
 
-  const committedQueryString = useMemo(
-    () => (committed ? buildCommittedQueryString(committed) : ""),
-    [committed],
-  );
+  const core = useCommittedSearchCore<
+    TaxClauseFilters,
+    TaxClauseSearchResponse,
+    TaxClauseSearchResult
+  >(TAX_CLAUSES_SEARCH_CONFIG);
+  const { committed, responseData } = core;
 
-  const query = useQuery<TaxClauseSearchResponse>({
-    queryKey: keys.taxClauses.search({
-      q: committedQueryString,
-      n: committed?.nonce ?? 0,
-    }),
-    enabled: !IS_SERVER_RENDER && committed !== null,
-    staleTime: 60 * 1000,
-    retry: (failureCount, error) =>
-      !(error instanceof TaxClauseNotFoundError) && failureCount < 1,
-    queryFn: async () => {
-      const res = await authFetch(
-        apiUrl(`v1/tax-clauses?${committedQueryString}`),
-      );
-      if (!res.ok) {
-        if (res.status === 404) throw new TaxClauseNotFoundError();
-        trackEvent("api_error", {
-          endpoint: "api/tax-clauses",
-          status: res.status,
-          status_text: res.statusText,
-        });
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
-      return (await res.json()) as TaxClauseSearchResponse;
-    },
-  });
-
-  const responseData: TaxClauseSearchResponse | null = query.data ?? null;
-  const searchResults = responseData?.results ?? [];
+  const searchResults = core.results;
   const total_count = responseData?.total_count ?? 0;
   const totalCountIsApproximate = responseData?.total_count_is_approximate ?? false;
   const total_pages = responseData?.total_pages ?? 0;
@@ -158,14 +142,6 @@ export function useTaxClauses() {
   const has_prev = responseData?.has_prev ?? false;
   const access = responseData?.access ?? EMPTY_ACCESS;
   const hasSearched = committed !== null;
-  const isSearching = query.isFetching;
-
-  // Clear selection whenever a new committed query is issued.
-  useEffect(() => {
-    if (committed !== null) {
-      setSelectedResults(new Set());
-    }
-  }, [committed]);
 
   // Fire results-loaded telemetry exactly once per Search/Enter commit.
   useEffect(() => {
@@ -189,25 +165,6 @@ export function useTaxClauses() {
         : { ...prev, page: responseData.page, page_size: responseData.page_size },
     );
   }, [responseData]);
-
-  // Surface real errors (non-404) via the error modal. 404 stays silent and
-  // preserves prior results, matching the imperative hook's behavior.
-  useEffect(() => {
-    if (!query.error) return;
-    if (query.error instanceof TaxClauseNotFoundError) return;
-    logger.error("Tax clause search failed:", query.error);
-    trackEvent("api_error", {
-      endpoint: "api/tax-clauses",
-      kind:
-        query.error instanceof TypeError && query.error.message.includes("fetch")
-          ? "network"
-          : "unknown",
-    });
-    setErrorMessage(
-      "Network error: unable to reach the back end database. Check your connection and try again.",
-    );
-    setShowErrorModal(true);
-  }, [query.error]);
 
   const updateFilter = useCallback(
     (field: keyof TaxClauseFilters, value: string | string[] | number | boolean) => {
@@ -250,7 +207,7 @@ export function useTaxClauses() {
       markAsSearched: boolean = resetPage,
       filtersOverride?: TaxClauseFilters,
       overrideSortBy?: SortField | null,
-      overrideSortDirection?: "asc" | "desc",
+      overrideSortDirection?: SortDirection,
     ) => {
       const base = filtersOverride ?? filters;
       const effective: TaxClauseFilters = resetPage ? { ...base, page: 1 } : base;
@@ -259,8 +216,6 @@ export function useTaxClauses() {
       }
       const sortBy = overrideSortBy ?? currentSort;
       const sortDir = overrideSortDirection ?? sort_direction;
-
-      setShowErrorModal(false);
 
       if (markAsSearched) {
         fireResultsLoadedRef.current = true;
@@ -277,21 +232,19 @@ export function useTaxClauses() {
         });
       }
 
-      nonceRef.current += 1;
-      setCommitted({
+      core.commit({
         filters: effective,
         sortBy,
         sortDirection: sortDir,
-        nonce: nonceRef.current,
       });
     },
-    [filters, currentSort, sort_direction],
+    [filters, currentSort, sort_direction, core.commit],
   );
 
   const downloadCSV = useCallback(async () => {
     let rows: TaxClauseSearchResult[] = [];
-    if (selectedResults.size > 0) {
-      rows = searchResults.filter((r) => selectedResults.has(r.id));
+    if (core.selectedResults.size > 0) {
+      rows = searchResults.filter((r) => core.selectedResults.has(r.id));
     } else {
       try {
         const params = buildTaxClauseParams(
@@ -320,8 +273,8 @@ export function useTaxClauses() {
     if (rows.length === 0) return;
 
     trackEvent("tax_clauses_csv_download_click", {
-      mode: selectedResults.size > 0 ? "selected" : "all",
-      selected_count: selectedResults.size,
+      mode: core.selectedResults.size > 0 ? "selected" : "all",
+      selected_count: core.selectedResults.size,
       downloaded_count: rows.length,
     });
 
@@ -357,19 +310,18 @@ export function useTaxClauses() {
     const link = document.createElement("a");
     const objectUrl = URL.createObjectURL(blob);
     link.href = objectUrl;
-    const suffix = selectedResults.size > 0 ? "_selected" : "";
+    const suffix = core.selectedResults.size > 0 ? "_selected" : "";
     link.download = `ma_tax_clauses${suffix}_${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-  }, [filters, searchResults, selectedResults, queryClient]);
+  }, [filters, searchResults, core.selectedResults, queryClient]);
 
   const clearFilters = useCallback(() => {
     setFilters({ ...EMPTY_FILTERS });
-    setSelectedResults(new Set());
-    setCommitted(null);
-  }, []);
+    core.uncommit();
+  }, [core.uncommit]);
 
   const goToPage = useCallback(
     async (page: number) => {
@@ -389,11 +341,6 @@ export function useTaxClauses() {
     [filters, performSearch],
   );
 
-  const closeErrorModal = useCallback(() => {
-    setShowErrorModal(false);
-    setErrorMessage("");
-  }, []);
-
   const sortResults = useCallback((sort_by: SortField) => {
     setCurrentSort(sort_by);
   }, []);
@@ -402,35 +349,11 @@ export function useTaxClauses() {
     setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
   }, []);
 
-  const toggleResultSelection = useCallback((id: string) => {
-    setSelectedResults((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const toggleSelectAll = useCallback(() => {
-    const allSelected = searchResults.every((r) => selectedResults.has(r.id));
-    setSelectedResults((prev) => {
-      const next = new Set(prev);
-      if (allSelected) {
-        searchResults.forEach((r) => next.delete(r.id));
-      } else {
-        searchResults.forEach((r) => next.add(r.id));
-      }
-      return next;
-    });
-  }, [searchResults, selectedResults]);
-
-  const clearSelection = useCallback(() => setSelectedResults(new Set()), []);
-
   return {
     filters,
-    isSearching,
+    isSearching: core.isSearching,
     searchResults,
-    selectedResults,
+    selectedResults: core.selectedResults,
     hasSearched,
     access,
     total_count,
@@ -441,8 +364,8 @@ export function useTaxClauses() {
     currentSort,
     currentPage: filters.page || DEFAULT_PAGE,
     page_size: filters.page_size || DEFAULT_PAGE_SIZE,
-    showErrorModal,
-    errorMessage,
+    showErrorModal: core.showErrorModal,
+    errorMessage: core.errorMessage,
     sort_direction,
     actions: {
       updateFilter,
@@ -454,13 +377,13 @@ export function useTaxClauses() {
       clearFilters,
       goToPage,
       changePageSize,
-      closeErrorModal,
+      closeErrorModal: core.closeErrorModal,
       sortResults,
       toggleSortDirection,
       setSortDirection,
-      toggleResultSelection,
-      toggleSelectAll,
-      clearSelection,
+      toggleResultSelection: core.toggleResultSelection,
+      toggleSelectAll: core.toggleSelectAll,
+      clearSelection: core.clearSelection,
     },
   };
 }

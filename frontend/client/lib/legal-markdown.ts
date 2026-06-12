@@ -47,7 +47,7 @@ export function prepareLegalMarkdownForPage(source: string): PreparedMarkdown {
 }
 
 function slugifyHeading(text: string): string {
-  const unescaped = text.replace(/\\([\\`*_{}\[\]()#+\-.!])/g, "$1");
+  const unescaped = text.replace(/\\([\\`*_{}[\]()#+\-.!])/g, "$1");
   const withoutLinks = unescaped.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
   const withoutFormatting = withoutLinks.replace(/[*_`~]/g, "");
   const withoutLeadingNumbering = withoutFormatting.replace(/^\s*\d+(\.\d+)*[.)]?\s*/, "");
@@ -70,7 +70,8 @@ export function renderLegalMarkdownToHtml(markdown: string): string {
   const env: { __usedHeadingIds?: Map<string, number> } = {};
 
   const md = new Remarkable({ html: false, typographer: true }).use(linkify);
-  md.renderer.rules.heading_open = (tokens: any[], idx: number) => {
+  type HeadingToken = { hLevel?: number; content?: string };
+  md.renderer.rules.heading_open = (tokens: HeadingToken[], idx: number) => {
     const level = tokens[idx]?.hLevel ?? 2;
     const headingInline = tokens[idx + 1];
     const rawText = typeof headingInline?.content === "string" ? headingInline.content : "";

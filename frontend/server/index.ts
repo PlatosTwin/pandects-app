@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import compression from "compression";
-import { handleDemo } from "./routes/demo";
 import { getPublicOrigin, getSeoForRequest, injectSeoDocument } from "./seo";
 import { FRONTEND_SECURITY_HEADERS } from "./security-headers";
 import { PRERENDER_ROUTES } from "../shared/route-manifest.mjs";
@@ -44,16 +43,6 @@ export function createServer() {
     }
     next();
   });
-
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-
-  // Frontend-owned utility endpoints live under /api/.
-  app.get("/api/ping", (_req, res) => {
-    res.json({ message: "Hello from Express server v2!" });
-  });
-
-  app.get("/api/demo", handleDemo);
 
   if (process.env.NODE_ENV === "production") {
     const staticPath = path.resolve(import.meta.dirname, "../spa");

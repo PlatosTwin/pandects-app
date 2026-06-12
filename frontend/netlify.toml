@@ -1,11 +1,6 @@
 [build]
   command = "npm run build:client"
-  functions = "netlify/functions"
   publish = "dist/spa"
-
-[functions]
-  external_node_modules = ["express"]
-  node_bundler = "esbuild"
 
 # Security headers. Must mirror frontend/server/security-headers.ts and
 # nginx.conf; scripts/validate-csp.mjs fails the build if they drift.
@@ -21,11 +16,6 @@
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "SAMEORIGIN"
   
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
-
 [[redirects]]
   from = "/about"
   to = "/prerender/about.html"

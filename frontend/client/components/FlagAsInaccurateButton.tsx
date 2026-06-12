@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -168,7 +167,6 @@ export function FlagAsInaccurateButton({
                 className="grid gap-2 rounded-md border border-border p-3 text-sm sm:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
                 role="group"
                 aria-labelledby={issueGroupId}
-                aria-required="true"
               >
                 {ISSUE_OPTIONS.map((option) => {
                   const optionId = `${textareaId}-${option.replace(/\s+/g, "-").toLowerCase()}`;
@@ -286,7 +284,6 @@ export function FlagAsInaccurateButton({
               className="grid gap-2 rounded-md border border-border p-3 text-sm sm:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
               role="group"
               aria-labelledby={issueGroupId}
-              aria-required="true"
             >
               {ISSUE_OPTIONS.map((option) => {
                 const optionId = `${textareaId}-${option.replace(/\s+/g, "-").toLowerCase()}`;

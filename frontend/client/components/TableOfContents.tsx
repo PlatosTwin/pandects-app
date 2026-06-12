@@ -213,12 +213,6 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
         const sectionUuidMatch = sectionAttributes.match(/uuid="([^"]*)"/);
         const sectionUuid = sectionUuidMatch ? sectionUuidMatch[1] : undefined;
 
-        // Extract order attribute if present for better sorting
-        const orderMatch = sectionAttributes.match(/order="([^"]*)"/);
-        const order = orderMatch
-          ? parseInt(orderMatch[1], 10)
-          : articleItem.children!.length + 1;
-
         articleItem.children!.push({
           id: `section-${itemCounter++}`,
           title: sectionTitle,

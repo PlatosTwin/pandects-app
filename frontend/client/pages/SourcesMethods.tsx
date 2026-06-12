@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import ResizeObserverPolyfill from "resize-observer-polyfill";
 import { cn } from "@/lib/utils";

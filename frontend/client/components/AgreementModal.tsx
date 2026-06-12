@@ -83,14 +83,6 @@ export function AgreementModal({
   const modalTitle =
     [yearDisplay, target, acquirer].filter(Boolean).join(" - ") ||
     "Agreement details";
-  const mobileMetadataSummary = (() => {
-    const parts: string[] = [];
-    if (yearDisplay) parts.push(yearDisplay);
-    const counterparties =
-      target && acquirer ? `${target} → ${acquirer}` : target ?? acquirer;
-    if (counterparties) parts.push(counterparties);
-    return parts.join(" · ");
-  })();
   const signInPath = buildAccountPathWithNext(
     `${location.pathname}${location.search}${location.hash}`,
   );
@@ -372,10 +364,16 @@ export function AgreementModal({
   if (!isOpen || !canUseDOM) return null;
 
   return createPortal(
+    // Backdrop click-to-close is a pointer-only convenience; keyboard users
+    // close via the Escape listener registered in the effect above.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-[1px] flex items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
+      {/* onClick only stops backdrop propagation; onKeyDown is the dialog
+          focus trap, both standard modal wiring rather than interactivity. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={modalRef}
         role="dialog"

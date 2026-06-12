@@ -31,7 +31,6 @@ export default defineConfig({
         "child_process",
         // External dependencies that should not be bundled
         "express",
-        "cors",
       ],
       output: {
         format: "es",

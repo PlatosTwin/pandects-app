@@ -194,9 +194,9 @@ export function TransactionResultsList({
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="hidden text-sm text-muted-foreground sm:inline">
+              <span className="hidden text-sm text-muted-foreground sm:inline">
                 Sort by:
-              </label>
+              </span>
               <Select
                 value={sortBy}
                 onValueChange={(value) =>
