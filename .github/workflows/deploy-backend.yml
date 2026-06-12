@@ -6,6 +6,12 @@ on:
     paths:
       - 'backend/**'
 
+# Queue deploys instead of overlapping them; never cancel a running
+# flyctl deploy mid-flight.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -13,7 +19,11 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
+  quality:
+    uses: ./.github/workflows/backend-quality.yml
+
   deploy:
+    needs: quality
     runs-on: ubuntu-latest
 
     steps:

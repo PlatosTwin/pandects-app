@@ -11,11 +11,14 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/backend-quality.yml"
+  # Pushes to main that touch backend/** run this workflow via the gated
+  # Deploy Backend workflow (workflow_call), so the push trigger only needs
+  # to cover changes to this file itself.
   push:
     branches: [ main ]
     paths:
-      - "backend/**"
       - ".github/workflows/backend-quality.yml"
+  workflow_call:
 
 permissions:
   contents: read
