@@ -17,7 +17,6 @@ from marshmallow import Schema
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import (
-    inspect,
     text,
 )
 from dotenv import load_dotenv
@@ -176,7 +175,6 @@ from backend.auth.session_runtime import (
     clear_auth_cookies as _clear_auth_cookies,
     csrf_cookie_value as _csrf_cookie_value,
     csrf_required as _csrf_required,
-    ensure_auth_schema_upgrades as _ensure_auth_schema_upgrades_auth_runtime,
     ensure_auth_tables_exist as _ensure_auth_tables_exist_auth_runtime,
     is_running_on_fly as _is_running_on_fly_auth_runtime,
     issue_session_token as _issue_session_token,
@@ -258,6 +256,7 @@ class _DumpVersionInfo(TypedDict):
 class _DumpVersionCache(TypedDict):
     ts: float
     payload: _DumpVersionInfo | None
+    failed_ts: float
 
 class _S3ListObject(TypedDict, total=False):
     Key: str
@@ -378,7 +377,13 @@ _DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(
 _dumps_manifest_cache: dict[str, _DumpsManifestCacheEntry] = {}
 _dumps_manifest_cache_lock = Lock()
 _DUMP_VERSION_CACHE_TTL_SECONDS = int(os.environ.get("DUMP_VERSION_CACHE_TTL_SECONDS", "3600"))
-_dump_version_cache: _DumpVersionCache = {"ts": 0.0, "payload": None}
+# How long to back off after a failed fetch. Without this, an outage of the
+# bulk host would make every request re-attempt the fetch and block on its
+# timeout — this hook runs before every request.
+_DUMP_VERSION_FAILURE_TTL_SECONDS = int(
+    os.environ.get("DUMP_VERSION_FAILURE_TTL_SECONDS", "120")
+)
+_dump_version_cache: _DumpVersionCache = {"ts": 0.0, "payload": None, "failed_ts": 0.0}
 _dump_version_cache_lock = Lock()
 
 # ── API usage logging ─────────────────────────────────────────────────────
@@ -445,7 +450,12 @@ def _fetch_latest_dump_version() -> _DumpVersionInfo | None:
     with _dump_version_cache_lock:
         cached = _dump_version_cache["payload"]
         cached_ts = _dump_version_cache["ts"]
+        failed_ts = _dump_version_cache["failed_ts"]
         if cached is not None and (now - cached_ts < _DUMP_VERSION_CACHE_TTL_SECONDS):
+            return cached
+        if now - failed_ts < _DUMP_VERSION_FAILURE_TTL_SECONDS:
+            # Recent fetch failure: serve the stale payload (or nothing)
+            # instead of re-blocking every request on the timeout.
             return cached
     try:
         url = f"{PUBLIC_DEV_BASE}/dumps/latest.json"
@@ -455,17 +465,25 @@ def _fetch_latest_dump_version() -> _DumpVersionInfo | None:
         sha256_val = manifest.get("sha256")
         dump_ts_val = manifest.get("timestamp")
         if not isinstance(sha256_val, str) or not isinstance(dump_ts_val, str):
-            return None
+            raise ValueError("Malformed dumps manifest.")
     except Exception:
-        return None
+        with _dump_version_cache_lock:
+            _dump_version_cache["failed_ts"] = now
+            stale = _dump_version_cache["payload"]
+        return stale
     info: _DumpVersionInfo = {"hash": sha256_val, "dump_ts": dump_ts_val}
     with _dump_version_cache_lock:
         _dump_version_cache["payload"] = info
         _dump_version_cache["ts"] = now
+        _dump_version_cache["failed_ts"] = 0.0
     return info
 
 
 def _populate_dump_version() -> None:
+    # Tests must not depend on (or wait for) the live bulk host.
+    if current_app.testing:
+        g.dump_version = None
+        return
     g.dump_version = _fetch_latest_dump_version()
 
 
@@ -1509,7 +1527,7 @@ app = create_app()
 # ── CLI command for auth DB initialization ───────────────────────────────
 @app.cli.command("init-auth-db")
 def init_auth_db():
-    """Create the auth tables in the configured auth database bind."""
+    """Migrate the auth database to the current schema (Alembic upgrade head)."""
     if _auth_is_mocked():
         raise click.ClickException("Auth DB is not available in mock auth mode.")
     if not _auth_db_is_configured():
@@ -1517,36 +1535,13 @@ def init_auth_db():
             "Auth DB is not configured. Set AUTH_DATABASE_URI or DATABASE_URL."
         )
 
-    with app.app_context():
-        db.create_all(bind_key="auth")
-        _ensure_auth_schema_upgrades_auth_runtime(app)
-        engine = db.engines.get("auth")
-        if engine is None:
-            raise click.ClickException("Auth DB bind is missing.")
-        inspector = inspect(engine)
-        expected = {
-            "auth_users",
-            "auth_sessions",
-            "auth_password_reset_tokens",
-            "api_keys",
-            "api_usage_daily",
-            "api_usage_hourly",
-            "api_request_events",
-            "api_usage_daily_ips",
-            "auth_oauth_user_grants",
-            "favorite_projects",
-            "favorite_project_assignments",
-            "favorites",
-            "favorite_tags",
-            "favorite_tag_assignments",
-        }
-        existing = set(inspector.get_table_names())
-        missing = sorted(expected - existing)
-        if missing:
-            raise click.ClickException(
-                f"Auth DB initialization failed (missing tables: {', '.join(missing)})."
-            )
-    click.echo("Auth DB initialized.")
+    from backend.init_auth_db import upgrade_auth_db
+
+    try:
+        url = upgrade_auth_db()
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"Auth DB migrated ({url}).")
 
 
 # ── CLI command for OpenAPI spec generation ──────────────────────────────

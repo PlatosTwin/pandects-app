@@ -13,7 +13,6 @@ from typing import cast
 from urllib.parse import urlsplit
 
 from flask import Flask, abort, current_app, request
-from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.wrappers.response import Response as WerkzeugResponse
@@ -179,101 +178,19 @@ AUTH_DATABASE_URI = _effective_auth_database_uri()
 
 
 def ensure_auth_tables_exist(target_app: Flask) -> None:
+    """Bootstrap the implicit local dev/test SQLite database at startup.
+
+    Configured databases (AUTH_DATABASE_URI / DATABASE_URL — i.e. production)
+    are never touched here: their schema is managed exclusively by Alembic
+    via ``backend.init_auth_db``, which runs as the deploy release command.
+    Running DDL from app startup would race across gunicorn workers and
+    machines.
+    """
     with target_app.app_context():
         if auth_is_mocked():
             return
         if AUTH_DATABASE_URI is None:
             db.create_all(bind_key="auth")
-        ensure_auth_schema_upgrades(target_app)
-
-
-def ensure_auth_schema_upgrades(target_app: Flask) -> None:
-    with target_app.app_context():
-        engine = db.engines.get("auth")
-        if engine is None:
-            return
-        inspector = inspect(engine)
-        existing_tables = set(inspector.get_table_names())
-        if "api_keys" in existing_tables:
-            api_key_columns = {column["name"] for column in inspector.get_columns("api_keys")}
-            if "deleted_at" not in api_key_columns:
-                column_type = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
-                with engine.begin() as conn:
-                    _ = conn.execute(
-                        text(f"ALTER TABLE api_keys ADD COLUMN deleted_at {column_type} NULL")
-                    )
-
-        if "auth_oauth_user_grants" not in existing_tables:
-            db.create_all(bind_key="auth")
-
-        if "auth_oauth_clients" in existing_tables:
-            client_columns = {
-                column["name"] for column in inspector.get_columns("auth_oauth_clients")
-            }
-            if "last_used_at" not in client_columns:
-                column_type = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
-                with engine.begin() as conn:
-                    _ = conn.execute(
-                        text(
-                            f"ALTER TABLE auth_oauth_clients "
-                            f"ADD COLUMN last_used_at {column_type} NULL"
-                        )
-                    )
-
-        if "auth_oauth_refresh_tokens" not in existing_tables:
-            db.create_all(bind_key="auth")
-        else:
-            refresh_columns = {
-                column["name"]
-                for column in inspector.get_columns("auth_oauth_refresh_tokens")
-            }
-            if "family_id" not in refresh_columns:
-                with engine.begin() as conn:
-                    _ = conn.execute(
-                        text(
-                            "ALTER TABLE auth_oauth_refresh_tokens "
-                            "ADD COLUMN family_id VARCHAR(36) NULL"
-                        )
-                    )
-                    _ = conn.execute(
-                        text(
-                            "UPDATE auth_oauth_refresh_tokens "
-                            "SET family_id = id WHERE family_id IS NULL"
-                        )
-                    )
-
-        favorites_required = {
-            "favorite_projects",
-            "favorite_project_assignments",
-            "favorites",
-            "favorite_tags",
-            "favorite_tag_assignments",
-        }
-        if favorites_required - existing_tables:
-            db.create_all(bind_key="auth")
-        elif "favorite_projects" in existing_tables:
-            project_columns = {
-                column["name"] for column in inspector.get_columns("favorite_projects")
-            }
-            with engine.begin() as conn:
-                if "sort_order" not in project_columns:
-                    _ = conn.execute(
-                        text(
-                            (
-                                "ALTER TABLE favorite_projects "
-                                "ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
-                            )
-                        )
-                    )
-                if "color" not in project_columns:
-                    _ = conn.execute(
-                        text(
-                            (
-                                "ALTER TABLE favorite_projects "
-                                "ADD COLUMN color VARCHAR(16) NOT NULL DEFAULT 'slate'"
-                            )
-                        )
-                    )
 
 
 def auth_db_is_configured() -> bool:

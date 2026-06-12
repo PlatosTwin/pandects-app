@@ -93,6 +93,15 @@ def _default_auth_sqlite_uri() -> str:
     return f"sqlite:///{Path(__file__).resolve().parents[1] / 'auth_dev.sqlite'}"
 
 
+def auth_database_uri_or_default() -> str:
+    """The configured auth DB URI, or the implicit local dev SQLite file.
+
+    Single source of truth shared by app configuration and the Alembic
+    migration environment (backend/migrations/env.py).
+    """
+    return effective_auth_database_uri() or _default_auth_sqlite_uri()
+
+
 def _resilient_engine_options(existing: dict[str, object]) -> dict[str, object]:
     options = dict(existing)
     _ = options.setdefault("pool_pre_ping", True)

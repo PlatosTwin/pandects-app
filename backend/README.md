@@ -59,6 +59,31 @@ Most outside contributors only need:
 
 The auth DB defaults to local sqlite when `AUTH_DATABASE_URI` is not set.
 
+## Auth DB schema migrations (Alembic)
+
+The auth database schema is managed by Alembic (`backend/alembic.ini`,
+`backend/migrations/`). The main MariaDB database is reflected, never
+migrated from here.
+
+- Apply migrations (also bootstraps a brand-new database):
+
+  ```bash
+  caffeinate -i backend/venv/bin/python -m backend.init_auth_db
+  ```
+
+  In production this runs automatically as the Fly release command.
+
+- Create a new migration after changing auth models:
+
+  ```bash
+  caffeinate -i backend/venv/bin/python -m alembic -c backend/alembic.ini revision --autogenerate -m "describe the change"
+  ```
+
+- App startup only runs `create_all` for the implicit local dev/test sqlite
+  (no `AUTH_DATABASE_URI`). Configured databases are never altered at
+  startup — schema changes go through migrations. If your local sqlite
+  predates a migration, either delete it or run `backend.init_auth_db`.
+
 ## Maintainer-only dependencies and quirks
 
 - The main application data lives in a MariaDB database that outside contributors will not have.
