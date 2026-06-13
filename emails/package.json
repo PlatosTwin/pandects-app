@@ -20,7 +20,7 @@
     "@react-email/preview-server": "5.1.0",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
-    "react-email": "5.1.0",
+    "react-email": "6.6.0",
     "tsx": "^4.19.2"
   },
   "overrides": {
