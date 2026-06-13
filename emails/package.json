@@ -11,7 +11,7 @@
   "dependencies": {
     "@react-email/components": "1.0.2",
     "@react-email/render": "^1.0.5",
-    "dotenv": "^16.4.7",
+    "dotenv": "^17.4.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "resend": "^6.6.0"
