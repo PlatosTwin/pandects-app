@@ -13,6 +13,13 @@ CLAUDE.md
 **/venv/
 **/.venv/
 
+# Stray root-level npm artifacts. The repo root is not an npm project — the
+# real ones live in frontend/, docs/, emails/. Running `npm` from the root
+# (instead of a subdir) auto-creates these empty stubs; ignore them so they
+# don't get re-tracked.
+/package.json
+/package-lock.json
+
 # Frontend / email tooling
 frontend/.cert/
 emails/.react-email/
