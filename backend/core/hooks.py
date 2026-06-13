@@ -40,7 +40,9 @@ def set_security_headers(
 ) -> Response:
     _ = response.headers.setdefault("X-Content-Type-Options", "nosniff")
     _ = response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    _ = response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    # Matches the /v1 CSP frame-ancestors 'none'; DENY keeps the legacy
+    # header consistent instead of contradicting it.
+    _ = response.headers.setdefault("X-Frame-Options", "DENY")
     origin = request.headers.get("Origin")
     if isinstance(origin, str) and origin.strip():
         existing = response.headers.get("Vary")

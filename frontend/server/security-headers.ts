@@ -39,5 +39,7 @@ export const FRONTEND_SECURITY_HEADERS = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=15552000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "SAMEORIGIN",
+  // Matches CSP frame-ancestors 'none' (which wins in modern browsers);
+  // DENY keeps the legacy header consistent instead of contradicting it.
+  "X-Frame-Options": "DENY",
 } as const;

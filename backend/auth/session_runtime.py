@@ -71,7 +71,12 @@ def cookie_samesite() -> str:
     raw = os.environ.get("SESSION_COOKIE_SAMESITE", "").strip().lower()
     if raw in ("lax", "strict", "none"):
         return raw
-    return "none" if is_running_on_fly() else "lax"
+    # Lax everywhere: www.pandects.org → api.pandects.org is same-site (one
+    # registrable domain), so Lax cookies flow on all first-party requests
+    # while restoring SameSite as a CSRF defense layer on top of the
+    # double-submit token. Set SESSION_COOKIE_SAMESITE=none to roll back
+    # without a deploy if a cross-site flow turns out to need it.
+    return "lax"
 
 
 def cookie_secure() -> bool:

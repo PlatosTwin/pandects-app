@@ -56,6 +56,20 @@ from backend.routes.auth.zitadel_config import (
 from backend.routes.deps import AuthDeps
 
 
+# Server-side password policy. Zitadel enforces its own complexity rules;
+# these bounds are defense-in-depth: a floor for new credentials and a cap
+# so arbitrarily long inputs can't inflate password-hashing cost.
+_PASSWORD_MIN_LENGTH = 8
+_PASSWORD_MAX_LENGTH = 128
+_PASSWORD_LENGTH_MESSAGE = (
+    f"Password must be between {_PASSWORD_MIN_LENGTH} and "
+    f"{_PASSWORD_MAX_LENGTH} characters."
+)
+_PASSWORD_MAX_LENGTH_MESSAGE = (
+    f"Password must be at most {_PASSWORD_MAX_LENGTH} characters."
+)
+
+
 def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
     auth_blp = Blueprint("auth", "auth", url_prefix="/v1/auth")
 
@@ -1363,6 +1377,11 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             abort(400, description="Email is required.")
         if not isinstance(password, str) or not password:
             abort(400, description="Password is required.")
+        # Cap only (no minimum): legacy accounts may have short passwords,
+        # but unbounded input would still hit local hash verification in the
+        # migration path.
+        if len(password) > _PASSWORD_MAX_LENGTH:
+            abort(400, description=_PASSWORD_MAX_LENGTH_MESSAGE)
         email = deps._normalize_email(email_raw)
         if not deps._is_email_like(email):
             abort(400, description="Enter a valid email address.")
@@ -1451,6 +1470,8 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             abort(400, description="Email is required.")
         if not isinstance(password, str) or not password:
             abort(400, description="Password is required.")
+        if not _PASSWORD_MIN_LENGTH <= len(password) <= _PASSWORD_MAX_LENGTH:
+            abort(400, description=_PASSWORD_LENGTH_MESSAGE)
         if first_name is not None and not isinstance(first_name, str):
             abort(400, description="First name must be a string.")
         if last_name is not None and not isinstance(last_name, str):
@@ -1746,6 +1767,8 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             abort(400, description="Reset code is required.")
         if not isinstance(password, str) or not password:
             abort(400, description="New password is required.")
+        if not _PASSWORD_MIN_LENGTH <= len(password) <= _PASSWORD_MAX_LENGTH:
+            abort(400, description=_PASSWORD_LENGTH_MESSAGE)
 
         try:
             zitadel_api.json(
