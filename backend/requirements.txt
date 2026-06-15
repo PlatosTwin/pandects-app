@@ -24,7 +24,7 @@ mysqlclient==2.2.8
 nodejs-wheel-binaries==24.16.0
 packaging==26.2
 psycopg2-binary==2.9.12
-pycparser==2.23
+pycparser==3.0
 PyJWT==2.13.0
 PyMySQL==1.2.0
 python-dateutil==2.9.0.post0
