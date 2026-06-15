@@ -52,7 +52,7 @@ export function createServer() {
 
     app.use(express.static(staticPath));
 
-    app.get("*", (req, res) => {
+    app.get("/{*splat}", (req, res) => {
       if (req.path.startsWith("/v1/")) {
         res.status(404).end();
         return;
