@@ -57,6 +57,48 @@ class PaginationAndAccessTests(unittest.TestCase):
         self.assertFalse(meta["has_next"])
         self.assertFalse(meta["has_prev"])
 
+    def test_search_reads_get_a_separate_higher_rate_limit_bucket(self):
+        ctx = backend_app.AccessContext(tier="anonymous")
+        for path in ("/v1/sections", "/v1/search/agreements", "/v1/tax-clauses"):
+            with self.app.test_request_context(f"{path}?page=42", method="GET"):
+                key, limit = backend_app._apply_search_read_rate_limit(ctx, "anon:ip", 60)
+            self.assertEqual(limit, 300)
+            # A distinct key prefix means search reads do not share the count
+            # bucket with — or starve — other /v1 traffic.
+            self.assertTrue(key.startswith("search:"))
+        with self.app.test_request_context("/v1/filter-options/deal_type", method="GET"):
+            _key, limit = backend_app._apply_search_read_rate_limit(ctx, "anon:ip", 60)
+        self.assertEqual(limit, 300)
+
+    def test_search_read_rate_limits_scale_with_tier(self):
+        with self.app.test_request_context("/v1/search/agreements?page=2", method="GET"):
+            self.assertEqual(
+                backend_app._apply_search_read_rate_limit(
+                    backend_app.AccessContext(tier="user"), "user:u", 120
+                )[1],
+                600,
+            )
+            self.assertEqual(
+                backend_app._apply_search_read_rate_limit(
+                    backend_app.AccessContext(tier="api_key"), "api_key:k", 300
+                )[1],
+                1200,
+            )
+
+    def test_non_search_requests_keep_their_base_rate_limit(self):
+        ctx = backend_app.AccessContext(tier="anonymous")
+        with self.app.test_request_context("/v1/auth/me", method="GET"):
+            self.assertEqual(
+                backend_app._apply_search_read_rate_limit(ctx, "anon:ip", 60),
+                ("anon:ip", 60),
+            )
+        # A write to a search path is not a search read and is not elevated.
+        with self.app.test_request_context("/v1/sections", method="POST"):
+            self.assertEqual(
+                backend_app._apply_search_read_rate_limit(ctx, "anon:ip", 60),
+                ("anon:ip", 60),
+            )
+
     def test_csrf_required_cookie_transport(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         with self.app.test_request_context("/v1/auth/logout", method="POST"):

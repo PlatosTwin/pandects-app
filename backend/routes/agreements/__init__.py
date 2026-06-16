@@ -28,6 +28,7 @@ from backend.routes.agreements.helpers import (
     _to_float_or_none,
 )
 from backend.routes.deps import AgreementsDeps
+from backend.search_counts import build_search_count_cache_key
 from backend.schemas.public_api import (
     AgreementArgsPayload,
     AgreementArgsSchema,
@@ -451,6 +452,7 @@ def register_agreements_routes(
             max_page_size = 100 if ctx.is_authenticated else 10
             if page_size < 1 or page_size > max_page_size:
                 page_size = min(25, max_page_size)
+            count_mode = parsed_args["count_mode"]
 
             clause_context_requested = bool(
                 parsed_args["standard_id"] or (
@@ -528,7 +530,16 @@ def register_agreements_routes(
                 )
                 has_next = len(page_rows_raw) > page_size
                 page_rows = page_rows_raw[:page_size]
-                total_count = deps._to_int(direct_query.order_by(None).count())
+                count_cache_key = (
+                    None
+                    if count_mode == "exact"
+                    else build_search_count_cache_key(
+                        "agreements_search:direct", parsed_args
+                    )
+                )
+                total_count = deps._cached_exact_query_count(
+                    direct_query, cache_key=count_cache_key
+                )
                 total_count_is_approximate = False
 
                 meta = deps._pagination_metadata(
@@ -628,7 +639,16 @@ def register_agreements_routes(
             )
             has_next = len(page_rows_raw) > page_size
             page_rows = page_rows_raw[:page_size]
-            total_count = deps._to_int(aggregated_query.order_by(None).count())
+            count_cache_key = (
+                None
+                if count_mode == "exact"
+                else build_search_count_cache_key(
+                    "agreements_search:clause", parsed_args
+                )
+            )
+            total_count = deps._cached_exact_query_count(
+                aggregated_query, cache_key=count_cache_key
+            )
             total_count_is_approximate = False
 
             meta = deps._pagination_metadata(

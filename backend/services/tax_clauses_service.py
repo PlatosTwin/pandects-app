@@ -14,10 +14,12 @@ from backend.models.main_db import xml_latest_ok_filter
 from backend.routes.agreements import _agreement_is_public_eligible_expr
 from backend.routes.deps import (
     AccessContextProtocol,
+    CachedExactQueryCountProtocol,
     PaginationMetadataProtocol,
     RowMappingAsDictProtocol,
     ToIntProtocol,
 )
+from backend.search_counts import build_search_count_cache_key
 from backend.schemas.tax_clauses import TaxClausesArgsPayload
 
 
@@ -31,6 +33,7 @@ class TaxClausesServiceDeps:
     TaxClauseAssignment: Any
     XML: Any
     _to_int: ToIntProtocol
+    _cached_exact_query_count: CachedExactQueryCountProtocol
     _row_mapping_as_dict: RowMappingAsDictProtocol
     _pagination_metadata: PaginationMetadataProtocol
     _expand_tax_clause_taxonomy_standard_ids_cached: Callable[
@@ -245,7 +248,12 @@ def run_tax_clauses(
         if isinstance(value, str):
             clause_uuids.append(value)
 
-    total_count = deps._to_int(q.order_by(None).count())
+    count_cache_key = (
+        None
+        if count_mode == "exact"
+        else build_search_count_cache_key("tax_clauses", parsed_args)
+    )
+    total_count = deps._cached_exact_query_count(q, cache_key=count_cache_key)
     total_count_is_approximate = False
     count_method = "query_count"
 

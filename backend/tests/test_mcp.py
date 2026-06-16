@@ -605,6 +605,7 @@ class McpTests(unittest.TestCase):
         self.app_module._endpoint_rate_limit_state.clear()
         self.app_module._account_login_failure_state.clear()
         self.app_module._api_key_last_used_touch_state.clear()
+        self.app_module._search_count_cache.clear()
 
     def _bearer(self, scope: str = "sections:search agreements:search agreements:read") -> str:
         return self._bearer_for_subject(subject="sub-123", scope=scope)

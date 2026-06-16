@@ -107,6 +107,10 @@ def _build_agreement_search_match_query(
     acquirer_pes = parsed_args["acquirer_pe"]
     agreement_uuid = parsed_args["agreement_uuid"]
     section_uuid = parsed_args["section_uuid"]
+    year_min = parsed_args["year_min"]
+    year_max = parsed_args["year_max"]
+    filed_after = parsed_args["filed_after"]
+    filed_before = parsed_args["filed_before"]
 
     q = (
         db.session.query(
@@ -132,6 +136,15 @@ def _build_agreement_search_match_query(
             for year in years
         )
         q = q.filter(or_(*year_filters))
+
+    if year_min is not None:
+        q = q.filter(latest.filing_date >= f"{year_min:04d}-01-01")
+    if year_max is not None:
+        q = q.filter(latest.filing_date < f"{year_max + 1:04d}-01-01")
+    if filed_after:
+        q = q.filter(latest.filing_date >= filed_after)
+    if filed_before:
+        q = q.filter(latest.filing_date < filed_before)
 
     if targets:
         q = q.filter(latest.target.in_(targets))
@@ -281,6 +294,12 @@ def _apply_agreement_metadata_filters(
     acquirer_pes = parsed_args["acquirer_pe"]
     agreement_uuid = parsed_args["agreement_uuid"]
     section_uuid = parsed_args["section_uuid"]
+    # Date-range args are only present on the sections-shaped payload, not the
+    # bulk payload, so read them defensively.
+    year_min = parsed_args.get("year_min")
+    year_max = parsed_args.get("year_max")
+    filed_after = parsed_args.get("filed_after")
+    filed_before = parsed_args.get("filed_before")
 
     if years:
         year_filters = tuple(
@@ -291,6 +310,15 @@ def _apply_agreement_metadata_filters(
             for year in years
         )
         q = q.filter(or_(*year_filters))
+
+    if isinstance(year_min, int):
+        q = q.filter(agreements.filing_date >= f"{year_min:04d}-01-01")
+    if isinstance(year_max, int):
+        q = q.filter(agreements.filing_date < f"{year_max + 1:04d}-01-01")
+    if isinstance(filed_after, str) and filed_after:
+        q = q.filter(agreements.filing_date >= filed_after)
+    if isinstance(filed_before, str) and filed_before:
+        q = q.filter(agreements.filing_date < filed_before)
 
     if targets:
         q = q.filter(agreements.target.in_(targets))

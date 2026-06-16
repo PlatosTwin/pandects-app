@@ -399,6 +399,7 @@ class MainRoutesTests(unittest.TestCase):
         self.app_module._rate_limit_state.clear()
         self.app_module._endpoint_rate_limit_state.clear()
         self.app_module._account_login_failure_state.clear()
+        self.app_module._search_count_cache.clear()
         self.app_module._api_key_last_used_touch_state.clear()
         self._restore_base_dataset()
 
@@ -1059,6 +1060,122 @@ class MainRoutesTests(unittest.TestCase):
         self.assertFalse(body.get("total_count_is_approximate"))
         self.assertEqual(body.get("total_count"), 10)
         self.assertEqual(body.get("total_pages"), 2)
+
+    def _seed_industry_agreements(self, *, industry: str, count: int, filing_dates=None):
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                for idx in range(count):
+                    uuid = f"{industry}-{idx:02d}"
+                    filing_date = (
+                        filing_dates[idx] if filing_dates is not None else "2020-01-01"
+                    )
+                    conn.execute(
+                        text(
+                            "INSERT INTO agreements (agreement_uuid, filing_date, target, "
+                            "acquirer, verified, url, target_industry) VALUES "
+                            "(:u, :filing_date, :t, :a, 1, :url, :industry)"
+                        ),
+                        {
+                            "u": uuid,
+                            "filing_date": filing_date,
+                            "t": f"Target {idx}",
+                            "a": f"Acquirer {idx}",
+                            "url": f"http://example.com/{uuid}",
+                            "industry": industry,
+                        },
+                    )
+                    conn.execute(
+                        text(
+                            "INSERT INTO xml (agreement_uuid, xml, version, status, latest) "
+                            "VALUES (:u, '<document><article><section uuid=\"s\">"
+                            "<text>Z</text></section></article></document>', 1, 'verified', 1)"
+                        ),
+                        {"u": uuid},
+                    )
+
+    def test_search_agreements_total_count_is_exact_and_stable_on_every_page(self):
+        # The agreements grid must show the true total on every page, never the
+        # "p to q of q+1" lower bound that past count rewrites regressed into.
+        self._seed_industry_agreements(industry="zcount", count=10)
+        client = self.app.test_client()
+
+        seen_totals: list[int | None] = []
+        for page in (1, 2, 3, 4):
+            res = client.get(
+                f"/v1/search/agreements?target_industry=zcount&page={page}&page_size=3"
+            )
+            self.assertEqual(res.status_code, 200)
+            body = res.get_json()
+            seen_totals.append(body.get("total_count"))
+            self.assertFalse(body.get("total_count_is_approximate"))
+
+        self.assertEqual(seen_totals, [10, 10, 10, 10])
+        # Page 2 (items 4-6, more to come) must not collapse to upper-bound + 1.
+        self.assertNotEqual(seen_totals[1], (2 - 1) * 3 + 3 + 1)
+
+    def test_search_agreements_count_is_cached_across_pages(self):
+        import backend.search_counts as search_counts
+
+        self._seed_industry_agreements(industry="zcache", count=6)
+        client = self.app.test_client()
+
+        original = search_counts.exact_query_count
+        with patch.object(
+            search_counts, "exact_query_count", side_effect=original
+        ) as spy:
+            first = client.get(
+                "/v1/search/agreements?target_industry=zcache&page=1&page_size=2"
+            )
+            second = client.get(
+                "/v1/search/agreements?target_industry=zcache&page=2&page_size=2"
+            )
+
+        self.assertEqual(first.get_json().get("total_count"), 6)
+        self.assertEqual(second.get_json().get("total_count"), 6)
+        # One COUNT for both pages: the second page reuses the cached total.
+        self.assertEqual(spy.call_count, 1)
+
+    def test_search_agreements_count_mode_exact_bypasses_cache(self):
+        import backend.search_counts as search_counts
+
+        self._seed_industry_agreements(industry="zexact", count=4)
+        client = self.app.test_client()
+
+        original = search_counts.exact_query_count
+        with patch.object(
+            search_counts, "exact_query_count", side_effect=original
+        ) as spy:
+            client.get(
+                "/v1/search/agreements"
+                "?target_industry=zexact&page=1&page_size=2&count_mode=exact"
+            )
+            client.get(
+                "/v1/search/agreements"
+                "?target_industry=zexact&page=2&page_size=2&count_mode=exact"
+            )
+
+        # count_mode=exact is authoritative: it never serves a cached total.
+        self.assertEqual(spy.call_count, 2)
+
+    def test_search_agreements_date_range_filters(self):
+        self._seed_industry_agreements(
+            industry="zdate",
+            count=3,
+            filing_dates=["2010-01-01", "2011-01-01", "2012-01-01"],
+        )
+        client = self.app.test_client()
+
+        def total(query: str) -> int:
+            res = client.get(f"/v1/search/agreements?target_industry=zdate&{query}")
+            self.assertEqual(res.status_code, 200)
+            return res.get_json().get("total_count")
+
+        self.assertEqual(total("year_min=2011"), 2)
+        self.assertEqual(total("year_max=2010"), 1)
+        self.assertEqual(total("filed_after=2011-06-01"), 1)
+        self.assertEqual(total("filed_before=2011-06-01"), 2)
+        self.assertEqual(total("year_min=2011&year_max=2011"), 1)
 
     def test_search_total_count_metadata_uses_table_estimate_for_unfiltered_search(self):
         with (
