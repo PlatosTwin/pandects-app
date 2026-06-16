@@ -187,6 +187,9 @@ from backend.auth.session_runtime import (
     set_auth_cookies as _set_auth_cookies,
     set_csrf_cookie as _set_csrf_cookie,
 )
+from backend.search_counts import (
+    cached_exact_query_count as _search_counts_cached_exact_query_count,
+)
 from backend.services.async_tasks import AsyncTaskRunner
 from backend.services.sections_service import (
     estimated_latest_sections_search_table_rows as _svc_estimated_latest_sections_search_table_rows,
@@ -406,6 +409,17 @@ _api_key_last_used_touch_state: dict[str, float] = {}
 _SEARCH_EXPLAIN_ESTIMATE_ENABLED = (
     os.environ.get("SEARCH_EXPLAIN_ESTIMATE_ENABLED", "1").strip() != "0"
 )
+
+# ── Cached exact result counts for paginated search ───────────────────────
+# A search's match count depends only on its filter signature, so it is the
+# same on every page. Memoizing it per signature turns one COUNT-per-page into
+# one COUNT-per-search; values stay exact, just reused while fresh.
+_SEARCH_COUNT_CACHE_TTL_SECONDS = float(
+    os.environ.get("SEARCH_COUNT_CACHE_TTL_SECONDS", "120")
+)
+_SEARCH_COUNT_CACHE_MAX_KEYS = int(os.environ.get("SEARCH_COUNT_CACHE_MAX_KEYS", "10000"))
+_search_count_cache: dict[str, tuple[float, int]] = {}
+_search_count_cache_lock = Lock()
 
 
 def _usage_buffer() -> UsageBuffer | None:
@@ -669,6 +683,7 @@ def _build_sections_service_deps() -> SectionsServiceDeps:
         Sections=Sections,
         _SEARCH_EXPLAIN_ESTIMATE_ENABLED=_SEARCH_EXPLAIN_ESTIMATE_ENABLED,
         _to_int=_to_int,
+        _cached_exact_query_count=_cached_exact_query_count,
         _estimated_query_row_count=_estimated_query_row_count,
         _estimated_latest_sections_search_table_rows=_estimated_latest_sections_search_table_rows,
         _row_mapping_as_dict=_row_mapping_as_dict,
@@ -683,6 +698,43 @@ def _build_sections_service_deps() -> SectionsServiceDeps:
 
 def _estimated_query_row_count(query: object) -> int | None:
     return _svc_estimated_query_row_count(_build_sections_service_deps(), query)
+
+
+def _current_dump_version_token() -> str:
+    """Stable token for the active data dump, scoping cached counts to it.
+
+    Returns ``"none"`` outside a request context (e.g. direct unit calls) so the
+    cached-count helper stays usable without a live request.
+    """
+    try:
+        dump = getattr(g, "dump_version", None)
+    except RuntimeError:
+        return "none"
+    if isinstance(dump, dict):
+        hash_value = dump.get("hash")
+        if isinstance(hash_value, str) and hash_value:
+            return hash_value
+    return "none"
+
+
+def _cached_exact_query_count(query: object, *, cache_key: str | None) -> int:
+    """Exact COUNT(*) for a search query, memoized per filter signature + dump.
+
+    `cache_key=None` bypasses the cache for an authoritative fresh count.
+    """
+    namespaced_key = (
+        None if cache_key is None else f"{_current_dump_version_token()}|{cache_key}"
+    )
+    return _search_counts_cached_exact_query_count(
+        query=query,
+        cache_key=namespaced_key,
+        cache=_search_count_cache,
+        lock=_search_count_cache_lock,
+        ttl_seconds=_SEARCH_COUNT_CACHE_TTL_SECONDS,
+        max_keys=_SEARCH_COUNT_CACHE_MAX_KEYS,
+        to_int=_to_int,
+        now=time.time,
+    )
 
 
 def _estimated_latest_sections_search_table_rows() -> int | None:
@@ -935,6 +987,43 @@ def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
     return f"anon:{ip}", 60
 
 
+# Read-only search endpoints are paginated, so a single user session legitimately
+# fans out into many GETs. Give those reads their own higher-ceiling bucket
+# (separate key prefix) so deep pagination is not throttled by — and does not
+# starve — the general per-tier limit shared by all other /v1 traffic.
+_SEARCH_READ_RATE_LIMIT_PATHS = frozenset(
+    {
+        "/v1/sections",
+        "/v1/search/agreements",
+        "/v1/tax-clauses",
+    }
+)
+_SEARCH_READ_RATE_LIMITS_BY_TIER = {
+    "anonymous": 300,
+    "user": 600,
+    "api_key": 1200,
+}
+
+
+def _is_search_read_request() -> bool:
+    if request.method != "GET":
+        return False
+    path = request.path
+    return (
+        path in _SEARCH_READ_RATE_LIMIT_PATHS
+        or path == "/v1/filter-options"
+        or path.startswith("/v1/filter-options/")
+    )
+
+
+def _apply_search_read_rate_limit(
+    ctx: AccessContext, key: str, per_minute: int
+) -> tuple[str, int]:
+    if not _is_search_read_request():
+        return key, per_minute
+    return f"search:{key}", _SEARCH_READ_RATE_LIMITS_BY_TIER.get(ctx.tier, per_minute)
+
+
 _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
     ("POST", "/v1/auth/flag-inaccurate"): 10,
     ("POST", "/v1/auth/signup/password"): 5,
@@ -1123,6 +1212,7 @@ def _check_rate_limit(ctx: AccessContext) -> None:
         return
 
     key, per_minute = _rate_limit_key(ctx)
+    key, per_minute = _apply_search_read_rate_limit(ctx, key, per_minute)
     now = time.time()
     window = _RATE_LIMIT_WINDOW_SECONDS
     with _rate_limit_lock:
@@ -1280,6 +1370,7 @@ def _build_tax_clauses_service_deps() -> TaxClausesServiceDeps:
         TaxClauseAssignment=TaxClauseAssignment,
         XML=XML,
         _to_int=_to_int,
+        _cached_exact_query_count=_cached_exact_query_count,
         _row_mapping_as_dict=_row_mapping_as_dict,
         _pagination_metadata=_pagination_metadata,
         _expand_tax_clause_taxonomy_standard_ids_cached=_expand_tax_clause_taxonomy_standard_ids_cached,
@@ -1335,6 +1426,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _section_latest_xml_join_condition=_section_latest_xml_join_condition,
         _standard_id_filter_expr=_standard_id_filter_expr,
         _standard_id_agreement_filter_expr=_standard_id_agreement_filter_expr,
+        _cached_exact_query_count=_cached_exact_query_count,
         _estimated_query_row_count=_estimated_query_row_count,
         _to_int=_to_int,
         _year_from_filing_date_value=_year_from_filing_date_value,

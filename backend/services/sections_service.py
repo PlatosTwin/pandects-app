@@ -10,6 +10,7 @@ from backend.filtering import (
     build_transaction_price_bucket_filter,
 )
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
+from backend.search_counts import build_search_count_cache_key
 from backend.schemas.sections import SectionsArgsPayload
 
 
@@ -105,22 +106,29 @@ def sections_total_count_metadata(
     has_next: bool,
     has_filters: bool,
     count_mode: str,
+    count_cache_key: str | None = None,
 ) -> tuple[int, bool, str]:
     """Return `(total_count, is_approximate, method)` without forcing exact counts unless requested.
 
     Filtered searches prefer conservative lower bounds once the user paginates past the
     first page. Unfiltered searches can fall back to the table-level estimate because the
     endpoint already reads from a denormalized latest-sections table.
+
+    Exact counts (explicit `count_mode=exact`, the filtered first page, and the
+    unfiltered fallback) are memoized per filter signature via `count_cache_key`
+    so paging one search re-counts once instead of once per page; the returned
+    value and `method` are unchanged. `count_cache_key=None` always counts fresh.
     """
     estimated_query_row_count_fn = deps._estimated_query_row_count
     estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
     if count_mode == "exact":
-        exact_total = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
+        # Explicit exactness request: always authoritative, never cached.
+        exact_total = deps._cached_exact_query_count(query, cache_key=None)
         return exact_total, False, "query_count"
 
     if has_filters:
         if page <= 1:
-            exact_total = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
+            exact_total = deps._cached_exact_query_count(query, cache_key=count_cache_key)
             return exact_total, False, "query_count"
 
         exact_total = ((page - 1) * page_size) + item_count
@@ -137,7 +145,7 @@ def sections_total_count_metadata(
 
     table_rows = estimated_table_rows_fn()
     if table_rows is None:
-        table_rows = deps._to_int(cast(_StatementQuery, query).order_by(None).count())
+        table_rows = deps._cached_exact_query_count(query, cache_key=count_cache_key)
         total_count = max(item_count, table_rows)
         return total_count, False, "query_count"
     total_count = max(item_count, table_rows)
@@ -472,6 +480,11 @@ def run_sections(
             section_uuid and section_uuid.strip(),
         )
     )
+    count_cache_key = (
+        None
+        if count_mode == "exact"
+        else build_search_count_cache_key("sections", parsed_args)
+    )
     total_count, total_count_is_approximate, count_method = sections_total_count_metadata(
         deps,
         query=q,
@@ -481,6 +494,7 @@ def run_sections(
         has_next=has_next,
         has_filters=has_filters,
         count_mode=count_mode,
+        count_cache_key=count_cache_key,
     )
 
     section_uuids = [

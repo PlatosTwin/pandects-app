@@ -49,6 +49,10 @@ class ToIntProtocol(Protocol):
     def __call__(self, value: object, *, default: int = 0) -> int: ...
 
 
+class CachedExactQueryCountProtocol(Protocol):
+    def __call__(self, query: object, *, cache_key: str | None) -> int: ...
+
+
 class RowMappingAsDictProtocol(Protocol):
     def __call__(self, row: object) -> dict[str, object]: ...
 
@@ -175,6 +179,7 @@ class SectionsServiceDeps:
     Sections: Any
     _SEARCH_EXPLAIN_ESTIMATE_ENABLED: bool
     _to_int: ToIntProtocol
+    _cached_exact_query_count: CachedExactQueryCountProtocol
     _estimated_query_row_count: Callable[[object], int | None]
     _estimated_latest_sections_search_table_rows: Callable[[], int | None]
     _row_mapping_as_dict: RowMappingAsDictProtocol
@@ -228,6 +233,7 @@ class AgreementsDeps:
     _section_latest_xml_join_condition: Callable[[], object]
     _standard_id_filter_expr: Callable[[list[str]], object]
     _standard_id_agreement_filter_expr: Callable[[Any, list[str]], object]
+    _cached_exact_query_count: CachedExactQueryCountProtocol
     _estimated_query_row_count: Callable[[object], int | None]
     _to_int: ToIntProtocol
     _year_from_filing_date_value: Callable[[object], int | None]
