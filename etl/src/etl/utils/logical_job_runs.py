@@ -368,7 +368,7 @@ def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dic
         for row in conn.execute(
         text(
             f"""
-            SELECT logical_run_id, job_name, status, current_stage, started_at, {completed_stages_expr}
+            SELECT logical_run_id, job_name, status, current_stage, started_at, updated_at, scope_size, dagster_run_id, {completed_stages_expr}
             FROM {_job_runs_table(schema, conn)}
             WHERE job_name = :job_name
               AND status IN :resumable_statuses
@@ -446,6 +446,136 @@ def _abandon_active_runs(
     )
 
 
+def _dagster_run_is_alive(context: AssetExecutionContext, dagster_run_id: Any) -> bool | None:
+    """Whether a Dagster run is still executing.
+
+    Returns True/False when the Dagster instance can answer, or None when
+    liveness cannot be determined (no instance available, e.g. unit tests). A
+    run the instance has no record of is treated as not alive.
+    """
+    if not dagster_run_id:
+        return None
+    instance = getattr(context, "instance", None)
+    if instance is None:
+        return None
+    get_run_by_id = getattr(instance, "get_run_by_id", None)
+    if not callable(get_run_by_id):
+        return None
+    run = get_run_by_id(str(dagster_run_id))
+    if run is None:
+        return False
+    is_finished = getattr(run, "is_finished", None)
+    if not isinstance(is_finished, bool):
+        return None
+    return not is_finished
+
+
+def _reconcile_orphaned_running_runs(
+    context: AssetExecutionContext,
+    conn: Any,
+    *,
+    schema: str,
+    job_name: str,
+) -> None:
+    """Demote RUNNING logical runs whose Dagster worker is dead to FAILED.
+
+    A hard-killed run worker (crash, SIGKILL, machine sleep) never fires the
+    step failure hook, so its logical row is left in RUNNING forever and
+    masquerades as an active run. We consult the Dagster instance and, only on
+    positive evidence that the backing run is gone or already terminal, demote
+    the row to FAILED so it no longer looks active. FAILED runs stay resumable,
+    so this preserves progress rather than discarding it. Unknown liveness (no
+    instance available) is left untouched.
+    """
+    current_run_id = _current_dagster_run_id(context)
+    running_rows = conn.execute(
+        text(
+            f"""
+            SELECT logical_run_id, dagster_run_id
+            FROM {_job_runs_table(schema, conn)}
+            WHERE job_name = :job_name
+              AND status = :running_status
+            """
+        ),
+        {"job_name": job_name, "running_status": LOGICAL_RUN_STATUS_RUNNING},
+    ).mappings().all()
+    for row in running_rows:
+        dagster_run_id = row.get("dagster_run_id")
+        if current_run_id is not None and str(dagster_run_id) == str(current_run_id):
+            continue
+        if _dagster_run_is_alive(context, dagster_run_id) is not False:
+            continue
+        _ = conn.execute(
+            text(
+                f"""
+                UPDATE {_job_runs_table(schema, conn)}
+                SET status = :failed_status,
+                    finished_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE logical_run_id = :logical_run_id
+                """
+            ),
+            {
+                "logical_run_id": str(row["logical_run_id"]),
+                "failed_status": LOGICAL_RUN_STATUS_FAILED,
+            },
+        )
+        log = getattr(context, "log", None)
+        if log is not None:
+            log.warning(
+                "%s: reconciled orphaned logical run %s to FAILED "
+                + "(its Dagster run %s is no longer alive); it remains resumable.",
+                job_name,
+                str(row["logical_run_id"]),
+                dagster_run_id,
+            )
+
+
+def _log_resume_banner(
+    context: AssetExecutionContext,
+    *,
+    job_name: str,
+    existing_run: dict[str, Any],
+    resumed_scope: list[str],
+) -> None:
+    log = getattr(context, "log", None)
+    if log is None:
+        return
+    worker_alive = _dagster_run_is_alive(context, existing_run.get("dagster_run_id"))
+    if worker_alive is True:
+        worker_note = (
+            "WARNING: the previous run's worker still appears to be RUNNING - "
+            "you may have two concurrent runs of this job"
+        )
+    elif worker_alive is False:
+        worker_note = "previous worker is no longer alive (recovering an interrupted run)"
+    else:
+        worker_note = "previous worker liveness unknown"
+    completed_stages = list(existing_run.get("completed_stages", []))
+    current_stage = existing_run.get("current_stage")
+    log.warning(
+        "%s: RESUMING existing logical run %s instead of starting fresh.\n"
+        + "  prior status: %s (%s)\n"
+        + "  started: %s | last update: %s\n"
+        + "  completed stages (%d): %s\n"
+        + "  resuming at: %s\n"
+        + "  scope: %d agreements carried over from the original run "
+        + "(newly selected agreements are ignored while resuming)\n"
+        + "  To start fresh instead, relaunch with pipeline_config "
+        + "force_new_logical_run=true (or resume_logical_runs=false).",
+        job_name,
+        str(existing_run.get("logical_run_id")),
+        str(existing_run.get("status") or ""),
+        worker_note,
+        existing_run.get("started_at"),
+        existing_run.get("updated_at"),
+        len(completed_stages),
+        ", ".join(completed_stages) if completed_stages else "(none)",
+        current_stage if current_stage is not None else "(initial stage)",
+        len(resumed_scope),
+    )
+
+
 def start_or_resume_logical_run(
     context: AssetExecutionContext,
     *,
@@ -464,12 +594,19 @@ def start_or_resume_logical_run(
 
     with engine.begin() as conn:
         assert_logical_job_run_tables_exist(conn, schema=schema)
+        _reconcile_orphaned_running_runs(context, conn, schema=schema, job_name=job_name)
         existing_run = None
         if pipeline_config.resume_logical_runs and not pipeline_config.force_new_logical_run:
             existing_run = fetch_resumable_logical_run(conn, schema=schema, job_name=job_name)
         if existing_run is not None:
             logical_run_id = str(existing_run["logical_run_id"])
             resumed_scope = load_logical_run_scope(conn, schema=schema, logical_run_id=logical_run_id)
+            _log_resume_banner(
+                context,
+                job_name=job_name,
+                existing_run=existing_run,
+                resumed_scope=resumed_scope,
+            )
             _ = conn.execute(
                 text(
                     f"""

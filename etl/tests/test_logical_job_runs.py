@@ -81,7 +81,156 @@ def _pipeline_config(*, resume_logical_runs: bool = True, force_new_logical_run:
     )
 
 
+class _FakeDagsterRun:
+    def __init__(self, *, is_finished: bool) -> None:
+        self.is_finished = is_finished
+
+
+class _FakeInstance:
+    """Minimal stand-in for DagsterInstance liveness lookups."""
+
+    def __init__(self, *, finished_run_ids: set[str], alive_run_ids: set[str]) -> None:
+        self._finished_run_ids = finished_run_ids
+        self._alive_run_ids = alive_run_ids
+
+    def get_run_by_id(self, run_id: str):  # type: ignore[reportUnknownParameterType]
+        if run_id in self._finished_run_ids:
+            return _FakeDagsterRun(is_finished=True)
+        if run_id in self._alive_run_ids:
+            return _FakeDagsterRun(is_finished=False)
+        return None
+
+
+class _FakeLog:
+    def __init__(self) -> None:
+        self.warnings: list[str] = []
+
+    def warning(self, message: str, *args: object) -> None:
+        self.warnings.append(message % args if args else message)
+
+    def info(self, message: str, *args: object) -> None:
+        pass
+
+
+def _status_for_run(db: "_FakeDB", logical_run_id: str) -> str:
+    with db.get_engine().begin() as conn:
+        row = conn.execute(
+            text("SELECT status FROM pipeline_job_runs WHERE logical_run_id = :id"),
+            {"id": logical_run_id},
+        ).scalar()
+    return str(row)
+
+
 class LogicalJobRunTests(unittest.TestCase):
+    def test_orphaned_running_run_reconciled_to_failed_when_worker_dead(self) -> None:
+        db = _FakeDB()
+        first_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert first_run is not None
+
+        # Worker for dagster-1 is dead; with resume disabled a fresh run is created,
+        # and the orphaned RUNNING row must no longer look active.
+        log = _FakeLog()
+        second_context = SimpleNamespace(
+            run_id="dagster-2",
+            instance=_FakeInstance(finished_run_ids={"dagster-1"}, alive_run_ids=set()),
+            log=log,
+        )
+        second_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, second_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(resume_logical_runs=False),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-9"],
+        )
+        assert second_run is not None
+
+        self.assertFalse(second_run.resumed_existing)
+        self.assertNotEqual(second_run.logical_run_id, first_run.logical_run_id)
+        self.assertEqual(_status_for_run(db, first_run.logical_run_id), LOGICAL_RUN_STATUS_FAILED)
+        self.assertEqual(_status_for_run(db, second_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
+        self.assertTrue(any("reconciled orphaned logical run" in line for line in log.warnings))
+
+        # The reconciled (now active) run is the new one only.
+        active_run = load_active_logical_run(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_a",
+        )
+        assert active_run is not None
+        self.assertEqual(active_run["logical_run_id"], second_run.logical_run_id)
+
+    def test_running_run_with_live_worker_is_not_reconciled(self) -> None:
+        db = _FakeDB()
+        first_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert first_run is not None
+
+        second_context = SimpleNamespace(
+            run_id="dagster-2",
+            instance=_FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-1"}),
+            log=_FakeLog(),
+        )
+        _ = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, second_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(resume_logical_runs=False),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-9"],
+        )
+
+        # A live previous worker must never be demoted.
+        self.assertEqual(_status_for_run(db, first_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
+
+    def test_resume_with_dead_worker_still_resumes_and_logs_banner(self) -> None:
+        db = _FakeDB()
+        first_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1", "agreement-2"],
+        )
+        assert first_run is not None
+
+        log = _FakeLog()
+        second_context = SimpleNamespace(
+            run_id="dagster-2",
+            instance=_FakeInstance(finished_run_ids={"dagster-1"}, alive_run_ids=set()),
+            log=log,
+        )
+        resumed_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, second_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-9"],
+        )
+        assert resumed_run is not None
+
+        self.assertTrue(resumed_run.resumed_existing)
+        self.assertEqual(resumed_run.logical_run_id, first_run.logical_run_id)
+        self.assertEqual(resumed_run.agreement_uuids, ["agreement-1", "agreement-2"])
+        self.assertEqual(_status_for_run(db, first_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
+        self.assertTrue(any("RESUMING existing logical run" in line for line in log.warnings))
+        self.assertTrue(any("no longer alive" in line for line in log.warnings))
+
+
     def test_start_creates_new_logical_run_with_persisted_scope(self) -> None:
         db = _FakeDB()
         context = SimpleNamespace(run_id="dagster-1")
