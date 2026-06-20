@@ -592,14 +592,22 @@ class XML(db.Model):
     latest: ClassVar[Mapped[int]]
 
 
+# `taxonomy_l1/l2/l3` are seeded out-of-band and have been rebuilt without a
+# PRIMARY KEY (a recreate drops it). In production these tables are reflected, so
+# a missing DB-side PK would otherwise abort ORM mapping ("could not assemble any
+# primary key columns") and crash every worker on boot. Pin `standard_id` as the
+# mapper primary key so boot is independent of whether the live table declares
+# one. (`standard_id` is the natural key and is non-null/unique.)
 class TaxonomyL1(db.Model):
     __table__ = taxonomy_l1_table
+    __mapper_args__ = {"primary_key": [taxonomy_l1_table.c.standard_id]}
     standard_id: ClassVar[Mapped[str]]
     label: ClassVar[Mapped[str | None]]
 
 
 class TaxonomyL2(db.Model):
     __table__ = taxonomy_l2_table
+    __mapper_args__ = {"primary_key": [taxonomy_l2_table.c.standard_id]}
     standard_id: ClassVar[Mapped[str]]
     label: ClassVar[Mapped[str | None]]
     parent_id: ClassVar[Mapped[str | None]]
@@ -607,6 +615,7 @@ class TaxonomyL2(db.Model):
 
 class TaxonomyL3(db.Model):
     __table__ = taxonomy_l3_table
+    __mapper_args__ = {"primary_key": [taxonomy_l3_table.c.standard_id]}
     standard_id: ClassVar[Mapped[str]]
     label: ClassVar[Mapped[str | None]]
     parent_id: ClassVar[Mapped[str | None]]
