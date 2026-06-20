@@ -23,6 +23,7 @@ from backend.auth.mcp_runtime import (
     McpAuthError,
     mcp_oidc_issuer,
 )
+from backend.core.config import temporary_access_lockdown_enabled
 from backend.routes.auth.cookies import (
     _clear_zitadel_link_cookie,
     _clear_zitadel_pending_cookie,
@@ -302,6 +303,16 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         notification_provider: str | None = None,
     ):
         action, user = _resolve_user_from_external_identity(external_identity=external_identity)
+        if action == "register" and temporary_access_lockdown_enabled():
+            # TEMPORARY (July reopen): new account creation is disabled, so
+            # discard the just-created user/link instead of provisioning it.
+            deps.db.session.rollback()
+            abort(
+                403,
+                description=(
+                    "New user creation is temporarily disabled. Please check back in July."
+                ),
+            )
         claims = getattr(external_identity, "claims", None)
         signup_first_name = claims.get("given_name") if isinstance(claims, dict) else None
         signup_last_name = claims.get("family_name") if isinstance(claims, dict) else None

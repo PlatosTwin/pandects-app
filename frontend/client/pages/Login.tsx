@@ -362,15 +362,9 @@ export default function Login() {
                 </div>
               </form>
 
+              {/* TEMPORARY (July reopen): new account creation is disabled. */}
               <div className="text-center text-sm text-muted-foreground">
-                Need an account?{" "}
-                <Link
-                  to={`/signup?next=${encodeURIComponent(nextPath)}`}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Create one
-                </Link>
-                .
+                New account creation is temporarily disabled. Please check back in July.
               </div>
             </div>
           </Card>

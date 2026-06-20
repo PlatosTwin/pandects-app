@@ -9,6 +9,7 @@ from sqlalchemy.exc import SAWarning
 
 def _set_default_env() -> None:
     os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
+    os.environ.setdefault("TEMPORARY_ACCESS_LOCKDOWN", "0")
     os.environ.setdefault("MARIADB_USER", "root")
     os.environ.setdefault("MARIADB_PASSWORD", "password")
     os.environ.setdefault("MARIADB_HOST", "127.0.0.1")

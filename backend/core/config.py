@@ -151,6 +151,21 @@ def max_content_length() -> int:
     return 1 * 1024 * 1024
 
 
+def temporary_access_lockdown_enabled() -> bool:
+    """TEMPORARY (July reopen): when enabled, new account creation is blocked and
+    the data API is limited to accounts created before the current day. Enabled by
+    default so production deploys pick it up without extra config; set
+    TEMPORARY_ACCESS_LOCKDOWN=0 to disable (the test suite does this to exercise
+    the underlying data API anonymously)."""
+    return os.environ.get("TEMPORARY_ACCESS_LOCKDOWN", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+        "",
+    }
+
+
 def _expose_swagger_ui() -> bool:
     # Swagger UI pulls scripts from cdn.jsdelivr.net (not in our CSP) and
     # enumerates every authenticated endpoint with parameter schemas — useful
