@@ -17,6 +17,7 @@ from sqlalchemy import text
 
 def _set_default_env() -> None:
     os.environ["SKIP_MAIN_DB_REFLECTION"] = "1"
+    os.environ["TEMPORARY_ACCESS_LOCKDOWN"] = "0"
     os.environ["MARIADB_USER"] = "root"
     os.environ["MARIADB_PASSWORD"] = "password"
     os.environ["MARIADB_HOST"] = "127.0.0.1"

@@ -13,9 +13,11 @@ import {
 import { AppLayout } from "@/components/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AccessGate } from "@/components/AccessGate";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { createQueryClient } from "@/lib/query-client";
+import { ACCESS_GATED_PATHS } from "@/lib/lockdown";
 import { ROUTES } from "@/lib/routes";
 
 const App = () => {
@@ -52,6 +54,8 @@ const App = () => {
                           element={
                             route.protected ? (
                               <ProtectedRoute>{element}</ProtectedRoute>
+                            ) : ACCESS_GATED_PATHS.has(route.path) ? (
+                              <AccessGate>{element}</AccessGate>
                             ) : (
                               element
                             )

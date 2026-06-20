@@ -4,8 +4,10 @@ import { StaticRouter } from "react-router-dom/server";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
+import { AccessGate } from "@/components/AccessGate";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { createQueryClient } from "@/lib/query-client";
+import { ACCESS_GATED_PATHS } from "@/lib/lockdown";
 import { PRERENDER_ROUTES } from "@shared/route-manifest.mjs";
 
 import About from "@/pages/About";
@@ -63,7 +65,13 @@ export function renderPage(pathname: string): string {
                   <Route
                     key={route.pathname}
                     path={route.pathname}
-                    element={PRERENDER_COMPONENTS[route.pathname]}
+                    element={
+                      ACCESS_GATED_PATHS.has(route.pathname) ? (
+                        <AccessGate>{PRERENDER_COMPONENTS[route.pathname]}</AccessGate>
+                      ) : (
+                        PRERENDER_COMPONENTS[route.pathname]
+                      )
+                    }
                   />
                 ))}
               </Route>

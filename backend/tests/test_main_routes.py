@@ -13,6 +13,7 @@ from sqlalchemy.dialects import mysql as mysql_dialect
 
 def _set_default_env(main_db_uri: str, auth_db_uri: str) -> None:
     os.environ["SKIP_MAIN_DB_REFLECTION"] = "1"
+    os.environ["TEMPORARY_ACCESS_LOCKDOWN"] = "0"
     os.environ["MAIN_DATABASE_URI"] = main_db_uri
     os.environ["MAIN_DB_SCHEMA"] = ""
     os.environ.setdefault("MARIADB_USER", "root")

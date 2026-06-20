@@ -113,6 +113,7 @@ from backend.mcp.routes import McpDeps, register_mcp_routes
 from backend.core.config import (
     app_config_map as _app_config_map,
     configure_app as _configure_app_core,
+    temporary_access_lockdown_enabled as _temporary_access_lockdown_enabled,
 )
 from backend.core.errors import (
     json_error as _json_error,
@@ -887,6 +888,61 @@ def _current_access_context() -> AccessContext:
     return AccessContext(tier="anonymous")
 
 
+# --- Temporary July access restrictions -------------------------------------
+# New account creation is disabled and the data API is limited to accounts that
+# already existed before the current day, surfaced in-app as a "check back in
+# July" notice. To reopen access, remove _temporary_access_gate (and its
+# before_request registration in _register_request_hooks) plus the OAuth
+# register guard in backend/routes/auth/__init__.py.
+_REGISTRATION_DISABLED_MESSAGE = (
+    "New user creation is temporarily disabled. Please check back in July."
+)
+_DATA_API_DISABLED_MESSAGE = (
+    "This API is temporarily disabled for non-authenticated users. "
+    "Please check back in July."
+)
+
+
+def _access_account_predates_today(ctx: AccessContext) -> bool:
+    """True only for an authenticated account created before the current UTC day."""
+    if not ctx.is_authenticated or ctx.user_id is None:
+        return False
+    if _auth_is_mocked():
+        user = _mock_auth.get_user(ctx.user_id)
+    elif _auth_db_is_configured():
+        try:
+            user = db.session.get(AuthUser, ctx.user_id)
+        except SQLAlchemyError:
+            return False
+    else:
+        return False
+    created_at = getattr(user, "created_at", None) if user is not None else None
+    if not isinstance(created_at, datetime):
+        return False
+    return created_at.date() < _utc_today()
+
+
+def _temporary_access_gate() -> None:
+    """Block new registration and restrict the data API to pre-today accounts."""
+    if not _temporary_access_lockdown_enabled():
+        return
+    if request.method == "OPTIONS":
+        return
+    path = request.path
+    if request.method == "POST" and path == "/v1/auth/signup/password":
+        abort(403, description=_REGISTRATION_DISABLED_MESSAGE)
+    # Only the data API is gated; /v1/auth/* (sign-in, session, captcha, etc.)
+    # stays reachable so existing users can still authenticate.
+    if not path.startswith("/v1/") or path.startswith("/v1/auth/"):
+        return
+    ctx = getattr(g, "access_ctx", None)
+    if not isinstance(ctx, AccessContext):
+        ctx = _current_access_context()
+    if _access_account_predates_today(ctx):
+        return
+    abort(403, description=_DATA_API_DISABLED_MESSAGE)
+
+
 def _create_api_key(*, user_id: str, name: str | None) -> tuple[ApiKey, str]:
     token = f"pdcts_{uuid.uuid4().hex}{uuid.uuid4().hex}"
     prefix = token[: 6 + 12]
@@ -1321,6 +1377,8 @@ def _register_request_hooks(target_app: Flask) -> None:
         populate_dump_version=_populate_dump_version,
         attach_dump_version_header=_attach_dump_version_header,
     )
+    # Temporary July gate; registered after the core guard so g.access_ctx is set.
+    _temp_access_gate: object = target_app.before_request(_temporary_access_gate)
 
 # Legacy helper names kept so route dependency wiring and tests can import one app module.
 _encode_agreements_cursor = _core_encode_agreements_cursor
