@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiUrl } from "@/lib/api-config";
+import { authFetch } from "@/lib/auth-fetch";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 import { cn } from "@/lib/utils";
@@ -1054,7 +1055,7 @@ export default function TrendsAnalyses() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(apiUrl("v1/agreement-trends"), {
+        const response = await authFetch(apiUrl("v1/agreement-trends"), {
           signal: controller.signal,
         });
         if (!response.ok) {

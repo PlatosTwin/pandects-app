@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 import { API_BASE_URL, apiUrl } from "@/lib/api-config";
+import { authFetch } from "@/lib/auth-fetch";
 import { trackEvent } from "@/lib/analytics";
 import { logger } from "@/lib/logger";
 import { PageShell } from "@/components/PageShell";
@@ -54,7 +55,7 @@ export default function BulkData() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(apiUrl("v1/dumps"), {
+        const response = await authFetch(apiUrl("v1/dumps"), {
           signal: controller.signal,
         });
         if (!response.ok) {

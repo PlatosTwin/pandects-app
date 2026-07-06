@@ -16,6 +16,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiUrl } from "@/lib/api-config";
+import { authFetch } from "@/lib/auth-fetch";
 import { formatCompactCurrencyValue } from "@/lib/format-utils";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 
@@ -335,7 +336,7 @@ export default function Leaderboards() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(apiUrl("v1/counsel-leaderboards"), {
+        const response = await authFetch(apiUrl("v1/counsel-leaderboards"), {
           signal: controller.signal,
         });
         if (!response.ok) {
