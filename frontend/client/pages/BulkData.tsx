@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
+import brandLinks from "@branding/links.json";
 import { API_BASE_URL, apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { trackEvent } from "@/lib/analytics";
@@ -38,6 +39,7 @@ interface DumpInfo {
 }
 
 export default function BulkData() {
+  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
   const [dumps, setDumps] = useState<DumpInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -335,6 +337,26 @@ export default function BulkData() {
             className="font-medium underline decoration-foreground/60 underline-offset-2"
           >
             MariaDB Documentation
+          </a>
+          . For a table-by-table reference of what the dump contains, see the{" "}
+          <a
+            href={`${docsUrl}/docs/guides/bulk-data-schema`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Bulk Data Schema guide (opens in a new tab)"
+            className="font-medium underline decoration-foreground/60 underline-offset-2"
+          >
+            Bulk Data Schema guide
+          </a>
+          ; column-level documentation and an interactive ER diagram are on{" "}
+          <a
+            href="https://dbdocs.io/nmbogdan/Pandects"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Pandects schema on dbdocs.io (opens in a new tab)"
+            className="font-medium underline decoration-foreground/60 underline-offset-2"
+          >
+            dbdocs.io
           </a>
           .
         </p>
