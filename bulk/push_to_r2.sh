@@ -41,38 +41,20 @@ SQL_DUMP_FILE="${SESSION_DIR}/public_${TIMESTAMP}.sql.gz"
 TARGET_DB="${MARIADB_DATABASE:-pdx}"
 
 # API-facing table allowlist (all and only what backend API currently requires).
-API_TABLES=(
-  agreement_counsel
-  agreement_buyer_type_matrix_summary
-  agreement_counsel_leaderboard_summary
-  agreement_deal_type_summary
-  agreement_filter_option_summary
-  agreement_industry_pairing_summary
-  agreement_overview_summary
-  agreement_ownership_deal_size_summary
-  agreement_ownership_mix_summary
-  agreement_status_summary
-  agreement_target_industry_summary
-  agreement_metadata_field_coverage_summary
-  agreement_index_summary
-  agreements
-  clauses
-  counsel
-  latest_sections_search
-  latest_sections_search_standard_ids
-  naics_sectors
-  naics_sub_sectors
-  sections
-  summary_data
-  tax_clause_assignments
-  tax_clause_taxonomy_l1
-  tax_clause_taxonomy_l2
-  tax_clause_taxonomy_l3
-  taxonomy_l1
-  taxonomy_l2
-  taxonomy_l3
-  xml
-)
+# Shared with bulk/schema_docs/generate_schema_docs.py so the public schema
+# docs always cover exactly the dumped tables.
+PUBLIC_TABLES_FILE="${SCRIPT_DIR}/public_tables.txt"
+API_TABLES=()
+while IFS= read -r table; do
+  table="${table%%#*}"
+  table="$(printf '%s' "$table" | tr -d '[:space:]')"
+  [ -n "$table" ] && API_TABLES+=("$table")
+done < "$PUBLIC_TABLES_FILE"
+
+if [ "${#API_TABLES[@]}" -eq 0 ]; then
+    echo "❌ Error: no tables found in ${PUBLIC_TABLES_FILE}."
+    exit 1
+fi
 
 TABLES_LIST=""
 for table in "${API_TABLES[@]}"; do
@@ -111,6 +93,28 @@ fi
 
 echo "🚀 Starting Full Sync: Local -> R2 (Logical + SQL)"
 echo "📚 Export table allowlist (${#API_TABLES[@]} tables): ${API_TABLES[*]}"
+
+# ── 0. Regenerate Public Schema Docs ────────────────────────────
+# Keeps bulk/schema_docs/pandects.dbml and the docs-site schema page in sync
+# with what this dump actually contains. Fails (and aborts the push) if a
+# dumped table/column is missing a description in table_docs.yml.
+echo "📖 [0/4] Regenerating public schema docs..."
+if ! "$PYTHON_BIN" -c "import pymysql, yaml" 2>/dev/null; then
+    echo "⚠️  Schema-docs dependencies not found. Installing..."
+    "$PYTHON_BIN" -m pip install -r "${SCRIPT_DIR}/requirements.txt"
+fi
+"$PYTHON_BIN" "${SCRIPT_DIR}/schema_docs/generate_schema_docs.py"
+
+SCHEMA_DOC_PATHS=(
+  "bulk/schema_docs/pandects.dbml"
+  "docs/docs/guides/bulk-data-schema.md"
+)
+if ! git -C "$REPO_ROOT" diff --quiet -- "${SCHEMA_DOC_PATHS[@]}" \
+   || [ -n "$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "${SCHEMA_DOC_PATHS[@]}")" ]; then
+    SCHEMA_DOCS_DIRTY=1
+else
+    SCHEMA_DOCS_DIRTY=0
+fi
 
 LOGICAL_DIR="${SESSION_DIR}/logical"
 LOGICAL_ARCHIVE="${SESSION_DIR}/logical_backup_${TIMESTAMP}.tar.gz"
@@ -403,3 +407,10 @@ rm -rf "$SESSION_DIR"
 echo "🎉 Sync Complete! Artifacts are on R2."
 echo "   - Internal Restore: s3://${R2_BUCKET_NAME}/logical_backups/backup_${TIMESTAMP}.tar.gz"
 echo "   - Public Dump:    s3://${R2_BUCKET_NAME}/dumps/latest.sql.gz"
+
+if [ "$SCHEMA_DOCS_DIRTY" -eq 1 ]; then
+    echo ""
+    echo "⚠️  Schema docs changed with this dump. Commit and push to main so the"
+    echo "   docs site and dbdocs.io get updated:"
+    printf '     %s\n' "${SCHEMA_DOC_PATHS[@]}"
+fi

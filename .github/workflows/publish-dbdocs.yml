@@ -1,0 +1,36 @@
+name: Publish DB Docs
+
+on:
+  # Manual trigger for republishing without a schema change.
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "bulk/schema_docs/pandects.dbml"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dbdocs CLI
+        run: npm install -g dbdocs
+
+      - name: Validate DBML
+        run: dbdocs validate bulk/schema_docs/pandects.dbml
+
+      - name: Publish to dbdocs.io
+        run: dbdocs build bulk/schema_docs/pandects.dbml --project Pandects
+        env:
+          DBDOCS_TOKEN: ${{ secrets.DBDOCS_TOKEN }}
