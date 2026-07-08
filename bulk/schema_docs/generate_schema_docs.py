@@ -406,7 +406,9 @@ def render_markdown(
         "`VECTOR` type; on servers without vector support, load the dump with that",
         "column's DDL adjusted or skip the `sections` table.",
         "",
-        f"An interactive ER diagram of this schema is published at [dbdocs.io]({DBDOCS_URL}).",
+        "This page describes each table and how the tables relate.",
+        f"**Column-level documentation lives in the interactive schema at [dbdocs.io]({DBDOCS_URL})**,",
+        "along with an ER diagram and index definitions.",
         "",
         "## Conventions",
         "",
@@ -438,21 +440,6 @@ def render_markdown(
             if table_refs:
                 lines.append("**Relationships**:")
                 lines.extend(f"- {ref}" for ref in table_refs)
-                lines.append("")
-            lines.append("| Column | Type | Nullable | Description |")
-            lines.append("| --- | --- | --- | --- |")
-            for column in table.columns.values():
-                nullable = "yes" if column.nullable else "no"
-                description = column.description.replace("|", "\\|")
-                lines.append(f"| `{column.name}` | `{column.column_type}` | {nullable} | {description} |")
-            lines.append("")
-            if table.indexes:
-                index_parts = []
-                for index in table.indexes:
-                    columns = ", ".join(f"`{column}`" for column in index.columns)
-                    unique = "unique, " if index.unique else ""
-                    index_parts.append(f"`{index.name}` ({unique}{columns})")
-                lines.append(f"**Indexes**: {'; '.join(index_parts)}")
                 lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
