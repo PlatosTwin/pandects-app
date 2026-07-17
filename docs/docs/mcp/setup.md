@@ -33,6 +33,10 @@ The normal flow is:
 3. When your browser opens, sign in with your Pandects account
 4. Return to the client and start using Pandects tools
 
+:::note Sign-in needs an interactive browser
+Authentication is a browser sign-in, not an API key. A non-interactive or headless agent session cannot complete it on its own — a person has to finish the browser step. If you are driving an automated agent, hand off the sign-in to a human, then let the agent use the tools once the server is connected.
+:::
+
 ## Codex
 
 Add the server:
