@@ -103,6 +103,7 @@ class PipelineConfig(dg.ConfigurableResource[object]):
     tax_module_llm_clauses_per_request: int = 5  # clauses bundled into each LLM request within a batch
     tx_metadata_agreement_batch_size: int = 10  # used in tx_metadata_asset
     tx_metadata_mode: TxMetadataMode = TxMetadataMode.OFFLINE  # offline | web_search
+    tx_metadata_web_search_verify_recent_pending: bool = False  # regular_ingest: end-of-job web-search sweep over recent pending deals (expensive)
     embed_agreement_batch_size: int = 10  # used in 11_embed_sections when embed_target=agreement
     embed_focus_section: str = ""  # section_standard_id value when embed_target=section
     embed_focus_section_batch_size: int = 100  # used in 11_embed_sections when embed_target=section

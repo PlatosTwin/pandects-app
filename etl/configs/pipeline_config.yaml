@@ -20,6 +20,7 @@ resources:
       enable_tax_taxonomy: false
       tx_metadata_agreement_batch_size: 10
       tx_metadata_mode: offline
+      tx_metadata_web_search_verify_recent_pending: false
       embed_agreement_batch_size: 10
       embed_focus_section: ""
       embed_focus_section_batch_size: 100

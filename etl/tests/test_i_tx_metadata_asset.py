@@ -1766,7 +1766,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             return None
 
         context = SimpleNamespace(log=_FakeLog(), add_output_metadata=_add_output_metadata)
-        pipeline_config = PipelineConfig()
+        pipeline_config = PipelineConfig(tx_metadata_web_search_verify_recent_pending=True)
         fake_db = _FakeDbResource()
 
         with (
@@ -1798,6 +1798,45 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
         _, kwargs = run_web_search.call_args
         self.assertEqual(kwargs["target_agreement_uuids"], ["pending-1", "pending-2", "scope-1"])
         self.assertEqual(kwargs["force_include_agreement_uuids"], ["pending-1", "pending-2"])
+
+    def test_regular_ingest_web_search_asset_skips_recent_pending_sweep_when_disabled(self) -> None:
+        def _add_output_metadata(_metadata: object) -> None:
+            return None
+
+        context = SimpleNamespace(log=_FakeLog(), add_output_metadata=_add_output_metadata)
+        pipeline_config = PipelineConfig(tx_metadata_web_search_verify_recent_pending=False)
+        fake_db = _FakeDbResource()
+
+        with (
+            patch("etl.defs.i_tx_metadata_asset.ensure_single_batch_run", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.should_skip_managed_stage", return_value=(False, None)),
+            patch("etl.defs.i_tx_metadata_asset.load_active_scope_for_job", return_value=["scope-1"]),
+            patch(
+                "etl.defs.i_tx_metadata_asset._select_recent_pending_agreement_uuids_for_web_search",
+                return_value=["pending-1", "pending-2"],
+            ) as select_pending,
+            patch("etl.defs.i_tx_metadata_asset.run_pre_asset_gating", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.run_post_asset_refresh", return_value=None),
+            patch("etl.defs.i_tx_metadata_asset.mark_logical_run_stage_completed", return_value=None),
+            patch(
+                "etl.defs.i_tx_metadata_asset._run_web_search_mode",
+                return_value={"total_searches": 0, "searches_by_agreement": {}, "processed_uuids": ["scope-1"]},
+            ) as run_web_search,
+        ):
+            decorated_fn = getattr(cast(object, regular_ingest_tx_metadata_web_search_asset.op.compute_fn), "decorated_fn")
+            result = decorated_fn(
+                context=cast(AssetExecutionContext, cast(object, context)),
+                db=cast(object, fake_db),
+                pipeline_config=pipeline_config,
+                agreement_uuids=[],
+            )
+
+        self.assertEqual(result, ["scope-1"])
+        select_pending.assert_not_called()
+        run_web_search.assert_called_once()
+        _, kwargs = run_web_search.call_args
+        self.assertEqual(kwargs["target_agreement_uuids"], ["scope-1"])
+        self.assertEqual(kwargs["force_include_agreement_uuids"], [])
 
 
 if __name__ == "__main__":

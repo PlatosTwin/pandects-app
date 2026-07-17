@@ -936,7 +936,7 @@ def _run_managed_tx_metadata_web_search_asset(
     )
 
     forced_verification_uuids: list[str] = []
-    if job_name == "regular_ingest":
+    if job_name == "regular_ingest" and pipeline_config.tx_metadata_web_search_verify_recent_pending:
         with db.get_engine().begin() as conn:
             forced_verification_uuids = _select_recent_pending_agreement_uuids_for_web_search(
                 conn,
