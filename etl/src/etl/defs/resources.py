@@ -7,7 +7,8 @@ including database connections, ML models, and pipeline configuration.
 
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from types import UnionType
+from typing import Any, Union, get_args, get_origin
 
 import dagster as dg
 import yaml
@@ -282,6 +283,31 @@ def _load_yaml_config() -> dict[str, Any]:
     return config
 
 
+def _coerce_pipeline_config_value(*, field_name: str, annotation: Any, raw: Any) -> Any:
+    """Coerce a YAML value to the type declared on the PipelineConfig field."""
+    origin = get_origin(annotation)
+    if origin is Union or origin is UnionType:
+        non_none_args = [arg for arg in get_args(annotation) if arg is not type(None)]
+        if non_none_args == [str]:
+            return None if raw is None else str(raw).strip() or None
+        raise ValueError(
+            f"PipelineConfig field {field_name!r} has unsupported union type {annotation!r}; extend _coerce_pipeline_config_value."
+        )
+    if annotation is bool:
+        return _parse_bool(raw, field_name=field_name)
+    if annotation is int:
+        return int(raw)
+    if annotation is float:
+        return float(raw)
+    if annotation is str:
+        return str(raw).strip()
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        return annotation(str(raw).lower())
+    raise ValueError(
+        f"PipelineConfig field {field_name!r} has unsupported type {annotation!r}; extend _coerce_pipeline_config_value."
+    )
+
+
 def get_resources() -> dict[str, object]:
     """Get the base resource configuration for the pipeline.
 
@@ -292,194 +318,26 @@ def get_resources() -> dict[str, object]:
         Dictionary containing all resource definitions.
     """
     yaml_config = _load_yaml_config()
-    
-    # Convert YAML values to appropriate types, with fallback to current defaults
-    allowed_pipeline_config_keys = {
-        "pre_processing_mode",
-        "queue_run_mode",
-        "refresh",
-        "resume_openai_batches",
-        "xml_enable_llm_verification",
-        "resume_logical_runs",
-        "force_new_logical_run",
-        "tagging_agreement_batch_size",
-        "pre_processing_agreement_batch_size",
-        "xml_agreement_batch_size",
-        "ai_repair_page_budget",
-        "ai_repair_attempt_priority",
-        "taxonomy_agreement_batch_size",
-        "enable_section_taxonomy",
-        "taxonomy_mode",
-        "taxonomy_section_title_regex",
-        "taxonomy_llm_model",
-        "taxonomy_llm_sections_per_request",
-        "tax_module_agreement_batch_size",
-        "enable_tax_taxonomy",
-        "tax_module_llm_model",
-        "tax_module_llm_clauses_per_request",
-        "tx_metadata_agreement_batch_size",
-        "tx_metadata_mode",
-        "embed_agreement_batch_size",
-        "embed_focus_section",
-        "embed_focus_section_batch_size",
-        "embed_target",
-        "staging_target_date",
-        "staging_rate_limit_max_requests",
-        "staging_rate_limit_window_seconds",
-        "staging_max_workers",
-        "staging_use_keyword_filter",
-    }
-    unknown_keys = sorted(set(yaml_config) - allowed_pipeline_config_keys)
+
+    # The allowlist and per-field parsing both derive from PipelineConfig's own
+    # field definitions, so adding a field to the class is the whole change.
+    pipeline_config_fields = PipelineConfig.model_fields
+    unknown_keys = sorted(set(yaml_config) - set(pipeline_config_fields))
     if unknown_keys:
         raise ValueError(
             "Unknown keys in resources.pipeline_config.config: "
             + ", ".join(unknown_keys)
         )
 
-    pipeline_config_kwargs: dict[str, Any] = {}
-    
-    if "pre_processing_mode" in yaml_config:
-        mode_str = str(yaml_config["pre_processing_mode"]).lower()
-        pipeline_config_kwargs["pre_processing_mode"] = PreProcessingMode(mode_str)
-    
-    if "queue_run_mode" in yaml_config:
-        run_mode_str = str(yaml_config["queue_run_mode"]).lower()
-        pipeline_config_kwargs["queue_run_mode"] = QueueRunMode(run_mode_str)
-
-    if "refresh" in yaml_config:
-        pipeline_config_kwargs["refresh"] = _parse_bool(
-            yaml_config["refresh"],
-            field_name="refresh",
+    pipeline_config_kwargs: dict[str, Any] = {
+        key: _coerce_pipeline_config_value(
+            field_name=key,
+            annotation=pipeline_config_fields[key].annotation,
+            raw=raw,
         )
+        for key, raw in yaml_config.items()
+    }
 
-    if "resume_openai_batches" in yaml_config:
-        pipeline_config_kwargs["resume_openai_batches"] = _parse_bool(
-            yaml_config["resume_openai_batches"],
-            field_name="resume_openai_batches",
-        )
-
-    if "xml_enable_llm_verification" in yaml_config:
-        pipeline_config_kwargs["xml_enable_llm_verification"] = _parse_bool(
-            yaml_config["xml_enable_llm_verification"],
-            field_name="xml_enable_llm_verification",
-        )
-
-    if "resume_logical_runs" in yaml_config:
-        pipeline_config_kwargs["resume_logical_runs"] = _parse_bool(
-            yaml_config["resume_logical_runs"],
-            field_name="resume_logical_runs",
-        )
-
-    if "force_new_logical_run" in yaml_config:
-        pipeline_config_kwargs["force_new_logical_run"] = _parse_bool(
-            yaml_config["force_new_logical_run"],
-            field_name="force_new_logical_run",
-        )
-    
-    if "tagging_agreement_batch_size" in yaml_config:
-        pipeline_config_kwargs["tagging_agreement_batch_size"] = int(yaml_config["tagging_agreement_batch_size"])
-
-    if "pre_processing_agreement_batch_size" in yaml_config:
-        pipeline_config_kwargs["pre_processing_agreement_batch_size"] = int(yaml_config["pre_processing_agreement_batch_size"])
-    
-    if "xml_agreement_batch_size" in yaml_config:
-        pipeline_config_kwargs["xml_agreement_batch_size"] = int(yaml_config["xml_agreement_batch_size"])
-
-    if "ai_repair_page_budget" in yaml_config:
-        pipeline_config_kwargs["ai_repair_page_budget"] = int(yaml_config["ai_repair_page_budget"])
-
-    if "ai_repair_attempt_priority" in yaml_config:
-        priority_str = str(yaml_config["ai_repair_attempt_priority"]).lower()
-        pipeline_config_kwargs["ai_repair_attempt_priority"] = AIRepairAttemptPriority(priority_str)
-
-    if "taxonomy_agreement_batch_size" in yaml_config:
-        pipeline_config_kwargs["taxonomy_agreement_batch_size"] = int(yaml_config["taxonomy_agreement_batch_size"])
-
-    if "enable_section_taxonomy" in yaml_config:
-        pipeline_config_kwargs["enable_section_taxonomy"] = _parse_bool(
-            yaml_config["enable_section_taxonomy"],
-            field_name="enable_section_taxonomy",
-        )
-
-    if "taxonomy_mode" in yaml_config:
-        mode_str = str(yaml_config["taxonomy_mode"]).lower()
-        pipeline_config_kwargs["taxonomy_mode"] = TaxonomyMode(mode_str)
-
-    if "taxonomy_section_title_regex" in yaml_config:
-        raw_regex = yaml_config["taxonomy_section_title_regex"]
-        pipeline_config_kwargs["taxonomy_section_title_regex"] = (
-            None if raw_regex is None else str(raw_regex).strip() or None
-        )
-
-    if "taxonomy_llm_model" in yaml_config:
-        pipeline_config_kwargs["taxonomy_llm_model"] = str(
-            yaml_config["taxonomy_llm_model"]
-        ).strip()
-
-    if "taxonomy_llm_sections_per_request" in yaml_config:
-        pipeline_config_kwargs["taxonomy_llm_sections_per_request"] = int(
-            yaml_config["taxonomy_llm_sections_per_request"]
-        )
-
-    if "tax_module_agreement_batch_size" in yaml_config:
-        pipeline_config_kwargs["tax_module_agreement_batch_size"] = int(
-            yaml_config["tax_module_agreement_batch_size"]
-        )
-
-    if "enable_tax_taxonomy" in yaml_config:
-        pipeline_config_kwargs["enable_tax_taxonomy"] = _parse_bool(
-            yaml_config["enable_tax_taxonomy"],
-            field_name="enable_tax_taxonomy",
-        )
-
-    if "tax_module_llm_model" in yaml_config:
-        pipeline_config_kwargs["tax_module_llm_model"] = str(
-            yaml_config["tax_module_llm_model"]
-        ).strip()
-
-    if "tax_module_llm_clauses_per_request" in yaml_config:
-        pipeline_config_kwargs["tax_module_llm_clauses_per_request"] = int(
-            yaml_config["tax_module_llm_clauses_per_request"]
-        )
-    
-    if "tx_metadata_agreement_batch_size" in yaml_config:
-        pipeline_config_kwargs["tx_metadata_agreement_batch_size"] = int(yaml_config["tx_metadata_agreement_batch_size"])
-    
-    if "tx_metadata_mode" in yaml_config:
-        mode_str = str(yaml_config["tx_metadata_mode"]).lower()
-        pipeline_config_kwargs["tx_metadata_mode"] = TxMetadataMode(mode_str)
-
-    if "embed_agreement_batch_size" in yaml_config:
-        pipeline_config_kwargs["embed_agreement_batch_size"] = int(yaml_config["embed_agreement_batch_size"])
-
-    if "embed_focus_section" in yaml_config:
-        pipeline_config_kwargs["embed_focus_section"] = str(yaml_config["embed_focus_section"]).strip()
-
-    if "embed_focus_section_batch_size" in yaml_config:
-        pipeline_config_kwargs["embed_focus_section_batch_size"] = int(yaml_config["embed_focus_section_batch_size"])
-
-    if "embed_target" in yaml_config:
-        target_str = str(yaml_config["embed_target"]).lower()
-        pipeline_config_kwargs["embed_target"] = EmbedTarget(target_str)
-    
-    if "staging_target_date" in yaml_config:
-        pipeline_config_kwargs["staging_target_date"] = str(yaml_config["staging_target_date"]).strip()
-    
-    if "staging_rate_limit_max_requests" in yaml_config:
-        pipeline_config_kwargs["staging_rate_limit_max_requests"] = int(yaml_config["staging_rate_limit_max_requests"])
-    
-    if "staging_rate_limit_window_seconds" in yaml_config:
-        pipeline_config_kwargs["staging_rate_limit_window_seconds"] = float(yaml_config["staging_rate_limit_window_seconds"])
-    
-    if "staging_max_workers" in yaml_config:
-        pipeline_config_kwargs["staging_max_workers"] = int(yaml_config["staging_max_workers"])
-    
-    if "staging_use_keyword_filter" in yaml_config:
-        pipeline_config_kwargs["staging_use_keyword_filter"] = _parse_bool(
-            yaml_config["staging_use_keyword_filter"],
-            field_name="staging_use_keyword_filter",
-        )
-    
     return {
         "db": DBResource(
             user=dg.EnvVar("MARIADB_USER"),

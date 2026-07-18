@@ -1,5 +1,6 @@
 # pyright: reportAny=false
 import unittest
+from enum import Enum
 from typing import cast
 from unittest.mock import patch
 
@@ -100,6 +101,38 @@ class PipelineConfigResourceTests(unittest.TestCase):
         self.assertFalse(config.enable_tax_taxonomy)
         self.assertEqual(config.tax_module_llm_model, "gpt-5.4-mini")
         self.assertEqual(config.tax_module_llm_clauses_per_request, 5)
+
+    def test_get_resources_accepts_repo_pipeline_config_yaml(self) -> None:
+        # Loads the real etl/configs/pipeline_config.yaml — the exact path the
+        # Dagster code server takes at startup. Catches yaml keys the parsing
+        # layer does not accept before they can crash a running deployment.
+        resources = get_resources()
+
+        self.assertIsInstance(resources["pipeline_config"], PipelineConfig)
+
+    def test_get_resources_supports_every_pipeline_config_field(self) -> None:
+        defaults = PipelineConfig()
+        yaml_like: dict[str, object] = {}
+        for name in PipelineConfig.model_fields:
+            value = getattr(defaults, name)
+            yaml_like[name] = value.value if isinstance(value, Enum) else value
+
+        with patch("etl.defs.resources._load_yaml_config", return_value=yaml_like):
+            resources = get_resources()
+
+        pipeline_config = cast(PipelineConfig, resources["pipeline_config"])
+        for name in PipelineConfig.model_fields:
+            self.assertEqual(getattr(pipeline_config, name), getattr(defaults, name), name)
+
+    def test_get_resources_parses_web_search_verify_recent_pending(self) -> None:
+        with patch(
+            "etl.defs.resources._load_yaml_config",
+            return_value={"tx_metadata_web_search_verify_recent_pending": True},
+        ):
+            resources = get_resources()
+
+        pipeline_config = cast(PipelineConfig, resources["pipeline_config"])
+        self.assertTrue(pipeline_config.tx_metadata_web_search_verify_recent_pending)
 
     def test_get_resources_rejects_legacy_scope_keys(self) -> None:
         with patch(
