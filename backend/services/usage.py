@@ -885,10 +885,11 @@ def _get_rollup_buffer(
         return None
     buffer = current_app.extensions.get(extension_key)
     if buffer is None:
+        from backend.core.runtime_utils import current_app_object
         from backend.extensions import db as _db
 
         buffer = HourlyRollupBuffer(
-            app=cast(Flask, current_app._get_current_object()),  # pyright: ignore[reportPrivateUsage]
+            app=current_app_object(),
             db=_db,
             model=model,
             key_columns=key_columns,
