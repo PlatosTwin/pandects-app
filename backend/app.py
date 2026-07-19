@@ -941,8 +941,12 @@ def _temporary_access_gate() -> None:
     if request.method == "POST" and path == "/v1/auth/signup/password":
         abort(403, description=_REGISTRATION_DISABLED_MESSAGE)
     # Only the data API is gated; /v1/auth/* (sign-in, session, captcha, etc.)
-    # stays reachable so existing users can still authenticate.
+    # stays reachable so existing users can still authenticate, and
+    # /v1/page-views stays open because anonymous-visitor telemetry is the
+    # point of that endpoint (it exposes no data).
     if not path.startswith("/v1/") or path.startswith("/v1/auth/"):
+        return
+    if path == "/v1/page-views":
         return
     ctx = getattr(g, "access_ctx", None)
     if not isinstance(ctx, AccessContext):

@@ -4,8 +4,12 @@ POST /v1/page-views records SPA route changes into the ``page_views`` table
 the usage-analytics dashboard reads. Fire-and-forget by design: the endpoint
 always returns 204 so a telemetry hiccup can never surface in the UI, and it
 is CSRF-exempt (see ``backend.auth.session_runtime.csrf_required``) because
-it performs no security-relevant state change and the SPA sends it via
-``sendBeacon``/keepalive fetch which cannot attach custom headers reliably.
+it performs no security-relevant state change and keeping it header-free
+lets the client fall back to ``navigator.sendBeacon`` on page unload.
+
+Stored values are display strings the analytics dashboard will render, so
+control characters are stripped and the referrer must be an http(s) URL —
+but any dashboard rendering ``path``/``referrer`` must still HTML-escape.
 """
 
 from __future__ import annotations
@@ -26,6 +30,12 @@ _MAX_PATH_LENGTH = 512
 _MAX_REFERRER_LENGTH = 512
 
 
+def _clean_display_string(value: str) -> str:
+    """Drop control characters (NUL breaks the Postgres insert; the rest are
+    log/terminal-injection noise)."""
+    return "".join(ch for ch in value if ord(ch) >= 32).strip()
+
+
 def register_telemetry_routes() -> Blueprint:
     blp = Blueprint("telemetry", __name__)
 
@@ -41,15 +51,15 @@ def register_telemetry_routes() -> Blueprint:
         raw_path = payload.get("path")
         if not isinstance(raw_path, str):
             return no_content
-        path = raw_path.strip()[:_MAX_PATH_LENGTH]
+        path = _clean_display_string(raw_path)[:_MAX_PATH_LENGTH]
         if not path.startswith("/") or path.startswith("//"):
             return no_content
         raw_referrer = payload.get("referrer")
-        referrer = (
-            raw_referrer.strip()[:_MAX_REFERRER_LENGTH]
-            if isinstance(raw_referrer, str) and raw_referrer.strip()
-            else None
-        )
+        referrer = None
+        if isinstance(raw_referrer, str):
+            cleaned = _clean_display_string(raw_referrer)[:_MAX_REFERRER_LENGTH]
+            if cleaned.startswith("http://") or cleaned.startswith("https://"):
+                referrer = cleaned
         ctx = getattr(g, "access_ctx", None)
         user_id = getattr(ctx, "user_id", None)
         view = PageView()

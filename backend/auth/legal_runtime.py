@@ -195,16 +195,23 @@ def _record_signup_attribution(*, user_id: str) -> None:
     if len(raw) > _ATTRIBUTION_COOKIE_MAX_LENGTH:
         return
     try:
+        # Catch everything, not just ValueError: a hostile cookie like
+        # "[" * 2000 makes json.loads raise RecursionError, and nothing a
+        # cookie contains may ever fail the registration request.
         payload = json.loads(unquote(raw))
-    except (ValueError, TypeError):
+    except Exception:
         return
     if not isinstance(payload, dict):
         return
     values: dict[str, str] = {}
     for short_key, (column, max_length) in _ATTRIBUTION_FIELDS.items():
         value = payload.get(short_key)
-        if isinstance(value, str) and value.strip():
-            values[column] = value.strip()[:max_length]
+        if isinstance(value, str):
+            # Strip control characters (NUL would make Postgres reject the
+            # whole auth transaction at commit time).
+            value = "".join(ch for ch in value if ord(ch) >= 32).strip()
+        if isinstance(value, str) and value:
+            values[column] = value[:max_length]
     if not values:
         return
     try:

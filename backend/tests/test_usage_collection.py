@@ -7,8 +7,10 @@ import tempfile
 import unittest
 import uuid
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 
 def _set_default_env() -> None:
@@ -55,12 +57,16 @@ from backend.models import (  # noqa: E402
 )
 from backend.auth.legal_runtime import record_signon_event  # noqa: E402
 from backend.auth.mcp_oauth_runtime import access_token_claims  # noqa: E402
-from backend.auth.mcp_runtime import _claim_client_id  # noqa: E402
-from backend.auth.session_runtime import AccessContext  # noqa: E402
+from backend.auth.mcp_runtime import McpPrincipal, _claim_client_id  # noqa: E402
+from backend.auth.session_runtime import AccessContext, issue_session_token  # noqa: E402
+import backend.services.usage as usage_module  # noqa: E402
 from backend.services.usage import (  # noqa: E402
     LATENCY_BUCKET_BOUNDS_MS,
+    HourlyRollupAggregate,
     HourlyRollupBuffer,
     UsageBuffer,
+    _commit_rollup_pending,
+    _init_latency_buckets,
     record_mcp_tool_usage,
     record_web_session_usage,
     request_country,
@@ -96,10 +102,12 @@ class UsageCollectionTests(unittest.TestCase):
         backend_app._rate_limit_state.clear()
         backend_app._endpoint_rate_limit_state.clear()
 
-    def _create_user(self) -> str:
+    def _create_user(self, *, verified: bool = True) -> str:
         with self.app.app_context():
             user = AuthUser()
             user.email = f"user-{uuid.uuid4().hex[:10]}@example.com"
+            if verified:
+                user.email_verified_at = datetime.utcnow()
             db.session.add(user)
             db.session.commit()
             return user.id
@@ -141,6 +149,35 @@ class UsageCollectionTests(unittest.TestCase):
         client.set_cookie("pdcts_session", "some-session-token")
         res = client.post("/v1/page-views", json={"path": "/dashboard"})
         self.assertEqual(res.status_code, 204)
+
+    def test_page_view_strips_controls_and_requires_http_referrer(self) -> None:
+        client = self.app.test_client()
+        res = client.post(
+            "/v1/page-views",
+            json={"path": "/a\x00b\x1fc", "referrer": "javascript:alert(1)"},
+        )
+        self.assertEqual(res.status_code, 204)
+        with self.app.app_context():
+            rows = PageView.query.all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].path, "/abc")
+            self.assertIsNone(rows[0].referrer)
+
+    def test_page_view_allowed_while_temporary_lockdown_enabled(self) -> None:
+        # The anonymous-visitor pipeline is the point of this endpoint; it
+        # must stay open when the temporary access gate 403s the data API.
+        os.environ["TEMPORARY_ACCESS_LOCKDOWN"] = "1"
+        try:
+            client = self.app.test_client()
+            res = client.post("/v1/page-views", json={"path": "/pricing"})
+            self.assertEqual(res.status_code, 204)
+            # Control: other anonymous data-API requests are gated.
+            gated = client.get("/v1/not-a-real-route")
+            self.assertEqual(gated.status_code, 403)
+        finally:
+            os.environ["TEMPORARY_ACCESS_LOCKDOWN"] = "0"
+        with self.app.app_context():
+            self.assertEqual(PageView.query.count(), 1)
 
     # ── MCP tool-call rollups ───────────────────────────────────────────
 
@@ -187,7 +224,64 @@ class UsageCollectionTests(unittest.TestCase):
             self.assertEqual(err_row.count, 1)
             self.assertEqual(err_row.client_id, "")
 
+    def test_mcp_tools_call_dispatch_persists_usage_row(self) -> None:
+        """End-to-end wiring: an authenticated POST /mcp tools/call must leave
+        a mcp_usage_hourly row via the g.mcp_principal stash, even when the
+        tool name is unknown."""
+        user_id = self._create_user()
+        principal = McpPrincipal(
+            access_context=AccessContext(tier="mcp", user_id=user_id),
+            scopes=frozenset(),
+            issuer="https://test-issuer",
+            subject=user_id,
+            user_id=user_id,
+            client_id="client-e2e",
+        )
+        client = self.app.test_client()
+        with patch(
+            "backend.mcp.routes.authenticate_mcp_request", return_value=principal
+        ):
+            res = client.post(
+                "/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {"name": "definitely_not_a_tool", "arguments": {}},
+                },
+            )
+        self.assertEqual(res.status_code, 200)
+        with self.app.app_context():
+            rows = McpUsageHourly.query.all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].user_id, user_id)
+            self.assertEqual(rows[0].client_id, "client-e2e")
+            self.assertEqual(rows[0].tool_name, "definitely_not_a_tool")
+            self.assertEqual(rows[0].status, "unknown_tool")
+            self.assertEqual(rows[0].count, 1)
+
     # ── web session rollups ─────────────────────────────────────────────
+
+    def test_after_request_hook_records_web_usage_end_to_end(self) -> None:
+        """The web rollup must be wired into the real after_request hook, not
+        just callable: a session-authenticated /v1 request (here a 404) must
+        leave a web_usage_hourly row."""
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        user_id = self._create_user()
+        with self.app.test_request_context("/"):
+            token = issue_session_token(user_id)
+        client = self.app.test_client()
+        res = client.get(
+            "/v1/route-that-does-not-exist",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(res.status_code, 404)
+        with self.app.app_context():
+            rows = WebUsageHourly.query.all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].user_id, user_id)
+            self.assertEqual(rows[0].route, "/v1/route-that-does-not-exist")
+            self.assertEqual(rows[0].status_class, 4)
 
     def test_web_session_usage_recorded_for_user_tier(self) -> None:
         user_id = self._create_user()
@@ -262,6 +356,53 @@ class UsageCollectionTests(unittest.TestCase):
             self.assertEqual(rows[0].max_ms, 100)
             self.assertEqual(rows[0].request_bytes, 35)
             self.assertEqual(sum(rows[0].latency_buckets), 3)
+
+    def test_rollup_commit_retries_after_concurrent_insert_race(self) -> None:
+        """If another worker wins the INSERT race, the losing flush must
+        retry and merge instead of dropping its snapshot."""
+        user_id = self._create_user()
+        hour = datetime(2026, 7, 19, 11, 0, 0)
+        key = (user_id, "c1", hour, "get_agreement", "ok")
+        buckets = _init_latency_buckets(LATENCY_BUCKET_BOUNDS_MS)
+        buckets[0] = 1
+        pending = {
+            key: HourlyRollupAggregate(
+                count=1,
+                total_ms=10,
+                max_ms=10,
+                buckets=buckets,
+                request_bytes=0,
+                response_bytes=0,
+            )
+        }
+        real_flush = usage_module._flush_rollup_rows
+        calls = {"n": 0}
+
+        def racing_flush(**kwargs) -> None:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise IntegrityError("INSERT", None, Exception("duplicate key"))
+            real_flush(**kwargs)
+
+        with self.app.app_context():
+            with patch.object(usage_module, "_flush_rollup_rows", racing_flush):
+                _commit_rollup_pending(
+                    db=db,
+                    model=McpUsageHourly,
+                    key_columns=(
+                        "user_id",
+                        "client_id",
+                        "hour",
+                        "tool_name",
+                        "status",
+                    ),
+                    latency_bucket_bounds=LATENCY_BUCKET_BOUNDS_MS,
+                    pending=pending,
+                )
+            rows = McpUsageHourly.query.all()
+            self.assertEqual(calls["n"], 2)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].count, 1)
 
     # ── logout signon events ────────────────────────────────────────────
 
@@ -388,6 +529,7 @@ class UsageCollectionTests(unittest.TestCase):
             request_event_retention_days=180,
         )
         try:
+            buffer._last_prune = 0.0  # prune clock starts at boot; force due
             with self.app.app_context():
                 buffer._prune_request_events_if_due()
             with self.app.app_context():

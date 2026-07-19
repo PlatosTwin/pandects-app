@@ -14,7 +14,7 @@ from typing import Any, Protocol, cast
 
 from flask import Flask, Response, current_app, request, g
 from sqlalchemy import tuple_
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 
 # Canonical latency histogram bounds for every usage rollup (api_key, web
@@ -159,7 +159,10 @@ class UsageBuffer:
         self._flush_interval_seconds = max(0.1, float(flush_interval_seconds))
         self._max_pending_events = max(1, int(max_pending_events))
         self._request_event_retention_days = max(0, int(request_event_retention_days))
-        self._last_prune = 0.0
+        # Start the prune clock at boot so N workers don't all fire a
+        # retention DELETE on their first flush after every deploy. With a
+        # 180-day window, drifting one prune interval is immaterial.
+        self._last_prune = time.time()
         self._lock = Lock()
         self._flush_event = Event()
         self._stop_event = Event()
@@ -663,13 +666,22 @@ def _flush_rollup_rows(
 ) -> None:
     """Upsert aggregated rollup rows for a model whose natural key is
     ``key_columns`` and whose metric columns match ApiUsageHourly's. Caller
-    owns the session (commit/rollback)."""
+    owns the session (commit/rollback).
+
+    Existing rows are selected FOR UPDATE so concurrent workers merging into
+    the same natural key serialize instead of losing increments (no-op on
+    SQLite, which is single-writer anyway). A concurrent INSERT of the same
+    key still raises IntegrityError at commit — callers retry once, at which
+    point the row exists and this merges into it.
+    """
     if not pending:
         return
     key_attrs = [getattr(model, name) for name in key_columns]
-    existing_rows = model.query.filter(
-        tuple_(*key_attrs).in_(list(pending.keys()))
-    ).all()
+    existing_rows = (
+        model.query.filter(tuple_(*key_attrs).in_(list(pending.keys())))
+        .with_for_update()
+        .all()
+    )
     existing = {
         tuple(getattr(row, name) for name in key_columns): row for row in existing_rows
     }
@@ -700,6 +712,40 @@ def _flush_rollup_rows(
             row.latency_buckets = buckets
             row.request_bytes = int(row.request_bytes) + agg.request_bytes
             row.response_bytes = int(row.response_bytes) + agg.response_bytes
+
+
+def _commit_rollup_pending(
+    *,
+    db: Any,
+    model: Any,
+    key_columns: tuple[str, ...],
+    latency_bucket_bounds: tuple[int, ...],
+    pending: dict[tuple[object, ...], HourlyRollupAggregate],
+) -> None:
+    """Flush + commit pending rollups, retrying once on IntegrityError.
+
+    Two workers can race to INSERT the same natural key; the loser's whole
+    commit fails, so without a retry an entire snapshot of aggregates would
+    be dropped. On retry the SELECT finds the winner's row and merges.
+    """
+    for attempt in (0, 1):
+        try:
+            _flush_rollup_rows(
+                db=db,
+                model=model,
+                key_columns=key_columns,
+                latency_bucket_bounds=latency_bucket_bounds,
+                pending=pending,
+            )
+            db.session.commit()
+            return
+        except IntegrityError:
+            db.session.rollback()
+            if attempt == 1:
+                raise
+        except SQLAlchemyError:
+            db.session.rollback()
+            raise
 
 
 class HourlyRollupBuffer:
@@ -783,14 +829,13 @@ class HourlyRollupBuffer:
             self._last_flush = time.time()
         with self._app.app_context():
             try:
-                _flush_rollup_rows(
+                _commit_rollup_pending(
                     db=self._db,
                     model=self._model,
                     key_columns=self._key_columns,
                     latency_bucket_bounds=self._latency_bucket_bounds,
                     pending=pending,
                 )
-                self._db.session.commit()
             except SQLAlchemyError:
                 self._db.session.rollback()
 
@@ -887,7 +932,7 @@ def _record_hourly_rollup(
     buckets = _init_latency_buckets(LATENCY_BUCKET_BOUNDS_MS)
     buckets[bucket_index] = 1
     try:
-        _flush_rollup_rows(
+        _commit_rollup_pending(
             db=_db,
             model=model,
             key_columns=key_columns,
@@ -903,7 +948,6 @@ def _record_hourly_rollup(
                 )
             },
         )
-        _db.session.commit()
     except SQLAlchemyError:
         _db.session.rollback()
 

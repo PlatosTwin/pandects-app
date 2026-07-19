@@ -6,6 +6,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import TypedDict, cast
 
+from typing_extensions import NotRequired
+
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -38,7 +40,7 @@ class PublicJwk(TypedDict):
     e: str
 
 
-class AccessTokenClaims(TypedDict, total=False):
+class AccessTokenClaims(TypedDict):
     iss: str
     sub: str
     aud: str
@@ -47,7 +49,7 @@ class AccessTokenClaims(TypedDict, total=False):
     nbf: int
     exp: int
     jti: str
-    client_id: str
+    client_id: NotRequired[str]
 
 
 def _utc_now() -> datetime:

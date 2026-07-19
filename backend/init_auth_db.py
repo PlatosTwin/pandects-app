@@ -45,6 +45,10 @@ EXPECTED_TABLES = {
     "favorites",
     "favorite_tags",
     "favorite_tag_assignments",
+    "mcp_usage_hourly",
+    "web_usage_hourly",
+    "page_views",
+    "auth_signup_attributions",
 }
 
 
