@@ -70,6 +70,9 @@ class McpPrincipal:
     issuer: str
     subject: str
     user_id: str
+    # OAuth client the token was minted for; None for tokens that predate the
+    # claim or external identities without an azp/client_id claim.
+    client_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -302,7 +305,16 @@ def _authenticate_pandects_access_token(token: str) -> McpPrincipal | None:
             issuer=mcp_oauth_issuer(),
             subject=subject.strip(),
             user_id=user.id,
+            client_id=_claim_client_id(payload),
         )
+    return None
+
+
+def _claim_client_id(claims: Mapping[str, object]) -> str | None:
+    for key in ("client_id", "azp"):
+        value = claims.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
     return None
 
 
@@ -738,6 +750,7 @@ def authenticate_mcp_request() -> McpPrincipal:
         issuer=external_identity.issuer,
         subject=external_identity.subject,
         user_id=user.id,
+        client_id=_claim_client_id(external_identity.claims),
     )
 
 

@@ -164,6 +164,9 @@ def csrf_required(path: str) -> bool:
         "/v1/auth/oauth/register",
         "/v1/auth/oauth/token",
         "/v1/auth/oauth/browser-session",
+        # Fire-and-forget page-view telemetry: sent via sendBeacon/keepalive
+        # fetch (no custom headers), writes nothing security-relevant.
+        "/v1/page-views",
     }:
         return False
     if request.method in ("GET", "HEAD", "OPTIONS"):

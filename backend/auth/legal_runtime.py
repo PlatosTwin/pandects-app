@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from datetime import datetime
 from typing import cast
+from urllib.parse import unquote
 
-from flask import abort
+from flask import abort, request
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
@@ -14,7 +16,7 @@ from backend.core.errors import json_error as _json_error
 from backend.core.runtime_utils import utc_datetime_from_ms as _utc_datetime_from_ms
 from backend.core.runtime_utils import utc_now as _utc_now
 from backend.extensions import db
-from backend.models import AuthSignonEvent, LegalAcceptance
+from backend.models import AuthSignonEvent, AuthSignupAttribution, LegalAcceptance
 
 
 _LEGAL_DOCS: dict[str, dict[str, str]] = {
@@ -161,3 +163,65 @@ def record_signon_event(*, user_id: str, provider: str, action: str) -> None:
     event.ip_address = ip_address
     event.user_agent = user_agent
     db.session.add(event)
+    if action == "register":
+        _record_signup_attribution(user_id=user_id)
+
+
+# First-touch acquisition cookie set by the SPA on a visitor's first landing.
+_ATTRIBUTION_COOKIE_NAME = "pdcts_attr"
+_ATTRIBUTION_COOKIE_MAX_LENGTH = 2048
+# Short cookie keys → (column, max length). Kept short so the cookie stays
+# well under browser size limits even with long referrer URLs.
+_ATTRIBUTION_FIELDS: dict[str, tuple[str, int]] = {
+    "r": ("referrer", 512),
+    "l": ("landing_path", 512),
+    "s": ("utm_source", 255),
+    "m": ("utm_medium", 255),
+    "c": ("utm_campaign", 255),
+    "t": ("utm_term", 255),
+    "n": ("utm_content", 255),
+}
+
+
+def _record_signup_attribution(*, user_id: str) -> None:
+    """Persist the pdcts_attr cookie (if any) as the user's signup channel.
+
+    Adds to the caller's pending transaction; never raises so a malformed or
+    missing cookie can't interfere with registration.
+    """
+    raw = request.cookies.get(_ATTRIBUTION_COOKIE_NAME)
+    if not isinstance(raw, str) or not raw.strip():
+        return
+    if len(raw) > _ATTRIBUTION_COOKIE_MAX_LENGTH:
+        return
+    try:
+        # Catch everything, not just ValueError: a hostile cookie like
+        # "[" * 2000 makes json.loads raise RecursionError, and nothing a
+        # cookie contains may ever fail the registration request.
+        payload = json.loads(unquote(raw))
+    except Exception:
+        return
+    if not isinstance(payload, dict):
+        return
+    values: dict[str, str] = {}
+    for short_key, (column, max_length) in _ATTRIBUTION_FIELDS.items():
+        value = payload.get(short_key)
+        if isinstance(value, str):
+            # Strip control characters (NUL would make Postgres reject the
+            # whole auth transaction at commit time).
+            value = "".join(ch for ch in value if ord(ch) >= 32).strip()
+        if isinstance(value, str) and value:
+            values[column] = value[:max_length]
+    if not values:
+        return
+    try:
+        existing = AuthSignupAttribution.query.filter_by(user_id=user_id).first()
+        if existing is not None:
+            return
+        attribution = AuthSignupAttribution()
+        attribution.user_id = user_id
+        for column, value in values.items():
+            setattr(attribution, column, value)
+        db.session.add(attribution)
+    except SQLAlchemyError:
+        return

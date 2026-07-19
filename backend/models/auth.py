@@ -147,6 +147,9 @@ class ApiRequestEvent(db.Model):
     response_bytes = db.Column(db.Integer, nullable=True)
     ip_hash = db.Column(db.String(64), nullable=True)
     user_agent = db.Column(db.String(512), nullable=True)
+    # Coarse geo captured alongside ip_hash: an uppercase ISO-3166 country
+    # code when a CDN header supplies one, else the lowercase Fly edge region.
+    country = db.Column(db.String(8), nullable=True)
 
     __table_args__ = (
         db.Index("ix_api_request_events_key_time", "api_key_id", "occurred_at"),
@@ -165,11 +168,130 @@ class ApiUsageDailyIp(db.Model):
     day = db.Column(db.Date, index=True, nullable=False)
     ip_hash = db.Column(db.String(64), nullable=False)
     first_seen_at = db.Column(db.DateTime, nullable=False)
+    # See ApiRequestEvent.country.
+    country = db.Column(db.String(8), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("api_key_id", "day", "ip_hash"),
         db.Index("ix_api_usage_daily_ips_key_day", "api_key_id", "day"),
     )
+
+
+class McpUsageHourly(db.Model):
+    """Hourly rollup of MCP tool calls, keyed by user + OAuth client + tool.
+
+    Mirrors the ApiUsageHourly shape so dashboards can treat the two
+    channels uniformly. ``status`` is ``"ok"`` or the metrics error category
+    (``validation``, ``authorization``, ``not_found``, ...). ``client_id`` is
+    the empty string when the access token carried no client claim (tokens
+    minted before the claim existed, or external identity tokens without an
+    ``azp``) so the natural key stays NULL-free for upserts.
+    """
+
+    __bind_key__ = "auth"
+    __tablename__ = "mcp_usage_hourly"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    client_id = db.Column(db.String(128), nullable=False, default="")
+    hour = db.Column(db.DateTime, index=True, nullable=False)
+    tool_name = db.Column(db.String(128), nullable=False)
+    status = db.Column(db.String(32), nullable=False)
+    count = db.Column(db.Integer, nullable=False, default=0)
+    total_ms = db.Column(db.Integer, nullable=False, default=0)
+    max_ms = db.Column(db.Integer, nullable=False, default=0)
+    latency_buckets = db.Column(db.JSON, nullable=True)
+    request_bytes = db.Column(db.Integer, nullable=False, default=0)
+    response_bytes = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "client_id", "hour", "tool_name", "status"),
+        db.Index("ix_mcp_usage_hourly_tool_hour", "tool_name", "hour"),
+    )
+
+
+class WebUsageHourly(db.Model):
+    """Hourly rollup of session-authenticated (browser) API traffic.
+
+    Parallel to ApiUsageHourly but keyed by user_id instead of api_key_id, so
+    logged-in web-app consumption is visible without loosening the api_keys
+    foreign key on the existing rollups.
+    """
+
+    __bind_key__ = "auth"
+    __tablename__ = "web_usage_hourly"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    hour = db.Column(db.DateTime, index=True, nullable=False)
+    route = db.Column(db.String(256), nullable=False)
+    method = db.Column(db.String(8), nullable=False)
+    status_class = db.Column(db.Integer, nullable=False)
+    count = db.Column(db.Integer, nullable=False, default=0)
+    total_ms = db.Column(db.Integer, nullable=False, default=0)
+    max_ms = db.Column(db.Integer, nullable=False, default=0)
+    latency_buckets = db.Column(db.JSON, nullable=True)
+    request_bytes = db.Column(db.Integer, nullable=False, default=0)
+    response_bytes = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "hour", "route", "method", "status_class"),
+        db.Index("ix_web_usage_hourly_route_method", "route", "method"),
+    )
+
+
+class PageView(db.Model):
+    """First-party SPA page views recorded via POST /v1/page-views.
+
+    The pandects-utils usage dashboard already probes for this table and
+    renders a Top Visited Pages card from (path, occurred_at, user_id).
+    """
+
+    __bind_key__ = "auth"
+    __tablename__ = "page_views"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    occurred_at = db.Column(db.DateTime, index=True, nullable=False, default=_utc_now_naive)
+    path = db.Column(db.String(512), nullable=False)
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=True
+    )
+    referrer = db.Column(db.String(512), nullable=True)
+    # See ApiRequestEvent.country.
+    country = db.Column(db.String(8), nullable=True)
+
+    __table_args__ = (
+        db.Index("ix_page_views_path_time", "path", "occurred_at"),
+    )
+
+
+class AuthSignupAttribution(db.Model):
+    """Acquisition channel captured once at account creation.
+
+    Values come from the ``pdcts_attr`` first-touch cookie the SPA sets on a
+    visitor's first landing (referrer / UTM / landing path), read when a
+    register signon event is recorded.
+    """
+
+    __bind_key__ = "auth"
+    __tablename__ = "auth_signup_attributions"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), unique=True, nullable=False
+    )
+    referrer = db.Column(db.String(512), nullable=True)
+    landing_path = db.Column(db.String(512), nullable=True)
+    utm_source = db.Column(db.String(255), nullable=True)
+    utm_medium = db.Column(db.String(255), nullable=True)
+    utm_campaign = db.Column(db.String(255), nullable=True)
+    utm_term = db.Column(db.String(255), nullable=True)
+    utm_content = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utc_now_naive)
 
 
 class LegalAcceptance(db.Model):

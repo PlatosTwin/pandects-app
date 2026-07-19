@@ -6,6 +6,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import TypedDict, cast
 
+from typing_extensions import NotRequired
+
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -47,6 +49,7 @@ class AccessTokenClaims(TypedDict):
     nbf: int
     exp: int
     jti: str
+    client_id: NotRequired[str]
 
 
 def _utc_now() -> datetime:
@@ -210,10 +213,11 @@ def access_token_claims(
     audience: str,
     scope: str,
     token_id: str,
+    client_id: str | None = None,
 ) -> AccessTokenClaims:
     now = _utc_now()
     exp = now + timedelta(seconds=mcp_oauth_access_token_ttl_seconds())
-    return {
+    claims: AccessTokenClaims = {
         "iss": mcp_oauth_issuer(),
         "sub": subject,
         "aud": audience,
@@ -223,6 +227,10 @@ def access_token_claims(
         "exp": int(exp.timestamp()),
         "jti": token_id,
     }
+    if isinstance(client_id, str) and client_id.strip():
+        # Lets the resource server attribute tool-call usage per OAuth client.
+        claims["client_id"] = client_id.strip()
+    return claims
 
 
 __all__ = [

@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Any, cast
 from uuid import uuid4
 
-from flask import Response, jsonify, make_response, request, stream_with_context
+from flask import Response, g, jsonify, make_response, request, stream_with_context
 from marshmallow import ValidationError
 from werkzeug.exceptions import HTTPException
 
@@ -23,6 +23,7 @@ from backend.auth.mcp_runtime import mcp_protocol_version
 from backend.mcp.metrics import get_mcp_metrics_registry
 from backend.mcp.routes.deps import McpDeps
 from backend.mcp.tools import McpOutputValidationError, call_tool
+from backend.services.usage import record_mcp_tool_usage
 
 
 logger = logging.getLogger(__name__)
@@ -618,3 +619,17 @@ def _log_mcp_tool_event(
         outcome=outcome,
         error_category=error_category,
     )
+    # Durable per-user rollup (mcp_usage_hourly); the in-memory registry above
+    # resets on every deploy. The principal is stashed on g by the dispatcher.
+    principal = getattr(g, "mcp_principal", None)
+    user_id = getattr(principal, "user_id", None)
+    if isinstance(user_id, str) and user_id:
+        record_mcp_tool_usage(
+            user_id=user_id,
+            client_id=getattr(principal, "client_id", None),
+            tool_name=tool_name,
+            outcome=outcome,
+            error_category=error_category,
+            latency_ms=latency_ms,
+            request_bytes=int(request.content_length or 0),
+        )

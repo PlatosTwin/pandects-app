@@ -5,7 +5,7 @@ import time
 from typing import cast
 from urllib.parse import urlparse
 
-from flask import Blueprint, Flask, Response, jsonify, make_response, request
+from flask import Blueprint, Flask, Response, g, jsonify, make_response, request
 from marshmallow import ValidationError
 from werkzeug.exceptions import HTTPException
 
@@ -132,6 +132,10 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                 status_code=exc.status_code,
                 www_authenticate=exc.www_authenticate,
             )
+        # Read back by _log_mcp_tool_event so per-call usage rollups can be
+        # keyed by user/client without threading the principal through every
+        # dispatch error branch.
+        g.mcp_principal = principal
 
         try:
             payload = _ensure_object_payload()
