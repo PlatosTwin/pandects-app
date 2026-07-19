@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_PUSH_TO_R2_PATH = _REPO_ROOT / "bulk" / "push_to_r2.sh"
+_PUBLIC_TABLES_PATH = _REPO_ROOT / "bulk" / "public_tables.txt"
 _MAIN_DB_MODELS_PATH = _REPO_ROOT / "backend" / "models" / "main_db.py"
 _PUBLIC_API_SOURCE_PATHS = (
     _REPO_ROOT / "backend" / "routes" / "agreements" / "__init__.py",
@@ -43,15 +43,17 @@ _SQL_TABLE_PATTERNS = (
 
 
 def _parse_api_tables() -> list[str]:
-    script = _PUSH_TO_R2_PATH.read_text()
-    match = re.search(r"API_TABLES=\((.*?)\)", script, re.DOTALL)
-    if match is None:
-        raise AssertionError("push_to_r2.sh is missing API_TABLES.")
-    return [
-        line.strip()
-        for line in match.group(1).splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    ]
+    # bulk/public_tables.txt is the single source of truth for the dump
+    # allowlist (read by push_to_r2.sh and generate_schema_docs.py); mirror
+    # its comment/whitespace handling.
+    tables: list[str] = []
+    for raw_line in _PUBLIC_TABLES_PATH.read_text().splitlines():
+        entry = raw_line.split("#", 1)[0].strip()
+        if entry:
+            tables.append(entry)
+    if not tables:
+        raise AssertionError("bulk/public_tables.txt lists no tables.")
+    return tables
 
 
 def _derive_expected_public_api_tables() -> set[str]:
