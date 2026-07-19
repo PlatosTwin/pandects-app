@@ -26,8 +26,9 @@ This file explains the environment variables used across the repository and how 
 - `RATE_LIMIT_PRUNE_INTERVAL_SECONDS`
 - `API_KEY_LAST_USED_TOUCH_SECONDS`
 - `API_KEY_LAST_USED_MAX_KEYS`
-- `USAGE_SAMPLE_RATE_2XX`
-- `USAGE_SAMPLE_RATE_3XX`
+- `USAGE_SAMPLE_RATE_2XX` (default `1.0`: sample every request at current traffic volume)
+- `USAGE_SAMPLE_RATE_3XX` (default `1.0`)
+- `API_REQUEST_EVENTS_RETENTION_DAYS` (default `180`; `0` disables pruning of raw request events)
 - `USAGE_LOG_BUFFER_ENABLED`
 - `USAGE_LOG_BUFFER_FLUSH_SECONDS`
 - `USAGE_LOG_BUFFER_MAX_EVENTS`

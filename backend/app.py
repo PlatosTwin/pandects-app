@@ -110,6 +110,7 @@ from backend.routes.auth import register_auth_routes
 from backend.routes.favorites import FavoritesDeps, register_favorites_routes
 from backend.services.tax_clauses_service import TaxClausesServiceDeps
 from backend.mcp.routes import McpDeps, register_mcp_routes
+from backend.routes.telemetry import register_telemetry_routes
 from backend.core.config import (
     app_config_map as _app_config_map,
     configure_app as _configure_app_core,
@@ -197,8 +198,9 @@ from backend.services.sections_service import (
     estimated_query_row_count as _svc_estimated_query_row_count,
     sections_total_count_metadata as _svc_sections_total_count_metadata,
 )
-from backend.services.usage import UsageBuffer
+from backend.services.usage import LATENCY_BUCKET_BOUNDS_MS, UsageBuffer
 from backend.services.usage import record_api_key_usage as _record_api_key_usage_service
+from backend.services.usage import record_web_session_usage as _record_web_session_usage_service
 
 # Retained for tests and modules that still import `metadata` from `backend.app`.
 metadata = _main_db_metadata
@@ -391,9 +393,15 @@ _dump_version_cache: _DumpVersionCache = {"ts": 0.0, "payload": None, "failed_ts
 _dump_version_cache_lock = Lock()
 
 # ── API usage logging ─────────────────────────────────────────────────────
-_USAGE_SAMPLE_RATE_2XX = float(os.environ.get("USAGE_SAMPLE_RATE_2XX", "0.05"))
-_USAGE_SAMPLE_RATE_3XX = float(os.environ.get("USAGE_SAMPLE_RATE_3XX", "0.05"))
-_LATENCY_BUCKET_BOUNDS_MS = (25, 50, 100, 250, 500, 1000, 2000, 5000, 10000)
+# Sample every successful request at current traffic volume; at ~1-2k calls
+# per quarter a 0.05 rate left the raw event table (and latency percentiles)
+# effectively empty. Retention below keeps the table bounded instead.
+_USAGE_SAMPLE_RATE_2XX = float(os.environ.get("USAGE_SAMPLE_RATE_2XX", "1.0"))
+_USAGE_SAMPLE_RATE_3XX = float(os.environ.get("USAGE_SAMPLE_RATE_3XX", "1.0"))
+_API_REQUEST_EVENTS_RETENTION_DAYS = int(
+    os.environ.get("API_REQUEST_EVENTS_RETENTION_DAYS", "180")
+)
+_LATENCY_BUCKET_BOUNDS_MS = LATENCY_BUCKET_BOUNDS_MS
 _API_KEY_MIN_HASH_CHECKS = 5
 _DUMMY_API_KEY_HASH = generate_password_hash("pdcts_dummy_api_key")
 _USAGE_BUFFER_ENABLED = os.environ.get("USAGE_LOG_BUFFER_ENABLED", "1").strip() != "0"
@@ -439,6 +447,7 @@ def _usage_buffer() -> UsageBuffer | None:
             latency_bucket_bounds=_LATENCY_BUCKET_BOUNDS_MS,
             flush_interval_seconds=_USAGE_BUFFER_FLUSH_SECONDS,
             max_pending_events=_USAGE_BUFFER_MAX_EVENTS,
+            request_event_retention_days=_API_REQUEST_EVENTS_RETENTION_DAYS,
         )
         current_app.extensions["usage_buffer"] = buffer
     return buffer
@@ -1081,6 +1090,7 @@ def _apply_search_read_rate_limit(
 
 
 _ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
+    ("POST", "/v1/page-views"): 60,
     ("POST", "/v1/auth/flag-inaccurate"): 10,
     ("POST", "/v1/auth/signup/password"): 5,
     ("POST", "/v1/auth/login/password"): 10,
@@ -1344,6 +1354,11 @@ def _auth_rate_limit_guard():
 def _record_api_key_usage(response: Response) -> Response:
     _touch_api_key_last_used_if_needed()
     ctx = _current_access_context()
+    _record_web_session_usage_service(
+        ctx=ctx,
+        response=response,
+        auth_is_mocked=_auth_is_mocked,
+    )
     return _record_api_key_usage_service(
         ctx=ctx,
         response=response,
@@ -1406,6 +1421,7 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext.register_blueprint(naics_blp)
     api_ext.register_blueprint(counsel_blp)
     api_ext.register_blueprint(dumps_blp)
+    target_app.register_blueprint(register_telemetry_routes())
     target_app.register_blueprint(
         register_mcp_routes(
             target_app,

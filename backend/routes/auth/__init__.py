@@ -18,6 +18,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
 from backend.auth.email_runtime import send_pandects_auth_email, verify_zitadel_signature
+from backend.auth.session_runtime import load_session_token as _load_session_token
 from backend.auth.mcp_runtime import (
     ExternalIdentity,
     McpAuthError,
@@ -2150,6 +2151,13 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             if auth_header.startswith("Bearer "):
                 token = auth_header.removeprefix("Bearer ").strip()
         if token:
+            # Resolve the user before revocation so session duration can be
+            # measured from login → logout in auth_signon_events.
+            user_id = _load_session_token(token)
+            if isinstance(user_id, str) and user_id:
+                deps._record_signon_event(
+                    user_id=user_id, provider="session", action="logout"
+                )
             deps._revoke_session_token(token)
         deps._clear_auth_cookies(resp)
         return resp

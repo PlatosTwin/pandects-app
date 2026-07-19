@@ -640,6 +640,7 @@ window.location.replace({json.dumps(login_url)});
                 audience=mcp_resource_url(),
                 scope=scope,
                 token_id=str(uuid.uuid4()),
+                client_id=client_id,
             ),
         )
         token_payload: dict[str, object] = {
