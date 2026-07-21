@@ -121,6 +121,6 @@
   "overrides": {
     "diff": "^8.0.3",
     "qs": "^6.15.1",
-    "shell-quote": "^1.8.4"
+    "shell-quote": "^1.9.0"
   }
 }

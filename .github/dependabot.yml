@@ -36,6 +36,15 @@ updates:
       backend-minor-patch:
         update-types: ["minor", "patch"]
 
+  - package-ecosystem: "pip"
+    directory: "/bulk"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    groups:
+      bulk-minor-patch:
+        update-types: ["minor", "patch"]
+
   - package-ecosystem: "uv"
     directory: "/etl"
     schedule:
