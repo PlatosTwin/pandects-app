@@ -1433,6 +1433,7 @@ def _register_blueprints(target_app: Flask) -> None:
                 sections_service_deps=sections_deps.sections_service_deps,
                 agreements_deps=agreements_deps,
                 reference_data_deps=reference_data_deps,
+                tax_clauses_service_deps=tax_clauses_deps.tax_clauses_service_deps,
             ),
         )
     )

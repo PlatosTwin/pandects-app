@@ -298,6 +298,7 @@
       {
         "applies_to_tools": [
           "search_sections",
+          "search_agreements",
           "get_section",
           "suggest_clause_families",
           "get_clause_taxonomy"
@@ -305,6 +306,18 @@
         "name": "standard_id",
         "representation": "taxonomy_assignment",
         "source_table_or_surface": "latest_sections_search_standard_ids"
+      },
+      {
+        "applies_to_tools": [
+          "search_tax_clauses",
+          "get_agreement_tax_clauses",
+          "get_section_tax_clauses",
+          "suggest_clause_families",
+          "get_tax_clause_taxonomy"
+        ],
+        "name": "tax_standard_id",
+        "representation": "taxonomy_assignment",
+        "source_table_or_surface": "tax_clause_assignments"
       }
     ]
   },
@@ -403,6 +416,16 @@
       "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
     },
     {
+      "do_not_use_for": "Do not pass clause-family standard_id (16-hex) here; this tool filters on the tax taxonomy (dotted tax.* ids) via tax_standard_id.",
+      "tool": "search_tax_clauses",
+      "use_when": "Use for corpus-wide tax-clause retrieval by tax taxonomy node; pair with suggest_clause_families(taxonomy='tax_clauses')."
+    },
+    {
+      "do_not_use_for": "Do not use this tool as a source of normalized document-level facts; it returns extracted clause text and agreement metadata.",
+      "tool": "search_tax_clauses",
+      "use_when": "Use for corpus-wide tax-clause retrieval by tax taxonomy node; pair with suggest_clause_families(taxonomy='tax_clauses')."
+    },
+    {
       "do_not_use_for": "Do not use this tool for free-text exploration; prefer search_agreements when you are still discovering names or years.",
       "tool": "list_agreements",
       "use_when": "Use when filters are already known and you expect to paginate deeply or export exact result sets."
@@ -429,6 +452,11 @@
     },
     {
       "do_not_use_for": "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it.",
+      "tool": "suggest_clause_families",
+      "use_when": "Use when you know the legal concept but not the right taxonomy id."
+    },
+    {
+      "do_not_use_for": "Do not filter on the returned nodes when coverage is `weak` or `none`; verify them in section text first, as they may be adjacent or opposite concepts.",
       "tool": "suggest_clause_families",
       "use_when": "Use when you know the legal concept but not the right taxonomy id."
     },
@@ -1781,6 +1809,572 @@
           "access",
           "count_metadata",
           "interpretation",
+          "page",
+          "page_size",
+          "total_count",
+          "total_pages",
+          "has_next",
+          "has_prev",
+          "total_count_is_approximate"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_tax_clauses",
+      "required_scopes": [
+        "agreements:read"
+      ],
+      "pagination": "page",
+      "selection_hint": "Use for corpus-wide tax-clause retrieval by tax taxonomy node; pair with suggest_clause_families(taxonomy='tax_clauses').",
+      "negative_guidance": [
+        "Do not pass clause-family standard_id (16-hex) here; this tool filters on the tax taxonomy (dotted tax.* ids) via tax_standard_id.",
+        "Do not use this tool as a source of normalized document-level facts; it returns extracted clause text and agreement metadata."
+      ],
+      "response_examples": [
+        {
+          "content": {
+            "access": {
+              "message": null,
+              "tier": "mcp"
+            },
+            "results": [
+              {
+                "acquirer": "Acquirer A",
+                "clause_text": "Parent shall bear all transfer taxes.",
+                "clause_uuid": "clause-a1-1",
+                "target": "Target A",
+                "tax_standard_ids": [
+                  "tax.3.1.1"
+                ]
+              }
+            ]
+          },
+          "description": "Tax clause search result page."
+        }
+      ],
+      "access": {
+        "failure_status_code": 403,
+        "fulltext_scope": null,
+        "redaction": "none",
+        "scope_behavior": "strict_scope_required"
+      },
+      "limits": {
+        "default_page_size": 25,
+        "max_page_size": 100,
+        "mode": "page"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "acquirer": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "acquirer_counsel": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "acquirer_industry": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "acquirer_pe": {
+            "description": "Boolean-like PE filter values encoded as strings.",
+            "examples": [
+              [
+                "true"
+              ]
+            ],
+            "items": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "acquirer_type": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "agreement_uuid": {
+            "description": "Filter to one agreement UUID.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attitude": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "clause_uuid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "count_mode": {
+            "description": "Count strategy for pagination planning. Use `exact` when planning depends on a guaranteed total count.",
+            "enum": [
+              "auto",
+              "exact"
+            ],
+            "examples": [
+              "auto",
+              "exact"
+            ],
+            "type": "string"
+          },
+          "deal_status": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "deal_type": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "include_rep_warranty": {
+            "description": "Include clauses found inside representations & warranties articles. Defaults to false so that operative drafting precedents are surfaced first.",
+            "type": "boolean"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "description": "Maximum number of results to return.",
+            "type": "integer"
+          },
+          "purpose": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "section_uuid": {
+            "description": "Filter to one section UUID.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sort_by": {
+            "enum": [
+              "year",
+              "target",
+              "acquirer"
+            ],
+            "type": "string"
+          },
+          "sort_direction": {
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "target": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target_counsel": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target_industry": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target_pe": {
+            "description": "Boolean-like PE filter values encoded as strings.",
+            "examples": [
+              [
+                "true"
+              ]
+            ],
+            "items": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target_type": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tax_standard_id": {
+            "description": "Tax-clause taxonomy standard IDs (dotted `tax.*` ids from get_tax_clause_taxonomy or suggest_clause_families with taxonomy='tax_clauses'). Parent ids expand to include their descendant tax nodes.",
+            "examples": [
+              [
+                "tax.1.1.1"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_consideration": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_price_assets": {
+            "description": "Transaction-price bucket filters.",
+            "examples": [
+              [
+                "100M - 250M",
+                "250M - 500M"
+              ]
+            ],
+            "items": {
+              "enum": [
+                "0 - 100M",
+                "100M - 250M",
+                "250M - 500M",
+                "500M - 750M",
+                "750M - 1B",
+                "1B - 2B",
+                "2B - 5B",
+                "5B - 10B",
+                "10B - 20B",
+                "20B+"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_price_cash": {
+            "description": "Transaction-price bucket filters.",
+            "examples": [
+              [
+                "100M - 250M",
+                "250M - 500M"
+              ]
+            ],
+            "items": {
+              "enum": [
+                "0 - 100M",
+                "100M - 250M",
+                "250M - 500M",
+                "500M - 750M",
+                "750M - 1B",
+                "1B - 2B",
+                "2B - 5B",
+                "5B - 10B",
+                "10B - 20B",
+                "20B+"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_price_stock": {
+            "description": "Transaction-price bucket filters.",
+            "examples": [
+              [
+                "100M - 250M",
+                "250M - 500M"
+              ]
+            ],
+            "items": {
+              "enum": [
+                "0 - 100M",
+                "100M - 250M",
+                "250M - 500M",
+                "500M - 750M",
+                "750M - 1B",
+                "1B - 2B",
+                "2B - 5B",
+                "5B - 10B",
+                "10B - 20B",
+                "20B+"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "transaction_price_total": {
+            "description": "Transaction-price bucket filters.",
+            "examples": [
+              [
+                "100M - 250M",
+                "250M - 500M"
+              ]
+            ],
+            "items": {
+              "enum": [
+                "0 - 100M",
+                "100M - 250M",
+                "250M - 500M",
+                "500M - 750M",
+                "750M - 1B",
+                "1B - 2B",
+                "2B - 5B",
+                "5B - 10B",
+                "10B - 20B",
+                "20B+"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "year": {
+            "description": "Agreement filing years to include.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "output_schema": {
+        "additionalProperties": true,
+        "properties": {
+          "access": {
+            "additionalProperties": false,
+            "properties": {
+              "message": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tier": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "tier",
+              "message"
+            ],
+            "type": "object"
+          },
+          "count_metadata": {
+            "additionalProperties": false,
+            "properties": {
+              "exact_count_requested": {
+                "type": "boolean"
+              },
+              "method": {
+                "enum": [
+                  "query_count",
+                  "table_estimate",
+                  "filtered_lower_bound"
+                ],
+                "type": "string"
+              },
+              "mode": {
+                "enum": [
+                  "exact",
+                  "estimated"
+                ],
+                "type": "string"
+              },
+              "planning_reliability": {
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "method",
+              "planning_reliability",
+              "exact_count_requested"
+            ],
+            "type": "object"
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "has_prev": {
+            "type": "boolean"
+          },
+          "next_num": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "prev_num": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "results": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "acquirer": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "acquirer_counsel": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "agreement_uuid": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "anchor_label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clause_text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clause_uuid": {
+                  "type": "string"
+                },
+                "context_type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "deal_status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "deal_type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "section_uuid": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source_method": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "target": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "target_counsel": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "tax_standard_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "transaction_consideration": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "transaction_price_total": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "verified": {
+                  "type": "boolean"
+                },
+                "year": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "clause_uuid",
+                "tax_standard_ids",
+                "verified"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "total_count": {
+            "type": "integer"
+          },
+          "total_count_is_approximate": {
+            "type": "boolean"
+          },
+          "total_pages": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "access",
+          "count_metadata",
           "page",
           "page_size",
           "total_count",
@@ -3642,12 +4236,15 @@
       "pagination": "none",
       "selection_hint": "Use when you know the legal concept but not the right taxonomy id.",
       "negative_guidance": [
-        "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it."
+        "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it.",
+        "Do not filter on the returned nodes when coverage is `weak` or `none`; verify them in section text first, as they may be adjacent or opposite concepts."
       ],
       "response_examples": [
         {
           "content": {
             "concept": "MAE carveouts",
+            "coverage": "proxy",
+            "coverage_note": "No exact node exists, but a reasonable proxy is available. Confirm the returned clause text matches your concept before relying on the filter.",
             "matches": [
               {
                 "confidence": "high",
@@ -3710,6 +4307,18 @@
         "additionalProperties": false,
         "properties": {
           "concept": {
+            "type": "string"
+          },
+          "coverage": {
+            "enum": [
+              "canonical",
+              "proxy",
+              "weak",
+              "none"
+            ],
+            "type": "string"
+          },
+          "coverage_note": {
             "type": "string"
           },
           "matches": {
@@ -3790,7 +4399,9 @@
           "concept",
           "taxonomy",
           "matches",
-          "returned_count"
+          "returned_count",
+          "coverage",
+          "coverage_note"
         ],
         "type": "object"
       }
@@ -5593,6 +6204,14 @@
         "suggest_clause_families",
         "search_sections",
         "get_section_snippet"
+      ]
+    },
+    {
+      "name": "research tax structure across the corpus",
+      "steps": [
+        "suggest_clause_families",
+        "search_tax_clauses",
+        "get_agreement_tax_clauses"
       ]
     },
     {

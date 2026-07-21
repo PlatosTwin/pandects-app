@@ -51,13 +51,15 @@ Use these when the client needs to search clause language across the corpus, nav
 
 Use this when the client knows the business or legal concept but does not know the right taxonomy `standard_id` yet. The tool returns ranked clause-family candidates with their taxonomy paths and matched terms.
 Each match also reports whether it is a canonical fit, a proxy, or a broader semantic match.
+The response additionally rolls the per-match verdicts up into a top-level `coverage` (`canonical` / `proxy` / `weak` / `none`) and a human-readable `coverage_note`. When `coverage` is `weak` or `none`, the concept is not cleanly represented and the returned nodes may be adjacent — or even opposite — concepts (for example, "go-shop" only surfaces the distinct "no-shop" node), so clients should verify them in section text rather than filtering on them blindly. Pass `taxonomy=tax_clauses` to map tax concepts and receive dotted `tax.*` ids for `search_tax_clauses`.
 
 ### Tax Clause Research
 
+- `search_tax_clauses`
 - `get_agreement_tax_clauses`
 - `get_section_tax_clauses`
 
-Use these when the task is specifically about extracted tax-module clauses rather than the full agreement or section text.
+Use these when the task is specifically about extracted tax-module clauses rather than the full agreement or section text. `search_tax_clauses` is the corpus-wide entry point for the tax taxonomy: it mirrors `search_sections` but filters clause-level tax precedents by `tax_standard_id` (dotted `tax.*` ids from `suggest_clause_families(taxonomy='tax_clauses')` or `get_tax_clause_taxonomy`) plus the standard M&A filters. It excludes clauses inside representations & warranties by default; pass `include_rep_warranty=true` to include them. `get_agreement_tax_clauses` and `get_section_tax_clauses` remain the right tools once you already hold a specific agreement or section UUID.
 
 ### Research Bootstrap
 
@@ -84,6 +86,7 @@ The current MCP tools are:
 
 - `search_agreements`
 - `search_sections`
+- `search_tax_clauses`
 - `list_agreements`
 - `list_agreement_sections`
 - `list_agreement_sections_batch`
@@ -116,7 +119,8 @@ The current MCP tools are:
 - `search_sections` exposes `count_mode` and returns `count_metadata` plus `interpretation` so clients can tell when totals are exact versus estimated and when taxonomy is acting as a proxy
 - `search_agreements` returns exact totals today and also includes `count_metadata` plus `interpretation`
 - `standard_id` values are opaque 16-character hex node IDs obtained from `get_clause_taxonomy` or `suggest_clause_families` — they are not dotted decimal numbers. Unrecognized IDs are ignored (they silently match nothing) and are echoed back under `interpretation.unrecognized_standard_ids`, alongside `interpretation.taxonomy_filters`, so clients can detect a mistyped or stale ID rather than mistaking an empty result for "no matches"
-- `suggest_clause_families` exists to bridge plain-English concepts to taxonomy ids and now reports fit/confidence metadata so clients can distinguish canonical matches from broader proxies
+- `suggest_clause_families` exists to bridge plain-English concepts to taxonomy ids and now reports fit/confidence metadata so clients can distinguish canonical matches from broader proxies, plus a roll-up `coverage`/`coverage_note` so a weak or unrepresented concept is not silently treated as covered
+- The tax taxonomy is a **separate** namespace from the clause taxonomy: tax nodes are dotted `tax.*` ids and are searched corpus-wide through `search_tax_clauses` via `tax_standard_id` (not the 16-hex `standard_id` used by `search_sections`/`search_agreements`). Passing a `tax.*` id to `standard_id` is ignored and echoed under `interpretation.unrecognized_standard_ids`, and vice versa — use `suggest_clause_families(taxonomy='tax_clauses')` to obtain valid tax ids
 - `get_section_snippet` is a focused reading aid, not a replacement for `get_section` or a canonical extracted-facts surface
 - `get_section_snippets_batch` and `list_agreement_sections_batch` accept arrays of UUIDs and collapse multiple single-item calls into one round-trip; use them when a workflow would otherwise fan out across many agreements or sections
 - `get_sections_batch` fetches full section XML for up to 10 sections in one call; XML is capped at `max_xml_chars` per section (default 10 000, range 500–20 000) to prevent context overload; when a section is truncated the result includes `xml_truncated: true`; pass `max_xml_chars: null` only if uncapped XML is explicitly needed
@@ -142,7 +146,7 @@ The current MCP tools are:
 
 `tools/call` failures use distinct JSON-RPC error codes so a client can tell a fixable request from a server-side fault. The codes are identical across the JSON and SSE response paths:
 
-- `-32602` — invalid tool arguments (schema/validation failure or a malformed identifier)
+- `-32602` — invalid tool arguments (schema/validation failure or a malformed identifier). The offending field(s) and reason are folded into the top-level error `message` (e.g. `Invalid tool arguments: metadata: Must be one of: ...`), not just the `data` payload, so clients that surface only `message` can still self-correct. The full per-field marshmallow error tree remains available under `data`.
 - `-32002` — the tool ran but the requested resource was not found (e.g. an unknown agreement or section UUID); the error `data` is `{"category": "not_found", "status_code": 404}`. Verify the identifier with a search or list tool and retry — this is not a transient error.
 - `-32003` — missing scope / authorization
 - `-32603` — the tool result violated its advertised output schema

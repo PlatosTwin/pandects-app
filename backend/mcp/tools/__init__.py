@@ -50,6 +50,7 @@ from backend.mcp.tools.handlers import (
     _list_filter_options,
     _search_agreements,
     _search_sections,
+    _search_tax_clauses,
     _suggest_clause_families,
 )
 from backend.mcp.tools.output_schemas import (
@@ -71,6 +72,7 @@ from backend.mcp.tools.output_schemas import (
     _naics_catalog_output_schema,
     _search_agreements_output_schema,
     _search_sections_output_schema,
+    _search_tax_clauses_output_schema,
     _section_snippet_output_schema,
     _server_capabilities_output_schema,
     _suggest_clause_families_output_schema,
@@ -86,11 +88,13 @@ from backend.mcp.tools.schema_utils import (
     _structured_filter_properties,
 )
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
+from backend.services.tax_clauses_service import TaxClausesServiceDeps
 from backend.schemas.public_api import (
     AgreementsBulkArgsSchema,
     AgreementsIndexArgsSchema,
 )
 from backend.schemas.sections import SECTIONS_RESULT_METADATA_FIELDS, SectionsArgsSchema
+from backend.schemas.tax_clauses import TaxClausesArgsSchema
 
 
 
@@ -139,6 +143,25 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             "type": "string",
             "description": "Optional prefix search over target and acquirer names, or a 4-digit year string.",
             "examples": ["Slack", "2020"],
+        },
+    }
+    tax_clauses_search_overrides: dict[str, dict[str, object]] = {
+        **structured_filter_overrides,
+        "tax_standard_id": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": (
+                "Tax-clause taxonomy standard IDs (dotted `tax.*` ids from "
+                "get_tax_clause_taxonomy or suggest_clause_families with taxonomy='tax_clauses'). "
+                "Parent ids expand to include their descendant tax nodes."
+            ),
+            "examples": [["tax.1.1.1"]],
+        },
+        "count_mode": {
+            "type": "string",
+            "enum": list(_COUNT_MODE_VALUES),
+            "description": "Count strategy for pagination planning. Use `exact` when planning depends on a guaranteed total count.",
+            "examples": ["auto", "exact"],
         },
     }
     sections_search_overrides: dict[str, dict[str, object]] = {
@@ -238,6 +261,31 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             redaction_behavior="none",
             fulltext_scope=None,
             handler=_search_sections,
+        ),
+        McpToolSpec(
+            name="search_tax_clauses",
+            description="Search individual tax clauses (clause-level text) across the corpus by tax-clause taxonomy node (tax_standard_id) and the same structured M&A filters as search_sections. This is the corpus-wide entry point for the tax taxonomy: go from a plain-English tax concept to a tax node with suggest_clause_families(taxonomy='tax_clauses') (or browse get_tax_clause_taxonomy), then pass the resulting dotted `tax.*` id here. Returns extracted tax-clause language with agreement context. Excludes clauses inside representations & warranties by default; pass include_rep_warranty=true to include them. Use get_agreement_tax_clauses / get_section_tax_clauses when you already have a specific agreement or section UUID.",
+            input_schema=_schema_input_schema(TaxClausesArgsSchema(), field_overrides=tax_clauses_search_overrides),
+            output_schema=_search_tax_clauses_output_schema(),
+            examples=(
+                {"description": "Find tax clauses by tax taxonomy id.", "arguments": {"tax_standard_id": ["tax.1.1.1"], "page_size": 10}},
+                {"description": "Map a tax concept to a node first, then search by the returned tax_standard_id.", "arguments": {"tax_standard_id": ["tax.3.1"], "transaction_consideration": ["stock"]}},
+                {"description": "Include representations & warranties tax clauses.", "arguments": {"tax_standard_id": ["tax.7"], "include_rep_warranty": True}},
+            ),
+            response_examples=(
+                {"description": "Tax clause search result page.", "content": {"results": [{"clause_uuid": "clause-a1-1", "tax_standard_ids": ["tax.3.1.1"], "clause_text": "Parent shall bear all transfer taxes.", "target": "Target A", "acquirer": "Acquirer A"}], "access": {"tier": "mcp", "message": None}}},
+            ),
+            scopes=("agreements:read",),
+            selection_hint="Use for corpus-wide tax-clause retrieval by tax taxonomy node; pair with suggest_clause_families(taxonomy='tax_clauses').",
+            negative_guidance=(
+                "Do not pass clause-family standard_id (16-hex) here; this tool filters on the tax taxonomy (dotted tax.* ids) via tax_standard_id.",
+                "Do not use this tool as a source of normalized document-level facts; it returns extracted clause text and agreement metadata.",
+            ),
+            pagination="page",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
+            handler=_search_tax_clauses,
         ),
         McpToolSpec(
             name="list_agreements",
@@ -419,7 +467,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="suggest_clause_families",
-            description="Translate a plain-English M&A concept (e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee') into ranked clause-family taxonomy nodes. Each suggestion reports whether it is a canonical match, a proxy, or a broader semantic match, plus a confidence score. Call before search_sections when you know the concept but not the taxonomy.",
+            description="Translate a plain-English M&A concept (e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee') into ranked clause-family taxonomy nodes. Each suggestion reports whether it is a canonical match, a proxy, or a broader semantic match, plus a confidence score. The top-level `coverage` field (canonical / proxy / weak / none) and `coverage_note` summarize whether the concept is actually represented — when coverage is `weak` or `none`, the returned nodes may be adjacent or even opposite concepts (e.g. 'go-shop' only surfaces 'no-shop'), so do not filter on them without verifying. Set taxonomy='tax_clauses' to map tax concepts, then pass the resulting tax_standard_id to search_tax_clauses. Call before search_sections/search_tax_clauses when you know the concept but not the taxonomy.",
             input_schema=_schema_input_schema(suggest_clause_families_schema),
             output_schema=_suggest_clause_families_output_schema(),
             examples=(
@@ -427,12 +475,13 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Map a tax concept to the tax-clause taxonomy.", "arguments": {"concept": "tax-free reorganization", "taxonomy": "tax_clauses"}},
             ),
             response_examples=(
-                {"description": "Ranked taxonomy suggestions for a concept.", "content": {"concept": "MAE carveouts", "taxonomy": "clauses", "returned_count": 1, "matches": [{"standard_id": "2.1", "label": "Material Adverse Effect", "path": ["Definitions", "Material Adverse Effect"], "score": 0.93, "matched_terms": ["MAE", "disproportionate effects"], "fit": "proxy", "scope_note": "This taxonomy node is a reasonable proxy and may be broader or narrower than the requested concept.", "confidence": "high", "reason": "Matched concept tokens and clause-family synonyms."}]}},
+                {"description": "Ranked taxonomy suggestions for a concept.", "content": {"concept": "MAE carveouts", "taxonomy": "clauses", "returned_count": 1, "coverage": "proxy", "coverage_note": "No exact node exists, but a reasonable proxy is available. Confirm the returned clause text matches your concept before relying on the filter.", "matches": [{"standard_id": "2.1", "label": "Material Adverse Effect", "path": ["Definitions", "Material Adverse Effect"], "score": 0.93, "matched_terms": ["MAE", "disproportionate effects"], "fit": "proxy", "scope_note": "This taxonomy node is a reasonable proxy and may be broader or narrower than the requested concept.", "confidence": "high", "reason": "Matched concept tokens and clause-family synonyms."}]}},
             ),
             scopes=("sections:search",),
             selection_hint="Use when you know the legal concept but not the right taxonomy id.",
             negative_guidance=(
                 "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it.",
+                "Do not filter on the returned nodes when coverage is `weak` or `none`; verify them in section text first, as they may be adjacent or opposite concepts.",
             ),
             pagination="none",
             access_behavior="strict_scope_required",
@@ -793,10 +842,16 @@ def _field_inventory_payload() -> dict[str, object]:
         "taxonomy_assignment_fields": [
             {
                 "name": "standard_id",
-                "applies_to_tools": ["search_sections", "get_section", "suggest_clause_families", "get_clause_taxonomy"],
+                "applies_to_tools": ["search_sections", "search_agreements", "get_section", "suggest_clause_families", "get_clause_taxonomy"],
                 "source_table_or_surface": "latest_sections_search_standard_ids",
                 "representation": "taxonomy_assignment",
-            }
+            },
+            {
+                "name": "tax_standard_id",
+                "applies_to_tools": ["search_tax_clauses", "get_agreement_tax_clauses", "get_section_tax_clauses", "suggest_clause_families", "get_tax_clause_taxonomy"],
+                "source_table_or_surface": "tax_clause_assignments",
+                "representation": "taxonomy_assignment",
+            },
         ],
     }
 
@@ -945,6 +1000,10 @@ def _server_capabilities_payload(sections: frozenset[str] | None = None) -> dict
                 "steps": ["suggest_clause_families", "search_sections", "get_section_snippet"],
             },
             {
+                "name": "research tax structure across the corpus",
+                "steps": ["suggest_clause_families", "search_tax_clauses", "get_agreement_tax_clauses"],
+            },
+            {
                 "name": "filter agreements exactly and paginate deeply",
                 "steps": ["list_filter_options", "list_agreements", "get_agreement"],
             },
@@ -1002,6 +1061,7 @@ def call_tool(
     sections_service_deps: SectionsServiceDeps,
     agreements_deps: AgreementsDeps,
     reference_data_deps: ReferenceDataDeps,
+    tax_clauses_service_deps: TaxClausesServiceDeps,
 ) -> McpToolResult:
     spec = _tool_spec_map().get(name)
     if spec is None:
@@ -1011,11 +1071,13 @@ def call_tool(
         handler_kwargs["deps"] = agreements_deps
     if name in {"search_sections", "list_agreement_sections", "list_agreement_sections_batch"}:
         handler_kwargs["deps"] = sections_service_deps
+    if name == "search_tax_clauses":
+        handler_kwargs["deps"] = tax_clauses_service_deps
     if name == "search_sections":
         handler_kwargs["agreements_deps"] = agreements_deps
     if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families"}:
         handler_kwargs["deps"] = reference_data_deps
-    if name in {"search_agreements", "search_sections", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_sections_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "get_counsel_catalog", "get_server_capabilities"}:
+    if name in {"search_agreements", "search_sections", "search_tax_clauses", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_sections_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "get_counsel_catalog", "get_server_capabilities"}:
         handler_kwargs["payload"] = arguments
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps

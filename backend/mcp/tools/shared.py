@@ -359,6 +359,44 @@ def _taxonomy_scope_note(*, fit: str) -> str:
     return "This taxonomy node is a broad semantic match and should be verified before treating it as canonical."
 
 
+def _taxonomy_coverage(matches: list[dict[str, object]]) -> tuple[str, str]:
+    """Summarize how well a concept is actually represented in the taxonomy.
+
+    The per-match `fit`/`confidence` describe each node in isolation; an agent
+    still has to notice that the *best* available node is only a broad match — or
+    even a near-opposite — of what was asked. This rolls that judgment up into a
+    single honest signal so a weak or unrepresented concept is not silently
+    treated as covered.
+    """
+    if not matches:
+        return (
+            "none",
+            "No taxonomy nodes matched this concept; it is almost certainly not "
+            "represented as a distinct clause family. Rephrase the concept or treat "
+            "it as unsupported rather than filtering on an unrelated node.",
+        )
+    fits = {str(match.get("fit")) for match in matches}
+    if "canonical" in fits:
+        return (
+            "canonical",
+            "A close canonical taxonomy node exists for this concept; the top match is a direct fit.",
+        )
+    if "proxy" in fits:
+        return (
+            "proxy",
+            "No exact node exists, but a reasonable proxy is available. Confirm the "
+            "returned clause text matches your concept before relying on the filter.",
+        )
+    return (
+        "weak",
+        "No close taxonomy match. The returned nodes are broad, nearest-neighbor "
+        "matches that may be adjacent to — or even the opposite of — the requested "
+        "concept (for example, 'go-shop' only surfaces the distinct 'no-shop' node). "
+        "Treat them as leads to verify in section text, not equivalents, and consider "
+        "that this concept may not be a separate clause family in the taxonomy.",
+    )
+
+
 def _ranked_taxonomy_matches(
     *,
     deps: ReferenceDataDeps,

@@ -44,6 +44,37 @@ NOT_FOUND_MESSAGE = (
 NOT_FOUND_ERROR_CODE = -32002
 
 
+def _summarize_validation_error(messages: object, *, max_len: int = 320) -> str:
+    """Fold a marshmallow error tree into a one-line, field-scoped summary.
+
+    marshmallow already returns which field failed and why under
+    ``ValidationError.messages``, but that detail only rides along in the
+    JSON-RPC ``data`` payload — which many MCP clients drop, surfacing just the
+    top-level ``message``. Flattening it into the message string lets an agent
+    self-correct (e.g. "metadata: Must be one of: ...") instead of blindly
+    retrying "Invalid tool arguments."
+    """
+    def _walk(node: object, prefix: str) -> list[str]:
+        if isinstance(node, dict):
+            parts: list[str] = []
+            for key, value in cast("dict[object, object]", node).items():
+                child_prefix = f"{prefix}.{key}" if prefix else str(key)
+                parts.extend(_walk(value, child_prefix))
+            return parts
+        if isinstance(node, (list, tuple)):
+            joined = "; ".join(str(item) for item in cast("list[object]", node))
+            return [f"{prefix}: {joined}" if prefix else joined]
+        return [f"{prefix}: {node}" if prefix else str(node)]
+
+    summary = "Invalid tool arguments"
+    details = "; ".join(_walk(messages, ""))
+    if details:
+        summary = f"{summary}: {details}"
+    if len(summary) > max_len:
+        summary = summary[: max_len - 1].rstrip() + "…"
+    return f"{summary}." if not summary.endswith(".") else summary
+
+
 def _tool_http_exception_response(
     exc: HTTPException,
 ) -> tuple[int, str, dict[str, object] | None]:
@@ -246,6 +277,7 @@ def _stream_tool_call_response(
                 sections_service_deps=deps.sections_service_deps,
                 agreements_deps=deps.agreements_deps,
                 reference_data_deps=deps.reference_data_deps,
+                tax_clauses_service_deps=deps.tax_clauses_service_deps,
             )
         except KeyError:
             _log_mcp_tool_event(
@@ -279,7 +311,7 @@ def _stream_tool_call_response(
                     "id": request_id,
                     "error": {
                         "code": -32602,
-                        "message": f"Invalid tool arguments: {', '.join(str(k) for k in exc.messages.keys()) if isinstance(exc.messages, dict) else 'unknown fields'}.",
+                        "message": _summarize_validation_error(exc.messages),
                         "data": exc.messages,
                     },
                 }

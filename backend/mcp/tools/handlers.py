@@ -49,6 +49,7 @@ from backend.mcp.tools.shared import (
     _normalized_page,
     _normalized_page_size,
     _ranked_taxonomy_matches,
+    _taxonomy_coverage,
 )
 from backend.routes.agreements import _agreement_is_public_eligible_expr, _tax_clause_rows
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
@@ -60,7 +61,9 @@ from backend.schemas.public_api import (
     AgreementsIndexArgsSchema,
 )
 from backend.schemas.sections import SectionsArgsPayload, SectionsArgsSchema
+from backend.schemas.tax_clauses import TaxClausesArgsPayload, TaxClausesArgsSchema
 from backend.services.sections_service import run_sections
+from backend.services.tax_clauses_service import TaxClausesServiceDeps, run_tax_clauses
 
 
 def _partition_known_standard_ids(
@@ -832,11 +835,14 @@ def _suggest_clause_families(
     taxonomy = cast(str, parsed_args["taxonomy"])
     top_k = cast(int, parsed_args["top_k"])
     matches = _ranked_taxonomy_matches(deps=deps, concept=concept, taxonomy=taxonomy, top_k=top_k)
+    coverage, coverage_note = _taxonomy_coverage(matches)
     response = {
         "concept": concept,
         "taxonomy": taxonomy,
         "matches": matches,
         "returned_count": len(matches),
+        "coverage": coverage,
+        "coverage_note": coverage_note,
     }
     return McpToolResult(
         text=f"Suggested {len(matches)} clause family match(es) for '{concept}'.",
@@ -1383,6 +1389,25 @@ def _search_sections(
     count = len(results)
     return McpToolResult(
         text=f"Returned {count} section(s).",
+        structured_content=response,
+    )
+
+
+def _search_tax_clauses(
+    deps: TaxClausesServiceDeps,
+    *,
+    principal: McpPrincipal,
+    payload: dict[str, object],
+) -> McpToolResult:
+    _require_scope(principal, "agreements:read")
+    parsed_args = cast(
+        TaxClausesArgsPayload,
+        cast(object, _validate_payload(TaxClausesArgsSchema(), payload)),
+    )
+    response = run_tax_clauses(deps, ctx=principal.access_context, parsed_args=parsed_args)
+    results = cast(list[dict[str, object]], response.get("results", []))
+    return McpToolResult(
+        text=f"Returned {len(results)} tax clause(s).",
         structured_content=response,
     )
 

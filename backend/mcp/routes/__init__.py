@@ -38,6 +38,7 @@ from backend.mcp.routes.helpers import (
     _resource_definitions,
     _sse_retry_probe_response,
     _stream_tool_call_response,
+    _summarize_validation_error,
     _tool_http_exception_category,
     _tool_http_exception_response,
     metrics_registry,
@@ -268,6 +269,7 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     sections_service_deps=deps.sections_service_deps,
                     agreements_deps=deps.agreements_deps,
                     reference_data_deps=deps.reference_data_deps,
+                    tax_clauses_service_deps=deps.tax_clauses_service_deps,
                 )
             except KeyError:
                 _log_mcp_tool_event(
@@ -295,7 +297,7 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                 return _json_rpc_error(
                     request_id=request_id,
                     code=-32602,
-                    message="Invalid tool arguments.",
+                    message=_summarize_validation_error(exc.messages),
                     data=exc.messages,
                 )
             except PermissionError as exc:

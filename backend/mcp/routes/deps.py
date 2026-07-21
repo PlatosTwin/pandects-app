@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
+from backend.services.tax_clauses_service import TaxClausesServiceDeps
 
 
 @dataclass(frozen=True)
@@ -16,3 +17,4 @@ class McpDeps:
     sections_service_deps: SectionsServiceDeps
     agreements_deps: AgreementsDeps
     reference_data_deps: ReferenceDataDeps
+    tax_clauses_service_deps: TaxClausesServiceDeps

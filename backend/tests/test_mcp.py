@@ -824,6 +824,7 @@ class McpTests(unittest.TestCase):
             [
                 "search_agreements",
                 "search_sections",
+                "search_tax_clauses",
                 "list_agreements",
                 "list_agreement_sections",
                 "list_agreement_sections_batch",
@@ -1327,7 +1328,10 @@ class McpTests(unittest.TestCase):
         self.assertEqual(body["jsonrpc"], "2.0")
         self.assertEqual(body["id"], 78)
         self.assertEqual(body["error"]["code"], -32602)
-        self.assertEqual(body["error"]["message"], "Invalid tool arguments.")
+        # The field-scoped detail must ride in the top-level message (not just data),
+        # because many MCP clients surface only message. Lets an agent self-correct.
+        self.assertTrue(body["error"]["message"].startswith("Invalid tool arguments:"))
+        self.assertIn("target_counsels", body["error"]["message"])
         self.assertIn("target_counsels", body["error"]["data"])
 
     def test_search_sections_has_no_free_text_query_parameter(self):
@@ -1555,6 +1559,47 @@ class McpTests(unittest.TestCase):
         section_payload = section_res.get_json()["result"]["structuredContent"]
         self.assertEqual(section_payload["returned_count"], 2)
 
+    def test_search_tax_clauses_tool(self):
+        # Corpus-wide tax-clause search. Defaults exclude rep & warranty clauses,
+        # so only the operative clause (clause-a1-1) surfaces.
+        res = self._call_tool("search_tax_clauses", {}, scope="agreements:read")
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["total_count"], 1)
+        self.assertEqual(payload["results"][0]["clause_uuid"], "clause-a1-1")
+        self.assertEqual(payload["results"][0]["tax_standard_ids"], ["tax_transfer"])
+        self.assertIn("transfer taxes", payload["results"][0]["clause_text"])
+
+        # include_rep_warranty=true surfaces the rep-embedded tax clause too.
+        both = self._call_tool(
+            "search_tax_clauses",
+            {"include_rep_warranty": True},
+            scope="agreements:read",
+        )
+        self.assertEqual(both.get_json()["result"]["structuredContent"]["total_count"], 2)
+
+        # Filtering by a tax node returns only clauses tagged with it.
+        filtered = self._call_tool(
+            "search_tax_clauses",
+            {"tax_standard_id": ["tax_transfer"]},
+            scope="agreements:read",
+        )
+        filtered_payload = filtered.get_json()["result"]["structuredContent"]
+        self.assertEqual(filtered_payload["total_count"], 1)
+        self.assertEqual(filtered_payload["results"][0]["clause_uuid"], "clause-a1-1")
+
+    def test_suggest_clause_families_flags_weak_coverage(self):
+        # A concept with no dedicated node must not masquerade as covered: the
+        # roll-up coverage verdict warns the caller rather than implying a fit.
+        res = self._call_tool(
+            "suggest_clause_families",
+            {"concept": "zzzq nonexistent unrelated concept"},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertIn(payload["coverage"], ["weak", "none"])
+        self.assertTrue(payload["coverage_note"])
+
     def test_filter_and_catalog_tools(self):
         filter_res = self._call_tool(
             "list_filter_options",
@@ -1618,6 +1663,9 @@ class McpTests(unittest.TestCase):
         self.assertIn(suggest_payload["matches"][0]["fit"], ["canonical", "proxy", "broad_match"])
         self.assertIn(suggest_payload["matches"][0]["confidence"], ["high", "medium", "low"])
         self.assertIsInstance(suggest_payload["matches"][0]["scope_note"], str)
+        # A represented concept rolls up to a canonical/proxy coverage verdict.
+        self.assertIn(suggest_payload["coverage"], ["canonical", "proxy"])
+        self.assertTrue(suggest_payload["coverage_note"])
 
         snippet_res = self._call_tool(
             "get_section_snippet",

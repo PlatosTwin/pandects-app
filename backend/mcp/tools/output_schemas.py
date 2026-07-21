@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from backend.mcp.tools.constants import (
     _CLAUSE_CONFIDENCE_VALUES,
+    _CLAUSE_COVERAGE_VALUES,
     _CLAUSE_FIT_VALUES,
     _COUNT_METHOD_VALUES,
     _COUNT_RELIABILITY_VALUES,
@@ -425,8 +426,10 @@ def _suggest_clause_families_output_schema() -> dict[str, object]:
             "taxonomy": {"type": "string", "enum": ["clauses", "tax_clauses"]},
             "matches": _array_of(_taxonomy_match_schema()),
             "returned_count": {"type": "integer"},
+            "coverage": {"type": "string", "enum": list(_CLAUSE_COVERAGE_VALUES)},
+            "coverage_note": {"type": "string"},
         },
-        required=["concept", "taxonomy", "matches", "returned_count"],
+        required=["concept", "taxonomy", "matches", "returned_count", "coverage", "coverage_note"],
         additional_properties=False,
     )
 
@@ -512,6 +515,59 @@ def _get_agreement_tax_clauses_output_schema() -> dict[str, object]:
         },
         required=["agreement_uuid", "clauses", "returned_count"],
         additional_properties=False,
+    )
+
+
+def _tax_clause_search_result_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "id": {"type": "string"},
+            "clause_uuid": {"type": "string"},
+            "agreement_uuid": {"type": ["string", "null"]},
+            "section_uuid": {"type": ["string", "null"]},
+            "clause_text": {"type": ["string", "null"]},
+            "anchor_label": {"type": ["string", "null"]},
+            "context_type": {"type": ["string", "null"]},
+            "source_method": {"type": ["string", "null"]},
+            "tax_standard_ids": _array_of({"type": "string"}),
+            "year": {"type": ["integer", "null"]},
+            "target": {"type": ["string", "null"]},
+            "acquirer": {"type": ["string", "null"]},
+            "verified": {"type": "boolean"},
+            "transaction_price_total": {"type": ["number", "null"]},
+            "transaction_consideration": {"type": ["string", "null"]},
+            "deal_status": {"type": ["string", "null"]},
+            "deal_type": {"type": ["string", "null"]},
+            "target_counsel": {"type": ["string", "null"]},
+            "acquirer_counsel": {"type": ["string", "null"]},
+        },
+        required=["id", "clause_uuid", "tax_standard_ids", "verified"],
+    )
+
+
+def _search_tax_clauses_output_schema() -> dict[str, object]:
+    properties = _pagination_response_properties()
+    properties.update(
+        {
+            "results": _array_of(_tax_clause_search_result_schema()),
+            "access": _access_schema(),
+            "count_metadata": _count_metadata_schema(),
+        }
+    )
+    return _object_schema(
+        properties,
+        required=[
+            "results",
+            "access",
+            "count_metadata",
+            "page",
+            "page_size",
+            "total_count",
+            "total_pages",
+            "has_next",
+            "has_prev",
+            "total_count_is_approximate",
+        ],
     )
 
 
