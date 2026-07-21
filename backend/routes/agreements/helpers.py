@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Any, Mapping, Protocol, cast
 
 from flask import Response, jsonify
-from sqlalchemy import and_, asc, func, or_, text
+from sqlalchemy import and_, asc, false, func, or_, text
 
 from backend.filtering import (
     build_canonical_counsel_agreement_uuid_subquery,
@@ -437,11 +437,80 @@ def _normalize_industry_label(raw_value: object, *, label_by_code: dict[str, str
     return label_by_code.get(raw_text, raw_text)
 
 
+def _tax_clause_id_query(
+    deps: AgreementsDeps,
+    *,
+    agreement_uuid: str | None = None,
+    section_uuid: str | None = None,
+    tax_standard_id: list[str] | None = None,
+):
+    """Ordered, distinct tax-module clause ids matching the filters.
+
+    Kept separate from the row fetch so callers can count and paginate on whole
+    clauses. Paginating the joined row set instead would slice mid-clause and
+    silently drop taxonomy assignments from the boundary clause.
+    """
+    agreements = deps.Agreements
+    clauses = deps.Clauses
+    db = deps.db
+    agreement_cols = agreements.__table__.c
+    clause_cols = clauses.__table__.c
+
+    query = (
+        db.session.query(clause_cols["clause_uuid"].label("clause_uuid"))
+        .join(
+            agreements,
+            agreement_cols["agreement_uuid"] == clause_cols["agreement_uuid"],
+        )
+        .filter(
+            clause_cols["module"] == "tax",
+            _agreement_is_public_eligible_expr(agreements),
+        )
+    )
+    if agreement_uuid is not None:
+        query = query.filter(clause_cols["agreement_uuid"] == agreement_uuid)
+    if section_uuid is not None:
+        query = query.filter(clause_cols["section_uuid"] == section_uuid)
+    if tax_standard_id:
+        expanded = list(
+            deps._expand_tax_clause_taxonomy_standard_ids_cached(
+                tuple(sorted({value for value in tax_standard_id if value}))
+            )
+        )
+        if not expanded:
+            return query.filter(false())
+        query = query.filter(deps._tax_clause_standard_id_filter_expr(expanded))
+    return query.order_by(
+        asc(clause_cols["agreement_uuid"]),
+        asc(clause_cols["section_uuid"]),
+        asc(clause_cols["clause_order"]),
+    )
+
+
+def _tax_clause_count(
+    deps: AgreementsDeps,
+    *,
+    agreement_uuid: str | None = None,
+    section_uuid: str | None = None,
+    tax_standard_id: list[str] | None = None,
+) -> int:
+    id_query = _tax_clause_id_query(
+        deps,
+        agreement_uuid=agreement_uuid,
+        section_uuid=section_uuid,
+        tax_standard_id=tax_standard_id,
+    )
+    return cast(int, id_query.count())
+
+
 def _tax_clause_rows(
     deps: AgreementsDeps,
     *,
     agreement_uuid: str | None = None,
     section_uuid: str | None = None,
+    tax_standard_id: list[str] | None = None,
+    limit: int | None = None,
+    offset: int = 0,
 ) -> list[dict[str, object]]:
     agreements = deps.Agreements
     clauses = deps.Clauses
@@ -452,6 +521,22 @@ def _tax_clause_rows(
     agreement_cols = agreements.__table__.c
     clause_cols = clauses.__table__.c
     section_cols = sections.__table__.c
+
+    page_clause_uuids: list[str] | None = None
+    if limit is not None or offset or tax_standard_id:
+        id_query = _tax_clause_id_query(
+            deps,
+            agreement_uuid=agreement_uuid,
+            section_uuid=section_uuid,
+            tax_standard_id=tax_standard_id,
+        )
+        if offset:
+            id_query = id_query.offset(offset)
+        if limit is not None:
+            id_query = id_query.limit(limit)
+        page_clause_uuids = [str(row.clause_uuid) for row in id_query.all()]
+        if not page_clause_uuids:
+            return []
 
     query = (
         db.session.query(
@@ -496,6 +581,8 @@ def _tax_clause_rows(
         query = query.filter(clause_cols["agreement_uuid"] == agreement_uuid)
     if section_uuid is not None:
         query = query.filter(clause_cols["section_uuid"] == section_uuid)
+    if page_clause_uuids is not None:
+        query = query.filter(clause_cols["clause_uuid"].in_(page_clause_uuids))
 
     rows = query.order_by(
         asc(clause_cols["agreement_uuid"]),

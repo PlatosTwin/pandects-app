@@ -221,6 +221,8 @@ class AgreementsDeps:
     _current_access_context: Callable[[], AccessContextProtocol]
     _decode_agreements_cursor: Callable[[str | None], str | None]
     _expand_taxonomy_standard_ids_cached: Callable[[tuple[str, ...]], tuple[str, ...]]
+    _expand_tax_clause_taxonomy_standard_ids_cached: Callable[[tuple[str, ...]], tuple[str, ...]]
+    _tax_clause_standard_id_filter_expr: Callable[[list[str]], Any]
     _encode_agreements_cursor: Callable[[str], str]
     _filter_options_cache: dict[str, Any]
     _filter_options_lock: Any

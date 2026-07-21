@@ -713,6 +713,17 @@ def _year_in_range(value: object, *, year_min: int | None, year_max: int | None)
     return True
 
 
+_YEAR_SCOPED_TREND_PATHS: dict[str, tuple[str, ...]] = {
+    "ownership": ("ownership.mix_by_year", "ownership.deal_size_by_year"),
+    "target_industries": ("industries.target_industries_by_year",),
+}
+
+_YEAR_UNSCOPED_TREND_PATHS: dict[str, tuple[str, ...]] = {
+    "ownership": ("ownership.buyer_type_matrix",),
+    "pairings": ("industries.pairings",),
+}
+
+
 def _agreement_trends_payload(
     deps: AgreementsDeps,
     *,
@@ -725,8 +736,6 @@ def _agreement_trends_payload(
     db = deps.db
     schema_prefix = deps._schema_prefix()
     result: dict[str, object] = {"sections_returned": sorted(requested)}
-    if year_min is not None or year_max is not None:
-        result["year_filter"] = {"year_min": year_min, "year_max": year_max}
 
     def _keep_year(row: dict[str, Any]) -> bool:
         return _year_in_range(row.get("year"), year_min=year_min, year_max=year_max)
@@ -923,6 +932,24 @@ def _agreement_trends_payload(
 
     if "naics_catalog" in requested:
         result["catalogs"] = {"naics": _naics_payload(reference_data_deps)}
+
+    if year_min is not None or year_max is not None:
+        applied_to: list[str] = []
+        not_applied_to: list[str] = []
+        for section in sorted(requested):
+            applied_to.extend(_YEAR_SCOPED_TREND_PATHS.get(section, ()))
+            not_applied_to.extend(_YEAR_UNSCOPED_TREND_PATHS.get(section, ()))
+        result["year_filter"] = {
+            "year_min": year_min,
+            "year_max": year_max,
+            "applied_to": applied_to,
+            "not_applied_to": not_applied_to,
+            "note": (
+                "Paths under not_applied_to come from summary tables that are pre-aggregated "
+                "across the entire corpus and carry no year dimension, so they ignore the year "
+                "window and cover all years regardless of year_min/year_max."
+            ),
+        }
 
     return result
 

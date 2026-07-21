@@ -9,6 +9,7 @@ from backend.auth.mcp_runtime import McpPrincipal
 from backend.mcp.metrics import get_mcp_metrics_registry
 from backend.mcp.tools.args_schemas import (
     McpAgreementArgsSchema,
+    McpAgreementTaxClausesArgsSchema,
     McpAgreementIdentifierSchema,
     McpAgreementTrendsArgsSchema,
     McpBatchAgreementSectionsArgsSchema,
@@ -16,6 +17,7 @@ from backend.mcp.tools.args_schemas import (
     McpListAgreementSectionsArgsSchema,
     McpSearchAgreementsExtraArgsSchema,
     McpSectionArgsSchema,
+    McpSectionTaxClausesArgsSchema,
 )
 from backend.mcp.tools.constants import (
     _CAPABILITIES_SECTIONS_ALL,
@@ -404,19 +406,23 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement_tax_clauses",
-            description="Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative.",
-            input_schema=_schema_input_schema(McpAgreementIdentifierSchema()),
+            description="Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Page-paginated (default 25 per page); filter with tax_standard_id to retrieve only clauses assigned to specific tax taxonomy nodes, since most extracted tax-module clauses carry no assignment. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative. `extraction_status` always describes the record as a whole, never the tax_standard_id filter.",
+            input_schema=_schema_input_schema(McpAgreementTaxClausesArgsSchema()),
             output_schema=_get_agreement_tax_clauses_output_schema(),
             examples=(
-                {"description": "Retrieve tax clauses for one agreement.", "arguments": {"agreement_uuid": "a1"}},
+                {"description": "Retrieve the first page of tax clauses for one agreement.", "arguments": {"agreement_uuid": "a1"}},
+                {"description": "Retrieve only Section 338/336 election clauses for one agreement.", "arguments": {"agreement_uuid": "a1", "tax_standard_id": ["tax.1.3.1"]}},
             ),
             response_examples=(
                 {"description": "Agreement tax clause list.", "content": {"agreement_uuid": "a1", "returned_count": 2, "extraction_status": "found", "extraction_note": "Tax-module clauses were extracted here.", "clauses": [{"clause_uuid": "clause-a1-1", "standard_ids": ["tax_transfer"]}]}},
             ),
             scopes=("agreements:read",),
             selection_hint="Use for agreement-level tax clause extraction once you know the agreement UUID.",
-            negative_guidance=(),
-            pagination="none",
+            negative_guidance=(
+                "Do not treat every returned clause as taxonomy-classified: most extracted tax-module clauses have an empty standard_ids list. Pass tax_standard_id when you want only classified clauses.",
+                "Do not page through this tool to survey tax structure across many agreements; use search_tax_clauses, which filters the whole corpus in one call.",
+            ),
+            pagination="page",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
             fulltext_scope=None,
@@ -424,19 +430,22 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_section_tax_clauses",
-            description="Fetch tax clauses extracted from one section, with their tax-taxonomy assignments. Use when you have already isolated the right section and want just the tax-relevant clauses inside it. Reports the same `extraction_status` signal as get_agreement_tax_clauses to distinguish a real absence of tax clauses from a section where clause extraction has not run.",
-            input_schema=_schema_input_schema(McpSectionArgsSchema()),
+            description="Fetch tax clauses extracted from one section, with their tax-taxonomy assignments. Page-paginated (default 25 per page) and filterable by tax_standard_id, like get_agreement_tax_clauses. Use when you have already isolated the right section and want just the tax-relevant clauses inside it. Reports the same `extraction_status` signal as get_agreement_tax_clauses to distinguish a real absence of tax clauses from a section where clause extraction has not run.",
+            input_schema=_schema_input_schema(McpSectionTaxClausesArgsSchema()),
             output_schema=_get_section_tax_clauses_output_schema(),
             examples=(
-                {"description": "Retrieve tax clauses for one section.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
+                {"description": "Retrieve the first page of tax clauses for one section.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
+                {"description": "Retrieve only clauses assigned to a tax taxonomy node.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001", "tax_standard_id": ["tax.1.3.1"]}},
             ),
             response_examples=(
                 {"description": "Section tax clause list.", "content": {"section_uuid": "00000000-0000-0000-0000-000000000001", "returned_count": 2, "extraction_status": "found", "extraction_note": "Tax-module clauses were extracted here.", "clauses": [{"clause_uuid": "clause-a1-1", "standard_ids": ["tax_transfer"]}]}},
             ),
             scopes=("agreements:read",),
             selection_hint="Use for section-level tax clause extraction when you already have a section UUID.",
-            negative_guidance=(),
-            pagination="none",
+            negative_guidance=(
+                "Do not treat every returned clause as taxonomy-classified: most extracted tax-module clauses have an empty standard_ids list. Pass tax_standard_id when you want only classified clauses.",
+            ),
+            pagination="page",
             access_behavior="strict_scope_required",
             redaction_behavior="none",
             fulltext_scope=None,

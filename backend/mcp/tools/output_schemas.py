@@ -512,15 +512,32 @@ def _tax_clause_result_schema() -> dict[str, object]:
 
 
 def _get_agreement_tax_clauses_output_schema() -> dict[str, object]:
-    return _object_schema(
+    properties = _pagination_response_properties()
+    properties.update(
         {
             "agreement_uuid": {"type": "string"},
             "clauses": _array_of(_tax_clause_result_schema()),
             "returned_count": {"type": "integer"},
             "extraction_status": {"type": "string", "enum": list(_TAX_EXTRACTION_STATUS_VALUES)},
             "extraction_note": {"type": "string"},
-        },
-        required=["agreement_uuid", "clauses", "returned_count", "extraction_status", "extraction_note"],
+        }
+    )
+    return _object_schema(
+        properties,
+        required=[
+            "agreement_uuid",
+            "clauses",
+            "returned_count",
+            "extraction_status",
+            "extraction_note",
+            "page",
+            "page_size",
+            "total_count",
+            "total_pages",
+            "has_next",
+            "has_prev",
+            "total_count_is_approximate",
+        ],
         additional_properties=False,
     )
 
@@ -579,15 +596,32 @@ def _search_tax_clauses_output_schema() -> dict[str, object]:
 
 
 def _get_section_tax_clauses_output_schema() -> dict[str, object]:
-    return _object_schema(
+    properties = _pagination_response_properties()
+    properties.update(
         {
             "section_uuid": {"type": "string"},
             "clauses": _array_of(_tax_clause_result_schema()),
             "returned_count": {"type": "integer"},
             "extraction_status": {"type": "string", "enum": list(_TAX_EXTRACTION_STATUS_VALUES)},
             "extraction_note": {"type": "string"},
-        },
-        required=["section_uuid", "clauses", "returned_count", "extraction_status", "extraction_note"],
+        }
+    )
+    return _object_schema(
+        properties,
+        required=[
+            "section_uuid",
+            "clauses",
+            "returned_count",
+            "extraction_status",
+            "extraction_note",
+            "page",
+            "page_size",
+            "total_count",
+            "total_pages",
+            "has_next",
+            "has_prev",
+            "total_count_is_approximate",
+        ],
         additional_properties=False,
     )
 
@@ -790,8 +824,11 @@ def _agreement_trends_output_schema() -> dict[str, object]:
                 {
                     "year_min": {"type": ["integer", "null"]},
                     "year_max": {"type": ["integer", "null"]},
+                    "applied_to": _array_of({"type": "string"}),
+                    "not_applied_to": _array_of({"type": "string"}),
+                    "note": {"type": "string"},
                 },
-                required=["year_min", "year_max"],
+                required=["year_min", "year_max", "applied_to", "not_applied_to", "note"],
                 additional_properties=False,
             ),
             "ownership": _object_schema(

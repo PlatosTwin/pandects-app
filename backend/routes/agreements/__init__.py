@@ -24,6 +24,7 @@ from backend.routes.agreements.helpers import (
     _metadata_field_coverage_sort_key,
     _normalize_industry_label,
     _strip_xml_snippet,
+    _tax_clause_count,
     _tax_clause_rows,
     _to_float_or_none,
 )
@@ -47,6 +48,7 @@ from backend.schemas.sections import SectionsArgsPayload, SectionsArgsSchema
 __all__ = [
     "_agreement_is_public_eligible_expr",
     "_normalize_industry_label",
+    "_tax_clause_count",
     "_tax_clause_rows",
     "_to_float_or_none",
     "register_agreements_routes",

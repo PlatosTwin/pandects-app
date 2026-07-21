@@ -74,6 +74,33 @@ class McpSectionArgsSchema(Schema):
     section_uuid = ma_fields.Str(required=True)
 
 
+_TAX_CLAUSE_STANDARD_ID_FIELD_KWARGS: dict[str, Any] = {
+    "load_default": [],
+    "metadata": {
+        "description": (
+            "Tax clause taxonomy standard IDs (dotted tax.* ids from get_tax_clause_taxonomy "
+            "or suggest_clause_families with taxonomy='tax_clauses'). Parent IDs expand to "
+            "descendants. Omit to return every extracted tax-module clause, most of which "
+            "carry no taxonomy assignment."
+        ),
+    },
+}
+
+
+class McpAgreementTaxClausesArgsSchema(Schema):
+    agreement_uuid = ma_fields.Str(required=True)
+    tax_standard_id = ma_fields.List(ma_fields.Str(), **_TAX_CLAUSE_STANDARD_ID_FIELD_KWARGS)
+    page = ma_fields.Int(load_default=1, validate=validate.Range(min=1))
+    page_size = ma_fields.Int(load_default=25, validate=validate.Range(min=1, max=200))
+
+
+class McpSectionTaxClausesArgsSchema(Schema):
+    section_uuid = ma_fields.Str(required=True)
+    tax_standard_id = ma_fields.List(ma_fields.Str(), **_TAX_CLAUSE_STANDARD_ID_FIELD_KWARGS)
+    page = ma_fields.Int(load_default=1, validate=validate.Range(min=1))
+    page_size = ma_fields.Int(load_default=25, validate=validate.Range(min=1, max=200))
+
+
 class McpListAgreementSectionsArgsSchema(Schema):
     agreement_uuid = ma_fields.Str(required=True)
     standard_id = ma_fields.List(ma_fields.Str(), load_default=[])

@@ -446,6 +446,21 @@
       "use_when": "Use when you already know the exact agreement UUID and need the agreement payload or XML."
     },
     {
+      "do_not_use_for": "Do not treat every returned clause as taxonomy-classified: most extracted tax-module clauses have an empty standard_ids list. Pass tax_standard_id when you want only classified clauses.",
+      "tool": "get_agreement_tax_clauses",
+      "use_when": "Use for agreement-level tax clause extraction once you know the agreement UUID."
+    },
+    {
+      "do_not_use_for": "Do not page through this tool to survey tax structure across many agreements; use search_tax_clauses, which filters the whole corpus in one call.",
+      "tool": "get_agreement_tax_clauses",
+      "use_when": "Use for agreement-level tax clause extraction once you know the agreement UUID."
+    },
+    {
+      "do_not_use_for": "Do not treat every returned clause as taxonomy-classified: most extracted tax-module clauses have an empty standard_ids list. Pass tax_standard_id when you want only classified clauses.",
+      "tool": "get_section_tax_clauses",
+      "use_when": "Use for section-level tax clause extraction when you already have a section UUID."
+    },
+    {
       "do_not_use_for": "Do not send the pluralized catalog keys directly to retrieval tools; use retrieval_parameter_map to translate them.",
       "tool": "list_filter_options",
       "use_when": "Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names."
@@ -3679,9 +3694,12 @@
       "required_scopes": [
         "agreements:read"
       ],
-      "pagination": "none",
+      "pagination": "page",
       "selection_hint": "Use for agreement-level tax clause extraction once you know the agreement UUID.",
-      "negative_guidance": [],
+      "negative_guidance": [
+        "Do not treat every returned clause as taxonomy-classified: most extracted tax-module clauses have an empty standard_ids list. Pass tax_standard_id when you want only classified clauses.",
+        "Do not page through this tool to survey tax structure across many agreements; use search_tax_clauses, which filters the whole corpus in one call."
+      ],
       "response_examples": [
         {
           "content": {
@@ -3708,13 +3726,31 @@
         "scope_behavior": "strict_scope_required"
       },
       "limits": {
-        "mode": "none"
+        "default_page_size": 25,
+        "max_page_size": 100,
+        "mode": "page"
       },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
           "agreement_uuid": {
             "type": "string"
+          },
+          "page": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "tax_standard_id": {
+            "description": "Tax clause taxonomy standard IDs (dotted tax.* ids from get_tax_clause_taxonomy or suggest_clause_families with taxonomy='tax_clauses'). Parent IDs expand to descendants. Omit to return every extracted tax-module clause, most of which carry no taxonomy assignment.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -3815,7 +3851,40 @@
             ],
             "type": "string"
           },
+          "has_next": {
+            "type": "boolean"
+          },
+          "has_prev": {
+            "type": "boolean"
+          },
+          "next_num": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "prev_num": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "returned_count": {
+            "type": "integer"
+          },
+          "total_count": {
+            "type": "integer"
+          },
+          "total_count_is_approximate": {
+            "type": "boolean"
+          },
+          "total_pages": {
             "type": "integer"
           }
         },
@@ -3824,7 +3893,14 @@
           "clauses",
           "returned_count",
           "extraction_status",
-          "extraction_note"
+          "extraction_note",
+          "page",
+          "page_size",
+          "total_count",
+          "total_pages",
+          "has_next",
+          "has_prev",
+          "total_count_is_approximate"
         ],
         "type": "object"
       }
@@ -3834,9 +3910,11 @@
       "required_scopes": [
         "agreements:read"
       ],
-      "pagination": "none",
+      "pagination": "page",
       "selection_hint": "Use for section-level tax clause extraction when you already have a section UUID.",
-      "negative_guidance": [],
+      "negative_guidance": [
+        "Do not treat every returned clause as taxonomy-classified: most extracted tax-module clauses have an empty standard_ids list. Pass tax_standard_id when you want only classified clauses."
+      ],
       "response_examples": [
         {
           "content": {
@@ -3863,13 +3941,31 @@
         "scope_behavior": "strict_scope_required"
       },
       "limits": {
-        "mode": "none"
+        "default_page_size": 25,
+        "max_page_size": 100,
+        "mode": "page"
       },
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "page": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
           "section_uuid": {
             "type": "string"
+          },
+          "tax_standard_id": {
+            "description": "Tax clause taxonomy standard IDs (dotted tax.* ids from get_tax_clause_taxonomy or suggest_clause_families with taxonomy='tax_clauses'). Parent IDs expand to descendants. Omit to return every extracted tax-module clause, most of which carry no taxonomy assignment.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -3967,11 +4063,44 @@
             ],
             "type": "string"
           },
+          "has_next": {
+            "type": "boolean"
+          },
+          "has_prev": {
+            "type": "boolean"
+          },
+          "next_num": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "prev_num": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "returned_count": {
             "type": "integer"
           },
           "section_uuid": {
             "type": "string"
+          },
+          "total_count": {
+            "type": "integer"
+          },
+          "total_count_is_approximate": {
+            "type": "boolean"
+          },
+          "total_pages": {
+            "type": "integer"
           }
         },
         "required": [
@@ -3979,7 +4108,14 @@
           "clauses",
           "returned_count",
           "extraction_status",
-          "extraction_note"
+          "extraction_note",
+          "page",
+          "page_size",
+          "total_count",
+          "total_pages",
+          "has_next",
+          "has_prev",
+          "total_count_is_approximate"
         ],
         "type": "object"
       }
@@ -6236,6 +6372,21 @@
           "year_filter": {
             "additionalProperties": false,
             "properties": {
+              "applied_to": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "not_applied_to": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "note": {
+                "type": "string"
+              },
               "year_max": {
                 "type": [
                   "integer",
@@ -6251,7 +6402,10 @@
             },
             "required": [
               "year_min",
-              "year_max"
+              "year_max",
+              "applied_to",
+              "not_applied_to",
+              "note"
             ],
             "type": "object"
           }

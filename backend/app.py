@@ -1493,6 +1493,8 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _current_access_context=_current_access_context,
         _decode_agreements_cursor=_decode_agreements_cursor,
         _expand_taxonomy_standard_ids_cached=_expand_taxonomy_standard_ids_cached,
+        _expand_tax_clause_taxonomy_standard_ids_cached=_expand_tax_clause_taxonomy_standard_ids_cached,
+        _tax_clause_standard_id_filter_expr=_tax_clause_standard_id_filter_expr,
         _encode_agreements_cursor=_encode_agreements_cursor,
         _filter_options_cache=cast(dict[str, object], cast(object, _filter_options_cache)),
         _filter_options_lock=_filter_options_lock,

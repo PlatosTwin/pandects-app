@@ -1605,6 +1605,58 @@ class McpTests(unittest.TestCase):
         self.assertEqual(absent_payload["returned_count"], 0)
         self.assertEqual(absent_payload["extraction_status"], "not_extracted")
 
+    def test_agreement_tax_clauses_paginate_and_filter(self):
+        first = self._call_tool(
+            "get_agreement_tax_clauses",
+            {"agreement_uuid": "a1", "page_size": 1},
+            scope="agreements:read",
+        )
+        first_payload = first.get_json()["result"]["structuredContent"]
+        self.assertEqual(first_payload["returned_count"], 1)
+        self.assertEqual(first_payload["total_count"], 2)
+        self.assertTrue(first_payload["has_next"])
+        self.assertEqual(first_payload["clauses"][0]["clause_uuid"], "clause-a1-1")
+
+        second = self._call_tool(
+            "get_agreement_tax_clauses",
+            {"agreement_uuid": "a1", "page_size": 1, "page": 2},
+            scope="agreements:read",
+        )
+        second_payload = second.get_json()["result"]["structuredContent"]
+        self.assertEqual(second_payload["clauses"][0]["clause_uuid"], "clause-a1-2")
+        self.assertFalse(second_payload["has_next"])
+
+        # tax_standard_id narrows to assigned clauses only.
+        filtered = self._call_tool(
+            "get_agreement_tax_clauses",
+            {"agreement_uuid": "a1", "tax_standard_id": ["tax_transfer"]},
+            scope="agreements:read",
+        )
+        filtered_payload = filtered.get_json()["result"]["structuredContent"]
+        self.assertEqual(filtered_payload["total_count"], 1)
+        self.assertEqual(filtered_payload["clauses"][0]["clause_uuid"], "clause-a1-1")
+        # A filter that matches nothing must not be reported as missing extraction.
+        empty = self._call_tool(
+            "get_agreement_tax_clauses",
+            {"agreement_uuid": "a1", "tax_standard_id": ["tax.9.9.9"]},
+            scope="agreements:read",
+        )
+        empty_payload = empty.get_json()["result"]["structuredContent"]
+        self.assertEqual(empty_payload["returned_count"], 0)
+        self.assertEqual(empty_payload["extraction_status"], "found")
+
+        section_filtered = self._call_tool(
+            "get_section_tax_clauses",
+            {
+                "section_uuid": "00000000-0000-0000-0000-000000000001",
+                "tax_standard_id": ["tax_treatment"],
+            },
+            scope="agreements:read",
+        )
+        section_payload = section_filtered.get_json()["result"]["structuredContent"]
+        self.assertEqual(section_payload["total_count"], 1)
+        self.assertEqual(section_payload["clauses"][0]["clause_uuid"], "clause-a1-2")
+
     def test_get_agreement_trends_year_filter(self):
         # Default: no window, 2020 fixture row present, no year_filter echoed.
         default = self._call_tool("get_agreement_trends", {"sections": ["ownership"]})
@@ -1617,8 +1669,33 @@ class McpTests(unittest.TestCase):
             "get_agreement_trends", {"sections": ["ownership"], "year_min": 2021}
         )
         windowed_payload = windowed.get_json()["result"]["structuredContent"]
-        self.assertEqual(windowed_payload["year_filter"], {"year_min": 2021, "year_max": None})
+        year_filter = windowed_payload["year_filter"]
+        self.assertEqual(year_filter["year_min"], 2021)
+        self.assertIsNone(year_filter["year_max"])
         self.assertEqual(windowed_payload["ownership"]["mix_by_year"], [])
+
+        # buyer_type_matrix comes from a summary table with no year dimension, so the
+        # window cannot apply to it. It must say so rather than pass corpus-wide counts
+        # off as windowed data.
+        self.assertEqual(
+            year_filter["applied_to"],
+            ["ownership.mix_by_year", "ownership.deal_size_by_year"],
+        )
+        self.assertEqual(year_filter["not_applied_to"], ["ownership.buyer_type_matrix"])
+        self.assertTrue(year_filter["note"])
+        self.assertEqual(
+            windowed_payload["ownership"]["buyer_type_matrix"],
+            default_payload["ownership"]["buyer_type_matrix"],
+        )
+
+        # pairings is likewise un-windowable and must be declared when requested.
+        paired = self._call_tool(
+            "get_agreement_trends",
+            {"sections": ["target_industries", "pairings"], "year_min": 2021},
+        )
+        paired_filter = paired.get_json()["result"]["structuredContent"]["year_filter"]
+        self.assertEqual(paired_filter["applied_to"], ["industries.target_industries_by_year"])
+        self.assertEqual(paired_filter["not_applied_to"], ["industries.pairings"])
 
     def test_industry_label_and_year_range_helpers(self):
         from backend.mcp.tools.shared import _decorate_industry_labels, _year_in_range

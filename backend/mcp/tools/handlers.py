@@ -16,12 +16,14 @@ from backend.filtering import (
 )
 from backend.mcp.tools.args_schemas import (
     McpAgreementArgsSchema,
+    McpAgreementTaxClausesArgsSchema,
     McpAgreementTrendsArgsSchema,
     McpBatchAgreementSectionsArgsSchema,
     McpFilterOptionsArgsSchema,
     McpListAgreementSectionsArgsSchema,
     McpSearchAgreementsExtraArgsSchema,
     McpSectionArgsSchema,
+    McpSectionTaxClausesArgsSchema,
 )
 from backend.mcp.tools.constants import (
     _FILTER_OPTIONS_FIELDS,
@@ -53,7 +55,11 @@ from backend.mcp.tools.shared import (
     _ranked_taxonomy_matches,
     _taxonomy_coverage,
 )
-from backend.routes.agreements import _agreement_is_public_eligible_expr, _tax_clause_rows
+from backend.routes.agreements import (
+    _agreement_is_public_eligible_expr,
+    _tax_clause_count,
+    _tax_clause_rows,
+)
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
 from backend.schemas.public_api import (
     AgreementArgsPayload,
@@ -1478,12 +1484,30 @@ def _get_agreement_tax_clauses(
     payload: dict[str, object],
 ) -> McpToolResult:
     _require_scope(principal, "agreements:read")
-    agreement_uuid = cast(str, _validate_payload(McpAgreementArgsSchema(), payload)["agreement_uuid"]).strip()
+    parsed_args = _validate_payload(McpAgreementTaxClausesArgsSchema(), payload)
+    agreement_uuid = cast(str, parsed_args["agreement_uuid"]).strip()
     if agreement_uuid == "":
         abort(400, description="Invalid agreement_uuid.")
-    clauses = _tax_clause_rows(deps, agreement_uuid=agreement_uuid)
+    tax_standard_id = cast(list[str], parsed_args["tax_standard_id"])
+    page = cast(int, parsed_args["page"])
+    page_size = cast(int, parsed_args["page_size"])
+    clauses = _tax_clause_rows(
+        deps,
+        agreement_uuid=agreement_uuid,
+        tax_standard_id=tax_standard_id,
+        limit=page_size,
+        offset=(page - 1) * page_size,
+    )
+    total = _tax_clause_count(
+        deps, agreement_uuid=agreement_uuid, tax_standard_id=tax_standard_id
+    )
+    # extraction_status describes the record, not the filter, so an empty filtered page
+    # must not be reported as "extraction never ran".
+    unfiltered_total = (
+        _tax_clause_count(deps, agreement_uuid=agreement_uuid) if tax_standard_id else total
+    )
     extraction_status, extraction_note = _tax_extraction_status(
-        deps, agreement_uuid=agreement_uuid, has_tax_clauses=bool(clauses)
+        deps, agreement_uuid=agreement_uuid, has_tax_clauses=unfiltered_total > 0
     )
     response = {
         "agreement_uuid": agreement_uuid,
@@ -1491,9 +1515,10 @@ def _get_agreement_tax_clauses(
         "returned_count": len(clauses),
         "extraction_status": extraction_status,
         "extraction_note": extraction_note,
+        **deps._pagination_metadata(total_count=total, page=page, page_size=page_size),
     }
     return McpToolResult(
-        text=f"Returned {len(clauses)} tax clause(s) for agreement {agreement_uuid}.",
+        text=f"Returned {len(clauses)} of {total} tax clause(s) for agreement {agreement_uuid}.",
         structured_content=response,
     )
 
@@ -1505,12 +1530,28 @@ def _get_section_tax_clauses(
     payload: dict[str, object],
 ) -> McpToolResult:
     _require_scope(principal, "agreements:read")
-    section_uuid = cast(str, _validate_payload(McpSectionArgsSchema(), payload)["section_uuid"]).strip()
+    parsed_args = _validate_payload(McpSectionTaxClausesArgsSchema(), payload)
+    section_uuid = cast(str, parsed_args["section_uuid"]).strip()
     if not deps._SECTION_ID_RE.match(section_uuid):
         abort(400, description="Invalid section_uuid.")
-    clauses = _tax_clause_rows(deps, section_uuid=section_uuid)
+    tax_standard_id = cast(list[str], parsed_args["tax_standard_id"])
+    page = cast(int, parsed_args["page"])
+    page_size = cast(int, parsed_args["page_size"])
+    clauses = _tax_clause_rows(
+        deps,
+        section_uuid=section_uuid,
+        tax_standard_id=tax_standard_id,
+        limit=page_size,
+        offset=(page - 1) * page_size,
+    )
+    total = _tax_clause_count(
+        deps, section_uuid=section_uuid, tax_standard_id=tax_standard_id
+    )
+    unfiltered_total = (
+        _tax_clause_count(deps, section_uuid=section_uuid) if tax_standard_id else total
+    )
     extraction_status, extraction_note = _tax_extraction_status(
-        deps, section_uuid=section_uuid, has_tax_clauses=bool(clauses)
+        deps, section_uuid=section_uuid, has_tax_clauses=unfiltered_total > 0
     )
     response = {
         "section_uuid": section_uuid,
@@ -1518,9 +1559,10 @@ def _get_section_tax_clauses(
         "returned_count": len(clauses),
         "extraction_status": extraction_status,
         "extraction_note": extraction_note,
+        **deps._pagination_metadata(total_count=total, page=page, page_size=page_size),
     }
     return McpToolResult(
-        text=f"Returned {len(clauses)} tax clause(s) for section {section_uuid}.",
+        text=f"Returned {len(clauses)} of {total} tax clause(s) for section {section_uuid}.",
         structured_content=response,
     )
 

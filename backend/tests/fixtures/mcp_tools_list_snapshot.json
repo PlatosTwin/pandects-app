@@ -2979,10 +2979,13 @@
   },
   {
     "name": "get_agreement_tax_clauses",
-    "description": "Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative.",
+    "description": "Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Page-paginated (default 25 per page); filter with tax_standard_id to retrieve only clauses assigned to specific tax taxonomy nodes, since most extracted tax-module clauses carry no assignment. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative. `extraction_status` always describes the record as a whole, never the tax_standard_id filter.",
     "annotations": {
-      "negativeGuidance": [],
-      "pagination": "none",
+      "negativeGuidance": [
+        "Do not treat every returned clause as taxonomy-classified: most extracted tax-module clauses have an empty standard_ids list. Pass tax_standard_id when you want only classified clauses.",
+        "Do not page through this tool to survey tax structure across many agreements; use search_tax_clauses, which filters the whole corpus in one call."
+      ],
+      "pagination": "page",
       "requiredScopes": [
         "agreements:read"
       ],
@@ -2993,6 +2996,22 @@
       "properties": {
         "agreement_uuid": {
           "type": "string"
+        },
+        "page": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "page_size": {
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "tax_standard_id": {
+          "description": "Tax clause taxonomy standard IDs (dotted tax.* ids from get_tax_clause_taxonomy or suggest_clause_families with taxonomy='tax_clauses'). Parent IDs expand to descendants. Omit to return every extracted tax-module clause, most of which carry no taxonomy assignment.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -3093,7 +3112,40 @@
           ],
           "type": "string"
         },
+        "has_next": {
+          "type": "boolean"
+        },
+        "has_prev": {
+          "type": "boolean"
+        },
+        "next_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "page": {
+          "type": "integer"
+        },
+        "page_size": {
+          "type": "integer"
+        },
+        "prev_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "returned_count": {
+          "type": "integer"
+        },
+        "total_count": {
+          "type": "integer"
+        },
+        "total_count_is_approximate": {
+          "type": "boolean"
+        },
+        "total_pages": {
           "type": "integer"
         }
       },
@@ -3102,17 +3154,26 @@
         "clauses",
         "returned_count",
         "extraction_status",
-        "extraction_note"
+        "extraction_note",
+        "page",
+        "page_size",
+        "total_count",
+        "total_pages",
+        "has_next",
+        "has_prev",
+        "total_count_is_approximate"
       ],
       "type": "object"
     }
   },
   {
     "name": "get_section_tax_clauses",
-    "description": "Fetch tax clauses extracted from one section, with their tax-taxonomy assignments. Use when you have already isolated the right section and want just the tax-relevant clauses inside it. Reports the same `extraction_status` signal as get_agreement_tax_clauses to distinguish a real absence of tax clauses from a section where clause extraction has not run.",
+    "description": "Fetch tax clauses extracted from one section, with their tax-taxonomy assignments. Page-paginated (default 25 per page) and filterable by tax_standard_id, like get_agreement_tax_clauses. Use when you have already isolated the right section and want just the tax-relevant clauses inside it. Reports the same `extraction_status` signal as get_agreement_tax_clauses to distinguish a real absence of tax clauses from a section where clause extraction has not run.",
     "annotations": {
-      "negativeGuidance": [],
-      "pagination": "none",
+      "negativeGuidance": [
+        "Do not treat every returned clause as taxonomy-classified: most extracted tax-module clauses have an empty standard_ids list. Pass tax_standard_id when you want only classified clauses."
+      ],
+      "pagination": "page",
       "requiredScopes": [
         "agreements:read"
       ],
@@ -3121,8 +3182,24 @@
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
+        "page": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "page_size": {
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
         "section_uuid": {
           "type": "string"
+        },
+        "tax_standard_id": {
+          "description": "Tax clause taxonomy standard IDs (dotted tax.* ids from get_tax_clause_taxonomy or suggest_clause_families with taxonomy='tax_clauses'). Parent IDs expand to descendants. Omit to return every extracted tax-module clause, most of which carry no taxonomy assignment.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -3220,11 +3297,44 @@
           ],
           "type": "string"
         },
+        "has_next": {
+          "type": "boolean"
+        },
+        "has_prev": {
+          "type": "boolean"
+        },
+        "next_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "page": {
+          "type": "integer"
+        },
+        "page_size": {
+          "type": "integer"
+        },
+        "prev_num": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "returned_count": {
           "type": "integer"
         },
         "section_uuid": {
           "type": "string"
+        },
+        "total_count": {
+          "type": "integer"
+        },
+        "total_count_is_approximate": {
+          "type": "boolean"
+        },
+        "total_pages": {
+          "type": "integer"
         }
       },
       "required": [
@@ -3232,7 +3342,14 @@
         "clauses",
         "returned_count",
         "extraction_status",
-        "extraction_note"
+        "extraction_note",
+        "page",
+        "page_size",
+        "total_count",
+        "total_pages",
+        "has_next",
+        "has_prev",
+        "total_count_is_approximate"
       ],
       "type": "object"
     }
@@ -5178,6 +5295,21 @@
         "year_filter": {
           "additionalProperties": false,
           "properties": {
+            "applied_to": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "not_applied_to": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "note": {
+              "type": "string"
+            },
             "year_max": {
               "type": [
                 "integer",
@@ -5193,7 +5325,10 @@
           },
           "required": [
             "year_min",
-            "year_max"
+            "year_max",
+            "applied_to",
+            "not_applied_to",
+            "note"
           ],
           "type": "object"
         }
