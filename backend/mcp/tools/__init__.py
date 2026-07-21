@@ -404,14 +404,14 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement_tax_clauses",
-            description="Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Use for focused tax-structure research; use get_agreement when you need the full agreement body.",
+            description="Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative.",
             input_schema=_schema_input_schema(McpAgreementIdentifierSchema()),
             output_schema=_get_agreement_tax_clauses_output_schema(),
             examples=(
                 {"description": "Retrieve tax clauses for one agreement.", "arguments": {"agreement_uuid": "a1"}},
             ),
             response_examples=(
-                {"description": "Agreement tax clause list.", "content": {"agreement_uuid": "a1", "returned_count": 2, "clauses": [{"clause_uuid": "clause-a1-1", "standard_ids": ["tax_transfer"]}]}},
+                {"description": "Agreement tax clause list.", "content": {"agreement_uuid": "a1", "returned_count": 2, "extraction_status": "found", "extraction_note": "Tax-module clauses were extracted here.", "clauses": [{"clause_uuid": "clause-a1-1", "standard_ids": ["tax_transfer"]}]}},
             ),
             scopes=("agreements:read",),
             selection_hint="Use for agreement-level tax clause extraction once you know the agreement UUID.",
@@ -424,14 +424,14 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_section_tax_clauses",
-            description="Fetch tax clauses extracted from one section, with their tax-taxonomy assignments. Use when you have already isolated the right section and want just the tax-relevant clauses inside it.",
+            description="Fetch tax clauses extracted from one section, with their tax-taxonomy assignments. Use when you have already isolated the right section and want just the tax-relevant clauses inside it. Reports the same `extraction_status` signal as get_agreement_tax_clauses to distinguish a real absence of tax clauses from a section where clause extraction has not run.",
             input_schema=_schema_input_schema(McpSectionArgsSchema()),
             output_schema=_get_section_tax_clauses_output_schema(),
             examples=(
                 {"description": "Retrieve tax clauses for one section.", "arguments": {"section_uuid": "00000000-0000-0000-0000-000000000001"}},
             ),
             response_examples=(
-                {"description": "Section tax clause list.", "content": {"section_uuid": "00000000-0000-0000-0000-000000000001", "returned_count": 2, "clauses": [{"clause_uuid": "clause-a1-1", "standard_ids": ["tax_transfer"]}]}},
+                {"description": "Section tax clause list.", "content": {"section_uuid": "00000000-0000-0000-0000-000000000001", "returned_count": 2, "extraction_status": "found", "extraction_note": "Tax-module clauses were extracted here.", "clauses": [{"clause_uuid": "clause-a1-1", "standard_ids": ["tax_transfer"]}]}},
             ),
             scopes=("agreements:read",),
             selection_hint="Use for section-level tax clause extraction when you already have a section UUID.",
@@ -764,12 +764,13 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement_trends",
-            description="Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use `sections` to request only the parts you need; defaults to [ownership, target_industries]. The large `pairings` (every industry-by-industry cell) and `naics_catalog` sections are opt-in. Use for quick macro context; use list_agreements for row-level breakdowns.",
+            description="Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use `sections` to request only the parts you need; defaults to [ownership, target_industries]. Pass year_min/year_max to slice the per-year arrays to a window instead of returning every year (the buyer-type matrix aggregates across all years and is unaffected). The large `pairings` (every industry-by-industry cell) and `naics_catalog` sections are opt-in. Use for quick macro context; use list_agreements for row-level breakdowns.",
             input_schema=_schema_input_schema(McpAgreementTrendsArgsSchema()),
             output_schema=_agreement_trends_output_schema(),
             examples=(
                 {"description": "Inspect ownership and industry trends (default sections).", "arguments": {}},
                 {"description": "Fetch only the ownership mix.", "arguments": {"sections": ["ownership"]}},
+                {"description": "Ownership trends for a recent window only.", "arguments": {"sections": ["ownership"], "year_min": 2022, "year_max": 2025}},
                 {"description": "Include the industry-by-industry pairing matrix.", "arguments": {"sections": ["target_industries", "pairings"]}},
             ),
             response_examples=(

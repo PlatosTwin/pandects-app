@@ -1588,6 +1588,51 @@ class McpTests(unittest.TestCase):
         self.assertEqual(filtered_payload["total_count"], 1)
         self.assertEqual(filtered_payload["results"][0]["clause_uuid"], "clause-a1-1")
 
+    def test_tax_clauses_report_extraction_status(self):
+        # a1 has extracted tax clauses -> found.
+        found = self._call_tool(
+            "get_agreement_tax_clauses", {"agreement_uuid": "a1"}, scope="agreements:read"
+        )
+        found_payload = found.get_json()["result"]["structuredContent"]
+        self.assertEqual(found_payload["extraction_status"], "found")
+        self.assertTrue(found_payload["extraction_note"])
+
+        # a2 has no extracted clauses of any module -> the empty result is uninformative.
+        absent = self._call_tool(
+            "get_agreement_tax_clauses", {"agreement_uuid": "a2"}, scope="agreements:read"
+        )
+        absent_payload = absent.get_json()["result"]["structuredContent"]
+        self.assertEqual(absent_payload["returned_count"], 0)
+        self.assertEqual(absent_payload["extraction_status"], "not_extracted")
+
+    def test_get_agreement_trends_year_filter(self):
+        # Default: no window, 2020 fixture row present, no year_filter echoed.
+        default = self._call_tool("get_agreement_trends", {"sections": ["ownership"]})
+        default_payload = default.get_json()["result"]["structuredContent"]
+        self.assertNotIn("year_filter", default_payload)
+        self.assertEqual(len(default_payload["ownership"]["mix_by_year"]), 1)
+
+        # A window that excludes 2020 empties the per-year arrays and echoes the filter.
+        windowed = self._call_tool(
+            "get_agreement_trends", {"sections": ["ownership"], "year_min": 2021}
+        )
+        windowed_payload = windowed.get_json()["result"]["structuredContent"]
+        self.assertEqual(windowed_payload["year_filter"], {"year_min": 2021, "year_max": None})
+        self.assertEqual(windowed_payload["ownership"]["mix_by_year"], [])
+
+    def test_industry_label_and_year_range_helpers(self):
+        from backend.mcp.tools.shared import _decorate_industry_labels, _year_in_range
+
+        payload: dict[str, object] = {"target_industry": "334", "acquirer_industry": "999"}
+        _decorate_industry_labels(payload, label_by_code={"334": "Computer Manufacturing"})
+        self.assertEqual(payload["target_industry_label"], "Computer Manufacturing")
+        # A code with no catalog entry gets no label rather than a bogus one.
+        self.assertNotIn("acquirer_industry_label", payload)
+
+        self.assertTrue(_year_in_range(2023, year_min=2022, year_max=2024))
+        self.assertFalse(_year_in_range(2021, year_min=2022, year_max=None))
+        self.assertFalse(_year_in_range(2025, year_min=None, year_max=2024))
+
     def test_suggest_clause_families_flags_weak_coverage(self):
         # A concept with no dedicated node must not masquerade as covered: the
         # roll-up coverage verdict warns the caller rather than implying a fit.

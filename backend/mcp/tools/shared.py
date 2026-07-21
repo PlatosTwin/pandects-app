@@ -620,6 +620,42 @@ def _naics_payload(deps: ReferenceDataDeps) -> dict[str, object]:
     return {"sectors": sectors}
 
 
+def _naics_label_map(*, db: Any, schema_prefix: str) -> dict[str, str]:
+    """Map raw NAICS sector/subsector codes to their human-readable descriptions.
+
+    Agreement industry columns store bare codes (e.g. "334"); an LLM otherwise has
+    to make a separate get_naics_catalog call to decode them. Both sector (2-digit)
+    and subsector (3-digit) codes share one flat map since either can appear.
+    """
+    label_by_code: dict[str, str] = {}
+    for table, code_col, desc_col in (
+        ("naics_sectors", "sector_code", "sector_desc"),
+        ("naics_sub_sectors", "sub_sector_code", "sub_sector_desc"),
+    ):
+        rows = db.session.execute(
+            text(f"SELECT CAST({code_col} AS CHAR), {desc_col} FROM {schema_prefix}{table}")
+        ).fetchall()
+        for code, desc in rows:
+            if code is not None and isinstance(desc, str) and desc:
+                label_by_code[str(code)] = desc
+    return label_by_code
+
+
+def _decorate_industry_labels(
+    payload: dict[str, object],
+    *,
+    label_by_code: dict[str, str],
+    fields: tuple[str, ...] = ("target_industry", "acquirer_industry"),
+) -> None:
+    """Add a ``<field>_label`` sibling for each present, decodable industry code."""
+    for field_name in fields:
+        raw = payload.get(field_name)
+        if isinstance(raw, str) and raw.strip():
+            label = label_by_code.get(raw.strip())
+            if label:
+                payload[f"{field_name}_label"] = label
+
+
 def _counsel_payload(
     deps: ReferenceDataDeps,
     *,
@@ -667,16 +703,33 @@ def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
     }
 
 
+def _year_in_range(value: object, *, year_min: int | None, year_max: int | None) -> bool:
+    if not isinstance(value, int):
+        return True
+    if year_min is not None and value < year_min:
+        return False
+    if year_max is not None and value > year_max:
+        return False
+    return True
+
+
 def _agreement_trends_payload(
     deps: AgreementsDeps,
     *,
     reference_data_deps: ReferenceDataDeps,
     sections: list[str],
+    year_min: int | None = None,
+    year_max: int | None = None,
 ) -> dict[str, object]:
     requested = set(sections)
     db = deps.db
     schema_prefix = deps._schema_prefix()
     result: dict[str, object] = {"sections_returned": sorted(requested)}
+    if year_min is not None or year_max is not None:
+        result["year_filter"] = {"year_min": year_min, "year_max": year_max}
+
+    def _keep_year(row: dict[str, Any]) -> bool:
+        return _year_in_range(row.get("year"), year_min=year_min, year_max=year_max)
 
     if "ownership" in requested:
         ownership_mix_rows = db.session.execute(
@@ -780,9 +833,15 @@ def _agreement_trends_payload(
                 )
 
         result["ownership"] = {
-            "mix_by_year": [ownership_mix_by_year[year] for year in sorted(ownership_mix_by_year.keys())],
+            "mix_by_year": [
+                ownership_mix_by_year[year]
+                for year in sorted(ownership_mix_by_year.keys())
+                if _keep_year(ownership_mix_by_year[year])
+            ],
             "deal_size_by_year": [
-                ownership_deal_size_by_year[year] for year in sorted(ownership_deal_size_by_year.keys())
+                ownership_deal_size_by_year[year]
+                for year in sorted(ownership_deal_size_by_year.keys())
+                if _keep_year(ownership_deal_size_by_year[year])
             ],
             "buyer_type_matrix": buyer_matrix,
         }
@@ -819,16 +878,20 @@ def _agreement_trends_payload(
             )
         ).mappings().all()
         industries["target_industries_by_year"] = [
-            {
-                "year": deps._to_int(row.get("year")),
-                "industry": _normalize_industry_label(
-                    row.get("industry"),
-                    label_by_code=naics_label_by_code,
-                ),
-                "deal_count": deps._to_int(row.get("deal_count")),
-                "total_transaction_value": _to_float_or_none(row.get("total_transaction_value")) or 0.0,
-            }
+            entry
             for row in target_industry_rows
+            for entry in [
+                {
+                    "year": deps._to_int(row.get("year")),
+                    "industry": _normalize_industry_label(
+                        row.get("industry"),
+                        label_by_code=naics_label_by_code,
+                    ),
+                    "deal_count": deps._to_int(row.get("deal_count")),
+                    "total_transaction_value": _to_float_or_none(row.get("total_transaction_value")) or 0.0,
+                }
+            ]
+            if _keep_year(entry)
         ]
     if "pairings" in requested:
         industry_pairing_rows = db.session.execute(

@@ -5,6 +5,7 @@ from backend.mcp.tools.constants import (
     _CLAUSE_COVERAGE_VALUES,
     _CLAUSE_FIT_VALUES,
     _COUNT_METHOD_VALUES,
+    _TAX_EXTRACTION_STATUS_VALUES,
     _COUNT_RELIABILITY_VALUES,
     _FIELD_REPRESENTATION_VALUES,
     _FILTER_OPTIONS_FIELDS,
@@ -70,6 +71,8 @@ def _agreement_list_result_schema(*, include_xml: bool = False) -> dict[str, obj
         "acquirer_type": {"type": ["string", "null"]},
         "target_industry": {"type": ["string", "null"]},
         "acquirer_industry": {"type": ["string", "null"]},
+        "target_industry_label": {"type": "string"},
+        "acquirer_industry_label": {"type": "string"},
         "announce_date": {"type": ["string", "null"]},
         "close_date": {"type": ["string", "null"]},
         "deal_status": {"type": ["string", "null"]},
@@ -360,6 +363,8 @@ def _get_agreement_output_schema() -> dict[str, object]:
             "acquirer_type": {"type": ["string", "null"]},
             "target_industry": {"type": ["string", "null"]},
             "acquirer_industry": {"type": ["string", "null"]},
+            "target_industry_label": {"type": "string"},
+            "acquirer_industry_label": {"type": "string"},
             "announce_date": {"type": ["string", "null"]},
             "close_date": {"type": ["string", "null"]},
             "deal_status": {"type": ["string", "null"]},
@@ -512,8 +517,10 @@ def _get_agreement_tax_clauses_output_schema() -> dict[str, object]:
             "agreement_uuid": {"type": "string"},
             "clauses": _array_of(_tax_clause_result_schema()),
             "returned_count": {"type": "integer"},
+            "extraction_status": {"type": "string", "enum": list(_TAX_EXTRACTION_STATUS_VALUES)},
+            "extraction_note": {"type": "string"},
         },
-        required=["agreement_uuid", "clauses", "returned_count"],
+        required=["agreement_uuid", "clauses", "returned_count", "extraction_status", "extraction_note"],
         additional_properties=False,
     )
 
@@ -577,8 +584,10 @@ def _get_section_tax_clauses_output_schema() -> dict[str, object]:
             "section_uuid": {"type": "string"},
             "clauses": _array_of(_tax_clause_result_schema()),
             "returned_count": {"type": "integer"},
+            "extraction_status": {"type": "string", "enum": list(_TAX_EXTRACTION_STATUS_VALUES)},
+            "extraction_note": {"type": "string"},
         },
-        required=["section_uuid", "clauses", "returned_count"],
+        required=["section_uuid", "clauses", "returned_count", "extraction_status", "extraction_note"],
         additional_properties=False,
     )
 
@@ -777,6 +786,14 @@ def _agreement_trends_output_schema() -> dict[str, object]:
     return _object_schema(
         {
             "sections_returned": _array_of({"type": "string"}),
+            "year_filter": _object_schema(
+                {
+                    "year_min": {"type": ["integer", "null"]},
+                    "year_max": {"type": ["integer", "null"]},
+                },
+                required=["year_min", "year_max"],
+                additional_properties=False,
+            ),
             "ownership": _object_schema(
                 {
                     "mix_by_year": _array_of(ownership_mix_item),

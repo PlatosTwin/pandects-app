@@ -43,6 +43,27 @@ class McpAgreementTrendsArgsSchema(Schema):
             ),
         },
     )
+    year_min = ma_fields.Int(
+        load_default=None,
+        allow_none=True,
+        validate=validate.Range(min=1900, max=2100),
+        metadata={
+            "description": (
+                "Earliest year to include in the per-year trend arrays (inclusive). "
+                "Filters the year-keyed sections (ownership mix/deal size, "
+                "target_industries); the buyer-type matrix aggregates across all years "
+                "and is unaffected."
+            ),
+        },
+    )
+    year_max = ma_fields.Int(
+        load_default=None,
+        allow_none=True,
+        validate=validate.Range(min=1900, max=2100),
+        metadata={
+            "description": "Latest year to include in the per-year trend arrays (inclusive).",
+        },
+    )
 
 
 class McpAgreementIdentifierSchema(Schema):

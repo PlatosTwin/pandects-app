@@ -41,10 +41,12 @@ from backend.mcp.tools.shared import (
     _build_taxonomy_tree,
     _count_metadata_payload,
     _counsel_payload,
+    _decorate_industry_labels,
     _extract_monetary_values,
     _extract_text_from_xml,
     _focused_snippet,
     _json_compatible_value,
+    _naics_label_map,
     _naics_payload,
     _normalized_page,
     _normalized_page_size,
@@ -305,6 +307,7 @@ def _list_agreements(
     rows = cast(list[object], q.order_by(asc(agreements.agreement_uuid)).limit(page_size + 1).all())
     has_next = len(rows) > page_size
     page_rows = rows[:page_size]
+    naics_label_by_code = _naics_label_map(db=db, schema_prefix=deps._schema_prefix())
     results: list[dict[str, object]] = []
     for row in page_rows:
         row_map = deps._row_mapping_as_dict(row)
@@ -339,6 +342,7 @@ def _list_agreements(
             "url": _json_compatible_value(row_map.get("url")),
             "section_count": _json_compatible_value(row_map.get("section_count")),
         }
+        _decorate_industry_labels(item, label_by_code=naics_label_by_code)
         if include_xml:
             item["xml"] = _json_compatible_value(row_map.get("xml"))
         results.append(item)
@@ -749,6 +753,9 @@ def _get_agreement(
         "url": _json_compatible_value(row_map.get("url")),
         "xml_included": include_xml,
     }
+    _decorate_industry_labels(
+        response, label_by_code=_naics_label_map(db=db, schema_prefix=deps._schema_prefix())
+    )
     if include_xml:
         xml_content_obj = row_map.get("xml")
         xml_content = xml_content_obj if isinstance(xml_content_obj, str) else ""
@@ -1386,6 +1393,19 @@ def _search_sections(
         }
         response["standard_id_labels"] = standard_id_labels
 
+    metadata_dicts = [
+        metadata
+        for item in results
+        for metadata in [item.get("metadata")]
+        if isinstance(metadata, dict) and ("target_industry" in metadata or "acquirer_industry" in metadata)
+    ]
+    if metadata_dicts:
+        naics_label_by_code = _naics_label_map(
+            db=deps.db, schema_prefix=agreements_deps._schema_prefix()
+        )
+        for metadata in metadata_dicts:
+            _decorate_industry_labels(cast(dict[str, object], metadata), label_by_code=naics_label_by_code)
+
     count = len(results)
     return McpToolResult(
         text=f"Returned {count} section(s).",
@@ -1412,6 +1432,45 @@ def _search_tax_clauses(
     )
 
 
+_TAX_EXTRACTION_NOTES = {
+    "found": "Tax-module clauses were extracted here.",
+    "no_tax_clauses": (
+        "Clause extraction ran (non-tax clauses exist), but no tax-module clauses were "
+        "found; treat the empty result as a genuine absence of extracted tax provisions."
+    ),
+    "not_extracted": (
+        "No extracted clauses of any module exist here, so clause extraction has likely "
+        "not run for this record — the empty result is uninformative and does not confirm "
+        "that the document lacks tax provisions."
+    ),
+}
+
+
+def _tax_extraction_status(
+    deps: AgreementsDeps,
+    *,
+    agreement_uuid: str | None = None,
+    section_uuid: str | None = None,
+    has_tax_clauses: bool,
+) -> tuple[str, str]:
+    """Classify an empty tax-clause result so callers can tell absence from non-coverage.
+
+    An empty ``clauses`` list is ambiguous: the record may genuinely have no tax
+    provisions, or clause extraction may simply never have run for it. Presence of
+    any non-tax clause proves extraction ran, which disambiguates the two.
+    """
+    if has_tax_clauses:
+        return "found", _TAX_EXTRACTION_NOTES["found"]
+    query = deps.db.session.query(deps.Clauses.clause_uuid)
+    if agreement_uuid is not None:
+        query = query.filter(deps.Clauses.agreement_uuid == agreement_uuid)
+    if section_uuid is not None:
+        query = query.filter(deps.Clauses.section_uuid == section_uuid)
+    any_clause_exists = query.first() is not None
+    status = "no_tax_clauses" if any_clause_exists else "not_extracted"
+    return status, _TAX_EXTRACTION_NOTES[status]
+
+
 def _get_agreement_tax_clauses(
     deps: AgreementsDeps,
     *,
@@ -1423,7 +1482,16 @@ def _get_agreement_tax_clauses(
     if agreement_uuid == "":
         abort(400, description="Invalid agreement_uuid.")
     clauses = _tax_clause_rows(deps, agreement_uuid=agreement_uuid)
-    response = {"agreement_uuid": agreement_uuid, "clauses": clauses, "returned_count": len(clauses)}
+    extraction_status, extraction_note = _tax_extraction_status(
+        deps, agreement_uuid=agreement_uuid, has_tax_clauses=bool(clauses)
+    )
+    response = {
+        "agreement_uuid": agreement_uuid,
+        "clauses": clauses,
+        "returned_count": len(clauses),
+        "extraction_status": extraction_status,
+        "extraction_note": extraction_note,
+    }
     return McpToolResult(
         text=f"Returned {len(clauses)} tax clause(s) for agreement {agreement_uuid}.",
         structured_content=response,
@@ -1441,7 +1509,16 @@ def _get_section_tax_clauses(
     if not deps._SECTION_ID_RE.match(section_uuid):
         abort(400, description="Invalid section_uuid.")
     clauses = _tax_clause_rows(deps, section_uuid=section_uuid)
-    response = {"section_uuid": section_uuid, "clauses": clauses, "returned_count": len(clauses)}
+    extraction_status, extraction_note = _tax_extraction_status(
+        deps, section_uuid=section_uuid, has_tax_clauses=bool(clauses)
+    )
+    response = {
+        "section_uuid": section_uuid,
+        "clauses": clauses,
+        "returned_count": len(clauses),
+        "extraction_status": extraction_status,
+        "extraction_note": extraction_note,
+    }
     return McpToolResult(
         text=f"Returned {len(clauses)} tax clause(s) for section {section_uuid}.",
         structured_content=response,
@@ -1892,7 +1969,11 @@ def _get_agreement_trends(
     if not sections:
         sections = list(_TRENDS_SECTIONS_DEFAULT)
     response = _agreement_trends_payload(
-        deps, reference_data_deps=reference_data_deps, sections=sections
+        deps,
+        reference_data_deps=reference_data_deps,
+        sections=sections,
+        year_min=cast("int | None", parsed_args.get("year_min")),
+        year_max=cast("int | None", parsed_args.get("year_max")),
     )
     return McpToolResult(
         text="Returned agreement trend analytics.",

@@ -2742,6 +2742,9 @@
                     "null"
                   ]
                 },
+                "acquirer_industry_label": {
+                  "type": "string"
+                },
                 "acquirer_pe": {
                   "type": [
                     "integer",
@@ -2846,6 +2849,9 @@
                     "string",
                     "null"
                   ]
+                },
+                "target_industry_label": {
+                  "type": "string"
                 },
                 "target_pe": {
                   "type": [
@@ -3408,6 +3414,9 @@
               "null"
             ]
           },
+          "acquirer_industry_label": {
+            "type": "string"
+          },
           "acquirer_pe": {
             "type": [
               "integer",
@@ -3506,6 +3515,9 @@
               "string",
               "null"
             ]
+          },
+          "target_industry_label": {
+            "type": "string"
           },
           "target_pe": {
             "type": [
@@ -3682,6 +3694,8 @@
                 ]
               }
             ],
+            "extraction_note": "Tax-module clauses were extracted here.",
+            "extraction_status": "found",
             "returned_count": 2
           },
           "description": "Agreement tax clause list."
@@ -3790,6 +3804,17 @@
             },
             "type": "array"
           },
+          "extraction_note": {
+            "type": "string"
+          },
+          "extraction_status": {
+            "enum": [
+              "found",
+              "no_tax_clauses",
+              "not_extracted"
+            ],
+            "type": "string"
+          },
           "returned_count": {
             "type": "integer"
           }
@@ -3797,7 +3822,9 @@
         "required": [
           "agreement_uuid",
           "clauses",
-          "returned_count"
+          "returned_count",
+          "extraction_status",
+          "extraction_note"
         ],
         "type": "object"
       }
@@ -3821,6 +3848,8 @@
                 ]
               }
             ],
+            "extraction_note": "Tax-module clauses were extracted here.",
+            "extraction_status": "found",
             "returned_count": 2,
             "section_uuid": "00000000-0000-0000-0000-000000000001"
           },
@@ -3927,6 +3956,17 @@
             },
             "type": "array"
           },
+          "extraction_note": {
+            "type": "string"
+          },
+          "extraction_status": {
+            "enum": [
+              "found",
+              "no_tax_clauses",
+              "not_extracted"
+            ],
+            "type": "string"
+          },
           "returned_count": {
             "type": "integer"
           },
@@ -3937,7 +3977,9 @@
         "required": [
           "section_uuid",
           "clauses",
-          "returned_count"
+          "returned_count",
+          "extraction_status",
+          "extraction_note"
         ],
         "type": "object"
       }
@@ -5898,6 +5940,24 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "year_max": {
+            "description": "Latest year to include in the per-year trend arrays (inclusive).",
+            "maximum": 2100,
+            "minimum": 1900,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "year_min": {
+            "description": "Earliest year to include in the per-year trend arrays (inclusive). Filters the year-keyed sections (ownership mix/deal size, target_industries); the buyer-type matrix aggregates across all years and is unaffected.",
+            "maximum": 2100,
+            "minimum": 1900,
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object"
@@ -6172,6 +6232,28 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "year_filter": {
+            "additionalProperties": false,
+            "properties": {
+              "year_max": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "year_min": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "year_min",
+              "year_max"
+            ],
+            "type": "object"
           }
         },
         "required": [

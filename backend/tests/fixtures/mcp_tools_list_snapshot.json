@@ -2143,6 +2143,9 @@
                   "null"
                 ]
               },
+              "acquirer_industry_label": {
+                "type": "string"
+              },
               "acquirer_pe": {
                 "type": [
                   "integer",
@@ -2247,6 +2250,9 @@
                   "string",
                   "null"
                 ]
+              },
+              "target_industry_label": {
+                "type": "string"
               },
               "target_pe": {
                 "type": [
@@ -2729,6 +2735,9 @@
             "null"
           ]
         },
+        "acquirer_industry_label": {
+          "type": "string"
+        },
         "acquirer_pe": {
           "type": [
             "integer",
@@ -2827,6 +2836,9 @@
             "string",
             "null"
           ]
+        },
+        "target_industry_label": {
+          "type": "string"
         },
         "target_pe": {
           "type": [
@@ -2967,7 +2979,7 @@
   },
   {
     "name": "get_agreement_tax_clauses",
-    "description": "Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Use for focused tax-structure research; use get_agreement when you need the full agreement body.",
+    "description": "Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative.",
     "annotations": {
       "negativeGuidance": [],
       "pagination": "none",
@@ -3070,6 +3082,17 @@
           },
           "type": "array"
         },
+        "extraction_note": {
+          "type": "string"
+        },
+        "extraction_status": {
+          "enum": [
+            "found",
+            "no_tax_clauses",
+            "not_extracted"
+          ],
+          "type": "string"
+        },
         "returned_count": {
           "type": "integer"
         }
@@ -3077,14 +3100,16 @@
       "required": [
         "agreement_uuid",
         "clauses",
-        "returned_count"
+        "returned_count",
+        "extraction_status",
+        "extraction_note"
       ],
       "type": "object"
     }
   },
   {
     "name": "get_section_tax_clauses",
-    "description": "Fetch tax clauses extracted from one section, with their tax-taxonomy assignments. Use when you have already isolated the right section and want just the tax-relevant clauses inside it.",
+    "description": "Fetch tax clauses extracted from one section, with their tax-taxonomy assignments. Use when you have already isolated the right section and want just the tax-relevant clauses inside it. Reports the same `extraction_status` signal as get_agreement_tax_clauses to distinguish a real absence of tax clauses from a section where clause extraction has not run.",
     "annotations": {
       "negativeGuidance": [],
       "pagination": "none",
@@ -3184,6 +3209,17 @@
           },
           "type": "array"
         },
+        "extraction_note": {
+          "type": "string"
+        },
+        "extraction_status": {
+          "enum": [
+            "found",
+            "no_tax_clauses",
+            "not_extracted"
+          ],
+          "type": "string"
+        },
         "returned_count": {
           "type": "integer"
         },
@@ -3194,7 +3230,9 @@
       "required": [
         "section_uuid",
         "clauses",
-        "returned_count"
+        "returned_count",
+        "extraction_status",
+        "extraction_note"
       ],
       "type": "object"
     }
@@ -4820,7 +4858,7 @@
   },
   {
     "name": "get_agreement_trends",
-    "description": "Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use `sections` to request only the parts you need; defaults to [ownership, target_industries]. The large `pairings` (every industry-by-industry cell) and `naics_catalog` sections are opt-in. Use for quick macro context; use list_agreements for row-level breakdowns.",
+    "description": "Pre-aggregated year-over-year trends for the corpus: ownership mix (public/private/PE), buyer-type mix, and target/acquirer industry distributions. Use `sections` to request only the parts you need; defaults to [ownership, target_industries]. Pass year_min/year_max to slice the per-year arrays to a window instead of returning every year (the buyer-type matrix aggregates across all years and is unaffected). The large `pairings` (every industry-by-industry cell) and `naics_catalog` sections are opt-in. Use for quick macro context; use list_agreements for row-level breakdowns.",
     "annotations": {
       "negativeGuidance": [],
       "pagination": "none",
@@ -4844,6 +4882,24 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "year_max": {
+          "description": "Latest year to include in the per-year trend arrays (inclusive).",
+          "maximum": 2100,
+          "minimum": 1900,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "year_min": {
+          "description": "Earliest year to include in the per-year trend arrays (inclusive). Filters the year-keyed sections (ownership mix/deal size, target_industries); the buyer-type matrix aggregates across all years and is unaffected.",
+          "maximum": 2100,
+          "minimum": 1900,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -5118,6 +5174,28 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "year_filter": {
+          "additionalProperties": false,
+          "properties": {
+            "year_max": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "year_min": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "year_min",
+            "year_max"
+          ],
+          "type": "object"
         }
       },
       "required": [
