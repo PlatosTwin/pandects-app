@@ -17,7 +17,6 @@ dependencies = [
     "joblib>=1.5",
     "xgboost>=3.0",
     "transformers>=4.54",
-    "nltk>=3.9",
     "openai>=1.100",
     "voyageai>=0.3",
     "optuna>=4.4",
