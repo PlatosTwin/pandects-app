@@ -6260,9 +6260,9 @@
       "response_examples": [
         {
           "content": {
-            "agreements": 1,
-            "pages": 5,
-            "sections": 2
+            "agreements": 9902,
+            "pages": 911757,
+            "sections": 967121
           },
           "description": "Corpus count summary."
         }

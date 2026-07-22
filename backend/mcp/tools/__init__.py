@@ -768,12 +768,12 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreements_summary",
-            description="Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers. `agreements` counts the agreements the retrieval tools can actually return, so it is the correct denominator for a coverage percentage and matches an unfiltered search_agreements total_count.",
+            description="Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers. All three figures count the same universe -- what the retrieval tools can actually return -- so `agreements` is the correct denominator for a coverage percentage and matches an unfiltered search_agreements total_count, `sections` matches the index search_sections paginates, and pages/agreements is a meaningful ratio. These figures are smaller than the ingestion totals published on the website, which count records that have no retrievable text.",
             input_schema=_empty_schema(),
             output_schema=_agreements_summary_output_schema(),
             examples=({"description": "Get top-level corpus counts.", "arguments": {}},),
             response_examples=(
-                {"description": "Corpus count summary.", "content": {"agreements": 1, "sections": 2, "pages": 5}},
+                {"description": "Corpus count summary.", "content": {"agreements": 9902, "sections": 967121, "pages": 911757}},
             ),
             scopes=("agreements:search",),
             selection_hint="Use for top-level corpus sizing before deeper analysis.",

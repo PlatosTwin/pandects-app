@@ -538,18 +538,43 @@ class McpTests(unittest.TestCase):
                         "('a3', '<document><article></article></document>', 1, 'verified', 0)"
                     )
                 )
+                # a4 is unreachable the other way: it has a latest verified XML row but is
+                # gated and unverified, so the public-eligibility gate excludes it. a3
+                # alone only guards the XML predicate -- without a4, deleting the
+                # eligibility filter from either count leaves the suite green.
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements ("
+                        "agreement_uuid, filing_date, target, acquirer, verified, gated, url, "
+                        "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
+                        "deal_status, attitude, deal_type, purpose, target_pe, acquirer_pe"
+                        ") VALUES ("
+                        "'a4', '2018-04-04', 'Gated Co', 'Nobody Inc', 0, 1, 'http://example.com/a4', "
+                        "'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'merger', 'strategic', 0, 0"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a4', '<document><article></article></document>', 1, 'verified', 1)"
+                    )
+                )
                 conn.execute(
                     text(
                         "CREATE TABLE IF NOT EXISTS pages ("
                         "page_uuid TEXT PRIMARY KEY, agreement_uuid TEXT NOT NULL)"
                     )
                 )
-                # 4 pages on retrievable agreements, 3 on the unreachable a3.
+                # 4 pages on retrievable agreements; 3 on a3 (no latest XML) and 2 on a4
+                # (gated, unverified). Each unreachable agreement is excluded by a
+                # different predicate, so both are pinned.
                 conn.execute(
                     text(
                         "INSERT INTO pages (page_uuid, agreement_uuid) VALUES "
                         "('p1', 'a1'), ('p2', 'a1'), ('p3', 'a1'), ('p4', 'a2'), "
-                        "('p5', 'a3'), ('p6', 'a3'), ('p7', 'a3')"
+                        "('p5', 'a3'), ('p6', 'a3'), ('p7', 'a3'), "
+                        "('p8', 'a4'), ('p9', 'a4')"
                     )
                 )
                 conn.execute(
@@ -1918,7 +1943,11 @@ class McpTests(unittest.TestCase):
         self.assertEqual(snippet_payload["matched_terms"], ["disproportionate effects"])
 
     def test_monetary_extraction_does_not_absorb_surrounding_prose(self):
-        from backend.mcp.tools.shared import _extract_monetary_values
+        from backend.mcp.tools.shared import _extract_monetary_values_with_truncation
+
+        def _extract_monetary_values(text: str) -> list[str]:
+            values, _ = _extract_monetary_values_with_truncation(text)
+            return values
 
         # Both defects were live: the digit run swallowed a trailing comma, and the
         # single-letter unit suffixes matched the first letter of the following word,
@@ -2372,12 +2401,13 @@ class McpTests(unittest.TestCase):
         summary_res = self._call_tool("get_agreements_summary", {})
         self.assertEqual(summary_res.status_code, 200)
         summary_payload = summary_res.get_json()["result"]["structuredContent"]
-        # summary_data seeds count_agreements=1, but a1 and a2 both have a latest verified
-        # XML row and are public-eligible, so the retrieval tools serve two. a3 is
-        # public-eligible with no latest XML row and must be excluded. This tool is the
-        # denominator for coverage questions, so it reports the reachable universe.
+        # summary_data seeds count_agreements=1 / count_sections=2, and neither matches
+        # what the tools can reach: a1 and a2 are both retrievable (a3 has no latest XML,
+        # a4 is gated and unverified), and they hold 4 sections between them in the search
+        # index that search_sections paginates. This tool is the denominator for coverage
+        # questions, so every figure reports the reachable universe, not the rollup.
         self.assertEqual(summary_payload["agreements"], 2)
-        self.assertEqual(summary_payload["sections"], 2)
+        self.assertEqual(summary_payload["sections"], 4)
 
         trends_res = self._call_tool("get_agreement_trends", {})
         self.assertEqual(trends_res.status_code, 200)
@@ -2394,8 +2424,9 @@ class McpTests(unittest.TestCase):
         10,784 counted against 9,902 reachable, and any "X% of the corpus" ratio built on
         the inflated denominator came out understated.
 
-        a3 is that shape in miniature. If the XML join is removed from either count in
-        _agreements_summary_payload, a3 leaks in and these assertions fail.
+        a3 and a4 are the two unreachable shapes in miniature: a3 is eligible with no
+        latest XML row, a4 has one but is gated and unverified. Removing either predicate
+        from either count leaks one of them in and fails these assertions.
         """
         summary_payload = self._call_tool("get_agreements_summary", {}).get_json()[
             "result"
@@ -2407,10 +2438,13 @@ class McpTests(unittest.TestCase):
         # a1 and a2 only; summary_data.count_agreements is seeded at 1, so this also pins
         # that the payload no longer echoes the rollup.
         self.assertEqual(summary_payload["agreements"], 2)
-        # a1 and a2 hold 4 pages; a3's 3 pages must not be counted. summary_data seeds
-        # count_pages=5, so this pins that pages is no longer read from the rollup either
-        # -- the field that still measured the wrong universe after the first fix.
+        # a1 and a2 hold 4 pages; a3's 3 and a4's 2 must not be counted. summary_data
+        # seeds count_pages=5, so this pins that pages is no longer read from the rollup
+        # either -- the field that still measured the wrong universe after the first fix.
         self.assertEqual(summary_payload["pages"], 4)
+        # And sections comes from the search index rather than the rollup's 2, so all
+        # three figures describe one universe instead of two.
+        self.assertEqual(summary_payload["sections"], 4)
 
     def test_monetary_values_report_truncation(self):
         """A capped list that looks complete is the same defect as a silent drop."""

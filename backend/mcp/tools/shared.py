@@ -583,11 +583,6 @@ _MONEY_RE = re.compile(
 _MONETARY_VALUE_LIMIT = 20
 
 
-def _extract_monetary_values(text: str) -> list[str]:
-    values, _ = _extract_monetary_values_with_truncation(text)
-    return values
-
-
 def _extract_monetary_values_with_truncation(text: str) -> tuple[list[str], bool]:
     """Extract distinct monetary values, reporting whether the cap dropped any.
 
@@ -785,29 +780,18 @@ def _counsel_payload(
 
 
 def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
-    # All three figures must describe one universe: the agreements this server can
-    # actually return. A payload whose fields are scoped differently invites a ratio
-    # between them, and pages/agreements across mismatched scopes is silently wrong.
+    # All three figures must describe one universe: what this server can actually return.
+    # A payload whose fields are scoped differently invites a ratio between them, and
+    # pages/agreements across mismatched scopes is silently wrong.
     #
-    # summary_data already applies the public-eligibility gate; what it does not apply is
-    # the join to the latest verified XML row that every retrieval tool inner-joins. Its
-    # count_agreements therefore includes agreements no tool here can return, and its
-    # count_pages counts those agreements' pages too. count_sections is the exception:
-    # the ETL builds it through that same XML join, so it is already retrievable-scoped
-    # by construction and is read from the rollup unchanged.
-    prefix = deps._schema_prefix()
-    row = deps.db.session.execute(
-        text(
-            f"""
-            SELECT COALESCE(SUM(count_sections), 0) AS sections
-            FROM {prefix}summary_data
-            """
-        )
-    ).mappings().first()
-    row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
-
-    # Counted through the same expressions the listings build, so this cannot drift from
-    # what search_agreements/list_agreements return.
+    # None of the three is read from summary_data. That rollup applies the
+    # public-eligibility gate but not the join to the latest verified XML row every
+    # retrieval tool inner-joins, so its agreement and page counts include records no
+    # tool here can return. Its section count is built through a *stricter* XML join than
+    # the backend's (the ETL requires status = 'verified'; the backend also accepts a NULL
+    # status), so the two agree only while no latest row has a NULL status -- true today,
+    # but a coincidence rather than a guarantee, and exactly the kind of contingent
+    # agreement that puts one field in a different universe from its siblings.
     agreements = deps.Agreements
     retrievable = (
         deps.db.session.query(func.count(func.distinct(agreements.agreement_uuid)))
@@ -815,13 +799,20 @@ def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
         .filter(_agreement_is_public_eligible_expr(agreements))
         .scalar()
     )
-    # There is no Pages model to hang the same expressions off, so the predicate is
-    # restated here; the summary tests pin it against the ORM count above using a fixture
-    # agreement that is deliberately unreachable, which is what catches any drift.
+    # latest_sections_search is the table the section tools query, so counting it is the
+    # same measure search_sections paginates rather than a second opinion about it.
+    sections = deps.db.session.query(
+        func.count(deps.LatestSectionsSearch.section_uuid)
+    ).scalar()
+    # There is no Pages model to hang the shared expressions off, so the predicate is
+    # restated. COUNT(DISTINCT page_uuid), not COUNT(*): nothing in the schema forbids two
+    # latest+verified xml rows for one agreement, and the join would then count that
+    # agreement's pages twice while the DISTINCT agreement count above stayed correct.
+    prefix = deps._schema_prefix()
     pages = deps.db.session.execute(
         text(
             f"""
-            SELECT COUNT(*) AS pages
+            SELECT COUNT(DISTINCT pg.page_uuid) AS pages
             FROM {prefix}pages pg
             JOIN {prefix}agreements a ON a.agreement_uuid = pg.agreement_uuid
             JOIN {prefix}xml x
@@ -834,7 +825,7 @@ def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
     ).scalar()
     return {
         "agreements": deps._to_int(cast(object, retrievable)),
-        "sections": deps._to_int(cast(object, row_dict.get("sections"))),
+        "sections": deps._to_int(cast(object, sections)),
         "pages": deps._to_int(cast(object, pages)),
     }
 

@@ -5181,7 +5181,7 @@
   },
   {
     "name": "get_agreements_summary",
-    "description": "Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers. `agreements` counts the agreements the retrieval tools can actually return, so it is the correct denominator for a coverage percentage and matches an unfiltered search_agreements total_count.",
+    "description": "Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers. All three figures count the same universe -- what the retrieval tools can actually return -- so `agreements` is the correct denominator for a coverage percentage and matches an unfiltered search_agreements total_count, `sections` matches the index search_sections paginates, and pages/agreements is a meaningful ratio. These figures are smaller than the ingestion totals published on the website, which count records that have no retrievable text.",
     "annotations": {
       "negativeGuidance": [],
       "pagination": "none",
