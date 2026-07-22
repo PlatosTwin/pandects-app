@@ -1,0 +1,21 @@
+# Representation side (authoritative)
+For any representation or warranty, the REPRESENTING PARTY is fixed by the
+`article_title`, not by the prose. Resolve it in this order:
+1. If `article_title` names a side generically ("...OF BUYER", "...OF PARENT",
+   "...OF THE COMPANY", "...OF SELLER"), that side is the representing party.
+2. Else if `article_title` names an entity, map it via the Transaction context:
+   if it is the Acquirer / Parent / Buyer side -> the representing party is the
+   Buyer; if it is the Target / Company / Seller side -> it is the Company.
+   Merger Sub, Holdco, and acquisition vehicles are the Buyer side. A target
+   business, its subsidiaries, or selling principals are the Company side.
+Then choose the candidate whose suffix matches: '(Buyer rep)' if the
+representing party is the Buyer/Parent side, '(Company rep)' if it is the
+Target/Company/Seller side. This article-derived side OVERRIDES any contrary
+inference from the section text.
+
+Disclaimer / non-reliance / "no other representations" clauses are written
+reciprocally — they describe representations made (or not made) by BOTH
+parties. Do NOT infer the side from that reciprocal prose. The side is still
+the party making the representation per the `article_title` rule above (e.g.,
+a non-reliance clause inside "REPRESENTATIONS AND WARRANTIES OF BUYER" is the
+'(Buyer rep)' leaf, even though its text disclaims the Company's reps).

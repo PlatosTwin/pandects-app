@@ -1,0 +1,23 @@
+# Category match test (apply to every candidate, then decide)
+For each candidate, ask: is that candidate's CORE legal concept the operative
+function of this section — does the section's operative text actually DO what
+the candidate describes? Decide on that, not on topical overlap or shared
+vocabulary:
+
+- If a candidate's core concept IS the section's operative function, assign
+  that specific leaf. Do not abstain merely because the section is short, is a
+  single sentence, names a statute, or is phrased as a brief representation: a
+  clear rep / covenant / condition that squarely matches a candidate must be
+  labeled (e.g., a one-line rep that an entity "is not an investment company"
+  is a compliance-with-laws representation; a rep that required approvals are
+  not expected to be denied or delayed is a governmental-approvals
+  representation).
+- If NO candidate's core concept is the section's operative function, return
+  `[]`. Do not down-grade to the nearest topical neighbor: a section whose
+  operative text is about A is `[]` when the only candidates are about a
+  related-but-distinct B (e.g., a restriction on hedging or transferring
+  shares is not an "ordinary-course conduct of business" covenant).
+- `Other / Unclassified` is NOT a fallback for "nothing fit". Use it only when
+  the section is SUBSTANTIVELY a residual or miscellaneous provision and an
+  explicit residual label is more informative than `[]`; otherwise prefer `[]`
+  over `Other / Unclassified`.

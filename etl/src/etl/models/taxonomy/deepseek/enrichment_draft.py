@@ -1,0 +1,2390 @@
+"""
+One-shot drafting tool: fills taxonomy_enrichment.yaml with authored content.
+
+This is initial-draft tooling (like a migration). The reviewed source of
+truth is taxonomy_enrichment.yaml itself; this script just produces a
+structurally valid first draft and is safe to re-run (it overwrites only the
+four content fields, keyed by the (level, l1_label, l2_label, label) path, and
+asserts every one of the 202 live nodes is covered).
+
+The Buyer/Parent and Company/Seller representation branches are a structural
+mirror: each rep concept is authored once and emitted as both party-framed
+variants, since the legal concept is identical and only the rep-giver differs.
+
+Run from repo root:
+  caffeinate -i etl/.venv/bin/python \
+      etl/src/etl/models/taxonomy/deepseek/enrichment_draft.py
+"""
+
+from __future__ import annotations
+
+import sys
+from typing import Any
+
+from enrichment_lib import (
+    build_engine,
+    dump_enrichment_file,
+    fetch_live_nodes,
+    load_enrichment_file,
+)
+
+# Each content entry is (description, canonical_terms, example_phrases,
+# exclusion_cues). Keyed by the path tuple (level, l1_label, l2_label, label)
+# so we never hard-code 16-char ids.
+Entry = tuple[str, list[str], list[str], list[str]]
+Key = tuple[str, str, str, str]
+
+CONTENT: dict[Key, Entry] = {}
+
+
+def add(level: str, l1: str, l2: str, label: str, entry: Entry) -> None:
+    CONTENT[(level, l1, l2, label)] = entry
+
+
+# ---------------------------------------------------------------------------
+# Representations & Warranties mirror.
+#
+# Authored once per concept; expanded into both branches. {P} is the party
+# that gives the rep ("the Company" / "Parent and Merger Sub"); {p} lowercase.
+# ---------------------------------------------------------------------------
+
+REP_L1 = {
+    "Company": "Representations and Warranties (Company/Seller)",
+    "Buyer": "Representations and Warranties (Buyer/Parent)",
+}
+REP_SUFFIX = {"Company": "(Company rep)", "Buyer": "(Buyer rep)"}
+
+# L2-level rep groupings (13). description/terms/examples/exclusions are
+# generic to the grouping; party words are templated.
+REP_L2: dict[str, Entry] = {
+    "Fundamental": (
+        "Bedrock corporate representations of {p}: due organization, valid "
+        "existence, good standing, corporate power, and due authorization, "
+        "execution, and enforceability of the agreement, plus capitalization "
+        "and non-contravention. The deal's fundamental reps that typically "
+        "survive longest and are not subject to materiality scrapes.",
+        ["due organization", "good standing", "corporate power", "due authorization",
+         "binding obligation", "enforceability", "fundamental representations"],
+        ["{P} is duly organized, validly existing, and in good standing under the laws of its jurisdiction of organization.",
+         "{P} has all requisite corporate power and authority to execute and deliver this Agreement and to consummate the transactions.",
+         "This Agreement constitutes a legal, valid, and binding obligation of {P}, enforceable in accordance with its terms."],
+        ["Use the specific Fundamental child leaf (Organization, Capitalization, or No Conflicts) rather than this L2 when a single concept dominates.",
+         "Not closing conditions about bring-down accuracy of these reps — that is Conditions to Closing."],
+    ),
+    "Financial": (
+        "Representations of {p} regarding financial statements, books and "
+        "records, SEC reports and Sarbanes-Oxley compliance, absence of "
+        "undisclosed liabilities, and absence of certain changes / no Material "
+        "Adverse Effect since the balance-sheet date.",
+        ["financial statements", "GAAP", "books and records", "SEC reports",
+         "Sarbanes-Oxley", "undisclosed liabilities", "Material Adverse Effect", "absence of changes"],
+        ["The financial statements of {P} fairly present in all material respects its consolidated financial position and were prepared in accordance with GAAP.",
+         "Since the Balance Sheet Date, {P} has conducted its business in the ordinary course and there has been no Material Adverse Effect.",
+         "{P} has no liabilities required to be reflected on a balance sheet under GAAP except as disclosed."],
+        ["Interim-operating covenants restricting conduct between signing and closing are Covenants, not this rep.",
+         "The MAE closing condition is Conditions to Closing, not this rep."],
+    ),
+    "Assets": (
+        "Representations of {p} concerning owned and leased real property and "
+        "title to and sufficiency of assets, including absence of liens.",
+        ["real property", "leases", "title to assets", "sufficiency of assets",
+         "personal property", "encumbrances", "liens"],
+        ["{P} has good and marketable title to, or a valid leasehold interest in, all real property used in its business.",
+         "The assets of {P} are sufficient for the conduct of its business immediately after the Closing in substantially the same manner as conducted today.",
+         "{P} owns its assets free and clear of all Liens other than Permitted Liens."],
+        ["Intellectual property is the IP and Technology rep, not Assets.",
+         "Lien releases / payoff letters as a covenant are Covenants, not this rep."],
+    ),
+    "Commercial": (
+        "Representations of {p} regarding material contracts, customer and "
+        "supplier relationships, and affiliate / related-party transactions.",
+        ["material contracts", "customers", "suppliers", "related-party transactions",
+         "affiliate transactions", "top customers", "interested-party"],
+        ["Each Material Contract is in full force and effect and is a valid and binding obligation of {P}.",
+         "No top-ten customer or supplier has terminated or materially reduced, or threatened to terminate or materially reduce, its relationship with {P}.",
+         "Schedule sets forth each Contract between {P} and any of its Affiliates, officers, or directors."],
+        ["The covenant restricting entry into new contracts pre-closing is Interim Operating (Covenants).",
+         "Brokers/finders engagement is the Brokers rep, not a commercial contract."],
+    ),
+    "IP and Technology": (
+        "Representations of {p} regarding ownership and validity of "
+        "intellectual property and regarding data privacy, cybersecurity, and "
+        "IT systems.",
+        ["intellectual property", "patents", "trademarks", "trade secrets",
+         "data privacy", "cybersecurity", "IT systems", "open source"],
+        ["{P} owns or has a valid right to use all Intellectual Property material to the conduct of its business, free of infringement claims.",
+         "{P} is in compliance in all material respects with all Privacy Laws and its published privacy policies, and has suffered no material Security Incident.",
+         "The IT Systems of {P} are adequate for, and operate in accordance with their documentation in all material respects."],
+        ["IP-related litigation is the Litigation rep unless the section is specifically about IP ownership/validity.",
+         "Intellectual property as a transferred asset (asset deal) is Transaction Mechanics."],
+    ),
+    "Employees": (
+        "Representations of {p} regarding employee benefit plans / ERISA and "
+        "labor and employment matters.",
+        ["employee benefit plans", "ERISA", "401(k)", "labor", "employment",
+         "collective bargaining", "WARN Act", "independent contractors"],
+        ["Each Employee Benefit Plan has been established and administered in accordance with its terms and ERISA and the Code in all material respects.",
+         "{P} is not a party to or bound by any collective bargaining agreement and there is no labor strike or organizing effort pending.",
+         "No Employee Benefit Plan is subject to Title IV of ERISA or is a Multiemployer Plan."],
+        ["Benefits-continuation and WARN covenants for the post-closing period are Covenants (Employees and Benefits).",
+         "Compensation payable as deal consideration (equity awards) is Transaction Mechanics."],
+    ),
+    "Tax": (
+        "Representations of {p} regarding taxes: filing of returns, payment of "
+        "taxes, withholding, audits, liens, and absence of disputes.",
+        ["tax returns", "taxes paid", "withholding", "tax audits", "tax liens",
+         "consolidated group", "tax sharing agreement"],
+        ["{P} has timely filed all material Tax Returns required to be filed and has paid all material Taxes due and owing.",
+         "There is no audit, examination, or other proceeding pending or threatened with respect to any material Taxes of {P}.",
+         "{P} has withheld and paid over all material Taxes required to have been withheld in connection with amounts paid to any employee or third party."],
+        ["Tax treatment / reorganization and transfer-tax covenants are Covenants (Tax Matters).",
+         "Tax withholding on the merger consideration payment is Transaction Mechanics."],
+    ),
+    "Environmental": (
+        "Representations of {p} regarding compliance with Environmental Laws, "
+        "permits, Hazardous Materials, and absence of environmental liability.",
+        ["Environmental Laws", "Hazardous Materials", "CERCLA", "environmental permits",
+         "release", "remediation", "contamination"],
+        ["{P} is, and for the past three years has been, in compliance in all material respects with all Environmental Laws.",
+         "{P} holds and is in compliance with all Environmental Permits required for the operation of its business.",
+         "There has been no Release of Hazardous Materials at any property currently owned or operated by {P} that would reasonably be expected to result in material liability."],
+        ["General compliance-with-laws (non-environmental) is the Compliance with Laws rep.",
+         "Environmental indemnities are Indemnification."],
+    ),
+    "Legal and Compliance": (
+        "Representations of {p} regarding compliance with laws and permits, "
+        "anti-corruption / sanctions / trade controls, and litigation, "
+        "investigations, and governmental orders.",
+        ["compliance with laws", "permits", "FCPA", "anti-bribery", "OFAC sanctions",
+         "export controls", "litigation", "governmental orders"],
+        ["{P} is in compliance in all material respects with all Laws applicable to its business and holds all material Permits.",
+         "Neither {P} nor any of its representatives has violated the FCPA or any other applicable anti-corruption Law.",
+         "There is no Action pending or, to the Knowledge of {P}, threatened against {P} that would reasonably be expected to be material."],
+        ["Anti-corruption/sanctions covenants going forward are Covenants.",
+         "Environmental compliance is the Environmental rep; tax compliance is the Tax rep."],
+    ),
+    "Insurance": (
+        "Representations of {p} regarding its insurance policies: existence, "
+        "validity, coverage adequacy, premiums paid, and absence of material "
+        "claims or cancellations.",
+        ["insurance policies", "in full force and effect", "premiums paid",
+         "coverage", "claims", "cancellation"],
+        ["All material insurance policies maintained by {P} are in full force and effect and all premiums due have been paid.",
+         "There is no material claim pending under any such policy as to which coverage has been denied or disputed by the underwriters.",
+         "{P} has not received any written notice of cancellation or non-renewal of any material insurance policy."],
+        ["R&W insurance and D&O tail/run-off insurance are Indemnification and Insurance, not this rep.",
+         "Insurance-maintenance covenants are Covenants."],
+    ),
+    "Brokers": (
+        "Representation of {p} regarding broker, finder, or financial-advisor "
+        "fees payable in connection with the transaction.",
+        ["broker", "finder's fee", "financial advisor", "investment banker",
+         "no broker", "transaction fees"],
+        ["No broker, finder, or investment banker is entitled to any brokerage, finder's, or other fee in connection with the transactions based upon arrangements made by or on behalf of {P}.",
+         "Except for fees payable to the financial advisor identified on the Schedule, no Person is entitled to a fee from {P} in connection with this Agreement."],
+        ["Allocation of transaction expenses generally is Transaction Mechanics (Fees and Expenses).",
+         "Termination-fee mechanics are Termination."],
+    ),
+    "Disclaimers": (
+        "Representation/acknowledgement that, except for the express reps in "
+        "the agreement, {p} makes no other representations, together with "
+        "non-reliance and disclaimer of projections.",
+        ["no other representations", "disclaimer", "non-reliance", "as is",
+         "projections", "extra-contractual", "exclusivity of representations"],
+        ["Except for the representations and warranties expressly set forth in this Article, {P} makes no other representation or warranty, express or implied.",
+         "The other party acknowledges that it has not relied on any representation or warranty other than those expressly set forth in this Agreement.",
+         "{P} disclaims any representation or warranty with respect to any projections, forecasts, or estimates."],
+        ["A substantive rep that merely contains a materiality qualifier is not a disclaimer.",
+         "Limitation of liability / waiver of damages is Dispute Resolution."],
+    ),
+    "Financing": (
+        "Representation of {p} regarding availability and sufficiency of funds "
+        "to consummate the transaction (typically a buyer-side rep).",
+        ["sufficiency of funds", "available funds", "financing", "sources of funds",
+         "no financing condition", "adequate capital"],
+        ["{P} will have at and after the Closing sufficient cash and available funds to pay the aggregate Merger Consideration and all related fees and expenses.",
+         "The obligations of {P} under this Agreement are not subject to any condition regarding the availability of financing.",
+         "{P} has delivered true and complete copies of the executed Commitment Letters."],
+        ["The detailed debt/equity financing arrangements and cooperation are the Financing L1, not this rep.",
+         "The financing closing condition is Conditions to Closing."],
+    ),
+}
+
+# L3 rep concepts (25), authored once. Keyed by L2 grouping + base label
+# (without the party suffix). Order/labels mirror the live taxonomy.
+REP_L3: dict[tuple[str, str], Entry] = {
+    ("Assets", "Real Property; Leases"): (
+        "Representation of {p} regarding owned and leased real property: valid "
+        "title or leasehold, absence of defaults under leases, and no "
+        "condemnation.",
+        ["owned real property", "leased real property", "real property leases",
+         "leasehold interest", "no condemnation", "valid lease"],
+        ["{P} has good and valid title to all owned Real Property, free and clear of all Liens other than Permitted Liens.",
+         "Each Real Property Lease is valid and binding and {P} is not in material default thereunder.",
+         "There is no pending or threatened condemnation proceeding affecting any Real Property of {P}."],
+        ["Title to non-real-estate assets generally is the Title to Assets leaf.",
+         "Real property transferred as a purchased asset (asset deal) is Transaction Mechanics."],
+    ),
+    ("Assets", "Title to Assets; Sufficiency of Assets; No Liens"): (
+        "Representation of {p} that it has good title to its tangible and "
+        "intangible assets, that those assets are sufficient to operate the "
+        "business, and that they are free of liens other than permitted liens.",
+        ["good and valid title", "sufficiency of assets", "Permitted Liens",
+         "free and clear", "tangible personal property", "no encumbrances"],
+        ["{P} has good and valid title to, or a valid leasehold or license interest in, all tangible personal property used in its business.",
+         "The assets of {P} constitute all of the assets necessary and sufficient to conduct the business immediately following Closing in all material respects as conducted today.",
+         "Such assets are owned free and clear of all Liens other than Permitted Liens."],
+        ["Real property specifically is the Real Property; Leases leaf.",
+         "Intellectual property ownership is the IP rep."],
+    ),
+    ("Brokers", "Brokers / Finder's Fees"): (
+        "Operative representation that no broker, finder, or financial advisor "
+        "is entitled to a fee payable by {p} in connection with the "
+        "transaction, other than the advisor expressly identified.",
+        ["no broker or finder is entitled to a fee", "Finder's Fee", "financial advisor fee",
+         "based upon arrangements made by", "investment banker engagement letter", "fee disclosed on Schedule"],
+        ["No broker, finder, or investment banker is entitled to any brokerage, finder's, or other fee or commission in connection with the transactions based upon arrangements made by or on behalf of {P}.",
+         "Except for fees payable to the financial advisor identified on Schedule [•], no Person is entitled to any fee or commission from {P} in connection with this Agreement."],
+        ["Allocation of transaction expenses generally is Transaction Mechanics (Fees and Expenses).",
+         "Termination-fee mechanics are Termination (Termination Fees)."],
+    ),
+    ("Commercial", "Material Contracts"): (
+        "Representation of {p} regarding identification, validity, and absence "
+        "of breach of material contracts; often includes a list of contract "
+        "categories that qualify as material.",
+        ["material contracts", "in full force and effect", "no default",
+         "enforceable", "contract categories", "no breach"],
+        ["Each Material Contract is a valid and binding obligation of {P} and is in full force and effect.",
+         "Neither {P} nor, to its Knowledge, any counterparty is in material breach of or default under any Material Contract.",
+         "The Schedule lists each Contract that requires payments in excess of the specified threshold or that is otherwise material to the business."],
+        ["Customer/supplier relationship reps are the Customers and Suppliers leaf.",
+         "Affiliate contracts are the Affiliate / Related-Party Transactions leaf."],
+    ),
+    ("Commercial", "Customers and Suppliers"): (
+        "Representation of {p} regarding its top customers and suppliers and "
+        "the absence of termination or material adverse change in those "
+        "relationships.",
+        ["top customers", "material suppliers", "no termination", "no material reduction",
+         "customer relationships", "supplier relationships"],
+        ["The Schedule sets forth the ten largest customers and suppliers of {P} by revenue/spend for the most recent fiscal year.",
+         "No such customer or supplier has terminated, or notified {P} in writing of its intention to terminate or materially reduce, its relationship with {P}.",
+         "{P} is not engaged in any material dispute with any such customer or supplier."],
+        ["The contracts themselves (validity/breach) are the Material Contracts leaf.",
+         "Related-party customer/supplier dealings are the Affiliate leaf."],
+    ),
+    ("Commercial", "Affiliate / Related-Party Transactions"): (
+        "Representation of {p} disclosing transactions, contracts, or "
+        "arrangements between the entity and its affiliates, officers, "
+        "directors, or significant stockholders.",
+        ["related-party transactions", "affiliate transactions", "interested party",
+         "Item 404", "insider arrangements", "intercompany"],
+        ["Schedule sets forth each Contract or arrangement between {P} and any of its directors, officers, Affiliates, or any immediate family member thereof.",
+         "No officer or director of {P} owns any material interest in any Person that is a customer, supplier, or competitor of {P}.",
+         "All related-party transactions have been conducted on arm's-length terms."],
+        ["Ordinary third-party material contracts are the Material Contracts leaf.",
+         "Related-party covenants/conduct pre-closing are Covenants."],
+    ),
+    ("Disclaimers", "No Other Representations; Disclaimer; Non-Reliance"): (
+        "Operative provision that, except for the express representations in "
+        "the agreement, {p} makes no other representation or warranty, and the "
+        "counterparty acknowledges non-reliance and disclaims reliance on "
+        "projections, forecasts, or extra-contractual statements.",
+        ["except for the representations expressly set forth", "no other representation or warranty",
+         "non-reliance acknowledgement", "disclaimer of projections and forecasts", "as-is",
+         "no extra-contractual reliance"],
+        ["Except for the representations and warranties expressly set forth in this Article, {P} makes no other representation or warranty, express or implied, at law or in equity, and {P} hereby disclaims any such other representation or warranty.",
+         "The other party acknowledges that it has not relied, and is not relying, upon any representation or warranty of {P} other than those expressly set forth in this Agreement, including with respect to any projections, forecasts, or estimates."],
+        ["A substantive representation that merely carries a materiality qualifier is not a disclaimer.",
+         "Contractual limitation of liability / waiver of damages is Dispute Resolution."],
+    ),
+    ("Employees", "Employee Benefit Plans / ERISA"): (
+        "Representation of {p} regarding its employee benefit plans: existence "
+        "and listing, ERISA/Code compliance, absence of Title IV/multiemployer "
+        "exposure, and no acceleration triggered by the transaction.",
+        ["employee benefit plans", "ERISA", "qualified under 401(a)", "Title IV",
+         "multiemployer plan", "280G parachute", "no acceleration"],
+        ["Each Benefit Plan intended to be qualified under Section 401(a) of the Code has received a favorable determination or opinion letter.",
+         "No Benefit Plan is subject to Title IV of ERISA, and {P} has no liability with respect to any Multiemployer Plan.",
+         "Neither the execution of this Agreement nor the consummation of the transactions will, alone or together with any other event, accelerate the vesting of any compensation or trigger any 'parachute payment'."],
+        ["Labor/union and general employment matters are the Labor and Employment leaf.",
+         "Benefits-continuation covenants post-closing are Covenants (Employees and Benefits)."],
+    ),
+    ("Employees", "Labor and Employment"): (
+        "Representation of {p} regarding labor and employment matters: union "
+        "status, absence of strikes, wage-and-hour and classification "
+        "compliance, and WARN.",
+        ["collective bargaining", "union", "labor strike", "wage and hour",
+         "worker classification", "WARN Act", "employment compliance"],
+        ["{P} is not a party to or bound by any collective bargaining agreement, and no labor union represents its employees.",
+         "{P} is in compliance in all material respects with all Laws respecting labor, employment, wages and hours, and worker classification.",
+         "{P} has not incurred any liability under the WARN Act that remains unsatisfied."],
+        ["Benefit plans/ERISA are the Employee Benefit Plans leaf.",
+         "WARN as a post-closing covenant is Covenants (Employees and Benefits)."],
+    ),
+    ("Environmental", "Environmental Matters"): (
+        "Operative representation that {p} complies with Environmental Laws, "
+        "holds required Environmental Permits, and has no material liability "
+        "for Releases of Hazardous Materials or contamination.",
+        ["compliance with Environmental Laws", "Environmental Permits held", "Hazardous Materials",
+         "CERCLA / Superfund", "no Release giving rise to liability", "no contamination or remediation obligation"],
+        ["{P} is, and for the past three years has been, in compliance in all material respects with all Environmental Laws and holds and is in compliance with all Environmental Permits required for the operation of its business.",
+         "There has been no Release of Hazardous Materials at any property currently or formerly owned or operated by {P} that would reasonably be expected to result in material liability under Environmental Laws."],
+        ["General (non-environmental) compliance-with-laws is the Compliance with Laws representation.",
+         "Environmental indemnities and special environmental escrows are Indemnification."],
+    ),
+    ("Financial", "Financial Statements; Books and Records"): (
+        "Representation of {p} that its financial statements fairly present "
+        "results and were prepared in accordance with GAAP, and that its books "
+        "and records are accurate and maintained with adequate internal "
+        "controls.",
+        ["financial statements", "fairly present", "GAAP", "books and records",
+         "internal controls", "consistently applied"],
+        ["The Financial Statements were prepared in accordance with GAAP applied on a consistent basis and fairly present in all material respects the financial condition and results of operations of {P}.",
+         "The books and records of {P} are accurate and complete in all material respects and have been maintained in accordance with sound business practices.",
+         "{P} maintains a system of internal accounting controls sufficient to provide reasonable assurances regarding the reliability of financial reporting."],
+        ["SEC reporting / SOX certifications specifically are the SEC Reports leaf.",
+         "Undisclosed liabilities specifically are the Absence of Undisclosed Liabilities leaf."],
+    ),
+    ("Financial", "SEC Reports; Sarbanes-Oxley; No Misstatement / 10b-5"): (
+        "Representation of {p} (public-company context) regarding timely filing "
+        "of SEC reports, compliance with Sarbanes-Oxley, effective disclosure "
+        "controls, and absence of material misstatements or omissions.",
+        ["SEC Reports", "Exchange Act", "Sarbanes-Oxley", "Section 302/906 certifications",
+         "disclosure controls", "Rule 10b-5", "no material misstatement"],
+        ["{P} has timely filed all forms, reports, and documents required to be filed with the SEC, and such SEC Reports complied in all material respects with the Securities Act and the Exchange Act.",
+         "Each required certification under Sections 302 and 906 of the Sarbanes-Oxley Act has been made.",
+         "None of the SEC Reports contained any untrue statement of a material fact or omitted to state a material fact necessary to make the statements not misleading."],
+        ["Plain financial-statement/GAAP reps are the Financial Statements leaf.",
+         "Proxy/registration-statement preparation covenants are Covenants (Stockholder Approval & SEC Process)."],
+    ),
+    ("Financial", "Absence of Undisclosed Liabilities"): (
+        "Representation of {p} that it has no liabilities other than those "
+        "reflected/reserved on the balance sheet, incurred in the ordinary "
+        "course since the balance-sheet date, or otherwise disclosed.",
+        ["no undisclosed liabilities", "balance sheet", "reserved against",
+         "ordinary course", "GAAP liabilities", "off-balance-sheet"],
+        ["{P} has no liabilities of a type required to be reflected or reserved against on a balance sheet prepared in accordance with GAAP, except for liabilities reflected on the Balance Sheet or incurred in the ordinary course since the Balance Sheet Date.",
+         "{P} has no off-balance-sheet arrangements."],
+        ["General financial-statement accuracy is the Financial Statements leaf.",
+         "Absence of changes / MAE since the balance-sheet date is the Absence of Certain Changes leaf."],
+    ),
+    ("Financial", "Absence of Certain Changes; No Material Adverse Effect"): (
+        "Representation of {p} that since the balance-sheet date the business "
+        "has been conducted in the ordinary course, no Material Adverse Effect "
+        "has occurred, and none of an enumerated list of changes has occurred.",
+        ["since the Balance Sheet Date", "ordinary course of business",
+         "no Material Adverse Effect", "absence of certain changes", "specified actions"],
+        ["Since the Balance Sheet Date, the business of {P} has been conducted in the ordinary course consistent with past practice.",
+         "Since the Balance Sheet Date, there has not been any Effect that has had or would reasonably be expected to have a Material Adverse Effect.",
+         "Since the Balance Sheet Date, {P} has not taken any action that, if taken after the date of this Agreement, would require consent under the interim-operating covenant."],
+        ["The MAE-based closing condition is Conditions to Closing.",
+         "Forward-looking interim-operating restrictions are Covenants (Interim Operating)."],
+    ),
+    # Buyer-correct content; the Company-side variant is overridden in
+    # _expand_reps with a mirror-note entry (a Company sufficiency-of-funds
+    # rep is atypical — sufficiency is in substance always a buyer rep).
+    ("Financing", "Financing; Sufficiency of Funds"): (
+        "Operative representation by Parent that it will have at and after "
+        "Closing sufficient available funds to pay the aggregate "
+        "consideration and related fees, and (where applicable) that the "
+        "obligations are not subject to a financing condition.",
+        ["sufficiency of funds", "available funds at Closing", "aggregate Merger Consideration",
+         "not subject to any financing condition", "executed Commitment Letters", "adequate cash resources"],
+        ["Parent will have at and after the Closing sufficient cash and immediately available funds to pay the aggregate Merger Consideration and all related fees and expenses.",
+         "The obligations of Parent under this Agreement are not subject to any condition regarding the availability of financing, and Parent has delivered true and complete copies of the executed Commitment Letters."],
+        ["The detailed debt/equity financing arrangements and cooperation are the Financing L1, not this representation.",
+         "The (atypical) financing closing condition is Conditions to Closing (Financing / Funding Condition)."],
+    ),
+    ("Fundamental", "Organization; Good Standing; Authority; Enforceability"): (
+        "Representation of {p} as to due organization, valid existence, good "
+        "standing, requisite corporate power and authority, due authorization "
+        "of the transaction, and the agreement being a valid and binding, "
+        "enforceable obligation.",
+        ["duly organized", "validly existing", "good standing", "corporate power and authority",
+         "duly authorized", "valid and binding", "enforceable", "no further corporate action"],
+        ["{P} is a corporation duly organized, validly existing, and in good standing under the laws of its jurisdiction of incorporation.",
+         "{P} has all requisite corporate power and authority to enter into this Agreement and to consummate the transactions, and the execution and delivery have been duly authorized by all necessary corporate action.",
+         "This Agreement has been duly executed and delivered and constitutes a valid and binding obligation of {P}, enforceable against it in accordance with its terms, subject to the Enforceability Exceptions."],
+        ["Stock/share counts and equity structure are the Capitalization leaf.",
+         "Conflicts with laws/contracts and required consents are the No Conflicts leaf."],
+    ),
+    ("Fundamental", "Capitalization; Subsidiaries; Equity Interests"): (
+        "Representation of {p} regarding its authorized and outstanding capital "
+        "stock, options/RSUs and other equity rights, validity of issued "
+        "shares, and ownership of subsidiaries' equity interests.",
+        ["authorized capital stock", "issued and outstanding", "options and RSUs",
+         "fully paid and non-assessable", "no preemptive rights", "subsidiaries", "equity interests"],
+        ["The authorized capital stock of {P} consists of the shares set forth on the Schedule, and all outstanding shares are duly authorized, validly issued, fully paid, and non-assessable.",
+         "Except for the equity awards set forth on the Schedule, there are no outstanding options, warrants, or other rights to acquire capital stock of {P}.",
+         "{P} owns, directly or indirectly, all of the issued and outstanding equity interests of each of its Subsidiaries free and clear of all Liens."],
+        ["Treatment/cash-out of options and RSUs as deal consideration is Transaction Mechanics.",
+         "Authority/enforceability is the Organization leaf."],
+    ),
+    ("Fundamental", "No Conflicts; Required Consents; Governmental Approvals"): (
+        "Representation of {p} that execution and consummation do not violate "
+        "its organizational documents, applicable law, or material contracts, "
+        "and that no consents or governmental approvals are required except as "
+        "specified.",
+        ["no conflict", "no violation", "no breach or default", "required consents",
+         "governmental approvals", "HSR", "no contravention"],
+        ["The execution and delivery of this Agreement do not, and the consummation of the transactions will not, conflict with or violate the Organizational Documents of {P}.",
+         "No consent, approval, or authorization of, or filing with, any Governmental Authority is required by {P} except for the HSR filing and the filings set forth on the Schedule.",
+         "The transactions will not result in a breach of, or constitute a default under, any Material Contract."],
+        ["The substantive antitrust/HSR efforts covenant is Covenants (Efforts and Regulatory).",
+         "Authority/enforceability is the Organization leaf."],
+    ),
+    ("Insurance", "Insurance"): (
+        "Operative representation regarding {p}'s insurance policies: that "
+        "material policies are in full force and effect, premiums are paid, "
+        "and there is no material denied claim or pending notice of "
+        "cancellation or non-renewal.",
+        ["material insurance policies in full force and effect", "premiums paid when due",
+         "no coverage denied or disputed", "no notice of cancellation or non-renewal",
+         "policies maintained", "claims made under policies"],
+        ["All material insurance policies maintained by {P} are in full force and effect, and all premiums due thereon have been timely paid.",
+         "There is no material claim pending under any such policy as to which coverage has been denied or disputed by the underwriters, and {P} has not received any written notice of cancellation or non-renewal of any material policy."],
+        ["R&W insurance and D&O tail/run-off insurance are Indemnification and Insurance, not this representation.",
+         "A covenant to maintain or not modify insurance pre-closing is Covenants."],
+    ),
+    ("IP and Technology", "Intellectual Property"): (
+        "Representation of {p} regarding ownership or valid rights to use "
+        "intellectual property, validity and subsistence of registered IP, "
+        "absence of infringement in either direction, and protection of trade "
+        "secrets.",
+        ["intellectual property", "owned IP", "licensed IP", "no infringement",
+         "registered IP valid", "trade secrets", "open source", "IP ownership"],
+        ["{P} owns or has a valid and enforceable right to use all Intellectual Property material to and used in the conduct of its business.",
+         "The conduct of the business of {P} does not infringe, misappropriate, or otherwise violate the Intellectual Property of any third party.",
+         "{P} has taken commercially reasonable measures to maintain the confidentiality of its material trade secrets."],
+        ["Privacy/cyber/IT systems specifically are the Data Privacy; Cybersecurity; IT Systems leaf.",
+         "IP litigation as the primary subject is the Litigation leaf."],
+    ),
+    ("IP and Technology", "Data Privacy; Cybersecurity; IT Systems"): (
+        "Representation of {p} regarding compliance with privacy laws and "
+        "policies, security of personal data, absence of material breaches, "
+        "and adequacy/operation of IT systems.",
+        ["privacy laws", "GDPR", "CCPA", "personal data", "security incident",
+         "data breach", "IT systems", "cybersecurity"],
+        ["{P} is in compliance in all material respects with all applicable Privacy Laws, its privacy policies, and its contractual obligations relating to Personal Data.",
+         "{P} has not experienced any material Security Incident or unauthorized acquisition of Personal Data.",
+         "The IT Systems used by {P} are in good working condition and adequate for the operation of its business as currently conducted."],
+        ["IP ownership/validity/infringement is the Intellectual Property leaf.",
+         "Privacy/cyber covenants going forward are Covenants."],
+    ),
+    ("Legal and Compliance", "Compliance with Laws; Permits"): (
+        "Representation of {p} regarding general compliance with applicable "
+        "laws and possession of, and compliance with, all material permits and "
+        "licenses required to operate.",
+        ["compliance with laws", "material Permits", "licenses", "no violation of law",
+         "regulatory authorizations", "in good standing"],
+        ["{P} is, and for the past three years has been, in compliance in all material respects with all Laws applicable to it or its business.",
+         "{P} holds all material Permits necessary for the lawful conduct of its business, and all such Permits are in full force and effect.",
+         "{P} has not received any written notice alleging any material violation of Law or Permit."],
+        ["Anti-corruption/sanctions specifically are the Anti-Corruption leaf.",
+         "Environmental and Tax compliance are their own reps."],
+    ),
+    ("Legal and Compliance", "Anti-Corruption; Anti-Bribery; Sanctions; Trade Controls"): (
+        "Representation of {p} regarding compliance with the FCPA and other "
+        "anti-corruption/anti-bribery laws and with economic sanctions and "
+        "export/trade-control laws; no prohibited payments or sanctioned-party "
+        "dealings.",
+        ["FCPA", "UK Bribery Act", "anti-corruption", "OFAC", "economic sanctions",
+         "export controls", "EAR/ITAR", "Sanctioned Person"],
+        ["Neither {P} nor any of its directors, officers, or employees has, in violation of Anti-Corruption Laws, offered or paid anything of value to any Government Official.",
+         "{P} is not a Sanctioned Person and has not engaged in dealings with any Sanctioned Person or sanctioned country in violation of Sanctions.",
+         "{P} is in compliance in all material respects with all applicable export control and trade-control Laws."],
+        ["General (non-corruption) compliance is the Compliance with Laws leaf.",
+         "Going-forward anti-corruption covenants are Covenants."],
+    ),
+    ("Legal and Compliance", "Litigation; Investigations; Governmental Orders"): (
+        "Representation of {p} regarding absence of material pending or "
+        "threatened litigation, governmental investigations, and outstanding "
+        "governmental orders or judgments.",
+        ["litigation", "Actions", "investigations", "governmental orders",
+         "judgments", "no pending proceedings", "injunctions"],
+        ["There is no Action pending or, to the Knowledge of {P}, threatened against {P} that would reasonably be expected to be material to the business.",
+         "{P} is not subject to any outstanding Governmental Order that would materially impair its ability to conduct its business.",
+         "There is no material governmental investigation pending or, to the Knowledge of {P}, threatened against {P}."],
+        ["Stockholder/transaction-litigation cooperation as a covenant is Covenants (Other Covenants).",
+         "The no-injunction closing condition is Conditions to Closing."],
+    ),
+    ("Tax", "Taxes"): (
+        "Representation of {p} regarding taxes: filing of all required returns, "
+        "payment of taxes, no material audits or deficiencies, proper "
+        "withholding, no tax liens, and absence of certain tax-sharing or "
+        "consolidated-group exposure.",
+        ["Tax Returns filed", "Taxes paid", "no audits", "withholding",
+         "no Tax Liens", "tax-sharing agreement", "consolidated group", "no deficiency"],
+        ["{P} has timely filed all material Tax Returns required to be filed and all such Tax Returns are true, correct, and complete in all material respects.",
+         "{P} has paid all material Taxes due and owing, whether or not shown on any Tax Return.",
+         "There are no Liens for Taxes on any assets of {P} other than Permitted Liens, and no material deficiency for Taxes has been asserted in writing."],
+        ["Tax-treatment / reorganization and transfer-tax covenants are Covenants (Tax Matters).",
+         "Tax withholding on the merger payment mechanics is Transaction Mechanics."],
+    ),
+}
+
+
+# Company-side override for the sufficiency-of-funds rep: a Company making a
+# sufficiency rep is atypical (it is being acquired, not funding the deal), so
+# the mirror node is reframed as a routing placeholder rather than implausible
+# operative text.
+_FIN_REP_COMPANY: Entry = (
+    "Mirror placeholder. A sufficiency-of-funds / financing-availability "
+    "representation is in substance always a Buyer/Parent representation; a "
+    "Company-side sufficiency rep is atypical in an acquisition. Genuine "
+    "financing-availability language should route to the Buyer-rep Financing "
+    "leaf or to the Financing L1.",
+    ["mirror placeholder (atypical on the Company side)", "sufficiency of funds is a buyer concept",
+     "Company-side financing representation (rare)", "route to Buyer Financing rep"],
+    ["A representation that the party will have sufficient funds to pay the consideration is, in substance, a Buyer/Parent representation; see the Buyer-rep Financing leaf.",
+     "If the Company makes any financing-related representation, it is typically limited to having adequate working capital to operate through the Closing rather than funding the Merger Consideration."],
+    ["Genuine sufficiency-of-funds / available-funds language is the Buyer-rep Financing leaf.",
+     "The buyer's financing arrangements and cooperation are the Financing L1."],
+)
+
+
+def _party(branch: str, l2_name: str) -> str:
+    if branch == "Company":
+        return "the Company"
+    # Merger Sub is a shell with no business; only the Fundamental reps
+    # (organization, authority, no-conflicts, capitalization) are genuinely
+    # co-made by Merger Sub. "Each of Parent and Merger Sub" keeps singular
+    # verb agreement; all other buyer reps are made by Parent alone.
+    return "Each of Parent and Merger Sub" if l2_name == "Fundamental" else "Parent"
+
+
+def _sub(text: str, party: str) -> str:
+    lower = party[0].lower() + party[1:] if not party.startswith("the ") else party
+    return text.replace("{P}", party).replace("{p}", lower)
+
+
+def _norm_example(s: str) -> str:
+    """Normalize an example sentence after party substitution.
+
+    Two artifacts of the mechanical mirror: (1) a phrase that began with the
+    "{P}" subject becomes lowercase when the party is "the Company"; (2)
+    "Each of Parent and Merger Sub" substituted mid-sentence keeps a stray
+    capital "Each". Both are pure embed/BM25 noise — fix the casing so the
+    first (and every) embedding sees clean text.
+    """
+    s = s.strip()
+    if s:
+        s = s[0].upper() + s[1:]
+    # Lowercase "Each of Parent and Merger Sub" only when not sentence-initial.
+    s = s.replace(
+        " Each of Parent and Merger Sub", " each of Parent and Merger Sub"
+    )
+    return s
+
+
+def _expand_reps() -> None:
+    for branch, l1 in REP_L1.items():
+        suffix = REP_SUFFIX[branch]
+        other_suffix = REP_SUFFIX["Buyer" if branch == "Company" else "Company"]
+
+        # L2 rep groupings: keep the enumerative description, but replace the
+        # operative example_phrases with umbrella/chapeau text so an L2 never
+        # collides with its operative L3 children, and prepend an umbrella
+        # term so the canonical_terms list differs from any child.
+        for l2_name, entry in REP_L2.items():
+            party = _party(branch, l2_name)
+            desc, terms, _ex, exc = entry
+            umbrella_terms = ["umbrella grouping (route to a specific sub-leaf)"] + list(terms)
+            umbrella_ex = [
+                f"This grouping covers {party}'s {l2_name.lower()} representations and warranties; it is a category, not itself an operative representation — route to the specific sub-leaf for the operative text.",
+                f"The {l2_name} representations of {party} address the matters described above; prefer the specific child leaf when one concept dominates.",
+            ]
+            add("l2", l1, l2_name, l2_name,
+                (_sub(desc, party), umbrella_terms, umbrella_ex, list(exc)))
+
+        for (l2_name, base_label), entry in REP_L3.items():
+            party = _party(branch, l2_name)
+            if branch == "Company" and base_label == "Financing; Sufficiency of Funds":
+                entry = _FIN_REP_COMPANY
+            desc, terms, ex, exc = entry
+            desc = _sub(desc, party)
+            ex = [_sub(s, party) for s in ex]
+            terms = list(terms)
+            exc = list(exc)
+            # Universal reciprocal disambiguators (exclusion_cues are not
+            # embedded; they only feed the keyword/penalty stage).
+            party_word = "Company" if branch == "Company" else "Buyer/Parent"
+            exc.append(
+                f"The closing condition that these representations are accurate at "
+                f"Closing (bring-down) is Conditions to Closing (Accuracy of "
+                f"{party_word} Representations).")
+            exc.append(
+                f"How long these representations survive the Closing for indemnity "
+                f"is Indemnification (Survival of Representations, Warranties, and "
+                f"Covenants).")
+            exc.append(
+                f"The mirror-image representation given by the other side is the "
+                f"corresponding {other_suffix} leaf.")
+            if branch == "Buyer":
+                # Break the verbatim Company<->Buyer collision in the *embedded*
+                # fields (description + canonical_terms + example_phrases).
+                desc = (
+                    "Buyer-side representation, made by "
+                    + ("Parent (and, for fundamental matters, Merger Sub)"
+                       if l2_name == "Fundamental" else "Parent (the acquirer)")
+                    + ", customarily given where Parent issues stock or is "
+                    "otherwise a reporting/operating party in the transaction. "
+                    + desc)
+                terms = ["Parent (acquirer) representation",
+                         f"Parent {l2_name.lower()} representation"] + terms
+                ex = [
+                    "These representations are made by Parent (the acquirer) in favor of the Company, typically in a stock-consideration or public-acquirer context."
+                ] + ex
+            add("l3", l1, l2_name, f"{base_label} {suffix}", (desc, terms, ex, exc))
+
+
+_expand_reps()
+
+
+# ---------------------------------------------------------------------------
+# 1. Definitions and Interpretation
+# ---------------------------------------------------------------------------
+L1_DEF = "Definitions and Interpretation"
+add("l2", L1_DEF, "Definitions", "Definitions", (
+    "The article that defines capitalized terms used throughout the "
+    "agreement, including a defined-terms index or glossary.",
+    ["definitions", "defined terms", "as used in this Agreement", "shall mean",
+     "glossary", "index of defined terms"],
+    ["As used in this Agreement, the following terms have the meanings set forth below.",
+     "Capitalized terms used but not otherwise defined herein have the meanings ascribed to them in this Article."],
+    ["Rules of construction (gender, headings, 'including') are the Interpretation L2.",
+     "A single defined term appearing inside an operative clause does not make that clause a Definitions section."],
+))
+add("l3", L1_DEF, "Definitions", "Defined Terms", (
+    "Section setting forth the defined terms and their meanings — the "
+    "glossary of the agreement, whether a consolidated definitions section or "
+    "a defined-terms table.",
+    ["shall mean", "the following terms", "defined terms", "has the meaning set forth",
+     "glossary", "Definitions"],
+    ["'Affiliate' means, with respect to any Person, any other Person that controls, is controlled by, or is under common control with such Person.",
+     "As used herein, the following capitalized terms have the following meanings.",
+     "'Business Day' means any day other than a Saturday, Sunday, or a day on which banks in New York, New York are authorized or required by Law to be closed."],
+    ["Interpretive/construction rules are Rules of Construction / Interpretation.",
+     "Disclosure-schedule conventions are the Disclosure Schedules leaf."],
+))
+add("l2", L1_DEF, "Interpretation", "Interpretation", (
+    "Provisions governing how the agreement is to be read: rules of "
+    "construction and conventions for the disclosure schedules / disclosure "
+    "letter.",
+    ["rules of construction", "interpretation", "headings", "including without limitation",
+     "disclosure schedules conventions", "gender and number"],
+    ["The following rules of interpretation apply to this Agreement.",
+     "Disclosure of an item in any Section of the Disclosure Schedules shall be deemed disclosed with respect to any other Section to which its relevance is reasonably apparent."],
+    ["The glossary of defined terms is the Definitions L2.",
+     "A substantive consent right that merely cross-references a schedule is not an interpretation provision."],
+))
+add("l3", L1_DEF, "Interpretation", "Rules of Construction / Interpretation", (
+    "Section stating interpretive conventions: headings are for convenience, "
+    "'including' means without limitation, references to gender/number, "
+    "'Dollars', time periods, successors and assigns, and the no-construction-"
+    "against-drafter rule.",
+    ["rules of construction", "headings for convenience", "including without limitation",
+     "no presumption against drafter", "singular and plural", "Dollars", "successor statutes"],
+    ["The headings contained in this Agreement are for convenience of reference only and shall not affect interpretation.",
+     "The word 'including' shall be deemed to be followed by the words 'without limitation'.",
+     "The parties have participated jointly in the negotiation and drafting of this Agreement, and no presumption shall arise favoring or disfavoring any party by virtue of authorship."],
+    ["The glossary of substantive defined terms is the Defined Terms leaf.",
+     "Disclosure-schedule incorporation/qualification conventions are the Disclosure Schedules leaf."],
+))
+add("l3", L1_DEF, "Interpretation", "Disclosure Schedules / Disclosure Letter Conventions", (
+    "Section establishing how the Disclosure Schedules / Disclosure Letter "
+    "operate: organization by section, cross-section deemed disclosure where "
+    "relevance is reasonably apparent, and that disclosure is not an admission "
+    "of materiality.",
+    ["Disclosure Schedules", "Disclosure Letter", "deemed disclosed", "reasonably apparent",
+     "not an admission of materiality", "schedule references"],
+    ["The Disclosure Schedules are arranged in sections corresponding to the Sections of this Agreement.",
+     "An item disclosed in one section of the Disclosure Schedules shall be deemed disclosed with respect to any other section to the extent its relevance is reasonably apparent on its face.",
+     "The inclusion of any item in the Disclosure Schedules shall not be deemed an admission that such item is material."],
+    ["General reading conventions (headings, 'including') are the Rules of Construction leaf.",
+     "The substantive reps that the schedules qualify are the relevant R&W leaves."],
+))
+
+
+# ---------------------------------------------------------------------------
+# 2. Transaction Mechanics and Consideration
+# ---------------------------------------------------------------------------
+L1_TX = "Transaction Mechanics and Consideration"
+
+add("l2", L1_TX, "Deal Structure", "Deal Structure", (
+    "How the transaction is structured and effected: the merger and its "
+    "constituent entities, the effective time and surviving-entity governance, "
+    "tender-offer mechanics, and (in asset deals) the assets and liabilities "
+    "transferred.",
+    ["merger", "Merger Sub", "Effective Time", "tender offer", "asset purchase",
+     "constituent corporations", "surviving corporation"],
+    ["At the Effective Time, Merger Sub shall be merged with and into the Company, and the separate corporate existence of Merger Sub shall cease.",
+     "Upon the terms and subject to the conditions of this Agreement, Purchaser shall purchase the Purchased Assets and assume the Assumed Liabilities."],
+    ["The amount and form of consideration is the Consideration L2.",
+     "The mechanical closing logistics (time/place/deliverables) are Closing Mechanics."],
+))
+add("l3", L1_TX, "Deal Structure", "Transaction Structure; Merger Sub; Constituent Entities", (
+    "Section establishing the structure of the deal: the merger of Merger Sub "
+    "into the target (or vice versa), the constituent and surviving entities, "
+    "and the governing merger statute.",
+    ["the Merger", "Merger Sub", "constituent corporations", "surviving corporation",
+     "DGCL Section 251", "forward/reverse triangular merger"],
+    ["Upon the terms and subject to the conditions set forth in this Agreement, and in accordance with the DGCL, at the Effective Time Merger Sub shall be merged with and into the Company.",
+     "The Company shall be the Surviving Corporation and shall continue as a wholly owned Subsidiary of Parent.",
+     "The Merger shall have the effects set forth in this Agreement and the applicable provisions of the DGCL."],
+    ["The timing of effectiveness and surviving-entity charter/bylaws are the Effective Time leaf.",
+     "Tender-offer structures are the Tender Offer Structure leaf."],
+))
+add("l3", L1_TX, "Deal Structure", "Effective Time; Certificate of Merger; Surviving Entity Charter & Bylaws", (
+    "Section specifying when the merger becomes effective (filing of the "
+    "certificate of merger) and the surviving entity's certificate of "
+    "incorporation, bylaws, directors, and officers from the Effective Time.",
+    ["Effective Time", "Certificate of Merger", "filed with the Secretary of State",
+     "Surviving Corporation charter", "bylaws", "directors and officers"],
+    ["At the Closing, the parties shall cause a Certificate of Merger to be executed and filed with the Secretary of State of the State of Delaware.",
+     "The Merger shall become effective at such time as the Certificate of Merger is duly filed, or at such later time as the parties agree and specify therein.",
+     "At the Effective Time, the certificate of incorporation and bylaws of the Surviving Corporation shall be amended and restated to read as set forth in the applicable Exhibit."],
+    ["The overall merger structure / constituent entities is the Transaction Structure leaf.",
+     "Closing time and place is the Closing; Time and Place leaf."],
+))
+add("l3", L1_TX, "Deal Structure", "Tender Offer Structure; Offer Terms; Top-Up / Subsequent Offering Period", (
+    "Section governing a two-step tender/exchange offer: the offer and its "
+    "terms and conditions, the minimum condition, a top-up option, a "
+    "subsequent offering period, and the back-end merger (often under DGCL "
+    "§251(h)).",
+    ["tender offer", "exchange offer", "Offer", "Minimum Condition", "top-up option",
+     "subsequent offering period", "Section 251(h)", "Schedule TO"],
+    ["Merger Sub shall commence the Offer to purchase all outstanding Shares at the Offer Price as promptly as practicable.",
+     "The Offer shall be subject to the satisfaction of the Minimum Condition and the other Offer Conditions set forth on the Annex.",
+     "The Company grants to Merger Sub an irrevocable Top-Up Option to purchase a number of Shares sufficient to effect a short-form merger under Section 251(h) of the DGCL."],
+    ["A one-step merger structure is the Transaction Structure leaf.",
+     "Force-the-vote / support agreements are Covenants (Deal Process / No-Shop)."],
+))
+add("l3", L1_TX, "Deal Structure", "Purchased & Excluded Assets (asset deal)", (
+    "Section in an asset purchase identifying the assets to be sold and "
+    "transferred (Purchased Assets) and those expressly retained by the seller "
+    "(Excluded Assets).",
+    ["Purchased Assets", "Acquired Assets", "Excluded Assets", "Transferred Assets",
+     "assets to be conveyed", "retained assets"],
+    ["At the Closing, Seller shall sell, convey, assign, transfer, and deliver to Purchaser all of Seller's right, title, and interest in and to the Purchased Assets.",
+     "Notwithstanding anything to the contrary, the Purchased Assets shall not include the Excluded Assets.",
+     "The Purchased Assets include all inventory, equipment, Contracts, and Intellectual Property primarily used in the Business."],
+    ["Assumed/retained liabilities are the Assumed & Excluded Liabilities leaf.",
+     "Stock/merger structures are the Transaction Structure leaf."],
+))
+add("l3", L1_TX, "Deal Structure", "Assumed & Excluded Liabilities (asset deal)", (
+    "Section in an asset purchase specifying which liabilities the buyer "
+    "assumes (Assumed Liabilities) and which remain with the seller (Excluded/"
+    "Retained Liabilities).",
+    ["Assumed Liabilities", "Excluded Liabilities", "Retained Liabilities",
+     "successor liability", "liabilities expressly assumed", "no other liabilities"],
+    ["Upon the terms and subject to the conditions of this Agreement, Purchaser shall assume and agree to pay, perform, and discharge only the Assumed Liabilities.",
+     "Purchaser shall not assume and shall have no liability for any Excluded Liabilities, which shall remain the sole responsibility of Seller.",
+     "The Assumed Liabilities consist solely of the trade payables and executory Contract obligations set forth on the Schedule."],
+    ["Purchased/excluded assets are the Purchased & Excluded Assets leaf.",
+     "Indemnification for retained liabilities is Indemnification."],
+))
+
+add("l2", L1_TX, "Consideration", "Consideration", (
+    "The economic terms paid to security holders: merger consideration / "
+    "exchange ratio, treatment of equity awards, purchase price and "
+    "adjustments, earn-outs, exchange/payment procedures, withholding, and "
+    "appraisal rights.",
+    ["Merger Consideration", "Exchange Ratio", "Per Share Price", "purchase price",
+     "earn-out", "paying agent", "appraisal rights"],
+    ["Each Share issued and outstanding immediately prior to the Effective Time shall be converted into the right to receive the Per Share Merger Consideration.",
+     "The Purchase Price shall be subject to adjustment as set forth in this Section."],
+    ["How and when the deal closes mechanically is Closing Mechanics.",
+     "Allocation of transaction expenses is the Fees and Expenses L2."],
+))
+add("l3", L1_TX, "Consideration", "Merger Consideration; Exchange Ratio / Per-Share Amount", (
+    "Section setting the consideration per share: the per-share cash amount "
+    "and/or stock exchange ratio, conversion of shares at the Effective Time, "
+    "and treatment of treasury and dissenting shares.",
+    ["Per Share Merger Consideration", "Exchange Ratio", "converted into the right to receive",
+     "cash election", "stock consideration", "treasury shares cancelled"],
+    ["Each share of Company Common Stock issued and outstanding immediately prior to the Effective Time shall be converted into the right to receive $[•] in cash, without interest.",
+     "Each Share shall be converted into the right to receive the Exchange Ratio of validly issued shares of Parent Common Stock.",
+     "Each Share held in treasury or owned by Parent immediately prior to the Effective Time shall be cancelled and shall cease to exist, and no consideration shall be delivered in exchange therefor."],
+    ["Cash-out/conversion of options and RSUs is the Treatment of Equity Awards leaf.",
+     "Purchase-price true-up mechanics are the Purchase Price; Purchase Price Adjustments leaf."],
+))
+add("l3", L1_TX, "Consideration", "Treatment of Equity Awards (Options / RSUs / PSUs / Warrants)", (
+    "Section specifying how outstanding stock options, RSUs, PSUs, and "
+    "warrants are treated at the Effective Time — cash-out, assumption, "
+    "conversion, or accelerated vesting.",
+    ["Company Options", "RSUs", "PSUs", "warrants", "vested and unvested",
+     "cashed out", "assumed and converted", "accelerated vesting"],
+    ["At the Effective Time, each Company Option that is outstanding and unexercised, whether vested or unvested, shall be cancelled and converted into the right to receive an amount in cash equal to the product of the number of Shares subject thereto and the excess of the Per Share Merger Consideration over the exercise price.",
+     "Each outstanding Company RSU shall be assumed by Parent and converted into a Parent RSU covering a number of shares determined using the Exchange Ratio.",
+     "Each Company PSU shall vest based on deemed performance as set forth in the Schedule."],
+    ["The base per-share price for common stock is the Merger Consideration leaf.",
+     "Employee-benefit-plan continuation generally is Covenants (Employees and Benefits)."],
+))
+add("l3", L1_TX, "Consideration", "Purchase Price; Purchase Price Adjustments; Closing Statement", (
+    "Section setting the purchase price and the post-closing true-up: "
+    "estimated and final closing statements, working-capital / cash / debt / "
+    "transaction-expense adjustments, and the dispute-resolution / accounting-"
+    "firm process.",
+    ["Purchase Price", "working capital adjustment", "net debt", "Estimated Closing Statement",
+     "Final Closing Statement", "true-up", "Independent Accountant", "target working capital"],
+    ["Not less than three Business Days prior to Closing, Seller shall deliver an Estimated Closing Statement setting forth its good-faith estimate of Closing Working Capital, Cash, Indebtedness, and Transaction Expenses.",
+     "The Purchase Price shall be (i) increased dollar-for-dollar by the amount, if any, by which Closing Working Capital exceeds Target Working Capital, and (ii) decreased by the amount of any Closing Indebtedness.",
+     "Any disputed items shall be submitted to the Independent Accountant, whose determination shall be final and binding on the parties."],
+    ["The fixed per-share merger consideration is the Merger Consideration leaf.",
+     "Contingent post-closing milestone payments are the Earn-Out leaf.",
+     "A general binding-arbitration clause for all disputes (not the accounting-firm price true-up) is Dispute Resolution (Arbitration)."],
+))
+add("l3", L1_TX, "Consideration", "Earn-Out / Contingent Consideration / Milestone Payments", (
+    "Section providing for additional consideration contingent on post-closing "
+    "performance: earn-out periods, milestones, measurement and payment "
+    "mechanics, and any covenant to operate the business toward the earn-out.",
+    ["earn-out", "Earnout Payment", "milestone", "contingent consideration",
+     "Earnout Period", "no obligation to maximize", "acceleration on change of control"],
+    ["If the Business achieves the Milestone during the Earnout Period, Purchaser shall pay Seller the Earnout Payment within thirty days following the Earnout Statement.",
+     "The Earnout Payment shall equal [•]% of Net Revenue in excess of the Threshold during the Earnout Period.",
+     "Purchaser shall have no obligation to operate the Business so as to maximize or accelerate any Earnout Payment, except as expressly provided herein."],
+    ["The closing-date working-capital true-up is the Purchase Price Adjustments leaf.",
+     "Escrow/holdback as an indemnity source is Indemnification."],
+))
+add("l3", L1_TX, "Consideration", "Exchange Procedures; Paying Agent; Letter of Transmittal", (
+    "Section governing the mechanics of paying the consideration: appointment "
+    "and funding of the paying/exchange agent, the letter of transmitter, "
+    "surrender of certificates/book-entry shares, and treatment of unclaimed "
+    "amounts and lost certificates.",
+    ["Paying Agent", "Exchange Agent", "Letter of Transmittal", "Exchange Fund",
+     "surrender of Certificates", "unclaimed amounts / escheat", "lost certificate affidavit"],
+    ["Prior to the Effective Time, Parent shall appoint a Paying Agent and shall deposit with the Paying Agent the Exchange Fund.",
+     "Upon surrender of a Certificate together with a duly completed and executed Letter of Transmittal, the holder shall be entitled to receive the Merger Consideration in respect thereof.",
+     "Any portion of the Exchange Fund that remains unclaimed twelve months after the Effective Time shall be delivered to Parent, and former holders shall thereafter look only to Parent for payment."],
+    ["The amount of consideration itself is the Merger Consideration leaf.",
+     "Tax withholding from the payment is the Tax Withholding on Payments leaf."],
+))
+add("l3", L1_TX, "Consideration", "Tax Withholding on Payments", (
+    "Section authorizing the payor/paying agent to deduct and withhold "
+    "required taxes from amounts payable under the agreement and treating "
+    "withheld amounts as paid to the recipient.",
+    ["deduct and withhold", "withholding Taxes", "treated as having been paid",
+     "backup withholding", "Code Section 3406", "required under applicable Tax Law"],
+    ["Each of Parent, the Surviving Corporation, and the Paying Agent shall be entitled to deduct and withhold from the consideration otherwise payable such amounts as are required to be deducted and withheld under applicable Tax Law.",
+     "To the extent amounts are so withheld and paid over to the appropriate Governmental Authority, such amounts shall be treated for all purposes as having been paid to the Person in respect of which such deduction was made.",
+     "Any amounts subject to backup withholding under Section 3406 of the Code shall be withheld and remitted as required."],
+    ["Transfer taxes and broader tax cooperation are Covenants (Tax Matters).",
+     "The FIRPTA non-foreign-person affidavit delivered as a closing deliverable is Closing Deliverables.",
+     "The general payment mechanics are the Exchange Procedures leaf."],
+))
+add("l3", L1_TX, "Consideration", "Appraisal / Dissenters' Rights", (
+    "Section addressing the treatment of shares held by stockholders who "
+    "perfect statutory appraisal/dissenters' rights: such shares are not "
+    "converted, are handled under the applicable statute, and the company "
+    "agrees to notify and not settle without consent.",
+    ["appraisal rights", "dissenters' rights", "DGCL Section 262", "Dissenting Shares",
+     "perfected appraisal", "fair value", "no settlement without consent"],
+    ["Shares that are issued and outstanding immediately prior to the Effective Time and that are held by a holder who has properly demanded appraisal in accordance with Section 262 of the DGCL ('Dissenting Shares') shall not be converted into the right to receive the Merger Consideration.",
+     "The Company shall give Parent prompt notice of any demands for appraisal received by the Company and the opportunity to participate in all negotiations and proceedings with respect to such demands.",
+     "The Company shall not, without the prior written consent of Parent, make any payment with respect to, or settle or offer to settle, any such demand."],
+    ["The base treatment of non-dissenting shares is the Merger Consideration leaf.",
+     "The stockholder-approval condition is Conditions to Closing."],
+))
+
+add("l2", L1_TX, "Closing Mechanics", "Closing Mechanics", (
+    "The logistical mechanics of consummating the transaction: when and where "
+    "the Closing occurs and what each party delivers at Closing.",
+    ["Closing", "Closing Date", "time and place", "closing deliverables",
+     "remote closing", "documents to be delivered"],
+    ["The Closing shall take place remotely by electronic exchange of documents on the third Business Day following satisfaction or waiver of the conditions set forth in Article [•].",
+     "At the Closing, each party shall deliver the documents and instruments set forth in this Section."],
+    ["The conditions that must be satisfied before Closing are Conditions to Closing.",
+     "The amount/form of consideration is the Consideration L2."],
+))
+add("l3", L1_TX, "Closing Mechanics", "Closing; Time and Place", (
+    "Section specifying the date, time, location, or remote manner of the "
+    "Closing and how the Closing Date is determined relative to satisfaction "
+    "of the closing conditions.",
+    ["the Closing", "Closing Date", "shall take place", "remotely by electronic exchange",
+     "third Business Day", "such other date as the parties agree"],
+    ["The closing of the transactions contemplated by this Agreement (the 'Closing') shall take place at the offices of [•], or remotely by exchange of documents and signatures, at 10:00 a.m. local time.",
+     "The Closing shall occur on the third Business Day after the satisfaction or waiver of the conditions set forth in Article [•] (other than conditions that by their nature are to be satisfied at the Closing).",
+     "The date on which the Closing actually occurs is the 'Closing Date'."],
+    ["The list of documents exchanged at Closing is the Closing Deliverables leaf.",
+     "The conditions precedent themselves are Conditions to Closing."],
+))
+add("l3", L1_TX, "Closing Mechanics", "Closing Deliverables / Closing Documents", (
+    "Section enumerating the certificates, instruments, and documents each "
+    "party must deliver at the Closing (e.g., officer's certificates, "
+    "secretary's certificates, resignations, payoff letters, transfer "
+    "instruments, FIRPTA certificate).",
+    ["closing deliverables", "officer's certificate", "secretary's certificate",
+     "resignations of directors", "payoff letters", "bill of sale", "assignment and assumption"],
+    ["At the Closing, the Company shall deliver to Parent a certificate signed by an executive officer certifying that the conditions set forth in Sections [•] have been satisfied.",
+     "At the Closing, Seller shall deliver duly executed instruments of assignment and assumption, a bill of sale, and resignations of each director and officer.",
+     "At the Closing, Parent shall deliver the closing payment by wire transfer of immediately available funds."],
+    ["The timing/place of the Closing is the Closing; Time and Place leaf.",
+     "Whether the conditions are satisfied (bring-down, officer's cert as a condition) is Conditions to Closing."],
+))
+
+add("l2", L1_TX, "Fees and Expenses", "Fees and Expenses", (
+    "Allocation of transaction costs: each party bears its own fees except as "
+    "specified, and treatment of specific shared costs (filing fees, transfer "
+    "taxes by cross-reference).",
+    ["fees and expenses", "each party bears its own", "Transaction Expenses",
+     "filing fees", "expense allocation"],
+    ["Except as otherwise expressly provided in this Agreement, each party shall bear its own fees and expenses incurred in connection with this Agreement and the transactions contemplated hereby.",
+     "Parent and the Company shall each pay one-half of the filing fees under the HSR Act."],
+    ["Termination fees and expense reimbursement on termination are Termination.",
+     "Purchase-price adjustment for transaction expenses is the Purchase Price Adjustments leaf."],
+))
+add("l3", L1_TX, "Fees and Expenses", "Transaction Expenses; Allocation of Fees and Expenses", (
+    "Section allocating responsibility for transaction fees and expenses — "
+    "generally each party bears its own — and specifying any shared or "
+    "specifically allocated costs such as HSR filing fees or transfer agent "
+    "fees.",
+    ["each party shall bear its own fees and expenses", "Transaction Expenses",
+     "HSR filing fees split", "costs and expenses", "whether or not the Closing occurs"],
+    ["Except as otherwise expressly set forth herein, all fees and expenses incurred in connection with this Agreement shall be paid by the party incurring such fees and expenses, whether or not the Merger is consummated.",
+     "Parent shall pay all filing fees payable under the HSR Act and any other Antitrust Law.",
+     "The Company's Transaction Expenses shall be paid by the Company at or prior to the Closing and shall reduce the aggregate consideration to the extent included in the definition of Transaction Expenses."],
+    ["A termination fee or expense reimbursement triggered by termination is Termination.",
+     "Transfer, documentary, and sales Taxes are Covenants (Tax Matters), not this expense-allocation leaf."],
+))
+
+
+# ---------------------------------------------------------------------------
+# 6. Conditions to Closing
+# ---------------------------------------------------------------------------
+L1_COND = "Conditions to Closing"
+
+add("l2", L1_COND, "Mutual Conditions", "Mutual Conditions", (
+    "Conditions to each party's obligation to close that are common to both "
+    "sides: stockholder approval, regulatory approvals/HSR, no legal "
+    "restraint, and (in stock deals) effectiveness/listing of the registration "
+    "statement.",
+    ["mutual conditions", "conditions to each party's obligations",
+     "Stockholder Approval", "HSR clearance", "no Law or Order", "no injunction"],
+    ["The obligations of each party to consummate the Merger are subject to the satisfaction or waiver of the following conditions.",
+     "No Governmental Authority shall have enacted any Law or issued any Order that has the effect of making the Merger illegal or otherwise prohibiting consummation."],
+    ["Conditions only for the buyer's benefit are Buyer/Parent Conditions.",
+     "Conditions only for the company's benefit are Company/Seller Conditions."],
+))
+add("l3", L1_COND, "Mutual Conditions", "Stockholder / Shareholder Approval (condition)", (
+    "Condition that the requisite stockholder/shareholder approval of the "
+    "transaction has been obtained.",
+    ["Requisite Stockholder Approval", "Company Stockholder Approval obtained",
+     "shareholder vote", "adopted this Agreement", "Written Consent delivered"],
+    ["The Company Stockholder Approval shall have been obtained in accordance with the DGCL and the Company's Organizational Documents.",
+     "This Agreement shall have been duly adopted by the affirmative vote of the holders of a majority of the outstanding Shares."],
+    ["The covenant to hold the meeting / solicit consents is Covenants (Stockholder Approval & SEC Process).",
+     "Buyer-side bring-down conditions are Buyer/Parent Conditions."],
+))
+add("l3", L1_COND, "Mutual Conditions", "Regulatory Approvals; HSR Waiting Periods (condition)", (
+    "Condition that required antitrust/regulatory approvals have been obtained "
+    "and applicable waiting periods (HSR and foreign) have expired or been "
+    "terminated.",
+    ["HSR waiting period", "expired or terminated", "Regulatory Approvals obtained",
+     "antitrust clearance", "foreign merger control", "CFIUS clearance"],
+    ["The waiting period (and any extension thereof) applicable to the Merger under the HSR Act shall have expired or been earlier terminated.",
+     "All Regulatory Approvals set forth on the Schedule shall have been obtained and shall be in full force and effect.",
+     "Any required approval under the foreign Antitrust Laws set forth on the Schedule shall have been obtained."],
+    ["The substantive efforts/remedies covenant to obtain clearance is Covenants (Efforts and Regulatory).",
+     "No-injunction generally is the No Legal Restraint leaf."],
+))
+add("l3", L1_COND, "Mutual Conditions", "No Legal Restraint; No Injunction; No Governmental Order (condition)", (
+    "Condition that no law, order, or injunction is in effect that prohibits, "
+    "enjoins, or makes illegal the consummation of the transaction.",
+    ["no Law or Order", "no injunction", "no legal restraint", "not enjoined",
+     "no Governmental Order prohibiting", "illegal to consummate"],
+    ["No Governmental Authority of competent jurisdiction shall have enacted, issued, or enforced any Law or Order (whether temporary, preliminary, or permanent) that is in effect and restrains, enjoins, or otherwise prohibits consummation of the Merger.",
+     "There shall not be pending any Action by a Governmental Authority seeking to enjoin the consummation of the transactions."],
+    ["Obtaining affirmative regulatory approvals is the Regulatory Approvals leaf.",
+     "The litigation rep is Representations and Warranties."],
+))
+add("l3", L1_COND, "Mutual Conditions", "Registration Statement Effectiveness / Listing (condition)", (
+    "Condition (stock-deal context) that the Form S-4 / registration "
+    "statement has become effective, no stop order is in effect, and the "
+    "buyer's shares to be issued have been approved for listing.",
+    ["Registration Statement effective", "Form S-4", "no stop order",
+     "approved for listing", "NYSE/Nasdaq listing", "SEC effectiveness"],
+    ["The Registration Statement shall have been declared effective by the SEC and shall not be the subject of any stop order or proceeding seeking a stop order.",
+     "The shares of Parent Common Stock to be issued in the Merger shall have been approved for listing on the NYSE, subject to official notice of issuance."],
+    ["The covenant to prepare/file the registration statement is Covenants (Stockholder Approval & SEC Process).",
+     "Cash-only deals will not have this condition; do not stretch to fit."],
+))
+
+add("l2", L1_COND, "Buyer/Parent Conditions", "Buyer/Parent Conditions", (
+    "Conditions solely to the buyer's/parent's obligation to close: accuracy "
+    "of the company's reps (bring-down), performance of the company's "
+    "covenants, no Company MAE, any financing condition, and other customary "
+    "buyer conditions.",
+    ["conditions to obligations of Parent", "bring-down of Company representations",
+     "performance of covenants", "no Company Material Adverse Effect", "officer's certificate"],
+    ["The obligations of Parent and Merger Sub to consummate the Merger are subject to the satisfaction or waiver of the following additional conditions.",
+     "The Company shall have performed in all material respects all obligations required to be performed by it under this Agreement at or prior to the Closing."],
+    ["Conditions common to both parties are Mutual Conditions.",
+     "Conditions only for the company's benefit are Company/Seller Conditions."],
+))
+add("l3", L1_COND, "Buyer/Parent Conditions", "Accuracy of Company Representations; Bring-Down (condition)", (
+    "Condition that the company's representations and warranties are true and "
+    "correct as of signing and the Closing, subject to the applicable "
+    "materiality / MAE bring-down standard, evidenced by an officer's "
+    "certificate.",
+    ["representations and warranties true and correct", "as of the Closing Date",
+     "de minimis / materiality qualifier", "Material Adverse Effect standard", "bring-down certificate"],
+    ["The representations and warranties of the Company set forth in Article [•] shall be true and correct (without giving effect to any materiality or Material Adverse Effect qualifiers) as of the date of this Agreement and as of the Closing Date as though made on the Closing Date, except where the failure to be so true and correct would not, individually or in the aggregate, reasonably be expected to have a Material Adverse Effect.",
+     "The Fundamental Representations shall be true and correct in all respects (other than de minimis inaccuracies) as of the Closing Date.",
+     "Parent shall have received a certificate signed by an executive officer of the Company to such effect."],
+    ["The reps themselves are Representations and Warranties.",
+     "Performance of the company's covenants is the Performance of Company Covenants leaf.",
+     "How long the reps survive Closing for indemnity is Indemnification (Survival of Representations, Warranties, and Covenants)."],
+))
+add("l3", L1_COND, "Buyer/Parent Conditions", "Performance of Company Covenants (condition)", (
+    "Condition that the company has performed and complied in all material "
+    "respects with its covenants and agreements required to be performed at or "
+    "prior to the Closing.",
+    ["covenants performed or complied with in all material respects",
+     "on or prior to the Closing Date", "covenant-compliance condition",
+     "covenant-compliance certificate"],
+    ["The Company shall have performed or complied in all material respects with all agreements and covenants required by this Agreement to be performed or complied with by it on or prior to the Closing Date.",
+     "Parent shall have received a certificate of an executive officer of the Company certifying that the condition set forth in this Section has been satisfied."],
+    ["Accuracy/bring-down of the reps is the Accuracy of Company Representations leaf.",
+     "The covenants themselves are Covenants."],
+))
+add("l3", L1_COND, "Buyer/Parent Conditions", "No Company Material Adverse Effect (condition)", (
+    "Condition that since the date of the agreement no Company Material "
+    "Adverse Effect has occurred and is continuing.",
+    ["no Material Adverse Effect", "since the date of this Agreement",
+     "Company MAE condition", "no event that would reasonably be expected to have a MAE"],
+    ["Since the date of this Agreement, there shall not have occurred any Effect that has had or would reasonably be expected to have, individually or in the aggregate, a Company Material Adverse Effect.",
+     "No Company Material Adverse Effect shall have occurred and be continuing as of the Closing Date."],
+    ["The MAE-related rep / absence-of-changes rep is Representations and Warranties.",
+     "Bring-down accuracy of all reps is the Accuracy of Company Representations leaf."],
+))
+add("l3", L1_COND, "Buyer/Parent Conditions", "Financing / Funding Condition (if present)", (
+    "Condition (where present, atypical in strategic deals) that the buyer has "
+    "obtained the proceeds of its debt/equity financing, or a marketing-period "
+    "construct relating to financing availability.",
+    ["financing condition", "proceeds of the Financing", "Marketing Period",
+     "funding condition", "availability of funds condition"],
+    ["The obligations of Parent shall be subject to Parent having received the proceeds of the Debt Financing (or any Alternative Financing) on the terms set forth in the Commitment Letters.",
+     "This condition shall be deemed satisfied upon funding of the Financing at the Closing."],
+    ["The buyer's affirmative covenant to obtain financing is the Financing L1.",
+     "Most strategic deals expressly disclaim a financing condition; do not infer one."],
+))
+add("l3", L1_COND, "Buyer/Parent Conditions", "Other Buyer Closing Conditions (officer's cert; consents; no litigation; dissenters)", (
+    "Residual buyer-side conditions not captured by the standard bring-down "
+    "set: delivery of specified third-party consents, absence of specified "
+    "litigation, a cap on dissenting shares, or other deal-specific items.",
+    ["third-party consents obtained", "no pending litigation condition",
+     "dissenting shares threshold", "specified approvals", "key consents delivered"],
+    ["Each of the Consents set forth on Schedule [•] shall have been obtained and shall be in full force and effect.",
+     "Holders of no more than [•]% of the outstanding Shares shall have demanded appraisal rights.",
+     "There shall not be pending any Action brought by a third party that would reasonably be expected to have a Material Adverse Effect."],
+    ["Standard bring-down accuracy/performance conditions are the dedicated leaves above.",
+     "Mutual no-injunction is the No Legal Restraint leaf."],
+))
+
+add("l2", L1_COND, "Company/Seller Conditions", "Company/Seller Conditions", (
+    "Conditions solely to the company's/seller's obligation to close: accuracy "
+    "of the buyer's/parent's reps (bring-down), performance of the buyer's "
+    "covenants, and other customary company-side conditions.",
+    ["conditions to obligations of the Company", "bring-down of Parent representations",
+     "performance of Parent covenants", "Parent officer's certificate"],
+    ["The obligations of the Company to consummate the Merger are subject to the satisfaction or waiver of the following additional conditions.",
+     "Parent and Merger Sub shall have performed in all material respects all of their respective obligations under this Agreement."],
+    ["Conditions common to both parties are Mutual Conditions.",
+     "Conditions only for the buyer's benefit are Buyer/Parent Conditions."],
+))
+add("l3", L1_COND, "Company/Seller Conditions", "Accuracy of Buyer/Parent Representations; Bring-Down (condition)", (
+    "Condition that the buyer's/parent's representations and warranties are "
+    "true and correct as of signing and the Closing, subject to the "
+    "applicable materiality standard, evidenced by a Parent officer's "
+    "certificate.",
+    ["Parent representations true and correct", "as of the Closing Date",
+     "materiality qualifier", "Parent Material Adverse Effect standard", "bring-down certificate"],
+    ["The representations and warranties of Parent and Merger Sub set forth in Article [•] shall be true and correct in all material respects as of the date hereof and as of the Closing Date as though made on the Closing Date.",
+     "The Company shall have received a certificate signed by an executive officer of Parent to such effect."],
+    ["Performance of Parent's covenants is the Performance of Buyer/Parent Covenants leaf.",
+     "The reps themselves are Representations and Warranties (Buyer/Parent).",
+     "How long the reps survive Closing for indemnity is Indemnification (Survival of Representations, Warranties, and Covenants)."],
+))
+add("l3", L1_COND, "Company/Seller Conditions", "Performance of Buyer/Parent Covenants (condition)", (
+    "Condition that the buyer/parent has performed and complied in all "
+    "material respects with its covenants and agreements required to be "
+    "performed at or prior to the Closing.",
+    ["Parent covenants performed or complied with in all material respects",
+     "on or prior to the Closing Date", "Parent covenant-compliance condition",
+     "Parent covenant-compliance certificate"],
+    ["Parent and Merger Sub shall have performed or complied in all material respects with all agreements and covenants required by this Agreement to be performed or complied with by them on or prior to the Closing Date.",
+     "The Company shall have received a certificate of an executive officer of Parent certifying that this condition has been satisfied."],
+    ["Accuracy/bring-down of Parent's reps is the Accuracy of Buyer/Parent Representations leaf.",
+     "The covenants themselves are Covenants."],
+))
+add("l3", L1_COND, "Company/Seller Conditions", "Other Company Closing Conditions", (
+    "Residual company-side conditions not captured by the standard bring-down "
+    "set — deal-specific items required for the company's benefit (e.g., "
+    "delivery of the closing payment, specified instruments, or tax opinions).",
+    ["other conditions to the Company's obligations", "tax opinion delivered",
+     "closing payment funded", "specified Parent deliverables"],
+    ["The Company shall have received a written opinion of its tax counsel, dated the Closing Date, to the effect that the Merger will qualify as a 'reorganization' within the meaning of Section 368(a) of the Code.",
+     "Parent shall have deposited the aggregate Merger Consideration with the Paying Agent."],
+    ["Standard bring-down accuracy/performance conditions are the dedicated leaves above.",
+     "Mutual conditions are the Mutual Conditions leaves."],
+))
+
+
+# ---------------------------------------------------------------------------
+# 7. Termination
+# ---------------------------------------------------------------------------
+L1_TERM = "Termination"
+
+add("l2", L1_TERM, "Termination Rights", "Termination Rights", (
+    "The circumstances under which, and the parties by which, the agreement "
+    "may be terminated prior to Closing — including the Outside Date, mutual "
+    "consent, breach, legal restraint, no-vote, and fiduciary-out / superior-"
+    "proposal triggers.",
+    ["termination", "may be terminated", "Outside Date", "mutual written consent",
+     "termination for breach", "Superior Proposal termination"],
+    ["This Agreement may be terminated and the Merger abandoned at any time prior to the Effective Time as follows.",
+     "Either party may terminate this Agreement if the Merger has not been consummated on or before the Outside Date."],
+    ["The dollar fee payable on certain terminations is Termination Fees.",
+     "The consequences and surviving provisions after termination are Effect of Termination."],
+))
+add("l3", L1_TERM, "Termination Rights", "Termination Events; Outside Date; Extension Rights", (
+    "Section enumerating the events permitting termination — mutual consent, "
+    "Outside Date (drop-dead date) with any extension rights, permanent legal "
+    "restraint, failure of the stockholder vote, and uncured material breach "
+    "by the other party.",
+    ["mutual written consent", "Outside Date", "End Date", "automatic extension",
+     "uncured breach", "failure to obtain Stockholder Approval", "permanent injunction"],
+    ["This Agreement may be terminated by mutual written consent of Parent and the Company.",
+     "Either Parent or the Company may terminate this Agreement if the Merger has not been consummated by 5:00 p.m. on the Outside Date; provided that the Outside Date shall be automatically extended for two successive ninety-day periods if all conditions other than the Regulatory Approvals condition have been satisfied.",
+     "Either party may terminate if the Company Stockholder Approval is not obtained at the Stockholders Meeting."],
+    ["Termination specifically to accept a Superior Proposal is the Superior Proposal / Fiduciary-Out Termination leaf.",
+     "The fee payable upon such termination is Termination Fees."],
+))
+add("l3", L1_TERM, "Termination Rights", "Superior Proposal / Fiduciary-Out Termination", (
+    "Section providing the right to terminate to enter into an alternative "
+    "transaction that the board has determined is a Superior Proposal, or upon "
+    "a change of recommendation, typically conditioned on compliance with the "
+    "no-shop and payment of the company termination fee.",
+    ["Superior Proposal", "fiduciary-out termination", "Change of Recommendation",
+     "terminate to enter into an Alternative Acquisition Agreement", "concurrent payment of the Termination Fee"],
+    ["The Company may terminate this Agreement prior to obtaining the Company Stockholder Approval in order to enter into a definitive agreement providing for a Superior Proposal, if the Company has complied in all material respects with the No-Shop covenant and pays the Company Termination Fee concurrently with or prior to such termination.",
+     "Parent may terminate this Agreement if the Company Board has effected a Change of Recommendation."],
+    ["The no-shop / fiduciary-out covenant itself (the conduct rules) is Covenants (Deal Process / No-Shop).",
+     "The amount and payment mechanics of the fee are Termination Fees."],
+))
+
+add("l2", L1_TERM, "Termination Fees", "Termination Fees", (
+    "The fees payable in connection with termination: the company termination "
+    "fee, the reverse/parent termination fee, expense reimbursement, and the "
+    "triggers and payment mechanics for each.",
+    ["Termination Fee", "Company Termination Fee", "Parent Termination Fee",
+     "Reverse Termination Fee", "Expense Reimbursement", "fee triggers"],
+    ["If this Agreement is terminated under the circumstances specified below, the Company shall pay Parent the Company Termination Fee.",
+     "The Termination Fee shall be paid by wire transfer of immediately available funds."],
+    ["The right/conditions to terminate are Termination Rights.",
+     "The survival of provisions after termination is Effect of Termination."],
+))
+add("l3", L1_TERM, "Termination Fees", "Company Termination Fee", (
+    "Section setting the company termination fee: the dollar amount (or "
+    "formula), the specific termination scenarios that trigger it (Superior "
+    "Proposal, Change of Recommendation, certain breach + topping-bid "
+    "scenarios), and timing of payment.",
+    ["Company Termination Fee", "$[•] in cash", "payable if terminated",
+     "Superior Proposal trigger", "tail period / 12 months", "single payment"],
+    ["The 'Company Termination Fee' means an amount equal to $[•].",
+     "The Company shall pay Parent the Company Termination Fee if this Agreement is terminated by the Company to accept a Superior Proposal or by Parent following a Change of Recommendation.",
+     "If this Agreement is terminated and within twelve months the Company enters into a definitive agreement for an Acquisition Proposal that is subsequently consummated, the Company shall pay the Company Termination Fee."],
+    ["The buyer-side fee is the Reverse / Parent Termination Fee leaf.",
+     "The right to terminate to accept a Superior Proposal is Termination Rights."],
+))
+add("l3", L1_TERM, "Termination Fees", "Reverse / Parent Termination Fee", (
+    "Section setting the reverse (parent) termination fee payable by the "
+    "buyer/parent — typically on a regulatory failure or financing failure "
+    "termination — including the amount and the triggering scenarios.",
+    ["Parent Termination Fee", "Reverse Termination Fee", "regulatory failure",
+     "financing failure", "payable by Parent", "antitrust break fee"],
+    ["The 'Parent Termination Fee' means an amount equal to $[•].",
+     "Parent shall pay the Company the Parent Termination Fee if this Agreement is terminated as a result of the failure to obtain the Regulatory Approvals or the entry of a permanent antitrust Order.",
+     "The Parent Termination Fee shall be Parent's sole and exclusive monetary remedy in such circumstances, subject to Section [•]."],
+    ["The company-side fee is the Company Termination Fee leaf.",
+     "A general damages cap or consequential-damages waiver not structured as a fixed termination fee is Dispute Resolution (Limitation of Liability)."],
+))
+add("l3", L1_TERM, "Termination Fees", "Expense Reimbursement; Fee Triggers and Payment Mechanics", (
+    "Section addressing expense reimbursement (often a smaller amount, e.g., "
+    "on a no-vote termination, creditable against a later termination fee) and "
+    "the common mechanics: timing, wire instructions, interest on late "
+    "payment, and single-payment / exclusive-remedy constructs.",
+    ["Expense Reimbursement", "creditable against the Termination Fee",
+     "payment within two Business Days", "interest on late payment", "no duplication",
+     "wire transfer of immediately available funds"],
+    ["If this Agreement is terminated because the Company Stockholder Approval is not obtained, the Company shall reimburse Parent's documented out-of-pocket expenses up to $[•], which amount shall be credited against any Company Termination Fee subsequently payable.",
+     "Any Termination Fee or Expense Reimbursement shall be paid within two Business Days after the date of termination by wire transfer of immediately available funds.",
+     "If a party fails to pay when due, it shall pay the costs of collection together with interest at the prime rate plus 2%."],
+    ["The substantive amount/trigger of the company or parent fee are the dedicated fee leaves.",
+     "Liability for willful breach is the Effect of Termination leaf."],
+))
+
+add("l2", L1_TERM, "Effect of Termination", "Effect of Termination", (
+    "What happens upon termination: the agreement becomes void with specified "
+    "exceptions, which provisions survive, and the extent of liability for "
+    "pre-termination breach (including willful and material breach and "
+    "fraud).",
+    ["effect of termination", "become void and of no effect", "surviving provisions",
+     "no liability except", "liability for Willful Breach", "fraud carve-out"],
+    ["In the event of termination of this Agreement, this Agreement shall become void and have no effect, and there shall be no liability on the part of any party, except as set forth in this Section.",
+     "Nothing herein shall relieve any party from liability for fraud or for any Willful Breach of this Agreement prior to termination."],
+    ["The events that permit termination are Termination Rights.",
+     "The amount of any fee payable is Termination Fees."],
+))
+add("l3", L1_TERM, "Effect of Termination", "Effect of Termination; Surviving Provisions; Liability for Breach (incl. willful breach)", (
+    "Section stating the consequences of termination: the agreement becomes "
+    "void, an enumerated list of provisions (confidentiality, fees, "
+    "miscellaneous) survives, and liability is preserved for fraud or willful "
+    "and material breach occurring prior to termination.",
+    ["become void", "no further liability", "surviving Sections enumerated",
+     "Willful Breach", "fraud", "Confidentiality Agreement survives", "remedies preserved"],
+    ["In the event of the termination of this Agreement pursuant to this Article, this Agreement shall forthwith become void and there shall be no liability on the part of any party hereto, except that the provisions of this Section, Section [•] (Confidentiality), Section [•] (Fees and Expenses), and Article [•] (Miscellaneous) shall survive termination.",
+     "Notwithstanding the foregoing, no termination shall relieve any party from liability for fraud or for any Willful Breach of any covenant or agreement contained herein prior to such termination.",
+     "The Confidentiality Agreement shall survive any termination of this Agreement in accordance with its terms."],
+    ["The dollar termination fee is Termination Fees.",
+     "General specific-performance / remedies clauses are Dispute Resolution."],
+))
+
+
+# ---------------------------------------------------------------------------
+# 5. Covenants and Agreements
+# ---------------------------------------------------------------------------
+L1_COV = "Covenants and Agreements"
+
+add("l2", L1_COV, "Deal Process / No-Shop", "Deal Process / No-Shop", (
+    "Covenants governing the deal process between signing and closing: the "
+    "no-shop / non-solicitation restriction, the fiduciary-out and change-of-"
+    "recommendation construct, and support / voting / tender agreements.",
+    ["no-shop", "non-solicitation", "Acquisition Proposal", "fiduciary out",
+     "Change of Recommendation", "support agreement", "force the vote"],
+    ["From the date of this Agreement until the Effective Time, the Company shall not, and shall cause its Representatives not to, solicit or knowingly facilitate any Acquisition Proposal.",
+     "The Company Board may make a Change of Recommendation in response to a Superior Proposal if required by its fiduciary duties."],
+    ["The right to terminate to accept a Superior Proposal is Termination.",
+     "Efforts to obtain regulatory clearance are the Efforts and Regulatory L2."],
+))
+add("l3", L1_COV, "Deal Process / No-Shop", "No-Shop / Non-Solicitation of Alternative Proposals", (
+    "Covenant prohibiting the company from soliciting, initiating, or "
+    "knowingly facilitating alternative acquisition proposals, restricting "
+    "discussions and information sharing, requiring cessation of existing "
+    "discussions, and (where applicable) a go-shop or window-shop construct.",
+    ["shall not solicit", "non-solicitation", "Acquisition Proposal", "go-shop",
+     "window shop", "cease existing discussions", "notify within 24 hours", "match right"],
+    ["From the date hereof until the earlier of the Effective Time and termination, the Company shall not, and shall cause its Subsidiaries and Representatives not to, initiate, solicit, or knowingly encourage any inquiry or the making of any proposal that constitutes or would reasonably be expected to lead to an Acquisition Proposal.",
+     "The Company shall, and shall cause its Representatives to, immediately cease and cause to be terminated any existing discussions with any Person with respect to any Acquisition Proposal.",
+     "The Company shall notify Parent promptly (and in any event within 24 hours) of the receipt of any Acquisition Proposal and the material terms thereof."],
+    ["The board's right to change its recommendation / take a Superior Proposal is the Fiduciary Out leaf.",
+     "Terminating the agreement to sign the Superior Proposal is Termination."],
+))
+add("l3", L1_COV, "Deal Process / No-Shop", "Fiduciary Out; Change of Recommendation; Superior Proposal (covenant)", (
+    "Covenant defining the board's ability to engage on an unsolicited "
+    "Superior Proposal, make a Change of Recommendation (or effect an "
+    "Intervening Event), the match/negotiation period, and the conditions on "
+    "exercising the fiduciary out — distinct from the termination right "
+    "itself.",
+    ["Superior Proposal", "Change of Recommendation", "Intervening Event",
+     "fiduciary duties", "match period", "negotiate in good faith", "but-for materiality"],
+    ["Prior to obtaining the Company Stockholder Approval, the Company Board may make a Change of Recommendation in response to a Superior Proposal if it determines in good faith, after consultation with outside counsel, that the failure to do so would be inconsistent with its fiduciary duties.",
+     "Prior to making a Change of Recommendation, the Company shall provide Parent with four Business Days' prior written notice and shall negotiate in good faith with Parent during such period regarding adjustments to the terms of this Agreement.",
+     "The Company Board may make a Change of Recommendation in response to an Intervening Event subject to the same procedures."],
+    ["The prohibition on soliciting deals is the No-Shop leaf.",
+     "Terminating to accept the Superior Proposal is Termination (Termination Rights)."],
+))
+add("l3", L1_COV, "Deal Process / No-Shop", "Support / Voting / Tender Agreements; Force-the-Vote", (
+    "Covenant relating to stockholder support: voting/support or tender "
+    "agreements from significant holders, and a 'force-the-vote' covenant "
+    "requiring the company to submit the transaction to a stockholder vote "
+    "even after a Change of Recommendation.",
+    ["Support Agreement", "Voting Agreement", "Tender and Support Agreement",
+     "force the vote", "submit to stockholders notwithstanding", "irrevocable proxy", "rollover commitment"],
+    ["Concurrently with the execution of this Agreement, certain stockholders have executed and delivered Support Agreements pursuant to which they have agreed to vote their Shares in favor of the adoption of this Agreement.",
+     "Notwithstanding any Change of Recommendation, unless this Agreement has been terminated, the Company shall submit this Agreement to a vote of its stockholders at the Company Stockholders Meeting.",
+     "Each Supporting Stockholder grants an irrevocable proxy to Parent to vote its Shares in accordance with the Support Agreement."],
+    ["The meeting/proxy mechanics generally are the Stockholder / Shareholder Meeting leaf.",
+     "The no-shop restriction is the No-Shop leaf."],
+))
+
+add("l2", L1_COV, "Efforts and Regulatory", "Efforts and Regulatory", (
+    "Covenants to obtain regulatory clearance and otherwise consummate the "
+    "deal: reasonable best efforts and cooperation, antitrust/HSR filings, "
+    "remedies/divestitures and hell-or-high-water, and CFIUS / foreign-"
+    "investment and other regulatory approvals.",
+    ["reasonable best efforts", "HSR filing", "antitrust clearance",
+     "hell or high water", "divestiture", "CFIUS", "regulatory cooperation"],
+    ["Each party shall use its reasonable best efforts to take all actions necessary to consummate the transactions and obtain all required Regulatory Approvals as promptly as practicable.",
+     "The parties shall make their respective filings under the HSR Act within ten Business Days after the date of this Agreement."],
+    ["The closing condition that approvals are obtained is Conditions to Closing.",
+     "A reverse termination fee for regulatory failure is Termination."],
+))
+add("l3", L1_COV, "Efforts and Regulatory", "Reasonable Best Efforts to Consummate; Cooperation", (
+    "Covenant requiring the parties to use the specified efforts standard to "
+    "take all actions necessary, proper, or advisable to consummate the "
+    "transaction, including obtaining consents and cooperating with one "
+    "another, separate from the specific antitrust mechanics.",
+    ["reasonable best efforts to consummate", "commercially reasonable efforts standard",
+     "all actions necessary, proper, or advisable", "obtain all required third-party consents",
+     "efforts covenant (general)"],
+    ["Subject to the terms and conditions of this Agreement, each party shall use its reasonable best efforts to take, or cause to be taken, all actions and to do, or cause to be done, all things necessary, proper, or advisable to consummate and make effective the transactions contemplated hereby as promptly as practicable.",
+     "Each party shall use reasonable best efforts to obtain all consents, approvals, and authorizations of third parties necessary in connection with the transactions.",
+     "The parties shall cooperate with one another in determining whether any action by or filing with any Governmental Authority is required."],
+    ["Antitrust-specific filing mechanics are the Antitrust / HSR Filings leaf.",
+     "Remedies/divestitures and litigation are the Antitrust/Regulatory Remedies leaf."],
+))
+add("l3", L1_COV, "Efforts and Regulatory", "Antitrust / HSR Filings and Clearances", (
+    "Covenant governing antitrust/competition filings and clearance: making "
+    "HSR and foreign merger-control filings, timing, responding to second "
+    "requests, information sharing, and coordination with the other party on "
+    "strategy and contacts.",
+    ["HSR Act", "Notification and Report Form", "Second Request", "early termination",
+     "foreign merger control", "antitrust clearance", "joint defense", "no pull-and-refile without consent"],
+    ["Each party shall (i) file its Notification and Report Form pursuant to the HSR Act no later than fifteen Business Days after the date hereof and (ii) request early termination of the waiting period.",
+     "Each party shall promptly supply any additional information and documentary material that may be requested pursuant to a Second Request.",
+     "The parties shall keep each other apprised of the status of communications with, and any inquiries or requests for additional information from, any Antitrust Authority."],
+    ["Commitments to divest / litigate to obtain clearance are the Antitrust/Regulatory Remedies leaf.",
+     "The HSR-clearance closing condition is Conditions to Closing."],
+))
+add("l3", L1_COV, "Efforts and Regulatory", "Antitrust/Regulatory Remedies; Divestitures; Hell-or-High-Water; Reg Litigation", (
+    "Covenant addressing the extent to which the buyer must accept remedies "
+    "to obtain clearance — divestitures, behavioral commitments, hold-"
+    "separate, a 'hell or high water' standard or a defined cap — and whether "
+    "the parties must litigate against a government challenge.",
+    ["hell or high water", "divestitures", "hold separate", "behavioral remedies",
+     "Burdensome Condition", "defend any Action", "litigate to avoid an Order", "remedy cap"],
+    ["Parent shall take any and all actions necessary to obtain the Regulatory Approvals, including proposing, negotiating, and agreeing to the sale, divestiture, or disposition of assets or businesses (a 'hell or high water' obligation).",
+     "Notwithstanding the foregoing, Parent shall not be required to take any action that would constitute a Burdensome Condition.",
+     "The parties shall use reasonable best efforts to contest and resist any Action and to have vacated, lifted, or reversed any Order that would restrain or prohibit the consummation of the Merger."],
+    ["The mechanics of making the filings are the Antitrust / HSR Filings leaf.",
+     "A reverse termination fee for regulatory failure is Termination."],
+))
+add("l3", L1_COV, "Efforts and Regulatory", "CFIUS / Foreign Investment / Other Regulatory Approvals", (
+    "Covenant addressing non-antitrust regulatory clearances: CFIUS / foreign-"
+    "direct-investment review, and other sector-specific approvals (FCC, "
+    "banking, insurance, FERC), including filing obligations and cooperation.",
+    ["CFIUS", "Exon-Florio / DPA", "foreign direct investment", "FDI screening",
+     "FCC consent", "FERC approval", "change of control approval", "joint voluntary notice"],
+    ["The parties shall, as promptly as practicable, prepare and submit a joint voluntary notice to CFIUS with respect to the transactions and shall use reasonable best efforts to obtain CFIUS Clearance.",
+     "The parties shall make all filings required under any applicable foreign investment screening regime set forth on the Schedule.",
+     "Each party shall use reasonable best efforts to obtain the FCC Consent and any other Regulatory Approval set forth on the Schedule."],
+    ["Antitrust/HSR specifically is the Antitrust / HSR Filings leaf.",
+     "The condition that such approvals are obtained is Conditions to Closing."],
+))
+
+add("l2", L1_COV, "Interim Operating", "Interim Operating", (
+    "Covenants governing operation of the business between signing and "
+    "closing — the affirmative ordinary-course covenant and the negative list "
+    "of restricted actions requiring consent.",
+    ["conduct of business", "ordinary course", "interim operating covenants",
+     "negative covenants", "consent not to be unreasonably withheld", "pre-closing operation"],
+    ["Between the date of this Agreement and the Effective Time, the Company shall conduct its business in the ordinary course consistent with past practice.",
+     "Without Parent's prior written consent, the Company shall not take any of the actions enumerated below."],
+    ["The absence-of-changes rep (backward-looking) is Representations and Warranties.",
+     "Notice of breaches/events is the Information and Access L2."],
+))
+add("l3", L1_COV, "Interim Operating", "Conduct of Business; Ordinary Course; Interim Operating Restrictions", (
+    "Section containing the pre-closing operating covenants: the affirmative "
+    "covenant to operate in the ordinary course and preserve the business, "
+    "and the detailed negative covenant list of actions the company may not "
+    "take without consent (issuances, dividends, indebtedness, acquisitions, "
+    "comp changes, etc.).",
+    ["conduct its business in the ordinary course", "preserve substantially intact",
+     "shall not without prior written consent", "no dividends", "no issuance of equity",
+     "no incurrence of Indebtedness", "no material acquisitions", "no changes to compensation"],
+    ["From the date of this Agreement until the Effective Time, except as required by Law or as consented to by Parent in writing, the Company shall, and shall cause each of its Subsidiaries to, conduct its business in the ordinary course consistent with past practice and use reasonable best efforts to preserve substantially intact its business organization and relationships.",
+     "Without the prior written consent of Parent (not to be unreasonably withheld, conditioned, or delayed), the Company shall not: (a) declare or pay any dividend; (b) issue or sell any shares of capital stock; (c) incur any Indebtedness in excess of $[•]; or (d) acquire any business or material assets.",
+     "The Company shall not increase the compensation or benefits of any director or officer except in the ordinary course consistent with past practice."],
+    ["The backward-looking 'absence of certain changes' rep is Representations and Warranties.",
+     "Access/notice obligations are the Information and Access leaves."],
+))
+
+add("l2", L1_COV, "Stockholder Approval & SEC Process", "Stockholder Approval & SEC Process", (
+    "Covenants to obtain stockholder approval and run the related SEC "
+    "process: preparing and filing the proxy / registration statement and "
+    "convening the stockholder meeting or soliciting written consents.",
+    ["Proxy Statement", "Registration Statement", "Form S-4", "Stockholders Meeting",
+     "written consent", "SEC review", "solicit proxies"],
+    ["The Company shall prepare and file with the SEC the Proxy Statement and shall use reasonable best efforts to have it cleared by the SEC as promptly as practicable.",
+     "The Company shall duly call and hold the Company Stockholders Meeting for the purpose of obtaining the Company Stockholder Approval."],
+    ["The SEC-reports accuracy rep is Representations and Warranties.",
+     "The stockholder-approval closing condition is Conditions to Closing."],
+))
+add("l3", L1_COV, "Stockholder Approval & SEC Process", "Proxy / Registration Statement; SEC Filings", (
+    "Covenant to prepare, file, and disseminate the proxy statement and, in "
+    "stock deals, the Form S-4 registration statement, respond to SEC "
+    "comments, ensure no misstatements, and cooperate on information for those "
+    "filings.",
+    ["Proxy Statement", "Form S-4 Registration Statement", "respond to SEC comments",
+     "no untrue statement of material fact", "mail the Proxy Statement", "information for inclusion"],
+    ["As promptly as reasonably practicable following the date hereof, the Company shall prepare and file with the SEC the Proxy Statement, and Parent and the Company shall jointly prepare the Form S-4 in which the Proxy Statement will be included as a prospectus.",
+     "Each party shall use reasonable best efforts to respond as promptly as practicable to any comments of the SEC and to have the Form S-4 declared effective.",
+     "Each party shall furnish all information concerning itself as may reasonably be requested for inclusion in the Proxy Statement and shall ensure such information does not contain any untrue statement of a material fact."],
+    ["Convening and holding the meeting / soliciting consents is the Stockholder Meeting leaf.",
+     "The SEC-reports/SOX rep is Representations and Warranties."],
+))
+add("l3", L1_COV, "Stockholder Approval & SEC Process", "Stockholder / Shareholder Meeting; Written Consent", (
+    "Covenant to duly call, give notice of, convene, and hold the stockholder "
+    "meeting to obtain the requisite approval (or, for a controlled company, "
+    "to deliver the written consent), and to solicit proxies in favor, subject "
+    "to any change-of-recommendation provisions.",
+    ["duly call and hold the Stockholders Meeting", "record date", "solicit proxies in favor",
+     "Written Consent in lieu of a meeting", "adjourn or postpone", "obtain the Stockholder Approval"],
+    ["The Company shall, as promptly as practicable after the Form S-4 is declared effective, duly call, give notice of, convene, and hold the Company Stockholders Meeting for the purpose of obtaining the Company Stockholder Approval.",
+     "The Company shall use reasonable best efforts to solicit from its stockholders proxies in favor of the adoption of this Agreement.",
+     "In lieu of a meeting, the requisite stockholders shall execute and deliver the Written Consent within [•] hours after the Form S-4 becomes effective."],
+    ["Preparing/filing the proxy or S-4 is the Proxy / Registration Statement leaf.",
+     "The stockholder-approval closing condition is Conditions to Closing."],
+))
+
+add("l2", L1_COV, "Information and Access", "Information and Access", (
+    "Covenants regarding flow of information between signing and closing: "
+    "access to books, records, personnel, and properties; and notice of "
+    "certain events, breaches, or developments.",
+    ["access to information", "inspection rights", "books and records",
+     "notice of certain events", "notification of breach", "keep informed"],
+    ["Upon reasonable notice, the Company shall afford Parent and its Representatives reasonable access during normal business hours to its properties, books, and records.",
+     "The Company shall give prompt notice to Parent of any event that would reasonably be expected to cause a condition not to be satisfied."],
+    ["Confidentiality of shared information is the Disclosure and Communications L2.",
+     "Interim operating restrictions are the Interim Operating L2."],
+))
+add("l3", L1_COV, "Information and Access", "Access to Information; Inspection", (
+    "Covenant granting the other party reasonable access, during normal "
+    "business hours and upon reasonable notice, to the company's properties, "
+    "books, records, contracts, and personnel before Closing, subject to "
+    "customary limitations (privilege, law, no unreasonable interference).",
+    ["reasonable access", "during normal business hours", "books, records, and personnel",
+     "upon reasonable notice", "no unreasonable interference", "privilege / clean team limitations"],
+    ["From the date hereof until the Effective Time, the Company shall afford to Parent and its Representatives reasonable access, during normal business hours and upon reasonable advance notice, to the offices, properties, books, and records of the Company.",
+     "Such access shall not unreasonably interfere with the conduct of the business of the Company.",
+     "Nothing herein shall require the Company to provide access to information the disclosure of which would jeopardize attorney-client privilege or contravene applicable Law (with the parties using commercially reasonable efforts to implement a 'clean team' arrangement)."],
+    ["Confidential treatment of the information accessed is the Confidentiality (covenant) leaf.",
+     "Notice of breaches/events is the Notice of Certain Events leaf."],
+))
+add("l3", L1_COV, "Information and Access", "Notice of Certain Events / Breaches", (
+    "Covenant requiring a party to notify the other promptly of specified "
+    "developments — events that would cause a rep to be untrue, a covenant "
+    "breach, failure of a condition, or material notices from third parties or "
+    "Governmental Authorities — typically stating such notice does not cure or "
+    "affect remedies.",
+    ["prompt notice", "notice of any event", "would cause any representation to be untrue",
+     "failure to satisfy a condition", "notices from Governmental Authorities", "no cure / no effect on remedies"],
+    ["The Company shall give prompt written notice to Parent of (i) any notice received from any Person alleging that its consent is required in connection with the transactions, and (ii) any Action commenced or threatened relating to the transactions.",
+     "Each party shall promptly notify the other of any event, condition, or development that has caused or would reasonably be expected to cause any of its representations and warranties to be untrue or any covenant not to be complied with.",
+     "No such notification shall affect the representations, warranties, covenants, or conditions, or the remedies available to the party receiving such notice."],
+    ["The general access right is the Access to Information leaf.",
+     "Stockholder/transaction-litigation cooperation is the Other Covenants leaf."],
+))
+
+add("l2", L1_COV, "Employees and Benefits", "Employees and Benefits", (
+    "Post-signing/post-closing covenants relating to employees: compensation "
+    "and benefits continuation commitments, service crediting, and WARN-Act "
+    "coordination — distinct from the backward-looking benefits rep.",
+    ["employee matters covenant", "benefits continuation", "comparable compensation",
+     "service credit", "WARN Act", "no third-party beneficiary employees"],
+    ["For a period of one year following the Closing, Parent shall provide each Continuing Employee with base salary and benefits that are no less favorable in the aggregate than those in effect immediately prior to the Closing.",
+     "Parent shall not take any action that would trigger WARN Act liability prior to the Closing without the Company's consent."],
+    ["The ERISA/benefit-plans rep is Representations and Warranties.",
+     "Treatment of equity awards as consideration is Transaction Mechanics."],
+))
+add("l3", L1_COV, "Employees and Benefits", "Employee and Compensation Matters (covenant)", (
+    "Covenant addressing treatment of employees post-closing: compensation "
+    "and bonus continuation, severance, service crediting for eligibility and "
+    "vesting, and the customary no-third-party-beneficiary / no-guarantee-of-"
+    "employment provisions.",
+    ["Continuing Employees", "comparable compensation and benefits", "annual bonus",
+     "severance", "service credit for prior service", "no guarantee of employment", "no third-party beneficiary"],
+    ["For the period beginning at the Closing and ending on the first anniversary thereof, Parent shall provide each Continuing Employee with (i) base salary or wage rate no less favorable than as in effect immediately prior to the Closing and (ii) annual cash bonus opportunities and employee benefits that are substantially comparable in the aggregate.",
+     "Parent shall cause service with the Company prior to the Closing to be credited for purposes of eligibility, vesting, and benefit accrual under Parent's benefit plans.",
+     "Nothing in this Section shall confer upon any employee any right to continued employment or constitute an amendment to any Benefit Plan, and no provision shall create any third-party beneficiary rights."],
+    ["Benefit-plan continuation/WARN specifically is the Employee Benefit Plans; Benefits Continuation; WARN leaf.",
+     "The labor/ERISA reps are Representations and Warranties."],
+))
+add("l3", L1_COV, "Employees and Benefits", "Employee Benefit Plans; Benefits Continuation; WARN (covenant)", (
+    "Covenant specifically addressing benefit-plan treatment post-closing — "
+    "continuation or replacement of plans, 401(k) handling, retiree/medical "
+    "continuation, accrued-vacation assumption — and WARN-Act notice "
+    "coordination and allocation of liability.",
+    ["benefit plan continuation", "401(k) plan", "honor accrued vacation",
+     "welfare plan transition", "WARN Act notices", "no plant closing or mass layoff", "COBRA"],
+    ["Parent shall, or shall cause the Surviving Corporation to, maintain the Company Benefit Plans, or provide benefits that are substantially comparable in the aggregate, until the first anniversary of the Closing.",
+     "Effective as of the Closing Date, Parent shall cause a tax-qualified defined contribution plan to accept eligible rollover distributions from the Company 401(k) Plan.",
+     "The Company shall not, within the ninety-day period prior to the Closing, effectuate a 'plant closing' or 'mass layoff' as defined in the WARN Act without complying with the WARN Act."],
+    ["General compensation/severance/service-credit terms are the Employee and Compensation Matters leaf.",
+     "The ERISA rep is Representations and Warranties."],
+))
+
+add("l2", L1_COV, "Disclosure and Communications", "Disclosure and Communications", (
+    "Covenants governing external and inter-party communications: public "
+    "announcements / press releases coordination and the confidentiality "
+    "covenant governing information exchanged in connection with the deal.",
+    ["public announcements", "press release", "coordinate disclosure",
+     "Confidentiality Agreement", "confidential information", "no unilateral disclosure"],
+    ["No party shall issue any press release or make any public statement with respect to the transactions without the prior consent of the other party, except as required by Law.",
+     "The Confidentiality Agreement shall remain in full force and effect in accordance with its terms."],
+    ["Disclosure-schedule conventions are Definitions and Interpretation.",
+     "Notice of events between the parties is the Information and Access L2."],
+))
+add("l3", L1_COV, "Disclosure and Communications", "Public Announcements; Press Releases", (
+    "Covenant requiring the parties to consult and coordinate on the timing "
+    "and content of press releases and public statements about the "
+    "transaction, with carve-outs for legal/stock-exchange requirements and "
+    "for communications consistent with prior public disclosures.",
+    ["press release", "public announcement", "consult prior to issuing",
+     "mutually agree on the initial press release", "as required by Law or stock exchange",
+     "consistent with prior public disclosure"],
+    ["The initial press release with respect to the execution of this Agreement shall be a joint press release in a form mutually agreed by Parent and the Company.",
+     "Thereafter, no party shall issue any press release or make any public announcement concerning the transactions without the prior written consent of the other party, except as such party may reasonably determine is required by applicable Law or the rules of any stock exchange.",
+     "The restrictions shall not apply to any disclosure of information that is consistent with prior public disclosures made in compliance with this Section."],
+    ["Confidential treatment of shared diligence information is the Confidentiality (covenant) leaf.",
+     "Proxy/registration-statement disclosure is the Proxy / Registration Statement leaf."],
+))
+add("l3", L1_COV, "Disclosure and Communications", "Confidentiality (covenant)", (
+    "Covenant addressing confidentiality of information exchanged in "
+    "connection with the transaction — typically continuing or incorporating "
+    "the pre-existing Confidentiality/NDA agreement and providing for its "
+    "survival or termination upon Closing.",
+    ["Confidentiality Agreement", "hold in confidence", "non-public information",
+     "Evaluation Material", "use solely for evaluating the transaction", "non-disclosure obligation"],
+    ["Each party shall, and shall cause its Representatives to, hold in confidence all non-public information furnished in connection with the transactions in accordance with the terms of the Confidentiality Agreement.",
+     "Parent shall use any Evaluation Material solely for the purpose of evaluating and consummating the transactions and shall not disclose such information except as permitted by the Confidentiality Agreement.",
+     "The Confidentiality Agreement is hereby incorporated by reference and the obligations of the parties thereunder shall continue in accordance with its terms."],
+    ["Public-announcement coordination is the Public Announcements leaf.",
+     "Confidentiality as a surviving provision after termination is Termination."],
+))
+
+add("l2", L1_COV, "Tax Matters", "Tax Matters", (
+    "Tax-related covenants for the transaction: intended tax treatment / "
+    "reorganization and related elections, and transfer taxes, tax "
+    "cooperation, return preparation, and contest control.",
+    ["tax treatment", "Section 368 reorganization", "tax elections",
+     "transfer taxes", "tax cooperation", "tax returns", "tax contests"],
+    ["The parties intend that the Merger qualify as a 'reorganization' within the meaning of Section 368(a) of the Code and agree to report the Merger consistently therewith.",
+     "All Transfer Taxes shall be borne by [•], and the parties shall cooperate in the preparation of all Tax Returns relating to such Transfer Taxes."],
+    ["The taxes rep is Representations and Warranties.",
+     "Withholding on the merger payment is Transaction Mechanics."],
+))
+add("l3", L1_COV, "Tax Matters", "Tax Treatment; Reorganization; Tax Elections", (
+    "Covenant establishing the intended tax characterization of the "
+    "transaction (e.g., a 368(a) reorganization or a 338(h)(10)/336(e) "
+    "election), the obligation to report consistently, restrictions on "
+    "actions that would jeopardize the treatment, and delivery of tax "
+    "opinions.",
+    ["reorganization within the meaning of Section 368(a)", "tax-free reorganization",
+     "Section 338(h)(10) election", "Section 336(e) election", "consistent reporting",
+     "no action to jeopardize the Intended Tax Treatment", "tax opinion"],
+    ["The parties intend that, for U.S. federal income tax purposes, the Merger qualify as a 'reorganization' within the meaning of Section 368(a) of the Code, and this Agreement is intended to constitute a 'plan of reorganization'.",
+     "Each party shall use its reasonable best efforts to cause the Merger to qualify for the Intended Tax Treatment and shall not take any action that would reasonably be expected to prevent or impede such qualification.",
+     "Buyer and Seller shall jointly make a timely election under Section 338(h)(10) of the Code with respect to the purchase and sale of the Shares."],
+    ["Transfer taxes and return/contest mechanics are the Transfer Taxes; Tax Cooperation leaf.",
+     "The tax-opinion closing condition is Conditions to Closing."],
+))
+add("l3", L1_COV, "Tax Matters", "Transfer Taxes; Tax Cooperation; Returns; Contests", (
+    "Covenant allocating transfer/documentary/sales taxes, and providing for "
+    "cooperation on tax matters: preparation and filing of pre-/straddle-"
+    "period returns, retention of records, and control of tax audits and "
+    "contests.",
+    ["Transfer Taxes", "documentary and sales Taxes", "pre-Closing Tax period",
+     "Straddle Period", "tax return preparation", "cooperation on Tax matters",
+     "control of Tax Contests", "Tax refunds"],
+    ["All transfer, documentary, sales, use, stamp, registration, and similar Taxes incurred in connection with the transactions ('Transfer Taxes') shall be borne 50% by Buyer and 50% by Seller.",
+     "Seller shall prepare and timely file all Tax Returns of the Company for any taxable period ending on or before the Closing Date, and Buyer shall prepare those for any Straddle Period.",
+     "The parties shall cooperate fully in connection with the filing of Tax Returns and any audit, litigation, or other proceeding with respect to Taxes, including control and settlement of any Tax Contest."],
+    ["The intended-reorganization treatment/elections are the Tax Treatment leaf.",
+     "Indemnification for pre-closing taxes is Indemnification."],
+))
+
+add("l2", L1_COV, "Post-Closing", "Post-Closing", (
+    "Covenants that operate after the Closing: further assurances and "
+    "post-closing cooperation to effect and document the transactions.",
+    ["post-closing covenants", "further assurances", "additional documents",
+     "post-closing cooperation", "wrong-pockets", "access to records post-closing"],
+    ["From time to time after the Closing, the parties shall execute and deliver such further instruments as may be reasonably necessary to carry out the purposes of this Agreement.",
+     "After the Closing, the parties shall cooperate with one another in connection with any post-closing matters."],
+    ["Pre-closing operating covenants are the Interim Operating L2.",
+     "Post-closing tax cooperation is the Tax Matters L2."],
+))
+add("l3", L1_COV, "Post-Closing", "Further Assurances; Post-Closing Cooperation", (
+    "Covenant under which the parties agree, after Closing, to execute and "
+    "deliver such additional documents and take such further actions as are "
+    "reasonably necessary to consummate and evidence the transactions, "
+    "including wrong-pockets transfers and reasonable post-closing "
+    "cooperation.",
+    ["further assurances", "execute and deliver such further documents",
+     "take all such further actions", "wrong pockets / mistransferred assets",
+     "post-closing cooperation", "vest title", "at the requesting party's expense"],
+    ["From time to time, whether at or after the Closing, each party shall, at the request of the other, execute and deliver such additional instruments of conveyance and assignment and take such other actions as may be reasonably necessary to consummate the transactions and to vest in Purchaser good title to the Purchased Assets.",
+     "If, following the Closing, any asset that should have been transferred is found to have been retained, or any Excluded Asset is found to have been transferred, the parties shall promptly take such actions as are necessary to transfer such asset to the appropriate party.",
+     "Each party shall provide the other with reasonable cooperation and access to records after the Closing in connection with financial reporting and regulatory matters."],
+    ["Tax cooperation specifically is the Transfer Taxes; Tax Cooperation leaf.",
+     "Pre-closing efforts to consummate are the Reasonable Best Efforts leaf."],
+))
+
+add("l2", L1_COV, "Other Covenants", "Other Covenants", (
+    "Miscellaneous deal-specific covenants: stock-exchange delisting/"
+    "deregistration, takeover-statute / rights-agreement / Section 16 actions, "
+    "indebtedness payoff and lien releases, and stockholder/transaction-"
+    "litigation cooperation.",
+    ["delisting and deregistration", "takeover statutes", "rights agreement",
+     "Section 16", "payoff letters", "lien releases", "transaction litigation cooperation"],
+    ["The Surviving Corporation shall use reasonable best efforts to cause the Shares to be delisted from the NYSE and deregistered under the Exchange Act.",
+     "The Company Board shall take all actions necessary to render any takeover statute inapplicable to the transactions."],
+    ["Core efforts/regulatory covenants are the Efforts and Regulatory L2.",
+     "Financing-related covenants are the Financing L1."],
+))
+add("l3", L1_COV, "Other Covenants", "Stock Exchange Listing / Delisting; Deregistration", (
+    "Covenant addressing stock-exchange and Exchange Act status: in a stock "
+    "deal, listing the acquirer shares; and post-closing, causing the target "
+    "shares to be delisted from the exchange and deregistered under Section "
+    "12 of the Exchange Act.",
+    ["approved for listing", "NYSE / Nasdaq", "delist the Shares", "Form 25",
+     "deregister under the Exchange Act", "Form 15", "termination of reporting obligations"],
+    ["Parent shall use reasonable best efforts to cause the shares of Parent Common Stock to be issued in the Merger to be approved for listing on the NYSE prior to the Effective Time, subject to official notice of issuance.",
+     "Prior to or as promptly as practicable after the Effective Time, the Surviving Corporation shall cooperate with Parent to cause the Company Common Stock to be delisted from the Nasdaq Stock Market and deregistered under the Exchange Act.",
+     "The Surviving Corporation shall file a Form 15 to terminate its reporting obligations under the Exchange Act as promptly as practicable."],
+    ["The registration-statement effectiveness/listing closing condition is Conditions to Closing.",
+     "Takeover-statute/rights-plan actions are the Takeover Statutes leaf."],
+))
+add("l3", L1_COV, "Other Covenants", "Takeover Statutes; Rights Agreement; Section 16 Matters (covenant)", (
+    "Covenant requiring the company board to take actions to render anti-"
+    "takeover statutes (e.g., DGCL §203) and any stockholder rights plan "
+    "('poison pill') inapplicable to the transaction, and to adopt Section "
+    "16b-3 resolutions exempting dispositions by insiders.",
+    ["takeover statute", "Section 203 of the DGCL", "rights agreement / poison pill",
+     "render inapplicable", "redeem the Rights", "Section 16(b)", "Rule 16b-3 resolutions"],
+    ["The Company Board has taken all actions necessary to ensure that the restrictions on business combinations set forth in Section 203 of the DGCL do not apply to this Agreement or the transactions.",
+     "The Company shall take all actions necessary to cause the Rights Agreement to be amended so that the execution of this Agreement does not trigger the distribution of, or make exercisable, any Rights, and so that the Rights expire immediately prior to the Effective Time.",
+     "The Company Board shall adopt resolutions intended to cause any dispositions of Company equity securities by officers and directors to be exempt under Rule 16b-3."],
+    ["The no-conflicts/anti-takeover rep is Representations and Warranties.",
+     "Delisting/deregistration is the Stock Exchange Listing leaf."],
+))
+add("l3", L1_COV, "Other Covenants", "Indebtedness; Payoff Letters; Lien Releases", (
+    "Covenant requiring the company to obtain, prior to Closing, payoff "
+    "letters for specified indebtedness and arrangements for the release of "
+    "related liens (including delivery of UCC-3 termination statements and "
+    "other release documentation) upon repayment at Closing.",
+    ["payoff letters", "Closing Indebtedness", "release of Liens", "UCC-3 termination statements",
+     "lien releases", "repayment at Closing", "customary payoff documentation"],
+    ["The Company shall use reasonable best efforts to obtain and deliver to Parent, at least three Business Days prior to the Closing, executed payoff letters with respect to all Closing Indebtedness, in form and substance reasonably satisfactory to Parent.",
+     "Such payoff letters shall provide that, upon payment of the amounts specified therein at the Closing, all Liens securing such Indebtedness shall be released.",
+     "The Company shall deliver, or cause to be delivered, all UCC-3 termination statements and other instruments necessary to evidence the release of such Liens."],
+    ["The general closing-deliverables list is Transaction Mechanics (Closing Mechanics).",
+     "The interim restriction on incurring debt is the Conduct of Business leaf."],
+))
+add("l3", L1_COV, "Other Covenants", "Stockholder / Transaction Litigation Cooperation", (
+    "Covenant addressing litigation brought by stockholders or third parties "
+    "challenging the transaction: prompt notice, the right of the buyer to "
+    "participate in and be consulted on the defense and settlement, and a "
+    "no-settlement-without-consent provision.",
+    ["Transaction Litigation", "stockholder litigation", "prompt notice of any Action",
+     "opportunity to participate in the defense", "consult with Parent",
+     "no settlement without prior written consent"],
+    ["The Company shall promptly notify Parent of any litigation brought or threatened against the Company or its directors relating to this Agreement or the transactions ('Transaction Litigation').",
+     "The Company shall give Parent the opportunity to participate in (but not control) the defense of any Transaction Litigation and shall consult with Parent with respect to the defense and settlement thereof.",
+     "The Company shall not settle or offer to settle any Transaction Litigation without the prior written consent of Parent (such consent not to be unreasonably withheld)."],
+    ["The litigation rep is Representations and Warranties.",
+     "General notice-of-events obligations are the Notice of Certain Events leaf."],
+))
+
+
+# ---------------------------------------------------------------------------
+# 8. Indemnification and Insurance
+# ---------------------------------------------------------------------------
+L1_IND = "Indemnification and Insurance"
+
+add("l2", L1_IND, "Indemnification Scope & Survival", "Indemnification Scope & Survival", (
+    "The core of the indemnity bargain: how long the reps, warranties, and "
+    "covenants survive the Closing, and each party's indemnification "
+    "obligations and the categories of losses covered.",
+    ["survival", "survival period", "indemnification by Seller", "indemnification by Buyer",
+     "Losses", "covered claims", "indemnifiable damages"],
+    ["The representations and warranties contained in this Agreement shall survive the Closing for a period of [•] months.",
+     "Subject to the limitations herein, Seller shall indemnify and hold harmless the Buyer Indemnified Parties from and against any and all Losses arising out of any breach of a representation or warranty."],
+    ["Caps, baskets, and other limits are the Indemnification Limitations L2.",
+     "Claim notice/defense mechanics are the Indemnification Procedures L2."],
+))
+add("l3", L1_IND, "Indemnification Scope & Survival", "Survival of Representations, Warranties, and Covenants", (
+    "Section specifying the survival periods: how long the representations and "
+    "warranties survive Closing (with longer periods for fundamental and "
+    "specified reps such as tax), the survival of covenants per their terms, "
+    "and any contractual statute-of-limitations / claims-deadline construct.",
+    ["survive the Closing", "survival period", "Fundamental Representations survive longer",
+     "covenants survive until performed", "claims must be asserted by", "expiration of survival",
+     "no survival / survive only to escrow"],
+    ["The representations and warranties of the parties contained in this Agreement shall survive the Closing until the date that is eighteen (18) months after the Closing Date.",
+     "Notwithstanding the foregoing, the Fundamental Representations shall survive until sixty (60) days following the expiration of the applicable statute of limitations, and the Tax Representations shall survive accordingly.",
+     "Each covenant shall survive the Closing until fully performed in accordance with its terms; no claim may be asserted after the expiration of the applicable survival period."],
+    ["The bring-down condition (accuracy at Closing) is Conditions to Closing.",
+     "Caps/baskets keyed to those periods are the Caps; Baskets leaf."],
+))
+add("l3", L1_IND, "Indemnification Scope & Survival", "Indemnification by Seller/Company; Covered Losses", (
+    "Section setting out the seller's/company's (or the securityholders') "
+    "indemnification obligation: the triggers (breach of reps, breach of "
+    "covenants, specified/special indemnities such as pre-closing taxes or "
+    "identified matters) and the definition/scope of indemnifiable Losses.",
+    ["Seller shall indemnify", "indemnify and hold harmless", "Buyer Indemnified Parties",
+     "breach of representation or covenant", "special indemnities", "pre-Closing Taxes",
+     "Losses defined", "diminution in value"],
+    ["From and after the Closing, Seller shall indemnify, defend, and hold harmless Buyer and its Affiliates and their respective officers, directors, and employees (the 'Buyer Indemnified Parties') from and against any and all Losses actually incurred arising out of or resulting from (i) any breach of any representation or warranty of Seller, (ii) any breach of any covenant of Seller, and (iii) any Excluded Liability.",
+     "'Losses' means losses, damages, liabilities, costs, and expenses, including reasonable attorneys' fees.",
+     "Seller shall indemnify the Buyer Indemnified Parties for all Taxes of the Company with respect to any Pre-Closing Tax Period."],
+    ["The buyer's reverse indemnity is the Indemnification by Buyer/Parent leaf.",
+     "Dollar caps/baskets are the Caps; Baskets leaf.",
+     "Continuing indemnification of the target's pre-closing directors and officers is D&O Indemnification and Insurance."],
+))
+add("l3", L1_IND, "Indemnification Scope & Survival", "Indemnification by Buyer/Parent; Covered Losses", (
+    "Section setting out the buyer's/parent's indemnification obligation in "
+    "favor of the seller — typically for breaches of the buyer's reps and "
+    "covenants and for Assumed Liabilities — and the scope of covered Losses.",
+    ["Buyer shall indemnify", "Seller Indemnified Parties", "breach of Buyer representation or covenant",
+     "Assumed Liabilities", "post-Closing operation", "hold harmless"],
+    ["From and after the Closing, Buyer shall indemnify, defend, and hold harmless Seller and its Affiliates (the 'Seller Indemnified Parties') from and against any and all Losses arising out of (i) any breach of any representation or warranty of Buyer, (ii) any breach of any covenant of Buyer, and (iii) the Assumed Liabilities.",
+     "Buyer shall indemnify the Seller Indemnified Parties for all Losses arising from the operation of the Business after the Closing.",
+     "The provisions of this Section are subject to the limitations set forth in Section [•]."],
+    ["The seller's primary indemnity is the Indemnification by Seller/Company leaf.",
+     "Procedural mechanics are the Indemnification Procedures L2.",
+     "Continuing indemnification of the target's pre-closing directors and officers is D&O Indemnification and Insurance."],
+))
+
+add("l2", L1_IND, "Indemnification Limitations", "Indemnification Limitations", (
+    "The contractual limits on indemnification: caps, baskets/deductibles, "
+    "thresholds and de minimis amounts, and other limitations such as "
+    "exclusive remedy, sandbagging/anti-sandbagging, mitigation, and damage "
+    "exclusions.",
+    ["cap", "basket", "deductible", "de minimis", "exclusive remedy",
+     "sandbagging", "mitigation", "limitations on indemnification"],
+    ["Seller shall not be liable for indemnification until the aggregate amount of Losses exceeds the Basket, after which Seller shall be liable only for Losses in excess thereof.",
+     "The maximum aggregate liability of Seller for breaches of representations and warranties shall not exceed the Cap."],
+    ["Who indemnifies for what is the Indemnification Scope & Survival L2.",
+     "Escrow as a source of recovery is the Indemnification Procedures L2."],
+))
+add("l3", L1_IND, "Indemnification Limitations", "Caps; Baskets; Deductibles; Thresholds; De Minimis", (
+    "Section setting the quantitative limits on indemnification: the de "
+    "minimis per-claim threshold, the tipping-basket or deductible, the "
+    "general cap (often tied to an escrow or a percentage of price), and "
+    "separate (often higher) caps for fundamental reps, fraud, and special "
+    "indemnities.",
+    ["de minimis amount", "tipping basket vs. deductible", "Basket / threshold",
+     "Cap", "escrow amount", "separate cap for Fundamental Representations", "RWI retention"],
+    ["No Losses shall be taken into account unless such Loss exceeds $[•] (the 'De Minimis Amount').",
+     "Seller shall have no liability for indemnification until the aggregate amount of all Losses exceeds $[•] (the 'Basket'), in which event Seller shall be liable for the amount of all Losses (i.e., a tipping basket) / only those Losses in excess of the Basket (i.e., a deductible).",
+     "The aggregate liability of Seller for breaches of representations and warranties (other than Fundamental Representations) shall not exceed the Indemnity Escrow Amount, and in no event shall aggregate liability exceed the Purchase Price."],
+    ["Sandbagging / mitigation / damage exclusions are the Exclusive Remedy; Sandbagging leaf.",
+     "The survival periods are the Survival leaf."],
+))
+add("l3", L1_IND, "Indemnification Limitations", "Exclusive Remedy; Sandbagging / Anti-Sandbagging; Mitigation; Other Limitations", (
+    "Section containing the non-quantitative limitations: indemnification as "
+    "the sole and exclusive remedy (with fraud/equitable carve-outs), pro-"
+    "sandbagging or anti-sandbagging treatment of known breaches, duty to "
+    "mitigate, exclusion of consequential/punitive damages, and double-"
+    "recovery / insurance-and-tax-benefit offsets.",
+    ["sole and exclusive remedy", "sandbagging", "anti-sandbagging / knowledge qualifier",
+     "duty to mitigate", "no consequential or punitive damages", "no double recovery",
+     "net of insurance and tax benefits", "fraud carve-out"],
+    ["From and after the Closing, the indemnification provisions of this Article shall be the sole and exclusive remedy of the parties for any and all claims relating to this Agreement, except in the case of Fraud or for equitable relief.",
+     "The right to indemnification shall not be affected by any investigation conducted or knowledge acquired by the Indemnified Party (pro-sandbagging) / The Indemnified Party shall not be entitled to indemnification for any matter of which it had Knowledge prior to the Closing (anti-sandbagging).",
+     "Losses shall be determined net of any insurance proceeds and Tax Benefits actually received, and in no event shall any party be liable for punitive or consequential damages except to the extent paid to a third party."],
+    ["The dollar caps and baskets are the Caps; Baskets leaf.",
+     "General waiver of consequential damages outside indemnity is Dispute Resolution."],
+))
+
+add("l2", L1_IND, "Indemnification Procedures", "Indemnification Procedures", (
+    "How indemnification claims are made and satisfied: notice and defense "
+    "procedures for direct and third-party claims, and the sources and "
+    "ordering of recovery (escrow, holdback, setoff, insurance).",
+    ["claim notice", "third-party claim", "defense and control", "escrow",
+     "holdback", "setoff", "source of recovery"],
+    ["If any Indemnified Party intends to seek indemnification, it shall promptly deliver a Claim Notice to the Indemnifying Party describing the claim in reasonable detail.",
+     "Recourse to the Indemnity Escrow Amount shall be the first source of recovery for any indemnification claim."],
+    ["The caps and baskets are the Indemnification Limitations L2.",
+     "Who owes the indemnity is the Indemnification Scope & Survival L2."],
+))
+add("l3", L1_IND, "Indemnification Procedures", "Claims Procedure; Notice; Third-Party Claim Defense and Control", (
+    "Section setting the procedural mechanics for indemnification: content and "
+    "timing of claim notices (and effect of failure to give timely notice), "
+    "direct-claim response periods, and third-party-claim defense — control, "
+    "counsel selection, the indemnified party's participation rights, and "
+    "consent rights over settlement.",
+    ["Claim Notice", "Direct Claim", "Third-Party Claim", "assume the defense",
+     "control of the defense", "right to participate with own counsel",
+     "no settlement without consent", "failure to notify not a bar absent prejudice"],
+    ["Promptly after receipt of notice of any Third-Party Claim, the Indemnified Party shall give the Indemnifying Party a Claim Notice; failure to do so shall not relieve the Indemnifying Party of its obligations except to the extent it is actually prejudiced thereby.",
+     "The Indemnifying Party shall be entitled to assume and control the defense of such Third-Party Claim with counsel of its choice, and the Indemnified Party may participate with its own counsel at its own expense.",
+     "The Indemnifying Party shall not settle any Third-Party Claim without the prior written consent of the Indemnified Party unless the settlement is solely for money damages that are fully indemnified and includes an unconditional release."],
+    ["Where the money actually comes from (escrow/setoff) is the Escrow / Holdback leaf.",
+     "Stockholder/transaction-litigation cooperation (pre-closing) is Covenants."],
+))
+add("l3", L1_IND, "Indemnification Procedures", "Escrow / Holdback; Setoff; Source of Recovery; Insurance Offset", (
+    "Section governing the sources and ordering of indemnity recovery: the "
+    "indemnity escrow or purchase-price holdback and its release schedule, "
+    "rights of setoff against earn-out or deferred consideration, and the "
+    "requirement to look first to R&W insurance or other insurance before "
+    "(or instead of) the indemnifying party.",
+    ["Indemnity Escrow", "Escrow Agreement", "holdback", "release of the Escrow Amount",
+     "right of setoff", "recourse / non-recourse", "first recover from the RWI Policy",
+     "order of recovery / waterfall"],
+    ["At the Closing, Buyer shall deposit the Indemnity Escrow Amount with the Escrow Agent to be held and disbursed in accordance with the Escrow Agreement.",
+     "The Indemnity Escrow Amount (less any pending claims) shall be released to Seller on the date that is eighteen months after the Closing Date.",
+     "The Buyer Indemnified Parties shall first seek recovery under the R&W Insurance Policy and the Indemnity Escrow before proceeding against Seller directly, and Buyer shall have the right to set off indemnifiable Losses against any unpaid Earnout Payment."],
+    ["The defense/notice mechanics are the Claims Procedure leaf.",
+     "The RWI policy terms themselves are the R&W Insurance leaf."],
+))
+
+add("l2", L1_IND, "R&W Insurance", "R&W Insurance", (
+    "Provisions relating to a representation-and-warranty insurance policy "
+    "obtained for the transaction.",
+    ["representation and warranty insurance", "RWI policy", "buyer-side policy",
+     "subrogation waiver", "retention", "binder"],
+    ["Buyer has obtained a buyer-side representation and warranty insurance policy with respect to the representations and warranties of Seller.",
+     "The R&W Insurance Policy shall provide that the insurer waives subrogation against Seller except in the case of Fraud."],
+    ["Escrow/holdback ordering vis-à-vis insurance is the Indemnification Procedures L2.",
+     "D&O run-off insurance is the D&O Indemnification and Insurance L2."],
+))
+add("l3", L1_IND, "R&W Insurance", "Representation & Warranty Insurance (RWI)", (
+    "Section addressing the R&W insurance policy: the obligation to obtain/"
+    "bind the policy, allocation of premium and retention, the no-subrogation-"
+    "against-seller requirement (except fraud), and that the policy is the "
+    "primary or exclusive recourse for rep breaches.",
+    ["R&W Insurance Policy", "buyer-side policy", "premium and retention allocation",
+     "waiver of subrogation except for Fraud", "exclusive recourse to the Policy",
+     "policy may not be amended adversely", "binder delivered at signing"],
+    ["Buyer shall obtain, effective as of the Closing, a buyer-side representation and warranty insurance policy (the 'R&W Insurance Policy'), the premium, underwriting fees, and retention for which shall be borne [•].",
+     "The R&W Insurance Policy shall expressly provide that the insurer waives, and agrees not to pursue, any subrogation rights against Seller except in the case of Fraud.",
+     "Except for claims for Fraud, the R&W Insurance Policy shall be the sole and exclusive source of recovery of the Buyer Indemnified Parties for any breach of the representations and warranties of Seller."],
+    ["Escrow/holdback and recovery ordering are the Escrow / Holdback leaf.",
+     "General exclusive-remedy/limitation language is the Exclusive Remedy leaf."],
+))
+
+add("l2", L1_IND, "D&O Indemnification and Insurance", "D&O Indemnification and Insurance", (
+    "Post-closing protection of the target's directors and officers: "
+    "continuing indemnification, advancement, and exculpation, and the "
+    "purchase of a D&O tail / run-off insurance policy.",
+    ["D&O indemnification", "advancement of expenses", "exculpation",
+     "tail policy", "run-off coverage", "six-year period", "no amendment adverse to indemnitees"],
+    ["For six years after the Effective Time, the Surviving Corporation shall indemnify and hold harmless each present and former director and officer against Losses arising out of acts or omissions occurring at or prior to the Effective Time.",
+     "Parent shall cause the Surviving Corporation to obtain a six-year prepaid 'tail' D&O insurance policy."],
+    ["The company's own insurance rep is Representations and Warranties.",
+     "R&W insurance is the R&W Insurance L2."],
+))
+add("l3", L1_IND, "D&O Indemnification and Insurance", "D&O Indemnification; Advancement; Exculpation (post-closing)", (
+    "Section providing post-closing protection for the target's former "
+    "directors and officers: continued indemnification and expense "
+    "advancement for pre-closing acts, maintenance of existing charter/bylaw "
+    "exculpation and indemnification provisions for a specified period, and "
+    "that these are third-party-beneficiary rights of the indemnitees.",
+    ["indemnify present and former directors and officers", "advancement of expenses",
+     "exculpation provisions maintained", "for six years after the Effective Time",
+     "no amendment adverse to Indemnified Persons", "third-party beneficiary rights of D&O indemnitees"],
+    ["From and after the Effective Time, Parent shall cause the Surviving Corporation to honor and fulfill the obligations of the Company under its existing indemnification and exculpation provisions and any indemnification agreements with its current or former directors and officers.",
+     "For a period of six years after the Effective Time, the Surviving Corporation shall indemnify and hold harmless, and provide advancement of expenses to, each Indemnified Person to the fullest extent permitted by Law for acts or omissions occurring at or prior to the Effective Time.",
+     "The provisions of this Section are intended to be for the benefit of, and shall be enforceable by, each Indemnified Person and his or her heirs, and shall not be amended in a manner adverse to any Indemnified Person without his or her consent."],
+    ["The prepaid tail/run-off insurance policy itself is the D&O Tail / Run-Off Insurance leaf.",
+     "Indemnification between the buyer and seller for deal breaches is the Indemnification Scope & Survival L2."],
+))
+add("l3", L1_IND, "D&O Indemnification and Insurance", "D&O Tail / Run-Off Insurance", (
+    "Section requiring procurement of a prepaid 'tail' / run-off directors' "
+    "and officers' liability insurance policy covering pre-closing acts for a "
+    "specified period (commonly six years), with a cap on the premium "
+    "(e.g., a multiple of the current annual premium) and a fallback to "
+    "maintain comparable coverage.",
+    ["tail policy", "run-off D&O insurance", "prepaid six-year policy",
+     "coverage no less favorable", "premium cap / 300% of annual premium",
+     "in lieu of obtaining the tail", "claims-made for pre-Closing acts"],
+    ["Prior to the Effective Time, the Company shall purchase a six-year prepaid 'tail' policy with respect to its directors' and officers' liability insurance covering acts or omissions occurring at or prior to the Effective Time on terms no less favorable than the Company's existing policy.",
+     "In no event shall Parent or the Surviving Corporation be required to expend for such tail policy an annual premium in excess of 300% of the last annual premium paid by the Company prior to the date hereof.",
+     "If the tail policy is not obtained, the Surviving Corporation shall maintain in effect the Company's existing D&O policy (or comparable coverage) for six years."],
+    ["Continuing contractual/charter D&O indemnification is the D&O Indemnification; Advancement leaf.",
+     "The company's general insurance rep is Representations and Warranties."],
+))
+
+
+# ---------------------------------------------------------------------------
+# 9. Financing
+# ---------------------------------------------------------------------------
+L1_FIN = "Financing"
+
+add("l2", L1_FIN, "Financing Arrangements", "Financing Arrangements", (
+    "The buyer's financing for the transaction: the debt financing and "
+    "commitment letters, and the equity financing, equity commitment letters, "
+    "and any rollover.",
+    ["Debt Financing", "Commitment Letters", "Equity Financing",
+     "Equity Commitment Letter", "rollover", "Financing Sources"],
+    ["Parent has delivered to the Company true and complete copies of the executed Debt Commitment Letter and Equity Commitment Letter.",
+     "The aggregate proceeds of the Financing will be sufficient to pay the aggregate Merger Consideration."],
+    ["The covenant to obtain and cooperate on financing is the Financing Covenants L2.",
+     "The buyer's sufficiency-of-funds rep is Representations and Warranties."],
+))
+add("l3", L1_FIN, "Financing Arrangements", "Debt Financing; Commitment Letters", (
+    "Section describing the buyer's debt financing: the executed debt "
+    "commitment letter and fee letters, the committed amount and conditions, "
+    "and representations that the commitments are in full force and effect and "
+    "not subject to undisclosed conditions.",
+    ["Debt Commitment Letter", "Debt Financing", "fee letter", "in full force and effect",
+     "no conditions other than as set forth", "lenders / arrangers", "definitive financing agreements"],
+    ["Parent has delivered to the Company a true, correct, and complete copy of the executed Debt Commitment Letter pursuant to which the Lenders have committed to provide the Debt Financing.",
+     "As of the date hereof, the Debt Commitment Letter is in full force and effect and constitutes a legal, valid, and binding obligation of Parent and, to Parent's knowledge, the other parties thereto.",
+     "There are no conditions precedent to the funding of the Debt Financing other than those expressly set forth in the Debt Commitment Letter."],
+    ["The obligation to use efforts to obtain the financing is the Financing Covenants L2.",
+     "Lender exculpation / no-recourse is the Financing Source Protections L2."],
+))
+add("l3", L1_FIN, "Financing Arrangements", "Equity Financing; Equity Commitment Letters; Rollover", (
+    "Section describing the equity financing: sponsor equity commitment "
+    "letters, any limited guarantee, and management/seller rollover equity "
+    "arrangements, including amount, conditionality, and the company's status "
+    "as an express third-party beneficiary in specified circumstances.",
+    ["Equity Commitment Letter", "Equity Financing", "Limited Guarantee", "Sponsor",
+     "rollover equity", "Rollover Agreement", "third-party beneficiary for specific performance"],
+    ["Concurrently with the execution of this Agreement, Parent has delivered to the Company the executed Equity Commitment Letter pursuant to which the Sponsor has committed to contribute the Equity Financing.",
+     "The Company is an express third-party beneficiary of the Equity Commitment Letter for purposes of seeking specific performance to cause the Equity Financing to be funded in the circumstances set forth therein.",
+     "Pursuant to the Rollover Agreement, the Rollover Stockholders have agreed to contribute their Shares to Parent in exchange for equity of Parent immediately prior to the Closing."],
+    ["The debt side is the Debt Financing; Commitment Letters leaf.",
+     "The cooperation/efforts covenant is the Financing Covenants L2."],
+))
+
+add("l2", L1_FIN, "Financing Covenants", "Financing Covenants", (
+    "The active obligations relating to financing: the buyer's covenant to "
+    "use efforts to obtain (and, if necessary, replace) the financing, and "
+    "the company's covenant to provide financing cooperation.",
+    ["financing covenant", "reasonable best efforts to obtain the Financing",
+     "Alternative Financing", "financing cooperation", "no amendment that adversely affects",
+     "maintain the Commitment Letters"],
+    ["Parent shall use its reasonable best efforts to obtain the Debt Financing on the terms set forth in the Debt Commitment Letter.",
+     "The Company shall provide, and shall use reasonable best efforts to cause its Representatives to provide, customary cooperation in connection with the arrangement of the Debt Financing."],
+    ["The description of the commitment letters is the Financing Arrangements L2.",
+     "Lender protections are the Financing Source Protections L2."],
+))
+add("l3", L1_FIN, "Financing Covenants", "Buyer Financing Covenant; Efforts to Obtain Financing; Alternative Financing", (
+    "Section setting the buyer's affirmative obligations regarding financing: "
+    "reasonable best efforts to negotiate definitive financing agreements and "
+    "consummate the financing, maintain the commitment letters, comply with "
+    "conditions, enforce funding rights, and obtain alternative financing if "
+    "the original becomes unavailable.",
+    ["reasonable best efforts to obtain the Debt Financing", "negotiate definitive agreements",
+     "satisfy the conditions to funding", "enforce funding obligations", "Alternative Financing",
+     "promptly notify of any breach or repudiation by the Financing Sources", "no amendment that reduces the amount"],
+    ["Parent shall use its reasonable best efforts to take, or cause to be taken, all actions necessary to arrange and obtain the Debt Financing on the terms and subject only to the conditions described in the Debt Commitment Letter, including negotiating and entering into definitive agreements with respect thereto.",
+     "If any portion of the Debt Financing becomes unavailable, Parent shall use its reasonable best efforts to obtain Alternative Financing in an amount sufficient to consummate the transactions.",
+     "Parent shall not, without the Company's prior written consent, agree to any amendment of the Debt Commitment Letter that reduces the aggregate amount of the Debt Financing below the amount required or imposes new conditions to funding."],
+    ["The company-side cooperation duty is the Company Financing Cooperation Covenant leaf.",
+     "Non-recourse against lenders is the Financing Source Protections L2."],
+))
+add("l3", L1_FIN, "Financing Covenants", "Company Financing Cooperation Covenant", (
+    "Section setting the company's obligation to provide customary "
+    "cooperation with the buyer's financing — participation in lender "
+    "meetings and roadshows, delivery of required financial information, "
+    "assistance with marketing materials and definitive documents — together "
+    "with customary limitations and a buyer expense-reimbursement/indemnity "
+    "for the cooperation.",
+    ["customary financing cooperation", "lender presentations / rating agency meetings",
+     "Required Financial Information", "facilitate execution of definitive documents",
+     "no undue interference with the business", "Parent reimburses out-of-pocket costs",
+     "no liability for pre-Closing facilities"],
+    ["Prior to the Closing, the Company shall use reasonable best efforts to provide, and to cause its Representatives to provide, such customary cooperation as is reasonably requested by Parent in connection with the arrangement of the Debt Financing, including (i) participating in a reasonable number of lender meetings and rating agency presentations and (ii) furnishing the Required Financial Information.",
+     "Such cooperation shall not unreasonably interfere with the ongoing operations of the Company, and the Company shall not be required to incur any liability prior to the Closing or to take any action that would conflict with its Organizational Documents.",
+     "Parent shall promptly reimburse the Company for all reasonable out-of-pocket costs incurred in connection with such cooperation and shall indemnify the Company against any liabilities suffered in connection therewith."],
+    ["The buyer's own efforts-to-obtain covenant is the Buyer Financing Covenant leaf.",
+     "The Required Financial Information as a financial-statements rep is Representations and Warranties."],
+))
+
+add("l2", L1_FIN, "Financing Source Protections", "Financing Source Protections", (
+    "Provisions protecting the debt financing sources: no recourse, "
+    "limitations on liability, exclusive jurisdiction, no-amendment-without-"
+    "consent of detrimental provisions, and third-party-beneficiary status "
+    "for the lender protections.",
+    ["Financing Sources", "no recourse against the Financing Sources",
+     "limitation on liability", "exclusive jurisdiction for Financing disputes",
+     "lender protections may not be amended without consent", "third-party beneficiary"],
+    ["The Company agrees that it shall not have any rights or claims against any Financing Source in connection with this Agreement or the Financing.",
+     "The Financing Sources are express third-party beneficiaries of, and may enforce, the provisions of this Section."],
+    ["The buyer/company financing-efforts covenants are the Financing Covenants L2.",
+     "General governing-law/forum clauses are Dispute Resolution."],
+))
+add("l3", L1_FIN, "Financing Source Protections", "Financing Source Protections; No Recourse; Limitations on Liability; Third-Party Beneficiary", (
+    "Section containing the customary lender-protection package ('Xerox' "
+    "provisions): no recourse or claims by the company against the Financing "
+    "Sources, exclusive New York forum and jury-trial waiver for financing "
+    "disputes, governing-law for such disputes, no termination/amendment of "
+    "these protections without Financing Source consent, and Financing "
+    "Sources as express third-party beneficiaries.",
+    ["no recourse against the Financing Sources", "Financing Source Related Parties",
+     "no liability to the Company", "submission to New York courts for Financing disputes",
+     "waiver of jury trial against Financing Sources", "no amendment of these provisions without consent",
+     "express third-party beneficiaries"],
+    ["Notwithstanding anything to the contrary, the Company agrees that no Financing Source shall have any liability to the Company or its Affiliates relating to or arising out of this Agreement or the Financing, and the Company shall not bring any claim against any Financing Source in connection therewith.",
+     "The Company irrevocably submits to the exclusive jurisdiction of the federal and New York state courts located in the Borough of Manhattan in respect of any dispute against the Financing Sources, and waives any right to a trial by jury with respect thereto.",
+     "The provisions of this Section may not be amended, modified, or waived in a manner adverse to the Financing Sources without their prior written consent, and the Financing Sources are express third-party beneficiaries hereof."],
+    ["The buyer's obligation to obtain financing is the Buyer Financing Covenant leaf.",
+     "The general governing-law/jurisdiction/jury-waiver clauses are Dispute Resolution."],
+))
+
+
+# ---------------------------------------------------------------------------
+# 10. Dispute Resolution and Enforcement
+# ---------------------------------------------------------------------------
+L1_DR = "Dispute Resolution and Enforcement"
+
+add("l2", L1_DR, "Governing Law and Forum", "Governing Law and Forum", (
+    "The provisions selecting the law governing the agreement and the forum "
+    "for disputes: governing law, submission to jurisdiction and venue, and "
+    "waiver of jury trial.",
+    ["governing law", "submission to jurisdiction", "venue", "forum selection",
+     "waiver of jury trial", "service of process"],
+    ["This Agreement shall be governed by and construed in accordance with the laws of the State of Delaware.",
+     "Each party irrevocably submits to the exclusive jurisdiction of the Court of Chancery of the State of Delaware and waives any right to a trial by jury."],
+    ["Specific performance / equitable relief is the Remedies and Enforcement L2.",
+     "Financing-source-specific forum provisions are Financing."],
+))
+add("l3", L1_DR, "Governing Law and Forum", "Governing Law", (
+    "Section specifying the substantive law governing the agreement and its "
+    "interpretation, typically without regard to conflict-of-laws principles.",
+    ["governed by and construed in accordance with", "laws of the State of Delaware",
+     "without regard to conflicts of laws principles", "internal laws", "DGCL governs the Merger"],
+    ["This Agreement, and all Actions arising out of or relating to this Agreement, shall be governed by and construed in accordance with the internal laws of the State of Delaware, without giving effect to any choice or conflict of law provision or rule.",
+     "The Merger and the fiduciary duties of the Company Board shall be governed by the DGCL."],
+    ["The choice of court / venue is the Submission to Jurisdiction leaf.",
+     "The jury-trial waiver is the Waiver of Jury Trial leaf."],
+))
+add("l3", L1_DR, "Governing Law and Forum", "Submission to Jurisdiction; Venue; Forum Selection", (
+    "Section under which the parties consent to the exclusive (or "
+    "non-exclusive) jurisdiction of specified courts, agree on venue, waive "
+    "objections to forum non conveniens, and consent to service of process.",
+    ["irrevocably submits to the exclusive jurisdiction", "Court of Chancery of the State of Delaware",
+     "venue", "waives any objection to forum non conveniens", "consent to service of process",
+     "exclusive forum"],
+    ["Each party irrevocably and unconditionally submits to the exclusive jurisdiction of the Court of Chancery of the State of Delaware (or, if such court declines jurisdiction, any federal court located in the State of Delaware) for purposes of any Action arising out of or relating to this Agreement.",
+     "Each party irrevocably waives any objection that it may now or hereafter have to the laying of venue of any such Action in such courts and any claim that any such Action has been brought in an inconvenient forum.",
+     "Each party consents to service of process in the manner provided for the giving of notices under this Agreement."],
+    ["The choice of substantive law is the Governing Law leaf.",
+     "The Financing Sources' separate forum clause is Financing."],
+))
+add("l3", L1_DR, "Governing Law and Forum", "Waiver of Jury Trial", (
+    "Section in which each party irrevocably waives its right to a trial by "
+    "jury in any action arising out of or relating to the agreement or the "
+    "transactions.",
+    ["WAIVES ANY RIGHT TO TRIAL BY JURY", "jury trial waiver", "irrevocably waives",
+     "any Action arising out of or relating to this Agreement", "knowingly and voluntarily"],
+    ["EACH PARTY HEREBY IRREVOCABLY AND UNCONDITIONALLY WAIVES ANY RIGHT IT MAY HAVE TO A TRIAL BY JURY IN RESPECT OF ANY ACTION ARISING OUT OF OR RELATING TO THIS AGREEMENT OR THE TRANSACTIONS CONTEMPLATED HEREBY.",
+     "Each party certifies that no representative of any other party has represented that it would not seek to enforce the foregoing waiver, and acknowledges that it has been induced to enter into this Agreement by, among other things, the mutual waivers in this Section."],
+    ["The choice of court is the Submission to Jurisdiction leaf.",
+     "Damages limitations are the Limitation of Liability leaf."],
+))
+
+add("l2", L1_DR, "Remedies and Enforcement", "Remedies and Enforcement", (
+    "Provisions on remedies for breach and how the agreement is enforced: "
+    "specific performance and injunctive relief, limitation of liability and "
+    "waiver of certain damages outside the indemnity context, and any "
+    "arbitration / dispute-resolution procedure.",
+    ["specific performance", "injunctive relief", "limitation of liability",
+     "waiver of consequential damages", "arbitration", "remedies cumulative"],
+    ["The parties shall be entitled to specific performance of the terms of this Agreement, in addition to any other remedy at law or in equity.",
+     "In no event shall any party be liable for punitive damages except to the extent awarded to a third party."],
+    ["Governing law / forum / jury waiver are the Governing Law and Forum L2.",
+     "Indemnification caps/exclusive remedy are Indemnification."],
+))
+add("l3", L1_DR, "Remedies and Enforcement", "Specific Performance; Injunctive / Equitable Relief", (
+    "Section providing that the parties are entitled to specific performance "
+    "and injunctive/equitable relief to prevent breaches and enforce the "
+    "agreement, waiving the defenses of an adequate remedy at law and any "
+    "requirement to post a bond, often with a conditional-specific-"
+    "performance construct tied to financing.",
+    ["entitled to specific performance", "injunctive relief", "to prevent breaches",
+     "no adequate remedy at law", "without proof of damages or posting a bond",
+     "irreparable harm", "conditional specific performance to cause the Equity Financing to be funded"],
+    ["The parties agree that irreparable damage would occur and that the parties shall be entitled to an injunction or injunctions to prevent breaches of this Agreement and to enforce specifically the terms and provisions hereof, this being in addition to any other remedy to which they are entitled at law or in equity.",
+     "Each party waives (i) any defense that a remedy at law would be adequate and (ii) any requirement to post a bond or other security in connection with any such equitable relief.",
+     "The Company shall be entitled to specific performance to cause Parent to draw down the Equity Financing and consummate the Closing only if the conditions set forth in Section [•] are satisfied and the Debt Financing has been funded."],
+    ["Money-damage caps and consequential-damage waivers are the Limitation of Liability leaf.",
+     "Indemnification as an exclusive remedy is Indemnification."],
+))
+add("l3", L1_DR, "Remedies and Enforcement", "Limitation of Liability; Waiver of Consequential / Punitive / Special Damages (non-indemnity)", (
+    "Section limiting monetary liability and waiving consequential, "
+    "incidental, special, or punitive damages outside the indemnification "
+    "regime — for example, capping a breaching party's pre-closing liability "
+    "at a defined amount or excluding non-direct damages generally.",
+    ["no consequential, incidental, special, or punitive damages", "limitation of liability",
+     "aggregate liability shall not exceed", "exclude lost profits / diminution in value",
+     "except in the case of Fraud or Willful Breach", "sole monetary remedy"],
+    ["In no event shall any party be liable for any consequential, incidental, indirect, special, exemplary, or punitive damages, or for any damages calculated as a multiple of earnings or based on diminution in value or lost profits, arising out of or relating to this Agreement, except to the extent such damages are awarded to a third party.",
+     "Notwithstanding anything to the contrary, the maximum aggregate liability of Parent for monetary damages for any breach of this Agreement prior to the Closing shall not exceed the Parent Liability Cap, except in the case of Fraud or Willful Breach.",
+     "The remedies expressly provided in this Agreement shall be the sole and exclusive monetary remedies of the parties."],
+    ["Indemnification caps/baskets/exclusive-remedy are Indemnification.",
+     "Equitable relief / specific performance is the Specific Performance leaf.",
+     "A fixed reverse/parent termination fee that operates as the exclusive monetary remedy is Termination (Reverse / Parent Termination Fee)."],
+))
+add("l3", L1_DR, "Remedies and Enforcement", "Arbitration; Dispute Resolution Procedures", (
+    "Section establishing a binding arbitration or staged dispute-resolution "
+    "process (negotiation/mediation then arbitration) for disputes under the "
+    "agreement — administering body and rules, seat, number of arbitrators, "
+    "scope, and confidentiality — distinct from the limited expert-"
+    "determination used for purchase-price disputes.",
+    ["binding arbitration", "AAA / JAMS / ICC rules", "seat of arbitration",
+     "panel of three arbitrators", "final and binding award", "mediation prior to arbitration",
+     "confidential arbitration", "carve-out for injunctive relief"],
+    ["Any dispute, controversy, or claim arising out of or relating to this Agreement shall be finally resolved by binding arbitration administered by the American Arbitration Association in accordance with its Commercial Arbitration Rules.",
+     "The seat of the arbitration shall be New York, New York, the arbitration shall be conducted before a panel of three arbitrators, and the award shall be final and binding upon the parties and enforceable in any court of competent jurisdiction.",
+     "Notwithstanding the foregoing, either party may seek injunctive or other equitable relief in the courts specified in Section [•] pending resolution of the arbitration."],
+    ["The accounting-firm purchase-price true-up is Transaction Mechanics (Purchase Price Adjustments).",
+     "Court forum selection (litigation) is the Submission to Jurisdiction leaf."],
+))
+
+
+# ---------------------------------------------------------------------------
+# 11. Miscellaneous and General Provisions
+# ---------------------------------------------------------------------------
+L1_MISC = "Miscellaneous and General Provisions"
+
+add("l2", L1_MISC, "Amendment, Waiver, Assignment", "Amendment, Waiver, Assignment", (
+    "Boilerplate governing changes to and transfer of the agreement: "
+    "amendment/modification, waiver / no-waiver, and assignment, successors, "
+    "and binding effect.",
+    ["amendment", "modification", "waiver", "no waiver", "assignment",
+     "successors and assigns", "binding effect"],
+    ["This Agreement may be amended only by an instrument in writing signed by each of the parties.",
+     "No party may assign this Agreement without the prior written consent of the other parties, and any purported assignment in violation hereof shall be void."],
+    ["General-provisions boilerplate (entire agreement, severability) is the General Provisions L2.",
+     "Notices specifically are the Notices L2."],
+))
+add("l3", L1_MISC, "Amendment, Waiver, Assignment", "Amendment; Modification", (
+    "Section specifying how the agreement may be amended or modified — only "
+    "by a written instrument signed by the parties — with any post-"
+    "stockholder-approval limitations required by the applicable corporate "
+    "statute.",
+    ["amended", "modified", "only by an instrument in writing",
+     "signed by each of the parties", "no amendment after Stockholder Approval that requires further approval",
+     "supplement"],
+    ["This Agreement may be amended, modified, or supplemented only by a written instrument duly executed by or on behalf of each party hereto.",
+     "After the Company Stockholder Approval has been obtained, no amendment shall be made that by Law requires further approval of the Company's stockholders without such approval.",
+     "No course of dealing shall be deemed to amend or modify any provision of this Agreement."],
+    ["Waiver of rights is the Waiver; No Waiver leaf.",
+     "Assignment is the Assignment; Successors and Assigns leaf."],
+))
+add("l3", L1_MISC, "Amendment, Waiver, Assignment", "Waiver; No Waiver", (
+    "Section providing that any waiver must be in writing, that no failure or "
+    "delay in exercising a right operates as a waiver, and that a single or "
+    "partial exercise does not preclude further exercise of that or any other "
+    "right.",
+    ["waiver in writing", "no failure or delay shall operate as a waiver",
+     "single or partial exercise", "no waiver of subsequent breach", "rights and remedies cumulative",
+     "extension of time"],
+    ["Any agreement on the part of a party to any extension or waiver shall be valid only if set forth in a written instrument signed on behalf of such party.",
+     "No failure or delay by any party in exercising any right, power, or privilege hereunder shall operate as a waiver thereof, nor shall any single or partial exercise thereof preclude any other or further exercise thereof.",
+     "No waiver of any breach shall be deemed a waiver of any subsequent breach, and all rights and remedies are cumulative."],
+    ["Amendment of the contract is the Amendment; Modification leaf.",
+     "Indemnification anti-sandbagging (knowledge-based waiver) is Indemnification."],
+))
+add("l3", L1_MISC, "Amendment, Waiver, Assignment", "Assignment; Successors and Assigns; Binding Effect", (
+    "Section restricting assignment of the agreement or rights thereunder "
+    "without consent (often with a permitted assignment to affiliates or "
+    "financing collateral assignment), and providing that the agreement binds "
+    "and inures to the benefit of the parties and their permitted successors "
+    "and assigns.",
+    ["may not assign", "without the prior written consent", "by operation of law",
+     "permitted assignment to an Affiliate", "collateral assignment to Financing Sources",
+     "binding upon and inure to the benefit of", "successors and permitted assigns", "void assignment"],
+    ["Neither this Agreement nor any of the rights, interests, or obligations hereunder may be assigned by any party (whether by operation of law or otherwise) without the prior written consent of the other parties, and any purported assignment without such consent shall be null and void.",
+     "Notwithstanding the foregoing, Parent may assign its rights and obligations to any wholly owned Subsidiary and may collaterally assign its rights to the Financing Sources, in each case without relieving Parent of its obligations.",
+     "This Agreement shall be binding upon and inure to the benefit of the parties and their respective successors and permitted assigns."],
+    ["Amendment/waiver are the other Amendment, Waiver, Assignment leaves.",
+     "Whether non-parties may enforce is the No Third-Party Beneficiaries leaf."],
+))
+
+add("l2", L1_MISC, "General Provisions", "General Provisions", (
+    "The residual boilerplate of the agreement: entire agreement/integration, "
+    "severability, no third-party beneficiaries, counterparts and electronic "
+    "signatures, and headings/construction.",
+    ["entire agreement", "integration", "severability", "no third-party beneficiaries",
+     "counterparts", "electronic signatures", "headings"],
+    ["This Agreement constitutes the entire agreement among the parties with respect to the subject matter hereof and supersedes all prior agreements.",
+     "If any provision of this Agreement is held to be invalid or unenforceable, the remaining provisions shall continue in full force and effect."],
+    ["Amendment/waiver/assignment are the Amendment, Waiver, Assignment L2.",
+     "Notices specifically are the Notices L2."],
+))
+add("l3", L1_MISC, "General Provisions", "Entire Agreement; Integration", (
+    "Section stating that the agreement (together with the disclosure "
+    "schedules, exhibits, the confidentiality agreement, and ancillary "
+    "documents) constitutes the entire agreement and supersedes all prior and "
+    "contemporaneous agreements and understandings on the subject matter.",
+    ["entire agreement", "constitutes the entire agreement", "supersedes all prior agreements",
+     "together with the Confidentiality Agreement", "no other representations outside this Agreement",
+     "merger / integration clause"],
+    ["This Agreement, together with the Disclosure Schedules, the Exhibits, and the Confidentiality Agreement, constitutes the entire agreement among the parties with respect to the subject matter hereof and supersedes all prior and contemporaneous agreements, representations, warranties, and understandings, both written and oral.",
+     "Each party acknowledges that, in entering into this Agreement, it has not relied on any representation or warranty other than those expressly set forth herein.",
+     "There are no representations, warranties, covenants, or agreements other than those expressly set forth in this Agreement."],
+    ["The substantive non-reliance disclaimer in the reps is Representations and Warranties.",
+     "Severability is the Severability leaf."],
+))
+add("l3", L1_MISC, "General Provisions", "Severability", (
+    "Section providing that if any provision is held invalid, illegal, or "
+    "unenforceable, the remainder of the agreement remains in effect and the "
+    "parties will negotiate in good faith to replace the invalid provision "
+    "with a valid one approximating the original economic intent.",
+    ["invalid, illegal, or unenforceable", "remaining provisions shall remain in full force",
+     "severable", "negotiate in good faith a substitute provision", "to the maximum extent permitted by Law",
+     "not affect the validity of the remainder"],
+    ["If any term or other provision of this Agreement is held to be invalid, illegal, or incapable of being enforced by any rule of Law or public policy, all other terms and provisions of this Agreement shall nevertheless remain in full force and effect.",
+     "Upon a determination that any term or provision is invalid, illegal, or incapable of being enforced, the parties shall negotiate in good faith to modify this Agreement so as to effect the original intent of the parties as closely as possible in an acceptable manner.",
+     "Each provision shall be enforced to the maximum extent permitted by applicable Law."],
+    ["The entire-agreement clause is the Entire Agreement; Integration leaf.",
+     "Headings/construction is the Headings; Construction leaf."],
+))
+add("l3", L1_MISC, "General Provisions", "No Third-Party Beneficiaries", (
+    "Section providing that the agreement is solely for the benefit of the "
+    "parties and confers no rights on any other Person, subject to the "
+    "enumerated exceptions (e.g., D&O indemnitees, Financing Sources, and, "
+    "after the Effective Time, the right of securityholders to the "
+    "consideration).",
+    ["no third-party beneficiaries", "solely for the benefit of the parties",
+     "confers no rights upon any other Person", "except as expressly provided",
+     "D&O Indemnified Persons", "Financing Source Related Parties", "no rights in employees"],
+    ["This Agreement is for the sole benefit of the parties hereto and their permitted successors and assigns and nothing herein, express or implied, is intended to or shall confer upon any other Person any legal or equitable right, benefit, or remedy of any nature whatsoever.",
+     "Notwithstanding the foregoing, (i) the D&O Indemnified Persons are intended third-party beneficiaries of Section [•], (ii) the Financing Sources are intended third-party beneficiaries of the provisions referenced in Section [•], and (iii) from and after the Effective Time, the holders of Shares are intended third-party beneficiaries of the right to receive the Merger Consideration.",
+     "The representations and warranties in this Agreement are not intended to confer upon any Person other than the parties any rights or remedies."],
+    ["The employee-covenant no-beneficiary clause is Covenants (Employees and Benefits).",
+     "Assignment/successors is the Assignment; Successors and Assigns leaf."],
+))
+add("l3", L1_MISC, "General Provisions", "Counterparts; Electronic Signatures", (
+    "Section providing that the agreement may be executed in counterparts, "
+    "each of which is an original and all of which together constitute one "
+    "instrument, and that electronic or PDF signatures (and electronic "
+    "transmission) are valid and binding.",
+    ["executed in counterparts", "each of which shall be deemed an original",
+     "together constitute one and the same instrument", "delivery by PDF or electronic transmission",
+     "electronic signatures", "DocuSign / .pdf", "E-SIGN / UETA"],
+    ["This Agreement may be executed in two or more counterparts, each of which shall be deemed an original, but all of which together shall constitute one and the same instrument.",
+     "Delivery of an executed counterpart of a signature page by facsimile or by email in .pdf or other electronic format shall be as effective as delivery of a manually executed counterpart.",
+     "The parties agree that electronic signatures shall have the same legal effect as manual signatures under the E-SIGN Act and applicable Law."],
+    ["Headings/construction is the Headings; Construction leaf.",
+     "Notices delivery mechanics are the Notices leaf."],
+))
+add("l3", L1_MISC, "General Provisions", "Headings; Construction; Other Boilerplate", (
+    "Residual miscellaneous boilerplate that does not fit another leaf: that "
+    "headings are for convenience only, general construction conventions when "
+    "not housed in a dedicated interpretation article, and other minor "
+    "catch-all general provisions.",
+    ["headings for convenience only", "shall not affect interpretation",
+     "construction conventions", "no presumption against the drafter", "time is of the essence",
+     "miscellaneous", "other boilerplate"],
+    ["The headings and captions contained in this Agreement are for convenience of reference only and shall not affect in any way the meaning or interpretation of this Agreement.",
+     "The parties have participated jointly in the negotiation and drafting of this Agreement and no presumption or burden of proof shall arise favoring or disfavoring any party by virtue of the authorship of any provision.",
+     "With regard to all dates and time periods set forth in this Agreement, time is of the essence."],
+    ["A dedicated interpretation/construction article is Definitions and Interpretation.",
+     "Entire-agreement/severability/counterparts are the dedicated General Provisions leaves."],
+))
+
+add("l2", L1_MISC, "Notices", "Notices", (
+    "The provision specifying how formal notices under the agreement must be "
+    "given.",
+    ["notices", "in writing", "addresses for notice", "deemed given",
+     "delivery method", "copy to counsel"],
+    ["All notices under this Agreement shall be in writing and delivered to the addresses set forth below.",
+     "Notice shall be deemed given upon receipt or refusal of receipt."],
+    ["Service of process for litigation is Dispute Resolution (Submission to Jurisdiction).",
+     "Inter-party notice of breaches/events (a covenant) is Covenants."],
+))
+add("l3", L1_MISC, "Notices", "Notices", (
+    "Section specifying the formal mechanics for notices under the agreement: "
+    "that notices be in writing, the permitted delivery methods (hand "
+    "delivery, overnight courier, certified mail, email), the addresses and "
+    "required copies to counsel, and when a notice is deemed duly given.",
+    ["all notices shall be in writing", "personal delivery / overnight courier / certified mail",
+     "by email", "addressed as follows", "with a copy (which shall not constitute notice) to",
+     "deemed to have been given upon", "change of address by notice"],
+    ["All notices, requests, consents, and other communications hereunder shall be in writing and shall be deemed duly given (i) when delivered personally, (ii) one Business Day after being sent by reputable overnight courier, or (iii) when sent by email (with confirmation of transmission), in each case to the addresses set forth below.",
+     "If to the Company: [address]; with a copy (which shall not constitute notice) to its counsel at [address].",
+     "Any party may change its address for notices by giving notice thereof to the other parties in accordance with this Section."],
+    ["The forum/service-of-process provision is Dispute Resolution.",
+     "The covenant to notify of certain events is Covenants (Information and Access)."],
+))
+
+
+# ---------------------------------------------------------------------------
+# 12. Other / Unclassified
+# ---------------------------------------------------------------------------
+L1_OTH = "Other / Unclassified"
+add("l2", L1_OTH, "Other / Unclassified", "Other / Unclassified", (
+    "Residual grouping for sections that are substantively unclassifiable "
+    "under any other branch of the taxonomy — used only when an explicit "
+    "residual is more informative than no label.",
+    ["other", "unclassified", "miscellaneous residual", "no applicable category",
+     "not elsewhere classified"],
+    ["This section does not correspond to any standard merger-agreement concept in the taxonomy.",
+     "Residual provision not classifiable under any other taxonomy branch."],
+    ["Prefer a specific leaf whenever the section's operative text supports one.",
+     "General boilerplate belongs in Miscellaneous and General Provisions, not here."],
+))
+add("l3", L1_OTH, "Other / Unclassified", "Other / Unclassified", (
+    "Catch-all leaf for a section that is genuinely residual — its operative "
+    "content does not match any other taxonomy leaf and an explicit "
+    "'unclassified' label is more informative than returning no label. Not a "
+    "convenience fallback for weak matches.",
+    ["other", "unclassified", "residual provision", "not elsewhere classified",
+     "no applicable taxonomy concept", "bespoke deal-specific covenant"],
+    ["Following the Closing, Parent shall cause the Surviving Corporation to maintain the Company's charitable contribution program at no less than historical levels for a period of three years.",
+     "For two years after the Closing, the Founder shall not use the 'Acme' name or logo in connection with any competing business, and Parent grants the Founder a limited license to use the legacy family name for personal philanthropic purposes."],
+    ["If the section is recognizable boilerplate, use the relevant Miscellaneous leaf instead.",
+     "If any specific leaf is clearly supported by the operative text, use that leaf, not this one."],
+))
+
+
+def main() -> int:
+    data: dict[str, Any] = load_enrichment_file()
+    nodes: list[dict[str, Any]] = data["nodes"]
+
+    covered = 0
+    uncovered: list[str] = []
+    for node in nodes:
+        key: Key = (node["level"], node["l1_label"], node["l2_label"], node["label"])
+        entry = CONTENT.get(key)
+        if entry is None:
+            uncovered.append(f'{node["level"]} | {node["l1_label"]} | {node["label"]}')
+            continue
+        desc, terms, examples, exclusions = entry
+        node["description"] = " ".join(desc.split())
+        if node["level"] == "l2":
+            # Systemic anti-collision: every L2 is an umbrella category. Keep
+            # the authored (enumerative) description but force non-operative,
+            # umbrella-style example_phrases and an umbrella marker term so an
+            # L2 can never carry the same embedded text as its L3 children.
+            label = node["label"]
+            l1 = node["l1_label"]
+            umbrella_term = "umbrella category (route to a specific sub-leaf)"
+            node["canonical_terms"] = (
+                [umbrella_term] + [t for t in terms if t != umbrella_term]
+            )
+            node["example_phrases"] = [
+                f"This is the '{label}' category within {l1}; it groups related "
+                f"sub-leaves and is not itself an operative provision — classify "
+                f"to the specific child leaf that matches the section's operative "
+                f"text.",
+                f"Use this {label} grouping only as an umbrella; prefer a specific "
+                f"sub-leaf whenever one concept dominates the section.",
+            ]
+        else:
+            node["canonical_terms"] = terms
+            node["example_phrases"] = [_norm_example(s) for s in examples]
+        node["exclusion_cues"] = exclusions
+        covered += 1
+
+    dump_enrichment_file(data)
+    print(f"authored {covered}/{len(nodes)} nodes; {len(uncovered)} still blank")
+    if uncovered:
+        print("STILL BLANK (expected until all L1 groups are authored):")
+        for u in sorted(uncovered):
+            print(f"  - {u}")
+    # Sanity: every CONTENT key must map to a real node (catch typos/path drift).
+    valid_keys = {
+        (n["level"], n["l1_label"], n["l2_label"], n["label"]) for n in nodes
+    }
+    orphans = [k for k in CONTENT if k not in valid_keys]
+    if orphans:
+        print(f"WARNING: {len(orphans)} CONTENT entries do not match any live node:")
+        for k in orphans:
+            print(f"  - {k}")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
