@@ -84,4 +84,4 @@ jobs:
         run: backend/venv/bin/python -m unittest discover backend/tests -v
 
       - name: Run MCP transport workflow tests
-        run: backend/venv/bin/python -m unittest backend.tests.test_mcp.McpTests.test_live_http_transport_client_compatibility_flow backend.tests.test_mcp.McpTests.test_live_http_transport_filter_to_retrieval_workflow backend.tests.test_mcp.McpTests.test_live_http_transport_redaction_and_fulltext_workflow -v
+        run: backend/venv/bin/python -m unittest backend.tests.test_mcp.McpTests.test_live_http_transport_client_compatibility_flow backend.tests.test_mcp.McpTests.test_live_http_transport_filter_to_retrieval_workflow backend.tests.test_mcp.McpTests.test_live_http_transport_redaction_and_fulltext_workflow backend.tests.test_mcp.McpTests.test_live_http_transport_concept_to_snippet_workflow -v

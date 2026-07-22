@@ -196,6 +196,10 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             "type": "boolean",
             "description": "When false, omit standard_id from each section entry to reduce response size. Default true.",
         },
+        "max_sections_per_agreement": {
+            "type": "integer",
+            "description": "Maximum sections returned per agreement (1-1000, default 200). Agreements run up to 530 sections, so 20 of them uncapped is several thousand rows in one response. `sections_truncated` and `matched_section_count` report when the cap bit; use list_agreement_sections to page through a single long agreement.",
+        },
     }
     suggest_clause_families_schema = _schema_from_fields(
         "McpSuggestClauseFamiliesArgs",
@@ -319,7 +323,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="list_agreement_sections",
-            description="List the article and section headings inside a single agreement so you can pick which section to fetch. Defaults to document_order sort, which preserves the original article/section sequence. Call after you have an agreement UUID, before get_section or get_section_snippet. For multiple agreements at once, use list_agreement_sections_batch.",
+            description="List the article and section headings inside a single agreement so you can pick which section to fetch. Defaults to document_order sort, which preserves the original article/section sequence. Call after you have an agreement UUID, before get_section or get_section_snippet. An agreement UUID that is unknown or not retrievable returns not-found rather than an empty page, so an empty result page always means the standard_id filter matched nothing. For multiple agreements at once, use list_agreement_sections_batch.",
             input_schema=_schema_input_schema(McpListAgreementSectionsArgsSchema(), field_overrides=list_agreement_sections_overrides),
             output_schema=_list_agreement_sections_output_schema(),
             examples=(
@@ -342,7 +346,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="list_agreement_sections_batch",
-            description="List article and section headings for up to 20 agreements in a single call, returning one section list per agreement UUID. Eliminates the need for N sequential list_agreement_sections calls when comparing or exploring multiple agreements. Defaults to document_order sort.",
+            description="List article and section headings for up to 20 agreements in a single call, returning one section list per agreement UUID. Eliminates the need for N sequential list_agreement_sections calls when comparing or exploring multiple agreements. Defaults to document_order sort, and to at most 200 sections per agreement (max_sections_per_agreement). An agreement UUID that is unknown or not retrievable is omitted from results and reported under unresolved_agreement_uuids rather than returned as a zero-section entry.",
             input_schema=_schema_input_schema(McpBatchAgreementSectionsArgsSchema(), field_overrides=list_agreement_sections_overrides),
             output_schema=_batch_agreement_sections_output_schema(),
             examples=(
@@ -350,12 +354,14 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Batch-fetch with taxonomy filter.", "arguments": {"agreement_uuids": ["a1", "a2"], "standard_id": ["1a7aeab47932d0d4"]}},
             ),
             response_examples=(
-                {"description": "Batch section listing.", "content": {"returned_agreement_count": 2, "total_section_count": 80, "results": [{"agreement_uuid": "a1", "section_count": 48, "sections": []}]}},
+                {"description": "Batch section listing.", "content": {"returned_agreement_count": 2, "total_section_count": 80, "results": [{"agreement_uuid": "a1", "total_agreement_sections": 48, "section_count": 48, "matched_section_count": 48, "sections_truncated": False, "sections": []}]}},
             ),
             scopes=("sections:search",),
             selection_hint="Use when you already have multiple agreement UUIDs and need all their section structures at once.",
             negative_guidance=(
                 "Do not use for more than 20 agreements in one call; paginate with multiple batch calls instead.",
+                "Do not read a missing agreement_uuid as an agreement with no sections: unresolved UUIDs are listed under unresolved_agreement_uuids and dropped from results, so check that block before concluding an absence.",
+                "Do not assume every matching section came back: sections_truncated marks agreements cut off at max_sections_per_agreement, and matched_section_count gives the pre-cap total.",
             ),
             pagination="none",
             access_behavior="strict_scope_required",
@@ -590,6 +596,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             negative_guidance=(
                 "Do not use for snippets or excerpts — use get_section_snippets_batch instead.",
                 "Limited to 10 sections per call; split into multiple calls for larger sets.",
+                "Do not assume returned_count equals the number of section_uuids you passed: a uuid that matches no section is omitted and reported under unresolved_section_uuids, so check that block before reading the shorter list as the answer.",
             ),
             pagination="none",
             access_behavior="strict_scope_required",
@@ -740,18 +747,18 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_naics_catalog",
-            description="Return the NAICS industry hierarchy (sectors and subsectors) used to normalize target_industry and acquirer_industry filters. Use when translating an industry description into the canonical label the filters accept.",
+            description="Return the NAICS industry hierarchy (sectors and subsectors) behind the target_industry and acquirer_industry filters. Those filters match on NAICS **codes** (e.g. \"511\"), not on descriptions, so use this to translate an industry description into the code to pass. Passing a label like \"Technology\" matches nothing and is not reported as an unrecognized value. list_filter_options returns the codes actually present in the corpus alongside an industry_labels map, and is the better starting point; a handful of in-use codes have no entry in this hierarchy and so cannot be resolved to a label here.",
             input_schema=_empty_schema(),
             output_schema=_naics_catalog_output_schema(),
             examples=(
                 {"description": "List NAICS sectors and subsectors.", "arguments": {}},
-                {"description": "Find canonical industry labels before target_industry filtering.", "arguments": {}},
+                {"description": "Resolve an industry description to the NAICS code target_industry expects.", "arguments": {}},
             ),
             response_examples=(
                 {"description": "NAICS sector catalog.", "content": {"sectors": [{"sector_code": "11", "sub_sectors": [{"sub_sector_code": "111"}]}]}},
             ),
             scopes=("sections:search",),
-            selection_hint="Use when you need canonical industry labels before industry-filtered retrieval.",
+            selection_hint="Use to map an industry description to the NAICS code the industry filters expect; prefer list_filter_options, which returns the in-use codes and their labels directly.",
             negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",
@@ -761,12 +768,12 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreements_summary",
-            description="Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers.",
+            description="Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers. Each figure equals what the matching tool reports: `agreements` matches an unfiltered search_agreements total_count (the correct denominator for a coverage percentage), `sections` matches the index search_sections paginates, and `pages` counts exactly those agreements' pages so pages/agreements is a sound ratio. These figures are smaller than the ingestion totals published on the website, which count records that have no retrievable text.",
             input_schema=_empty_schema(),
             output_schema=_agreements_summary_output_schema(),
             examples=({"description": "Get top-level corpus counts.", "arguments": {}},),
             response_examples=(
-                {"description": "Corpus count summary.", "content": {"agreements": 1, "sections": 2, "pages": 5}},
+                {"description": "Corpus count summary.", "content": {"agreements": 9902, "sections": 967121, "pages": 911757}},
             ),
             scopes=("agreements:search",),
             selection_hint="Use for top-level corpus sizing before deeper analysis.",

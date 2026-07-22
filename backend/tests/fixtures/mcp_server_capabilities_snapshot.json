@@ -451,6 +451,16 @@
       "use_when": "Use when you already have multiple agreement UUIDs and need all their section structures at once."
     },
     {
+      "do_not_use_for": "Do not read a missing agreement_uuid as an agreement with no sections: unresolved UUIDs are listed under unresolved_agreement_uuids and dropped from results, so check that block before concluding an absence.",
+      "tool": "list_agreement_sections_batch",
+      "use_when": "Use when you already have multiple agreement UUIDs and need all their section structures at once."
+    },
+    {
+      "do_not_use_for": "Do not assume every matching section came back: sections_truncated marks agreements cut off at max_sections_per_agreement, and matched_section_count gives the pre-cap total.",
+      "tool": "list_agreement_sections_batch",
+      "use_when": "Use when you already have multiple agreement UUIDs and need all their section structures at once."
+    },
+    {
       "do_not_use_for": "Do not use this tool for bulk discovery or corpus filtering.",
       "tool": "get_agreement",
       "use_when": "Use when you already know the exact agreement UUID and need the agreement payload or XML."
@@ -517,6 +527,11 @@
     },
     {
       "do_not_use_for": "Limited to 10 sections per call; split into multiple calls for larger sets.",
+      "tool": "get_sections_batch",
+      "use_when": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section."
+    },
+    {
+      "do_not_use_for": "Do not assume returned_count equals the number of section_uuids you passed: a uuid that matches no section is omitted and reported under unresolved_section_uuids, so check that block before reading the shorter list as the answer.",
       "tool": "get_sections_batch",
       "use_when": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section."
     },
@@ -1804,6 +1819,9 @@
                   },
                   "type": "array"
                 },
+                "monetary_values_truncated": {
+                  "type": "boolean"
+                },
                 "section_title": {
                   "type": [
                     "string",
@@ -1861,6 +1879,12 @@
               "type": "object"
             },
             "type": "array"
+          },
+          "standard_id_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
           },
           "total_count": {
             "type": "integer"
@@ -3170,9 +3194,6 @@
                     "null"
                   ]
                 },
-                "id": {
-                  "type": "string"
-                },
                 "section_title": {
                   "type": [
                     "string",
@@ -3205,7 +3226,6 @@
                 }
               },
               "required": [
-                "id",
                 "section_uuid",
                 "verified"
               ],
@@ -3253,7 +3273,9 @@
       "pagination": "none",
       "selection_hint": "Use when you already have multiple agreement UUIDs and need all their section structures at once.",
       "negative_guidance": [
-        "Do not use for more than 20 agreements in one call; paginate with multiple batch calls instead."
+        "Do not use for more than 20 agreements in one call; paginate with multiple batch calls instead.",
+        "Do not read a missing agreement_uuid as an agreement with no sections: unresolved UUIDs are listed under unresolved_agreement_uuids and dropped from results, so check that block before concluding an absence.",
+        "Do not assume every matching section came back: sections_truncated marks agreements cut off at max_sections_per_agreement, and matched_section_count gives the pre-cap total."
       ],
       "response_examples": [
         {
@@ -3261,8 +3283,11 @@
             "results": [
               {
                 "agreement_uuid": "a1",
+                "matched_section_count": 48,
                 "section_count": 48,
-                "sections": []
+                "sections": [],
+                "sections_truncated": false,
+                "total_agreement_sections": 48
               }
             ],
             "returned_agreement_count": 2,
@@ -3292,6 +3317,12 @@
           "include_standard_ids": {
             "description": "When false, omit standard_id from each section entry to reduce response size. Default true.",
             "type": "boolean"
+          },
+          "max_sections_per_agreement": {
+            "description": "Maximum sections returned per agreement (1-1000, default 200). Agreements run up to 530 sections, so 20 of them uncapped is several thousand rows in one response. `sections_truncated` and `matched_section_count` report when the cap bit; use list_agreement_sections to page through a single long agreement.",
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "integer"
           },
           "sort_by": {
             "description": "Section list sort key. One of: `article_title`, `section_title`, `section_uuid`, `document_order`.",
@@ -3325,12 +3356,37 @@
       "output_schema": {
         "additionalProperties": true,
         "properties": {
+          "interpretation": {
+            "additionalProperties": false,
+            "properties": {
+              "notes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "unresolved_agreement_uuids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "unresolved_agreement_uuids",
+              "notes"
+            ],
+            "type": "object"
+          },
           "results": {
             "items": {
               "additionalProperties": true,
               "properties": {
                 "agreement_uuid": {
                   "type": "string"
+                },
+                "matched_section_count": {
+                  "type": "integer"
                 },
                 "section_count": {
                   "type": "integer"
@@ -3356,9 +3412,6 @@
                           "string",
                           "null"
                         ]
-                      },
-                      "id": {
-                        "type": "string"
                       },
                       "section_title": {
                         "type": [
@@ -3392,13 +3445,15 @@
                       }
                     },
                     "required": [
-                      "id",
                       "section_uuid",
                       "verified"
                     ],
                     "type": "object"
                   },
                   "type": "array"
+                },
+                "sections_truncated": {
+                  "type": "boolean"
                 },
                 "total_agreement_sections": {
                   "type": "integer"
@@ -3408,7 +3463,9 @@
                 "agreement_uuid",
                 "total_agreement_sections",
                 "sections",
-                "section_count"
+                "section_count",
+                "matched_section_count",
+                "sections_truncated"
               ],
               "type": "object"
             },
@@ -3419,6 +3476,12 @@
           },
           "total_section_count": {
             "type": "integer"
+          },
+          "unresolved_agreement_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -4821,6 +4884,9 @@
             },
             "type": "array"
           },
+          "monetary_values_truncated": {
+            "type": "boolean"
+          },
           "section_title": {
             "type": [
               "string",
@@ -4923,6 +4989,28 @@
       "output_schema": {
         "additionalProperties": false,
         "properties": {
+          "interpretation": {
+            "additionalProperties": false,
+            "properties": {
+              "notes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "unresolved_section_uuids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "unresolved_section_uuids",
+              "notes"
+            ],
+            "type": "object"
+          },
           "results": {
             "items": {
               "additionalProperties": false,
@@ -4950,6 +5038,9 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "monetary_values_truncated": {
+                  "type": "boolean"
                 },
                 "section_title": {
                   "type": [
@@ -4990,6 +5081,12 @@
           },
           "returned_count": {
             "type": "integer"
+          },
+          "unresolved_section_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -5008,7 +5105,8 @@
       "selection_hint": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section.",
       "negative_guidance": [
         "Do not use for snippets or excerpts — use get_section_snippets_batch instead.",
-        "Limited to 10 sections per call; split into multiple calls for larger sets."
+        "Limited to 10 sections per call; split into multiple calls for larger sets.",
+        "Do not assume returned_count equals the number of section_uuids you passed: a uuid that matches no section is omitted and reported under unresolved_section_uuids, so check that block before reading the shorter list as the answer."
       ],
       "response_examples": [
         {
@@ -5067,6 +5165,28 @@
       "output_schema": {
         "additionalProperties": false,
         "properties": {
+          "interpretation": {
+            "additionalProperties": false,
+            "properties": {
+              "notes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "unresolved_section_uuids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "unresolved_section_uuids",
+              "notes"
+            ],
+            "type": "object"
+          },
           "results": {
             "items": {
               "additionalProperties": false,
@@ -5100,6 +5220,9 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "monetary_values_truncated": {
+                  "type": "boolean"
                 },
                 "section_title": {
                   "type": [
@@ -5156,6 +5279,12 @@
           },
           "returned_count": {
             "type": "integer"
+          },
+          "unresolved_section_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -6030,7 +6159,7 @@
         "sections:search"
       ],
       "pagination": "none",
-      "selection_hint": "Use when you need canonical industry labels before industry-filtered retrieval.",
+      "selection_hint": "Use to map an industry description to the NAICS code the industry filters expect; prefer list_filter_options, which returns the in-use codes and their labels directly.",
       "negative_guidance": [],
       "response_examples": [
         {
@@ -6131,9 +6260,9 @@
       "response_examples": [
         {
           "content": {
-            "agreements": 1,
-            "pages": 5,
-            "sections": 2
+            "agreements": 9902,
+            "pages": 911757,
+            "sections": 967121
           },
           "description": "Corpus count summary."
         }

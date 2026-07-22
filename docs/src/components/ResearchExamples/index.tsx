@@ -37,7 +37,7 @@ const traceSteps: TraceStep[] = [
       },
     ],
     finding:
-      'Server confirmed 5 research workflows and full field inventory. The deal search returned 0 results - "Technology" and "Software" are not valid filter values. The server uses NAICS codes for industry classification.',
+      'Server confirmed 5 research workflows and full field inventory (6 ship today; the tax-structure workflow was added after this session). The deal search returned 0 results - "Technology" and "Software" are not valid filter values. The server uses NAICS codes for industry classification.',
   },
   {
     id: "s3",
@@ -221,6 +221,16 @@ export function ResearchExamplesIntro() {
         <p>
           A buy-side M&A attorney uses Claude + the Pandects MCP to benchmark an interim operating
           covenant formulation against comparable PE software deals.
+        </p>
+        <p className="research-examples__superseded">
+          <strong>This transcript predates inline snippets.</strong> It is preserved as an
+          accurate record of the session as run. Steps 6 and 7 make twelve separate{" "}
+          <code>get_section_snippet</code> calls to read clause text for sections that{" "}
+          <code>search_sections</code> had already returned. That is no longer the right
+          approach: <code>search_sections</code> now accepts <code>include_snippet: true</code>{" "}
+          and returns the excerpt inline at no extra query cost, so the same research is one
+          call rather than thirteen. The server's own tool guidance now advises against the
+          pattern shown here.
         </p>
         <dl>
           <div>

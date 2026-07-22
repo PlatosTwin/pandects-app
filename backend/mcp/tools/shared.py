@@ -9,11 +9,15 @@ from decimal import Decimal
 from html import unescape
 from typing import Any, NoReturn, cast
 
-from sqlalchemy import asc, desc, text
+from sqlalchemy import asc, desc, func, text
 from werkzeug.exceptions import BadRequest
 
 from backend.mcp.tools.constants import _STRUCTURED_FILTER_ARRAY_FIELDS
-from backend.routes.agreements import _normalize_industry_label, _to_float_or_none
+from backend.routes.agreements import (
+    _agreement_is_public_eligible_expr,
+    _normalize_industry_label,
+    _to_float_or_none,
+)
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps
 from backend.schemas.public_api import AgreementsBulkArgsPayload
 
@@ -576,18 +580,31 @@ _MONEY_RE = re.compile(
 )
 
 
-def _extract_monetary_values(text: str) -> list[str]:
+_MONETARY_VALUE_LIMIT = 20
+
+
+def _extract_monetary_values_with_truncation(text: str) -> tuple[list[str], bool]:
+    """Extract distinct monetary values, reporting whether the cap dropped any.
+
+    The cap bounds the payload, but a caller reading the list as "the amounts in this
+    clause" cannot see that it stopped early -- the same partial-result-reads-as-complete
+    failure the unresolved-id and section-truncation signals exist to prevent. The flag
+    is what makes the list safe to read as a complete set when it is one.
+    """
     seen: set[str] = set()
     out: list[str] = []
+    truncated = False
     for m in _MONEY_RE.finditer(text):
         val = m.group(0).strip()
         norm = val.lower()
-        if norm not in seen:
-            seen.add(norm)
-            out.append(val)
-        if len(out) >= 20:
+        if norm in seen:
+            continue
+        if len(out) >= _MONETARY_VALUE_LIMIT:
+            truncated = True
             break
-    return out
+        seen.add(norm)
+        out.append(val)
+    return out, truncated
 
 
 def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object, deps: ReferenceDataDeps) -> dict[str, object]:
@@ -763,22 +780,58 @@ def _counsel_payload(
 
 
 def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
-    row = deps.db.session.execute(
+    # Each figure equals what its matching tool returns, so the payload is a sound basis
+    # for coverage math rather than the inflated ingestion rollup. agreements and pages are
+    # both eligibility+xml gated, so pages/agreements is exact. sections counts the same
+    # index search_sections paginates; that index is xml-gated but not eligibility-gated,
+    # so sections/agreements is exact only while no gated-unverified agreement has a latest
+    # verified xml row (zero today, resolved upstream in the pipeline). A payload whose
+    # fields were scoped by *different* xml predicates would make pages/agreements silently
+    # wrong, which is what reading any of these from summary_data used to do.
+    #
+    # None of the three is read from summary_data. That rollup applies the
+    # public-eligibility gate but not the join to the latest verified XML row every
+    # retrieval tool inner-joins, so its agreement and page counts include records no
+    # tool here can return. Its section count is built through a *stricter* XML join than
+    # the backend's (the ETL requires status = 'verified'; the backend also accepts a NULL
+    # status), so the two agree only while no latest row has a NULL status -- true today,
+    # but a coincidence rather than a guarantee, and exactly the kind of contingent
+    # agreement that puts one field in a different universe from its siblings.
+    agreements = deps.Agreements
+    retrievable = (
+        deps.db.session.query(func.count(func.distinct(agreements.agreement_uuid)))
+        .join(deps.XML, deps._agreement_latest_xml_join_condition())
+        .filter(_agreement_is_public_eligible_expr(agreements))
+        .scalar()
+    )
+    # latest_sections_search is the table the section tools query, so counting it is the
+    # same measure search_sections paginates rather than a second opinion about it.
+    sections = deps.db.session.query(
+        func.count(deps.LatestSectionsSearch.section_uuid)
+    ).scalar()
+    # There is no Pages model to hang the shared expressions off, so the predicate is
+    # restated. COUNT(DISTINCT page_uuid), not COUNT(*): nothing in the schema forbids two
+    # latest+verified xml rows for one agreement, and the join would then count that
+    # agreement's pages twice while the DISTINCT agreement count above stayed correct.
+    prefix = deps._schema_prefix()
+    pages = deps.db.session.execute(
         text(
             f"""
-            SELECT
-              COALESCE(SUM(count_agreements), 0) AS agreements,
-              COALESCE(SUM(count_sections), 0) AS sections,
-              COALESCE(SUM(count_pages), 0) AS pages
-            FROM {deps._schema_prefix()}summary_data
+            SELECT COUNT(DISTINCT pg.page_uuid) AS pages
+            FROM {prefix}pages pg
+            JOIN {prefix}agreements a ON a.agreement_uuid = pg.agreement_uuid
+            JOIN {prefix}xml x
+              ON x.agreement_uuid = a.agreement_uuid
+             AND x.latest = 1
+             AND (x.status IS NULL OR x.status = 'verified')
+            WHERE (COALESCE(a.gated, 0) <> 1 OR COALESCE(a.verified, 0) = 1)
             """
         )
-    ).mappings().first()
-    row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
+    ).scalar()
     return {
-        "agreements": deps._to_int(cast(object, row_dict.get("agreements"))),
-        "sections": deps._to_int(cast(object, row_dict.get("sections"))),
-        "pages": deps._to_int(cast(object, row_dict.get("pages"))),
+        "agreements": deps._to_int(cast(object, retrievable)),
+        "sections": deps._to_int(cast(object, sections)),
+        "pages": deps._to_int(cast(object, pages)),
     }
 
 
