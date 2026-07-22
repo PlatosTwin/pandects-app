@@ -516,6 +516,42 @@ class McpTests(unittest.TestCase):
                         "INSERT INTO summary_data (count_agreements, count_sections, count_pages) VALUES (1, 2, 5)"
                     )
                 )
+                # a3 is deliberately unreachable: it is public-eligible but has no
+                # latest/verified XML row, so it is exactly the shape summary_data counts
+                # and every retrieval tool excludes. Without it the corpus-summary tests
+                # pass even if the XML join is deleted from _agreements_summary_payload.
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements ("
+                        "agreement_uuid, filing_date, target, acquirer, verified, url, "
+                        "transaction_consideration, target_type, acquirer_type, target_industry, acquirer_industry, "
+                        "deal_status, attitude, deal_type, purpose, target_pe, acquirer_pe"
+                        ") VALUES ("
+                        "'a3', '2019-03-03', 'Unreachable Co', 'Nobody Inc', 1, 'http://example.com/a3', "
+                        "'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', 'merger', 'strategic', 0, 0"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a3', '<document><article></article></document>', 1, 'verified', 0)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS pages ("
+                        "page_uuid TEXT PRIMARY KEY, agreement_uuid TEXT NOT NULL)"
+                    )
+                )
+                # 4 pages on retrievable agreements, 3 on the unreachable a3.
+                conn.execute(
+                    text(
+                        "INSERT INTO pages (page_uuid, agreement_uuid) VALUES "
+                        "('p1', 'a1'), ('p2', 'a1'), ('p3', 'a1'), ('p4', 'a2'), "
+                        "('p5', 'a3'), ('p6', 'a3'), ('p7', 'a3')"
+                    )
+                )
                 conn.execute(
                     text(
                         "CREATE TABLE IF NOT EXISTS agreement_ownership_mix_summary ("
@@ -2337,8 +2373,9 @@ class McpTests(unittest.TestCase):
         self.assertEqual(summary_res.status_code, 200)
         summary_payload = summary_res.get_json()["result"]["structuredContent"]
         # summary_data seeds count_agreements=1, but a1 and a2 both have a latest verified
-        # XML row and are public-eligible, so the retrieval tools serve two. This tool is
-        # the denominator for coverage questions, so it reports the reachable universe.
+        # XML row and are public-eligible, so the retrieval tools serve two. a3 is
+        # public-eligible with no latest XML row and must be excluded. This tool is the
+        # denominator for coverage questions, so it reports the reachable universe.
         self.assertEqual(summary_payload["agreements"], 2)
         self.assertEqual(summary_payload["sections"], 2)
 
@@ -2348,13 +2385,17 @@ class McpTests(unittest.TestCase):
         self.assertEqual(trends_payload["ownership"]["mix_by_year"][0]["public_deal_count"], 1)
         self.assertEqual(trends_payload["industries"]["target_industries_by_year"][0]["industry"], "Crop Production")
 
-    def test_agreements_summary_agrees_with_search_agreements_total(self):
-        """The corpus denominator must match what the retrieval tools can actually return.
+    def test_agreements_summary_counts_only_the_retrievable_universe(self):
+        """Every figure must describe the agreements the retrieval tools can return.
 
-        summary_data counts agreements with no latest verified XML; every retrieval tool
-        inner-joins that row. Against the live corpus the rollup said 10,784 while
-        search_agreements could reach 9,902, so any "X% of the corpus" figure built on it
-        was overstated by the 882 agreements no tool can return.
+        summary_data applies the public-eligibility gate but not the join to the latest
+        verified XML row that every retrieval tool inner-joins, so its agreement and page
+        counts include agreements no tool here can return. Against the live corpus that is
+        10,784 counted against 9,902 reachable, and any "X% of the corpus" ratio built on
+        the inflated denominator came out understated.
+
+        a3 is that shape in miniature. If the XML join is removed from either count in
+        _agreements_summary_payload, a3 leaks in and these assertions fail.
         """
         summary_payload = self._call_tool("get_agreements_summary", {}).get_json()[
             "result"
@@ -2363,9 +2404,72 @@ class McpTests(unittest.TestCase):
             "result"
         ]["structuredContent"]
         self.assertEqual(summary_payload["agreements"], search_payload["total_count"])
-        # summary_data.count_agreements is seeded at 1, so this also pins that the payload
-        # no longer echoes the rollup.
+        # a1 and a2 only; summary_data.count_agreements is seeded at 1, so this also pins
+        # that the payload no longer echoes the rollup.
         self.assertEqual(summary_payload["agreements"], 2)
+        # a1 and a2 hold 4 pages; a3's 3 pages must not be counted. summary_data seeds
+        # count_pages=5, so this pins that pages is no longer read from the rollup either
+        # -- the field that still measured the wrong universe after the first fix.
+        self.assertEqual(summary_payload["pages"], 4)
+
+    def test_monetary_values_report_truncation(self):
+        """A capped list that looks complete is the same defect as a silent drop."""
+        from backend.mcp.tools.shared import _extract_monetary_values_with_truncation
+
+        short_values, short_truncated = _extract_monetary_values_with_truncation(
+            "a fee of $1,000,000 and another of $2,000,000"
+        )
+        self.assertEqual(short_values, ["$1,000,000", "$2,000,000"])
+        self.assertFalse(short_truncated)
+
+        long_text = " ".join(f"${n},000,000" for n in range(1, 31))
+        long_values, long_truncated = _extract_monetary_values_with_truncation(long_text)
+        self.assertEqual(len(long_values), 20)
+        self.assertTrue(long_truncated)
+
+        # Exactly at the cap is not truncation: the 20th value fits and nothing follows.
+        exact_text = " ".join(f"${n},000,000" for n in range(1, 21))
+        exact_values, exact_truncated = _extract_monetary_values_with_truncation(exact_text)
+        self.assertEqual(len(exact_values), 20)
+        self.assertFalse(exact_truncated)
+
+    def test_get_section_snippets_batch_reports_unresolved_section_uuids(self):
+        """The third batch tool must honor the same contract as its two siblings."""
+        res = self._call_tool(
+            "get_section_snippets_batch",
+            {
+                "section_uuids": [
+                    "00000000-0000-0000-0000-000000000001",
+                    "00000000-0000-0000-0000-0000000000ff",
+                ]
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["returned_count"], 1)
+        self.assertEqual(
+            payload["unresolved_section_uuids"],
+            ["00000000-0000-0000-0000-0000000000ff"],
+        )
+
+    def test_batch_tools_deduplicate_repeated_uuids(self):
+        """A repeated uuid used to emit the same record twice and double the totals."""
+        sections = self._call_tool(
+            "list_agreement_sections_batch", {"agreement_uuids": ["a1", "a1"]}
+        ).get_json()["result"]["structuredContent"]
+        self.assertEqual(sections["returned_agreement_count"], 1)
+        self.assertEqual(sections["total_section_count"], 3)
+
+        batch = self._call_tool(
+            "get_sections_batch",
+            {
+                "section_uuids": [
+                    "00000000-0000-0000-0000-000000000001",
+                    "00000000-0000-0000-0000-000000000001",
+                ]
+            },
+        ).get_json()["result"]["structuredContent"]
+        self.assertEqual(batch["returned_count"], 1)
 
     def test_list_filter_options_rejects_unknown_fields(self):
         res = self._call_tool("list_filter_options", {"fields": ["nope"]})

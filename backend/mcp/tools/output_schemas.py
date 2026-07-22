@@ -110,6 +110,7 @@ def _section_result_schema() -> dict[str, object]:
             "matched_terms": _array_of({"type": "string"}),
             "source_length": {"type": "integer"},
             "monetary_values": _array_of({"type": "string"}),
+            "monetary_values_truncated": {"type": "boolean"},
         },
         required=["section_uuid", "standard_id", "verified"],
     )
@@ -231,6 +232,10 @@ def _search_sections_output_schema() -> dict[str, object]:
         {
             "results": _array_of(_section_result_schema()),
             "page_unique_agreement_count": {"type": "integer"},
+            # Emitted on every response that returned taxonomy-tagged sections, but
+            # previously undeclared, so a schema-driven client could not see that the
+            # labels are already here and re-fetched get_clause_taxonomy to get them.
+            "standard_id_labels": {"type": "object", "additionalProperties": {"type": "string"}},
             "access": _access_schema(),
             "count_metadata": _count_metadata_schema(),
             "interpretation": _interpretation_schema(),
@@ -332,6 +337,7 @@ def _batch_section_snippet_output_schema() -> dict[str, object]:
             "matched_terms": _array_of({"type": "string"}),
             "source_length": {"type": "integer"},
             "monetary_values": _array_of({"type": "string"}),
+            "monetary_values_truncated": {"type": "boolean"},
         },
         required=["agreement_uuid", "section_uuid", "standard_id", "article_title", "section_title", "snippet", "matched_terms", "source_length", "monetary_values"],
         additional_properties=False,
@@ -340,6 +346,10 @@ def _batch_section_snippet_output_schema() -> dict[str, object]:
         {
             "results": _array_of(item_schema),
             "returned_count": {"type": "integer"},
+            "unresolved_section_uuids": _array_of({"type": "string"}),
+            "interpretation": _dropped_filter_interpretation_schema(
+                id_field="unresolved_section_uuids"
+            ),
         },
         required=["results", "returned_count"],
         additional_properties=False,
@@ -362,6 +372,7 @@ def _batch_sections_output_schema() -> dict[str, object]:
             "filing_date": {"type": ["string", "null"]},
             "transaction_price_total": {"type": ["number", "null"]},
             "monetary_values": _array_of({"type": "string"}),
+            "monetary_values_truncated": {"type": "boolean"},
         },
         required=["section_uuid", "standard_id", "xml_truncated", "monetary_values"],
         additional_properties=False,
@@ -506,6 +517,7 @@ def _section_snippet_output_schema() -> dict[str, object]:
             "matched_terms": _array_of({"type": "string"}),
             "source_length": {"type": "integer"},
             "monetary_values": _array_of({"type": "string"}),
+            "monetary_values_truncated": {"type": "boolean"},
         },
         required=[
             "agreement_uuid",

@@ -1226,6 +1226,9 @@
                 },
                 "type": "array"
               },
+              "monetary_values_truncated": {
+                "type": "boolean"
+              },
               "section_title": {
                 "type": [
                   "string",
@@ -1283,6 +1286,12 @@
             "type": "object"
           },
           "type": "array"
+        },
+        "standard_id_labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
         },
         "total_count": {
           "type": "integer"
@@ -3987,6 +3996,9 @@
           },
           "type": "array"
         },
+        "monetary_values_truncated": {
+          "type": "boolean"
+        },
         "section_title": {
           "type": [
             "string",
@@ -4066,6 +4078,28 @@
     "outputSchema": {
       "additionalProperties": false,
       "properties": {
+        "interpretation": {
+          "additionalProperties": false,
+          "properties": {
+            "notes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "unresolved_section_uuids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "unresolved_section_uuids",
+            "notes"
+          ],
+          "type": "object"
+        },
         "results": {
           "items": {
             "additionalProperties": false,
@@ -4093,6 +4127,9 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "monetary_values_truncated": {
+                "type": "boolean"
               },
               "section_title": {
                 "type": [
@@ -4133,6 +4170,12 @@
         },
         "returned_count": {
           "type": "integer"
+        },
+        "unresolved_section_uuids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -4238,6 +4281,9 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "monetary_values_truncated": {
+                "type": "boolean"
               },
               "section_title": {
                 "type": [
@@ -5062,14 +5108,14 @@
   },
   {
     "name": "get_naics_catalog",
-    "description": "Return the NAICS industry hierarchy (sectors and subsectors) used to normalize target_industry and acquirer_industry filters. Use when translating an industry description into the canonical label the filters accept.",
+    "description": "Return the NAICS industry hierarchy (sectors and subsectors) behind the target_industry and acquirer_industry filters. Those filters match on NAICS **codes** (e.g. \"511\"), not on descriptions, so use this to translate an industry description into the code to pass. Passing a label like \"Technology\" matches nothing and is not reported as an unrecognized value. list_filter_options returns the codes actually present in the corpus alongside an industry_labels map, and is the better starting point; a handful of in-use codes have no entry in this hierarchy and so cannot be resolved to a label here.",
     "annotations": {
       "negativeGuidance": [],
       "pagination": "none",
       "requiredScopes": [
         "sections:search"
       ],
-      "selectionHint": "Use when you need canonical industry labels before industry-filtered retrieval."
+      "selectionHint": "Use to map an industry description to the NAICS code the industry filters expect; prefer list_filter_options, which returns the in-use codes and their labels directly."
     },
     "inputSchema": {
       "additionalProperties": false,

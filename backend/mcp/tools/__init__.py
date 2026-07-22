@@ -354,7 +354,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Batch-fetch with taxonomy filter.", "arguments": {"agreement_uuids": ["a1", "a2"], "standard_id": ["1a7aeab47932d0d4"]}},
             ),
             response_examples=(
-                {"description": "Batch section listing.", "content": {"returned_agreement_count": 2, "total_section_count": 80, "results": [{"agreement_uuid": "a1", "section_count": 48, "sections": []}]}},
+                {"description": "Batch section listing.", "content": {"returned_agreement_count": 2, "total_section_count": 80, "results": [{"agreement_uuid": "a1", "total_agreement_sections": 48, "section_count": 48, "matched_section_count": 48, "sections_truncated": False, "sections": []}]}},
             ),
             scopes=("sections:search",),
             selection_hint="Use when you already have multiple agreement UUIDs and need all their section structures at once.",
@@ -747,18 +747,18 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_naics_catalog",
-            description="Return the NAICS industry hierarchy (sectors and subsectors) used to normalize target_industry and acquirer_industry filters. Use when translating an industry description into the canonical label the filters accept.",
+            description="Return the NAICS industry hierarchy (sectors and subsectors) behind the target_industry and acquirer_industry filters. Those filters match on NAICS **codes** (e.g. \"511\"), not on descriptions, so use this to translate an industry description into the code to pass. Passing a label like \"Technology\" matches nothing and is not reported as an unrecognized value. list_filter_options returns the codes actually present in the corpus alongside an industry_labels map, and is the better starting point; a handful of in-use codes have no entry in this hierarchy and so cannot be resolved to a label here.",
             input_schema=_empty_schema(),
             output_schema=_naics_catalog_output_schema(),
             examples=(
                 {"description": "List NAICS sectors and subsectors.", "arguments": {}},
-                {"description": "Find canonical industry labels before target_industry filtering.", "arguments": {}},
+                {"description": "Resolve an industry description to the NAICS code target_industry expects.", "arguments": {}},
             ),
             response_examples=(
                 {"description": "NAICS sector catalog.", "content": {"sectors": [{"sector_code": "11", "sub_sectors": [{"sub_sector_code": "111"}]}]}},
             ),
             scopes=("sections:search",),
-            selection_hint="Use when you need canonical industry labels before industry-filtered retrieval.",
+            selection_hint="Use to map an industry description to the NAICS code the industry filters expect; prefer list_filter_options, which returns the in-use codes and their labels directly.",
             negative_guidance=(),
             pagination="none",
             access_behavior="strict_scope_required",

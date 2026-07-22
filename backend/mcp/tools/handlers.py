@@ -46,7 +46,7 @@ from backend.mcp.tools.shared import (
     _count_metadata_payload,
     _counsel_payload,
     _decorate_industry_labels,
-    _extract_monetary_values,
+    _extract_monetary_values_with_truncation,
     _extract_text_from_xml,
     _focused_snippet,
     _json_compatible_value,
@@ -982,6 +982,7 @@ def _get_section_snippet(
 
     row_map = deps._row_mapping_as_dict(cast(object, row))
     xml_text = _extract_text_from_xml(row_map.get("xml_content"))
+    monetary_values, monetary_values_truncated = _extract_monetary_values_with_truncation(xml_text)
     focus_terms = [term for term in cast(list[str], parsed_args["focus_terms"]) if term.strip()]
     snippet, matched_terms = _focused_snippet(
         xml_text,
@@ -997,7 +998,8 @@ def _get_section_snippet(
         "snippet": snippet,
         "matched_terms": matched_terms,
         "source_length": len(xml_text),
-        "monetary_values": _extract_monetary_values(xml_text),
+        "monetary_values": monetary_values,
+        "monetary_values_truncated": monetary_values_truncated,
     }
     return McpToolResult(
         text=f"Returned a focused snippet for section {section_uuid}.",
@@ -1027,7 +1029,9 @@ def _get_section_snippets_batch(
         ),
         payload,
     )
-    section_uuids = [s.strip() for s in cast(list[str], parsed_args["section_uuids"]) if s.strip()]
+    # dict.fromkeys dedupes while preserving request order: a repeated uuid otherwise
+    # emitted the same section twice and double-counted returned_count.
+    section_uuids = list(dict.fromkeys(s.strip() for s in cast(list[str], parsed_args["section_uuids"]) if s.strip()))
     if not section_uuids:
         _abort_invalid_argument("No valid section_uuids provided.")
     for suuid in section_uuids:
@@ -1057,11 +1061,14 @@ def _get_section_snippets_batch(
             row_by_uuid[suuid] = row_map
 
     results: list[dict[str, object]] = []
+    unresolved_section_uuids: list[str] = []
     for suuid in section_uuids:
         row_map = row_by_uuid.get(suuid)
         if row_map is None:
+            unresolved_section_uuids.append(suuid)
             continue
         xml_text = _extract_text_from_xml(row_map.get("xml_content"))
+        monetary_values, monetary_values_truncated = _extract_monetary_values_with_truncation(xml_text)
         snippet, matched_terms = _focused_snippet(xml_text, focus_terms=focus_terms, max_chars=max_chars)
         results.append(
             {
@@ -1073,7 +1080,8 @@ def _get_section_snippets_batch(
                 "snippet": snippet,
                 "matched_terms": matched_terms,
                 "source_length": len(xml_text),
-                "monetary_values": _extract_monetary_values(xml_text),
+                "monetary_values": monetary_values,
+                "monetary_values_truncated": monetary_values_truncated,
             }
         )
 
@@ -1081,6 +1089,17 @@ def _get_section_snippets_batch(
         "results": results,
         "returned_count": len(results),
     }
+    if unresolved_section_uuids:
+        response["unresolved_section_uuids"] = unresolved_section_uuids
+        response["interpretation"] = {
+            "notes": [
+                "No section was found for section_uuid(s): "
+                + ", ".join(unresolved_section_uuids)
+                + ". These are absent from the response entirely; they are not sections "
+                "with empty content."
+            ],
+            "unresolved_section_uuids": unresolved_section_uuids,
+        }
     return McpToolResult(
         text=f"Returned snippets for {len(results)} section(s).",
         structured_content=response,
@@ -1108,7 +1127,9 @@ def _get_sections_batch(
         ),
         payload,
     )
-    section_uuids = [s.strip() for s in cast(list[str], parsed_args["section_uuids"]) if s.strip()]
+    # dict.fromkeys dedupes while preserving request order: a repeated uuid otherwise
+    # emitted the same section twice and double-counted returned_count.
+    section_uuids = list(dict.fromkeys(s.strip() for s in cast(list[str], parsed_args["section_uuids"]) if s.strip()))
     if not section_uuids:
         _abort_invalid_argument("No valid section_uuids provided.")
     for suuid in section_uuids:
@@ -1160,6 +1181,7 @@ def _get_sections_batch(
             continue
         xml_content = row_map.get("xml_content")
         xml_text = _extract_text_from_xml(xml_content)
+        monetary_values, monetary_values_truncated = _extract_monetary_values_with_truncation(xml_text)
         xml_truncated = False
         if max_xml_chars is not None and isinstance(xml_content, str) and len(xml_content) > max_xml_chars:
             xml_content = xml_content[:max_xml_chars]
@@ -1178,7 +1200,8 @@ def _get_sections_batch(
                 "year": _json_compatible_value(row_map.get("year")),
                 "filing_date": _json_compatible_value(row_map.get("filing_date")),
                 "transaction_price_total": _json_compatible_value(row_map.get("transaction_price_total")),
-                "monetary_values": _extract_monetary_values(xml_text),
+                "monetary_values": monetary_values,
+                "monetary_values_truncated": monetary_values_truncated,
             }
         )
 
@@ -1322,7 +1345,9 @@ def _list_agreement_sections_batch(
 ) -> McpToolResult:
     _require_scope(principal, "sections:search")
     parsed_args = _validate_payload(McpBatchAgreementSectionsArgsSchema(), payload)
-    agreement_uuids = [u.strip() for u in cast(list[str], parsed_args["agreement_uuids"]) if u.strip()]
+    # Deduped for the same reason: a repeated uuid produced two identical result
+    # entries and doubled total_section_count.
+    agreement_uuids = list(dict.fromkeys(u.strip() for u in cast(list[str], parsed_args["agreement_uuids"]) if u.strip()))
     if not agreement_uuids:
         _abort_invalid_argument("No valid agreement_uuids provided.")
 
@@ -1495,7 +1520,9 @@ def _search_sections(
             item["snippet"] = snippet
             item["matched_terms"] = matched_terms
             item["source_length"] = len(xml_text)
-            item["monetary_values"] = _extract_monetary_values(xml_text)
+            monetary_values, monetary_values_truncated = _extract_monetary_values_with_truncation(xml_text)
+            item["monetary_values"] = monetary_values
+            item["monetary_values_truncated"] = monetary_values_truncated
 
     if not include_xml:
         for item in results:

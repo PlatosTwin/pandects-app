@@ -164,17 +164,18 @@ curl -X POST https://api.pandects.org/mcp \
 
 ## Current Tool Surface
 
-The current MCP tools are:
+23 tools ship today. This file deliberately does not list them: a hand-maintained
+inventory here fell 20 tools behind the server before anyone noticed. The
+authoritative list is whatever `tools/list` returns, and the maintained prose
+description lives in `docs/docs/mcp/technical-details.md`. `get_server_capabilities`
+returns the same inventory with per-tool selection hints and negative guidance.
 
-- `search_sections`
-- `list_agreements`
-- `get_agreement`
+Every tool declares its own required scopes in `backend/mcp/tools/__init__.py`; the
+four scopes are:
 
-Scope requirements:
-
-- `sections:search` for `search_sections`
-- `agreements:search` for `list_agreements`
-- `agreements:read` for `get_agreement`
-- `agreements:read_fulltext` to receive unredacted XML from agreement-fetch tools
+- `agreements:search` — agreement discovery and listing
+- `agreements:read` — fetching a single agreement's metadata
+- `sections:search` — all section, snippet, taxonomy, and reference-data tools
+- `agreements:read_fulltext` — receive unredacted XML from agreement-fetch tools
 
 Without `agreements:read_fulltext`, agreement XML stays redacted.

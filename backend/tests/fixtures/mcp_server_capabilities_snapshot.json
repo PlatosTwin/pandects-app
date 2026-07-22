@@ -1819,6 +1819,9 @@
                   },
                   "type": "array"
                 },
+                "monetary_values_truncated": {
+                  "type": "boolean"
+                },
                 "section_title": {
                   "type": [
                     "string",
@@ -1876,6 +1879,12 @@
               "type": "object"
             },
             "type": "array"
+          },
+          "standard_id_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
           },
           "total_count": {
             "type": "integer"
@@ -3274,8 +3283,11 @@
             "results": [
               {
                 "agreement_uuid": "a1",
+                "matched_section_count": 48,
                 "section_count": 48,
-                "sections": []
+                "sections": [],
+                "sections_truncated": false,
+                "total_agreement_sections": 48
               }
             ],
             "returned_agreement_count": 2,
@@ -4872,6 +4884,9 @@
             },
             "type": "array"
           },
+          "monetary_values_truncated": {
+            "type": "boolean"
+          },
           "section_title": {
             "type": [
               "string",
@@ -4974,6 +4989,28 @@
       "output_schema": {
         "additionalProperties": false,
         "properties": {
+          "interpretation": {
+            "additionalProperties": false,
+            "properties": {
+              "notes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "unresolved_section_uuids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "unresolved_section_uuids",
+              "notes"
+            ],
+            "type": "object"
+          },
           "results": {
             "items": {
               "additionalProperties": false,
@@ -5001,6 +5038,9 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "monetary_values_truncated": {
+                  "type": "boolean"
                 },
                 "section_title": {
                   "type": [
@@ -5041,6 +5081,12 @@
           },
           "returned_count": {
             "type": "integer"
+          },
+          "unresolved_section_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -5174,6 +5220,9 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "monetary_values_truncated": {
+                  "type": "boolean"
                 },
                 "section_title": {
                   "type": [
@@ -6110,7 +6159,7 @@
         "sections:search"
       ],
       "pagination": "none",
-      "selection_hint": "Use when you need canonical industry labels before industry-filtered retrieval.",
+      "selection_hint": "Use to map an industry description to the NAICS code the industry filters expect; prefer list_filter_options, which returns the in-use codes and their labels directly.",
       "negative_guidance": [],
       "response_examples": [
         {
