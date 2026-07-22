@@ -17,12 +17,13 @@ from uuid import uuid4
 
 from flask import Response, g, jsonify, make_response, request, stream_with_context
 from marshmallow import ValidationError
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import BadRequest, HTTPException
 
 from backend.auth.mcp_runtime import mcp_protocol_version
 from backend.mcp.metrics import get_mcp_metrics_registry
 from backend.mcp.routes.deps import McpDeps
 from backend.mcp.tools import McpOutputValidationError, call_tool
+from backend.mcp.tools.shared import AgentVisibleBadRequest
 from backend.services.usage import record_mcp_tool_usage
 
 
@@ -75,6 +76,26 @@ def _summarize_validation_error(messages: object, *, max_len: int = 320) -> str:
     return f"{summary}." if not summary.endswith(".") else summary
 
 
+def _bad_request_message(exc: HTTPException, *, max_len: int = 320) -> str:
+    """Surface a handler's own 400 reason instead of the bare generic message.
+
+    Tool handlers reject bad arguments with specific descriptions ("Invalid
+    section_uuid: <x>"), which previously got dropped in favour of a fixed string,
+    leaving an agent no way to tell which argument was wrong. Only descriptions
+    explicitly marked agent-visible are echoed: a plain BadRequest raised anywhere else
+    in the stack may carry internal detail and must stay opaque.
+    """
+    if not isinstance(exc, AgentVisibleBadRequest):
+        return BAD_TOOL_REQUEST_MESSAGE
+    description = exc.description
+    detail = description.strip() if isinstance(description, str) else ""
+    if not detail or detail == BadRequest.description:
+        return BAD_TOOL_REQUEST_MESSAGE
+    if len(detail) > max_len:
+        detail = detail[: max_len - 1].rstrip() + "…"
+    return f"{BAD_TOOL_REQUEST_MESSAGE} {detail}"
+
+
 def _tool_http_exception_response(
     exc: HTTPException,
 ) -> tuple[int, str, dict[str, object] | None]:
@@ -85,7 +106,7 @@ def _tool_http_exception_response(
     both the JSON and SSE dispatch paths to keep their error contracts identical.
     """
     if exc.code == 400:
-        return -32602, BAD_TOOL_REQUEST_MESSAGE, None
+        return -32602, _bad_request_message(exc), None
     if exc.code == 404:
         return NOT_FOUND_ERROR_CODE, NOT_FOUND_MESSAGE, {"category": "not_found", "status_code": 404}
     return -32004, "Tool request failed.", None

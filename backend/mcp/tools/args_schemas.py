@@ -11,6 +11,49 @@ from backend.mcp.tools.constants import (
     _TRENDS_SECTIONS_DEFAULT,
 )
 from backend.schemas.public_api import AgreementArgsSchema
+from backend.schemas.sections import SectionsArgsSchema
+
+
+class McpSectionsArgsSchema(SectionsArgsSchema):
+    """search_sections arguments plus MCP-only inline-snippet controls.
+
+    The snippet options are deliberately not on the shared web schema: they exist to
+    collapse the search -> get_section_snippets_batch round-trip that every clause
+    comparison would otherwise pay, and the section text is already loaded by the
+    service, so returning an excerpt costs no additional query.
+    """
+
+    include_snippet = ma_fields.Bool(
+        load_default=False,
+        metadata={
+            "description": (
+                "When true, include a short plain-text excerpt of each section as "
+                "`snippet`, plus `matched_terms`, `monetary_values`, and `source_length`. "
+                "Lets one search answer 'what does this clause say' without a follow-up "
+                "get_section_snippets_batch call. Far smaller than include_xml."
+            ),
+        },
+    )
+    snippet_focus_terms = ma_fields.List(
+        ma_fields.Str(),
+        load_default=list,
+        metadata={
+            "description": (
+                "Terms used to centre each snippet, as in get_section_snippet. Only "
+                "applies when include_snippet is true."
+            ),
+        },
+    )
+    snippet_max_chars = ma_fields.Int(
+        load_default=400,
+        validate=validate.Range(min=120, max=1200),
+        metadata={
+            "description": (
+                "Maximum characters per snippet (120-1200). Only applies when "
+                "include_snippet is true. Defaults to 400 to keep result pages compact."
+            ),
+        },
+    )
 
 
 class McpAgreementArgsSchema(AgreementArgsSchema):

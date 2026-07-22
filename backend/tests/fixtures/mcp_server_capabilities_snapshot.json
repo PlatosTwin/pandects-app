@@ -403,17 +403,27 @@
     {
       "do_not_use_for": "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
+      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call."
     },
     {
       "do_not_use_for": "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
+      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call."
     },
     {
       "do_not_use_for": "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it.",
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
+      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call."
+    },
+    {
+      "do_not_use_for": "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
+      "tool": "search_sections",
+      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call."
+    },
+    {
+      "do_not_use_for": "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page only, unlike total_count.",
+      "tool": "search_sections",
+      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call."
     },
     {
       "do_not_use_for": "Do not pass clause-family standard_id (16-hex) here; this tool filters on the tax taxonomy (dotted tax.* ids) via tax_standard_id.",
@@ -481,7 +491,7 @@
       "use_when": "Use after search_sections when you need a quick excerpt for comparison or quoting."
     },
     {
-      "do_not_use_for": "Do not call this tool N times in a loop for N sections \u2014 that defeats the purpose; pass all section_uuids at once.",
+      "do_not_use_for": "Do not call this tool N times in a loop for N sections — that defeats the purpose; pass all section_uuids at once.",
       "tool": "get_section_snippets_batch",
       "use_when": "Use when comparing clause language across many sections; replaces N calls to get_section_snippet."
     },
@@ -491,7 +501,7 @@
       "use_when": "Use when comparing clause language across many sections; replaces N calls to get_section_snippet."
     },
     {
-      "do_not_use_for": "Do not use for snippets or excerpts \u2014 use get_section_snippets_batch instead.",
+      "do_not_use_for": "Do not use for snippets or excerpts — use get_section_snippets_batch instead.",
       "tool": "get_sections_batch",
       "use_when": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section."
     },
@@ -1125,11 +1135,13 @@
         "sections:search"
       ],
       "pagination": "page",
-      "selection_hint": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling.",
+      "selection_hint": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call.",
       "negative_guidance": [
         "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
         "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
-        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it."
+        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it.",
+        "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
+        "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page only, unlike total_count."
       ],
       "response_examples": [
         {
@@ -1270,6 +1282,10 @@
             "description": "When false, omit `dump_version` from the response body. The `X-Pandects-Dump-Hash` response header is always included.",
             "type": "boolean"
           },
+          "include_snippet": {
+            "description": "When true, include a short plain-text excerpt of each section as `snippet`, plus `matched_terms`, `monetary_values`, and `source_length`. Lets one search answer 'what does this clause say' without a follow-up get_section_snippets_batch call. Far smaller than include_xml.",
+            "type": "boolean"
+          },
           "include_xml": {
             "description": "When true, include full section XML in each result. Omitted by default to keep responses compact.",
             "type": "boolean"
@@ -1341,6 +1357,19 @@
               "null"
             ]
           },
+          "snippet_focus_terms": {
+            "description": "Terms used to centre each snippet, as in get_section_snippet. Only applies when include_snippet is true.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "snippet_max_chars": {
+            "description": "Maximum characters per snippet (120-1200). Only applies when include_snippet is true. Defaults to 400 to keep result pages compact.",
+            "maximum": 1200,
+            "minimum": 120,
+            "type": "integer"
+          },
           "sort_by": {
             "description": "Sort key. One of: `year`, `target`, `acquirer`.",
             "enum": [
@@ -1359,7 +1388,7 @@
             "type": "string"
           },
           "standard_id": {
-            "description": "Clause type taxonomy standard IDs (Clause Type in the Search UI). These are opaque 16-character hex node IDs obtained from get_clause_taxonomy or suggest_clause_families \u2014 not dotted numbers. Parent IDs expand to include descendant taxonomy nodes. Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
+            "description": "Clause type taxonomy standard IDs (Clause Type in the Search UI). These are opaque 16-character hex node IDs obtained from get_clause_taxonomy or suggest_clause_families — not dotted numbers. Parent IDs expand to include descendant taxonomy nodes. Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
             "example": [
               "4207f2e8f6698935",
               "fe2f63338a1eaf30"
@@ -1712,6 +1741,9 @@
           "page_size": {
             "type": "integer"
           },
+          "page_unique_agreement_count": {
+            "type": "integer"
+          },
           "prev_num": {
             "type": [
               "integer",
@@ -1746,12 +1778,21 @@
                     "null"
                   ]
                 },
-                "id": {
-                  "type": "string"
+                "matched_terms": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 },
                 "metadata": {
                   "additionalProperties": true,
                   "type": "object"
+                },
+                "monetary_values": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 },
                 "section_title": {
                   "type": [
@@ -1761,6 +1802,12 @@
                 },
                 "section_uuid": {
                   "type": "string"
+                },
+                "snippet": {
+                  "type": "string"
+                },
+                "source_length": {
+                  "type": "integer"
                 },
                 "standard_id": {
                   "items": {
@@ -1797,7 +1844,6 @@
                 }
               },
               "required": [
-                "id",
                 "section_uuid",
                 "standard_id",
                 "verified"
@@ -1813,9 +1859,6 @@
             "type": "boolean"
           },
           "total_pages": {
-            "type": "integer"
-          },
-          "unique_agreement_count": {
             "type": "integer"
           }
         },
@@ -4716,7 +4759,7 @@
       "pagination": "none",
       "selection_hint": "Use when comparing clause language across many sections; replaces N calls to get_section_snippet.",
       "negative_guidance": [
-        "Do not call this tool N times in a loop for N sections \u2014 that defeats the purpose; pass all section_uuids at once.",
+        "Do not call this tool N times in a loop for N sections — that defeats the purpose; pass all section_uuids at once.",
         "Do not treat snippets as complete section text; use get_section for the full XML when exact context matters."
       ],
       "response_examples": [
@@ -4858,7 +4901,7 @@
       "pagination": "none",
       "selection_hint": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section.",
       "negative_guidance": [
-        "Do not use for snippets or excerpts \u2014 use get_section_snippets_batch instead.",
+        "Do not use for snippets or excerpts — use get_section_snippets_batch instead.",
         "Limited to 10 sections per call; split into multiple calls for larger sets."
       ],
       "response_examples": [
@@ -5613,6 +5656,9 @@
               "additionalProperties": false,
               "properties": {
                 "name": {
+                  "type": "string"
+                },
+                "note": {
                   "type": "string"
                 },
                 "steps": {
@@ -6436,10 +6482,10 @@
     },
     {
       "name": "map a plain-English concept to clause samples",
+      "note": "Pass include_snippet=true to search_sections to read the clause language straight from the result page; a separate get_section_snippets_batch call is only needed for sections found some other way, and get_section for full authoritative text.",
       "steps": [
         "suggest_clause_families",
-        "search_sections",
-        "get_section_snippet"
+        "search_sections"
       ]
     },
     {

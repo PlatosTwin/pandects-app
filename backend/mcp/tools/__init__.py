@@ -17,6 +17,7 @@ from backend.mcp.tools.args_schemas import (
     McpListAgreementSectionsArgsSchema,
     McpSearchAgreementsExtraArgsSchema,
     McpSectionArgsSchema,
+    McpSectionsArgsSchema,
     McpSectionTaxClausesArgsSchema,
 )
 from backend.mcp.tools.constants import (
@@ -95,7 +96,7 @@ from backend.schemas.public_api import (
     AgreementsBulkArgsSchema,
     AgreementsIndexArgsSchema,
 )
-from backend.schemas.sections import SECTIONS_RESULT_METADATA_FIELDS, SectionsArgsSchema
+from backend.schemas.sections import SECTIONS_RESULT_METADATA_FIELDS
 from backend.schemas.tax_clauses import TaxClausesArgsSchema
 
 
@@ -241,22 +242,25 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         McpToolSpec(
             name="search_sections",
             description="Search individual sections (clause-level text) across the corpus by clause-family taxonomy node (standard_id) and the same structured M&A filters as search_agreements. There is no free-text/keyword parameter: to go from a plain-English concept to the right standard_id, call suggest_clause_families (or browse get_clause_taxonomy) first, then pass the resulting standard_id here. Returns clause language and the agreement context, not extracted document-level facts.",
-            input_schema=_schema_input_schema(SectionsArgsSchema(), field_overrides=sections_search_overrides),
+            input_schema=_schema_input_schema(McpSectionsArgsSchema(), field_overrides=sections_search_overrides),
             output_schema=_search_sections_output_schema(),
             examples=(
                 {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["5e59453aaa9255c4"], "page_size": 10}},
                 {"description": "Map a concept to taxonomy first, then search by the returned standard_id.", "arguments": {"standard_id": ["1a7aeab47932d0d4"], "metadata": ["deal_type"]}},
+                {"description": "Read clause language directly from the search result, with no follow-up snippet call.", "arguments": {"standard_id": ["4207f2e8f6698935"], "include_snippet": True, "snippet_focus_terms": ["termination fee"], "page_size": 10}},
                 {"description": "Get an exact total count for pagination planning.", "arguments": {"standard_id": ["4207f2e8f6698935"], "count_mode": "exact", "page_size": 10}},
             ),
             response_examples=(
                 {"description": "Section search result page.", "content": {"results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["5e59453aaa9255c4"]}], "access": {"tier": "mcp"}}},
             ),
             scopes=("sections:search",),
-            selection_hint="Use for clause-language retrieval by taxonomy node, and agreement-section sampling.",
+            selection_hint="Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call.",
             negative_guidance=(
                 "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
                 "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
                 "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it.",
+                "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
+                "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page only, unlike total_count.",
             ),
             pagination="page",
             access_behavior="strict_scope_required",
@@ -1007,7 +1011,13 @@ def _server_capabilities_payload(sections: frozenset[str] | None = None) -> dict
             },
             {
                 "name": "map a plain-English concept to clause samples",
-                "steps": ["suggest_clause_families", "search_sections", "get_section_snippet"],
+                "steps": ["suggest_clause_families", "search_sections"],
+                "note": (
+                    "Pass include_snippet=true to search_sections to read the clause "
+                    "language straight from the result page; a separate "
+                    "get_section_snippets_batch call is only needed for sections found "
+                    "some other way, and get_section for full authoritative text."
+                ),
             },
             {
                 "name": "research tax structure across the corpus",
