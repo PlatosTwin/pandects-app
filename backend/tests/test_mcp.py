@@ -485,6 +485,13 @@ class McpTests(unittest.TestCase):
                         "INSERT INTO tax_clause_taxonomy_l3 (standard_id, label, parent_id) VALUES ('tax.1.1', 'Tax-Free Reorg', 'tax.1')"
                     )
                 )
+                # Every assigned tax id resolves to a taxonomy node in production, so the
+                # id used by the assignment fixtures must exist here too.
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_taxonomy_l3 (standard_id, label, parent_id) VALUES ('tax_transfer', 'Transfer Taxes', 'tax.1')"
+                    )
+                )
                 conn.execute(
                     text(
                         "INSERT INTO naics_sectors (super_sector, sector_group, sector_desc, sector_code) VALUES "
@@ -1892,7 +1899,8 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["server"]["introspection_tool"], "get_server_capabilities")
         self.assertEqual(payload["server"]["metrics_tool"], "get_server_metrics")
         self.assertEqual(payload["server"]["transport"], "http_jsonrpc")
-        self.assertFalse(payload["server"]["resources_supported"])
+        # resources/list serves capabilities, auth-help, and the tools manifest.
+        self.assertTrue(payload["server"]["resources_supported"])
         self.assertFalse(payload["server"]["resource_templates_supported"])
         self.assertTrue(payload["auth_help"]["login_required"])
         self.assertEqual(payload["auth_help"]["fulltext_scope"], "agreements:read_fulltext")
@@ -2011,6 +2019,166 @@ class McpTests(unittest.TestCase):
             fulltext_client.list_tools()
             fulltext_payload = fulltext_client.call_tool("get_agreement", {"agreement_uuid": "a1", "include_xml": True})
             self.assertFalse(cast(bool, fulltext_payload["is_redacted"]))
+
+    def test_duplicate_taxonomy_labels_are_qualified(self):
+        """Repeated leaf labels must be separable without reading `path`.
+
+        The reps taxonomy carries the same leaf label under Buyer/Parent and under
+        Company/Seller, and both copies score identically, so `label` alone gives a
+        caller no way to pick the intended side.
+        """
+        from backend.mcp.tools.shared import _TaxonomyEntry, _qualified_labels_by_standard_id
+
+        buyer = _TaxonomyEntry(
+            standard_id="7d38121617c8fc25",
+            label="Absence of Certain Changes; No MAE (rep)",
+            path=(
+                "Representations and Warranties (Buyer/Parent)",
+                "Financial",
+                "Absence of Certain Changes; No MAE (rep)",
+            ),
+        )
+        seller = _TaxonomyEntry(
+            standard_id="5183a719286b2453",
+            label="Absence of Certain Changes; No MAE (rep)",
+            path=(
+                "Representations and Warranties (Company/Seller)",
+                "Financial",
+                "Absence of Certain Changes; No MAE (rep)",
+            ),
+        )
+        unique = _TaxonomyEntry(
+            standard_id="1314b4b7cda311c9",
+            label="Material Adverse Effect (MAE) Condition",
+            path=("Conditions to Closing", "Mutual Conditions", "Material Adverse Effect (MAE) Condition"),
+        )
+        qualified = _qualified_labels_by_standard_id([buyer, seller, unique])
+
+        self.assertEqual(
+            qualified[buyer.standard_id],
+            "Absence of Certain Changes; No MAE (rep) [Representations and Warranties (Buyer/Parent)]",
+        )
+        self.assertEqual(
+            qualified[seller.standard_id],
+            "Absence of Certain Changes; No MAE (rep) [Representations and Warranties (Company/Seller)]",
+        )
+        self.assertNotEqual(qualified[buyer.standard_id], qualified[seller.standard_id])
+        # A label nobody else uses is left exactly as-is.
+        self.assertEqual(qualified[unique.standard_id], unique.label)
+
+    def test_suggest_clause_families_exposes_qualified_label(self):
+        res = self._call_tool("suggest_clause_families", {"concept": "termination"})
+        self.assertEqual(res.status_code, 200)
+        matches = res.get_json()["result"]["structuredContent"]["matches"]
+        self.assertTrue(matches)
+        for match in matches:
+            self.assertIn("qualified_label", match)
+            self.assertIn("label_is_ambiguous", match)
+            if not match["label_is_ambiguous"]:
+                self.assertEqual(match["qualified_label"], match["label"])
+
+    def test_wrong_namespace_taxonomy_id_is_reported_not_silently_dropped(self):
+        """A clause-family id passed to a tax tool must not read as a real absence.
+
+        The two taxonomies use different id shapes, and an id from the wrong namespace
+        matches nothing. Without a warning the empty result is indistinguishable from
+        "this agreement has no such tax clauses", which is a confident false negative.
+        """
+        clause_family_id = "4207f2e8f6698935"
+        cases: tuple[tuple[str, dict[str, object]], ...] = (
+            ("search_tax_clauses", {"tax_standard_id": [clause_family_id]}),
+            (
+                "get_agreement_tax_clauses",
+                {"agreement_uuid": "a1", "tax_standard_id": [clause_family_id]},
+            ),
+            (
+                "get_section_tax_clauses",
+                {
+                    "section_uuid": "00000000-0000-0000-0000-000000000001",
+                    "tax_standard_id": [clause_family_id],
+                },
+            ),
+        )
+        for tool, args in cases:
+            with self.subTest(tool=tool):
+                res = self._call_tool(tool, args, scope="agreements:read")
+                self.assertEqual(res.status_code, 200)
+                payload = res.get_json()["result"]["structuredContent"]
+                interpretation = payload.get("interpretation")
+                self.assertIsNotNone(
+                    interpretation, f"{tool} dropped an unknown tax_standard_id silently"
+                )
+                self.assertEqual(
+                    interpretation["unrecognized_tax_standard_ids"], [clause_family_id]
+                )
+                # The hex shape is called out so the agent knows which namespace it used.
+                self.assertTrue(
+                    any("clause-family" in note for note in interpretation["notes"])
+                )
+
+    def test_valid_tax_standard_id_reports_no_interpretation(self):
+        res = self._call_tool(
+            "get_agreement_tax_clauses",
+            {"agreement_uuid": "a1", "tax_standard_id": ["tax_transfer"]},
+            scope="agreements:read",
+        )
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertNotIn("interpretation", payload)
+
+    def test_list_agreements_reports_unrecognized_standard_ids(self):
+        """standard_id documents this contract; list_agreements was not honouring it."""
+        res = self._call_tool(
+            "list_agreements", {"standard_id": ["tax.3.1", "notarealid00000"]}
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        interpretation = payload.get("interpretation")
+        self.assertIsNotNone(interpretation)
+        self.assertEqual(
+            interpretation["unrecognized_standard_ids"], ["tax.3.1", "notarealid00000"]
+        )
+
+    def test_search_tax_clauses_omits_duplicate_id_field(self):
+        res = self._call_tool(
+            "search_tax_clauses", {"tax_standard_id": ["tax_transfer"]}, scope="agreements:read"
+        )
+        results = res.get_json()["result"]["structuredContent"]["results"]
+        self.assertTrue(results)
+        for result in results:
+            self.assertNotIn("id", result)
+            self.assertIn("clause_uuid", result)
+
+    def test_search_sections_metadata_omits_duplicated_top_level_price(self):
+        res = self._call_tool(
+            "search_sections",
+            {"metadata": ["transaction_price_total", "deal_type"]},
+            scope="sections:search",
+        )
+        results = res.get_json()["result"]["structuredContent"]["results"]
+        self.assertTrue(results)
+        for result in results:
+            self.assertIn("transaction_price_total", result)
+            self.assertNotIn("transaction_price_total", result.get("metadata", {}))
+            self.assertIn("deal_type", result["metadata"])
+
+    def test_capabilities_resources_supported_matches_resources_list(self):
+        """The declared capability must track what resources/list actually serves.
+
+        These drifted apart: three resources were served while capabilities advertised
+        resources_supported=false, so a caller trusting the declaration never read them.
+        """
+        client = self.app.test_client()
+        listed = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 402, "method": "resources/list"},
+        )
+        self.assertEqual(listed.status_code, 200)
+        resources = listed.get_json()["result"]["resources"]
+        res = self._call_tool("get_server_capabilities", {"sections": ["server"]})
+        self.assertEqual(res.status_code, 200)
+        declared = res.get_json()["result"]["structuredContent"]["server"]["resources_supported"]
+        self.assertEqual(declared, bool(resources))
 
     def test_tools_list_contract_snapshot(self):
         client = self.app.test_client()

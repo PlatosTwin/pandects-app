@@ -442,13 +442,18 @@ def _ranked_taxonomy_matches(
             scored.append((score, entry, matched_terms))
     scored.sort(key=lambda item: (-item[0], len(item[1].path), item[1].path))
 
+    qualified_label_by_id = _qualified_labels_by_standard_id(entries)
+
     results: list[dict[str, object]] = []
     for score, entry, matched_terms in scored[:top_k]:
         fit = _taxonomy_fit(score, matched_terms=matched_terms, entry=entry, concept=concept)
+        qualified_label = qualified_label_by_id.get(entry.standard_id, entry.label)
         results.append(
             {
                 "standard_id": entry.standard_id,
                 "label": entry.label,
+                "qualified_label": qualified_label,
+                "label_is_ambiguous": qualified_label != entry.label,
                 "path": list(entry.path),
                 "score": score,
                 "matched_terms": matched_terms,
@@ -461,6 +466,45 @@ def _ranked_taxonomy_matches(
             }
         )
     return results
+
+
+def _qualified_labels_by_standard_id(
+    entries: list[_TaxonomyEntry],
+) -> dict[str, str]:
+    """Map standard_id -> a label that is unique across the taxonomy.
+
+    Many leaf labels repeat verbatim under different parents (the reps taxonomy carries
+    one copy under Buyer/Parent and another under Company/Seller), and the duplicates
+    score identically, so a caller selecting by label alone has no way to break the tie.
+    Colliding labels are qualified with the shallowest ancestor segment that actually
+    differs between them; unique labels are returned unchanged.
+    """
+    entries_by_label: dict[str, list[_TaxonomyEntry]] = {}
+    for entry in entries:
+        entries_by_label.setdefault(entry.label, []).append(entry)
+
+    qualified: dict[str, str] = {}
+    for label, group in entries_by_label.items():
+        if len(group) < 2:
+            for entry in group:
+                qualified[entry.standard_id] = label
+            continue
+        # The ancestor path excludes the node's own label, which is identical by definition.
+        ancestries = [entry.path[:-1] if entry.path[-1:] == (label,) else entry.path for entry in group]
+        depth = max((len(a) for a in ancestries), default=0)
+        distinguishing_index: int | None = None
+        for index in range(depth):
+            segments = {a[index] if index < len(a) else None for a in ancestries}
+            if len(segments) > 1:
+                distinguishing_index = index
+                break
+        for entry, ancestry in zip(group, ancestries):
+            if distinguishing_index is not None and distinguishing_index < len(ancestry):
+                qualified[entry.standard_id] = f"{label} [{ancestry[distinguishing_index]}]"
+            else:
+                # No ancestor separates them; the id is the only discriminator left.
+                qualified[entry.standard_id] = f"{label} [{entry.standard_id}]"
+    return qualified
 
 
 def _extract_text_from_xml(xml: object) -> str:

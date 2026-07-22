@@ -456,8 +456,11 @@ _PROMPT_TEMPLATES: tuple[dict[str, object], ...] = (
             "Focus: {focus}\n\n"
             "Workflow:\n"
             "1. Resolve each identifier with `get_agreement` (or `search_agreements` if only a name is given).\n"
-            "2. Use `list_agreement_sections` and `get_section` to surface the sections relevant to the focus.\n"
-            "3. Call `get_agreement_tax_clauses` or `get_section_tax_clauses` for quantified clause positions.\n"
+            "   Do not pass include_xml=true: most agreements exceed 200k characters and will exhaust context.\n"
+            "2. Map the focus to taxonomy nodes with `suggest_clause_families`, then call `search_sections`\n"
+            "   with those standard_ids, agreement_uuid, and include_snippet=true to read both sides' language\n"
+            "   directly. Fall back to `list_agreement_sections` + `get_section` only for full authoritative text.\n"
+            "3. For tax structure specifically, call `get_agreement_tax_clauses` (dotted `tax.*` ids only).\n"
             "4. Present a table: Deal A vs Deal B across structure, consideration, conditions, covenants, remedies, and the focus area.\n"
             "5. Call out material divergences and explain likely negotiating rationale."
         ),
@@ -476,9 +479,13 @@ _PROMPT_TEMPLATES: tuple[dict[str, object], ...] = (
         "template": (
             "Task: Survey how '{concept}' is drafted across the filter '{filters}'.\n\n"
             "1. Call `suggest_clause_families` with the concept to locate canonical taxonomy nodes.\n"
+            "   Check `coverage` before relying on the result, and select nodes by `standard_id`:\n"
+            "   labels repeat across parents, so `label_is_ambiguous` nodes cannot be told apart by name.\n"
             "2. Call `list_filter_options` to confirm which filter values exist for the hinted dimensions.\n"
-            "3. Call `search_sections` with the taxonomy match plus filters. Paginate until you have a representative sample.\n"
-            "4. Cluster returned sections by drafting pattern. Quote minimal verbatim excerpts via `get_section_snippet`.\n"
+            "3. Call `search_sections` with the taxonomy match plus filters, passing include_snippet=true so the\n"
+            "   clause text arrives with the results. Paginate until you have a representative sample.\n"
+            "4. Cluster the returned snippets by drafting pattern. Only call `get_section` where the excerpt is\n"
+            "   too narrow to classify — a follow-up snippet call for sections you just searched is redundant.\n"
             "5. Deliver: (a) the taxonomy nodes used, (b) prevalence of each drafting variant, (c) illustrative excerpts with citations."
         ),
     },

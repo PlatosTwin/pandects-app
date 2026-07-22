@@ -183,6 +183,21 @@ def _interpretation_schema() -> dict[str, object]:
     )
 
 
+def _dropped_filter_interpretation_schema(*, id_field: str) -> dict[str, object]:
+    """Interpretation block for tools that only report silently-dropped taxonomy ids.
+
+    Present only when ids were dropped, so its absence means every id was applied.
+    """
+    return _object_schema(
+        {
+            id_field: _array_of({"type": "string"}),
+            "notes": _array_of({"type": "string"}),
+        },
+        required=[id_field, "notes"],
+        additional_properties=False,
+    )
+
+
 def _search_agreements_output_schema() -> dict[str, object]:
     properties = _pagination_response_properties()
     properties.update(
@@ -249,6 +264,9 @@ def _list_agreements_output_schema() -> dict[str, object]:
             "returned_count": {"type": "integer"},
             "has_next": {"type": "boolean"},
             "next_cursor": {"type": ["string", "null"]},
+            "interpretation": _dropped_filter_interpretation_schema(
+                id_field="unrecognized_standard_ids"
+            ),
         },
         required=["results", "access", "page_size", "returned_count", "has_next", "next_cursor"],
     )
@@ -405,6 +423,21 @@ def _taxonomy_match_schema() -> dict[str, object]:
         {
             "standard_id": {"type": "string"},
             "label": {"type": "string"},
+            "qualified_label": {
+                "type": "string",
+                "description": (
+                    "Label guaranteed unique across the taxonomy. Identical to `label` "
+                    "unless another node shares it, in which case the distinguishing "
+                    "ancestor is appended in brackets. Use this when naming a node."
+                ),
+            },
+            "label_is_ambiguous": {
+                "type": "boolean",
+                "description": (
+                    "True when `label` is shared with another taxonomy node. Never select "
+                    "such a node by `label` alone — use standard_id or qualified_label."
+                ),
+            },
             "path": _array_of({"type": "string"}),
             "score": {"type": "number"},
             "matched_terms": _array_of({"type": "string"}),
@@ -416,6 +449,8 @@ def _taxonomy_match_schema() -> dict[str, object]:
         required=[
             "standard_id",
             "label",
+            "qualified_label",
+            "label_is_ambiguous",
             "path",
             "score",
             "matched_terms",
@@ -524,6 +559,9 @@ def _get_agreement_tax_clauses_output_schema() -> dict[str, object]:
             "returned_count": {"type": "integer"},
             "extraction_status": {"type": "string", "enum": list(_TAX_EXTRACTION_STATUS_VALUES)},
             "extraction_note": {"type": "string"},
+            "interpretation": _dropped_filter_interpretation_schema(
+                id_field="unrecognized_tax_standard_ids"
+            ),
         }
     )
     return _object_schema(
@@ -549,7 +587,6 @@ def _get_agreement_tax_clauses_output_schema() -> dict[str, object]:
 def _tax_clause_search_result_schema() -> dict[str, object]:
     return _object_schema(
         {
-            "id": {"type": "string"},
             "clause_uuid": {"type": "string"},
             "agreement_uuid": {"type": ["string", "null"]},
             "section_uuid": {"type": ["string", "null"]},
@@ -569,7 +606,7 @@ def _tax_clause_search_result_schema() -> dict[str, object]:
             "target_counsel": {"type": ["string", "null"]},
             "acquirer_counsel": {"type": ["string", "null"]},
         },
-        required=["id", "clause_uuid", "tax_standard_ids", "verified"],
+        required=["clause_uuid", "tax_standard_ids", "verified"],
     )
 
 
@@ -580,6 +617,9 @@ def _search_tax_clauses_output_schema() -> dict[str, object]:
             "results": _array_of(_tax_clause_search_result_schema()),
             "access": _access_schema(),
             "count_metadata": _count_metadata_schema(),
+            "interpretation": _dropped_filter_interpretation_schema(
+                id_field="unrecognized_tax_standard_ids"
+            ),
         }
     )
     return _object_schema(
@@ -608,6 +648,9 @@ def _get_section_tax_clauses_output_schema() -> dict[str, object]:
             "returned_count": {"type": "integer"},
             "extraction_status": {"type": "string", "enum": list(_TAX_EXTRACTION_STATUS_VALUES)},
             "extraction_note": {"type": "string"},
+            "interpretation": _dropped_filter_interpretation_schema(
+                id_field="unrecognized_tax_standard_ids"
+            ),
         }
     )
     return _object_schema(

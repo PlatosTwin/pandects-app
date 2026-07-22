@@ -112,6 +112,72 @@ def _partition_known_standard_ids(
     return recognized, unrecognized
 
 
+_CLAUSE_FAMILY_ID_RE = re.compile(r"^[0-9a-f]{16}$")
+
+
+def _partition_known_tax_standard_ids(
+    deps: AgreementsDeps | TaxClausesServiceDeps, tax_standard_ids: list[str]
+) -> tuple[list[str], list[str]]:
+    """Tax-taxonomy counterpart to _partition_known_standard_ids.
+
+    The two taxonomies use different id shapes (16-hex clause-family vs dotted
+    ``tax.*``), so passing an id from the wrong namespace matches nothing. Without
+    this check the filter is dropped silently and the empty result is indistinguishable
+    from a genuine absence of tax clauses.
+    """
+    if not tax_standard_ids:
+        return [], []
+    unique_ids = {value for value in tax_standard_ids if value}
+    if not unique_ids:
+        return [], []
+    db = deps.db
+    known: set[str] = set()
+    for model in (
+        deps.TaxClauseTaxonomyL1,
+        deps.TaxClauseTaxonomyL2,
+        deps.TaxClauseTaxonomyL3,
+    ):
+        rows = cast(
+            list[tuple[object]],
+            db.session.query(cast(Any, model).standard_id)
+            .filter(cast(Any, model).standard_id.in_(unique_ids))
+            .all(),
+        )
+        known.update(value for (value,) in rows if isinstance(value, str))
+    recognized: list[str] = []
+    unrecognized: list[str] = []
+    seen: set[str] = set()
+    for sid in tax_standard_ids:
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        (recognized if sid in known else unrecognized).append(sid)
+    return recognized, unrecognized
+
+
+def _tax_interpretation(unrecognized: list[str]) -> dict[str, object] | None:
+    """Build the interpretation block warning that tax_standard_id values were dropped."""
+    if not unrecognized:
+        return None
+    looks_like_clause_family = [sid for sid in unrecognized if _CLAUSE_FAMILY_ID_RE.match(sid)]
+    note = (
+        "Ignored unrecognized tax_standard_id(s): "
+        + ", ".join(unrecognized)
+        + ". Use get_tax_clause_taxonomy or suggest_clause_families(taxonomy='tax_clauses') "
+        "to obtain valid dotted tax.* IDs."
+    )
+    notes = [note]
+    if looks_like_clause_family:
+        notes.append(
+            "The ignored id(s) "
+            + ", ".join(looks_like_clause_family)
+            + " look like clause-family standard_id values (16-character hex). Those belong to "
+            "the section taxonomy used by search_sections/search_agreements, not the tax "
+            "taxonomy. Results below are NOT filtered by the intended concept."
+        )
+    return {"unrecognized_tax_standard_ids": unrecognized, "notes": notes}
+
+
 def _list_agreements(
     deps: AgreementsDeps,
     *,
@@ -279,7 +345,9 @@ def _list_agreements(
         q = q.filter(section_exists)
 
     standard_ids = [v for v in cast(list[str], parsed_args["standard_id"]) if v]
+    unrecognized_standard_ids: list[str] = []
     if standard_ids:
+        _, unrecognized_standard_ids = _partition_known_standard_ids(deps, standard_ids)
         standard_ids_key = tuple(sorted(set(standard_ids)))
         expanded = list(deps._expand_taxonomy_standard_ids_cached(standard_ids_key))
         if expanded:
@@ -363,7 +431,7 @@ def _list_agreements(
             raise RuntimeError("Agreements list query returned a row without agreement_uuid.")
         next_cursor = deps._encode_agreements_cursor(last_agreement_uuid)
 
-    response = {
+    response: dict[str, object] = {
         "results": results,
         "access": {"tier": principal.access_context.tier, "message": None},
         "page_size": page_size,
@@ -371,6 +439,17 @@ def _list_agreements(
         "has_next": has_next,
         "next_cursor": next_cursor,
     }
+    # standard_id documents that unrecognized ids are surfaced here. Without this the
+    # filter is silently dropped and an empty page reads as a real corpus absence.
+    if unrecognized_standard_ids:
+        response["interpretation"] = {
+            "unrecognized_standard_ids": unrecognized_standard_ids,
+            "notes": [
+                "Ignored unrecognized standard_id(s): "
+                + ", ".join(unrecognized_standard_ids)
+                + ". Use get_clause_taxonomy or suggest_clause_families to obtain valid taxonomy IDs."
+            ],
+        }
     return McpToolResult(
         text=f"Returned {len(results)} agreement(s).",
         structured_content=response,
@@ -1375,6 +1454,13 @@ def _search_sections(
     # pure duplication for a model reading the payload.
     for item in results:
         item.pop("id", None)
+        # transaction_price_total is always emitted top-level, so echoing it inside the
+        # requested metadata block repeats the same value under two keys in every result.
+        metadata = item.get("metadata")
+        if isinstance(metadata, dict):
+            _ = metadata.pop("transaction_price_total", None)
+            if not metadata:
+                _ = item.pop("metadata", None)
 
     # The service counts distinct agreements within the current page only. Beside a
     # corpus-wide `total_count`, the unqualified name reads as "241 sections across 3
@@ -1466,6 +1552,16 @@ def _search_tax_clauses(
     )
     response = run_tax_clauses(deps, ctx=principal.access_context, parsed_args=parsed_args)
     results = cast(list[dict[str, object]], response.get("results", []))
+    _, unrecognized_tax_standard_ids = _partition_known_tax_standard_ids(
+        deps, [v for v in cast(list[str], parsed_args["tax_standard_id"]) if v]
+    )
+    interpretation = _tax_interpretation(unrecognized_tax_standard_ids)
+    if interpretation is not None:
+        response["interpretation"] = interpretation
+    # clause_uuid already identifies the row; `id` duplicated it verbatim, as
+    # search_sections' `id` duplicated section_uuid before it was dropped.
+    for result in results:
+        _ = result.pop("id", None)
     return McpToolResult(
         text=f"Returned {len(results)} tax clause(s).",
         structured_content=response,
@@ -1523,6 +1619,7 @@ def _get_agreement_tax_clauses(
     if agreement_uuid == "":
         _abort_invalid_argument("Invalid agreement_uuid.")
     tax_standard_id = cast(list[str], parsed_args["tax_standard_id"])
+    _, unrecognized_tax_standard_ids = _partition_known_tax_standard_ids(deps, tax_standard_id)
     page = cast(int, parsed_args["page"])
     page_size = cast(int, parsed_args["page_size"])
     clauses = _tax_clause_rows(
@@ -1551,6 +1648,9 @@ def _get_agreement_tax_clauses(
         "extraction_note": extraction_note,
         **deps._pagination_metadata(total_count=total, page=page, page_size=page_size),
     }
+    interpretation = _tax_interpretation(unrecognized_tax_standard_ids)
+    if interpretation is not None:
+        response["interpretation"] = interpretation
     return McpToolResult(
         text=f"Returned {len(clauses)} of {total} tax clause(s) for agreement {agreement_uuid}.",
         structured_content=response,
@@ -1569,6 +1669,7 @@ def _get_section_tax_clauses(
     if not deps._SECTION_ID_RE.match(section_uuid):
         _abort_invalid_argument("Invalid section_uuid.")
     tax_standard_id = cast(list[str], parsed_args["tax_standard_id"])
+    _, unrecognized_tax_standard_ids = _partition_known_tax_standard_ids(deps, tax_standard_id)
     page = cast(int, parsed_args["page"])
     page_size = cast(int, parsed_args["page_size"])
     clauses = _tax_clause_rows(
@@ -1595,6 +1696,9 @@ def _get_section_tax_clauses(
         "extraction_note": extraction_note,
         **deps._pagination_metadata(total_count=total, page=page, page_size=page_size),
     }
+    interpretation = _tax_interpretation(unrecognized_tax_standard_ids)
+    if interpretation is not None:
+        response["interpretation"] = interpretation
     return McpToolResult(
         text=f"Returned {len(clauses)} of {total} tax clause(s) for section {section_uuid}.",
         structured_content=response,

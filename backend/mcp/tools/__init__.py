@@ -258,7 +258,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             negative_guidance=(
                 "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
                 "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
-                "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it.",
+                "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it. No corpus-wide keyword index exists to fall back on, so there is no way to search clause text by phrase; if a concept has no taxonomy node, say so rather than substituting an adjacent node.",
                 "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
                 "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page only, unlike total_count.",
             ),
@@ -282,7 +282,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {"description": "Tax clause search result page.", "content": {"results": [{"clause_uuid": "clause-a1-1", "tax_standard_ids": ["tax.3.1.1"], "clause_text": "Parent shall bear all transfer taxes.", "target": "Target A", "acquirer": "Acquirer A"}], "access": {"tier": "mcp", "message": None}}},
             ),
             scopes=("agreements:read",),
-            selection_hint="Use for corpus-wide tax-clause retrieval by tax taxonomy node; pair with suggest_clause_families(taxonomy='tax_clauses').",
+            selection_hint="Use for corpus-wide tax-clause retrieval by tax taxonomy node; pair with suggest_clause_families(taxonomy='tax_clauses'). Unrecognized tax_standard_id values are ignored and reported under interpretation.unrecognized_tax_standard_ids — check for that block before reading an empty result as a real absence.",
             negative_guidance=(
                 "Do not pass clause-family standard_id (16-hex) here; this tool filters on the tax taxonomy (dotted tax.* ids) via tax_standard_id.",
                 "Do not use this tool as a source of normalized document-level facts; it returns extracted clause text and agreement metadata.",
@@ -381,6 +381,8 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             selection_hint="Use when you already know the exact agreement UUID and need the agreement payload or XML.",
             negative_guidance=(
                 "Do not use this tool for bulk discovery or corpus filtering.",
+                "Do not pass include_xml=true just to read a few clauses: most agreements run past 200k characters and will exhaust the context window. Use search_sections with agreement_uuid and include_snippet=true, or get_section for specific sections.",
+                "Do not expect focus_section_uuid/neighbor_sections to trim a full-text response: they only shape the redacted view shown to callers without agreements:read_fulltext, and are ignored once the full XML is returned.",
             ),
             pagination="none",
             access_behavior="partial_access_with_redaction",
@@ -410,7 +412,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreement_tax_clauses",
-            description="Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Page-paginated (default 25 per page); filter with tax_standard_id to retrieve only clauses assigned to specific tax taxonomy nodes, since most extracted tax-module clauses carry no assignment. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative. `extraction_status` always describes the record as a whole, never the tax_standard_id filter.",
+            description="Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Page-paginated (default 25 per page); filter with tax_standard_id to retrieve only clauses assigned to specific tax taxonomy nodes, since most extracted tax-module clauses carry no assignment. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative. `extraction_status` always describes the record as a whole, never the tax_standard_id filter, so a `found` status alongside an empty page means the filter excluded everything. Unrecognized tax_standard_id values are ignored and reported under interpretation.unrecognized_tax_standard_ids; check for that block before concluding the agreement lacks the clause.",
             input_schema=_schema_input_schema(McpAgreementTaxClausesArgsSchema()),
             output_schema=_get_agreement_tax_clauses_output_schema(),
             examples=(
@@ -480,7 +482,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="suggest_clause_families",
-            description="Translate a plain-English M&A concept (e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee') into ranked clause-family taxonomy nodes. Each suggestion reports whether it is a canonical match, a proxy, or a broader semantic match, plus a confidence score. The top-level `coverage` field (canonical / proxy / weak / none) and `coverage_note` summarize whether the concept is actually represented — when coverage is `weak` or `none`, the returned nodes may be adjacent or even opposite concepts (e.g. 'go-shop' only surfaces 'no-shop'), so do not filter on them without verifying. Set taxonomy='tax_clauses' to map tax concepts, then pass the resulting tax_standard_id to search_tax_clauses. Call before search_sections/search_tax_clauses when you know the concept but not the taxonomy.",
+            description="Translate a plain-English M&A concept (e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee') into ranked clause-family taxonomy nodes. Each suggestion reports whether it is a canonical match, a proxy, or a broader semantic match, plus a confidence score. The top-level `coverage` field (canonical / proxy / weak / none) and `coverage_note` summarize whether the concept is actually represented — when coverage is `weak` or `none`, the returned nodes may be adjacent or even opposite concepts (e.g. 'go-shop' only surfaces 'no-shop'), so do not filter on them without verifying. Set taxonomy='tax_clauses' to map tax concepts, then pass the resulting tax_standard_id to search_tax_clauses. Call before search_sections/search_tax_clauses when you know the concept but not the taxonomy. Labels are not unique: many leaf nodes repeat verbatim under different parents (for example the same rep under Buyer/Parent and under Company/Seller) and score identically, so never pick a node by `label` alone — key on `standard_id`, and use `qualified_label` when you need to name the node. `label_is_ambiguous` flags the affected nodes.",
             input_schema=_schema_input_schema(suggest_clause_families_schema),
             output_schema=_suggest_clause_families_output_schema(),
             examples=(
@@ -960,7 +962,7 @@ def _server_capabilities_payload(sections: frozenset[str] | None = None) -> dict
             "introspection_tool": "get_server_capabilities",
             "metrics_tool": "get_server_metrics",
             "transport": "http_jsonrpc",
-            "resources_supported": False,
+            "resources_supported": True,
             "resource_templates_supported": False,
         }
     if "auth_help" in sections:
