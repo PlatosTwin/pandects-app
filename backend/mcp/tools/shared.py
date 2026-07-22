@@ -780,9 +780,14 @@ def _counsel_payload(
 
 
 def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
-    # All three figures must describe one universe: what this server can actually return.
-    # A payload whose fields are scoped differently invites a ratio between them, and
-    # pages/agreements across mismatched scopes is silently wrong.
+    # Each figure equals what its matching tool returns, so the payload is a sound basis
+    # for coverage math rather than the inflated ingestion rollup. agreements and pages are
+    # both eligibility+xml gated, so pages/agreements is exact. sections counts the same
+    # index search_sections paginates; that index is xml-gated but not eligibility-gated,
+    # so sections/agreements is exact only while no gated-unverified agreement has a latest
+    # verified xml row (zero today, resolved upstream in the pipeline). A payload whose
+    # fields were scoped by *different* xml predicates would make pages/agreements silently
+    # wrong, which is what reading any of these from summary_data used to do.
     #
     # None of the three is read from summary_data. That rollup applies the
     # public-eligibility gate but not the join to the latest verified XML row every
