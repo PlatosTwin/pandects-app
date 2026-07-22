@@ -196,6 +196,10 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             "type": "boolean",
             "description": "When false, omit standard_id from each section entry to reduce response size. Default true.",
         },
+        "max_sections_per_agreement": {
+            "type": "integer",
+            "description": "Maximum sections returned per agreement (1-1000, default 200). Agreements run up to 530 sections, so 20 of them uncapped is several thousand rows in one response. `sections_truncated` and `matched_section_count` report when the cap bit; use list_agreement_sections to page through a single long agreement.",
+        },
     }
     suggest_clause_families_schema = _schema_from_fields(
         "McpSuggestClauseFamiliesArgs",
@@ -319,7 +323,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="list_agreement_sections",
-            description="List the article and section headings inside a single agreement so you can pick which section to fetch. Defaults to document_order sort, which preserves the original article/section sequence. Call after you have an agreement UUID, before get_section or get_section_snippet. For multiple agreements at once, use list_agreement_sections_batch.",
+            description="List the article and section headings inside a single agreement so you can pick which section to fetch. Defaults to document_order sort, which preserves the original article/section sequence. Call after you have an agreement UUID, before get_section or get_section_snippet. An agreement UUID that is unknown or not retrievable returns not-found rather than an empty page, so an empty result page always means the standard_id filter matched nothing. For multiple agreements at once, use list_agreement_sections_batch.",
             input_schema=_schema_input_schema(McpListAgreementSectionsArgsSchema(), field_overrides=list_agreement_sections_overrides),
             output_schema=_list_agreement_sections_output_schema(),
             examples=(
@@ -342,7 +346,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="list_agreement_sections_batch",
-            description="List article and section headings for up to 20 agreements in a single call, returning one section list per agreement UUID. Eliminates the need for N sequential list_agreement_sections calls when comparing or exploring multiple agreements. Defaults to document_order sort.",
+            description="List article and section headings for up to 20 agreements in a single call, returning one section list per agreement UUID. Eliminates the need for N sequential list_agreement_sections calls when comparing or exploring multiple agreements. Defaults to document_order sort, and to at most 200 sections per agreement (max_sections_per_agreement). An agreement UUID that is unknown or not retrievable is omitted from results and reported under unresolved_agreement_uuids rather than returned as a zero-section entry.",
             input_schema=_schema_input_schema(McpBatchAgreementSectionsArgsSchema(), field_overrides=list_agreement_sections_overrides),
             output_schema=_batch_agreement_sections_output_schema(),
             examples=(
@@ -356,6 +360,8 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             selection_hint="Use when you already have multiple agreement UUIDs and need all their section structures at once.",
             negative_guidance=(
                 "Do not use for more than 20 agreements in one call; paginate with multiple batch calls instead.",
+                "Do not read a missing agreement_uuid as an agreement with no sections: unresolved UUIDs are listed under unresolved_agreement_uuids and dropped from results, so check that block before concluding an absence.",
+                "Do not assume every matching section came back: sections_truncated marks agreements cut off at max_sections_per_agreement, and matched_section_count gives the pre-cap total.",
             ),
             pagination="none",
             access_behavior="strict_scope_required",
@@ -590,6 +596,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             negative_guidance=(
                 "Do not use for snippets or excerpts — use get_section_snippets_batch instead.",
                 "Limited to 10 sections per call; split into multiple calls for larger sets.",
+                "Do not assume returned_count equals the number of section_uuids you passed: a uuid that matches no section is omitted and reported under unresolved_section_uuids, so check that block before reading the shorter list as the answer.",
             ),
             pagination="none",
             access_behavior="strict_scope_required",
@@ -761,7 +768,7 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreements_summary",
-            description="Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers.",
+            description="Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers. `agreements` counts the agreements the retrieval tools can actually return, so it is the correct denominator for a coverage percentage and matches an unfiltered search_agreements total_count.",
             input_schema=_empty_schema(),
             output_schema=_agreements_summary_output_schema(),
             examples=({"description": "Get top-level corpus counts.", "arguments": {}},),

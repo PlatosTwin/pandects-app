@@ -118,7 +118,6 @@ def _section_result_schema() -> dict[str, object]:
 def _list_section_result_schema() -> dict[str, object]:
     return _object_schema(
         {
-            "id": {"type": "string"},
             "agreement_uuid": {"type": ["string", "null"]},
             "section_uuid": {"type": "string"},
             "standard_id": _array_of({"type": "string"}),
@@ -129,7 +128,7 @@ def _list_section_result_schema() -> dict[str, object]:
             "year": {"type": ["integer", "null"]},
             "verified": {"type": "boolean"},
         },
-        required=["id", "section_uuid", "verified"],
+        required=["section_uuid", "verified"],
     )
 
 
@@ -295,14 +294,27 @@ def _batch_agreement_sections_output_schema() -> dict[str, object]:
             "total_agreement_sections": {"type": "integer"},
             "sections": _array_of(_list_section_result_schema()),
             "section_count": {"type": "integer"},
+            "matched_section_count": {"type": "integer"},
+            "sections_truncated": {"type": "boolean"},
         },
-        required=["agreement_uuid", "total_agreement_sections", "sections", "section_count"],
+        required=[
+            "agreement_uuid",
+            "total_agreement_sections",
+            "sections",
+            "section_count",
+            "matched_section_count",
+            "sections_truncated",
+        ],
     )
     return _object_schema(
         {
             "results": _array_of(per_agreement_schema),
             "returned_agreement_count": {"type": "integer"},
             "total_section_count": {"type": "integer"},
+            "unresolved_agreement_uuids": _array_of({"type": "string"}),
+            "interpretation": _dropped_filter_interpretation_schema(
+                id_field="unresolved_agreement_uuids"
+            ),
         },
         required=["results", "returned_agreement_count", "total_section_count"],
     )
@@ -358,6 +370,10 @@ def _batch_sections_output_schema() -> dict[str, object]:
         {
             "results": _array_of(item_schema),
             "returned_count": {"type": "integer"},
+            "unresolved_section_uuids": _array_of({"type": "string"}),
+            "interpretation": _dropped_filter_interpretation_schema(
+                id_field="unresolved_section_uuids"
+            ),
         },
         required=["results", "returned_count"],
         additional_properties=False,

@@ -9,11 +9,15 @@ from decimal import Decimal
 from html import unescape
 from typing import Any, NoReturn, cast
 
-from sqlalchemy import asc, desc, text
+from sqlalchemy import asc, desc, func, text
 from werkzeug.exceptions import BadRequest
 
 from backend.mcp.tools.constants import _STRUCTURED_FILTER_ARRAY_FIELDS
-from backend.routes.agreements import _normalize_industry_label, _to_float_or_none
+from backend.routes.agreements import (
+    _agreement_is_public_eligible_expr,
+    _normalize_industry_label,
+    _to_float_or_none,
+)
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps
 from backend.schemas.public_api import AgreementsBulkArgsPayload
 
@@ -767,7 +771,6 @@ def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
         text(
             f"""
             SELECT
-              COALESCE(SUM(count_agreements), 0) AS agreements,
               COALESCE(SUM(count_sections), 0) AS sections,
               COALESCE(SUM(count_pages), 0) AS pages
             FROM {deps._schema_prefix()}summary_data
@@ -775,8 +778,21 @@ def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
         )
     ).mappings().first()
     row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
+    # summary_data.count_agreements counts every non-invalid agreement whether or not it
+    # has a latest verified XML row. Every retrieval tool inner-joins that row, so the
+    # rollup figure includes agreements no tool on this server can return -- and this tool
+    # exists to be the denominator for "how much of the corpus does my filter cover".
+    # Count the universe search_agreements/list_agreements actually serve, using the same
+    # two predicates they do, so the two cannot drift apart.
+    agreements = deps.Agreements
+    retrievable = (
+        deps.db.session.query(func.count(func.distinct(agreements.agreement_uuid)))
+        .join(deps.XML, deps._agreement_latest_xml_join_condition())
+        .filter(_agreement_is_public_eligible_expr(agreements))
+        .scalar()
+    )
     return {
-        "agreements": deps._to_int(cast(object, row_dict.get("agreements"))),
+        "agreements": deps._to_int(cast(object, retrievable)),
         "sections": deps._to_int(cast(object, row_dict.get("sections"))),
         "pages": deps._to_int(cast(object, row_dict.get("pages"))),
     }

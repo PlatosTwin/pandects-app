@@ -1152,9 +1152,11 @@ def _get_sections_batch(
             row_by_uuid[suuid] = row_map
 
     results: list[dict[str, object]] = []
+    unresolved_section_uuids: list[str] = []
     for suuid in section_uuids:
         row_map = row_by_uuid.get(suuid)
         if row_map is None:
+            unresolved_section_uuids.append(suuid)
             continue
         xml_content = row_map.get("xml_content")
         xml_text = _extract_text_from_xml(xml_content)
@@ -1184,6 +1186,20 @@ def _get_sections_batch(
         "results": results,
         "returned_count": len(results),
     }
+    # A uuid that resolves to no row was silently omitted, so a caller that batched 10 and
+    # got 7 back had to diff the two lists to notice -- and reading the short list as the
+    # answer turns missing data into a real absence. Name the ones that dropped out.
+    if unresolved_section_uuids:
+        response["unresolved_section_uuids"] = unresolved_section_uuids
+        response["interpretation"] = {
+            "notes": [
+                "No section was found for section_uuid(s): "
+                + ", ".join(unresolved_section_uuids)
+                + ". These are absent from the response entirely; they are not sections "
+                "with empty content."
+            ],
+            "unresolved_section_uuids": unresolved_section_uuids,
+        }
     return McpToolResult(
         text=f"Returned {len(results)} full section(s).",
         structured_content=response,
@@ -1256,6 +1272,13 @@ def _list_agreement_sections(
             .scalar(),
         )
     )
+    # Every retrievable agreement has at least one section, so an unfiltered count of zero
+    # means the uuid is unknown or not retrievable. Returning an empty page for it claims
+    # the agreement exists and has no sections; 404 matches get_agreement, which is what a
+    # caller gets for the same uuid. The standard_id filter is applied to `q` only, so a
+    # legitimately empty filtered page still returns 200.
+    if total_agreement_sections == 0:
+        abort(404)
     total_count = deps._to_int(cast(object, q.order_by(None).count()))
     offset = (page - 1) * page_size
     rows = cast(list[object], q.offset(offset).limit(page_size).all())
@@ -1265,7 +1288,6 @@ def _list_agreement_sections(
     for row in rows:
         row_map = deps._row_mapping_as_dict(cast(object, row))
         entry: dict[str, object] = {
-            "id": row_map.get("section_uuid"),
             "agreement_uuid": row_map.get("agreement_uuid"),
             "section_uuid": row_map.get("section_uuid"),
             "article_title": row_map.get("article_title"),
@@ -1308,6 +1330,7 @@ def _list_agreement_sections_batch(
     include_standard_ids = cast(bool, parsed_args["include_standard_ids"])
     sort_by = cast(str, parsed_args["sort_by"])
     sort_direction = cast(str, parsed_args["sort_direction"])
+    max_sections_per_agreement = cast(int, parsed_args["max_sections_per_agreement"])
 
     latest = deps.LatestSectionsSearch
     db = deps.db
@@ -1368,13 +1391,21 @@ def _list_agreement_sections_batch(
         for r in unfiltered_rows
     }
 
-    grouped: dict[str, list[dict[str, object]]] = {uuid: [] for uuid in agreement_uuids}
+    # latest_sections_search holds exactly the agreements the retrieval tools can serve,
+    # and every one of them has at least one section, so absence from the unfiltered count
+    # means the uuid is unknown or not retrievable -- never "a real agreement with zero
+    # sections". Separating the two is the whole point: the old code seeded an empty list
+    # for every requested uuid and defaulted the count to 0, so an unknown uuid came back
+    # as `section_count: 0`, which reads as a verified absence rather than a bad lookup.
+    resolved_uuids = [uuid for uuid in agreement_uuids if uuid in unfiltered_counts]
+    unresolved_uuids = [uuid for uuid in agreement_uuids if uuid not in unfiltered_counts]
+
+    grouped: dict[str, list[dict[str, object]]] = {uuid: [] for uuid in resolved_uuids}
     for row in rows:
         row_map = deps._row_mapping_as_dict(cast(object, row))
         uuid = row_map.get("agreement_uuid")
         if isinstance(uuid, str) and uuid in grouped:
             entry: dict[str, object] = {
-                "id": row_map.get("section_uuid"),
                 "section_uuid": row_map.get("section_uuid"),
                 "agreement_uuid": uuid,
                 "article_title": row_map.get("article_title"),
@@ -1388,23 +1419,43 @@ def _list_agreement_sections_batch(
                 entry["standard_id"] = deps._parse_section_standard_ids(row_map.get("section_standard_ids"))
             grouped[uuid].append(entry)
 
-    per_agreement = [
-        {
-            "agreement_uuid": uuid,
-            "total_agreement_sections": unfiltered_counts.get(uuid, 0),
-            "sections": grouped[uuid],
-            "section_count": len(grouped[uuid]),
-        }
-        for uuid in agreement_uuids
-    ]
-    total_sections = sum(len(grouped[uuid]) for uuid in agreement_uuids)
-    response = {
+    # 20 agreements x up to 530 sections each is ~6 400 rows in one uncapped response.
+    # Every sibling batch tool bounds its payload (get_sections_batch caps max_xml_chars);
+    # this one bounded only the agreement count, so the per-agreement cap closes the gap
+    # and sections_truncated says when it bit.
+    per_agreement: list[dict[str, object]] = []
+    for uuid in resolved_uuids:
+        entries = grouped[uuid]
+        truncated = len(entries) > max_sections_per_agreement
+        per_agreement.append(
+            {
+                "agreement_uuid": uuid,
+                "total_agreement_sections": unfiltered_counts[uuid],
+                "sections": entries[:max_sections_per_agreement],
+                "section_count": min(len(entries), max_sections_per_agreement),
+                "matched_section_count": len(entries),
+                "sections_truncated": truncated,
+            }
+        )
+    total_sections = sum(cast(int, item["section_count"]) for item in per_agreement)
+    response: dict[str, object] = {
         "results": per_agreement,
-        "returned_agreement_count": len(agreement_uuids),
+        "returned_agreement_count": len(per_agreement),
         "total_section_count": total_sections,
     }
+    if unresolved_uuids:
+        response["unresolved_agreement_uuids"] = unresolved_uuids
+        response["interpretation"] = {
+            "notes": [
+                "No retrievable agreement was found for agreement_uuid(s): "
+                + ", ".join(unresolved_uuids)
+                + ". These are omitted from results; they are not agreements with zero "
+                "sections. Verify the UUID with search_agreements or list_agreements."
+            ],
+            "unresolved_agreement_uuids": unresolved_uuids,
+        }
     return McpToolResult(
-        text=f"Returned sections for {len(agreement_uuids)} agreement(s), {total_sections} section(s) total.",
+        text=f"Returned sections for {len(per_agreement)} agreement(s), {total_sections} section(s) total.",
         structured_content=response,
     )
 

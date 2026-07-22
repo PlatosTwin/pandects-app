@@ -1545,6 +1545,78 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["agreement_uuid"], "a1")
         self.assertEqual(payload["returned_count"], 3)
         self.assertEqual(payload["results"][0]["section_uuid"], "00000000-0000-0000-0000-000000000001")
+        # `id` duplicated section_uuid verbatim, as it did in search_sections and
+        # search_tax_clauses before those were stripped.
+        self.assertNotIn("id", payload["results"][0])
+
+    def test_list_agreement_sections_unknown_agreement_is_not_found(self):
+        """An unknown agreement must not read as an agreement with zero sections.
+
+        Every retrievable agreement has at least one section, so an empty unfiltered
+        listing can only mean a bad UUID. Returning 200 with an empty page asserted an
+        absence that was never measured; get_agreement already 404s for the same UUID.
+        """
+        res = self._call_tool("list_agreement_sections", {"agreement_uuid": "nope"})
+        self.assertEqual(res.status_code, 200)
+        error = res.get_json()["error"]
+        self.assertEqual(error["code"], -32002)
+
+    def test_list_agreement_sections_batch_reports_unresolved_agreements(self):
+        res = self._call_tool(
+            "list_agreement_sections_batch",
+            {"agreement_uuids": ["a1", "nope"]},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        returned = [item["agreement_uuid"] for item in payload["results"]]
+        # The unknown uuid used to come back as {"section_count": 0, "sections": []},
+        # which reads as a verified absence rather than a failed lookup.
+        self.assertEqual(returned, ["a1"])
+        self.assertEqual(payload["returned_agreement_count"], 1)
+        self.assertEqual(payload["unresolved_agreement_uuids"], ["nope"])
+        self.assertEqual(
+            payload["interpretation"]["unresolved_agreement_uuids"], ["nope"]
+        )
+        self.assertNotIn("id", payload["results"][0]["sections"][0])
+
+    def test_list_agreement_sections_batch_caps_sections_per_agreement(self):
+        """20 agreements x up to 530 sections is ~6 400 uncapped rows in one response."""
+        res = self._call_tool(
+            "list_agreement_sections_batch",
+            {"agreement_uuids": ["a1"], "max_sections_per_agreement": 2},
+        )
+        self.assertEqual(res.status_code, 200)
+        entry = res.get_json()["result"]["structuredContent"]["results"][0]
+        self.assertEqual(entry["section_count"], 2)
+        self.assertEqual(len(entry["sections"]), 2)
+        self.assertEqual(entry["matched_section_count"], 3)
+        self.assertTrue(entry["sections_truncated"])
+
+        uncapped = self._call_tool(
+            "list_agreement_sections_batch", {"agreement_uuids": ["a1"]}
+        ).get_json()["result"]["structuredContent"]["results"][0]
+        self.assertEqual(uncapped["section_count"], 3)
+        self.assertFalse(uncapped["sections_truncated"])
+
+    def test_get_sections_batch_reports_unresolved_section_uuids(self):
+        res = self._call_tool(
+            "get_sections_batch",
+            {
+                "section_uuids": [
+                    "00000000-0000-0000-0000-000000000001",
+                    "00000000-0000-0000-0000-0000000000ff",
+                ]
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        # The miss was previously dropped with no signal, so returned_count silently
+        # disagreed with the request and a caller reading the short list saw an absence.
+        self.assertEqual(payload["returned_count"], 1)
+        self.assertEqual(
+            payload["unresolved_section_uuids"],
+            ["00000000-0000-0000-0000-0000000000ff"],
+        )
 
     def test_tax_clause_tools(self):
         agreement_res = self._call_tool(
@@ -2264,7 +2336,10 @@ class McpTests(unittest.TestCase):
         summary_res = self._call_tool("get_agreements_summary", {})
         self.assertEqual(summary_res.status_code, 200)
         summary_payload = summary_res.get_json()["result"]["structuredContent"]
-        self.assertEqual(summary_payload["agreements"], 1)
+        # summary_data seeds count_agreements=1, but a1 and a2 both have a latest verified
+        # XML row and are public-eligible, so the retrieval tools serve two. This tool is
+        # the denominator for coverage questions, so it reports the reachable universe.
+        self.assertEqual(summary_payload["agreements"], 2)
         self.assertEqual(summary_payload["sections"], 2)
 
         trends_res = self._call_tool("get_agreement_trends", {})
@@ -2272,6 +2347,25 @@ class McpTests(unittest.TestCase):
         trends_payload = trends_res.get_json()["result"]["structuredContent"]
         self.assertEqual(trends_payload["ownership"]["mix_by_year"][0]["public_deal_count"], 1)
         self.assertEqual(trends_payload["industries"]["target_industries_by_year"][0]["industry"], "Crop Production")
+
+    def test_agreements_summary_agrees_with_search_agreements_total(self):
+        """The corpus denominator must match what the retrieval tools can actually return.
+
+        summary_data counts agreements with no latest verified XML; every retrieval tool
+        inner-joins that row. Against the live corpus the rollup said 10,784 while
+        search_agreements could reach 9,902, so any "X% of the corpus" figure built on it
+        was overstated by the 882 agreements no tool can return.
+        """
+        summary_payload = self._call_tool("get_agreements_summary", {}).get_json()[
+            "result"
+        ]["structuredContent"]
+        search_payload = self._call_tool("search_agreements", {"page_size": 1}).get_json()[
+            "result"
+        ]["structuredContent"]
+        self.assertEqual(summary_payload["agreements"], search_payload["total_count"])
+        # summary_data.count_agreements is seeded at 1, so this also pins that the payload
+        # no longer echoes the rollup.
+        self.assertEqual(summary_payload["agreements"], 2)
 
     def test_list_filter_options_rejects_unknown_fields(self):
         res = self._call_tool("list_filter_options", {"fields": ["nope"]})

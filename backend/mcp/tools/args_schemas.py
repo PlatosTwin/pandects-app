@@ -170,6 +170,10 @@ class McpBatchAgreementSectionsArgsSchema(Schema):
         validate=validate.OneOf(list(_SECTION_LIST_SORT_FIELDS)),
     )
     sort_direction = ma_fields.Str(load_default="asc", validate=validate.OneOf(["asc", "desc"]))
+    max_sections_per_agreement = ma_fields.Int(
+        load_default=200,
+        validate=validate.Range(min=1, max=1000),
+    )
 
 
 class McpSearchAgreementsExtraArgsSchema(Schema):
