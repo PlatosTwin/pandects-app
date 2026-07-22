@@ -768,12 +768,12 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="get_agreements_summary",
-            description="Corpus sizing: total agreements, sections, and page counts. Use to size the dataset before planning a survey or estimating how much of the corpus a filter covers. Each figure equals what the matching tool reports: `agreements` matches an unfiltered search_agreements total_count (the correct denominator for a coverage percentage), `sections` matches the index search_sections paginates, and `pages` counts exactly those agreements' pages so pages/agreements is a sound ratio. These figures are smaller than the ingestion totals published on the website, which count records that have no retrievable text.",
+            description="Corpus sizing: total agreements, sections, and page counts. `agreements` matches an unfiltered search_agreements total_count (the correct denominator for a coverage percentage) and `sections` matches the index search_sections paginates -- both scoped to what the tools can return. `pages` is the ingestion-wide total (the figure the website shows), NOT retrievable-scoped: there is no served per-page table to scope it by, so do not divide pages by agreements for a per-document average. agreements and sections are smaller than the website ingestion totals, which count records with no retrievable text.",
             input_schema=_empty_schema(),
             output_schema=_agreements_summary_output_schema(),
             examples=({"description": "Get top-level corpus counts.", "arguments": {}},),
             response_examples=(
-                {"description": "Corpus count summary.", "content": {"agreements": 9902, "sections": 967121, "pages": 911757}},
+                {"description": "Corpus count summary.", "content": {"agreements": 9902, "sections": 967121, "pages": 943587}},
             ),
             scopes=("agreements:search",),
             selection_hint="Use for top-level corpus sizing before deeper analysis.",
