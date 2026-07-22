@@ -1343,11 +1343,12 @@ def _search_sections(
     )
     parsed_args = cast(SectionsArgsPayload, cast(object, validated))
     include_xml = parsed_args["include_xml"]
-    include_snippet = bool(validated.get("include_snippet"))
+    # These three always load: the schema declares a load_default for each.
+    include_snippet = cast(bool, validated["include_snippet"])
     snippet_focus_terms = [
-        term for term in cast("list[str]", validated.get("snippet_focus_terms") or []) if term.strip()
+        term for term in cast("list[str]", validated["snippet_focus_terms"]) if term.strip()
     ]
-    snippet_max_chars = cast(int, validated.get("snippet_max_chars") or 400)
+    snippet_max_chars = cast(int, validated["snippet_max_chars"])
     response = run_sections(deps, ctx=principal.access_context, parsed_args=parsed_args)
     results = cast(list[dict[str, object]], response.get("results", []))
 

@@ -1824,6 +1824,9 @@ class McpTests(unittest.TestCase):
             _extract_monetary_values("the sum of $250,000 minus expenses"),
             ["$250,000"],
         )
+        # A bare "$," carries no amount; the old pattern accepted it because its digit
+        # run allowed a lone comma.
+        self.assertEqual(_extract_monetary_values("denominated in $, not euros"), [])
         # Genuine units still parse.
         self.assertEqual(_extract_monetary_values("approximately $1.5 billion"), ["$1.5 billion"])
         self.assertEqual(_extract_monetary_values("$2.5 M in escrow"), ["$2.5 M"])
