@@ -209,6 +209,9 @@ class AgreementsDeps:
     TaxonomyL2: Any
     TaxonomyL3: Any
     TaxClauseAssignment: Any
+    TaxClauseTaxonomyL1: Any
+    TaxClauseTaxonomyL2: Any
+    TaxClauseTaxonomyL3: Any
     XML: Any
     _AGREEMENTS_SUMMARY_TTL_SECONDS: int
     _FILTER_OPTIONS_TTL_SECONDS: int

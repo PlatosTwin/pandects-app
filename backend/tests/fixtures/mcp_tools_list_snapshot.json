@@ -595,7 +595,7 @@
       "negativeGuidance": [
         "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
         "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
-        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it.",
+        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it. No corpus-wide keyword index exists to fall back on, so there is no way to search clause text by phrase; if a concept has no taxonomy node, say so rather than substituting an adjacent node.",
         "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
         "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page only, unlike total_count."
       ],
@@ -1322,7 +1322,7 @@
       "requiredScopes": [
         "agreements:read"
       ],
-      "selectionHint": "Use for corpus-wide tax-clause retrieval by tax taxonomy node; pair with suggest_clause_families(taxonomy='tax_clauses')."
+      "selectionHint": "Use for corpus-wide tax-clause retrieval by tax taxonomy node; pair with suggest_clause_families(taxonomy='tax_clauses'). Unrecognized tax_standard_id values are ignored and reported under interpretation.unrecognized_tax_standard_ids — check for that block before reading an empty result as a real absence."
     },
     "inputSchema": {
       "additionalProperties": false,
@@ -1683,6 +1683,28 @@
         "has_prev": {
           "type": "boolean"
         },
+        "interpretation": {
+          "additionalProperties": false,
+          "properties": {
+            "notes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "unrecognized_tax_standard_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "unrecognized_tax_standard_ids",
+            "notes"
+          ],
+          "type": "object"
+        },
         "next_num": {
           "type": [
             "integer",
@@ -1756,9 +1778,6 @@
                   "null"
                 ]
               },
-              "id": {
-                "type": "string"
-              },
               "section_uuid": {
                 "type": [
                   "string",
@@ -1812,7 +1831,6 @@
               }
             },
             "required": [
-              "id",
               "clause_uuid",
               "tax_standard_ids",
               "verified"
@@ -2150,6 +2168,28 @@
         },
         "has_next": {
           "type": "boolean"
+        },
+        "interpretation": {
+          "additionalProperties": false,
+          "properties": {
+            "notes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "unrecognized_standard_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "unrecognized_standard_ids",
+            "notes"
+          ],
+          "type": "object"
         },
         "next_cursor": {
           "type": [
@@ -2716,7 +2756,9 @@
     "description": "Fetch one agreement by UUID. Returns metadata (parties, counsel, consideration, deal status) only by default, which keeps the response small. Pass include_xml=true to also return the agreement XML (redacted to headings and structure unless the caller holds the full-text scope). The response always reports xml_included.",
     "annotations": {
       "negativeGuidance": [
-        "Do not use this tool for bulk discovery or corpus filtering."
+        "Do not use this tool for bulk discovery or corpus filtering.",
+        "Do not pass include_xml=true just to read a few clauses: most agreements run past 200k characters and will exhaust the context window. Use search_sections with agreement_uuid and include_snippet=true, or get_section for specific sections.",
+        "Do not expect focus_section_uuid/neighbor_sections to trim a full-text response: they only shape the redacted view shown to callers without agreements:read_fulltext, and are ignored once the full XML is returned."
       ],
       "pagination": "none",
       "requiredScopes": [
@@ -3012,7 +3054,7 @@
   },
   {
     "name": "get_agreement_tax_clauses",
-    "description": "Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Page-paginated (default 25 per page); filter with tax_standard_id to retrieve only clauses assigned to specific tax taxonomy nodes, since most extracted tax-module clauses carry no assignment. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative. `extraction_status` always describes the record as a whole, never the tax_standard_id filter.",
+    "description": "Fetch tax clauses extracted from one agreement, with their tax-taxonomy assignments. Page-paginated (default 25 per page); filter with tax_standard_id to retrieve only clauses assigned to specific tax taxonomy nodes, since most extracted tax-module clauses carry no assignment. Use for focused tax-structure research; use get_agreement when you need the full agreement body. An empty `clauses` list is disambiguated by `extraction_status`: `no_tax_clauses` means extraction ran and found none (a real absence), while `not_extracted` means no clauses of any module exist so the empty result is uninformative. `extraction_status` always describes the record as a whole, never the tax_standard_id filter, so a `found` status alongside an empty page means the filter excluded everything. Unrecognized tax_standard_id values are ignored and reported under interpretation.unrecognized_tax_standard_ids; check for that block before concluding the agreement lacks the clause.",
     "annotations": {
       "negativeGuidance": [
         "Do not treat every returned clause as taxonomy-classified: most extracted tax-module clauses have an empty standard_ids list. Pass tax_standard_id when you want only classified clauses.",
@@ -3150,6 +3192,28 @@
         },
         "has_prev": {
           "type": "boolean"
+        },
+        "interpretation": {
+          "additionalProperties": false,
+          "properties": {
+            "notes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "unrecognized_tax_standard_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "unrecognized_tax_standard_ids",
+            "notes"
+          ],
+          "type": "object"
         },
         "next_num": {
           "type": [
@@ -3335,6 +3399,28 @@
         },
         "has_prev": {
           "type": "boolean"
+        },
+        "interpretation": {
+          "additionalProperties": false,
+          "properties": {
+            "notes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "unrecognized_tax_standard_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "unrecognized_tax_standard_ids",
+            "notes"
+          ],
+          "type": "object"
         },
         "next_num": {
           "type": [
@@ -3653,7 +3739,7 @@
   },
   {
     "name": "suggest_clause_families",
-    "description": "Translate a plain-English M&A concept (e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee') into ranked clause-family taxonomy nodes. Each suggestion reports whether it is a canonical match, a proxy, or a broader semantic match, plus a confidence score. The top-level `coverage` field (canonical / proxy / weak / none) and `coverage_note` summarize whether the concept is actually represented — when coverage is `weak` or `none`, the returned nodes may be adjacent or even opposite concepts (e.g. 'go-shop' only surfaces 'no-shop'), so do not filter on them without verifying. Set taxonomy='tax_clauses' to map tax concepts, then pass the resulting tax_standard_id to search_tax_clauses. Call before search_sections/search_tax_clauses when you know the concept but not the taxonomy.",
+    "description": "Translate a plain-English M&A concept (e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee') into ranked clause-family taxonomy nodes. Each suggestion reports whether it is a canonical match, a proxy, or a broader semantic match, plus a confidence score. The top-level `coverage` field (canonical / proxy / weak / none) and `coverage_note` summarize whether the concept is actually represented — when coverage is `weak` or `none`, the returned nodes may be adjacent or even opposite concepts (e.g. 'go-shop' only surfaces 'no-shop'), so do not filter on them without verifying. Set taxonomy='tax_clauses' to map tax concepts, then pass the resulting tax_standard_id to search_tax_clauses. Call before search_sections/search_tax_clauses when you know the concept but not the taxonomy. Labels are not unique: many leaf nodes repeat verbatim under different parents (for example the same rep under Buyer/Parent and under Company/Seller) and score identically, so never pick a node by `label` alone — key on `standard_id`, and use `qualified_label` when you need to name the node. `label_is_ambiguous` flags the affected nodes.",
     "annotations": {
       "negativeGuidance": [
         "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it.",
@@ -3730,6 +3816,10 @@
               "label": {
                 "type": "string"
               },
+              "label_is_ambiguous": {
+                "description": "True when `label` is shared with another taxonomy node. Never select such a node by `label` alone — use standard_id or qualified_label.",
+                "type": "boolean"
+              },
               "matched_terms": {
                 "items": {
                   "type": "string"
@@ -3741,6 +3831,10 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "qualified_label": {
+                "description": "Label guaranteed unique across the taxonomy. Identical to `label` unless another node shares it, in which case the distinguishing ancestor is appended in brackets. Use this when naming a node.",
+                "type": "string"
               },
               "reason": {
                 "type": "string"
@@ -3758,6 +3852,8 @@
             "required": [
               "standard_id",
               "label",
+              "qualified_label",
+              "label_is_ambiguous",
               "path",
               "score",
               "matched_terms",

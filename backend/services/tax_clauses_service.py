@@ -31,6 +31,9 @@ class TaxClausesServiceDeps:
     Clauses: Any
     Counsel: Any
     TaxClauseAssignment: Any
+    TaxClauseTaxonomyL1: Any
+    TaxClauseTaxonomyL2: Any
+    TaxClauseTaxonomyL3: Any
     XML: Any
     _to_int: ToIntProtocol
     _cached_exact_query_count: CachedExactQueryCountProtocol
