@@ -780,23 +780,16 @@ def _counsel_payload(
 
 
 def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
-    # Each figure equals what its matching tool returns, so the payload is a sound basis
-    # for coverage math rather than the inflated ingestion rollup. agreements and pages are
-    # both eligibility+xml gated, so pages/agreements is exact. sections counts the same
-    # index search_sections paginates; that index is xml-gated but not eligibility-gated,
-    # so sections/agreements is exact only while no gated-unverified agreement has a latest
-    # verified xml row (zero today, resolved upstream in the pipeline). A payload whose
-    # fields were scoped by *different* xml predicates would make pages/agreements silently
-    # wrong, which is what reading any of these from summary_data used to do.
-    #
-    # None of the three is read from summary_data. That rollup applies the
-    # public-eligibility gate but not the join to the latest verified XML row every
-    # retrieval tool inner-joins, so its agreement and page counts include records no
-    # tool here can return. Its section count is built through a *stricter* XML join than
-    # the backend's (the ETL requires status = 'verified'; the backend also accepts a NULL
-    # status), so the two agree only while no latest row has a NULL status -- true today,
-    # but a coincidence rather than a guarantee, and exactly the kind of contingent
-    # agreement that puts one field in a different universe from its siblings.
+    # agreements and sections are scoped to what the tools can actually return; pages is
+    # not, and cannot be, at runtime. The raw `pages` table holds full page content and is
+    # an ETL-only table -- it is absent from the serving schema, which is the whole reason
+    # summary_data precomputes count_pages. There is no per-agreement page count in any
+    # served table, so pages cannot be filtered to the retrievable set here; it is the
+    # ingestion-wide total from the rollup (the same figure the website shows). Do not read
+    # pages/agreements as a per-retrievable-document average: the two are different scopes.
+    # (An earlier version computed pages from the raw table and 500ed in production, where
+    # that table does not exist. The tests and local dev DB both have it, so the suite did
+    # not catch it -- the lesson is that the serving schema is narrower than either.)
     agreements = deps.Agreements
     retrievable = (
         deps.db.session.query(func.count(func.distinct(agreements.agreement_uuid)))
@@ -809,22 +802,12 @@ def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
     sections = deps.db.session.query(
         func.count(deps.LatestSectionsSearch.section_uuid)
     ).scalar()
-    # There is no Pages model to hang the shared expressions off, so the predicate is
-    # restated. COUNT(DISTINCT page_uuid), not COUNT(*): nothing in the schema forbids two
-    # latest+verified xml rows for one agreement, and the join would then count that
-    # agreement's pages twice while the DISTINCT agreement count above stayed correct.
-    prefix = deps._schema_prefix()
+    # pages from the rollup: ingestion-wide, not retrievable-scoped (see above).
     pages = deps.db.session.execute(
         text(
             f"""
-            SELECT COUNT(DISTINCT pg.page_uuid) AS pages
-            FROM {prefix}pages pg
-            JOIN {prefix}agreements a ON a.agreement_uuid = pg.agreement_uuid
-            JOIN {prefix}xml x
-              ON x.agreement_uuid = a.agreement_uuid
-             AND x.latest = 1
-             AND (x.status IS NULL OR x.status = 'verified')
-            WHERE (COALESCE(a.gated, 0) <> 1 OR COALESCE(a.verified, 0) = 1)
+            SELECT COALESCE(SUM(count_pages), 0) AS pages
+            FROM {deps._schema_prefix()}summary_data
             """
         )
     ).scalar()

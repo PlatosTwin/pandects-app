@@ -560,23 +560,10 @@ class McpTests(unittest.TestCase):
                         "('a4', '<document><article></article></document>', 1, 'verified', 1)"
                     )
                 )
-                conn.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS pages ("
-                        "page_uuid TEXT PRIMARY KEY, agreement_uuid TEXT NOT NULL)"
-                    )
-                )
-                # 4 pages on retrievable agreements; 3 on a3 (no latest XML) and 2 on a4
-                # (gated, unverified). Each unreachable agreement is excluded by a
-                # different predicate, so both are pinned.
-                conn.execute(
-                    text(
-                        "INSERT INTO pages (page_uuid, agreement_uuid) VALUES "
-                        "('p1', 'a1'), ('p2', 'a1'), ('p3', 'a1'), ('p4', 'a2'), "
-                        "('p5', 'a3'), ('p6', 'a3'), ('p7', 'a3'), "
-                        "('p8', 'a4'), ('p9', 'a4')"
-                    )
-                )
+                # No `pages` table is created: it is ETL-only and absent from the serving
+                # schema, so the summary payload must never query it. A prior version did,
+                # and passed here only because the fixture had created one -- the gap that
+                # let a prod-only failure through. pages now comes from summary_data.
                 conn.execute(
                     text(
                         "CREATE TABLE IF NOT EXISTS agreement_ownership_mix_summary ("
@@ -2404,10 +2391,12 @@ class McpTests(unittest.TestCase):
         # summary_data seeds count_agreements=1 / count_sections=2, and neither matches
         # what the tools can reach: a1 and a2 are both retrievable (a3 has no latest XML,
         # a4 is gated and unverified), and they hold 4 sections between them in the search
-        # index that search_sections paginates. This tool is the denominator for coverage
-        # questions, so every figure reports the reachable universe, not the rollup.
+        # index that search_sections paginates. agreements and sections report the
+        # reachable universe, not the rollup; pages stays the rollup total (5) because the
+        # raw pages table is ETL-only and not in the serving schema.
         self.assertEqual(summary_payload["agreements"], 2)
         self.assertEqual(summary_payload["sections"], 4)
+        self.assertEqual(summary_payload["pages"], 5)
 
         trends_res = self._call_tool("get_agreement_trends", {})
         self.assertEqual(trends_res.status_code, 200)
@@ -2419,14 +2408,14 @@ class McpTests(unittest.TestCase):
         """Every figure must describe the agreements the retrieval tools can return.
 
         summary_data applies the public-eligibility gate but not the join to the latest
-        verified XML row that every retrieval tool inner-joins, so its agreement and page
-        counts include agreements no tool here can return. Against the live corpus that is
+        verified XML row that every retrieval tool inner-joins, so its agreement count
+        includes agreements no tool here can return. Against the live corpus that is
         10,784 counted against 9,902 reachable, and any "X% of the corpus" ratio built on
         the inflated denominator came out understated.
 
         a3 and a4 are the two unreachable shapes in miniature: a3 is eligible with no
         latest XML row, a4 has one but is gated and unverified. Removing either predicate
-        from either count leaks one of them in and fails these assertions.
+        from the agreement count leaks one of them in and fails these assertions.
         """
         summary_payload = self._call_tool("get_agreements_summary", {}).get_json()[
             "result"
@@ -2436,15 +2425,15 @@ class McpTests(unittest.TestCase):
         ]["structuredContent"]
         self.assertEqual(summary_payload["agreements"], search_payload["total_count"])
         # a1 and a2 only; summary_data.count_agreements is seeded at 1, so this also pins
-        # that the payload no longer echoes the rollup.
+        # that the agreement count no longer echoes the rollup.
         self.assertEqual(summary_payload["agreements"], 2)
-        # a1 and a2 hold 4 pages; a3's 3 and a4's 2 must not be counted. summary_data
-        # seeds count_pages=5, so this pins that pages is no longer read from the rollup
-        # either -- the field that still measured the wrong universe after the first fix.
-        self.assertEqual(summary_payload["pages"], 4)
-        # And sections comes from the search index rather than the rollup's 2, so all
-        # three figures describe one universe instead of two.
+        # sections comes from the search index (4 across a1+a2), not the rollup's seeded 2.
         self.assertEqual(summary_payload["sections"], 4)
+        # pages is deliberately still the rollup total (seeded 5): the raw pages table is
+        # ETL-only and absent from the serving schema, so pages cannot be scoped to the
+        # retrievable set at runtime. Querying it 500ed in prod; reading the rollup is the
+        # only served source. This pins that it reads summary_data and nothing else.
+        self.assertEqual(summary_payload["pages"], 5)
 
     def test_monetary_values_report_truncation(self):
         """A capped list that looks complete is the same defect as a silent drop."""
