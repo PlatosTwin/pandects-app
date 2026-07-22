@@ -1802,6 +1802,89 @@ class McpTests(unittest.TestCase):
         self.assertIn("disproportionate effects", snippet_payload["snippet"].lower())
         self.assertEqual(snippet_payload["matched_terms"], ["disproportionate effects"])
 
+    def test_monetary_extraction_does_not_absorb_surrounding_prose(self):
+        from backend.mcp.tools.shared import _extract_monetary_values
+
+        # Both defects were live: the digit run swallowed a trailing comma, and the
+        # single-letter unit suffixes matched the first letter of the following word,
+        # so ~11% of extracted values across the corpus were malformed.
+        self.assertEqual(
+            _extract_monetary_values("a fee of $1,000,000, but only if terminated"),
+            ["$1,000,000"],
+        )
+        self.assertEqual(
+            _extract_monetary_values("shall pay $3,000,000 to the Company"),
+            ["$3,000,000"],
+        )
+        self.assertEqual(
+            _extract_monetary_values("$10,000,000 by wire transfer"),
+            ["$10,000,000"],
+        )
+        self.assertEqual(
+            _extract_monetary_values("the sum of $250,000 minus expenses"),
+            ["$250,000"],
+        )
+        # A bare "$," carries no amount; the old pattern accepted it because its digit
+        # run allowed a lone comma.
+        self.assertEqual(_extract_monetary_values("denominated in $, not euros"), [])
+        # Genuine units still parse.
+        self.assertEqual(_extract_monetary_values("approximately $1.5 billion"), ["$1.5 billion"])
+        self.assertEqual(_extract_monetary_values("$2.5 M in escrow"), ["$2.5 M"])
+        self.assertEqual(_extract_monetary_values("$50mm of debt"), ["$50mm"])
+        self.assertEqual(_extract_monetary_values("5 million dollars"), ["5 million dollars"])
+
+    def test_search_sections_inline_snippet_avoids_second_round_trip(self):
+        res = self._call_tool(
+            "search_sections",
+            {
+                "include_snippet": True,
+                "snippet_focus_terms": ["disproportionate effects"],
+                "snippet_max_chars": 220,
+                "page_size": 5,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        results = payload["results"]
+        self.assertTrue(results)
+        focused = [r for r in results if r["matched_terms"]]
+        self.assertTrue(focused, "expected the focus term to centre at least one snippet")
+        for result in results:
+            self.assertIn("snippet", result)
+            self.assertLessEqual(len(result["snippet"]), 220 + 6)
+            self.assertIsInstance(result["source_length"], int)
+            self.assertIsInstance(result["monetary_values"], list)
+            # The excerpt must not drag the full XML along with it.
+            self.assertNotIn("xml", result)
+
+    def test_search_sections_omits_snippet_fields_by_default(self):
+        res = self._call_tool("search_sections", {"page_size": 5})
+        self.assertEqual(res.status_code, 200)
+        for result in res.get_json()["result"]["structuredContent"]["results"]:
+            self.assertNotIn("snippet", result)
+            self.assertNotIn("monetary_values", result)
+
+    def test_search_sections_drops_duplicate_id_and_scopes_agreement_count(self):
+        res = self._call_tool("search_sections", {"page_size": 5})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        # `id` duplicated `section_uuid` verbatim; only the named field is returned now.
+        for result in payload["results"]:
+            self.assertNotIn("id", result)
+            self.assertTrue(result["section_uuid"])
+        # The count covers the current page only, so the name has to say so; an
+        # unqualified name next to total_count reads as a corpus-wide figure.
+        self.assertNotIn("unique_agreement_count", payload)
+        self.assertIn("page_unique_agreement_count", payload)
+
+    def test_invalid_uuid_error_names_the_offending_argument(self):
+        res = self._call_tool("get_section_snippet", {"section_uuid": "not-a-real-uuid"})
+        self.assertEqual(res.status_code, 200)
+        error = res.get_json()["error"]
+        self.assertEqual(error["code"], -32602)
+        # Without the specific reason an agent cannot tell which argument to fix.
+        self.assertIn("section_uuid", error["message"])
+
     def test_server_capabilities_tool(self):
         res = self._call_tool("get_server_capabilities", {"sections": ["server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools"]})
         self.assertEqual(res.status_code, 200)

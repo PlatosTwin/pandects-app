@@ -7,14 +7,30 @@ from datetime import date, datetime
 from difflib import SequenceMatcher
 from decimal import Decimal
 from html import unescape
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 from sqlalchemy import asc, desc, text
+from werkzeug.exceptions import BadRequest
 
 from backend.mcp.tools.constants import _STRUCTURED_FILTER_ARRAY_FIELDS
 from backend.routes.agreements import _normalize_industry_label, _to_float_or_none
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps
 from backend.schemas.public_api import AgreementsBulkArgsPayload
+
+
+class AgentVisibleBadRequest(BadRequest):
+    """A 400 whose description is written for the calling agent and is safe to return.
+
+    A BadRequest raised deeper in the stack can carry internal detail, so the MCP error
+    contract deliberately keeps those opaque. Handlers raise this type instead to opt a
+    specific, self-correcting message ("Invalid section_uuid: <x>") into the JSON-RPC
+    error, which is the difference between an agent fixing its call and blindly retrying.
+    """
+
+
+def _abort_invalid_argument(description: str) -> NoReturn:
+    """Reject a tool call with a reason the calling agent is allowed to see."""
+    raise AgentVisibleBadRequest(description=description)
 
 
 def _normalized_page(page: int) -> int:
@@ -490,9 +506,15 @@ def _focused_snippet(text_content: str, *, focus_terms: list[str], max_chars: in
     return snippet, matched_terms
 
 
+# Two guards keep this from capturing sentence text as part of an amount:
+#   - the digit run must end in a digit, so "$1,000,000, but" does not swallow the comma;
+#   - the unit suffix needs a trailing word boundary, so the single letters do not match the
+#     first character of the next word ("$3,000,000 to" -> "$3,000,000 t", "$X by wire" -> "$X b").
+# Both were live defects: they corrupted ~11% of extracted values across the corpus.
 _MONEY_RE = re.compile(
-    r'\$\s*[\d,]+(?:\.\d+)?(?:\s*(?:billion|million|trillion|thousand|B|M|T|K))?'
-    r'|[\d,]+(?:\.\d+)?\s+(?:billion|million|trillion|thousand)\s+dollars?',
+    r'\$\s*\d(?:[\d,]*\d)?(?:\.\d+)?'
+    r'(?:\s*(?:billion|million|trillion|thousand|bn|mm|[BMTK])\b)?'
+    r'|\d(?:[\d,]*\d)?(?:\.\d+)?\s+(?:billion|million|trillion|thousand)\s+dollars?',
     re.IGNORECASE,
 )
 

@@ -1,7 +1,7 @@
 [
   {
     "name": "search_agreements",
-    "description": "Find merger agreements by target/acquirer name, year, counsel, industry, deal type, any of the standard M&A filters, or by clause taxonomy (standard_id). Passing standard_id filters to agreements that contain at least one section tagged with that taxonomy node \u2014 this is the efficient way to find all deals with a specific clause type without paginating search_sections. Best for exploratory discovery where you may combine a free-text hint with structured filters. For deep pagination or bulk exports of a known filter set, use list_agreements instead.",
+    "description": "Find merger agreements by target/acquirer name, year, counsel, industry, deal type, any of the standard M&A filters, or by clause taxonomy (standard_id). Passing standard_id filters to agreements that contain at least one section tagged with that taxonomy node — this is the efficient way to find all deals with a specific clause type without paginating search_sections. Best for exploratory discovery where you may combine a free-text hint with structured filters. For deep pagination or bulk exports of a known filter set, use list_agreements instead.",
     "annotations": {
       "negativeGuidance": [
         "Do not use this tool when you already know the exact structured filters and expect deep pagination; prefer list_agreements.",
@@ -595,13 +595,15 @@
       "negativeGuidance": [
         "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
         "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
-        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it."
+        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it.",
+        "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
+        "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page only, unlike total_count."
       ],
       "pagination": "page",
       "requiredScopes": [
         "sections:search"
       ],
-      "selectionHint": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling."
+      "selectionHint": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call."
     },
     "inputSchema": {
       "additionalProperties": false,
@@ -712,6 +714,10 @@
           "description": "When false, omit `dump_version` from the response body. The `X-Pandects-Dump-Hash` response header is always included.",
           "type": "boolean"
         },
+        "include_snippet": {
+          "description": "When true, include a short plain-text excerpt of each section as `snippet`, plus `matched_terms`, `monetary_values`, and `source_length`. Lets one search answer 'what does this clause say' without a follow-up get_section_snippets_batch call. Far smaller than include_xml.",
+          "type": "boolean"
+        },
         "include_xml": {
           "description": "When true, include full section XML in each result. Omitted by default to keep responses compact.",
           "type": "boolean"
@@ -783,6 +789,19 @@
             "null"
           ]
         },
+        "snippet_focus_terms": {
+          "description": "Terms used to centre each snippet, as in get_section_snippet. Only applies when include_snippet is true.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "snippet_max_chars": {
+          "description": "Maximum characters per snippet (120-1200). Only applies when include_snippet is true. Defaults to 400 to keep result pages compact.",
+          "maximum": 1200,
+          "minimum": 120,
+          "type": "integer"
+        },
         "sort_by": {
           "description": "Sort key. One of: `year`, `target`, `acquirer`.",
           "enum": [
@@ -801,7 +820,7 @@
           "type": "string"
         },
         "standard_id": {
-          "description": "Clause type taxonomy standard IDs (Clause Type in the Search UI). These are opaque 16-character hex node IDs obtained from get_clause_taxonomy or suggest_clause_families \u2014 not dotted numbers. Parent IDs expand to include descendant taxonomy nodes. Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
+          "description": "Clause type taxonomy standard IDs (Clause Type in the Search UI). These are opaque 16-character hex node IDs obtained from get_clause_taxonomy or suggest_clause_families — not dotted numbers. Parent IDs expand to include descendant taxonomy nodes. Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.",
           "example": [
             "4207f2e8f6698935",
             "fe2f63338a1eaf30"
@@ -1154,6 +1173,9 @@
         "page_size": {
           "type": "integer"
         },
+        "page_unique_agreement_count": {
+          "type": "integer"
+        },
         "prev_num": {
           "type": [
             "integer",
@@ -1188,12 +1210,21 @@
                   "null"
                 ]
               },
-              "id": {
-                "type": "string"
+              "matched_terms": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
               },
               "metadata": {
                 "additionalProperties": true,
                 "type": "object"
+              },
+              "monetary_values": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
               },
               "section_title": {
                 "type": [
@@ -1203,6 +1234,12 @@
               },
               "section_uuid": {
                 "type": "string"
+              },
+              "snippet": {
+                "type": "string"
+              },
+              "source_length": {
+                "type": "integer"
               },
               "standard_id": {
                 "items": {
@@ -1239,7 +1276,6 @@
               }
             },
             "required": [
-              "id",
               "section_uuid",
               "standard_id",
               "verified"
@@ -1255,9 +1291,6 @@
           "type": "boolean"
         },
         "total_pages": {
-          "type": "integer"
-        },
-        "unique_agreement_count": {
           "type": "integer"
         }
       },
@@ -1815,7 +1848,7 @@
   },
   {
     "name": "list_agreements",
-    "description": "Paginate through agreements that match an exact structured filter set, with cursor pagination suitable for exporting or iterating large result sets. Supports standard_id to filter by clause taxonomy \u2014 pass a taxonomy node id to get only agreements containing that clause type. Use when filters are already known and you expect to scan many pages; use search_agreements for exploratory discovery.",
+    "description": "Paginate through agreements that match an exact structured filter set, with cursor pagination suitable for exporting or iterating large result sets. Supports standard_id to filter by clause taxonomy — pass a taxonomy node id to get only agreements containing that clause type. Use when filters are already known and you expect to scan many pages; use search_agreements for exploratory discovery.",
     "annotations": {
       "negativeGuidance": [
         "Do not use this tool for free-text exploration; prefer search_agreements when you are still discovering names or years."
@@ -3620,7 +3653,7 @@
   },
   {
     "name": "suggest_clause_families",
-    "description": "Translate a plain-English M&A concept (e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee') into ranked clause-family taxonomy nodes. Each suggestion reports whether it is a canonical match, a proxy, or a broader semantic match, plus a confidence score. The top-level `coverage` field (canonical / proxy / weak / none) and `coverage_note` summarize whether the concept is actually represented \u2014 when coverage is `weak` or `none`, the returned nodes may be adjacent or even opposite concepts (e.g. 'go-shop' only surfaces 'no-shop'), so do not filter on them without verifying. Set taxonomy='tax_clauses' to map tax concepts, then pass the resulting tax_standard_id to search_tax_clauses. Call before search_sections/search_tax_clauses when you know the concept but not the taxonomy.",
+    "description": "Translate a plain-English M&A concept (e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee') into ranked clause-family taxonomy nodes. Each suggestion reports whether it is a canonical match, a proxy, or a broader semantic match, plus a confidence score. The top-level `coverage` field (canonical / proxy / weak / none) and `coverage_note` summarize whether the concept is actually represented — when coverage is `weak` or `none`, the returned nodes may be adjacent or even opposite concepts (e.g. 'go-shop' only surfaces 'no-shop'), so do not filter on them without verifying. Set taxonomy='tax_clauses' to map tax concepts, then pass the resulting tax_standard_id to search_tax_clauses. Call before search_sections/search_tax_clauses when you know the concept but not the taxonomy.",
     "annotations": {
       "negativeGuidance": [
         "Do not treat the top suggestion as automatically canonical; check fit, confidence, and scope_note before relying on it.",
@@ -3863,7 +3896,7 @@
     "description": "Return focused plain-text excerpts for up to 20 sections in a single call. Eliminates N sequential get_section_snippet calls when comparing clause language across multiple agreements. Accepts the same focus_terms and max_chars as get_section_snippet.",
     "annotations": {
       "negativeGuidance": [
-        "Do not call this tool N times in a loop for N sections \u2014 that defeats the purpose; pass all section_uuids at once.",
+        "Do not call this tool N times in a loop for N sections — that defeats the purpose; pass all section_uuids at once.",
         "Do not treat snippets as complete section text; use get_section for the full XML when exact context matters."
       ],
       "pagination": "none",
@@ -3982,7 +4015,7 @@
     "description": "Fetch full XML content for up to 10 sections in a single call, with inline agreement metadata (target, acquirer, year, filing_date, transaction_price_total) and extracted monetary values. Eliminates N sequential get_section calls when you need the complete authoritative text for multiple sections. XML is capped at max_xml_chars per section (default 10000) to prevent context overload; xml_truncated signals when a result was cut. Pass max_xml_chars=null only if you specifically need uncapped XML. Use get_section_snippets_batch instead when only excerpts are needed.",
     "annotations": {
       "negativeGuidance": [
-        "Do not use for snippets or excerpts \u2014 use get_section_snippets_batch instead.",
+        "Do not use for snippets or excerpts — use get_section_snippets_batch instead.",
         "Limited to 10 sections per call; split into multiple calls for larger sets."
       ],
       "pagination": "none",
@@ -4198,7 +4231,7 @@
   },
   {
     "name": "get_server_capabilities",
-    "description": "Self-describing guide to this server: the tool inventory with selection hints and negative guidance, the field inventory (which concepts are first-class, taxonomy-backed, text-derived, or unrepresented), ready-made research workflows, and auth help. Call first when onboarding a new agent or planning a multi-step research task. Use `sections` to request only the parts you need \u2014 omit `tools` unless you specifically want full per-tool schemas (those are large; use the MCP tools/list endpoint instead).",
+    "description": "Self-describing guide to this server: the tool inventory with selection hints and negative guidance, the field inventory (which concepts are first-class, taxonomy-backed, text-derived, or unrepresented), ready-made research workflows, and auth help. Call first when onboarding a new agent or planning a multi-step research task. Use `sections` to request only the parts you need — omit `tools` unless you specifically want full per-tool schemas (those are large; use the MCP tools/list endpoint instead).",
     "annotations": {
       "negativeGuidance": [
         "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly."
@@ -4659,6 +4692,9 @@
               "name": {
                 "type": "string"
               },
+              "note": {
+                "type": "string"
+              },
               "steps": {
                 "items": {
                   "type": "string"
@@ -4683,7 +4719,7 @@
   },
   {
     "name": "get_clause_taxonomy",
-    "description": "Return the full clause-family taxonomy tree (L1 \u2192 L2 \u2192 L3) used for section-level search. Prefer suggest_clause_families when you want to look up a single concept; use this tool when you need the whole tree for browsing or planning.",
+    "description": "Return the full clause-family taxonomy tree (L1 → L2 → L3) used for section-level search. Prefer suggest_clause_families when you want to look up a single concept; use this tool when you need the whole tree for browsing or planning.",
     "annotations": {
       "negativeGuidance": [],
       "pagination": "none",
@@ -4811,7 +4847,7 @@
   },
   {
     "name": "get_counsel_catalog",
-    "description": "Return canonical law-firm names used as counsel filters. Pass `query` to filter by substring (case-insensitive) \u2014 e.g. query='Kirkland' returns only Kirkland & Ellis entries. Without `query` the full catalog (~1 300 entries) is returned; prefer a scoped query whenever you know the firm name.",
+    "description": "Return canonical law-firm names used as counsel filters. Pass `query` to filter by substring (case-insensitive) — e.g. query='Kirkland' returns only Kirkland & Ellis entries. Without `query` the full catalog (~1 300 entries) is returned; prefer a scoped query whenever you know the firm name.",
     "annotations": {
       "negativeGuidance": [],
       "pagination": "none",

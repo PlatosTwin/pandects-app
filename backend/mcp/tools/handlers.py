@@ -23,6 +23,7 @@ from backend.mcp.tools.args_schemas import (
     McpListAgreementSectionsArgsSchema,
     McpSearchAgreementsExtraArgsSchema,
     McpSectionArgsSchema,
+    McpSectionsArgsSchema,
     McpSectionTaxClausesArgsSchema,
 )
 from backend.mcp.tools.constants import (
@@ -37,6 +38,7 @@ from backend.mcp.tools.schema_utils import (
     _schema_from_fields,
 )
 from backend.mcp.tools.shared import (
+    _abort_invalid_argument,
     _agreement_filter_interpretation,
     _agreement_trends_payload,
     _agreements_summary_payload,
@@ -68,7 +70,7 @@ from backend.schemas.public_api import (
     AgreementsBulkArgsSchema,
     AgreementsIndexArgsSchema,
 )
-from backend.schemas.sections import SectionsArgsPayload, SectionsArgsSchema
+from backend.schemas.sections import SectionsArgsPayload
 from backend.schemas.tax_clauses import TaxClausesArgsPayload, TaxClausesArgsSchema
 from backend.services.sections_service import run_sections
 from backend.services.tax_clauses_service import TaxClausesServiceDeps, run_tax_clauses
@@ -678,7 +680,7 @@ def _get_agreement(
     if focus_section_uuid is not None:
         focus_section_uuid = focus_section_uuid.strip()
         if not deps._SECTION_ID_RE.match(focus_section_uuid):
-            abort(400, description="Invalid focus_section_uuid.")
+            _abort_invalid_argument("Invalid focus_section_uuid.")
     neighbor_sections_int = parsed_args["neighbor_sections"]
     allow_fulltext = "agreements:read_fulltext" in principal.scopes
 
@@ -791,7 +793,7 @@ def _get_section(
     parsed_args = _validate_payload(McpSectionArgsSchema(), payload)
     section_uuid = cast(str, parsed_args["section_uuid"]).strip()
     if not deps._SECTION_ID_RE.match(section_uuid):
-        abort(400, description="Invalid section_uuid.")
+        _abort_invalid_argument("Invalid section_uuid.")
 
     sections = deps.Sections
     xml = deps.XML
@@ -883,7 +885,7 @@ def _get_section_snippet(
     )
     section_uuid = cast(str, parsed_args["section_uuid"]).strip()
     if not deps._SECTION_ID_RE.match(section_uuid):
-        abort(400, description="Invalid section_uuid.")
+        _abort_invalid_argument("Invalid section_uuid.")
     row = (
         deps.db.session.query(
             deps.Sections.agreement_uuid.label("agreement_uuid"),
@@ -948,10 +950,10 @@ def _get_section_snippets_batch(
     )
     section_uuids = [s.strip() for s in cast(list[str], parsed_args["section_uuids"]) if s.strip()]
     if not section_uuids:
-        abort(400, description="No valid section_uuids provided.")
+        _abort_invalid_argument("No valid section_uuids provided.")
     for suuid in section_uuids:
         if not deps._SECTION_ID_RE.match(suuid):
-            abort(400, description=f"Invalid section_uuid: {suuid}")
+            _abort_invalid_argument(f"Invalid section_uuid: {suuid}")
     focus_terms = [t for t in cast(list[str], parsed_args["focus_terms"]) if t.strip()]
     max_chars = cast(int, parsed_args["max_chars"])
 
@@ -1029,10 +1031,10 @@ def _get_sections_batch(
     )
     section_uuids = [s.strip() for s in cast(list[str], parsed_args["section_uuids"]) if s.strip()]
     if not section_uuids:
-        abort(400, description="No valid section_uuids provided.")
+        _abort_invalid_argument("No valid section_uuids provided.")
     for suuid in section_uuids:
         if not deps._SECTION_ID_RE.match(suuid):
-            abort(400, description=f"Invalid section_uuid: {suuid}")
+            _abort_invalid_argument(f"Invalid section_uuid: {suuid}")
 
     sections = deps.Sections
     xml = deps.XML
@@ -1119,7 +1121,7 @@ def _list_agreement_sections(
     parsed_args = _validate_payload(McpListAgreementSectionsArgsSchema(), payload)
     agreement_uuid = cast(str, parsed_args["agreement_uuid"]).strip()
     if agreement_uuid == "":
-        abort(400, description="Invalid agreement_uuid.")
+        _abort_invalid_argument("Invalid agreement_uuid.")
 
     page = _normalized_page(cast(int, parsed_args["page"]))
     page_size = _normalized_page_size(cast(int, parsed_args["page_size"]))
@@ -1221,7 +1223,7 @@ def _list_agreement_sections_batch(
     parsed_args = _validate_payload(McpBatchAgreementSectionsArgsSchema(), payload)
     agreement_uuids = [u.strip() for u in cast(list[str], parsed_args["agreement_uuids"]) if u.strip()]
     if not agreement_uuids:
-        abort(400, description="No valid agreement_uuids provided.")
+        _abort_invalid_argument("No valid agreement_uuids provided.")
 
     standard_ids = [value for value in cast(list[str], parsed_args["standard_id"]) if value]
     include_standard_ids = cast(bool, parsed_args["include_standard_ids"])
@@ -1336,17 +1338,49 @@ def _search_sections(
     agreements_deps: AgreementsDeps,
 ) -> McpToolResult:
     _require_scope(principal, "sections:search")
-    parsed_args = cast(
-        SectionsArgsPayload,
-        cast(object, _validate_payload(SectionsArgsSchema(), payload)),
+    validated = cast(
+        "dict[str, object]", cast(object, _validate_payload(McpSectionsArgsSchema(), payload))
     )
+    parsed_args = cast(SectionsArgsPayload, cast(object, validated))
     include_xml = parsed_args["include_xml"]
+    # These three always load: the schema declares a load_default for each.
+    include_snippet = cast(bool, validated["include_snippet"])
+    snippet_focus_terms = [
+        term for term in cast("list[str]", validated["snippet_focus_terms"]) if term.strip()
+    ]
+    snippet_max_chars = cast(int, validated["snippet_max_chars"])
     response = run_sections(deps, ctx=principal.access_context, parsed_args=parsed_args)
     results = cast(list[dict[str, object]], response.get("results", []))
+
+    # The service always hydrates xml_content, so an excerpt is free here; derive it
+    # before the xml is dropped from the payload.
+    if include_snippet:
+        for item in results:
+            xml_text = _extract_text_from_xml(item.get("xml"))
+            snippet, matched_terms = _focused_snippet(
+                xml_text,
+                focus_terms=snippet_focus_terms,
+                max_chars=snippet_max_chars,
+            )
+            item["snippet"] = snippet
+            item["matched_terms"] = matched_terms
+            item["source_length"] = len(xml_text)
+            item["monetary_values"] = _extract_monetary_values(xml_text)
 
     if not include_xml:
         for item in results:
             item.pop("xml", None)
+
+    # `id` is a verbatim copy of `section_uuid` kept for the web client's list keys; it is
+    # pure duplication for a model reading the payload.
+    for item in results:
+        item.pop("id", None)
+
+    # The service counts distinct agreements within the current page only. Beside a
+    # corpus-wide `total_count`, the unqualified name reads as "241 sections across 3
+    # agreements", so name the scope explicitly.
+    if "unique_agreement_count" in response:
+        response["page_unique_agreement_count"] = response.pop("unique_agreement_count")
 
     requested_standard_ids = [v for v in cast(list[str], parsed_args["standard_id"]) if v]
     if requested_standard_ids:
@@ -1487,7 +1521,7 @@ def _get_agreement_tax_clauses(
     parsed_args = _validate_payload(McpAgreementTaxClausesArgsSchema(), payload)
     agreement_uuid = cast(str, parsed_args["agreement_uuid"]).strip()
     if agreement_uuid == "":
-        abort(400, description="Invalid agreement_uuid.")
+        _abort_invalid_argument("Invalid agreement_uuid.")
     tax_standard_id = cast(list[str], parsed_args["tax_standard_id"])
     page = cast(int, parsed_args["page"])
     page_size = cast(int, parsed_args["page_size"])
@@ -1533,7 +1567,7 @@ def _get_section_tax_clauses(
     parsed_args = _validate_payload(McpSectionTaxClausesArgsSchema(), payload)
     section_uuid = cast(str, parsed_args["section_uuid"]).strip()
     if not deps._SECTION_ID_RE.match(section_uuid):
-        abort(400, description="Invalid section_uuid.")
+        _abort_invalid_argument("Invalid section_uuid.")
     tax_standard_id = cast(list[str], parsed_args["tax_standard_id"])
     page = cast(int, parsed_args["page"])
     page_size = cast(int, parsed_args["page_size"])

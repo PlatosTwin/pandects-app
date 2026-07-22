@@ -92,7 +92,6 @@ def _agreement_list_result_schema(*, include_xml: bool = False) -> dict[str, obj
 def _section_result_schema() -> dict[str, object]:
     return _object_schema(
         {
-            "id": {"type": "string"},
             "agreement_uuid": {"type": ["string", "null"]},
             "section_uuid": {"type": "string"},
             "standard_id": _array_of({"type": "string"}),
@@ -106,8 +105,13 @@ def _section_result_schema() -> dict[str, object]:
             "transaction_price_total": {"type": ["number", "null"]},
             "verified": {"type": "boolean"},
             "metadata": {"type": "object", "additionalProperties": True},
+            # Present only when include_snippet is requested.
+            "snippet": {"type": "string"},
+            "matched_terms": _array_of({"type": "string"}),
+            "source_length": {"type": "integer"},
+            "monetary_values": _array_of({"type": "string"}),
         },
-        required=["id", "section_uuid", "standard_id", "verified"],
+        required=["section_uuid", "standard_id", "verified"],
     )
 
 
@@ -212,7 +216,7 @@ def _search_sections_output_schema() -> dict[str, object]:
     properties.update(
         {
             "results": _array_of(_section_result_schema()),
-            "unique_agreement_count": {"type": "integer"},
+            "page_unique_agreement_count": {"type": "integer"},
             "access": _access_schema(),
             "count_metadata": _count_metadata_schema(),
             "interpretation": _interpretation_schema(),
@@ -955,6 +959,7 @@ def _workflow_output_schema() -> dict[str, object]:
         {
             "name": {"type": "string"},
             "steps": _array_of({"type": "string"}),
+            "note": {"type": "string"},
         },
         required=["name", "steps"],
         additional_properties=False,
