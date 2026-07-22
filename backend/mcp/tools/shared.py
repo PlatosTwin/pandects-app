@@ -495,15 +495,28 @@ def _qualified_labels_by_standard_id(
         distinguishing_index: int | None = None
         for index in range(depth):
             segments = {a[index] if index < len(a) else None for a in ancestries}
-            if len(segments) > 1:
+            # A segment equal to the label itself qualifies nothing: one taxonomy branch
+            # repeats the same label at L1, L2 and L3, so "X [X]" would be the result.
+            if len(segments) > 1 and not segments <= {label, None}:
                 distinguishing_index = index
                 break
+        candidates: dict[str, str] = {}
         for entry, ancestry in zip(group, ancestries):
             if distinguishing_index is not None and distinguishing_index < len(ancestry):
-                qualified[entry.standard_id] = f"{label} [{ancestry[distinguishing_index]}]"
+                candidates[entry.standard_id] = f"{label} [{ancestry[distinguishing_index]}]"
             else:
                 # No ancestor separates them; the id is the only discriminator left.
-                qualified[entry.standard_id] = f"{label} [{entry.standard_id}]"
+                candidates[entry.standard_id] = f"{label} [{entry.standard_id}]"
+        # The chosen segment can still repeat across the group (equal-length ancestries
+        # that differ only deeper). Uniqueness is the whole point of this label, so any
+        # value still shared falls back to the id, which is unique by construction.
+        counts: dict[str, int] = {}
+        for value in candidates.values():
+            counts[value] = counts.get(value, 0) + 1
+        for standard_id, value in candidates.items():
+            qualified[standard_id] = (
+                value if counts[value] == 1 else f"{label} [{standard_id}]"
+            )
     return qualified
 
 

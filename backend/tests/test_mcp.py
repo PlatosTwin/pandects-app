@@ -2066,6 +2066,49 @@ class McpTests(unittest.TestCase):
         # A label nobody else uses is left exactly as-is.
         self.assertEqual(qualified[unique.standard_id], unique.label)
 
+    def test_qualified_label_is_unique_when_whole_path_repeats(self):
+        """One branch carries the same label at L1, L2 and L3.
+
+        Qualifying by the distinguishing path segment yields "X [X]" for every node in
+        that chain, which is both useless and still ambiguous, so the id has to take
+        over. qualified_label is advertised as unique; that has to hold here too.
+        """
+        from backend.mcp.tools.shared import _TaxonomyEntry, _qualified_labels_by_standard_id
+
+        label = "Other / Unclassified"
+        chain = [
+            _TaxonomyEntry(standard_id="0ad1b84683b8ee41", label=label, path=(label,)),
+            _TaxonomyEntry(standard_id="633a81b264d881bd", label=label, path=(label, label)),
+            _TaxonomyEntry(standard_id="fa5e1a0374f222f5", label=label, path=(label, label, label)),
+        ]
+        qualified = _qualified_labels_by_standard_id(chain)
+
+        self.assertEqual(len(set(qualified.values())), len(chain))
+        for entry in chain:
+            self.assertEqual(qualified[entry.standard_id], f"{label} [{entry.standard_id}]")
+
+    def test_qualified_labels_are_unique_across_a_mixed_taxonomy(self):
+        """The uniqueness guarantee must hold over the whole entry set, not per group."""
+        from backend.mcp.tools.shared import _TaxonomyEntry, _qualified_labels_by_standard_id
+
+        entries = [
+            _TaxonomyEntry("a1", "Notices", ("Buyer", "General", "Notices")),
+            _TaxonomyEntry("a2", "Notices", ("Buyer", "General", "Notices")),
+            _TaxonomyEntry("a3", "Notices", ("Seller", "General", "Notices")),
+            _TaxonomyEntry("b1", "Tax", ("Buyer", "Tax")),
+            _TaxonomyEntry("b2", "Tax", ("Seller", "Tax")),
+            _TaxonomyEntry("c1", "Solo", ("Buyer", "Misc", "Solo")),
+        ]
+        qualified = _qualified_labels_by_standard_id(entries)
+
+        self.assertEqual(len(set(qualified.values())), len(entries))
+        # Two nodes share an identical path, so only the id can separate them.
+        self.assertEqual(qualified["a1"], "Notices [a1]")
+        self.assertEqual(qualified["a2"], "Notices [a2]")
+        # A group that a path segment does separate keeps the readable qualifier.
+        self.assertEqual(qualified["b1"], "Tax [Buyer]")
+        self.assertEqual(qualified["c1"], "Solo")
+
     def test_suggest_clause_families_exposes_qualified_label(self):
         res = self._call_tool("suggest_clause_families", {"concept": "termination"})
         self.assertEqual(res.status_code, 200)
@@ -2160,6 +2203,20 @@ class McpTests(unittest.TestCase):
             self.assertIn("transaction_price_total", result)
             self.assertNotIn("transaction_price_total", result.get("metadata", {}))
             self.assertIn("deal_type", result["metadata"])
+
+        # Requesting only the duplicated field leaves nothing to put in the block, which
+        # must drop it rather than emit an empty object or fail output validation.
+        only_price = self._call_tool(
+            "search_sections",
+            {"metadata": ["transaction_price_total"]},
+            scope="sections:search",
+        )
+        self.assertEqual(only_price.status_code, 200)
+        only_price_results = only_price.get_json()["result"]["structuredContent"]["results"]
+        self.assertTrue(only_price_results)
+        for result in only_price_results:
+            self.assertNotIn("metadata", result)
+            self.assertIn("transaction_price_total", result)
 
     def test_capabilities_resources_supported_matches_resources_list(self):
         """The declared capability must track what resources/list actually serves.
