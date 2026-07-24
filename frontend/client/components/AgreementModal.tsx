@@ -554,7 +554,7 @@ export function AgreementModal({
                 </div>
               </summary>
 
-              <div className="mt-3 hidden sm:grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {metadataSections.map((section) => (
                   <section
                     key={section.title}
@@ -577,9 +577,6 @@ export function AgreementModal({
                     </dl>
                   </section>
                 ))}
-              </div>
-              <div className="mt-3 rounded-md border border-dashed border-border bg-background/70 px-3 py-2 text-xs text-muted-foreground sm:hidden">
-                To see deal metadata, view on desktop.
               </div>
             </details>
           </div>

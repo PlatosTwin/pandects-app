@@ -25,7 +25,6 @@ const EMPTY_FILTERS: SearchFilters = {
   target: [],
   acquirer: [],
   clauseType: [],
-  standard_id: [],
   transaction_price_total: [],
   transaction_price_stock: [],
   transaction_price_cash: [],
@@ -48,6 +47,11 @@ const EMPTY_FILTERS: SearchFilters = {
 };
 
 const EMPTY_ACCESS: SearchResponse["access"] = { tier: "anonymous" };
+
+const csvEscape = (value: string | number | null | undefined): string => {
+  if (value === null || value === undefined || value === "") return "";
+  return `"${String(value).replace(/"/g, '""')}"`;
+};
 
 function sortResultsArray(
   results: SearchResult[],
@@ -246,7 +250,6 @@ export function useSections() {
           targets_count: effective.target?.length ?? 0,
           acquirers_count: effective.acquirer?.length ?? 0,
           clause_types_count: effective.clauseType?.length ?? 0,
-          standard_ids_count: effective.standard_id?.length ?? 0,
           page: effective.page,
           page_size: effective.page_size,
           sort_by: sortBy ?? "none",
@@ -323,7 +326,6 @@ export function useSections() {
         targets_count: filters.target?.length ?? 0,
         acquirers_count: filters.acquirer?.length ?? 0,
         clause_types_count: filters.clauseType?.length ?? 0,
-        standard_ids_count: filters.standard_id?.length ?? 0,
       });
 
       const headers = [
@@ -342,11 +344,11 @@ export function useSections() {
         ...resultsToDownload.map((result) =>
           [
             result.year,
-            `"${result.target}"`,
-            `"${result.acquirer}"`,
-            `"${result.article_title}"`,
-            `"${result.section_title}"`,
-            `"${(result.xml ?? "").replace(/"/g, '""')}"`,
+            csvEscape(result.target),
+            csvEscape(result.acquirer),
+            csvEscape(result.article_title),
+            csvEscape(result.section_title),
+            csvEscape(result.xml),
             result.section_uuid,
             result.agreement_uuid,
           ].join(","),

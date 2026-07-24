@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { TagPill } from "@/components/favorites/TagPill";
 import { useFavorites } from "@/contexts/FavoritesContext";
+import { CURRENT_YEAR, FIRST_FILTERABLE_YEAR } from "@/lib/constants";
 
 import { hasActiveFilters } from "./helpers";
 import {
@@ -148,6 +149,9 @@ export function FilterBar({
                   <Input
                     aria-label="Minimum year"
                     type="number"
+                    inputMode="numeric"
+                    min={FIRST_FILTERABLE_YEAR}
+                    max={CURRENT_YEAR}
                     value={filters.yearMin}
                     onChange={(e) =>
                       onChange({ ...filters, yearMin: e.target.value })
@@ -159,6 +163,9 @@ export function FilterBar({
                   <Input
                     aria-label="Maximum year"
                     type="number"
+                    inputMode="numeric"
+                    min={FIRST_FILTERABLE_YEAR}
+                    max={CURRENT_YEAR}
                     value={filters.yearMax}
                     onChange={(e) =>
                       onChange({ ...filters, yearMax: e.target.value })

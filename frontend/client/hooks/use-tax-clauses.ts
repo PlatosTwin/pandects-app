@@ -32,7 +32,6 @@ const EMPTY_FILTERS: TaxClauseFilters = {
   target: [],
   acquirer: [],
   clauseType: [],
-  standard_id: [],
   transaction_price_total: [],
   transaction_price_stock: [],
   transaction_price_cash: [],
@@ -56,6 +55,11 @@ const EMPTY_FILTERS: TaxClauseFilters = {
 };
 
 const EMPTY_ACCESS: TaxClauseSearchResponse["access"] = { tier: "anonymous" };
+
+const csvEscape = (value: string | number | null | undefined): string => {
+  if (value === null || value === undefined || value === "") return "";
+  return `"${String(value).replace(/"/g, '""')}"`;
+};
 
 function buildTaxClauseParams(
   filters: TaxClauseFilters,
@@ -294,11 +298,11 @@ export function useTaxClauses() {
       ...rows.map((r) =>
         [
           r.year ?? "",
-          `"${(r.target ?? "").replace(/"/g, '""')}"`,
-          `"${(r.acquirer ?? "").replace(/"/g, '""')}"`,
+          csvEscape(r.target),
+          csvEscape(r.acquirer),
           r.context_type,
-          `"${r.tax_standard_ids.join("; ")}"`,
-          `"${(r.clause_text ?? "").replace(/"/g, '""')}"`,
+          csvEscape(r.tax_standard_ids.join("; ")),
+          csvEscape(r.clause_text),
           r.clause_uuid,
           r.section_uuid,
           r.agreement_uuid,

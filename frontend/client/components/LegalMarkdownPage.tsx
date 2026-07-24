@@ -4,9 +4,29 @@ import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
 import { prepareLegalMarkdownForPage, renderLegalMarkdownToHtml } from "@/lib/legal-markdown";
 
+// The two sibling core-legal pages each page cross-links, ahead of the
+// shared software/data license links.
+const RELATED_PAGE_LINKS = {
+  terms: [
+    { to: "/privacy-policy", label: "Privacy Policy" },
+    { to: "/license", label: "License" },
+  ],
+  privacy: [
+    { to: "/terms", label: "Terms of Service" },
+    { to: "/license", label: "License" },
+  ],
+  license: [
+    { to: "/terms", label: "Terms of Service" },
+    { to: "/privacy-policy", label: "Privacy Policy" },
+  ],
+} as const;
+
+type LegalPageKey = keyof typeof RELATED_PAGE_LINKS;
+
 type LegalMarkdownPageProps = {
   title: string;
   markdown: string;
+  pageKey?: LegalPageKey;
   downloadHref?: string | null;
   transformHtml?: ((html: string) => string) | null;
   relatedLinks?: React.ReactNode;
@@ -15,6 +35,7 @@ type LegalMarkdownPageProps = {
 export function LegalMarkdownPage({
   title,
   markdown,
+  pageKey,
   downloadHref,
   transformHtml,
   relatedLinks,
@@ -23,65 +44,32 @@ export function LegalMarkdownPage({
   const renderedHtml = renderLegalMarkdownToHtml(prepared.markdown);
   const html = transformHtml ? transformHtml(renderedHtml) : renderedHtml;
 
-  const defaultRelatedLinks =
-    title === "Terms of Service" ? (
-      <>
-        <Link className="text-primary hover:underline" to="/privacy-policy">
-          Privacy Policy
-        </Link>{" "}
-        and{" "}
-        <Link className="text-primary hover:underline" to="/license">
-          License
-        </Link>
-        {", and our "}
-        <Link className="text-primary hover:underline" to="/license/software">
-          software (GPLv3)
-        </Link>{" "}
-        and{" "}
-        <Link className="text-primary hover:underline" to="/license/data">
-          data (ODbL)
-        </Link>{" "}
-        licenses
-      </>
-    ) : title === "Privacy Policy" ? (
-      <>
-        <Link className="text-primary hover:underline" to="/terms">
-          Terms of Service
-        </Link>{" "}
-        and{" "}
-        <Link className="text-primary hover:underline" to="/license">
-          License
-        </Link>
-        {", and our "}
-        <Link className="text-primary hover:underline" to="/license/software">
-          software (GPLv3)
-        </Link>{" "}
-        and{" "}
-        <Link className="text-primary hover:underline" to="/license/data">
-          data (ODbL)
-        </Link>{" "}
-        licenses
-      </>
-    ) : title === "License" ? (
-      <>
-        <Link className="text-primary hover:underline" to="/terms">
-          Terms of Service
-        </Link>{" "}
-        and{" "}
-        <Link className="text-primary hover:underline" to="/privacy-policy">
-          Privacy Policy
-        </Link>
-        {", and our "}
-        <Link className="text-primary hover:underline" to="/license/software">
-          software (GPLv3)
-        </Link>{" "}
-        and{" "}
-        <Link className="text-primary hover:underline" to="/license/data">
-          data (ODbL)
-        </Link>{" "}
-        licenses
-      </>
-    ) : null;
+  const defaultRelatedLinks = pageKey ? (
+    <>
+      <Link
+        className="text-primary hover:underline"
+        to={RELATED_PAGE_LINKS[pageKey][0].to}
+      >
+        {RELATED_PAGE_LINKS[pageKey][0].label}
+      </Link>{" "}
+      and{" "}
+      <Link
+        className="text-primary hover:underline"
+        to={RELATED_PAGE_LINKS[pageKey][1].to}
+      >
+        {RELATED_PAGE_LINKS[pageKey][1].label}
+      </Link>
+      {", and our "}
+      <Link className="text-primary hover:underline" to="/license/software">
+        software (GPLv3)
+      </Link>{" "}
+      and{" "}
+      <Link className="text-primary hover:underline" to="/license/data">
+        data (ODbL)
+      </Link>{" "}
+      licenses
+    </>
+  ) : null;
 
   const resolvedRelatedLinks = relatedLinks ?? defaultRelatedLinks;
 

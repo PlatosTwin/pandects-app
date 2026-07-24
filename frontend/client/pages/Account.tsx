@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import {
   createApiKey,
   deleteAccount,
@@ -47,7 +47,7 @@ import {
   prewarmAuthBackend,
   withAuthWakeRetry,
 } from "@/lib/auth-wake";
-import brandLinks from "@branding/links.json";
+import { getDocsUrl } from "@/lib/docs-url";
 
 type UsageChartPoint = {
   day: string;
@@ -97,7 +97,7 @@ const CODEX_MCP_COMMAND = `codex mcp add pandects --url ${PANDECTS_MCP_URL}`;
 const CODEX_MCP_LOGIN_COMMAND = "codex mcp login pandects";
 const CLAUDE_MCP_COMMAND = `claude mcp add --transport http pandects ${PANDECTS_MCP_URL}`;
 
-type MpcClientCardProps = {
+type McpClientCardProps = {
   id: string;
   title: string;
   description: string;
@@ -129,7 +129,7 @@ function utcDayToIso(utcMs: number): string {
   return new Date(utcMs).toISOString().slice(0, 10);
 }
 
-function MpcClientCard({ id, title, description, command, copied, onCopy }: MpcClientCardProps) {
+function McpClientCard({ id, title, description, command, copied, onCopy }: McpClientCardProps) {
   const titleId = `${id}-mcp-title`;
   const descriptionId = `${id}-mcp-description`;
   const commandId = `${id}-mcp-command`;
@@ -373,7 +373,7 @@ export default function Account() {
 
   const accountDataBootstrapping = !!user && !accountDataLoaded && !accountDataError;
   const accountWakeLoading = authWakePending && !accountDataLoaded && !accountDataError;
-  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const docsUrl = getDocsUrl();
   const gettingStartedDocsUrl = `${docsUrl}/docs/guides/getting-started`;
   const activeApiKeys = useMemo(() => apiKeys.filter((key) => !key.revoked_at), [apiKeys]);
   const revokedApiKeys = useMemo(() => apiKeys.filter((key) => !!key.revoked_at), [apiKeys]);
@@ -874,7 +874,7 @@ export default function Account() {
               </Alert>
 
               <div className="grid gap-4">
-                <MpcClientCard
+                <McpClientCard
                   id="codex"
                   title="Codex"
                   description={`Run \`${CODEX_MCP_COMMAND}\` first, then run \`${CODEX_MCP_LOGIN_COMMAND}\` to start the browser auth flow.`}
@@ -887,7 +887,7 @@ export default function Account() {
                     )
                   }
                 />
-                <MpcClientCard
+                <McpClientCard
                   id="claude"
                   title="Claude Code"
                   description="Add the remote HTTP server, then run `/mcp`, authenticate the `pandects` server there, and finish the Pandects sign-in flow in the browser."
@@ -1184,11 +1184,19 @@ export default function Account() {
               type="button"
               onClick={() => {
                 if (!revealedKey) return;
-                void navigator.clipboard.writeText(revealedKey);
-                setTimeout(() => {
-                  setCopiedNewKey(true);
-                  toast({ title: "Copied to clipboard" });
-                }, 0);
+                void (async () => {
+                  try {
+                    await navigator.clipboard.writeText(revealedKey);
+                    setCopiedNewKey(true);
+                    toast({ title: "Copied to clipboard" });
+                  } catch (err) {
+                    toast({
+                      title: "Copy failed",
+                      description: err instanceof Error ? err.message : String(err),
+                      variant: "destructive",
+                    });
+                  }
+                })();
               }}
               className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded border border-border bg-background p-0 shadow-sm hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-8 sm:w-8"
               title="Copy to clipboard"

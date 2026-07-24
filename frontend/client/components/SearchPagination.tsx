@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/format-utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -39,6 +40,28 @@ export function SearchPagination({
 }: SearchPaginationProps) {
   const pageSizeOptions = [10, 25, 50, 100];
   const navigationDisabled = isLoading || isLimited;
+  const [jumpValue, setJumpValue] = useState(() => String(currentPage));
+
+  // Keep the jump input in sync when navigation happens elsewhere
+  // (page buttons, Previous/Next, a new search).
+  useEffect(() => {
+    setJumpValue(String(currentPage));
+  }, [currentPage]);
+
+  const commitJump = () => {
+    if (navigationDisabled) return;
+    const page = parseInt(jumpValue, 10);
+    if (Number.isNaN(page)) {
+      // Invalid entry: reset to the current page instead of silently ignoring.
+      setJumpValue(String(currentPage));
+      return;
+    }
+    const clamped = Math.min(Math.max(page, 1), totalPages);
+    setJumpValue(String(clamped));
+    if (clamped !== currentPage) {
+      onPageChange(clamped);
+    }
+  };
 
   const getVisiblePages = () => {
     const delta = 2; // Number of pages to show on each side of current page
@@ -128,16 +151,14 @@ export function SearchPagination({
               type="number"
               min={1}
               max={totalPages}
-              defaultValue={currentPage}
+              value={jumpValue}
+              onChange={(e) => setJumpValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  const page = parseInt((e.target as HTMLInputElement).value, 10);
-                  if (page >= 1 && page <= totalPages && !navigationDisabled) {
-                    onPageChange(page);
-                    (e.target as HTMLInputElement).value = "";
-                  }
+                  commitJump();
                 }
               }}
+              onBlur={commitJump}
               className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={navigationDisabled}
               aria-label="Jump to page number"

@@ -149,6 +149,28 @@ export function XMLRenderer({
     return bodyNode?.children ?? nodes;
   }, [showBodyOnly, xmlContent]);
 
+  // Path-based collapse ids shift when the rendered tree changes, so reset
+  // collapse state whenever the document or the body-only view changes.
+  useEffect(() => {
+    setCollapsedTags(new Set());
+  }, [xmlContent, showBodyOnly]);
+
+  // When a section is highlighted (TOC jump, deep link), expand any collapsed
+  // ancestors so the target actually renders and can be scrolled to.
+  useEffect(() => {
+    if (!highlightedSection) return;
+    const pathUuids = collectUuidPath(parsedXML, highlightedSection);
+    if (!pathUuids || pathUuids.length === 0) return;
+    setCollapsedTags((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const uuid of pathUuids) {
+        if (next.delete(uuid)) changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [highlightedSection, parsedXML]);
+
   const toggleCollapse = (tagId: string) => {
     setCollapsedTags((prev) => {
       const newSet = new Set(prev);
@@ -161,12 +183,15 @@ export function XMLRenderer({
     });
   };
 
-  const renderAgreementTableOfContents = (children: XMLNode[] | undefined) => {
+  const renderAgreementTableOfContents = (
+    children: XMLNode[] | undefined,
+    parentPath: string,
+  ) => {
     const textChunks = extractAgreementTocTextChunks(children);
     const rows = normalizeAgreementTableOfContentsText(textChunks);
 
     if (rows.length === 0) {
-      return renderChildren(children, 0, "tableOfContents");
+      return renderChildren(children, 0, "tableOfContents", parentPath);
     }
 
     return (
@@ -223,9 +248,10 @@ export function XMLRenderer({
     children: XMLNode[] | undefined,
     depth: number,
     parentTagName?: string,
+    parentPath: string = "",
   ) =>
     children?.map((child, childIndex) =>
-      renderNode(child, childIndex, depth, children, parentTagName),
+      renderNode(child, childIndex, depth, children, parentTagName, parentPath),
     );
 
   const renderNode = (
@@ -234,6 +260,7 @@ export function XMLRenderer({
     depth: number = 0,
     siblings: XMLNode[] = [],
     parentTagName?: string,
+    parentPath: string = "",
   ): React.ReactNode => {
     if (node.type === "text") {
       const normalizedContent = normalizeXmlText(node.content);
@@ -252,7 +279,21 @@ export function XMLRenderer({
     }
 
     if (node.type === "tag") {
-      const tagId = `${node.tagName}-${index}-${depth}`;
+      // Extract UUID from attributes for sections/articles for scroll-to functionality
+      let sectionUuid: string | undefined;
+
+      // Check if this node has a uuid attribute (for article/section tags)
+      if (node.tagName === "article" || node.tagName === "section") {
+        const uuidMatch = node.content.match(/uuid="([^"]*)"/);
+        sectionUuid = uuidMatch ? uuidMatch[1] : undefined;
+      }
+
+      // Stable identity for React keys and collapse state: the section uuid
+      // when available, otherwise the node's path from the root. The previous
+      // `${tagName}-${index}-${depth}` scheme collided across subtrees, so
+      // collapsing one section collapsed unrelated ones.
+      const nodePath = parentPath ? `${parentPath}.${index}` : String(index);
+      const tagId = sectionUuid ?? `${node.tagName}-${nodePath}`;
       const isCollapsed = collapsedTags.has(tagId);
       const collapsibleTags =
         mode === "agreement"
@@ -262,15 +303,6 @@ export function XMLRenderer({
       const colorClass =
         XML_TAG_COLORS[node.tagName as keyof typeof XML_TAG_COLORS] ||
         "text-muted-foreground";
-
-      // Extract UUID from attributes for sections/articles for scroll-to functionality
-      let sectionUuid: string | undefined;
-
-      // Check if this node has a uuid attribute (for article/section tags)
-      if (node.tagName === "article" || node.tagName === "section") {
-        const uuidMatch = node.content.match(/uuid="([^"]*)"/);
-        sectionUuid = uuidMatch ? uuidMatch[1] : undefined;
-      }
 
       const dataAttributes = sectionUuid
         ? { "data-section-uuid": sectionUuid }
@@ -308,7 +340,7 @@ export function XMLRenderer({
                 <div className="min-w-0 flex-1">
                   {!isCollapsed && node.children && (
                     <div className="leading-relaxed">
-                      {renderChildren(node.children, depth + 1, node.tagName)}
+                      {renderChildren(node.children, depth + 1, node.tagName, nodePath)}
                     </div>
                   )}
                 </div>
@@ -319,7 +351,7 @@ export function XMLRenderer({
           // In agreement mode, just render content without tags
           return (
             <div key={tagId} className="my-1 leading-relaxed">
-              {renderChildren(node.children, depth + 1, node.tagName)}
+              {renderChildren(node.children, depth + 1, node.tagName, nodePath)}
             </div>
           );
         }
@@ -344,8 +376,8 @@ export function XMLRenderer({
               </div>
               <div className="min-w-0">
                 {node.tagName === "tableOfContents"
-                  ? renderAgreementTableOfContents(node.children)
-                  : renderChildren(node.children, depth + 1, node.tagName)}
+                  ? renderAgreementTableOfContents(node.children, nodePath)
+                  : renderChildren(node.children, depth + 1, node.tagName, nodePath)}
               </div>
             </section>
           );
@@ -445,7 +477,7 @@ export function XMLRenderer({
 
               {!isCollapsed && node.children && node.children.length > 0 && (
                 <div className="agreement-children mt-2 min-w-0">
-                  {renderChildren(node.children, depth + 1, node.tagName)}
+                  {renderChildren(node.children, depth + 1, node.tagName, nodePath)}
                 </div>
               )}
             </div>
@@ -484,7 +516,7 @@ export function XMLRenderer({
 
                 {!isCollapsed && node.children && node.children.length > 0 && (
                   <div className="agreement-children ml-2 min-w-0">
-                    {renderChildren(node.children, depth + 1, node.tagName)}
+                    {renderChildren(node.children, depth + 1, node.tagName, nodePath)}
                   </div>
                 )}
               </div>
@@ -496,7 +528,7 @@ export function XMLRenderer({
       if (mode === "agreement") {
         return (
           <div key={tagId} className="my-1 min-w-0 scroll-mt-3" {...dataAttributes}>
-            {renderChildren(node.children, depth + 1, node.tagName)}
+            {renderChildren(node.children, depth + 1, node.tagName, nodePath)}
           </div>
         );
       }
@@ -533,7 +565,7 @@ export function XMLRenderer({
 
               {!isCollapsed && node.children && node.children.length > 0 && (
                 <div className="ml-4 mt-1 min-w-0">
-                  {renderChildren(node.children, depth + 1, node.tagName)}
+                  {renderChildren(node.children, depth + 1, node.tagName, nodePath)}
                 </div>
               )}
 
@@ -665,6 +697,29 @@ function parseXMLContent(xmlContent: string): XMLNode[] {
   }
 
   return nodes;
+}
+
+// Returns the uuids of the tag nodes on the path from the root to the node
+// with the target uuid (target included), or null when the uuid is absent.
+// Collapse state for uuid-bearing nodes is keyed by uuid, so deleting these
+// ids from the collapsed set expands every ancestor of the target.
+function collectUuidPath(
+  nodes: XMLNode[],
+  targetUuid: string,
+  ancestors: string[] = [],
+): string[] | null {
+  for (const node of nodes) {
+    if (node.type !== "tag") continue;
+    const uuidMatch = node.content.match(/uuid="([^"]*)"/);
+    const uuid = uuidMatch ? uuidMatch[1] : undefined;
+    const path = uuid ? [...ancestors, uuid] : ancestors;
+    if (uuid === targetUuid) return path;
+    if (node.children) {
+      const found = collectUuidPath(node.children, targetUuid, path);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 function findFirstTagNode(nodes: XMLNode[], tagName: string): XMLNode | null {

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { LegalAcceptancePrompt } from "@/components/auth/LegalAcceptancePrompt";
@@ -64,6 +64,10 @@ export default function Login() {
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(false);
+  const resendCooldownTimerRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [legalCheckedAtMs, setLegalCheckedAtMs] = useState<number | null>(null);
@@ -74,6 +78,11 @@ export default function Login() {
 
   useEffect(() => {
     void prewarmAuthBackend();
+    return () => {
+      if (resendCooldownTimerRef.current !== null) {
+        window.clearTimeout(resendCooldownTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -134,7 +143,7 @@ export default function Login() {
   };
 
   const startGoogle = async () => {
-    setSubmitting(true);
+    setGoogleSubmitting(true);
     setError(null);
     try {
       const { authorize_url } = await withAuthWakeRetry(() =>
@@ -142,7 +151,7 @@ export default function Login() {
       );
       window.location.assign(authorize_url);
     } catch (err) {
-      setSubmitting(false);
+      setGoogleSubmitting(false);
       setError(err instanceof Error ? err.message : String(err));
     }
   };
@@ -171,20 +180,27 @@ export default function Login() {
     }
   };
 
-  const handleResendVerification = async () => {
-    if (!email) return;
-    setSubmitting(true);
+  const handleResendVerification = async (targetEmail: string) => {
+    if (!targetEmail) return;
+    setResending(true);
     setError(null);
     try {
-      const result = await resendEmailVerification({ email });
+      const result = await resendEmailVerification({ email: targetEmail });
       setState({
         kind: "verify",
         email: result.user.email,
       });
+      setResendCooldown(true);
+      if (resendCooldownTimerRef.current !== null) {
+        window.clearTimeout(resendCooldownTimerRef.current);
+      }
+      resendCooldownTimerRef.current = window.setTimeout(() => {
+        setResendCooldown(false);
+      }, 30_000);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSubmitting(false);
+      setResending(false);
     }
   };
 
@@ -224,10 +240,10 @@ export default function Login() {
                       type="button"
                       variant="link"
                       className="h-auto p-0 text-primary"
-                      onClick={() => void handleResendVerification()}
-                      disabled={submitting}
+                      onClick={() => void handleResendVerification(email)}
+                      disabled={resending}
                     >
-                      {submitting ? "Resending verification email…" : "Resend verification email"}
+                      {resending ? "Resending verification email…" : "Resend verification email"}
                     </Button>
                   </div>
                 ) : null}
@@ -257,6 +273,21 @@ export default function Login() {
                   <span className="font-medium text-foreground">{state.email}</span> to finish
                   activating the account, then sign in.
                 </p>
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => void handleResendVerification(state.email)}
+                  disabled={resending || resendCooldown}
+                >
+                  {resending
+                    ? "Resending verification email…"
+                    : resendCooldown
+                      ? "Verification email sent"
+                      : "Resend verification email"}
+                </Button>
               </div>
               <div className="text-sm text-muted-foreground">
                 Need to restart setup?{" "}
@@ -294,12 +325,12 @@ export default function Login() {
                 <div className="flex justify-center">
                   <Button
                     onClick={() => void startGoogle()}
-                    disabled={submitting}
+                    disabled={submitting || googleSubmitting}
                     variant="outline"
                     className="h-11 min-w-[17rem] rounded-full border-border bg-white px-5 text-foreground shadow-sm hover:bg-muted/40"
                   >
                     <GoogleMark />
-                    {submitting ? "Redirecting…" : "Continue with Google"}
+                    {googleSubmitting ? "Redirecting…" : "Continue with Google"}
                   </Button>
                 </div>
                 <div className="flex items-center gap-4 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
@@ -349,7 +380,11 @@ export default function Login() {
                   />
                 </div>
                 <div className="flex justify-center pt-1">
-                  <Button type="submit" disabled={submitting} className="min-w-[10rem] rounded-full px-6">
+                  <Button
+                    type="submit"
+                    disabled={submitting || googleSubmitting}
+                    className="min-w-[10rem] rounded-full px-6"
+                  >
                     {submitting ? (
                       <span className="inline-flex items-center gap-2">
                         <LoadingSpinner size="sm" aria-label="Signing in" />

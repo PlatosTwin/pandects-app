@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { logger } from "@/lib/logger";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
@@ -91,6 +91,11 @@ export function useCommittedSearchCore<TFilters, TResponse, TResult>(
     }),
     enabled: !IS_SERVER_RENDER && committed !== null,
     staleTime: 60 * 1000,
+    // Each commit gets a fresh queryKey (see CommittedQuery.nonce), so without
+    // this every search/pagination/sort click would unmount the results and
+    // flash the empty state. Keep the previous commit's data rendered while
+    // the new fetch is in flight; `isSearching` still reports the fetch.
+    placeholderData: keepPreviousData,
     ...(config.silentNotFound
       ? {
           retry: (failureCount: number, error: Error) =>
@@ -110,7 +115,10 @@ export function useCommittedSearchCore<TFilters, TResponse, TResult>(
     },
   });
 
-  const responseData: TResponse | null = query.data ?? null;
+  // placeholderData also fills the disabled query after `uncommit`, so gate on
+  // an active commit to keep "no search yet" truly empty.
+  const responseData: TResponse | null =
+    committed !== null ? query.data ?? null : null;
   const results = useMemo(
     () => (responseData ? config.getResults(responseData) : []),
     [responseData, config],

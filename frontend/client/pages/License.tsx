@@ -5,6 +5,7 @@ export default function License() {
   return (
     <LegalMarkdownPage
       title="License"
+      pageKey="license"
       downloadHref="/legal/license.md"
       markdown={markdown}
     />

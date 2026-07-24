@@ -221,16 +221,8 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
         });
       }
 
-      // Sort sections by order if available
-      if (articleItem.children!.length > 0) {
-        articleItem.children!.sort((a, b) => {
-          // If we can extract order numbers from titles, use those
-          const aOrder = extractOrderFromTitle(a.title);
-          const bOrder = extractOrderFromTitle(b.title);
-          return aOrder - bOrder;
-        });
-      }
-
+      // Sections are already in document order from the XML scan; keep that
+      // order so the TOC matches the rendered document.
       bodyChildren.push(articleItem);
     }
 
@@ -284,15 +276,4 @@ function extractTOCFromXML(xmlContent: string): TOCItem[] {
   }
 
   return items;
-}
-
-function extractOrderFromTitle(title: string): number {
-  // Try to extract section numbers like "1.1", "2.3", etc.
-  const match = title.match(/^(\d+)\.?(\d*)/);
-  if (match) {
-    const major = parseInt(match[1], 10) || 0;
-    const minor = parseInt(match[2], 10) || 0;
-    return major * 1000 + minor; // This ensures proper sorting
-  }
-  return 9999; // Put items without numbers at the end
 }

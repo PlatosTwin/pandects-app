@@ -76,21 +76,6 @@ type TrendsPercentLineChartProps = {
   tableId: string;
 };
 
-type TrendsHeatmapCell = {
-  displayValue: string;
-  intensity: number;
-  rawValue: number | null;
-};
-
-type TrendsHeatmapTableProps = {
-  caption: string;
-  className?: string;
-  columns: string[];
-  formatterLabel: string;
-  getCell: (row: string, column: string) => TrendsHeatmapCell;
-  rows: string[];
-};
-
 const PERCENT_AXIS_TICKS = [0, 25, 50, 75, 100];
 const MEDIAN_CHART_CONFIG = {
   public_median: {
@@ -269,7 +254,7 @@ export function TrendsStackedShareAreaChart({
                   );
 
                   return (
-                    <div className="flex items-center gap-3">
+                    <div className="flex w-full max-w-[24rem] items-center gap-3">
                       <span
                         className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
                         style={
@@ -279,13 +264,13 @@ export function TrendsStackedShareAreaChart({
                         }
                         aria-hidden="true"
                       />
-                      <span className="w-72 shrink-0 truncate text-left text-foreground">
+                      <span className="min-w-0 flex-1 truncate text-left text-foreground">
                         {item.name}
                       </span>
-                      <span className="w-10 shrink-0 text-right font-mono font-medium tabular-nums text-foreground">
+                      <span className="shrink-0 text-right font-mono font-medium tabular-nums text-foreground">
                         {valueFormatter(rawValue)}
                       </span>
-                      <span className="w-24 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      <span className="shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
                         {Number(value).toFixed(1)}% of year
                       </span>
                     </div>
@@ -309,6 +294,7 @@ export function TrendsStackedShareAreaChart({
               fill={chartColorVar(item.key)}
               fillOpacity={0.95}
               name={item.label}
+              isAnimationActive={false}
             />
           ))}
         </AreaChart>
@@ -384,6 +370,7 @@ export function TrendsMedianBandChart({
             stroke="transparent"
             fill="transparent"
             name="Public targets"
+            legendType="none"
             isAnimationActive={false}
           />
           <Area
@@ -393,6 +380,7 @@ export function TrendsMedianBandChart({
             fill="var(--color-public_median)"
             fillOpacity={0.18}
             name="Public targets"
+            legendType="none"
             isAnimationActive={false}
           />
           <Area
@@ -401,6 +389,7 @@ export function TrendsMedianBandChart({
             stroke="transparent"
             fill="transparent"
             name="Private targets"
+            legendType="none"
             isAnimationActive={false}
           />
           <Area
@@ -410,6 +399,7 @@ export function TrendsMedianBandChart({
             fill="var(--color-private_median)"
             fillOpacity={0.18}
             name="Private targets"
+            legendType="none"
             isAnimationActive={false}
           />
           <Line
@@ -528,83 +518,6 @@ export function TrendsPercentLineChart({
           />
         </LineChart>
       </ChartContainer>
-    </div>
-  );
-}
-
-export function TrendsHeatmapTable({
-  caption,
-  className,
-  columns,
-  formatterLabel,
-  getCell,
-  rows,
-}: TrendsHeatmapTableProps) {
-  return (
-    <div className={cn("overflow-x-auto rounded-lg border border-border bg-background/80", className)}>
-      <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
-        <caption className="sr-only">{caption}</caption>
-        <thead>
-          <tr className="border-b border-border">
-            <th className="w-64 px-3 py-2 text-left font-semibold text-foreground">
-              Segment
-            </th>
-            {columns.map((column) => (
-              <th
-                key={column}
-                className="w-44 px-3 py-2 text-center font-semibold text-foreground"
-                title={column}
-              >
-                <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
-                  {column}
-                </span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row} className="border-b border-border/50 last:border-0">
-              <th className="w-64 px-3 py-3 text-left font-medium text-foreground" title={row}>
-                <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
-                  {row}
-                </span>
-              </th>
-              {columns.map((column) => {
-                const cell = getCell(row, column);
-                const opacity = 0.1 + (cell.intensity * 0.75);
-                const backgroundColor = `hsl(212 93% 50% / ${opacity})`;
-                const foregroundClass =
-                  cell.intensity > 0.58 ? "text-white" : "text-foreground";
-
-                return (
-                  <td key={`${row}-${column}`} className="w-44 px-2 py-2 align-top">
-                    <div
-                      className={cn(
-                        "flex min-h-[6.75rem] w-full flex-col items-center justify-center rounded-md border border-border/50 px-3 py-3 text-center shadow-sm transition-colors",
-                        foregroundClass,
-                      )}
-                      style={
-                        cell.rawValue === null || cell.rawValue === 0
-                          ? undefined
-                          : { backgroundColor }
-                      }
-                      aria-label={`${row}, ${column}, ${formatterLabel}: ${cell.displayValue}`}
-                    >
-                      <div className="text-xs font-medium uppercase tracking-wide opacity-75">
-                        {formatterLabel}
-                      </div>
-                      <div className="mt-1 font-mono text-sm tabular-nums">
-                        {cell.displayValue}
-                      </div>
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }

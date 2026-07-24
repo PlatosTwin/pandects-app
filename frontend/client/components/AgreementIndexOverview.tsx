@@ -20,6 +20,7 @@ import {
   formatNumberValue,
 } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
+import { buildYearAxisGuides } from "@/lib/year-axis";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const ProcessingStatusChart = lazy(() =>
@@ -626,19 +627,13 @@ export function AgreementIndexOverview() {
     stagedYearRange !== null &&
     stagedYearRange.minYear <= 2020 &&
     stagedYearRange.maxYear >= 2021;
-  const stagedYearTicks = useMemo(() => {
-    if (!stagedYearRange) return undefined;
-    const start = 2000;
-    const end = stagedYearRange.maxYear;
-    const availableYears = new Set(stagedChartData.map((row) => row.year));
-    const ticks: number[] = [];
-    for (let year = start; year <= end; year += 5) {
-      if (year >= stagedYearRange.minYear && availableYears.has(year)) {
-        ticks.push(year);
-      }
-    }
-    return ticks.length ? ticks : undefined;
-  }, [stagedChartData, stagedYearRange]);
+  const stagedYearTicks = useMemo(
+    () =>
+      stagedChartData.length > 0
+        ? buildYearAxisGuides(stagedChartData).majorYears
+        : undefined,
+    [stagedChartData],
+  );
   const dealTypeSeries = useMemo<DealTypeSeries[]>(() => {
     const totalsByType = new Map<string, number>();
     dealTypeSummary.forEach((row) => {
@@ -718,19 +713,13 @@ export function AgreementIndexOverview() {
     dealTypeYearRange !== null &&
     dealTypeYearRange.minYear <= 2020 &&
     dealTypeYearRange.maxYear >= 2021;
-  const dealTypeYearTicks = useMemo(() => {
-    if (!dealTypeYearRange) return undefined;
-    const start = 2000;
-    const end = dealTypeYearRange.maxYear;
-    const availableYears = new Set(dealTypeChartData.map((row) => row.year));
-    const ticks: number[] = [];
-    for (let year = start; year <= end; year += 5) {
-      if (year >= dealTypeYearRange.minYear && availableYears.has(year)) {
-        ticks.push(year);
-      }
-    }
-    return ticks.length ? ticks : undefined;
-  }, [dealTypeChartData, dealTypeYearRange]);
+  const dealTypeYearTicks = useMemo(
+    () =>
+      dealTypeChartData.length > 0
+        ? buildYearAxisGuides(dealTypeChartData).majorYears
+        : undefined,
+    [dealTypeChartData],
+  );
   const stageSummaryRows = useMemo(() => {
     const stageOrder = [
       { key: "0_staging", label: "Staging" },

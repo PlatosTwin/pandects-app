@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
+import { Plus, Tag as TagIcon, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,9 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import {
-  TAG_COLORS,
-  type FavoriteTag,
-  type TagColor,
-} from "@/lib/favorites-api";
-import { TagPill, TagSwatch } from "./TagPill";
+import { type FavoriteTag, type TagColor } from "@/lib/favorites-api";
+import { ColorPicker } from "./ColorPicker";
+import { TagPill } from "./TagPill";
 
 interface TagEditorProps {
   selectedTagIds: string[];
@@ -189,26 +186,11 @@ export function TagEditor({
               className="h-11 text-sm sm:h-8"
             />
             <div className="flex flex-wrap items-center gap-1.5">
-              {TAG_COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setNewColor(color)}
-                  aria-label={`Use ${color} color`}
-                  aria-pressed={newColor === color}
-                  className={
-                    "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-5 sm:w-5 " +
-                    (newColor === color
-                      ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
-                      : "hover:ring-muted-foreground/40")
-                  }
-                >
-                  <TagSwatch color={color} className="h-4 w-4" />
-                  {newColor === color ? (
-                    <Check className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />
-                  ) : null}
-                </button>
-              ))}
+              <ColorPicker
+                value={newColor}
+                onChange={setNewColor}
+                buttonClassName="sm:h-5 sm:w-5"
+              />
               <Button
                 type="button"
                 size="sm"

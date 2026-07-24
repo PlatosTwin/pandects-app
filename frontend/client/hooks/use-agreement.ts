@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Agreement } from "@shared/agreement";
 import { apiUrl } from "@/lib/api-config";
@@ -35,11 +35,17 @@ async function fetchAgreementApi(
 export function useAgreement() {
   const queryClient = useQueryClient();
   const [agreement, setAgreement] = useState<Agreement | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Starts true so consumers render their loading state on the first frame,
+  // before the effect-driven fetch has actually started.
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Guards against overlapping fetches resolving out of order: only the
+  // latest request is allowed to apply its result.
+  const requestSeqRef = useRef(0);
 
   const fetchAgreement = useCallback(
     async (agreement_uuid: string, focus_section_uuid?: string) => {
+      const requestId = ++requestSeqRef.current;
       setIsLoading(true);
       setError(null);
       try {
@@ -56,12 +62,16 @@ export function useAgreement() {
           queryFn: () => fetchAgreementApi(agreement_uuid, focus_section_uuid),
           staleTime: 5 * 60 * 1000,
         });
+        if (requestSeqRef.current !== requestId) return;
         setAgreement(data);
       } catch (err) {
+        if (requestSeqRef.current !== requestId) return;
         logger.error("Failed to fetch agreement:", err);
         setError(err instanceof Error ? err.message : "Failed to load agreement");
       } finally {
-        setIsLoading(false);
+        if (requestSeqRef.current === requestId) {
+          setIsLoading(false);
+        }
       }
     },
     [queryClient],

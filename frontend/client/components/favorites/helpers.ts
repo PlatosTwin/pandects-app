@@ -60,9 +60,3 @@ export function firstWords(text: string, count: number): string {
   if (words.length <= count) return words.join(" ");
   return `${words.slice(0, count).join(" ")}…`;
 }
-
-export function formatDate(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
-}

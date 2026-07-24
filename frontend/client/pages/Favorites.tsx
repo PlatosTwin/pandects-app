@@ -14,6 +14,7 @@ import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -371,6 +372,10 @@ export default function FavoritesPage() {
         return next;
       });
       setBulkProjectId("");
+      const projectName =
+        projects.find((project) => project.id === result.project_id)?.name ??
+        "project";
+      toast({ title: `Moved ${moved.size} to ${projectName}` });
     } catch {
       toast({ title: "Couldn't move favorites", variant: "destructive" });
     }
@@ -395,7 +400,15 @@ export default function FavoritesPage() {
             : fav,
         ),
       );
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of copied) next.delete(id);
+        return next;
+      });
       setBulkCopyProjectId("");
+      const projectName =
+        projects.find((project) => project.id === projectId)?.name ?? "project";
+      toast({ title: `Copied ${copied.size} to ${projectName}` });
     } catch {
       toast({ title: "Couldn't copy favorites", variant: "destructive" });
     }
@@ -524,13 +537,8 @@ export default function FavoritesPage() {
             <div className="min-w-0 space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
-                  <div className="shrink-0">
-                    <div className="text-sm font-semibold text-foreground">
-                      Saved items
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {visible.length} of {favorites.length}
-                    </div>
+                  <div className="shrink-0 text-sm font-semibold text-foreground">
+                    Saved items
                   </div>
                   <Tabs
                     value={filter}
@@ -672,7 +680,11 @@ export default function FavoritesPage() {
               ) : null}
 
               {loading ? (
-                <div className="text-sm text-muted-foreground">Loading…</div>
+                <div className="space-y-2" aria-label="Loading favorites">
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <Skeleton key={index} className="h-28 w-full rounded-lg" />
+                  ))}
+                </div>
               ) : visible.length === 0 ? (
                 <Card className="flex flex-col items-center gap-2 p-8 text-center">
                   <Star className="h-6 w-6 text-muted-foreground" />
@@ -700,7 +712,7 @@ export default function FavoritesPage() {
                       }
                       sectionDetails={
                         fav.item_type === "section"
-                          ? (sectionByUuid[fav.item_uuid] ?? null)
+                          ? sectionByUuid[fav.item_uuid]
                           : null
                       }
                       clauseTypeLabelById={clauseTypeLabelById}

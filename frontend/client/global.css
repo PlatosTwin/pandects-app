@@ -48,22 +48,6 @@
 
     --radius: 0.375rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-
     /* App background (used via bg-cream) — cool near-white */
     --cream: 220 20% 98.5%;
   }
@@ -96,14 +80,6 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 221.2 83.2% 65%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
 
     /* App background (used via bg-cream) */
     --cream: 225 6% 6%;
@@ -157,15 +133,6 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
   @keyframes fade-in-up {
     from {
       opacity: 0;
@@ -177,39 +144,24 @@
     }
   }
 
-  .animate-spin-custom {
-    animation: spin 1s linear infinite;
-  }
-
   .animate-fade-in-up {
     animation: fade-in-up 0.8s ease-out;
-  }
-
-  .hide-select-arrow {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    background-image: none;
-  }
-
-  .hide-select-arrow::-ms-expand {
-    display: none;
   }
 }
 
 @layer utilities {
   .prose-copy {
-    color: #344964;
+    color: hsl(var(--secondary-foreground) / 0.82);
   }
 
   .prose-copy :where(p, li):not(:where([class~="not-prose"], [class~="not-prose"] *)),
   .prose-copy:is(p, li) {
-    color: #344964;
+    color: hsl(var(--secondary-foreground) / 0.82);
   }
 
   .prose-copy :where(strong):not(:where([class~="not-prose"], [class~="not-prose"] *)),
   .prose-copy:is(strong) {
-    color: #223754;
+    color: hsl(var(--secondary-foreground) / 0.9);
   }
 
   .prose-copy :where(a):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
@@ -253,7 +205,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .animate-spin,
-  .animate-spin-custom,
   .animate-fade-in-up,
   .animate-pulse {
     animation: none !important;

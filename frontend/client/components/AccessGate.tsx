@@ -8,6 +8,11 @@ import { LockdownNotice } from "@/components/LockdownNotice";
 // resolving we render nothing so the page never fires its (403-bound) requests.
 export function AccessGate({ children }: { children: ReactNode }) {
   const { status } = useAuth();
+  // Dev-only bypass so local UI review can exercise the gated pages without an
+  // account (pair with a backend started with TEMPORARY_ACCESS_LOCKDOWN=0).
+  if (import.meta.env.DEV && import.meta.env.VITE_DISABLE_ACCESS_GATE === "1") {
+    return <>{children}</>;
+  }
   if (status === "authenticated") {
     return <>{children}</>;
   }

@@ -140,7 +140,7 @@ export default function TaxClauseCompare() {
                   <button
                     type="button"
                     onClick={() => removeClause(c.id)}
-                    className="opacity-0 transition-opacity group-hover:opacity-100"
+                    className="rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group-hover:opacity-100"
                     aria-label="Remove from compare"
                   >
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
@@ -174,7 +174,11 @@ export default function TaxClauseCompare() {
               <span>Phrase length</span>
               <Select
                 value={String(minN)}
-                onValueChange={(v) => setMinN(Number(v))}
+                onValueChange={(v) => {
+                  const next = Number(v);
+                  setMinN(next);
+                  setMaxN((prev) => Math.max(prev, next));
+                }}
               >
                 <SelectTrigger className="h-8 w-16">
                   <SelectValue />
@@ -190,7 +194,11 @@ export default function TaxClauseCompare() {
               <span>–</span>
               <Select
                 value={String(maxN)}
-                onValueChange={(v) => setMaxN(Number(v))}
+                onValueChange={(v) => {
+                  const next = Number(v);
+                  setMaxN(next);
+                  setMinN((prev) => Math.min(prev, next));
+                }}
               >
                 <SelectTrigger className="h-8 w-16">
                   <SelectValue />

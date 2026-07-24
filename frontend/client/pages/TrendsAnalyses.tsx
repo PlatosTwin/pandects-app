@@ -1053,7 +1053,8 @@ export default function TrendsAnalyses() {
 
     const fetchTrends = async () => {
       try {
-        setLoading(true);
+        // Stale-while-revalidate: `loading` starts true only when there is no
+        // session-cached payload, so revisits keep showing cached content.
         setError(null);
         const response = await authFetch(apiUrl("v1/agreement-trends"), {
           signal: controller.signal,

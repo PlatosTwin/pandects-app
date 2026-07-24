@@ -95,19 +95,21 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
   const descriptionId = useId();
   const tableId = useId();
 
-  const currentYear = new Date().getFullYear();
+  // Offer the five most recent years that actually appear in the response,
+  // rather than the last five calendar years (which can have no data yet).
   const yearOptions = useMemo(
     () => [
-      ...Array.from({ length: 5 }, (_, index) => {
-        const year = currentYear - index;
-        return {
+      ...side.annual
+        .map((entry) => entry.year)
+        .sort((a, b) => b - a)
+        .slice(0, 5)
+        .map((year) => ({
           value: String(year),
           label: String(year),
-        };
-      }),
+        })),
       { value: "all", label: "All time" },
     ],
-    [currentYear],
+    [side.annual],
   );
   const selectedAnnual = useMemo(
     () => side.annual.find((entry) => String(entry.year) === tableYear) ?? null,
@@ -274,6 +276,10 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
                 </TableBody>
               </Table>
             </div>
+          ) : chartData.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-background/70 px-4 py-8 text-sm text-muted-foreground">
+              No counsel leaderboard data is available yet.
+            </div>
           ) : (
             <>
               <p id={tableId} className="sr-only">
@@ -334,7 +340,8 @@ export default function Leaderboards() {
 
     const fetchLeaderboards = async () => {
       try {
-        setLoading(true);
+        // Stale-while-revalidate: `loading` starts true only when there is no
+        // session-cached payload, so revisits keep showing cached content.
         setError(null);
         const response = await authFetch(apiUrl("v1/counsel-leaderboards"), {
           signal: controller.signal,

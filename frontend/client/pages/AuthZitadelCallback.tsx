@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
@@ -36,11 +36,15 @@ export default function AuthZitadelCallback() {
   const [legalCheckedAtMs, setLegalCheckedAtMs] = useState<number | null>(null);
   const [submittingLegal, setSubmittingLegal] = useState(false);
   const [wakePending, setWakePending] = useState(false);
+  const exchangeStartedRef = useRef(false);
 
   const search = useMemo(() => window.location.search, []);
 
   useEffect(() => {
-    let cancelled = false;
+    // The OAuth code / intent token is single-use; guard against StrictMode's
+    // double-invoked effects consuming it twice in dev.
+    if (exchangeStartedRef.current) return;
+    exchangeStartedRef.current = true;
 
     const finishSession = async (payload: {
       next_path: string;
@@ -53,15 +57,11 @@ export default function AuthZitadelCallback() {
         setSessionToken(payload.session_token);
       }
       await refresh();
-      if (!cancelled) {
-        navigateToNextPath(navigate, payload.next_path, { replace: true });
-      }
+      navigateToNextPath(navigate, payload.next_path, { replace: true });
     };
 
     const finishMcpToken = async (payload: McpTokenResult) => {
-      if (!cancelled) {
-        navigateToMcpTokenResult(navigate, payload);
-      }
+      navigateToMcpTokenResult(navigate, payload);
     };
 
     const handleCallback = async () => {
@@ -114,7 +114,6 @@ export default function AuthZitadelCallback() {
             throw error;
           }
         });
-        if (cancelled) return;
         setWakePending(false);
         if (result.status === "mcp_token") {
           await finishMcpToken(result);
@@ -130,7 +129,6 @@ export default function AuthZitadelCallback() {
         }
         await finishSession(result);
       } catch (err) {
-        if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
         setWakePending(false);
         setState({ kind: "error", message });
@@ -138,9 +136,6 @@ export default function AuthZitadelCallback() {
     };
 
     void handleCallback();
-    return () => {
-      cancelled = true;
-    };
   }, [navigate, refresh, search]);
 
   const submitLegal = async () => {

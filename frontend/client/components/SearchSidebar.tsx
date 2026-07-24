@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import {
   TRANSACTION_CONSIDERATION_OPTIONS,
@@ -10,7 +10,6 @@ import {
   DEAL_TYPE_OPTIONS,
   PURPOSE_OPTIONS,
   PE_OPTIONS,
-  SIDEBAR_ANIMATION_DELAY,
 } from "@/lib/constants";
 import { RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,8 +48,6 @@ interface SearchSidebarProps {
     section_uuid?: string;
   };
   years: string[];
-  targets: string[];
-  acquirers: string[];
   target_counsels: string[];
   acquirer_counsels: string[];
   target_industries: string[];
@@ -74,8 +71,6 @@ interface SearchSidebarProps {
 export function SearchSidebar({
   filters,
   years,
-  targets,
-  acquirers,
   target_counsels,
   acquirer_counsels,
   target_industries,
@@ -95,36 +90,9 @@ export function SearchSidebar({
   variant = "sidebar",
   className,
 }: SearchSidebarProps) {
-  const [showContent, setShowContent] = useState(false);
   const filterLoadingStatusId = React.useId();
   const toggleCollapse = onToggleCollapse ?? (() => {});
-
-  // Control content visibility with proper timing
-  React.useEffect(() => {
-    if (variant === "sheet") {
-      setShowContent(true);
-      return;
-    }
-    if (isCollapsed) {
-      // Hide content immediately when collapsing
-      setShowContent(false);
-    } else {
-      // Show content after expansion animation completes
-      const timer = setTimeout(
-        () => setShowContent(true),
-        SIDEBAR_ANIMATION_DELAY,
-      );
-      return () => clearTimeout(timer);
-    }
-  }, [isCollapsed, variant]);
-
-  // Initialize content visibility on mount
-  React.useEffect(() => {
-    if (variant === "sheet" || !isCollapsed) {
-      setShowContent(true);
-    }
-  }, [isCollapsed, variant]);
-
+  const showContent = variant === "sheet" || !isCollapsed;
 
   const filtersContent = (
     <div
@@ -156,9 +124,10 @@ export function SearchSidebar({
 
       {/* Target Filter */}
       <div className="relative">
+        {/* Options come from the async search; the static list is unused. */}
         <CheckboxFilter
           label="Target"
-          options={targets}
+          options={[]}
           selectedValues={filters.target || []}
           onToggle={(value) => onToggleFilterValue("target", value)}
           asyncSearch={
@@ -175,7 +144,7 @@ export function SearchSidebar({
       <div className="relative">
         <CheckboxFilter
           label="Acquirer"
-          options={acquirers}
+          options={[]}
           selectedValues={filters.acquirer || []}
           onToggle={(value) => onToggleFilterValue("acquirer", value)}
           asyncSearch={
@@ -485,7 +454,7 @@ export function SearchSidebar({
       {!isCollapsed && (
         <button
           type="button"
-          className="fixed inset-0 border-0 bg-black bg-opacity-50 p-0 z-40 lg:hidden"
+          className="fixed inset-0 border-0 bg-black/50 p-0 z-40 lg:hidden"
           onClick={toggleCollapse}
           aria-label="Close filters"
         />

@@ -34,11 +34,13 @@ export default function SaveConfirmationModal({
       <DialogContent
         className="sm:max-w-md"
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            e.stopPropagation();
-            onConfirm();
-          }
+          if (e.key !== "Enter") return;
+          // Let buttons keep their native Enter behavior — otherwise pressing
+          // Enter on the focused Cancel button would trigger Save.
+          if (e.target instanceof HTMLButtonElement) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onConfirm();
         }}
       >
         <DialogHeader>

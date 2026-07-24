@@ -3,7 +3,6 @@ import type { NerEvalData } from "@/lib/model-metrics-types";
 
 type NerEvalMetricsProps = {
   data: NerEvalData;
-  showValidationBlocks?: boolean;
 };
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(2)}%`;
@@ -29,10 +28,7 @@ const MutedMetric = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-export function NerEvalMetrics({
-  data,
-  showValidationBlocks: _showValidationBlocks = true,
-}: NerEvalMetricsProps) {
+export function NerEvalMetrics({ data }: NerEvalMetricsProps) {
   const { summary, perEntity, boundaries } = data;
   const summaryMetrics = [
     { label: "Precision", key: "precision" as const },

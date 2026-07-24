@@ -19,7 +19,7 @@ import {
   type Favorite,
   type FavoriteTag,
 } from "@/lib/favorites-api";
-import { formatCompactCurrencyValue } from "@/lib/format-utils";
+import { formatCompactCurrencyValue, formatDateValue } from "@/lib/format-utils";
 import type { Agreement } from "@shared/agreement";
 
 import {
@@ -27,7 +27,6 @@ import {
   favoriteHeading,
   favoriteHref,
   firstWords,
-  formatDate,
   stripXmlText,
 } from "./helpers";
 import { TYPE_LABELS, type SectionDetails } from "./types";
@@ -46,7 +45,8 @@ export function FavoriteRow({
 }: {
   fav: Favorite;
   agreement: Agreement | null;
-  sectionDetails: SectionDetails | null;
+  /** undefined = fetch pending, null = fetch failed. */
+  sectionDetails: SectionDetails | null | undefined;
   clauseTypeLabelById: Record<string, string>;
   selected: boolean;
   onSelectChange: (id: string, selected: boolean) => void;
@@ -165,7 +165,7 @@ export function FavoriteRow({
               {TYPE_LABELS[fav.item_type]}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              Starred {formatDate(fav.created_at)}
+              Starred {formatDateValue(fav.created_at)}
             </span>
             {filingYear ? (
               <span className="text-xs text-muted-foreground">
@@ -215,9 +215,13 @@ export function FavoriteRow({
                 <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                   {sectionSnippet}
                 </p>
-              ) : (
+              ) : sectionDetails === undefined ? (
                 <p className="text-sm text-muted-foreground">
                   Section details are loading…
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Details unavailable
                 </p>
               )}
             </div>
@@ -288,6 +292,7 @@ export function FavoriteRow({
             <button
               type="button"
               onClick={() => setEditingNote(true)}
+              aria-label="Edit note"
               className="block min-h-11 max-w-full whitespace-pre-wrap break-words text-left text-sm text-muted-foreground hover:text-foreground sm:min-h-0"
             >
               {fav.note ?? "Add a note…"}

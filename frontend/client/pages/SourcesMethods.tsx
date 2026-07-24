@@ -945,7 +945,7 @@ export default function SourcesMethods() {
                 trigger={
                   <button
                     type="button"
-                    className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                    className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     open-source models
                   </button>
@@ -1153,7 +1153,7 @@ export default function SourcesMethods() {
                       trigger={
                         <button
                           type="button"
-                          className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                          className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           <strong>67,596</strong>
                         </button>
@@ -1292,7 +1292,7 @@ export default function SourcesMethods() {
                       trigger={
                         <button
                           type="button"
-                          className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                          className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           upsample Article entities
                         </button>

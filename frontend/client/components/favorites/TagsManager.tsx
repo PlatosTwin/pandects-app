@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +8,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { TagPill, TagSwatch } from "@/components/favorites/TagPill";
+import { ColorPicker } from "@/components/favorites/ColorPicker";
+import { TagPill } from "@/components/favorites/TagPill";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useToast } from "@/hooks/use-toast";
-import {
-  TAG_COLORS,
-  type FavoriteTag,
-  type TagColor,
-} from "@/lib/favorites-api";
+import { type FavoriteTag, type TagColor } from "@/lib/favorites-api";
 
 export function TagsManager({
   onTagUpdated,
@@ -137,26 +134,10 @@ export function TagsManager({
                           autoFocus
                         />
                         <div className="flex flex-wrap gap-1.5">
-                          {TAG_COLORS.map((color) => (
-                            <button
-                              key={color}
-                              type="button"
-                              onClick={() => setDraftColor(color)}
-                              aria-label={`Use ${color} color`}
-                              aria-pressed={draftColor === color}
-                              className={
-                                "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-6 sm:w-6 " +
-                                (draftColor === color
-                                  ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
-                                  : "hover:ring-muted-foreground/40")
-                              }
-                            >
-                              <TagSwatch color={color} className="h-4 w-4" />
-                              {draftColor === color ? (
-                                <Check className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />
-                              ) : null}
-                            </button>
-                          ))}
+                          <ColorPicker
+                            value={draftColor}
+                            onChange={setDraftColor}
+                          />
                         </div>
                         <div className="flex justify-end gap-1">
                           <Button

@@ -16,7 +16,12 @@ import { scheduleWhenBrowserIdle, trackEvent } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
-import { buildSearchStateParams, parseSearchFilters } from "@/lib/url-params";
+import {
+  buildSearchStateParams,
+  parseSearchFilters,
+  type ParsedSearchFilters,
+} from "@/lib/url-params";
+import type { SortDirection, SortField } from "@/hooks/use-committed-search";
 import { stashCompareClauses } from "@/lib/tax-compare-handoff";
 import { parseSearchMode, type SearchMode } from "@shared/search";
 import type { TransactionSearchResult } from "@shared/transactions";
@@ -125,13 +130,13 @@ export default function Search() {
     }
   };
 
+  // Navigation itself happens via the row's <Link>; this only records the click.
   const openAgreement = (result: (typeof searchResults)[number], position: number) => {
     trackEvent("sections_result_click", {
       position,
       year: result.year,
       verified: result.verified,
     });
-    navigate(getSectionAgreementHref(result));
   };
 
   const handleModeChange = (value: SearchMode) => {
@@ -144,10 +149,16 @@ export default function Search() {
   };
 
   useEffect(() => {
+    let wasDesktop: boolean | null = null;
     const handleResize = () => {
       const isDesktop = window.innerWidth >= BREAKPOINT_LG;
       setIsDesktopLayout(isDesktop);
-      setSidebarCollapsed(!isDesktop);
+      // Only reset the collapse state when the desktop/mobile breakpoint
+      // actually crosses; same-side resizes keep the user's choice.
+      if (wasDesktop !== isDesktop) {
+        wasDesktop = isDesktop;
+        setSidebarCollapsed(!isDesktop);
+      }
     };
 
     handleResize();
@@ -181,8 +192,6 @@ export default function Search() {
     taxSearch.hasSearched;
 
   const {
-    targets,
-    acquirers,
     target_counsels,
     acquirer_counsels,
     target_industries,
@@ -285,11 +294,25 @@ export default function Search() {
 
   const runActiveSearch = async (
     nextMode: SearchMode,
-    nextFilters: SearchFilters,
+    nextFilters: ParsedSearchFilters,
     markAsSearched: boolean = true,
+    // Callers that just changed sort state must pass the next values
+    // explicitly: setState hasn't landed yet, so the closure below still
+    // holds the previous sort.
+    overrideSortBy?: SortField,
+    overrideSortDirection?: SortDirection,
   ) => {
+    const sortBy = overrideSortBy ?? currentSort;
+    const sortDirection = overrideSortDirection ?? sort_direction;
     if (nextMode === "sections") {
-      await performSectionSearch(false, sectionClauseTypesNested, markAsSearched, nextFilters);
+      await performSectionSearch(
+        false,
+        sectionClauseTypesNested,
+        markAsSearched,
+        nextFilters,
+        sortBy,
+        sortDirection,
+      );
       return;
     }
     if (nextMode === "tax") {
@@ -298,18 +321,19 @@ export default function Search() {
         markAsSearched,
         {
           ...nextFilters,
-          include_rep_warranty: taxSearch.filters.include_rep_warranty,
+          include_rep_warranty:
+            nextFilters.include_rep_warranty ?? taxSearch.filters.include_rep_warranty,
         },
-        currentSort,
-        sort_direction,
+        sortBy,
+        sortDirection,
       );
       return;
     }
     await transactionSearch.performSearch({
       filters: nextFilters,
       clauseTypesNested: sectionClauseTypesNested,
-      sortBy: currentSort,
-      sortDirection: sort_direction,
+      sortBy,
+      sortDirection,
       markAsSearched,
     });
   };
@@ -346,13 +370,26 @@ export default function Search() {
     const nextSortBy = searchParams.get("sort_by");
     const nextSortDirection = searchParams.get("sort_direction");
 
-    hydrateFilters(nextFilters);
-    setSearchMode(nextMode);
-    if (nextSortBy === "year" || nextSortBy === "target" || nextSortBy === "acquirer") {
-      sortResults(nextSortBy);
+    // `include_rep_warranty` belongs to the tax hook, not the sections draft.
+    const { include_rep_warranty, ...sectionFilters } = nextFilters;
+    hydrateFilters(sectionFilters);
+    if (include_rep_warranty !== undefined) {
+      taxSearch.actions.setIncludeRepWarranty(include_rep_warranty);
     }
-    if (nextSortDirection === "asc" || nextSortDirection === "desc") {
-      setSortDirection(nextSortDirection);
+    setSearchMode(nextMode);
+    const hydratedSortBy =
+      nextSortBy === "year" || nextSortBy === "target" || nextSortBy === "acquirer"
+        ? nextSortBy
+        : undefined;
+    if (hydratedSortBy) {
+      sortResults(hydratedSortBy);
+    }
+    const hydratedSortDirection =
+      nextSortDirection === "asc" || nextSortDirection === "desc"
+        ? nextSortDirection
+        : undefined;
+    if (hydratedSortDirection) {
+      setSortDirection(hydratedSortDirection);
     }
 
     const shouldSearch =
@@ -366,7 +403,7 @@ export default function Search() {
 
     isHydratingFromUrlRef.current = false;
     if (shouldSearch) {
-      void runActiveSearch(nextMode, nextFilters);
+      void runActiveSearch(nextMode, nextFilters, true, hydratedSortBy, hydratedSortDirection);
     }
   }, [hydrateFilters, searchParams, setSortDirection, sortResults]);
 
@@ -378,6 +415,7 @@ export default function Search() {
       sortBy: currentSort,
       sortDirection: sort_direction,
       clauseTypesNested,
+      taxIncludeRepWarranty: taxSearch.filters.include_rep_warranty,
     });
     if (nextParams.toString() !== searchParams.toString()) {
       setSearchParams(nextParams, { replace: true });
@@ -390,6 +428,7 @@ export default function Search() {
     searchParams,
     setSearchParams,
     sort_direction,
+    taxSearch.filters.include_rep_warranty,
   ]);
 
   const loadSearchFilterOptions = async (field: "target" | "acquirer", query: string) => {
@@ -481,22 +520,39 @@ export default function Search() {
       await runActiveSearch(searchMode, nextFilters, false);
     },
     sortResults: async (field: string) => {
-      const nextField = field as "year" | "target" | "acquirer";
+      const nextField = field as SortField;
       sortResults(nextField);
       const nextFilters: SearchFilters = { ...filters };
-      await runActiveSearch(searchMode, nextFilters, false);
+      await runActiveSearch(searchMode, nextFilters, false, nextField, sort_direction);
     },
     toggleSortDirection: async () => {
+      const nextDirection: SortDirection = sort_direction === "asc" ? "desc" : "asc";
       toggleSortDirection();
       const nextFilters: SearchFilters = { ...filters };
-      await runActiveSearch(searchMode, nextFilters, false);
+      await runActiveSearch(
+        searchMode,
+        nextFilters,
+        false,
+        currentSort ?? undefined,
+        nextDirection,
+      );
     },
   };
+
+  // Latest search action for the global Enter handler, so the listener below
+  // can be attached once instead of re-subscribing every render.
+  const enterSearchRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    enterSearchRef.current = () => {
+      if (activeIsSearching) return;
+      void runActiveSearch(searchMode, filters);
+    };
+  });
 
   // Allow Enter to trigger search when focus isn't inside an input/control.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || activeIsSearching) return;
+      if (e.key !== "Enter") return;
 
       const activeElement = document.activeElement as HTMLElement | null;
       const activeTag = activeElement?.tagName;
@@ -505,31 +561,26 @@ export default function Search() {
         activeTag === "INPUT" ||
         activeTag === "TEXTAREA" ||
         activeTag === "SELECT" ||
-        activeTag === "BUTTON";
+        activeTag === "BUTTON" ||
+        activeTag === "A";
 
-      const hasOpenDropdown =
-        document.querySelector(".absolute.top-full") ||
-        document.querySelector('[role="dialog"]');
+      // Radix stamps open overlay content and triggers (dialogs, sheets,
+      // popovers, dropdowns, selects) with data-state="open"; while any
+      // overlay is open, Enter belongs to it.
+      const hasOpenOverlay = document.querySelector('[data-state="open"]') !== null;
 
-      const isInsideDropdown =
-        activeElement?.closest('[role="combobox"]') ||
-        activeElement?.closest(".absolute") ||
-        activeElement?.closest('[role="dialog"]');
-
-      if (!isEditable && !isInsideDropdown && !hasOpenDropdown) {
-        void runActiveSearch(searchMode, filters);
+      if (!isEditable && !hasOpenOverlay) {
+        enterSearchRef.current();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeIsSearching, filters, runActiveSearch, searchMode]);
+  }, []);
 
   const sidebarCommonProps = {
     filters,
     years,
-    targets,
-    acquirers,
     target_counsels,
     acquirer_counsels,
     target_industries,

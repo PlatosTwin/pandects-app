@@ -122,7 +122,16 @@ export function CheckboxFilter({
         {label}
       </label>
 
-      <Popover open={disabled ? false : open} onOpenChange={(newOpen) => !disabled && setOpen(newOpen)}>
+      <Popover
+        open={disabled ? false : open}
+        onOpenChange={(newOpen) => {
+          if (disabled) return;
+          setOpen(newOpen);
+          // Drop the search term on close so reopening shows the full list
+          // instead of a stale pre-filtered one.
+          if (!newOpen) setSearchTerm("");
+        }}
+      >
         <PopoverTrigger asChild>
           <button
             type="button"

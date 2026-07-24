@@ -380,7 +380,7 @@ export function NestedCheckboxFilter({
                     <span className="break-words">{result.key}</span>
                     {result.path.length > 0 && (
                       <span className="break-words text-xs text-muted-foreground">
-                        {result.path.join(" 92 ")}
+                        {result.path.join(" › ")}
                       </span>
                     )}
                   </div>

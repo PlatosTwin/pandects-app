@@ -71,7 +71,7 @@ type DealTypesChartProps = {
   yearTicks?: number[];
 };
 
-const PERCENT_AXIS_TICKS = [0, 20, 40, 60, 80, 100];
+const PERCENT_AXIS_TICKS = [0, 25, 50, 75, 100];
 
 function SplitMarkerLabel({
   isMobile,

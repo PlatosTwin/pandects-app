@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { flagAsInaccurate, type FlagInaccurateSource } from "@/lib/auth-api";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
 
 const TOOLTIP_REST =

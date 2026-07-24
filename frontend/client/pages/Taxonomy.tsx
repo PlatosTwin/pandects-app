@@ -1,9 +1,18 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import { PageShell } from "@/components/PageShell";
-import brandLinks from "@branding/links.json";
+import { getDocsUrl } from "@/lib/docs-url";
 import { useTaxonomy } from "@/hooks/use-taxonomy";
-import { ArrowRight, Copy, Folder, Layers, Search, Tag } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  Copy,
+  Folder,
+  Layers,
+  Search,
+  Tag,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -14,8 +23,8 @@ import {
   Accordion,
   AccordionContent,
   AccordionItem,
-  AccordionTrigger,
 } from "@/components/ui/accordion";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,8 +45,51 @@ import {
 type TaxonomyTab = "main" | "tax";
 type TaxonomyViewMode = "tile" | "tree";
 
+/**
+ * Accordion header whose trigger is a full-row overlay button instead of a
+ * wrapper around the row content. This keeps interactive children (the
+ * copy-ID buttons) out of the trigger's DOM subtree — a <button> may not
+ * contain another <button>. Row content sits above the overlay with
+ * pointer-events disabled, except for controls that opt back in via
+ * `pointer-events-auto`.
+ */
+function TileAccordionHeader({
+  ariaLabel,
+  children,
+  className,
+  headingLevel: HeadingTag,
+}: {
+  ariaLabel: string;
+  children: ReactNode;
+  className?: string;
+  headingLevel: "h2" | "h3";
+}) {
+  return (
+    <AccordionPrimitive.Header asChild>
+      <HeadingTag className="relative flex">
+        <AccordionPrimitive.Trigger
+          aria-label={ariaLabel}
+          className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&[data-state=open]+div_.taxonomy-accordion-chevron]:rotate-180"
+        />
+        <div
+          className={cn(
+            "pointer-events-none relative flex w-full items-center justify-between gap-4 text-left",
+            className,
+          )}
+        >
+          <div className="min-w-0 flex-1">{children}</div>
+          <ChevronDown
+            className="taxonomy-accordion-chevron h-4 w-4 shrink-0 transition-transform duration-200"
+            aria-hidden="true"
+          />
+        </div>
+      </HeadingTag>
+    </AccordionPrimitive.Header>
+  );
+}
+
 export default function Taxonomy() {
-  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const docsUrl = getDocsUrl();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get("tab") === "tax" ? "tax" : "main";
   const { taxonomyTree, isLoading, error } = useTaxonomy({ kind: currentTab });
@@ -222,14 +274,16 @@ export default function Taxonomy() {
     return "L1";
   };
 
+  // Depth encoded as darkness steps off the primary token: L3 is primary,
+  // L2 and L1 mix progressively more black into it.
   const getResultLevelStyles = (level: string) => {
     switch (level) {
       case "L3":
-        return "border-[#2664EB] bg-[#2664EB] text-white";
+        return "border-transparent bg-primary text-white";
       case "L2":
-        return "border-[#19439E] bg-[#19439E] text-white";
+        return "border-transparent bg-[color-mix(in_srgb,hsl(var(--primary))_72%,black)] text-white";
       default:
-        return "border-[#0E265A] bg-[#0E265A] text-white";
+        return "border-transparent bg-[color-mix(in_srgb,hsl(var(--primary))_45%,black)] text-white";
     }
   };
 
@@ -306,18 +360,8 @@ export default function Taxonomy() {
   const renderCopyControl = (value: string, label: string) => (
     <button
       type="button"
-      onClick={(event) => {
-        event.stopPropagation();
-        void copyToClipboard(value);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          event.stopPropagation();
-          void copyToClipboard(value);
-        }
-      }}
-      className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-transparent bg-transparent text-foreground/65 transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      onClick={() => void copyToClipboard(value)}
+      className="pointer-events-auto inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-transparent bg-transparent text-foreground/65 transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       aria-label={label}
       title={label}
     >
@@ -370,65 +414,67 @@ export default function Taxonomy() {
 
       <div className="grid gap-6">
         <section aria-labelledby="taxonomy-controls" role="search">
-          <div className="flex flex-col gap-4 border-b border-border/50 pb-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="w-full lg:max-w-md xl:max-w-lg">
-              <Label
-                id="taxonomy-controls"
-                htmlFor="taxonomy-search-input"
-                className="sr-only"
-              >
-                {taxonomySearchLabel}
-              </Label>
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/45"
-                  aria-hidden="true"
-                />
-                <Input
-                  id="taxonomy-search-input"
-                  value={searchQuery}
-                  onChange={(event) => {
-                    setHasActivatedSearch(true);
-                    setSearchQuery(event.target.value);
-                  }}
-                  onFocus={() => setHasActivatedSearch(true)}
-                  placeholder={taxonomySearchPlaceholder}
-                  className="h-11 rounded-full border-border bg-background pl-10 pr-4 text-sm shadow-none"
-                  autoComplete="off"
-                />
+          <div className="border-b border-border/50 pb-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="w-full lg:max-w-md xl:max-w-lg">
+                <Label
+                  id="taxonomy-controls"
+                  htmlFor="taxonomy-search-input"
+                  className="sr-only"
+                >
+                  {taxonomySearchLabel}
+                </Label>
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/45"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="taxonomy-search-input"
+                    value={searchQuery}
+                    onChange={(event) => {
+                      setHasActivatedSearch(true);
+                      setSearchQuery(event.target.value);
+                    }}
+                    onFocus={() => setHasActivatedSearch(true)}
+                    placeholder={taxonomySearchPlaceholder}
+                    className="h-11 rounded-full border-border bg-background pl-10 pr-4 text-sm shadow-none"
+                    autoComplete="off"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center lg:justify-end">
-              <div
-                className="inline-grid grid-cols-2 rounded-full border border-border bg-muted/35 p-1"
-                role="group"
-                aria-label="Taxonomy mode"
-              >
-                {(["main", "tax"] as const).map((tab) => {
-                  const isActive = currentTab === tab;
-                  return (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => handleTabChange(tab)}
-                      aria-pressed={isActive}
-                      className={`inline-flex min-w-[6.75rem] items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                        isActive
-                          ? "border border-primary/20 bg-primary/10 text-primary shadow-sm"
-                          : "text-foreground/60 hover:bg-background/70 hover:text-foreground"
-                      }`}
-                    >
-                      {tab === "main" ? "Main" : "Tax"}
-                    </button>
-                  );
-                })}
+              <div className="flex items-center lg:justify-end">
+                <div
+                  className="inline-grid grid-cols-2 rounded-full border border-border bg-muted/35 p-1"
+                  role="group"
+                  aria-label="Taxonomy mode"
+                >
+                  {(["main", "tax"] as const).map((tab) => {
+                    const isActive = currentTab === tab;
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => handleTabChange(tab)}
+                        aria-pressed={isActive}
+                        className={`inline-flex min-w-[6.75rem] items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                          isActive
+                            ? "border border-primary/20 bg-primary/10 text-primary shadow-sm"
+                            : "text-foreground/60 hover:bg-background/70 hover:text-foreground"
+                        }`}
+                      >
+                        {tab === "main" ? "Main" : "Tax"}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
             {hasQuery && (
               <div
-                className="mt-1 rounded-xl border border-border bg-muted/20 p-3 lg:mt-3"
+                className="mt-4 rounded-xl border border-border bg-muted/20 p-3"
                 aria-live="polite"
                 aria-atomic="true"
               >
@@ -672,29 +718,24 @@ export default function Taxonomy() {
                         `taxonomy-l1-${entry.id}`,
                       )}`}
                     >
-                      <AccordionTrigger
+                      <TileAccordionHeader
                         headingLevel="h2"
-                        className="px-6 py-4 text-left text-xl font-semibold hover:no-underline"
+                        ariaLabel={`Toggle ${entry.label}`}
+                        className="px-6 py-4 text-xl font-semibold"
                       >
                         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                              <div className="text-xl font-semibold text-foreground">
-                                {entry.label}
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <div className="text-xl font-semibold text-foreground">
+                              {entry.label}
+                            </div>
+                            {!isMobile ? (
+                              <div className="inline-flex items-center gap-1 text-sm text-foreground/78">
+                                <span className="font-mono text-[13px] text-foreground/80">
+                                  {entry.id}
+                                </span>
+                                {renderCopyControl(entry.id, "Copy level 1 ID")}
                               </div>
-                              {!isMobile ? (
-                                <div className="inline-flex items-center gap-1 text-sm text-foreground/78">
-                                  <span className="font-mono text-[13px] text-foreground/80">
-                                    {entry.id}
-                                  </span>
-                                  {renderCopyControl(entry.id, "Copy level 1 ID")}
-                                </div>
-                              ) : null}
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-foreground">
-                              <span>{entry.l2Count} groups</span>
-                              <span>{entry.l3Count} types</span>
-                            </div>
+                            ) : null}
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
@@ -705,7 +746,7 @@ export default function Taxonomy() {
                             </Badge>
                           </div>
                         </div>
-                      </AccordionTrigger>
+                      </TileAccordionHeader>
                       <AccordionContent className="px-6 pb-6 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
                         <div className="rounded-lg border border-border bg-muted/20 p-4">
                           <Accordion
@@ -728,9 +769,10 @@ export default function Taxonomy() {
                                   `taxonomy-l2-${child.id}`,
                                 )}`}
                               >
-                                <AccordionTrigger
+                                <TileAccordionHeader
                                   headingLevel="h3"
-                                  className="px-5 py-3 text-left text-sm font-semibold hover:no-underline"
+                                  ariaLabel={`Toggle ${child.label}`}
+                                  className="px-5 py-3 text-sm font-semibold"
                                 >
                                   <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -750,7 +792,7 @@ export default function Taxonomy() {
                                       {child.children.length} Types
                                     </Badge>
                                   </div>
-                                </AccordionTrigger>
+                                </TileAccordionHeader>
                                 <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
                                   <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                     {child.children.map((leaf) => (

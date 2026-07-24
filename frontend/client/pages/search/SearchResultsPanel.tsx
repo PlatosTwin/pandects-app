@@ -5,6 +5,8 @@ import type { SearchMode } from "@shared/search";
 import {
   SearchPagination,
   SearchPaginationFallback,
+  SearchResultsTableFallback,
+  TransactionResultsFallback,
 } from "./lazy";
 
 interface SearchResultsPanelProps {
@@ -140,7 +142,15 @@ export function SearchResultsPanel({
 
         {hasSearched && (
           <div className="space-y-4">
-            {totalCount === 0 ? (
+            {totalCount === 0 && isSearching ? (
+              // First fetch after a commit: no prior results to keep showing,
+              // so render the skeleton instead of flashing the empty state.
+              searchMode === "transactions" ? (
+                <TransactionResultsFallback />
+              ) : (
+                <SearchResultsTableFallback />
+              )
+            ) : totalCount === 0 ? (
               <div
                 className="mx-auto max-w-3xl text-center py-12 text-muted-foreground"
                 role="status"

@@ -12,6 +12,7 @@ export function fetchAgreementMetadata(
     .catch(() => null);
 }
 
+/** Resolves to null when the fetch fails; callers treat null as "unavailable". */
 export function fetchSectionDetails(
   sectionUuid: string,
 ): Promise<SectionDetails | null> {
