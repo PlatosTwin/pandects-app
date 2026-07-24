@@ -28,6 +28,13 @@ describe("Navigation menus", () => {
     expect(mobileMarkup).not.toContain('to="/examples"');
   });
 
+  it("renders the theme toggle in both menu shells", () => {
+    for (const menu of [NavigationDesktopMenus, NavigationMobileMenu]) {
+      const markup = renderWithRouter(createElement(menu));
+      expect(markup).toContain('aria-label="Theme: System"');
+    }
+  });
+
   // Desktop and mobile menus both render from the shared navigation-links
   // module, so parity between the two is by construction. (Neither the
   // closed dropdowns nor the closed mobile sheet render their links in

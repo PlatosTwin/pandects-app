@@ -729,7 +729,7 @@ export default function Taxonomy() {
                               {entry.label}
                             </div>
                             {!isMobile ? (
-                              <div className="inline-flex items-center gap-1 text-sm text-foreground/78">
+                              <div className="inline-flex items-center gap-1 text-sm text-foreground/80">
                                 <span className="font-mono text-[13px] text-foreground/80">
                                   {entry.id}
                                 </span>
@@ -780,7 +780,7 @@ export default function Taxonomy() {
                                         {child.label}
                                       </div>
                                       {!isMobile ? (
-                                        <div className="inline-flex items-center gap-1 text-xs text-foreground/78">
+                                        <div className="inline-flex items-center gap-1 text-xs text-foreground/80">
                                           <span className="font-mono text-[11px] text-foreground/80">
                                             {child.id}
                                           </span>

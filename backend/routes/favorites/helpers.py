@@ -8,10 +8,15 @@ closure, so they live cleanly outside ``register_favorites_routes``.
 from __future__ import annotations
 
 import uuid
+from datetime import date, datetime
 from typing import Any, cast
 
 from flask import jsonify, make_response
 
+from backend.routes.agreements.helpers import (
+    _agreement_is_public_eligible_expr,
+    _to_float_or_none,
+)
 from backend.routes.favorites.deps import FavoritesDeps
 
 
@@ -216,6 +221,52 @@ def _resolve_agreement_uuids(
     for agreement_uuid in agreement_uuids:
         resolved[("agreement", agreement_uuid)] = agreement_uuid
     return resolved
+
+
+def _year_from_filing_date(value: object) -> int | None:
+    if isinstance(value, (date, datetime)):
+        return value.year
+    if isinstance(value, str) and len(value) >= 4 and value[:4].isdigit():
+        return int(value[:4])
+    return None
+
+
+def _load_agreement_metadata(
+    deps: FavoritesDeps, *, agreement_uuids: list[str]
+) -> dict[str, dict[str, object]]:
+    """Batch-load display metadata for agreements the favorites UI renders.
+
+    Only touches the serving-schema `agreements` table (prod lacks ETL-only
+    tables) and applies the same public-eligibility filter as /v1/agreements.
+    """
+    if not agreement_uuids:
+        return {}
+    agreements = cast(Any, deps.Agreements)
+    rows = (
+        _db_session(deps)
+        .query(
+            agreements.agreement_uuid,
+            agreements.filing_date,
+            agreements.target,
+            agreements.acquirer,
+            agreements.transaction_price_total,
+        )
+        .filter(
+            agreements.agreement_uuid.in_(agreement_uuids),
+            _agreement_is_public_eligible_expr(agreements),
+        )
+        .all()
+    )
+    out: dict[str, dict[str, object]] = {}
+    for agreement_uuid, filing_date, target, acquirer, price_total in rows:
+        out[agreement_uuid] = {
+            "agreement_uuid": agreement_uuid,
+            "year": _year_from_filing_date(filing_date),
+            "target": target,
+            "acquirer": acquirer,
+            "transaction_price_total": _to_float_or_none(price_total),
+        }
+    return out
 
 
 def _no_store(payload: object):

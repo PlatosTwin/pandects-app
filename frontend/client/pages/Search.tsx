@@ -1,4 +1,11 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import type { SearchFilters } from "@shared/sections";
@@ -39,6 +46,37 @@ import {
 import { SearchHeader } from "./search/SearchHeader";
 import { SearchActionsBar } from "./search/SearchActionsBar";
 import { SearchResultsPanel } from "./search/SearchResultsPanel";
+
+/**
+ * Everything the page needs that varies by search mode. All mode hooks are
+ * called unconditionally in the component (React's rules of hooks); the
+ * adapters only select between their outputs, so switching modes never
+ * changes the hook call order.
+ */
+interface ModeAdapter {
+  isSearching: boolean;
+  hasSearched: boolean;
+  totalCount: number;
+  totalCountIsApproximate: boolean;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+  accessTier: string;
+  selectedSize: number;
+  resultsLength: number;
+  sidebarClauseTypeLabel: string;
+  isLoadingSidebarTaxonomy: boolean;
+  clearSelection: () => void;
+  runSearch: (
+    filters: ParsedSearchFilters,
+    markAsSearched: boolean,
+    sortBy: SortField | null,
+    sortDirection: SortDirection,
+  ) => Promise<void>;
+  downloadCSV: () => void;
+  resultsFallback: ReactElement;
+  renderResults: () => ReactElement;
+}
 
 export default function Search() {
   const { status: authStatus } = useAuth();
@@ -227,71 +265,15 @@ export default function Search() {
     [clauseTypesNested],
   );
 
-  const activeIsSearching =
-    searchMode === "sections"
-      ? isSearchingSections
-      : searchMode === "tax"
-        ? taxSearch.isSearching
-        : transactionSearch.isSearching;
-  const activeHasSearched =
-    searchMode === "sections"
-      ? hasSearchedSections
-      : searchMode === "tax"
-        ? taxSearch.hasSearched
-        : transactionSearch.hasSearched;
-  const activeTotalCount =
-    searchMode === "sections"
-      ? totalCountSections
-      : searchMode === "tax"
-        ? taxSearch.total_count
-        : transactionSearch.totalCount;
-  const activeTotalCountIsApproximate =
-    searchMode === "sections"
-      ? totalCountIsApproximateSections
-      : searchMode === "tax"
-        ? taxSearch.totalCountIsApproximate
-        : transactionSearch.totalCountIsApproximate;
-  const activeTotalPages =
-    searchMode === "sections"
-      ? totalPagesSections
-      : searchMode === "tax"
-        ? taxSearch.total_pages
-        : transactionSearch.totalPages;
-  const activeHasNext =
-    searchMode === "sections"
-      ? hasNextSections
-      : searchMode === "tax"
-        ? taxSearch.has_next
-        : transactionSearch.hasNext;
-  const activeHasPrev =
-    searchMode === "sections"
-      ? hasPrevSections
-      : searchMode === "tax"
-        ? taxSearch.has_prev
-        : transactionSearch.hasPrev;
-  const activeAccess =
-    searchMode === "sections"
-      ? sectionAccess
-      : searchMode === "tax"
-        ? taxSearch.access
-        : transactionSearch.access;
-  const activeSelectedSize =
-    searchMode === "sections"
-      ? selectedResults.size
-      : searchMode === "tax"
-        ? taxSearch.selectedResults.size
-        : transactionSearch.selectedResults.size;
-  const activeResultsLength =
-    searchMode === "sections"
-      ? searchResults.length
-      : searchMode === "tax"
-        ? taxSearch.searchResults.length
-        : transactionSearch.results.length;
+  // Error modals stay cross-mode ORs: an error surfaced by any mode's hook
+  // must remain visible even after the user switches modes.
   const activeShowErrorModal =
     showSectionsErrorModal || transactionSearch.showErrorModal || taxSearch.showErrorModal;
   const activeErrorMessage =
     sectionsErrorMessage || transactionSearch.errorMessage || taxSearch.errorMessage;
 
+  // Dispatches to the adapter for `nextMode`, which may differ from the
+  // current mode while hydrating from the URL.
   const runActiveSearch = async (
     nextMode: SearchMode,
     nextFilters: ParsedSearchFilters,
@@ -302,40 +284,12 @@ export default function Search() {
     overrideSortBy?: SortField,
     overrideSortDirection?: SortDirection,
   ) => {
-    const sortBy = overrideSortBy ?? currentSort;
-    const sortDirection = overrideSortDirection ?? sort_direction;
-    if (nextMode === "sections") {
-      await performSectionSearch(
-        false,
-        sectionClauseTypesNested,
-        markAsSearched,
-        nextFilters,
-        sortBy,
-        sortDirection,
-      );
-      return;
-    }
-    if (nextMode === "tax") {
-      await taxSearch.actions.performSearch(
-        false,
-        markAsSearched,
-        {
-          ...nextFilters,
-          include_rep_warranty:
-            nextFilters.include_rep_warranty ?? taxSearch.filters.include_rep_warranty,
-        },
-        sortBy,
-        sortDirection,
-      );
-      return;
-    }
-    await transactionSearch.performSearch({
-      filters: nextFilters,
-      clauseTypesNested: sectionClauseTypesNested,
-      sortBy,
-      sortDirection,
+    await adapters[nextMode].runSearch(
+      nextFilters,
       markAsSearched,
-    });
+      overrideSortBy ?? currentSort,
+      overrideSortDirection ?? sort_direction,
+    );
   };
 
   const buildAgreementHref = (agreementUuid: string, focusSectionUuid?: string | null) => {
@@ -469,36 +423,6 @@ export default function Search() {
       updateFilter("page", 1);
       await runActiveSearch(searchMode, nextFilters);
     },
-    downloadCSV: () => {
-      if (searchMode === "sections") {
-        trackEvent("sections_export_click", {
-          export_format: "csv",
-          result_count: selectedResults.size > 0 ? selectedResults.size : totalCountSections,
-          is_filtered: Object.values(filters).flat().length > 0,
-        });
-        downloadCSV();
-      } else if (searchMode === "tax") {
-        trackEvent("tax_clauses_export_click", {
-          export_format: "csv",
-          result_count:
-            taxSearch.selectedResults.size > 0
-              ? taxSearch.selectedResults.size
-              : taxSearch.total_count,
-          is_filtered: Object.values(filters).flat().length > 0,
-        });
-        void taxSearch.actions.downloadCSV();
-      } else {
-        trackEvent("transactions_export_click", {
-          export_format: "csv",
-          result_count:
-            transactionSearch.selectedResults.size > 0
-              ? transactionSearch.selectedResults.size
-              : transactionSearch.totalCount,
-          is_filtered: Object.values(filters).flat().length > 0,
-        });
-        void transactionSearch.downloadCSV(sectionClauseTypesNested, filters);
-      }
-    },
     clearFilters: () => {
       trackEvent("sections_filters_cleared", {
         filter_count: Object.values(filters).flat().length,
@@ -539,12 +463,185 @@ export default function Search() {
     },
   };
 
+  // Per-mode adapters (see ModeAdapter). Rebuilt every render like the
+  // ternaries they replace, so each field always reflects the latest hook
+  // output. `runActiveSearch` above indexes this record by mode.
+  const adapters: Record<SearchMode, ModeAdapter> = {
+    sections: {
+      isSearching: isSearchingSections,
+      hasSearched: hasSearchedSections,
+      totalCount: totalCountSections,
+      totalCountIsApproximate: totalCountIsApproximateSections,
+      totalPages: totalPagesSections,
+      hasNext: hasNextSections,
+      hasPrev: hasPrevSections,
+      accessTier: sectionAccess?.tier ?? "anonymous",
+      selectedSize: selectedResults.size,
+      resultsLength: searchResults.length,
+      sidebarClauseTypeLabel: "Section Type",
+      isLoadingSidebarTaxonomy: isLoadingFilterOptions,
+      clearSelection,
+      runSearch: async (nextFilters, markAsSearched, sortBy, sortDirection) => {
+        await performSectionSearch(
+          false,
+          sectionClauseTypesNested,
+          markAsSearched,
+          nextFilters,
+          sortBy,
+          sortDirection,
+        );
+      },
+      downloadCSV: () => {
+        trackEvent("sections_export_click", {
+          export_format: "csv",
+          result_count: selectedResults.size > 0 ? selectedResults.size : totalCountSections,
+          is_filtered: Object.values(filters).flat().length > 0,
+        });
+        downloadCSV();
+      },
+      resultsFallback: <SearchResultsTableFallback />,
+      renderResults: () => (
+        <SearchResultsTable
+          searchResults={searchResults}
+          selectedResults={selectedResults}
+          clauseTypePathByStandardId={clauseTypePathByStandardId}
+          sort_by={currentSort ?? "year"}
+          sort_direction={sort_direction}
+          onToggleResultSelection={toggleResultSelection}
+          onToggleSelectAll={toggleSelectAll}
+          onOpenAgreement={openAgreement}
+          getAgreementHref={getSectionAgreementHref}
+          onSortResults={(field) => void trackingActions.sortResults(field)}
+          onToggleSortDirection={() => void trackingActions.toggleSortDirection()}
+          density={resultsDensity}
+          onDensityChange={updateResultsDensity}
+          currentPage={currentPage}
+          page_size={page_size}
+        />
+      ),
+    },
+    tax: {
+      isSearching: taxSearch.isSearching,
+      hasSearched: taxSearch.hasSearched,
+      totalCount: taxSearch.total_count,
+      totalCountIsApproximate: taxSearch.totalCountIsApproximate,
+      totalPages: taxSearch.total_pages,
+      hasNext: taxSearch.has_next,
+      hasPrev: taxSearch.has_prev,
+      accessTier: taxSearch.access?.tier ?? "anonymous",
+      selectedSize: taxSearch.selectedResults.size,
+      resultsLength: taxSearch.searchResults.length,
+      sidebarClauseTypeLabel: "Tax clause type",
+      isLoadingSidebarTaxonomy: isLoadingTaxTaxonomy,
+      clearSelection: taxSearch.actions.clearSelection,
+      runSearch: async (nextFilters, markAsSearched, sortBy, sortDirection) => {
+        await taxSearch.actions.performSearch(
+          false,
+          markAsSearched,
+          {
+            ...nextFilters,
+            include_rep_warranty:
+              nextFilters.include_rep_warranty ?? taxSearch.filters.include_rep_warranty,
+          },
+          sortBy,
+          sortDirection,
+        );
+      },
+      downloadCSV: () => {
+        trackEvent("tax_clauses_export_click", {
+          export_format: "csv",
+          result_count:
+            taxSearch.selectedResults.size > 0
+              ? taxSearch.selectedResults.size
+              : taxSearch.total_count,
+          is_filtered: Object.values(filters).flat().length > 0,
+        });
+        void taxSearch.actions.downloadCSV();
+      },
+      resultsFallback: <SearchResultsTableFallback />,
+      renderResults: () => (
+        <TaxClauseResultsList
+          results={taxSearch.searchResults}
+          getAgreementHref={(r: TaxClauseSearchResult) =>
+            buildAgreementHref(r.agreement_uuid, r.section_uuid)
+          }
+          clauseTypeLabelById={clauseTypeLabelById}
+          selectedResults={taxSearch.selectedResults}
+          onToggleResultSelection={taxSearch.actions.toggleResultSelection}
+          onToggleSelectAll={taxSearch.actions.toggleSelectAll}
+          sortBy={currentSort ?? "year"}
+          sortDirection={sort_direction}
+          onSortResults={(field) => void trackingActions.sortResults(field)}
+          onToggleSortDirection={() => void trackingActions.toggleSortDirection()}
+          density={resultsDensity}
+          onDensityChange={updateResultsDensity}
+        />
+      ),
+    },
+    transactions: {
+      isSearching: transactionSearch.isSearching,
+      hasSearched: transactionSearch.hasSearched,
+      totalCount: transactionSearch.totalCount,
+      totalCountIsApproximate: transactionSearch.totalCountIsApproximate,
+      totalPages: transactionSearch.totalPages,
+      hasNext: transactionSearch.hasNext,
+      hasPrev: transactionSearch.hasPrev,
+      accessTier: transactionSearch.access?.tier ?? "anonymous",
+      selectedSize: transactionSearch.selectedResults.size,
+      resultsLength: transactionSearch.results.length,
+      sidebarClauseTypeLabel: "Section Type",
+      isLoadingSidebarTaxonomy: isLoadingFilterOptions,
+      clearSelection: transactionSearch.clearSelection,
+      runSearch: async (nextFilters, markAsSearched, sortBy, sortDirection) => {
+        await transactionSearch.performSearch({
+          filters: nextFilters,
+          clauseTypesNested: sectionClauseTypesNested,
+          sortBy,
+          sortDirection,
+          markAsSearched,
+        });
+      },
+      downloadCSV: () => {
+        trackEvent("transactions_export_click", {
+          export_format: "csv",
+          result_count:
+            transactionSearch.selectedResults.size > 0
+              ? transactionSearch.selectedResults.size
+              : transactionSearch.totalCount,
+          is_filtered: Object.values(filters).flat().length > 0,
+        });
+        void transactionSearch.downloadCSV(sectionClauseTypesNested, filters);
+      },
+      resultsFallback: <TransactionResultsFallback />,
+      renderResults: () => (
+        <TransactionResultsList
+          results={transactionSearch.results}
+          getAgreementHref={getTransactionAgreementHref}
+          showClauseContext={dealClauseContextActive}
+          clauseTypeLabelById={clauseTypeLabelById}
+          currentPage={currentPage}
+          pageSize={page_size}
+          selectedResults={transactionSearch.selectedResults}
+          onToggleResultSelection={transactionSearch.toggleResultSelection}
+          onToggleSelectAll={transactionSearch.toggleSelectAll}
+          sortBy={currentSort ?? "year"}
+          sortDirection={sort_direction}
+          onSortResults={(field) => void trackingActions.sortResults(field)}
+          onToggleSortDirection={() => void trackingActions.toggleSortDirection()}
+          density={resultsDensity}
+          onDensityChange={updateResultsDensity}
+        />
+      ),
+    },
+  };
+  const adapter = adapters[searchMode];
+
   // Latest search action for the global Enter handler, so the listener below
   // can be attached once instead of re-subscribing every render.
   const enterSearchRef = useRef<() => void>(() => {});
   useEffect(() => {
     enterSearchRef.current = () => {
-      if (activeIsSearching) return;
+      if (adapter.isSearching) return;
       void runActiveSearch(searchMode, filters);
     };
   });
@@ -587,10 +684,9 @@ export default function Search() {
     acquirer_industries,
     clauseTypesNested,
     clauseTypeLabelById,
-    clauseTypeSectionLabel: searchMode === "tax" ? "Tax clause type" : "Section Type",
+    clauseTypeSectionLabel: adapter.sidebarClauseTypeLabel,
     isLoadingFilterOptions,
-    isLoadingTaxonomy:
-      searchMode === "tax" ? isLoadingTaxTaxonomy : isLoadingFilterOptions,
+    isLoadingTaxonomy: adapter.isLoadingSidebarTaxonomy,
     onToggleFilterValue: toggleFilterValue,
     onTextFilterChange: trackingActions.setTextFilterValue,
     onClearFilters: trackingActions.clearFilters,
@@ -617,78 +713,10 @@ export default function Search() {
     navigate("/compare/tax");
   };
 
-  const onClearActiveSelection =
-    searchMode === "sections"
-      ? clearSelection
-      : searchMode === "tax"
-        ? taxSearch.actions.clearSelection
-        : transactionSearch.clearSelection;
-
   const resultsList = hasHydrated ? (
-    searchMode === "tax" ? (
-      <Suspense fallback={<SearchResultsTableFallback />}>
-        <TaxClauseResultsList
-          results={taxSearch.searchResults}
-          getAgreementHref={(r: TaxClauseSearchResult) =>
-            buildAgreementHref(r.agreement_uuid, r.section_uuid)
-          }
-          clauseTypeLabelById={clauseTypeLabelById}
-          selectedResults={taxSearch.selectedResults}
-          onToggleResultSelection={taxSearch.actions.toggleResultSelection}
-          onToggleSelectAll={taxSearch.actions.toggleSelectAll}
-          sortBy={currentSort ?? "year"}
-          sortDirection={sort_direction}
-          onSortResults={(field) => void trackingActions.sortResults(field)}
-          onToggleSortDirection={() => void trackingActions.toggleSortDirection()}
-          density={resultsDensity}
-          onDensityChange={updateResultsDensity}
-        />
-      </Suspense>
-    ) : searchMode === "sections" ? (
-      <Suspense fallback={<SearchResultsTableFallback />}>
-        <SearchResultsTable
-          searchResults={searchResults}
-          selectedResults={selectedResults}
-          clauseTypePathByStandardId={clauseTypePathByStandardId}
-          sort_by={currentSort ?? "year"}
-          sort_direction={sort_direction}
-          onToggleResultSelection={toggleResultSelection}
-          onToggleSelectAll={toggleSelectAll}
-          onOpenAgreement={openAgreement}
-          getAgreementHref={getSectionAgreementHref}
-          onSortResults={(field) => void trackingActions.sortResults(field)}
-          onToggleSortDirection={() => void trackingActions.toggleSortDirection()}
-          density={resultsDensity}
-          onDensityChange={updateResultsDensity}
-          currentPage={currentPage}
-          page_size={page_size}
-        />
-      </Suspense>
-    ) : (
-      <Suspense fallback={<TransactionResultsFallback />}>
-        <TransactionResultsList
-          results={transactionSearch.results}
-          getAgreementHref={getTransactionAgreementHref}
-          showClauseContext={dealClauseContextActive}
-          clauseTypeLabelById={clauseTypeLabelById}
-          currentPage={currentPage}
-          pageSize={page_size}
-          selectedResults={transactionSearch.selectedResults}
-          onToggleResultSelection={transactionSearch.toggleResultSelection}
-          onToggleSelectAll={transactionSearch.toggleSelectAll}
-          sortBy={currentSort ?? "year"}
-          sortDirection={sort_direction}
-          onSortResults={(field) => void trackingActions.sortResults(field)}
-          onToggleSortDirection={() => void trackingActions.toggleSortDirection()}
-          density={resultsDensity}
-          onDensityChange={updateResultsDensity}
-        />
-      </Suspense>
-    )
-  ) : searchMode === "transactions" ? (
-    <TransactionResultsFallback />
+    <Suspense fallback={adapter.resultsFallback}>{adapter.renderResults()}</Suspense>
   ) : (
-    <SearchResultsTableFallback />
+    adapter.resultsFallback
   );
 
   return (
@@ -733,11 +761,11 @@ export default function Search() {
 
           <SearchActionsBar
             searchMode={searchMode}
-            isSearching={activeIsSearching}
-            selectedSize={activeSelectedSize}
-            resultsLength={activeResultsLength}
+            isSearching={adapter.isSearching}
+            selectedSize={adapter.selectedSize}
+            resultsLength={adapter.resultsLength}
             onSearch={() => void trackingActions.performSearch()}
-            onDownloadCSV={trackingActions.downloadCSV}
+            onDownloadCSV={adapter.downloadCSV}
             onClearFilters={trackingActions.clearFilters}
             taxIncludeRepWarranty={!!taxSearch.filters.include_rep_warranty}
             onTaxIncludeRepWarrantyChange={taxSearch.actions.setIncludeRepWarranty}
@@ -752,21 +780,21 @@ export default function Search() {
           <SearchResultsPanel
             searchMode={searchMode}
             hasHydrated={hasHydrated}
-            isSearching={activeIsSearching}
-            hasSearched={activeHasSearched}
-            totalCount={activeTotalCount}
-            totalCountIsApproximate={activeTotalCountIsApproximate}
-            totalPages={activeTotalPages}
-            hasNext={activeHasNext}
-            hasPrev={activeHasPrev}
+            isSearching={adapter.isSearching}
+            hasSearched={adapter.hasSearched}
+            totalCount={adapter.totalCount}
+            totalCountIsApproximate={adapter.totalCountIsApproximate}
+            totalPages={adapter.totalPages}
+            hasNext={adapter.hasNext}
+            hasPrev={adapter.hasPrev}
             currentPage={currentPage}
             pageSize={page_size}
-            accessTier={activeAccess?.tier ?? "anonymous"}
-            selectedSize={activeSelectedSize}
+            accessTier={adapter.accessTier}
+            selectedSize={adapter.selectedSize}
             onGoToPage={(page) => void trackingActions.goToPage(page)}
             onPageSizeChange={(size) => void trackingActions.changePageSize(size)}
-            onDownloadCSV={trackingActions.downloadCSV}
-            onClearSelection={onClearActiveSelection}
+            onDownloadCSV={adapter.downloadCSV}
+            onClearSelection={adapter.clearSelection}
             resultsList={resultsList}
           />
         </div>

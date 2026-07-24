@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { getDocsUrl } from "@/lib/docs-url";
 import { ABOUT_LINKS, DATA_LINKS } from "@/components/navigation-links";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   Sheet,
   SheetClose,
@@ -49,6 +50,9 @@ function NavigationMobileMenuComponent() {
 
   return (
     <div className="flex items-center md:hidden">
+      <div className="mr-1">
+        <ThemeToggle />
+      </div>
       <div className="mr-2">
         <Suspense fallback={<AuthMenuFallback />}>
           <AuthMenu />

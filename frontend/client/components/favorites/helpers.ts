@@ -1,7 +1,6 @@
 import type { Favorite } from "@/lib/favorites-api";
-import type { Agreement } from "@shared/agreement";
 
-import type { FavoriteFilters } from "./types";
+import type { AgreementMetadata, FavoriteFilters } from "./types";
 
 export function hasActiveFilters(f: FavoriteFilters): boolean {
   return (
@@ -24,7 +23,10 @@ export function favoriteHref(fav: Favorite): string | null {
   return `/agreements/${agreementUuid}`;
 }
 
-export function favoriteHeading(fav: Favorite, agreement: Agreement | null): string {
+export function favoriteHeading(
+  fav: Favorite,
+  agreement: AgreementMetadata | null,
+): string {
   const ctxTarget =
     agreement?.target ??
     (typeof fav.context?.target === "string"

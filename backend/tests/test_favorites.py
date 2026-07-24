@@ -141,6 +141,15 @@ class FavoritesRoutesTests(unittest.TestCase):
         self.assertEqual(res.status_code, 403)
         self.assertIn("signed-in user session", res.get_data(as_text=True))
 
+    def test_verified_non_user_tier_is_rejected_for_agreement_metadata(self):
+        client = self._client_with_verified_non_user_tier()
+        res = client.post(
+            "/v1/me/favorites/agreement-metadata",
+            json={"agreement_uuids": ["66666666-6666-6666-6666-666666666666"]},
+        )
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("signed-in user session", res.get_data(as_text=True))
+
     def test_verified_non_user_tier_is_rejected_for_create(self):
         client = self._client_with_verified_non_user_tier(tier="mcp")
         res = client.post(
@@ -589,6 +598,125 @@ class FavoritesRoutesTests(unittest.TestCase):
         res = client.post(
             "/v1/me/favorites",
             json={"item_type": "garbage", "item_uuid": "x"},
+        )
+        self.assertEqual(res.status_code, 400)
+
+
+class FavoritesAgreementMetadataTests(unittest.TestCase):
+    """Batch metadata endpoint against a sqlite stand-in for the main DB."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        main_db = tempfile.NamedTemporaryFile(
+            prefix="pandects_fav_main_", suffix=".sqlite", delete=False
+        )
+        main_db.close()
+        cls.app = create_test_app(
+            config_overrides={
+                "MAIN_DB_SCHEMA": "",
+                "SQLALCHEMY_DATABASE_URI": f"sqlite:///{main_db.name}",
+                "SQLALCHEMY_BINDS": {"auth": f"sqlite:///{_AUTH_DB_TEMP.name}"},
+            }
+        )
+        with cls.app.app_context():
+            backend_app.metadata.create_all(db.engine)
+            db.create_all(bind_key="auth")
+            with db.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements "
+                        "(agreement_uuid, filing_date, target, acquirer, "
+                        "transaction_price_total, verified, gated) VALUES "
+                        "('fav-meta-1', '2020-06-15', 'Target One', 'Acquirer One', "
+                        "'50000000', 1, 0), "
+                        "('fav-meta-2', '2021-02-01', 'Gated Target', 'Gated Acquirer', "
+                        "'150000000', 0, 1), "
+                        "('fav-meta-3', NULL, 'No Date Target', NULL, NULL, 1, NULL)"
+                    )
+                )
+
+    def setUp(self) -> None:
+        _set_default_env()
+        with self.app.app_context():
+            engine = db.engines["auth"]
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM auth_sessions"))
+                conn.execute(text("DELETE FROM auth_users"))
+        backend_app._rate_limit_state.clear()
+        backend_app._endpoint_rate_limit_state.clear()
+
+    def _client_with_bearer(self):
+        with self.app.app_context():
+            user = AuthUser()
+            user.email = "meta@example.com"
+            user.password_hash = backend_app.generate_password_hash("password123")
+            user.email_verified_at = backend_app._utc_now()
+            db.session.add(user)
+            db.session.commit()
+            with self.app.test_request_context("/v1/me/favorites"):
+                token = backend_app._issue_session_token(user.id)
+        client = self.app.test_client()
+        client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+        return client
+
+    def test_unauthenticated_is_rejected(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/v1/me/favorites/agreement-metadata",
+            json={"agreement_uuids": ["fav-meta-1"]},
+        )
+        self.assertEqual(res.status_code, 401)
+
+    def test_batch_returns_only_eligible_agreements(self):
+        client = self._client_with_bearer()
+        res = client.post(
+            "/v1/me/favorites/agreement-metadata",
+            json={
+                "agreement_uuids": [
+                    "fav-meta-1",
+                    "fav-meta-2",
+                    "fav-meta-3",
+                    "fav-meta-missing",
+                    " fav-meta-1 ",
+                ]
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        agreements = cast(dict[str, dict[str, object]], res.get_json()["agreements"])
+
+        eligible = agreements["fav-meta-1"]
+        self.assertEqual(eligible["year"], 2020)
+        self.assertEqual(eligible["target"], "Target One")
+        self.assertEqual(eligible["acquirer"], "Acquirer One")
+        self.assertEqual(eligible["transaction_price_total"], 50000000.0)
+
+        # Gated + unverified agreements and unknown uuids are omitted, matching
+        # the public-eligibility behavior of /v1/agreements/<uuid>.
+        self.assertNotIn("fav-meta-2", agreements)
+        self.assertNotIn("fav-meta-missing", agreements)
+
+        sparse = agreements["fav-meta-3"]
+        self.assertIsNone(sparse["year"])
+        self.assertIsNone(sparse["acquirer"])
+        self.assertIsNone(sparse["transaction_price_total"])
+
+    def test_batch_validation_limits(self):
+        client = self._client_with_bearer()
+        res = client.post(
+            "/v1/me/favorites/agreement-metadata",
+            json={"agreement_uuids": []},
+        )
+        self.assertEqual(res.status_code, 400)
+
+        res = client.post(
+            "/v1/me/favorites/agreement-metadata",
+            json={"agreement_uuids": [f"uuid-{i}" for i in range(501)]},
+        )
+        self.assertEqual(res.status_code, 400)
+
+        res = client.post(
+            "/v1/me/favorites/agreement-metadata",
+            json={},
         )
         self.assertEqual(res.status_code, 400)
 

@@ -44,6 +44,7 @@ function inlineScriptHashes(html) {
     const body = match[2];
     hashes.push({
       attrs: match[1].trim(),
+      body,
       hash: `sha256-${sha256Base64(body)}`,
     });
   }
@@ -62,9 +63,16 @@ const baseInline = inlineScriptHashes(indexHtml);
 const byScript = {};
 const hashSet = new Set();
 
-for (const { attrs, hash } of baseInline) {
+for (const { attrs, body, hash } of baseInline) {
   const kind = describeAttrs(attrs);
-  const key = kind === "jsonld" ? "jsonld:index.html" : "gtag-bootstrap";
+  // index.html carries two plain inline scripts; label them by content so the
+  // manifest stays diffable.
+  const key =
+    kind === "jsonld"
+      ? "jsonld:index.html"
+      : body.includes("dataLayer")
+        ? "gtag-bootstrap"
+        : "theme-init";
   byScript[key] = hash;
   hashSet.add(hash);
 }

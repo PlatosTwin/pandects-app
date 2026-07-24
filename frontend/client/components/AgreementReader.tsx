@@ -24,6 +24,8 @@ import { StarButton } from "@/components/StarButton";
 import { useAgreement } from "@/hooks/use-agreement";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useNaics } from "@/hooks/use-naics";
+import { useScrollSpy } from "@/hooks/use-scroll-spy";
 import { TableOfContents } from "@/components/TableOfContents";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { Button } from "@/components/ui/button";
@@ -67,6 +69,7 @@ import {
 } from "@/lib/format-utils";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
+import { formatNaicsIndustry } from "@/lib/naics";
 import { logger } from "@/lib/logger";
 import { prefersReducedMotion } from "@/lib/scroll";
 import { cn } from "@/lib/utils";
@@ -100,7 +103,10 @@ function HeaderFactChip({
   value: string;
 }) {
   return (
-    <div className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs">
+    <div
+      className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs"
+      title={value}
+    >
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="text-muted-foreground">{label}</span>
       <span className="min-w-0 truncate font-medium text-foreground">{value}</span>
@@ -347,6 +353,13 @@ export function AgreementReader({
   const stickyHeaderBottomRef = useRef(240);
   const isMobile = useIsMobile();
 
+  const { activeId: spyActiveId, notifyJump } = useScrollSpy({
+    containerRef: contentRef,
+    topOffset: stickyHeaderBottom,
+    contentKey: agreement?.xml ?? null,
+    enabled: Boolean(agreement?.xml),
+  });
+
   useEffect(() => {
     if (isLoading) return;
     const element = headerRef.current;
@@ -375,6 +388,7 @@ export function AgreementReader({
     () => indexClauseTypeLabels(clause_types),
     [clause_types],
   );
+  const { labelByCode: naicsLabelByCode } = useNaics();
 
   useEffect(() => {
     fetchAgreement(agreementUuid, focusSectionUuid ?? undefined);
@@ -453,6 +467,7 @@ export function AgreementReader({
       setHighlightedSection(null);
       highlightTimeoutRef.current = null;
     }, 2200);
+    notifyJump(sectionUuid);
     attemptScrollToSection(sectionUuid, 5);
     setIsTocSheetOpen(false);
     setIsDetailsSheetOpen(false);
@@ -462,6 +477,7 @@ export function AgreementReader({
     const element = document.getElementById(anchorId);
     if (!element) return;
 
+    notifyJump(anchorId);
     const targetY =
       element.getBoundingClientRect().top +
       window.scrollY -
@@ -557,6 +573,15 @@ export function AgreementReader({
     : sectionTypeMatches.slice(0, 50);
   const matchCount = isTextQueryActive ? textMatches.length : null;
 
+  const targetIndustryDisplay = formatNaicsIndustry(
+    naicsLabelByCode,
+    agreement?.target_industry,
+  );
+  const acquirerIndustryDisplay = formatNaicsIndustry(
+    naicsLabelByCode,
+    agreement?.acquirer_industry,
+  );
+
   const metadata = [
     { label: "Target", value: formatTextValue(agreement?.target) },
     { label: "Acquirer", value: formatTextValue(agreement?.acquirer) },
@@ -569,8 +594,8 @@ export function AgreementReader({
     { label: "Purpose", value: formatEnumValue(agreement?.purpose) },
     { label: "Consideration", value: formatEnumValue(agreement?.transaction_consideration) },
     { label: "Value", value: formatCompactCurrencyValue(agreement?.transaction_price_total) },
-    { label: "Target industry", value: formatTextValue(agreement?.target_industry) },
-    { label: "Acquirer industry", value: formatTextValue(agreement?.acquirer_industry) },
+    { label: "Target industry", value: formatTextValue(targetIndustryDisplay) },
+    { label: "Acquirer industry", value: formatTextValue(acquirerIndustryDisplay) },
     { label: "Target PE", value: formatBooleanValue(agreement?.target_pe) },
     { label: "Acquirer PE", value: formatBooleanValue(agreement?.acquirer_pe) },
   ];
@@ -665,17 +690,14 @@ export function AgreementReader({
       value: formatDateValue(agreement.filing_date),
     });
   }
-  // target_industry is a raw NAICS code on this surface (e.g. "325") and no
-  // client-side label source exists, so a bare number would render as
-  // "Industry 325" — skip the chip rather than show an opaque code.
-  if (
-    agreement.target_industry &&
-    !/^\d+$/.test(agreement.target_industry.trim())
-  ) {
+  // target_industry is a raw NAICS code on this surface (e.g. "325");
+  // formatNaicsIndustry resolves it to a label and returns null on a lookup
+  // miss — skip the chip rather than show an opaque code.
+  if (targetIndustryDisplay) {
     headerFacts.push({
       icon: Building2,
       label: "Industry",
-      value: agreement.target_industry,
+      value: targetIndustryDisplay,
     });
   }
 
@@ -687,7 +709,7 @@ export function AgreementReader({
       onSectionTypeChange={setSectionType}
       sectionTypeOptions={sectionTypeOptions}
       jumpItems={jumpItems}
-      activeSectionUuid={highlightedSection}
+      activeSectionUuid={spyActiveId}
       onJumpToSection={scrollToSection}
       matchCount={matchCount}
       isTextQueryActive={isTextQueryActive}
@@ -861,6 +883,7 @@ export function AgreementReader({
                       <TableOfContents
                         xmlContent={agreement.xml}
                         targetSectionUuid={highlightedSection ?? undefined}
+                        activeItemId={spyActiveId}
                         onSectionClick={scrollToSection}
                         onAnchorClick={scrollToAnchor}
                         className="h-full"
@@ -997,6 +1020,7 @@ export function AgreementReader({
                 <TableOfContents
                   xmlContent={agreement.xml}
                   targetSectionUuid={highlightedSection ?? undefined}
+                  activeItemId={spyActiveId}
                   onSectionClick={scrollToSection}
                   onAnchorClick={scrollToAnchor}
                   scrollable={false}

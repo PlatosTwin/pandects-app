@@ -9,6 +9,11 @@ import {
 
 import { cn } from "@/lib/utils";
 import {
+  CHART_GRID_STROKE,
+  YEAR_GRID_MAJOR_STROKE,
+  YEAR_GRID_MINOR_STROKE,
+} from "@/lib/chart-palette";
+import {
   type ChartConfig,
   ChartContainer,
   ChartLegend,
@@ -104,10 +109,10 @@ export function CounselLeaderboardChart({
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <AreaChart data={percentData} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.4)" />
+          <CartesianGrid vertical={false} stroke={CHART_GRID_STROKE} />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.18)"
+            stroke={YEAR_GRID_MINOR_STROKE}
             strokeDasharray="2 4"
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.minorYears,
@@ -115,7 +120,7 @@ export function CounselLeaderboardChart({
           />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.32)"
+            stroke={YEAR_GRID_MAJOR_STROKE}
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.majorYears,
             )}

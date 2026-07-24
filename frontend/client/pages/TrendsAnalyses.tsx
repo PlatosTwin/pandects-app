@@ -11,6 +11,13 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
+import {
+  CHART_NEUTRAL_SERIES_COLOR,
+  INDUSTRY_CHART_PALETTE,
+  OWNERSHIP_SERIES_COLORS,
+  SECTOR_CONCENTRATION_LINE_COLOR,
+  heatmapCellFill,
+} from "@/lib/chart-palette";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 import { cn } from "@/lib/utils";
@@ -98,23 +105,15 @@ const OWNERSHIP_SERIES: TrendsChartSeries[] = [
   {
     key: "public",
     label: "Public targets",
-    color: "hsl(212 93% 50%)",
+    color: OWNERSHIP_SERIES_COLORS.public,
   },
   {
     key: "private",
     label: "Private targets",
-    color: "hsl(170 84% 36%)",
+    color: OWNERSHIP_SERIES_COLORS.private,
   },
 ];
-const INDUSTRY_COLORS = [
-  "hsl(212 93% 50%)",
-  "hsl(170 84% 36%)",
-  "hsl(35 92% 52%)",
-  "hsl(0 84% 60%)",
-  "hsl(196 83% 42%)",
-  "hsl(262 83% 58%)",
-  "hsl(142 71% 45%)",
-];
+const INDUSTRY_COLORS = INDUSTRY_CHART_PALETTE;
 
 function formatMoney(value: number | null | undefined) {
   return formatCompactCurrencyValue(value ?? null);
@@ -236,7 +235,7 @@ function TrendsHeatmapTable({
               {columns.map((column) => {
                 const cell = getCell(row, column);
                 const opacity = 0.1 + (cell.intensity * 0.75);
-                const backgroundColor = `hsl(212 93% 50% / ${opacity})`;
+                const backgroundColor = heatmapCellFill(opacity);
                 const foregroundClass =
                   cell.intensity > 0.58 ? "text-white" : "text-foreground";
 
@@ -673,7 +672,7 @@ function IndustryDynamicsPanel({
       series.push({
         key: "Other",
         label: "Other",
-        color: "hsl(220 9% 60%)",
+        color: CHART_NEUTRAL_SERIES_COLOR,
       });
     }
 
@@ -993,7 +992,7 @@ function IndustryDynamicsPanel({
                       ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
                       data={concentrationTrend.data}
                       describedBy={concentrationDescriptionId}
-                      lineColor="hsl(12 76% 61%)"
+                      lineColor={SECTOR_CONCENTRATION_LINE_COLOR}
                       tableId={concentrationTableId}
                     />
                   </Suspense>
@@ -1006,7 +1005,7 @@ function IndustryDynamicsPanel({
                 ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
                 data={concentrationTrend.data}
                 describedBy={concentrationDescriptionId}
-                lineColor="hsl(12 76% 61%)"
+                lineColor={SECTOR_CONCENTRATION_LINE_COLOR}
                 tableId={concentrationTableId}
               />
             </Suspense>

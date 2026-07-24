@@ -1,6 +1,8 @@
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useNaics } from "@/hooks/use-naics";
+import { formatNaicsIndustry } from "@/lib/naics";
 import { formatFilterOption } from "@/lib/text-utils";
 import type { SearchFilters } from "@shared/sections";
 import type { SearchMode } from "@shared/search";
@@ -21,6 +23,8 @@ const HARDCODED_ENUM_FIELDS = new Set([
   "acquirer_pe",
 ]);
 
+const NAICS_INDUSTRY_FIELDS = new Set(["target_industry", "acquirer_industry"]);
+
 interface SearchActiveFiltersProps {
   filters: SearchFilters;
   searchMode: SearchMode;
@@ -38,6 +42,7 @@ export function SearchActiveFilters({
   onTextFilterChange,
   onClearAll,
 }: SearchActiveFiltersProps) {
+  const { labelByCode: naicsLabelByCode } = useNaics();
   const hasAny =
     filters.year.length > 0 ||
     filters.target.length > 0 ||
@@ -94,12 +99,16 @@ export function SearchActiveFilters({
       <div className="hidden h-5 w-0.5 shrink-0 rounded-full bg-border/80 sm:block" aria-hidden="true" />
       {fieldList.flatMap(([field, label, values]) =>
         values.map((value) => {
+          // Industry pills resolve NAICS codes to labels; on a lookup miss the
+          // raw code is kept so the active filter stays visible and removable.
           const displayValue =
             field === "clauseType"
               ? clauseTypeLabelById[value] ?? value
-              : HARDCODED_ENUM_FIELDS.has(field)
-                ? formatFilterOption(value)
-                : value;
+              : NAICS_INDUSTRY_FIELDS.has(field)
+                ? formatNaicsIndustry(naicsLabelByCode, value) ?? value
+                : HARDCODED_ENUM_FIELDS.has(field)
+                  ? formatFilterOption(value)
+                  : value;
           return (
             <Badge
               key={`${field}:${value}`}
@@ -107,7 +116,9 @@ export function SearchActiveFilters({
               className="flex max-w-full items-center gap-1 rounded-md bg-background px-2 py-1"
             >
               <span className="text-muted-foreground">{label}:</span>
-              <span className="min-w-0 truncate">{displayValue}</span>
+              <span className="min-w-0 truncate" title={displayValue}>
+                {displayValue}
+              </span>
               <button
                 type="button"
                 onClick={() => onToggleFilterValue(field, value)}

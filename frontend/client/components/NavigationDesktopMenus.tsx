@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { getDocsUrl } from "@/lib/docs-url";
 import { ABOUT_LINKS, DATA_LINKS } from "@/components/navigation-links";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -188,7 +189,8 @@ function NavigationDesktopMenusComponent() {
         </DropdownMenu>
       </div>
 
-      <div className="ml-2">
+      <div className="ml-2 flex items-center gap-1">
+        <ThemeToggle />
         <Suspense fallback={<AuthMenuFallback />}>
           <AuthMenu />
         </Suspense>

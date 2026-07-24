@@ -17,6 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
+import { CHART_SERIES_PALETTE } from "@/lib/chart-palette";
 import { formatCompactCurrencyValue } from "@/lib/format-utils";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 
@@ -57,23 +58,7 @@ type CounselSectionProps = {
   title: string;
 };
 
-const LEADERBOARD_COLORS = [
-  "hsl(212 93% 50%)",
-  "hsl(170 84% 36%)",
-  "hsl(35 92% 52%)",
-  "hsl(0 84% 60%)",
-  "hsl(196 83% 42%)",
-  "hsl(262 83% 58%)",
-  "hsl(142 71% 45%)",
-  "hsl(24 95% 53%)",
-  "hsl(221 83% 53%)",
-  "hsl(12 76% 61%)",
-  "hsl(187 72% 41%)",
-  "hsl(271 81% 56%)",
-  "hsl(43 96% 56%)",
-  "hsl(151 55% 42%)",
-  "hsl(215 70% 59%)",
-];
+const LEADERBOARD_COLORS = CHART_SERIES_PALETTE;
 const LEADERBOARDS_CACHE_KEY = "leaderboards:v1";
 const LEADERBOARDS_CACHE_TTL_MS = 5 * 60 * 1000;
 

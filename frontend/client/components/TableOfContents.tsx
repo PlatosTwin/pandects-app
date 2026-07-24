@@ -1,13 +1,16 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { decodeXmlEntities } from "@/lib/text-utils";
 import { logger } from "@/lib/logger";
+import { prefersReducedMotion } from "@/lib/scroll";
 import { TOCItem } from "@shared/agreement";
 
 interface TableOfContentsProps {
   xmlContent: string;
   targetSectionUuid?: string;
+  /** Scroll-spy id (section uuid or region anchor id) of the current section. */
+  activeItemId?: string | null;
   onSectionClick: (sectionUuid: string) => void;
   onAnchorClick?: (anchorId: string) => void;
   className?: string;
@@ -25,6 +28,7 @@ const REGION_ITEMS: Array<{ tagName: string; title: string }> = [
 export function TableOfContents({
   xmlContent,
   targetSectionUuid,
+  activeItemId,
   onSectionClick,
   onAnchorClick,
   className,
@@ -33,6 +37,9 @@ export function TableOfContents({
   const [expandedItems, setExpandedItems] = useState<Set<string>>(
     () => new Set(["region-body"]),
   );
+  const rootRef = useRef<HTMLDivElement>(null);
+  const isPointerOverRef = useRef(false);
+  const lastInteractionRef = useRef(0);
 
   const tocItems = useMemo(() => {
     return extractTOCFromXML(xmlContent);
@@ -46,6 +53,50 @@ export function TableOfContents({
       return next;
     });
   }, [tocItems, targetSectionUuid]);
+
+  useEffect(() => {
+    if (!activeItemId) return;
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      findAndExpandParents(tocItems, activeItemId, next);
+      return next.size === prev.size ? prev : next;
+    });
+  }, [tocItems, activeItemId]);
+
+  // Keep the active entry visible inside the TOC's scroll container, unless
+  // the user is interacting with the TOC themselves.
+  useEffect(() => {
+    if (!activeItemId) return;
+    const root = rootRef.current;
+    if (!root) return;
+    // Wait a frame so an entry revealed by ancestor auto-expand exists.
+    const frame = requestAnimationFrame(() => {
+      if (isPointerOverRef.current) return;
+      if (Date.now() - lastInteractionRef.current < 1000) return;
+      const button = root.querySelector<HTMLElement>('[aria-current="true"]');
+      if (!button) return;
+      const scroller = findScrollContainer(button);
+      if (!scroller) return;
+      const scrollerRect = scroller.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      let delta = 0;
+      if (buttonRect.top < scrollerRect.top + 8) {
+        delta = buttonRect.top - (scrollerRect.top + 8);
+      } else if (buttonRect.bottom > scrollerRect.bottom - 8) {
+        delta = buttonRect.bottom - (scrollerRect.bottom - 8);
+      }
+      if (delta === 0) return;
+      scroller.scrollTo({
+        top: scroller.scrollTop + delta,
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeItemId, expandedItems]);
+
+  const markInteraction = () => {
+    lastInteractionRef.current = Date.now();
+  };
 
   const toggleExpanded = (itemId: string) => {
     setExpandedItems((prev) => {
@@ -62,7 +113,11 @@ export function TableOfContents({
   const renderTOCItem = (item: TOCItem, depth: number = 0): React.ReactNode => {
     const isExpanded = expandedItems.has(item.id);
     const hasChildren = item.children && item.children.length > 0;
-    const isTarget = item.sectionUuid === targetSectionUuid;
+    const isTarget =
+      item.sectionUuid != null && item.sectionUuid === targetSectionUuid;
+    const isActive =
+      activeItemId != null &&
+      (item.sectionUuid === activeItemId || item.anchorId === activeItemId);
 
     return (
       <div key={item.id} className="select-none">
@@ -71,7 +126,7 @@ export function TableOfContents({
           className={cn(
             "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors",
             "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            isTarget && "bg-primary/10 text-primary font-medium",
+            (isActive || isTarget) && "bg-primary/10 text-primary font-medium",
             depth > 0 && "ml-4",
           )}
           onClick={() => {
@@ -84,6 +139,7 @@ export function TableOfContents({
               onAnchorClick?.(item.anchorId);
             }
           }}
+          aria-current={isActive ? "true" : undefined}
           aria-expanded={hasChildren ? isExpanded : undefined}
           aria-label={
             item.sectionUuid || item.anchorId
@@ -120,7 +176,20 @@ export function TableOfContents({
   };
 
   return (
-    <div className={cn(scrollable && "overflow-y-auto", className)}>
+    <div
+      ref={rootRef}
+      className={cn(scrollable && "overflow-y-auto", className)}
+      onPointerEnter={() => {
+        isPointerOverRef.current = true;
+      }}
+      onPointerLeave={() => {
+        isPointerOverRef.current = false;
+      }}
+      onPointerDown={markInteraction}
+      onWheel={markInteraction}
+      onTouchMove={markInteraction}
+      onKeyDown={markInteraction}
+    >
       <div className="p-4">
         <h3 className="mb-3 text-sm font-medium text-foreground">
           Table of Contents
@@ -135,13 +204,14 @@ export function TableOfContents({
   );
 }
 
+// targetId matches either a section uuid or a region anchor id.
 function findAndExpandParents(
   items: TOCItem[],
-  targetUuid: string,
+  targetId: string,
   expandedSet: Set<string>,
 ): boolean {
   for (const item of items) {
-    if (item.sectionUuid === targetUuid) {
+    if (item.sectionUuid === targetId || item.anchorId === targetId) {
       if (item.children && item.children.length > 0) {
         expandedSet.add(item.id);
       }
@@ -150,13 +220,27 @@ function findAndExpandParents(
 
     if (
       item.children &&
-      findAndExpandParents(item.children, targetUuid, expandedSet)
+      findAndExpandParents(item.children, targetId, expandedSet)
     ) {
       expandedSet.add(item.id);
       return true;
     }
   }
   return false;
+}
+
+// The TOC's scroll container differs by surface: the component root when
+// scrollable, otherwise an ancestor (the desktop sidebar `<aside>`).
+function findScrollContainer(element: HTMLElement): HTMLElement | null {
+  let node = element.parentElement;
+  while (node) {
+    if (node.scrollHeight > node.clientHeight) {
+      const overflowY = window.getComputedStyle(node).overflowY;
+      if (overflowY === "auto" || overflowY === "scroll") return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
 }
 
 function extractTOCFromXML(xmlContent: string): TOCItem[] {

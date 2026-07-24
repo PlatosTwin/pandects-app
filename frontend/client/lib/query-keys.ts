@@ -22,6 +22,9 @@ export const keys = {
   taxonomy: {
     all: ["taxonomy"] as const,
   },
+  naics: {
+    all: ["naics"] as const,
+  },
   taxClauseTaxonomy: {
     all: ["tax-clause-taxonomy"] as const,
   },

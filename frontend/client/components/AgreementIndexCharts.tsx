@@ -9,6 +9,13 @@ import {
 } from "recharts";
 
 import { cn } from "@/lib/utils";
+import {
+  CHART_MARKER_FILL,
+  CHART_MARKER_STROKE,
+  CHART_MARKER_TEXT_FILL,
+  CHART_REFERENCE_LINE_STROKE,
+  PROCESSING_STATUS_COLORS,
+} from "@/lib/chart-palette";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   type ChartConfig,
@@ -101,13 +108,13 @@ function SplitMarkerLabel({
         width={rectWidth}
         height={rectHeight}
         rx={4}
-        fill="hsl(var(--background))"
-        stroke="hsl(var(--border))"
+        fill={CHART_MARKER_FILL}
+        stroke={CHART_MARKER_STROKE}
       />
       <text
         x={textX}
         y={textY}
-        fill="hsl(var(--muted-foreground))"
+        fill={CHART_MARKER_TEXT_FILL}
         fontSize={10}
         textAnchor="middle"
         dominantBaseline="middle"
@@ -140,19 +147,19 @@ export function ProcessingStatusChart({
         config={{
           processed: {
             label: "Processed",
-            color: "hsl(142 71% 45%)",
+            color: PROCESSING_STATUS_COLORS.processed,
           },
           staged: {
             label: "Staged",
-            color: "hsl(38 92% 55%)",
+            color: PROCESSING_STATUS_COLORS.staged,
           },
           awaiting: {
             label: "Awaiting validation",
-            color: "hsl(0 84% 60%)",
+            color: PROCESSING_STATUS_COLORS.awaiting,
           },
           notPaginated: {
             label: "Not paginated",
-            color: "hsl(220 9% 60%)",
+            color: PROCESSING_STATUS_COLORS.notPaginated,
           },
         }}
         role="img"
@@ -255,7 +262,7 @@ export function ProcessingStatusChart({
           {showSourceSplit ? (
             <ReferenceLine
               x={2020.5}
-              stroke="hsl(var(--foreground))"
+              stroke={CHART_REFERENCE_LINE_STROKE}
               strokeWidth={1.5}
               strokeDasharray="4 4"
               isFront
@@ -485,7 +492,7 @@ export function DealTypesChart({
           {showSourceSplit ? (
             <ReferenceLine
               x={2020.5}
-              stroke="hsl(var(--foreground))"
+              stroke={CHART_REFERENCE_LINE_STROKE}
               strokeWidth={1.5}
               strokeDasharray="4 4"
               isFront

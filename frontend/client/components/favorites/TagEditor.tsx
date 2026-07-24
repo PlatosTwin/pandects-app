@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { type FavoriteTag, type TagColor } from "@/lib/favorites-api";
 import { ColorPicker } from "./ColorPicker";
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { TagPill } from "./TagPill";
 
 interface TagEditorProps {
@@ -37,6 +38,10 @@ export function TagEditor({
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState<TagColor>("blue");
   const [creating, setCreating] = useState(false);
+  const [tagPendingDelete, setTagPendingDelete] = useState<FavoriteTag | null>(
+    null,
+  );
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     ensureTagsLoaded();
@@ -76,23 +81,25 @@ export function TagEditor({
     }
   };
 
-  const handleDeleteTag = async (tag: FavoriteTag) => {
-    const confirmed = window.confirm(
-      `Delete "${tag.name}" permanently? This removes it from every favorite.`,
-    );
-    if (!confirmed) return;
+  const handleConfirmDeleteTag = async () => {
+    const tag = tagPendingDelete;
+    if (!tag) return;
+    setDeleting(true);
     try {
       await removeTag(tag.id);
       if (selectedTagIds.includes(tag.id)) {
         onChange(selectedTagIds.filter((id) => id !== tag.id));
       }
       onTagDeleted?.(tag.id);
+      setTagPendingDelete(null);
     } catch {
       toast({
         title: "Couldn't delete tag",
         description: "Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -152,7 +159,7 @@ export function TagEditor({
                       className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-6 sm:w-6"
                       aria-label={`Delete tag ${t.name}`}
                       title={`Delete tag ${t.name}`}
-                      onClick={() => void handleDeleteTag(t)}
+                      onClick={() => setTagPendingDelete(t)}
                     >
                       <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
@@ -205,6 +212,21 @@ export function TagEditor({
           </div>
         </PopoverContent>
       </Popover>
+      <ConfirmDeleteDialog
+        open={tagPendingDelete !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deleting) setTagPendingDelete(null);
+        }}
+        title="Delete tag?"
+        description={
+          tagPendingDelete
+            ? `This permanently deletes "${tagPendingDelete.name}" and removes it from every favorite.`
+            : ""
+        }
+        confirmLabel="Delete tag"
+        pending={deleting}
+        onConfirm={() => void handleConfirmDeleteTag()}
+      />
     </div>
   );
 }

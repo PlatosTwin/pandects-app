@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { ColorPicker } from "@/components/favorites/ColorPicker";
+import { ConfirmDeleteDialog } from "@/components/favorites/ConfirmDeleteDialog";
 import { TagSwatch } from "@/components/favorites/TagPill";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useToast } from "@/hooks/use-toast";
@@ -80,6 +81,10 @@ export function ProjectSidebar({
   const [draftColor, setDraftColor] = useState<TagColor>("blue");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(true);
+  const [pendingDelete, setPendingDelete] = useState<{
+    project: FavoriteProject;
+    target: FavoriteProject;
+  } | null>(null);
 
   const total = Object.values(projectCounts).reduce(
     (sum, count) => sum + count,
@@ -132,7 +137,7 @@ export function ProjectSidebar({
     }
   };
 
-  const handleDelete = async (project: FavoriteProject) => {
+  const requestDelete = (project: FavoriteProject) => {
     const target = projects.find((candidate) => candidate.id !== project.id);
     if (!target) {
       toast({
@@ -143,10 +148,12 @@ export function ProjectSidebar({
       });
       return;
     }
-    const confirmed = window.confirm(
-      `Delete "${project.name}" and move its favorites to "${target.name}"?`,
-    );
-    if (!confirmed) return;
+    setPendingDelete({ project, target });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    const { project, target } = pendingDelete;
     setBusy(true);
     try {
       const result = await removeProject(project.id, target.id);
@@ -154,6 +161,7 @@ export function ProjectSidebar({
       if (activeProjectId === project.id) {
         onSelectProject(result.reassigned_to_project_id);
       }
+      setPendingDelete(null);
     } catch {
       toast({ title: "Couldn't delete project", variant: "destructive" });
     } finally {
@@ -278,7 +286,7 @@ export function ProjectSidebar({
                         className="h-11 w-11 text-muted-foreground hover:text-destructive sm:h-8 sm:w-8"
                         aria-label={`Delete project ${project.name}`}
                         title={`Delete project ${project.name}`}
-                        onClick={() => void handleDelete(project)}
+                        onClick={() => requestDelete(project)}
                         disabled={busy}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -323,6 +331,21 @@ export function ProjectSidebar({
           </div>
         </CollapsibleContent>
       </Collapsible>
+      <ConfirmDeleteDialog
+        open={pendingDelete !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !busy) setPendingDelete(null);
+        }}
+        title="Delete project?"
+        description={
+          pendingDelete
+            ? `This deletes "${pendingDelete.project.name}" and moves its favorites to "${pendingDelete.target.name}".`
+            : ""
+        }
+        confirmLabel="Delete project"
+        pending={busy}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </aside>
   );
 }

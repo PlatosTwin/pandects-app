@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { CheckboxFilter } from "@/components/CheckboxFilter";
 import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
 import { TextFilter } from "@/components/TextFilter";
+import { useNaics } from "@/hooks/use-naics";
+import { formatNaicsIndustry } from "@/lib/naics";
 import { Button } from "@/components/ui/button";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -93,6 +95,37 @@ export function SearchSidebar({
   const filterLoadingStatusId = React.useId();
   const toggleCollapse = onToggleCollapse ?? (() => {});
   const showContent = variant === "sheet" || !isCollapsed;
+  const { labelByCode: naicsLabelByCode } = useNaics();
+
+  // Industry filter values stay raw NAICS codes on the wire; CheckboxFilter
+  // toggles the option string itself, so options and selected values are
+  // mapped to "Label (code)" display strings and toggles are mapped back to
+  // the code before reaching the filter state. A code the lookup cannot
+  // resolve keeps its raw form so the option stays selectable/removable.
+  const industryDisplay = React.useCallback(
+    (code: string) => formatNaicsIndustry(naicsLabelByCode, code) ?? code,
+    [naicsLabelByCode],
+  );
+  const industryCodeByDisplay = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const code of [
+      ...target_industries,
+      ...acquirer_industries,
+      ...(filters.target_industry ?? []),
+      ...(filters.acquirer_industry ?? []),
+    ]) {
+      map.set(industryDisplay(code), code);
+    }
+    return map;
+  }, [
+    target_industries,
+    acquirer_industries,
+    filters.target_industry,
+    filters.acquirer_industry,
+    industryDisplay,
+  ]);
+  const onToggleIndustryDisplay = (field: string, display: string) =>
+    onToggleFilterValue(field, industryCodeByDisplay.get(display) ?? display);
 
   const filtersContent = (
     <div
@@ -311,9 +344,9 @@ export function SearchSidebar({
       <div>
         <CheckboxFilter
           label="Target Industry"
-          options={target_industries}
-          selectedValues={filters.target_industry || []}
-          onToggle={(value) => onToggleFilterValue("target_industry", value)}
+          options={target_industries.map(industryDisplay)}
+          selectedValues={(filters.target_industry || []).map(industryDisplay)}
+          onToggle={(value) => onToggleIndustryDisplay("target_industry", value)}
           hideSearch={false}
         />
       </div>
@@ -322,9 +355,9 @@ export function SearchSidebar({
       <div>
         <CheckboxFilter
           label="Acquirer Industry"
-          options={acquirer_industries}
-          selectedValues={filters.acquirer_industry || []}
-          onToggle={(value) => onToggleFilterValue("acquirer_industry", value)}
+          options={acquirer_industries.map(industryDisplay)}
+          selectedValues={(filters.acquirer_industry || []).map(industryDisplay)}
+          onToggle={(value) => onToggleIndustryDisplay("acquirer_industry", value)}
           hideSearch={false}
         />
       </div>

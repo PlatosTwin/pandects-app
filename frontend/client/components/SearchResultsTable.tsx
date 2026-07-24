@@ -1,8 +1,6 @@
 import { Link } from "react-router-dom";
 import {
   ArrowUpRight,
-  ArrowUp,
-  ArrowDown,
   BadgeCheck,
   Copy,
   Check,
@@ -21,15 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ResultsToolbar } from "@/components/ResultsToolbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -266,107 +257,25 @@ export function SearchResultsTable({
 
   return (
     <div className={cn("space-y-4", className)}>
-      {/* Header with Select All and Sort Controls */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Search-result bulk selection is intentionally desktop-only; mobile
-            result cards stay focused on opening individual agreements. */}
-        <div className="hidden items-center gap-3 sm:flex">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={
-                allSelected ? true : someSelected ? "indeterminate" : false
-              }
-              onCheckedChange={() => onToggleSelectAll()}
-              className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-              aria-label="Select all results"
-            />
-            <span className="text-sm text-muted-foreground" aria-live="polite">
-              {selectedResults.size > 0
-                ? `${selectedResults.size} of ${searchResults.length} selected`
-                : "Select all"}
-            </span>
-          </div>
-        </div>
-
-        {/* Sort Controls */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
-            {/* Density */}
-            <div className="hidden items-center gap-2 sm:flex">
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                Density:
-              </span>
-              <ToggleGroup
-                type="single"
-                aria-label="Results density"
-                value={density}
-                onValueChange={(value) => {
-                  if (value === "comfy" || value === "compact") {
-                    onDensityChange?.(value);
-                  }
-                }}
-                variant="outline"
-                size="xs"
-                className="justify-start"
-              >
-                <ToggleGroupItem
-                  value="compact"
-                  aria-label="Compact density"
-                  className="text-muted-foreground data-[state=on]:text-foreground"
-                >
-                  Compact
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="comfy"
-                  aria-label="Comfy density"
-                  className="text-muted-foreground data-[state=on]:text-foreground"
-                >
-                  Comfy
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-
-            {/* Sort */}
-            <div className="flex items-center gap-2">
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                Sort by:
-              </span>
-              <Select
-                value={sort_by}
-                onValueChange={(value) =>
-                  onSortResults(value as "year" | "target" | "acquirer")
-                }
-              >
-                <SelectTrigger
-                  className="h-11 w-full sm:h-9 sm:w-[160px]"
-                  aria-label="Sort section results by"
-                >
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="year">Year</SelectItem>
-                  <SelectItem value="target">Target</SelectItem>
-                  <SelectItem value="acquirer">Acquirer</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleSortDirection}
-                className="h-10 w-10 p-1 hover:bg-muted/40 sm:h-8 sm:w-8"
-                title={`Sort ${sort_direction === "asc" ? "descending" : "ascending"}`}
-                aria-label={`Sort ${sort_direction === "asc" ? "descending" : "ascending"}`}
-              >
-                {sort_direction === "asc" ? (
-                  <ArrowUp className="w-4 h-4" aria-hidden="true" />
-                ) : (
-                  <ArrowDown className="w-4 h-4" aria-hidden="true" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ResultsToolbar
+        selection={{
+          allSelected,
+          someSelected,
+          onToggleSelectAll,
+          selectAllLabel: "Select all results",
+          countLabel:
+            selectedResults.size > 0
+              ? `${selectedResults.size} of ${searchResults.length} selected`
+              : "Select all",
+        }}
+        sortBy={sort_by}
+        sortDirection={sort_direction}
+        onSortResults={onSortResults}
+        onToggleSortDirection={onToggleSortDirection}
+        sortSelectLabel="Sort section results by"
+        density={density}
+        onDensityChange={onDensityChange}
+      />
 
       {/* Results Grid */}
       <TooltipProvider>

@@ -18,6 +18,15 @@ export interface FavoriteFilters {
   acquirer: string;
 }
 
+/** Slim agreement metadata the favorites UI renders and filters on. */
+export interface AgreementMetadata {
+  agreement_uuid: string;
+  year: number | null;
+  target: string | null;
+  acquirer: string | null;
+  transaction_price_total: number | null;
+}
+
 export interface SectionDetails {
   agreement_uuid: string | null;
   section_uuid: string;

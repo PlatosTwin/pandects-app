@@ -12,6 +12,7 @@ import {
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import { cn } from "@/lib/utils";
 import { useAgreement } from "@/hooks/use-agreement";
+import { useNaics } from "@/hooks/use-naics";
 import { XMLRenderer } from "./XMLRenderer";
 import { TableOfContents } from "./TableOfContents";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -37,6 +38,7 @@ import {
   formatTextValue,
   formatBooleanValue,
 } from "@/lib/format-utils";
+import { formatNaicsIndustry } from "@/lib/naics";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
 
 interface AgreementModalProps {
@@ -74,6 +76,7 @@ export function AgreementModal({
   const modalTitleId = useId();
   const modalDescriptionId = useId();
   const isMobile = useIsMobile();
+  const { labelByCode: naicsLabelByCode } = useNaics();
   const canUseDOM = typeof document !== "undefined";
   const year = agreementMetadata?.year ?? agreement?.year;
   const target = agreementMetadata?.target ?? agreement?.target;
@@ -99,11 +102,15 @@ export function AgreementModal({
         },
         {
           label: "Target industry",
-          value: formatTextValue(agreement?.target_industry),
+          value: formatTextValue(
+            formatNaicsIndustry(naicsLabelByCode, agreement?.target_industry),
+          ),
         },
         {
           label: "Acquirer industry",
-          value: formatTextValue(agreement?.acquirer_industry),
+          value: formatTextValue(
+            formatNaicsIndustry(naicsLabelByCode, agreement?.acquirer_industry),
+          ),
         },
         {
           label: "Target private equity",

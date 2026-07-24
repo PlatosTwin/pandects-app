@@ -327,7 +327,7 @@ export default function Login() {
                     onClick={() => void startGoogle()}
                     disabled={submitting || googleSubmitting}
                     variant="outline"
-                    className="h-11 min-w-[17rem] rounded-full border-border bg-white px-5 text-foreground shadow-sm hover:bg-muted/40"
+                    className="h-11 min-w-[17rem] rounded-full border-slate-300 bg-white px-5 text-slate-900 shadow-sm hover:bg-slate-100 hover:text-slate-900"
                   >
                     <GoogleMark />
                     {googleSubmitting ? "Redirecting…" : "Continue with Google"}

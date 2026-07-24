@@ -7,6 +7,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Star } from "lucide-react";
 
@@ -29,11 +30,12 @@ import { FilterBar } from "@/components/favorites/FilterBar";
 import { ProjectSidebar } from "@/components/favorites/ProjectSidebar";
 import { TagsManager } from "@/components/favorites/TagsManager";
 import {
-  fetchAgreementMetadata,
+  fetchAgreementMetadataBatch,
   fetchSectionDetails,
 } from "@/components/favorites/api";
 import {
   EMPTY_FILTERS,
+  type AgreementMetadata,
   type FavoriteFilters,
   type Filter,
   type SectionDetails,
@@ -52,7 +54,8 @@ import {
   type FavoriteProject,
   type FavoriteTag,
 } from "@/lib/favorites-api";
-import type { Agreement } from "@shared/agreement";
+
+const EMPTY_AGREEMENTS: Record<string, AgreementMetadata | null> = {};
 
 export default function FavoritesPage() {
   const { status, user } = useAuth();
@@ -76,9 +79,6 @@ export default function FavoritesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkProjectId, setBulkProjectId] = useState("");
   const [bulkCopyProjectId, setBulkCopyProjectId] = useState("");
-  const [agreementByUuid, setAgreementByUuid] = useState<
-    Record<string, Agreement | null>
-  >({});
   const [sectionByUuid, setSectionByUuid] = useState<
     Record<string, SectionDetails | null>
   >({});
@@ -114,35 +114,22 @@ export default function FavoritesPage() {
       .finally(() => setLoading(false));
   }, [status, user, toast, ensureProjectsLoaded, setFavoriteTagsCache]);
 
-  // Lazy-fetch agreement metadata for filtering and richer display.
-  useEffect(() => {
-    const needed = new Set<string>();
+  // One batched request for agreement metadata (filtering + richer display)
+  // instead of one request per favorite.
+  const agreementUuids = useMemo(() => {
+    const unique = new Set<string>();
     for (const fav of favorites) {
-      const uuid = fav.agreement_uuid;
-      if (uuid && agreementByUuid[uuid] === undefined) {
-        needed.add(uuid);
-      }
+      if (fav.agreement_uuid) unique.add(fav.agreement_uuid);
     }
-    if (needed.size === 0) return;
-    let cancelled = false;
-    void Promise.all(
-      Array.from(needed).map((uuid) =>
-        fetchAgreementMetadata(uuid).then((agreement) => ({ uuid, agreement })),
-      ),
-    ).then((rows) => {
-      if (cancelled) return;
-      setAgreementByUuid((prev) => {
-        const next = { ...prev };
-        for (const { uuid, agreement } of rows) {
-          next[uuid] = agreement;
-        }
-        return next;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [favorites, agreementByUuid]);
+    return Array.from(unique).sort();
+  }, [favorites]);
+  const { data: agreementByUuid = EMPTY_AGREEMENTS } = useQuery({
+    queryKey: ["favorites-agreement-metadata", agreementUuids],
+    queryFn: () => fetchAgreementMetadataBatch(agreementUuids),
+    enabled:
+      status === "authenticated" && !!user && agreementUuids.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     const needed = new Set<string>();

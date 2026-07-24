@@ -11,6 +11,12 @@ import {
 
 import { cn } from "@/lib/utils";
 import {
+  CHART_GRID_STROKE,
+  OWNERSHIP_SERIES_COLORS,
+  YEAR_GRID_MAJOR_STROKE,
+  YEAR_GRID_MINOR_STROKE,
+} from "@/lib/chart-palette";
+import {
   type ChartConfig,
   ChartContainer,
   ChartLegend,
@@ -80,11 +86,11 @@ const PERCENT_AXIS_TICKS = [0, 25, 50, 75, 100];
 const MEDIAN_CHART_CONFIG = {
   public_median: {
     label: "Public targets",
-    color: "hsl(212 93% 50%)",
+    color: OWNERSHIP_SERIES_COLORS.public,
   },
   private_median: {
     label: "Private targets",
-    color: "hsl(170 84% 36%)",
+    color: OWNERSHIP_SERIES_COLORS.private,
   },
 } satisfies ChartConfig;
 
@@ -197,10 +203,10 @@ export function TrendsStackedShareAreaChart({
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <AreaChart data={percentData} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.4)" />
+          <CartesianGrid vertical={false} stroke={CHART_GRID_STROKE} />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.18)"
+            stroke={YEAR_GRID_MINOR_STROKE}
             strokeDasharray="2 4"
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.minorYears,
@@ -208,7 +214,7 @@ export function TrendsStackedShareAreaChart({
           />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.32)"
+            stroke={YEAR_GRID_MAJOR_STROKE}
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.majorYears,
             )}
@@ -326,10 +332,10 @@ export function TrendsMedianBandChart({
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <AreaChart data={data} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.4)" />
+          <CartesianGrid vertical={false} stroke={CHART_GRID_STROKE} />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.18)"
+            stroke={YEAR_GRID_MINOR_STROKE}
             strokeDasharray="2 4"
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.minorYears,
@@ -337,7 +343,7 @@ export function TrendsMedianBandChart({
           />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.32)"
+            stroke={YEAR_GRID_MAJOR_STROKE}
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.majorYears,
             )}
@@ -456,10 +462,10 @@ export function TrendsPercentLineChart({
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <LineChart data={data} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.4)" />
+          <CartesianGrid vertical={false} stroke={CHART_GRID_STROKE} />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.18)"
+            stroke={YEAR_GRID_MINOR_STROKE}
             strokeDasharray="2 4"
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.minorYears,
@@ -467,7 +473,7 @@ export function TrendsPercentLineChart({
           />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.32)"
+            stroke={YEAR_GRID_MAJOR_STROKE}
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.majorYears,
             )}

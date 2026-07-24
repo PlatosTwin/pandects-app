@@ -20,7 +20,6 @@ import {
   type FavoriteTag,
 } from "@/lib/favorites-api";
 import { formatCompactCurrencyValue, formatDateValue } from "@/lib/format-utils";
-import type { Agreement } from "@shared/agreement";
 
 import {
   contextString,
@@ -29,7 +28,11 @@ import {
   firstWords,
   stripXmlText,
 } from "./helpers";
-import { TYPE_LABELS, type SectionDetails } from "./types";
+import {
+  TYPE_LABELS,
+  type AgreementMetadata,
+  type SectionDetails,
+} from "./types";
 
 export function FavoriteRow({
   fav,
@@ -44,7 +47,7 @@ export function FavoriteRow({
   onTagDeleted,
 }: {
   fav: Favorite;
-  agreement: Agreement | null;
+  agreement: AgreementMetadata | null;
   /** undefined = fetch pending, null = fetch failed. */
   sectionDetails: SectionDetails | null | undefined;
   clauseTypeLabelById: Record<string, string>;
@@ -135,7 +138,7 @@ export function FavoriteRow({
     <Card
       ref={setNodeRef}
       style={style}
-      className={`relative overflow-hidden border-l-4 border-l-amber-400 bg-card shadow-sm transition-shadow hover:shadow-md ${isDragging ? "z-10 opacity-80 ring-2 ring-primary" : ""}`}
+      className={`relative overflow-hidden border-l-4 border-l-amber-400 bg-card shadow-sm transition-shadow [contain-intrinsic-size:auto_10rem] [content-visibility:auto] hover:shadow-md ${isDragging ? "z-10 opacity-80 ring-2 ring-primary" : ""}`}
     >
       <div className="relative p-4">
         <div className="min-w-0 space-y-2">
