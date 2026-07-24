@@ -613,10 +613,11 @@ export default function AgreementIndex() {
                       </TableCell>
                       <TableCell className="text-right">
                         {agreement.verified ? (
-                          <span
+                          <Badge
+                            variant="success"
+                            className="justify-end gap-1"
                             title="This agreement has been verified by hand."
                             aria-label="Verified agreement. This agreement has been verified by hand."
-                            className="inline-flex items-center justify-end gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20"
                           >
                             <BadgeCheck
                               className="h-3.5 w-3.5"
@@ -625,7 +626,7 @@ export default function AgreementIndex() {
                             <span className="hidden sm:inline">
                               Verified
                             </span>
-                          </span>
+                          </Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground">
                             —
@@ -678,13 +679,13 @@ export default function AgreementIndex() {
                         {formatYear(agreement.year)}
                       </Badge>
                       {agreement.verified ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20">
+                        <Badge variant="success" className="gap-1">
                           <BadgeCheck
                             className="h-3.5 w-3.5"
                             aria-hidden="true"
                           />
                           Verified
-                        </span>
+                        </Badge>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
@@ -741,6 +742,8 @@ export default function AgreementIndex() {
                 <PaginationItem>
                   <PaginationPrevious
                     href="#"
+                    aria-disabled={page === 1 || undefined}
+                    tabIndex={page === 1 ? -1 : undefined}
                     onClick={(event) => {
                       event.preventDefault();
                       if (page > 1) {
@@ -780,6 +783,8 @@ export default function AgreementIndex() {
                 <PaginationItem>
                   <PaginationNext
                     href="#"
+                    aria-disabled={page === total_pages || undefined}
+                    tabIndex={page === total_pages ? -1 : undefined}
                     onClick={(event) => {
                       event.preventDefault();
                       if (page < total_pages) {

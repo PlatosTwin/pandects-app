@@ -31,7 +31,7 @@ import { ProjectSidebar } from "@/components/favorites/ProjectSidebar";
 import { TagsManager } from "@/components/favorites/TagsManager";
 import {
   fetchAgreementMetadataBatch,
-  fetchSectionDetails,
+  fetchSectionDetailsBatch,
 } from "@/components/favorites/api";
 import {
   EMPTY_FILTERS,
@@ -56,6 +56,7 @@ import {
 } from "@/lib/favorites-api";
 
 const EMPTY_AGREEMENTS: Record<string, AgreementMetadata | null> = {};
+const EMPTY_SECTIONS: Record<string, SectionDetails | null> = {};
 
 export default function FavoritesPage() {
   const { status, user } = useAuth();
@@ -79,9 +80,6 @@ export default function FavoritesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkProjectId, setBulkProjectId] = useState("");
   const [bulkCopyProjectId, setBulkCopyProjectId] = useState("");
-  const [sectionByUuid, setSectionByUuid] = useState<
-    Record<string, SectionDetails | null>
-  >({});
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, {
@@ -131,39 +129,22 @@ export default function FavoritesPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  useEffect(() => {
-    const needed = new Set<string>();
+  // Same batching for section details: one request per 500 section favorites.
+  // While the query is in flight, lookups are undefined (= loading); after it
+  // settles, misses are null (= "Details unavailable").
+  const sectionUuids = useMemo(() => {
+    const unique = new Set<string>();
     for (const fav of favorites) {
-      if (
-        fav.item_type === "section" &&
-        sectionByUuid[fav.item_uuid] === undefined
-      ) {
-        needed.add(fav.item_uuid);
-      }
+      if (fav.item_type === "section") unique.add(fav.item_uuid);
     }
-    if (needed.size === 0) return;
-    let cancelled = false;
-    void Promise.all(
-      Array.from(needed).map((sectionUuid) =>
-        fetchSectionDetails(sectionUuid).then((section) => ({
-          sectionUuid,
-          section,
-        })),
-      ),
-    ).then((rows) => {
-      if (cancelled) return;
-      setSectionByUuid((prev) => {
-        const next = { ...prev };
-        for (const { sectionUuid, section } of rows) {
-          next[sectionUuid] = section;
-        }
-        return next;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [favorites, sectionByUuid]);
+    return Array.from(unique).sort();
+  }, [favorites]);
+  const { data: sectionByUuid = EMPTY_SECTIONS } = useQuery({
+    queryKey: ["favorites-section-details", sectionUuids],
+    queryFn: () => fetchSectionDetailsBatch(sectionUuids),
+    enabled: status === "authenticated" && !!user && sectionUuids.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const counts = useMemo(() => {
     const c: Record<Filter, number> = {
@@ -533,19 +514,34 @@ export default function FavoritesPage() {
                     className="min-w-0"
                   >
                     <div className="max-w-full overflow-x-auto">
+                      {/* aria-controls overrides Radix's generated content ids:
+                          all four tabs filter the one shared items panel. */}
                       <TabsList className="min-h-9 min-w-max border bg-background px-1 shadow-sm">
-                        <TabsTrigger className="px-3 text-sm" value="all">
+                        <TabsTrigger
+                          className="px-3 text-sm"
+                          value="all"
+                          aria-controls="favorites-items-panel"
+                        >
                           All ({counts.all})
                         </TabsTrigger>
-                        <TabsTrigger className="px-3 text-sm" value="section">
+                        <TabsTrigger
+                          className="px-3 text-sm"
+                          value="section"
+                          aria-controls="favorites-items-panel"
+                        >
                           Sections ({counts.section})
                         </TabsTrigger>
-                        <TabsTrigger className="px-3 text-sm" value="agreement">
+                        <TabsTrigger
+                          className="px-3 text-sm"
+                          value="agreement"
+                          aria-controls="favorites-items-panel"
+                        >
                           Deals ({counts.agreement})
                         </TabsTrigger>
                         <TabsTrigger
                           className="px-3 text-sm"
                           value="tax_clause"
+                          aria-controls="favorites-items-panel"
                         >
                           Tax clauses ({counts.tax_clause})
                         </TabsTrigger>
@@ -666,6 +662,13 @@ export default function FavoritesPage() {
                 </div>
               ) : null}
 
+              {/* Shared panel for all four filter tabs; the triggers point
+                  their aria-controls here (there are no per-tab panels). */}
+              <div
+                id="favorites-items-panel"
+                role="tabpanel"
+                aria-label="Saved items"
+              >
               {loading ? (
                 <div className="space-y-2" aria-label="Loading favorites">
                   {Array.from({ length: 4 }, (_, index) => (
@@ -713,6 +716,7 @@ export default function FavoritesPage() {
                   ))}
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>

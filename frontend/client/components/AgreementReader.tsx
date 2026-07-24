@@ -946,7 +946,7 @@ export function AgreementReader({
           onClick={() => setHeaderCollapsed((v) => !v)}
           aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
           aria-expanded={!headerCollapsed}
-          className="group flex min-h-[22px] w-full items-center justify-center gap-1.5 border-t border-border bg-muted/40 py-0 text-muted-foreground/60 transition-colors hover:bg-muted/70 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="group flex min-h-[22px] w-full items-center justify-center gap-1.5 border-t border-border bg-muted/40 py-0 text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <div className="h-px w-8 rounded-full bg-current transition-colors" aria-hidden="true" />
           <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide">
@@ -966,8 +966,8 @@ export function AgreementReader({
         </button>
       </div>
 
-      {/* Main layout */}
-      <main
+      {/* Main layout (a <section>: AppLayout already renders the page's main landmark) */}
+      <section
         aria-labelledby="agreement-reader-title"
         className={cn(
           "mx-auto grid max-w-[1600px] gap-6 px-4 sm:px-6 lg:px-8",
@@ -1145,7 +1145,7 @@ export function AgreementReader({
             )}
           </aside>
         ) : null}
-      </main>
+      </section>
     </div>
   );
 }

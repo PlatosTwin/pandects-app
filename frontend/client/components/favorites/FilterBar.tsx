@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, Filter, X } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -69,9 +70,9 @@ export function FilterBar({
             <Filter className="h-3.5 w-3.5" aria-hidden="true" />
             Filters
             {active ? (
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-foreground">
+              <Badge variant="muted" className="px-1.5 text-[10px]">
                 Active
-              </span>
+              </Badge>
             ) : null}
           </span>
           <span className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium text-foreground">
@@ -86,6 +87,7 @@ export function FilterBar({
       <PopoverContent
         align="end"
         sideOffset={8}
+        aria-label="Favorites filters"
         className="w-[min(calc(100vw-2rem),72rem)] p-0"
       >
         <div className="px-4 py-3">

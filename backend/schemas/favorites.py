@@ -79,6 +79,10 @@ class FavoritesAgreementMetadataSchema(Schema):
     agreement_uuids = fields.List(fields.Str(), required=True)
 
 
+class FavoritesSectionDetailsSchema(Schema):
+    section_uuids = fields.List(fields.Str(), required=True)
+
+
 class FavoritesBulkMoveSchema(Schema):
     favorite_ids = fields.List(fields.Str(), required=True)
     project_id = fields.Str(required=True)

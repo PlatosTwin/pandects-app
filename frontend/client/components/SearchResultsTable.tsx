@@ -16,7 +16,7 @@ import {
 import { truncateText } from "@/lib/text-utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ResultsToolbar } from "@/components/ResultsToolbar";
@@ -443,7 +443,10 @@ const SearchResultRow = memo(function SearchResultRow({
                       <button
                         type="button"
                         aria-label="Verified agreement"
-                        className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 transition-colors hover:bg-emerald-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:text-emerald-300"
+                        className={cn(
+                          badgeVariants({ variant: "success" }),
+                          "hidden gap-1 hover:bg-emerald-500/15 sm:inline-flex",
+                        )}
                       >
                         <BadgeCheck
                           className="h-3.5 w-3.5"
@@ -470,7 +473,10 @@ const SearchResultRow = memo(function SearchResultRow({
                       <button
                         type="button"
                         aria-label={`Clause type: ${clauseTypeLabel}`}
-                        className="hidden sm:inline-flex max-w-[28rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:max-w-[36rem]"
+                        className={cn(
+                          badgeVariants({ variant: "metadata" }),
+                          "hidden max-w-[28rem] min-w-0 cursor-help sm:inline-flex lg:max-w-[36rem]",
+                        )}
                       >
                         <span title={clauseTypeLabel}>
                           {clauseTypeText?.truncated}
@@ -497,7 +503,10 @@ const SearchResultRow = memo(function SearchResultRow({
                       <button
                         type="button"
                         aria-label="Clause type unavailable"
-                        className="hidden sm:inline-flex max-w-[28rem] min-w-0 cursor-help items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:max-w-[36rem]"
+                        className={cn(
+                          badgeVariants({ variant: "metadata" }),
+                          "hidden max-w-[28rem] min-w-0 cursor-help sm:inline-flex lg:max-w-[36rem]",
+                        )}
                       >
                         <span>Clause type unavailable</span>
                       </button>
@@ -534,7 +543,7 @@ const SearchResultRow = memo(function SearchResultRow({
 
               {/* Main info: Target and Acquirer */}
               <div className="mt-2 min-w-0">
-                <h3
+                <h2
                   className="min-w-0 break-words text-lg font-bold leading-snug text-foreground"
                   title={result.target}
                 >
@@ -562,7 +571,7 @@ const SearchResultRow = memo(function SearchResultRow({
                       {targetText.truncated}
                     </span>
                   )}
-                </h3>
+                </h2>
                 <div
                   className="mt-0.5 min-w-0 break-words text-base text-muted-foreground"
                   title={result.acquirer}
@@ -596,8 +605,9 @@ const SearchResultRow = memo(function SearchResultRow({
 
               {/* Article and Section pills - separate */}
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span
-                  className="hidden items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground sm:inline-flex"
+                <Badge
+                  variant="muted"
+                  className="hidden gap-1 sm:inline-flex"
                   title={result.article_title}
                 >
                   <Layers
@@ -612,9 +622,10 @@ const SearchResultRow = memo(function SearchResultRow({
                       ).truncated
                     }
                   </span>
-                </span>
-                <span
-                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                </Badge>
+                <Badge
+                  variant="muted"
+                  className="gap-1"
                   title={result.section_title}
                 >
                   <FileText
@@ -629,7 +640,7 @@ const SearchResultRow = memo(function SearchResultRow({
                       ).truncated
                     }
                   </span>
-                </span>
+                </Badge>
               </div>
 
               {/* New fields row - hidden on mobile */}

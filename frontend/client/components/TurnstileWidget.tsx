@@ -137,7 +137,7 @@ export function TurnstileWidget({
       {status === "loading" ? (
         <div className="text-xs text-muted-foreground">Loading captcha…</div>
       ) : status === "error" ? (
-        <div className="text-xs text-destructive">Captcha unavailable.</div>
+        <div className="text-xs text-destructive dark:text-red-400">Captcha unavailable.</div>
       ) : null}
     </div>
   );

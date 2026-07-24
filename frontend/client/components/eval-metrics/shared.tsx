@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -8,9 +9,12 @@ export const formatEvalMetric = (value: number) => `${(value * 100).toFixed(2)}%
 /** Badge pill shown next to a model title (e.g. "Binary Classifier"). */
 export function EvalBadge({ children }: { children: ReactNode }) {
   return (
-    <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+    <Badge
+      variant="chip"
+      className="font-mono font-normal text-muted-foreground"
+    >
       {children}
-    </span>
+    </Badge>
   );
 }
 

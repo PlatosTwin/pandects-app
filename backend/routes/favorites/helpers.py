@@ -269,6 +269,55 @@ def _load_agreement_metadata(
     return out
 
 
+def _load_section_details(
+    deps: FavoritesDeps, *, section_uuids: list[str]
+) -> dict[str, dict[str, object]]:
+    """Batch-load section payloads for section favorites.
+
+    Mirrors GET /v1/sections/<uuid>: serving-schema `sections` joined to the
+    latest verified `xml` version, so favorites pointing at stale or unknown
+    sections resolve to misses rather than partial rows.
+    """
+    if not section_uuids:
+        return {}
+    sections = cast(Any, deps.Sections)
+    section_cols = sections.__table__.c
+    rows = (
+        _db_session(deps)
+        .query(
+            section_cols["agreement_uuid"],
+            section_cols["section_uuid"],
+            deps._coalesced_section_standard_ids().label("section_standard_ids"),
+            section_cols["xml_content"],
+            section_cols["article_title"],
+            section_cols["section_title"],
+        )
+        .join(deps.XML, deps._section_latest_xml_join_condition())
+        .filter(section_cols["section_uuid"].in_(section_uuids))
+        .all()
+    )
+    out: dict[str, dict[str, object]] = {}
+    for (
+        agreement_uuid,
+        section_uuid,
+        section_standard_ids_raw,
+        xml_content,
+        article_title,
+        section_title,
+    ) in rows:
+        out[section_uuid] = {
+            "agreement_uuid": agreement_uuid,
+            "section_uuid": section_uuid,
+            "section_standard_id": deps._parse_section_standard_ids(
+                section_standard_ids_raw
+            ),
+            "xml": xml_content,
+            "article_title": article_title,
+            "section_title": section_title,
+        }
+    return out
+
+
 def _no_store(payload: object):
     resp = make_response(jsonify(payload))
     resp.headers["Cache-Control"] = "no-store"

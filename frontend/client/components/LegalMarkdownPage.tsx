@@ -47,24 +47,24 @@ export function LegalMarkdownPage({
   const defaultRelatedLinks = pageKey ? (
     <>
       <Link
-        className="text-primary hover:underline"
+        className="text-primary underline underline-offset-4"
         to={RELATED_PAGE_LINKS[pageKey][0].to}
       >
         {RELATED_PAGE_LINKS[pageKey][0].label}
       </Link>{" "}
       and{" "}
       <Link
-        className="text-primary hover:underline"
+        className="text-primary underline underline-offset-4"
         to={RELATED_PAGE_LINKS[pageKey][1].to}
       >
         {RELATED_PAGE_LINKS[pageKey][1].label}
       </Link>
       {", and our "}
-      <Link className="text-primary hover:underline" to="/license/software">
+      <Link className="text-primary underline underline-offset-4" to="/license/software">
         software (GPLv3)
       </Link>{" "}
       and{" "}
-      <Link className="text-primary hover:underline" to="/license/data">
+      <Link className="text-primary underline underline-offset-4" to="/license/data">
         data (ODbL)
       </Link>{" "}
       licenses
@@ -85,7 +85,7 @@ export function LegalMarkdownPage({
             <p className="not-prose mt-6 text-sm text-muted-foreground">
               Download:{" "}
               <a
-                className="rounded-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="rounded-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 href={downloadHref}
                 aria-label={`Download ${title} as Markdown`}
               >

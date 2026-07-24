@@ -30,7 +30,7 @@ os.environ["AUTH_DATABASE_URI"] = f"sqlite:///{_AUTH_DB_TEMP.name}"
 from backend.auth.session_runtime import AccessContext  # noqa: E402
 from backend.app import create_test_app  # noqa: E402
 from backend.extensions import db  # noqa: E402
-from backend.models import Agreements, Clauses, Favorite, FavoriteProject, FavoriteProjectAssignment, FavoriteTag, FavoriteTagAssignment, Sections  # noqa: E402
+from backend.models import Agreements, Clauses, Favorite, FavoriteProject, FavoriteProjectAssignment, FavoriteTag, FavoriteTagAssignment, Sections, XML  # noqa: E402
 from backend.models.auth import AuthUser  # noqa: E402
 from backend.routes.favorites import FavoritesDeps, register_favorites_routes  # noqa: E402
 import backend.app as backend_app  # noqa: E402
@@ -104,7 +104,11 @@ class FavoritesRoutesTests(unittest.TestCase):
                 Sections=Sections,
                 Clauses=Clauses,
                 Agreements=Agreements,
+                XML=XML,
                 db=db,
+                _section_latest_xml_join_condition=backend_app._section_latest_xml_join_condition,
+                _coalesced_section_standard_ids=backend_app._coalesced_section_standard_ids,
+                _parse_section_standard_ids=backend_app._parse_section_standard_ids,
                 _require_auth_db=lambda: None,
                 _require_verified_user=lambda: (
                     user,
@@ -146,6 +150,15 @@ class FavoritesRoutesTests(unittest.TestCase):
         res = client.post(
             "/v1/me/favorites/agreement-metadata",
             json={"agreement_uuids": ["66666666-6666-6666-6666-666666666666"]},
+        )
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("signed-in user session", res.get_data(as_text=True))
+
+    def test_verified_non_user_tier_is_rejected_for_section_details(self):
+        client = self._client_with_verified_non_user_tier()
+        res = client.post(
+            "/v1/me/favorites/section-details",
+            json={"section_uuids": ["77777777-7777-7777-7777-777777777777"]},
         )
         self.assertEqual(res.status_code, 403)
         self.assertIn("signed-in user session", res.get_data(as_text=True))
@@ -716,6 +729,141 @@ class FavoritesAgreementMetadataTests(unittest.TestCase):
 
         res = client.post(
             "/v1/me/favorites/agreement-metadata",
+            json={},
+        )
+        self.assertEqual(res.status_code, 400)
+
+
+class FavoritesSectionDetailsTests(unittest.TestCase):
+    """Batch section-details endpoint against a sqlite stand-in for the main DB."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        main_db = tempfile.NamedTemporaryFile(
+            prefix="pandects_fav_sec_main_", suffix=".sqlite", delete=False
+        )
+        main_db.close()
+        cls.app = create_test_app(
+            config_overrides={
+                "MAIN_DB_SCHEMA": "",
+                "SQLALCHEMY_DATABASE_URI": f"sqlite:///{main_db.name}",
+                "SQLALCHEMY_BINDS": {"auth": f"sqlite:///{_AUTH_DB_TEMP.name}"},
+            }
+        )
+        with cls.app.app_context():
+            backend_app.metadata.create_all(db.engine)
+            db.create_all(bind_key="auth")
+            with db.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, version, status, latest) VALUES "
+                        "('fav-sec-ag-1', 1, 'verified', 0), "
+                        "('fav-sec-ag-1', 2, NULL, 1), "
+                        "('fav-sec-ag-2', 1, 'draft', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections "
+                        "(agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, "
+                        "section_standard_id_gold_label, xml_version) VALUES "
+                        "('fav-sec-ag-1', 'fav-sec-1', 'Article I', 'Definitions', "
+                        "'<section>Defined terms live here.</section>', "
+                        "'[\"802\"]', NULL, 2), "
+                        "('fav-sec-ag-1', 'fav-sec-gold', NULL, 'Closing', "
+                        "'<section>Closing mechanics.</section>', "
+                        "'[\"999\"]', '[\"803\"]', 2), "
+                        "('fav-sec-ag-1', 'fav-sec-stale', NULL, 'Old version', "
+                        "'<section>Stale text.</section>', NULL, NULL, 1), "
+                        "('fav-sec-ag-2', 'fav-sec-unverified', NULL, 'Hidden', "
+                        "'<section>Unverified.</section>', NULL, NULL, 1)"
+                    )
+                )
+
+    def setUp(self) -> None:
+        _set_default_env()
+        with self.app.app_context():
+            engine = db.engines["auth"]
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM auth_sessions"))
+                conn.execute(text("DELETE FROM auth_users"))
+        backend_app._rate_limit_state.clear()
+        backend_app._endpoint_rate_limit_state.clear()
+
+    def _client_with_bearer(self):
+        with self.app.app_context():
+            user = AuthUser()
+            user.email = "sections@example.com"
+            user.password_hash = backend_app.generate_password_hash("password123")
+            user.email_verified_at = backend_app._utc_now()
+            db.session.add(user)
+            db.session.commit()
+            with self.app.test_request_context("/v1/me/favorites"):
+                token = backend_app._issue_session_token(user.id)
+        client = self.app.test_client()
+        client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+        return client
+
+    def test_unauthenticated_is_rejected(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/v1/me/favorites/section-details",
+            json={"section_uuids": ["fav-sec-1"]},
+        )
+        self.assertEqual(res.status_code, 401)
+
+    def test_batch_returns_only_latest_verified_sections(self):
+        client = self._client_with_bearer()
+        res = client.post(
+            "/v1/me/favorites/section-details",
+            json={
+                "section_uuids": [
+                    "fav-sec-1",
+                    "fav-sec-gold",
+                    "fav-sec-stale",
+                    "fav-sec-unverified",
+                    "fav-sec-missing",
+                    " fav-sec-1 ",
+                ]
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        sections = cast(dict[str, dict[str, object]], res.get_json()["sections"])
+
+        row = sections["fav-sec-1"]
+        self.assertEqual(row["agreement_uuid"], "fav-sec-ag-1")
+        self.assertEqual(row["section_uuid"], "fav-sec-1")
+        self.assertEqual(row["section_standard_id"], ["802"])
+        self.assertEqual(row["article_title"], "Article I")
+        self.assertEqual(row["section_title"], "Definitions")
+        self.assertEqual(row["xml"], "<section>Defined terms live here.</section>")
+
+        # Gold-label taxonomy ids take precedence, matching /v1/sections/<uuid>.
+        self.assertEqual(sections["fav-sec-gold"]["section_standard_id"], ["803"])
+
+        # Stale xml versions, unverified agreements, and unknown uuids resolve
+        # to misses so the UI can show "Details unavailable".
+        self.assertNotIn("fav-sec-stale", sections)
+        self.assertNotIn("fav-sec-unverified", sections)
+        self.assertNotIn("fav-sec-missing", sections)
+
+    def test_batch_validation_limits(self):
+        client = self._client_with_bearer()
+        res = client.post(
+            "/v1/me/favorites/section-details",
+            json={"section_uuids": []},
+        )
+        self.assertEqual(res.status_code, 400)
+
+        res = client.post(
+            "/v1/me/favorites/section-details",
+            json={"section_uuids": [f"uuid-{i}" for i in range(501)]},
+        )
+        self.assertEqual(res.status_code, 400)
+
+        res = client.post(
+            "/v1/me/favorites/section-details",
             json={},
         )
         self.assertEqual(res.status_code, 400)

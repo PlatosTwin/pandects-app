@@ -56,7 +56,9 @@ export default {
           css: {
             a: {
               color: "hsl(var(--primary))",
-              textDecoration: "none",
+              // Underline is load-bearing: link color alone is under 3:1
+              // against prose body text (WCAG 1.4.1 / axe link-in-text-block).
+              textDecoration: "underline",
               fontWeight: "400",
               textUnderlineOffset: "4px",
               borderRadius: "0.125rem",

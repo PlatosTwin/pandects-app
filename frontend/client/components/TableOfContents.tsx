@@ -191,9 +191,9 @@ export function TableOfContents({
       onKeyDown={markInteraction}
     >
       <div className="p-4">
-        <h3 className="mb-3 text-sm font-medium text-foreground">
+        <h2 className="mb-3 text-sm font-medium text-foreground">
           Table of Contents
-        </h3>
+        </h2>
         <nav aria-label="Agreement table of contents">
           <div className="space-y-1">
             {tocItems.map((item) => renderTOCItem(item))}

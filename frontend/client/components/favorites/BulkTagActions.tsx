@@ -94,6 +94,7 @@ export function BulkTagActions({
       <PopoverContent
         align="start"
         sideOffset={8}
+        aria-label="Edit tags for selected favorites"
         className="w-[min(20rem,calc(100vw-2rem))] space-y-3"
       >
         <div className="space-y-2">

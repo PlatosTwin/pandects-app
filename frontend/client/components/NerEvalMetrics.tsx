@@ -4,6 +4,7 @@ import {
   EvalSummaryTile,
   formatEvalMetric,
 } from "@/components/eval-metrics/shared";
+import { Badge } from "@/components/ui/badge";
 import type { NerEvalData } from "@/lib/model-metrics-types";
 
 type NerEvalMetricsProps = {
@@ -37,9 +38,12 @@ export function NerEvalMetrics({ data }: NerEvalMetricsProps) {
           <div className="text-[11px] font-semibold uppercase tracking-wide">
             Entity-level micro metrics
           </div>
-          <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-100">
+          <Badge
+            variant="chip"
+            className="border-emerald-500/40 bg-emerald-500/15 uppercase tracking-wide text-emerald-900 dark:text-emerald-100"
+          >
             Strict
-          </span>
+          </Badge>
         </div>
         <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-3">
           {summaryMetrics.map((metric) => (
@@ -55,9 +59,12 @@ export function NerEvalMetrics({ data }: NerEvalMetricsProps) {
       <EvalPanel
         title="Entity-level micro metrics"
         right={
-          <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <Badge
+            variant="chip"
+            className="uppercase tracking-wide text-muted-foreground"
+          >
             Lenient
-          </span>
+          </Badge>
         }
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

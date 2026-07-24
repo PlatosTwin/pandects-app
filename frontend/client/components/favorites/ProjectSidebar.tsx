@@ -48,9 +48,9 @@ function ProjectDropButton({
         <TagSwatch color={project.color} className="h-3 w-3 shrink-0" />
         <span className="truncate font-medium">{project.name}</span>
       </span>
-      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+      <Badge variant="muted" className="px-1.5 text-[10px]">
         {count}
-      </span>
+      </Badge>
     </button>
   );
 }
@@ -209,9 +209,9 @@ export function ProjectSidebar({
               }`}
             >
               <span className="font-medium">All projects</span>
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              <Badge variant="muted" className="px-1.5 text-[10px]">
                 {total}
-              </span>
+              </Badge>
             </button>
             {projects.map((project) => (
               <div key={project.id} className="rounded-md">

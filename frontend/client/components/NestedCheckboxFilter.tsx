@@ -524,7 +524,11 @@ export function NestedCheckboxFilter({
               />
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-[420px] p-4">
+          <PopoverContent
+            align="start"
+            aria-labelledby={labelId}
+            className="w-[420px] p-4"
+          >
             {content}
           </PopoverContent>
         </Popover>

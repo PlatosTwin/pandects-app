@@ -16,6 +16,7 @@ import { useNaics } from "@/hooks/use-naics";
 import { XMLRenderer } from "./XMLRenderer";
 import { TableOfContents } from "./TableOfContents";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -505,9 +506,9 @@ export function AgreementModal({
             {/* Key metadata always visible */}
             <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
               {yearDisplay && (
-                <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground ring-1 ring-border">
+                <Badge variant="metadata" className="text-foreground">
                   {yearDisplay}
-                </span>
+                </Badge>
               )}
               {target && (
                 <span className="text-foreground">
@@ -618,7 +619,7 @@ export function AgreementModal({
 
             {error && (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center text-destructive" role="alert">
+                <div className="text-center text-destructive dark:text-red-400" role="alert">
                   <p className="mb-2">Failed to load agreement</p>
                   <p className="text-sm text-muted-foreground">{error}</p>
                 </div>

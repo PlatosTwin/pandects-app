@@ -129,6 +129,7 @@ export function TagEditor({
           </Button>
         </PopoverTrigger>
         <PopoverContent
+          aria-label="Edit tags"
           className="w-[min(18rem,calc(100vw-2rem))] space-y-2"
           onClick={(e) => e.stopPropagation()}
         >

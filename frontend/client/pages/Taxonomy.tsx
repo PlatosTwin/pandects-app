@@ -438,7 +438,7 @@ export default function Taxonomy() {
                     }}
                     onFocus={() => setHasActivatedSearch(true)}
                     placeholder={taxonomySearchPlaceholder}
-                    className="h-11 rounded-full border-border bg-background pl-10 pr-4 text-sm shadow-none"
+                    className="h-11 rounded-full border-border bg-background pl-10 pr-4 text-base shadow-none md:text-sm"
                     autoComplete="off"
                   />
                 </div>
@@ -494,7 +494,7 @@ export default function Taxonomy() {
                       {searchResults.length}{" "}
                       {searchResults.length === 1 ? "result" : "results"}
                     </div>
-                    <ul className="grid gap-2 sm:grid-cols-2">
+                    <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {orderedResults.map((result) => (
                         <li
                           key={result.id}
@@ -738,10 +738,10 @@ export default function Taxonomy() {
                             ) : null}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
+                            <Badge variant="count" className="min-w-[5.5rem] justify-center">
                               {entry.l2Count} Groups
                             </Badge>
-                            <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
+                            <Badge variant="count" className="min-w-[5.5rem] justify-center">
                               {entry.l3Count} Types
                             </Badge>
                           </div>
@@ -788,13 +788,13 @@ export default function Taxonomy() {
                                         </div>
                                       ) : null}
                                     </div>
-                                    <Badge className="min-w-[5.5rem] justify-center rounded-full border border-primary/20 bg-primary/10 text-xs text-primary hover:bg-primary/10">
+                                    <Badge variant="count" className="min-w-[5.5rem] justify-center">
                                       {child.children.length} Types
                                     </Badge>
                                   </div>
                                 </TileAccordionHeader>
                                 <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
-                                  <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                     {child.children.map((leaf) => (
                                       <li
                                         key={leaf.id}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -90,9 +91,9 @@ export function TagsManager({
         >
           <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Tags
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-foreground">
+            <Badge variant="muted" className="px-1.5 text-[10px]">
               {tags.length}
-            </span>
+            </Badge>
           </span>
           <span className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground">
             <ChevronDown
@@ -106,6 +107,7 @@ export function TagsManager({
       <PopoverContent
         align="start"
         sideOffset={8}
+        aria-label="Manage tags"
         className="w-[min(calc(100vw-2rem),42rem)] p-0"
       >
         <div className="p-3">

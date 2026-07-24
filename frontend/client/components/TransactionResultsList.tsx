@@ -240,19 +240,19 @@ export function TransactionResultsList({
                         </Badge>
                       ) : null}
                       {result.deal_status ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        <Badge variant="muted" className="gap-1">
                           <ShieldCheck className="h-3 w-3" aria-hidden="true" />
                           {formatEnumValue(result.deal_status)}
-                        </span>
+                        </Badge>
                       ) : null}
                       {result.deal_type ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        <Badge variant="muted" className="gap-1">
                           <Tag className="h-3 w-3" aria-hidden="true" />
                           {formatEnumValue(result.deal_type)}
-                        </span>
+                        </Badge>
                       ) : null}
                     </div>
-                    <h3
+                    <h2
                       className="mt-2 text-base font-semibold leading-snug text-foreground sm:text-lg"
                       title={titleLabel}
                     >
@@ -260,7 +260,7 @@ export function TransactionResultsList({
                         Target
                       </span>{" "}
                       {target}
-                    </h3>
+                    </h2>
                     <div
                       className="mt-0.5 text-sm text-muted-foreground"
                       title={`Acquirer: ${acquirer}`}
@@ -277,7 +277,7 @@ export function TransactionResultsList({
                       </div>
                     ) : null}
                   </div>
-                  <div className="flex min-w-0 flex-row-reverse items-center justify-between gap-3 sm:flex-col sm:items-end sm:justify-start">
+                  <div className="flex min-w-0 flex-row-reverse flex-wrap items-center justify-between gap-3 sm:flex-col sm:flex-nowrap sm:items-end sm:justify-start">
                     {result.transaction_price_total !== null ? (
                       <div className="text-right">
                         <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">

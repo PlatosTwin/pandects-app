@@ -47,15 +47,16 @@ by refactors. Line numbers below refer to current code.
   `card`, `primary/N`) already fill this role; the chart palette is the one
   domain that needed extraction and got it.
 
-## Remaining (larger efforts, not for a polish pass)
+## Applied (documentation pass)
 
-- **Typography scale documentation** — `text-[11px]` / `text-[10px]` micro-label
-  sizes are a consistent de facto system (~50 uses) but undocumented; a proper
-  audit would name them (and decide whether `text-[13px]` mono IDs in Taxonomy
-  stay a deliberate per-level step).
-- **Badge unification** — two internally consistent systems coexist: the
-  `Badge` component (`border`, `px-2.5`) and inline `rounded-full ... ring-1`
-  pill spans (`SearchResultsTable.tsx`, `AgreementModal.tsx`). Unifying them
-  means a `Badge` variant + sweep.
-- **Color-usage documentation** — primary/muted/accent role conventions are
-  followed in practice but written down nowhere.
+- **Typography scale, color usage, badge variants** — documented in
+  `STYLEGUIDE.md` (the `text-[13px]` Taxonomy mono IDs stay a deliberate
+  per-level step).
+- **Badge unification** — `badge.tsx` gained `success` / `metadata` / `muted` /
+  `chip` / `count` variants; hand-rolled pill spans were swapped for `Badge`
+  (or `badgeVariants` on interactive `button`/`a` pills) across
+  `SearchResultsTable`, `TransactionResultsList`, `AgreementModal`,
+  `AgreementIndex`, `NerEvalMetrics`, `eval-metrics/shared`, `SourcesMethods`,
+  `Taxonomy`, and the favorites-area count pills (`ProjectSidebar`,
+  `FilterBar`, `TagsManager` → `variant="muted"` with `px-1.5 text-[10px]`
+  size overrides). Deliberate non-badges are listed in `STYLEGUIDE.md`.

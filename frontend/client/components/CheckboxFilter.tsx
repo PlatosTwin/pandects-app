@@ -158,7 +158,12 @@ export function CheckboxFilter({
             />
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
+        <PopoverContent
+          align="start"
+          // Radix popovers render role="dialog"; name it after the filter.
+          aria-labelledby={labelId}
+          className="w-[--radix-popover-trigger-width] p-0"
+>
           <Command shouldFilter={!hideSearch && !asyncSearch}>
             {!hideSearch && (
               <CommandInput

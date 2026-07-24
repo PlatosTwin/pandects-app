@@ -667,7 +667,7 @@ export function XMLRenderer({
     return (
       <div className={cn("xml-renderer min-w-0 max-w-full", className)}>
         <div className="py-8 text-center" role="alert">
-          <p className="font-medium text-destructive">
+          <p className="font-medium text-destructive dark:text-red-400">
             Unable to render this document
           </p>
           <p className="mt-1 text-sm text-muted-foreground">

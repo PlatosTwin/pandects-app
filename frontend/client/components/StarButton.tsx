@@ -427,6 +427,7 @@ export function StarButton({
         <PopoverTrigger asChild>{button}</PopoverTrigger>
         <PopoverContent
           align="end"
+          aria-label="Add a note"
           className="w-[min(22rem,calc(100vw-2rem))] space-y-2"
           onClick={(e) => e.stopPropagation()}
         >
