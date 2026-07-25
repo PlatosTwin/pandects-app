@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/PageShell";
+import { SectionHeader } from "@/components/SectionHeader";
 import { trackEvent } from "@/lib/analytics";
 import { useEffect, useRef, useState } from "react";
 import { Bug, ExternalLink, GitPullRequest, MessageSquare } from "lucide-react";
@@ -50,17 +51,7 @@ export default function Feedback() {
           className="scroll-mt-24 first:pt-0"
           aria-labelledby="channels-heading"
         >
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
-              01
-            </span>
-            <h2
-              id="channels-heading"
-              className="text-2xl font-semibold tracking-tight text-foreground"
-            >
-              Channels
-            </h2>
-          </div>
+          <SectionHeader number="01" title="Channels" id="channels-heading" />
 
           <p className="prose-copy mt-4">
             Questions, bug reports, and feature requests are welcome. Choose the
@@ -135,17 +126,11 @@ export default function Feedback() {
           className="scroll-mt-24 pt-12"
           aria-labelledby="form-heading"
         >
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
-              02
-            </span>
-            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2
-                id="form-heading"
-                className="text-2xl font-semibold tracking-tight text-foreground"
-              >
-                Feedback form
-              </h2>
+          <SectionHeader
+            number="02"
+            title="Feedback form"
+            id="form-heading"
+            actions={
               <a
                 href={generalFeedbackUrl}
                 target="_blank"
@@ -155,15 +140,12 @@ export default function Feedback() {
                 Open in new tab
                 <ExternalLink className="h-3 w-3" aria-hidden="true" />
               </a>
-            </div>
+            }
+          />
+          <div role="status" aria-live="polite">
+            {!loaded && <span className="sr-only">Loading feedback form</span>}
           </div>
-          <div
-            className="mt-6 relative"
-            aria-busy={!loaded}
-            role="status"
-            aria-live="polite"
-          >
-            <span className="sr-only">Loading feedback form</span>
+          <div className="mt-6 relative" aria-busy={!loaded}>
             {!loaded && (
               <div
                 className="absolute inset-0 h-[895px] rounded-lg border border-border bg-muted/30 p-6"

@@ -77,7 +77,7 @@ export function FeaturedAgreements({
       </div>
 
       <ul
-        className="grid gap-2 sm:grid-cols-2"
+        className="grid grid-cols-1 gap-2 sm:grid-cols-2"
         aria-busy={isLoading || undefined}
       >
         {isLoading
@@ -144,7 +144,7 @@ function FeaturedAgreementCard({
         />
       </div>
       {filed ? (
-        <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground/80">
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
           Filed {filed}
         </p>
       ) : null}

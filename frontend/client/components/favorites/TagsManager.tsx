@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -8,14 +9,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { TagPill, TagSwatch } from "@/components/favorites/TagPill";
+import { ColorPicker } from "@/components/favorites/ColorPicker";
+import { ConfirmDeleteDialog } from "@/components/favorites/ConfirmDeleteDialog";
+import { TagPill } from "@/components/favorites/TagPill";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useToast } from "@/hooks/use-toast";
-import {
-  TAG_COLORS,
-  type FavoriteTag,
-  type TagColor,
-} from "@/lib/favorites-api";
+import { type FavoriteTag, type TagColor } from "@/lib/favorites-api";
 
 export function TagsManager({
   onTagUpdated,
@@ -31,6 +30,9 @@ export function TagsManager({
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState<TagColor>("blue");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [tagPendingDelete, setTagPendingDelete] = useState<FavoriteTag | null>(
+    null,
+  );
 
   useEffect(() => {
     ensureTagsLoaded();
@@ -63,16 +65,15 @@ export function TagsManager({
     }
   };
 
-  const handleDelete = async (tag: FavoriteTag) => {
-    const confirmed = window.confirm(
-      `Delete "${tag.name}" permanently? This removes it from every favorite.`,
-    );
-    if (!confirmed) return;
+  const handleConfirmDelete = async () => {
+    const tag = tagPendingDelete;
+    if (!tag) return;
     setBusyId(tag.id);
     try {
       await removeTag(tag.id);
       onTagDeleted(tag.id);
       if (editingId === tag.id) cancelEdit();
+      setTagPendingDelete(null);
     } catch {
       toast({ title: "Couldn't delete tag", variant: "destructive" });
     } finally {
@@ -85,14 +86,14 @@ export function TagsManager({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="grid min-h-12 w-full grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-border/70 bg-background/60 px-3 py-2 text-left shadow-sm transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="grid min-h-12 w-full grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-border bg-background/80 px-3 py-2 text-left shadow-sm transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={open ? "Close tag manager" : "Open tag manager"}
         >
           <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Tags
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-foreground">
+            <Badge variant="muted" className="px-1.5 text-[10px]">
               {tags.length}
-            </span>
+            </Badge>
           </span>
           <span className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground">
             <ChevronDown
@@ -106,6 +107,7 @@ export function TagsManager({
       <PopoverContent
         align="start"
         sideOffset={8}
+        aria-label="Manage tags"
         className="w-[min(calc(100vw-2rem),42rem)] p-0"
       >
         <div className="p-3">
@@ -137,26 +139,10 @@ export function TagsManager({
                           autoFocus
                         />
                         <div className="flex flex-wrap gap-1.5">
-                          {TAG_COLORS.map((color) => (
-                            <button
-                              key={color}
-                              type="button"
-                              onClick={() => setDraftColor(color)}
-                              aria-label={`Use ${color} color`}
-                              aria-pressed={draftColor === color}
-                              className={
-                                "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-6 sm:w-6 " +
-                                (draftColor === color
-                                  ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
-                                  : "hover:ring-muted-foreground/40")
-                              }
-                            >
-                              <TagSwatch color={color} className="h-4 w-4" />
-                              {draftColor === color ? (
-                                <Check className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />
-                              ) : null}
-                            </button>
-                          ))}
+                          <ColorPicker
+                            value={draftColor}
+                            onChange={setDraftColor}
+                          />
                         </div>
                         <div className="flex justify-end gap-1">
                           <Button
@@ -203,7 +189,7 @@ export function TagsManager({
                             className="h-11 w-11 text-muted-foreground hover:text-destructive sm:h-7 sm:w-7"
                             aria-label={`Delete tag ${tag.name}`}
                             title={`Delete tag ${tag.name}`}
-                            onClick={() => void handleDelete(tag)}
+                            onClick={() => setTagPendingDelete(tag)}
                             disabled={busy}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -218,6 +204,21 @@ export function TagsManager({
           )}
         </div>
       </PopoverContent>
+      <ConfirmDeleteDialog
+        open={tagPendingDelete !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && busyId === null) setTagPendingDelete(null);
+        }}
+        title="Delete tag?"
+        description={
+          tagPendingDelete
+            ? `This permanently deletes "${tagPendingDelete.name}" and removes it from every favorite.`
+            : ""
+        }
+        confirmLabel="Delete tag"
+        pending={busyId !== null}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </Popover>
   );
 }

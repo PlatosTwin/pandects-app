@@ -1,3 +1,4 @@
+import { useEffect, useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/format-utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -22,6 +23,11 @@ interface SearchPaginationProps {
   onPageSizeChange: (pageSize: number) => void;
   isLoading?: boolean;
   isLimited?: boolean;
+  /**
+   * Accessible name for the <nav> landmark. The panel renders the pagination
+   * twice (above and below the results), and landmark labels must be unique.
+   */
+  label?: string;
 }
 
 export function SearchPagination({
@@ -36,9 +42,34 @@ export function SearchPagination({
   onPageSizeChange,
   isLoading = false,
   isLimited = false,
+  label = "Search results pagination",
 }: SearchPaginationProps) {
   const pageSizeOptions = [10, 25, 50, 100];
   const navigationDisabled = isLoading || isLimited;
+  const [jumpValue, setJumpValue] = useState(() => String(currentPage));
+  // Instance-unique ids: the component is mounted twice per results view.
+  const jumpInputId = `${useId()}-jump-to-page`;
+
+  // Keep the jump input in sync when navigation happens elsewhere
+  // (page buttons, Previous/Next, a new search).
+  useEffect(() => {
+    setJumpValue(String(currentPage));
+  }, [currentPage]);
+
+  const commitJump = () => {
+    if (navigationDisabled) return;
+    const page = parseInt(jumpValue, 10);
+    if (Number.isNaN(page)) {
+      // Invalid entry: reset to the current page instead of silently ignoring.
+      setJumpValue(String(currentPage));
+      return;
+    }
+    const clamped = Math.min(Math.max(page, 1), totalPages);
+    setJumpValue(String(clamped));
+    if (clamped !== currentPage) {
+      onPageChange(clamped);
+    }
+  };
 
   const getVisiblePages = () => {
     const delta = 2; // Number of pages to show on each side of current page
@@ -83,11 +114,11 @@ export function SearchPagination({
   return (
     <nav
       className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center"
-      aria-label="Search results pagination"
+      aria-label={label}
     >
       {/* Results per page selector */}
       <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex">
-        <span id="results-per-page-label">Results per page:</span>
+        <span>Results per page:</span>
         <Select
           value={pageSize.toString()}
           onValueChange={(value) => onPageSizeChange(parseInt(value, 10))}
@@ -109,8 +140,9 @@ export function SearchPagination({
         </Select>
       </div>
 
-      {/* Results info */}
-      <div className="text-sm text-muted-foreground" aria-live="polite" role="status">
+      {/* Results info. Not a live region: the panel's sr-only status already
+          announces result counts, and this block is rendered twice. */}
+      <div className="text-sm text-muted-foreground">
         Showing {formatNumber(startResult)} to {formatNumber(endResult)} of{" "}
         {totalCountIsApproximate ? "approx. " : ""}
         {formatNumber(totalCount)} results
@@ -120,24 +152,22 @@ export function SearchPagination({
       <div className="hidden items-center gap-2 text-sm sm:flex">
         {!totalCountIsApproximate && (
           <>
-            <label htmlFor="jump-to-page" className="text-muted-foreground">
+            <label htmlFor={jumpInputId} className="text-muted-foreground">
               Go to:
             </label>
             <input
-              id="jump-to-page"
+              id={jumpInputId}
               type="number"
               min={1}
               max={totalPages}
-              defaultValue={currentPage}
+              value={jumpValue}
+              onChange={(e) => setJumpValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  const page = parseInt((e.target as HTMLInputElement).value, 10);
-                  if (page >= 1 && page <= totalPages && !navigationDisabled) {
-                    onPageChange(page);
-                    (e.target as HTMLInputElement).value = "";
-                  }
+                  commitJump();
                 }
               }}
+              onBlur={commitJump}
               className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={navigationDisabled}
               aria-label="Jump to page number"

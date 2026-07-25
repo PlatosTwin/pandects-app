@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import ResizeObserverPolyfill from "resize-observer-polyfill";
 import { cn } from "@/lib/utils";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
+import { Badge, badgeVariants } from "@/components/ui/badge";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -601,7 +602,10 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#exhibit-model"
-                        className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className={cn(
+                          badgeVariants({ variant: "chip" }),
+                          "hover:border-emerald-500/40",
+                        )}
                       >
                         Exhibit Model
                       </a>
@@ -658,7 +662,10 @@ export default function SourcesMethods() {
                       />
                       <a
                         href="#page-classifier-model"
-                        className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className={cn(
+                          badgeVariants({ variant: "chip" }),
+                          "hover:border-emerald-500/40",
+                        )}
                       >
                         Page Classifier Model
                       </a>
@@ -692,9 +699,12 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Before
-                            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <Badge
+                              variant="chip"
+                              className="font-mono font-normal text-[10px] text-muted-foreground"
+                            >
                               HTML
-                            </span>
+                            </Badge>
                           </div>
                           <p className="mt-2 text-xs font-mono text-muted-foreground">
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
@@ -740,9 +750,12 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             After
-                            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <Badge
+                              variant="chip"
+                              className="font-mono font-normal text-[10px] text-muted-foreground"
+                            >
                               Plain Text
-                            </span>
+                            </Badge>
                           </div>
                           <p className="mt-2 text-sm text-foreground">
                             ARTICLE 2<br />
@@ -772,7 +785,10 @@ export default function SourcesMethods() {
                       </span>
                       <a
                         href="#tagging-model"
-                        className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground transition-colors hover:border-emerald-500/40"
+                        className={cn(
+                          badgeVariants({ variant: "chip" }),
+                          "hover:border-emerald-500/40",
+                        )}
                       >
                         Tagging Model
                       </a>
@@ -789,9 +805,12 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Before
-                            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <Badge
+                              variant="chip"
+                              className="font-mono font-normal text-[10px] text-muted-foreground"
+                            >
                               Plain Text
-                            </span>
+                            </Badge>
                           </div>
                           <p className="mt-2 text-sm prose-copy">
                             ARTICLE 2<br />
@@ -809,9 +828,12 @@ export default function SourcesMethods() {
                         <div>
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             After
-                            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            <Badge
+                              variant="chip"
+                              className="font-mono font-normal text-[10px] text-muted-foreground"
+                            >
                               Tagged Text
-                            </span>
+                            </Badge>
                           </div>
                           <p className="mt-2 text-xs font-mono text-foreground">
                             <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
@@ -865,9 +887,7 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         XML Repair Loop
                       </span>
-                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
-                        LLM
-                      </span>
+                      <Badge variant="chip">LLM</Badge>
                     </div>
                     <p className="text-sm prose-copy">
                       When XML validation fails, we send the affected pages to
@@ -887,9 +907,7 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         Taxonomy
                       </span>
-                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
-                        LLM
-                      </span>
+                      <Badge variant="chip">LLM</Badge>
                     </div>
                     <p className="text-sm prose-copy">
                       Sends section and nearby heading context to an LLM, then
@@ -910,9 +928,7 @@ export default function SourcesMethods() {
                       <span className="font-mono text-sm font-semibold text-foreground">
                         Metadata
                       </span>
-                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-foreground">
-                        LLM
-                      </span>
+                      <Badge variant="chip">LLM</Badge>
                     </div>
                     <p className="text-sm prose-copy">
                       Adds transaction metadata, including total consideration,
@@ -945,7 +961,7 @@ export default function SourcesMethods() {
                 trigger={
                   <button
                     type="button"
-                    className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                    className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     open-source models
                   </button>
@@ -1153,7 +1169,7 @@ export default function SourcesMethods() {
                       trigger={
                         <button
                           type="button"
-                          className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                          className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           <strong>67,596</strong>
                         </button>
@@ -1292,7 +1308,7 @@ export default function SourcesMethods() {
                       trigger={
                         <button
                           type="button"
-                          className="cursor-help appearance-none bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4"
+                          className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           upsample Article entities
                         </button>

@@ -1,16 +1,9 @@
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowUp, ExternalLink, Tag } from "lucide-react";
+import { ExternalLink, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResultsToolbar } from "@/components/ResultsToolbar";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import { StarButton } from "@/components/StarButton";
 import { cn } from "@/lib/utils";
@@ -56,64 +49,26 @@ export function TaxClauseResultsList({
 
   return (
     <div className={cn("space-y-4", className)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={allSelected ? true : someSelected ? "indeterminate" : false}
-            onCheckedChange={() => onToggleSelectAll()}
-            className="h-5 w-5 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4"
-            aria-label="Select all tax clauses on this page"
-          />
-          <span className="text-sm text-muted-foreground">
-            {selectedResults.size > 0
+      <ResultsToolbar
+        variant="inline"
+        selection={{
+          allSelected,
+          someSelected,
+          onToggleSelectAll,
+          selectAllLabel: "Select all tax clauses on this page",
+          countLabel:
+            selectedResults.size > 0
               ? `${selectedResults.size} selected`
-              : "Select all on page"}
-          </span>
-        </div>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <Select value={sortBy} onValueChange={(v) => onSortResults(v as "year" | "target" | "acquirer")}>
-            <SelectTrigger className="h-11 flex-1 sm:h-8 sm:w-[140px] sm:flex-none" aria-label="Sort tax clause results by">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="year">Sort: Year</SelectItem>
-              <SelectItem value="target">Sort: Target</SelectItem>
-              <SelectItem value="acquirer">Sort: Acquirer</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onToggleSortDirection}
-            className="h-11 w-11 p-0 sm:h-8 sm:w-auto sm:px-3"
-            aria-label={`Change sort direction. Current direction: ${sortDirection === "asc" ? "ascending" : "descending"}`}
-          >
-            {sortDirection === "asc" ? (
-              <ArrowUp className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <ArrowDown className="h-4 w-4" aria-hidden="true" />
-            )}
-          </Button>
-          {onDensityChange && (
-            <ToggleGroup
-              type="single"
-              value={density}
-              onValueChange={(v) => {
-                if (v === "comfy" || v === "compact") onDensityChange(v);
-              }}
-              className="hidden sm:flex"
-            >
-              <ToggleGroupItem value="comfy" aria-label="Comfortable density" className="h-8 px-2 text-xs">
-                Comfy
-              </ToggleGroupItem>
-              <ToggleGroupItem value="compact" aria-label="Compact density" className="h-8 px-2 text-xs">
-                Compact
-              </ToggleGroupItem>
-            </ToggleGroup>
-          )}
-        </div>
-      </div>
+              : "Select all on page",
+        }}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onSortResults={onSortResults}
+        onToggleSortDirection={onToggleSortDirection}
+        sortSelectLabel="Sort tax clause results by"
+        density={density}
+        onDensityChange={onDensityChange}
+      />
 
       <ul className="space-y-3" role="list">
         {results.map((result) => {

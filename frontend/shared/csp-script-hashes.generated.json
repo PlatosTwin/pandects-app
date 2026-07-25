@@ -12,6 +12,7 @@
     "sha256-ZYSGZRqdmoD6IjY3oZ+ajAxJRBotNJjdfhfvgtQ/620=",
     "sha256-b0JjQeB1d9d/VJz83FV2ggXIgDtAQYcRde2B852Ft1c=",
     "sha256-dgm4kLGTEn6wl6RAGvlpziHwIhxU0EFm9KeoypQ4adM=",
+    "sha256-eWiyqralfJj0Okf/A4g1D9jNQe0kOJKcksIA7xHpJ9w=",
     "sha256-f4jmDx8WgTaqNsQk9o4y8pv6mrtvaZNKZ6zhgpimP4o=",
     "sha256-h9Wt0ttVhHf+Fnz2tVjMdBdfXlJnN/hhUZPazTO3QeM=",
     "sha256-hd3Mi3gceHC39K8yFGsayGDuDiTgbWes2W0ZlAJub6k=",
@@ -22,6 +23,7 @@
     "sha256-yxM2FIuC4NNDxdEhv8xND9lccfFhcTud3h5sAb/R+fc="
   ],
   "byScript": {
+    "theme-init": "sha256-eWiyqralfJj0Okf/A4g1D9jNQe0kOJKcksIA7xHpJ9w=",
     "gtag-bootstrap": "sha256-86dhVQgcPzhOLyX/PmFIsdaYvyl49EiQBKsxSBEMSAM=",
     "jsonld:index.html": "sha256-LMMBf6zOTXrlQbyRSOUseWFeKiJBpVcjNg69fYslMvA=",
     "jsonld:/": "sha256-CEk3PP6Osq9RVsVcu3ubGqHavTuG6tC+b++DjpUvm6U=",

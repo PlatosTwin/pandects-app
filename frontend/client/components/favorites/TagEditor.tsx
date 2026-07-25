@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
+import { Plus, Tag as TagIcon, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,10 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import {
-  TAG_COLORS,
-  type FavoriteTag,
-  type TagColor,
-} from "@/lib/favorites-api";
-import { TagPill, TagSwatch } from "./TagPill";
+import { type FavoriteTag, type TagColor } from "@/lib/favorites-api";
+import { ColorPicker } from "./ColorPicker";
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import { TagPill } from "./TagPill";
 
 interface TagEditorProps {
   selectedTagIds: string[];
@@ -40,6 +38,10 @@ export function TagEditor({
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState<TagColor>("blue");
   const [creating, setCreating] = useState(false);
+  const [tagPendingDelete, setTagPendingDelete] = useState<FavoriteTag | null>(
+    null,
+  );
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     ensureTagsLoaded();
@@ -79,23 +81,25 @@ export function TagEditor({
     }
   };
 
-  const handleDeleteTag = async (tag: FavoriteTag) => {
-    const confirmed = window.confirm(
-      `Delete "${tag.name}" permanently? This removes it from every favorite.`,
-    );
-    if (!confirmed) return;
+  const handleConfirmDeleteTag = async () => {
+    const tag = tagPendingDelete;
+    if (!tag) return;
+    setDeleting(true);
     try {
       await removeTag(tag.id);
       if (selectedTagIds.includes(tag.id)) {
         onChange(selectedTagIds.filter((id) => id !== tag.id));
       }
       onTagDeleted?.(tag.id);
+      setTagPendingDelete(null);
     } catch {
       toast({
         title: "Couldn't delete tag",
         description: "Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -125,6 +129,7 @@ export function TagEditor({
           </Button>
         </PopoverTrigger>
         <PopoverContent
+          aria-label="Edit tags"
           className="w-[min(18rem,calc(100vw-2rem))] space-y-2"
           onClick={(e) => e.stopPropagation()}
         >
@@ -155,7 +160,7 @@ export function TagEditor({
                       className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-6 sm:w-6"
                       aria-label={`Delete tag ${t.name}`}
                       title={`Delete tag ${t.name}`}
-                      onClick={() => void handleDeleteTag(t)}
+                      onClick={() => setTagPendingDelete(t)}
                     >
                       <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
@@ -189,26 +194,11 @@ export function TagEditor({
               className="h-11 text-sm sm:h-8"
             />
             <div className="flex flex-wrap items-center gap-1.5">
-              {TAG_COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setNewColor(color)}
-                  aria-label={`Use ${color} color`}
-                  aria-pressed={newColor === color}
-                  className={
-                    "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-5 sm:w-5 " +
-                    (newColor === color
-                      ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
-                      : "hover:ring-muted-foreground/40")
-                  }
-                >
-                  <TagSwatch color={color} className="h-4 w-4" />
-                  {newColor === color ? (
-                    <Check className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />
-                  ) : null}
-                </button>
-              ))}
+              <ColorPicker
+                value={newColor}
+                onChange={setNewColor}
+                buttonClassName="sm:h-5 sm:w-5"
+              />
               <Button
                 type="button"
                 size="sm"
@@ -223,6 +213,21 @@ export function TagEditor({
           </div>
         </PopoverContent>
       </Popover>
+      <ConfirmDeleteDialog
+        open={tagPendingDelete !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deleting) setTagPendingDelete(null);
+        }}
+        title="Delete tag?"
+        description={
+          tagPendingDelete
+            ? `This permanently deletes "${tagPendingDelete.name}" and removes it from every favorite.`
+            : ""
+        }
+        confirmLabel="Delete tag"
+        pending={deleting}
+        onConfirm={() => void handleConfirmDeleteTag()}
+      />
     </div>
   );
 }

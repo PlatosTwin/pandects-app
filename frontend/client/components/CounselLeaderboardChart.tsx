@@ -9,6 +9,11 @@ import {
 
 import { cn } from "@/lib/utils";
 import {
+  CHART_GRID_STROKE,
+  YEAR_GRID_MAJOR_STROKE,
+  YEAR_GRID_MINOR_STROKE,
+} from "@/lib/chart-palette";
+import {
   type ChartConfig,
   ChartContainer,
   ChartLegend,
@@ -104,10 +109,10 @@ export function CounselLeaderboardChart({
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <AreaChart data={percentData} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.4)" />
+          <CartesianGrid vertical={false} stroke={CHART_GRID_STROKE} />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.18)"
+            stroke={YEAR_GRID_MINOR_STROKE}
             strokeDasharray="2 4"
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.minorYears,
@@ -115,7 +120,7 @@ export function CounselLeaderboardChart({
           />
           <CartesianGrid
             horizontal={false}
-            stroke="hsl(var(--border) / 0.32)"
+            stroke={YEAR_GRID_MAJOR_STROKE}
             verticalCoordinatesGenerator={buildVerticalYearCoordinatesGenerator(
               yearAxisGuides.majorYears,
             )}
@@ -161,19 +166,10 @@ export function CounselLeaderboardChart({
                   const rawValue = Number(
                     rawRow && dataKey ? (rawRow[dataKey] ?? 0) : 0,
                   );
-                  const rawTotal = series.reduce(
-                    (sum, currentSeries) =>
-                      sum + Number(rawRow?.[currentSeries.key] ?? 0),
-                    0,
-                  );
-                  const pct =
-                    rawTotal > 0
-                      ? Math.round((rawValue / rawTotal) * 1000) / 10
-                      : 0;
                   const valueNumber = Number(value);
 
                   return (
-                    <div className="flex items-center gap-3">
+                    <div className="flex w-full max-w-[24rem] items-center gap-3">
                       <span
                         className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
                         style={
@@ -183,15 +179,14 @@ export function CounselLeaderboardChart({
                         }
                         aria-hidden="true"
                       />
-                      <span className="w-72 shrink-0 truncate text-left text-foreground">
+                      <span className="min-w-0 flex-1 truncate text-left text-foreground">
                         {String(name ?? "")}
                       </span>
-                      <span className="w-10 shrink-0 text-right font-mono font-medium tabular-nums text-foreground">
+                      <span className="shrink-0 text-right font-mono font-medium tabular-nums text-foreground">
                         {valueFormatter(rawValue)}
                       </span>
-                      <span className="w-28 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      <span className="shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
                         {valueNumber.toFixed(1)}% of year
-                        {pct !== valueNumber ? ` (${pct.toFixed(1)}%)` : ""}
                       </span>
                     </div>
                   );
@@ -214,6 +209,7 @@ export function CounselLeaderboardChart({
               fill={`var(--color-${item.key})`}
               fillOpacity={0.95}
               name={item.label}
+              isAnimationActive={false}
             />
           ))}
         </AreaChart>

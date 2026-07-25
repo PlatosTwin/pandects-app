@@ -19,18 +19,20 @@ import {
   type Favorite,
   type FavoriteTag,
 } from "@/lib/favorites-api";
-import { formatCompactCurrencyValue } from "@/lib/format-utils";
-import type { Agreement } from "@shared/agreement";
+import { formatCompactCurrencyValue, formatDateValue } from "@/lib/format-utils";
 
 import {
   contextString,
   favoriteHeading,
   favoriteHref,
   firstWords,
-  formatDate,
   stripXmlText,
 } from "./helpers";
-import { TYPE_LABELS, type SectionDetails } from "./types";
+import {
+  TYPE_LABELS,
+  type AgreementMetadata,
+  type SectionDetails,
+} from "./types";
 
 export function FavoriteRow({
   fav,
@@ -45,8 +47,9 @@ export function FavoriteRow({
   onTagDeleted,
 }: {
   fav: Favorite;
-  agreement: Agreement | null;
-  sectionDetails: SectionDetails | null;
+  agreement: AgreementMetadata | null;
+  /** undefined = fetch pending, null = fetch failed. */
+  sectionDetails: SectionDetails | null | undefined;
   clauseTypeLabelById: Record<string, string>;
   selected: boolean;
   onSelectChange: (id: string, selected: boolean) => void;
@@ -135,7 +138,7 @@ export function FavoriteRow({
     <Card
       ref={setNodeRef}
       style={style}
-      className={`relative overflow-hidden border-l-4 border-l-amber-400 bg-card shadow-sm transition-shadow hover:shadow-md ${isDragging ? "z-10 opacity-80 ring-2 ring-primary" : ""}`}
+      className={`relative overflow-hidden border-l-4 border-l-amber-400 bg-card shadow-sm transition-shadow [contain-intrinsic-size:auto_10rem] [content-visibility:auto] hover:shadow-md ${isDragging ? "z-10 opacity-80 ring-2 ring-primary" : ""}`}
     >
       <div className="relative p-4">
         <div className="min-w-0 space-y-2">
@@ -165,7 +168,7 @@ export function FavoriteRow({
               {TYPE_LABELS[fav.item_type]}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              Starred {formatDate(fav.created_at)}
+              Starred {formatDateValue(fav.created_at)}
             </span>
             {filingYear ? (
               <span className="text-xs text-muted-foreground">
@@ -215,9 +218,13 @@ export function FavoriteRow({
                 <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                   {sectionSnippet}
                 </p>
-              ) : (
+              ) : sectionDetails === undefined ? (
                 <p className="text-sm text-muted-foreground">
                   Section details are loading…
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Details unavailable
                 </p>
               )}
             </div>
@@ -288,6 +295,7 @@ export function FavoriteRow({
             <button
               type="button"
               onClick={() => setEditingNote(true)}
+              aria-label="Edit note"
               className="block min-h-11 max-w-full whitespace-pre-wrap break-words text-left text-sm text-muted-foreground hover:text-foreground sm:min-h-0"
             >
               {fav.note ?? "Add a note…"}

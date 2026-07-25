@@ -196,13 +196,21 @@ const ARRAY_FILTER_FIELDS: Array<keyof SearchFilters> = [
   "acquirer_pe",
 ];
 
-export function parseSearchFilters(params: URLSearchParams): SearchFilters {
-  const filters: SearchFilters = {
+/**
+ * Filters parsed from a shareable URL. `include_rep_warranty` is only
+ * meaningful in tax mode; it lives on TaxClauseFilters rather than the shared
+ * SearchFilters, so it is typed here as an extension.
+ */
+export type ParsedSearchFilters = SearchFilters & {
+  include_rep_warranty?: boolean;
+};
+
+export function parseSearchFilters(params: URLSearchParams): ParsedSearchFilters {
+  const filters: ParsedSearchFilters = {
     year: [],
     target: [],
     acquirer: [],
     clauseType: [],
-    standard_id: [],
     transaction_price_total: [],
     transaction_price_stock: [],
     transaction_price_cash: [],
@@ -236,6 +244,9 @@ export function parseSearchFilters(params: URLSearchParams): SearchFilters {
   if (sectionUuid) filters.section_uuid = sectionUuid;
   if (page) filters.page = Number(page);
   if (pageSize) filters.page_size = Number(pageSize);
+  if (params.get("include_rep_warranty") === "true") {
+    filters.include_rep_warranty = true;
+  }
 
   return filters;
 }
@@ -246,12 +257,14 @@ export function buildSearchStateParams({
   sortBy,
   sortDirection,
   clauseTypesNested,
+  taxIncludeRepWarranty,
 }: {
   filters: SearchFilters;
   mode: SearchMode;
   sortBy: "year" | "target" | "acquirer" | null;
   sortDirection: "asc" | "desc";
   clauseTypesNested?: ClauseTypeTree;
+  taxIncludeRepWarranty?: boolean;
 }): URLSearchParams {
   const params = buildSearchParams(filters, clauseTypesNested, true);
   if (params.get("page") === String(DEFAULT_PAGE)) params.delete("page");
@@ -259,6 +272,9 @@ export function buildSearchStateParams({
     params.delete("page_size");
   }
   if (mode !== "sections") params.set("mode", mode);
+  if (mode === "tax" && taxIncludeRepWarranty) {
+    params.set("include_rep_warranty", "true");
+  }
   if (sortBy && sortBy !== "year") params.set("sort_by", sortBy);
   if (sortDirection !== "desc") params.set("sort_direction", sortDirection);
   return params;

@@ -67,7 +67,7 @@ export function SearchActionsBar({
           aria-describedby="search-results-status"
         >
           <SearchIcon
-            className={cn("h-4 w-4", isSearching && "animate-spin-custom")}
+            className={cn("h-4 w-4", isSearching && "animate-spin")}
             aria-hidden="true"
           />
           <span>{isSearching ? "Searching..." : "Search"}</span>

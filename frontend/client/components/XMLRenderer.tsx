@@ -1,14 +1,16 @@
-import { useState, useMemo, useEffect } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { decodeXmlEntities } from "@/lib/text-utils";
-
-interface XMLNode {
-  type: "text" | "tag";
-  content: string;
-  tagName?: string;
-  children?: XMLNode[];
-}
+import {
+  buildXmlTreeIndex,
+  findFirstTagNode,
+  parseXMLContent,
+  setsAgreeWithin,
+  type XMLNode,
+  type XmlNodeMeta,
+} from "@/lib/xml-parser";
 
 interface XMLRendererProps {
   xmlContent: string;
@@ -26,8 +28,8 @@ interface NormalizedAgreementTocRow {
 }
 
 const XML_TAG_COLORS = {
-  text: "text-blue-600",
-  definition: "text-green-600",
+  text: "text-blue-600 dark:text-blue-400",
+  definition: "text-green-600 dark:text-green-400",
 } as const;
 
 const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
@@ -98,6 +100,478 @@ export function normalizeAgreementTableOfContentsText(
   return rows;
 }
 
+// Props shared by every node in the tree. `meta` is recreated only when the
+// document (or showBodyOnly) changes, and `onToggleCollapse` is stable, so
+// the memo comparator only has to reason about the three stateful props.
+interface SharedNodeProps {
+  mode: "search" | "agreement";
+  isMobile: boolean;
+  meta: Map<XMLNode, XmlNodeMeta>;
+  collapsedTags: Set<string>;
+  fadingHighlights: Set<string>;
+  highlightedSection: string | null | undefined;
+  onToggleCollapse: (tagId: string) => void;
+}
+
+interface XMLNodeViewProps extends SharedNodeProps {
+  node: XMLNode;
+  index: number;
+  depth: number;
+  siblings: XMLNode[];
+  parentTagName?: string;
+}
+
+function renderNodeList(
+  children: XMLNode[] | undefined,
+  depth: number,
+  parentTagName: string | undefined,
+  shared: SharedNodeProps,
+) {
+  return children?.map((child, childIndex) => (
+    <XMLNodeView
+      key={
+        child.type === "text"
+          ? `${depth}-${childIndex}-text`
+          : (shared.meta.get(child)?.tagId ?? childIndex)
+      }
+      node={child}
+      index={childIndex}
+      depth={depth}
+      siblings={children}
+      parentTagName={parentTagName}
+      {...shared}
+    />
+  ));
+}
+
+function renderAgreementTableOfContents(
+  children: XMLNode[] | undefined,
+  shared: SharedNodeProps,
+) {
+  const textChunks = extractAgreementTocTextChunks(children);
+  const rows = normalizeAgreementTableOfContentsText(textChunks);
+
+  if (rows.length === 0) {
+    return renderNodeList(children, 0, "tableOfContents", shared);
+  }
+
+  return (
+    <div
+      className="space-y-1.5"
+      role="list"
+      aria-label="Agreement table of contents entries"
+    >
+      {rows.map((row, rowIndex) => {
+        if (row.kind === "heading") {
+          return (
+            <div
+              key={`toc-heading-${rowIndex}`}
+              className="pt-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground first:pt-0"
+            >
+              {row.text}
+            </div>
+          );
+        }
+
+        const isSubentry = TOC_SUBENTRY_START_RE.test(row.text);
+        const isArticle = /^ARTICLE\b/i.test(row.text);
+
+        return (
+          <div
+            key={`toc-entry-${rowIndex}`}
+            role="listitem"
+            className={cn(
+              "flex items-baseline gap-4 py-0.5",
+              isSubentry ? "pl-4 sm:pl-6" : "pt-2 first:pt-0",
+            )}
+          >
+            <span
+              className={cn(
+                "min-w-0 flex-1 break-words [overflow-wrap:anywhere]",
+                isArticle && "font-medium tracking-[0.02em]",
+              )}
+            >
+              {row.text}
+            </span>
+            {row.pageNumber ? (
+              <span className="w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground">
+                {row.pageNumber}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
+  const {
+    node,
+    index,
+    depth,
+    siblings,
+    parentTagName,
+    mode,
+    isMobile,
+    meta,
+    collapsedTags,
+    fadingHighlights,
+    highlightedSection,
+    onToggleCollapse,
+  } = props;
+
+  if (node.type === "text") {
+    const normalizedContent = normalizeXmlText(node.content);
+    return (
+      <span
+        className={cn(
+          isMobile
+            ? "whitespace-pre-line break-words [overflow-wrap:anywhere]"
+            : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+        )}
+      >
+        {normalizedContent}
+      </span>
+    );
+  }
+
+  const nodeMeta = meta.get(node);
+  if (!nodeMeta) return null;
+
+  const { tagId } = nodeMeta;
+  const sectionUuid =
+    node.tagName === "article" || node.tagName === "section"
+      ? node.uuid
+      : undefined;
+  const isCollapsed = collapsedTags.has(tagId);
+  const collapsibleTags =
+    mode === "agreement" ? AGREEMENT_COLLAPSIBLE_TAGS : SEARCH_COLLAPSIBLE_TAGS;
+  const isCollapsible = collapsibleTags.has(node.tagName || "");
+  const colorClass =
+    XML_TAG_COLORS[node.tagName as keyof typeof XML_TAG_COLORS] ||
+    "text-muted-foreground";
+
+  const dataAttributes = sectionUuid
+    ? { "data-section-uuid": sectionUuid }
+    : {};
+
+  const shared: SharedNodeProps = {
+    mode,
+    isMobile,
+    meta,
+    collapsedTags,
+    fadingHighlights,
+    highlightedSection,
+    onToggleCollapse,
+  };
+
+  if (mode === "agreement" && node.tagName === "metadata") {
+    return null;
+  }
+
+  // Handle text tags - remove tags and just render content
+  if (node.tagName === "text") {
+    if (mode === "search") {
+      // In search mode, keep text collapsible
+      return (
+        <div className="my-1">
+          <div className="flex items-start">
+            <div className="w-4 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => onToggleCollapse(tagId)}
+                data-collapse-toggle="true"
+                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
+                aria-expanded={!isCollapsed}
+                aria-label={isCollapsed ? "Expand section" : "Collapse section"}
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="w-3 h-3" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-3 h-3" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+            <div className="min-w-0 flex-1">
+              {!isCollapsed && node.children && (
+                <div className="leading-relaxed">
+                  {renderNodeList(node.children, depth + 1, node.tagName, shared)}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+      // In agreement mode, just render content without tags
+      return (
+        <div className="my-1 leading-relaxed">
+          {renderNodeList(node.children, depth + 1, node.tagName, shared)}
+        </div>
+      );
+    }
+  }
+
+  if (mode === "agreement" && node.tagName) {
+    const regionLabel = AGREEMENT_REGION_LABELS.get(node.tagName);
+    if (regionLabel) {
+      return (
+        <section
+          id={`agreement-region-${node.tagName}`}
+          data-reader-region={node.tagName}
+          className="scroll-mt-3"
+        >
+          <div className="my-8 flex items-center gap-4" aria-hidden="true">
+            <div className="h-0.5 flex-1 bg-foreground/30" />
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {regionLabel}
+            </div>
+            <div className="h-0.5 flex-1 bg-foreground/30" />
+          </div>
+          <div className="min-w-0">
+            {node.tagName === "tableOfContents"
+              ? renderAgreementTableOfContents(node.children, shared)
+              : renderNodeList(node.children, depth + 1, node.tagName, shared)}
+          </div>
+        </section>
+      );
+    }
+  }
+
+  // Handle pageUUID and page tags - render page separators
+  if (node.tagName === "pageUUID" || node.tagName === "page") {
+    if (node.tagName === "page") return null;
+    if (mode === "agreement") {
+      if (isAdjacentToAgreementRegionBreak(siblings, index)) return null;
+      if (isAgreementRegionBoundaryPageBreak(siblings, index, parentTagName)) {
+        return null;
+      }
+    }
+
+    return (
+      <div className="my-5 border-t border-foreground/20" aria-hidden="true" />
+    );
+  }
+
+  // Handle article and section tags in agreement mode
+  if (
+    mode === "agreement" &&
+    (node.tagName === "article" || node.tagName === "section")
+  ) {
+    const title =
+      node.title !== undefined
+        ? decodeXmlEntities(node.title)
+        : `${node.tagName} ${index + 1}`;
+
+    const headerLevel =
+      node.tagName === "article"
+        ? "text-lg font-semibold"
+        : "text-base font-medium";
+    const isHighlighted = highlightedSection === sectionUuid;
+    const isFading = fadingHighlights.has(sectionUuid || "");
+    const showHighlight = isHighlighted || isFading;
+
+    // Add article header attribute for scroll targeting
+    const additionalAttributes =
+      node.tagName === "article" ? { "data-article-header": "true" } : {};
+
+    const containerProps = {
+      className: cn(
+        "my-4 scroll-mt-3 relative",
+        showHighlight && "z-10",
+        showHighlight && isMobile && "pl-1 pr-1 -ml-1 -mr-1",
+        showHighlight && !isMobile && "pr-2 -mr-2",
+      ),
+      ...dataAttributes,
+      ...additionalAttributes,
+    };
+
+    const highlightOverlay = showHighlight ? (
+      <div
+        className={cn(
+          "absolute inset-0 bg-primary/10 border border-primary/30 rounded-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
+          isHighlighted ? "opacity-100" : "opacity-0",
+        )}
+      />
+    ) : null;
+
+    if (isMobile) {
+      return (
+        <div {...containerProps}>
+          {highlightOverlay}
+          <div className="flex items-start gap-2">
+            {isCollapsible && (
+              <button
+                type="button"
+                onClick={() => onToggleCollapse(tagId)}
+                data-collapse-toggle="true"
+                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
+                aria-expanded={!isCollapsed}
+                aria-label={isCollapsed ? "Expand section" : "Collapse section"}
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                )}
+              </button>
+            )}
+
+            <h3 className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
+              {title}
+            </h3>
+          </div>
+
+          {!isCollapsed && node.children && node.children.length > 0 && (
+            <div className="agreement-children mt-2 min-w-0">
+              {renderNodeList(node.children, depth + 1, node.tagName, shared)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div {...containerProps}>
+        {highlightOverlay}
+        <div className="flex items-start gap-1.5">
+          <div className="flex-shrink-0">
+            {isCollapsible && (
+              <button
+                type="button"
+                onClick={() => onToggleCollapse(tagId)}
+                data-collapse-toggle="true"
+                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
+                aria-expanded={!isCollapsed}
+                aria-label={isCollapsed ? "Expand section" : "Collapse section"}
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                )}
+              </button>
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h3 className={cn(headerLevel, "mb-2 break-words text-foreground [overflow-wrap:anywhere]")}>
+              {title}
+            </h3>
+
+            {!isCollapsed && node.children && node.children.length > 0 && (
+              <div className="agreement-children ml-2 min-w-0">
+                {renderNodeList(node.children, depth + 1, node.tagName, shared)}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "agreement") {
+    return (
+      <div className="my-1 min-w-0 scroll-mt-3" {...dataAttributes}>
+        {renderNodeList(node.children, depth + 1, node.tagName, shared)}
+      </div>
+    );
+  }
+
+  // For other tags in search mode or non-collapsible tags
+  return (
+    <div className="my-1 scroll-mt-3" {...dataAttributes}>
+      <div className="flex items-start gap-1">
+        <div className="flex-shrink-0">
+          {isCollapsible && (
+            <button
+              type="button"
+              onClick={() => onToggleCollapse(tagId)}
+              data-collapse-toggle="true"
+              className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
+              aria-expanded={!isCollapsed}
+              aria-label={isCollapsed ? "Expand section" : "Collapse section"}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="w-3 h-3" aria-hidden="true" />
+              ) : (
+                <ChevronDown className="w-3 h-3" aria-hidden="true" />
+              )}
+            </button>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <span className={cn("text-xs font-light", colorClass)}>
+            &lt;{node.tagName}&gt;
+          </span>
+
+          {!isCollapsed && node.children && node.children.length > 0 && (
+            <div className="ml-4 mt-1 min-w-0">
+              {renderNodeList(node.children, depth + 1, node.tagName, shared)}
+            </div>
+          )}
+
+          {!isCollapsed && (
+            <div className="mt-1">
+              <span className={cn("text-xs font-light", colorClass)}>
+                &lt;/{node.tagName}&gt;
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Skip re-rendering a subtree unless a collapse/highlight change actually
+// touches an id inside it. All identity props are stable per parsed document,
+// so a highlight or collapse toggle only re-renders the affected paths.
+function xmlNodeViewPropsEqual(
+  prev: XMLNodeViewProps,
+  next: XMLNodeViewProps,
+): boolean {
+  if (
+    prev.node !== next.node ||
+    prev.index !== next.index ||
+    prev.depth !== next.depth ||
+    prev.siblings !== next.siblings ||
+    prev.parentTagName !== next.parentTagName ||
+    prev.mode !== next.mode ||
+    prev.isMobile !== next.isMobile ||
+    prev.meta !== next.meta ||
+    prev.onToggleCollapse !== next.onToggleCollapse
+  ) {
+    return false;
+  }
+
+  if (next.node.type !== "tag") return true;
+  const nodeMeta = next.meta.get(next.node);
+  if (!nodeMeta) return false;
+
+  const { subtreeTagIds, subtreeUuids } = nodeMeta;
+  if (
+    prev.highlightedSection !== next.highlightedSection &&
+    ((prev.highlightedSection != null &&
+      subtreeUuids.has(prev.highlightedSection)) ||
+      (next.highlightedSection != null &&
+        subtreeUuids.has(next.highlightedSection)))
+  ) {
+    return false;
+  }
+  if (!setsAgreeWithin(prev.fadingHighlights, next.fadingHighlights, subtreeUuids)) {
+    return false;
+  }
+  if (!setsAgreeWithin(prev.collapsedTags, next.collapsedTags, subtreeTagIds)) {
+    return false;
+  }
+  return true;
+}
+
+const XMLNodeView = memo(XMLNodeViewInner, xmlNodeViewPropsEqual);
+
 export function XMLRenderer({
   xmlContent,
   className,
@@ -141,15 +615,43 @@ export function XMLRenderer({
     return undefined;
   }, [highlightedSection, previousHighlightedSection]);
 
-  const parsedXML = useMemo(() => {
-    const nodes = parseXMLContent(xmlContent);
-    if (!showBodyOnly) return nodes;
-
-    const bodyNode = findFirstTagNode(nodes, "body");
-    return bodyNode?.children ?? nodes;
+  const {
+    nodes: parsedXML,
+    meta,
+    uuidPaths,
+  } = useMemo(() => {
+    const parsed = parseXMLContent(xmlContent);
+    const nodes = showBodyOnly
+      ? (findFirstTagNode(parsed, "body")?.children ?? parsed)
+      : parsed;
+    return { nodes, ...buildXmlTreeIndex(nodes) };
   }, [showBodyOnly, xmlContent]);
 
-  const toggleCollapse = (tagId: string) => {
+  // Path-based collapse ids shift when the rendered tree changes, so reset
+  // collapse state whenever the document or the body-only view changes.
+  useEffect(() => {
+    setCollapsedTags(new Set());
+  }, [xmlContent, showBodyOnly]);
+
+  // When a section is highlighted (TOC jump, deep link), expand any collapsed
+  // ancestors so the target actually renders and can be scrolled to.
+  // Collapse state for uuid-bearing nodes is keyed by uuid, so deleting the
+  // uuids on the root->target path expands every ancestor of the target.
+  useEffect(() => {
+    if (!highlightedSection) return;
+    const pathUuids = uuidPaths.get(highlightedSection);
+    if (!pathUuids || pathUuids.length === 0) return;
+    setCollapsedTags((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const uuid of pathUuids) {
+        if (next.delete(uuid)) changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [highlightedSection, uuidPaths]);
+
+  const toggleCollapse = useCallback((tagId: string) => {
     setCollapsedTags((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(tagId)) {
@@ -159,526 +661,38 @@ export function XMLRenderer({
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const renderAgreementTableOfContents = (children: XMLNode[] | undefined) => {
-    const textChunks = extractAgreementTocTextChunks(children);
-    const rows = normalizeAgreementTableOfContentsText(textChunks);
-
-    if (rows.length === 0) {
-      return renderChildren(children, 0, "tableOfContents");
-    }
-
+  if (parsedXML.length === 0) {
     return (
-      <div
-        className="space-y-1.5"
-        role="list"
-        aria-label="Agreement table of contents entries"
-      >
-        {rows.map((row, rowIndex) => {
-          if (row.kind === "heading") {
-            return (
-              <div
-                key={`toc-heading-${rowIndex}`}
-                className="pt-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground first:pt-0"
-              >
-                {row.text}
-              </div>
-            );
-          }
-
-          const isSubentry = TOC_SUBENTRY_START_RE.test(row.text);
-          const isArticle = /^ARTICLE\b/i.test(row.text);
-
-          return (
-            <div
-              key={`toc-entry-${rowIndex}`}
-              role="listitem"
-              className={cn(
-                "flex items-baseline gap-4 py-0.5",
-                isSubentry ? "pl-4 sm:pl-6" : "pt-2 first:pt-0",
-              )}
-            >
-              <span
-                className={cn(
-                  "min-w-0 flex-1 break-words [overflow-wrap:anywhere]",
-                  isArticle && "font-medium tracking-[0.02em]",
-                )}
-              >
-                {row.text}
-              </span>
-              {row.pageNumber ? (
-                <span className="w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground">
-                  {row.pageNumber}
-                </span>
-              ) : null}
-            </div>
-          );
-        })}
+      <div className={cn("xml-renderer min-w-0 max-w-full", className)}>
+        <div className="py-8 text-center" role="alert">
+          <p className="font-medium text-destructive dark:text-red-400">
+            Unable to render this document
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The document content is empty or could not be parsed.
+          </p>
+        </div>
       </div>
     );
-  };
+  }
 
-  const renderChildren = (
-    children: XMLNode[] | undefined,
-    depth: number,
-    parentTagName?: string,
-  ) =>
-    children?.map((child, childIndex) =>
-      renderNode(child, childIndex, depth, children, parentTagName),
-    );
-
-  const renderNode = (
-    node: XMLNode,
-    index: number,
-    depth: number = 0,
-    siblings: XMLNode[] = [],
-    parentTagName?: string,
-  ): React.ReactNode => {
-    if (node.type === "text") {
-      const normalizedContent = normalizeXmlText(node.content);
-      return (
-        <span
-          key={`${depth}-${index}-text`}
-          className={cn(
-            isMobile
-              ? "whitespace-pre-line break-words [overflow-wrap:anywhere]"
-              : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-          )}
-        >
-          {normalizedContent}
-        </span>
-      );
-    }
-
-    if (node.type === "tag") {
-      const tagId = `${node.tagName}-${index}-${depth}`;
-      const isCollapsed = collapsedTags.has(tagId);
-      const collapsibleTags =
-        mode === "agreement"
-          ? AGREEMENT_COLLAPSIBLE_TAGS
-          : SEARCH_COLLAPSIBLE_TAGS;
-      const isCollapsible = collapsibleTags.has(node.tagName || "");
-      const colorClass =
-        XML_TAG_COLORS[node.tagName as keyof typeof XML_TAG_COLORS] ||
-        "text-muted-foreground";
-
-      // Extract UUID from attributes for sections/articles for scroll-to functionality
-      let sectionUuid: string | undefined;
-
-      // Check if this node has a uuid attribute (for article/section tags)
-      if (node.tagName === "article" || node.tagName === "section") {
-        const uuidMatch = node.content.match(/uuid="([^"]*)"/);
-        sectionUuid = uuidMatch ? uuidMatch[1] : undefined;
-      }
-
-      const dataAttributes = sectionUuid
-        ? { "data-section-uuid": sectionUuid }
-        : {};
-
-      if (mode === "agreement" && node.tagName === "metadata") {
-        return null;
-      }
-
-      // Handle text tags - remove tags and just render content
-      if (node.tagName === "text") {
-        if (mode === "search") {
-          // In search mode, keep text collapsible
-          return (
-            <div key={tagId} className="my-1">
-              <div className="flex items-start">
-                <div className="w-4 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => toggleCollapse(tagId)}
-                    data-collapse-toggle="true"
-                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
-                    aria-expanded={!isCollapsed}
-                    aria-label={
-                      isCollapsed ? "Expand section" : "Collapse section"
-                    }
-                  >
-                    {isCollapsed ? (
-                      <ChevronRight className="w-3 h-3" aria-hidden="true" />
-                    ) : (
-                      <ChevronDown className="w-3 h-3" aria-hidden="true" />
-                    )}
-                  </button>
-                </div>
-                <div className="min-w-0 flex-1">
-                  {!isCollapsed && node.children && (
-                    <div className="leading-relaxed">
-                      {renderChildren(node.children, depth + 1, node.tagName)}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        } else {
-          // In agreement mode, just render content without tags
-          return (
-            <div key={tagId} className="my-1 leading-relaxed">
-              {renderChildren(node.children, depth + 1, node.tagName)}
-            </div>
-          );
-        }
-      }
-
-      if (mode === "agreement" && node.tagName) {
-        const regionLabel = AGREEMENT_REGION_LABELS.get(node.tagName);
-        if (regionLabel) {
-          return (
-            <section
-              key={tagId}
-              id={`agreement-region-${node.tagName}`}
-              data-reader-region={node.tagName}
-              className="scroll-mt-3"
-            >
-              <div className="my-8 flex items-center gap-4" aria-hidden="true">
-                <div className="h-0.5 flex-1 bg-foreground/30" />
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {regionLabel}
-                </div>
-                <div className="h-0.5 flex-1 bg-foreground/30" />
-              </div>
-              <div className="min-w-0">
-                {node.tagName === "tableOfContents"
-                  ? renderAgreementTableOfContents(node.children)
-                  : renderChildren(node.children, depth + 1, node.tagName)}
-              </div>
-            </section>
-          );
-        }
-      }
-
-      // Handle pageUUID and page tags - render page separators
-      if (node.tagName === "pageUUID" || node.tagName === "page") {
-        if (node.tagName === "page") return null;
-        if (mode === "agreement") {
-          if (isAdjacentToAgreementRegionBreak(siblings, index)) return null;
-          if (isAgreementRegionBoundaryPageBreak(siblings, index, parentTagName)) {
-            return null;
-          }
-        }
-
-        return (
-          <div
-            key={tagId}
-            className="my-5 border-t border-foreground/20"
-            aria-hidden="true"
-          />
-        );
-      }
-
-      // Handle article and section tags in agreement mode
-      if (
-        mode === "agreement" &&
-        (node.tagName === "article" || node.tagName === "section")
-      ) {
-        // Extract title from attributes
-        const titleMatch = node.content.match(/title="([^"]*)"/);
-        const title = titleMatch
-          ? decodeXmlEntities(titleMatch[1])
-          : `${node.tagName} ${index + 1}`;
-
-        const headerLevel =
-          node.tagName === "article"
-            ? "text-lg font-semibold"
-            : "text-base font-medium";
-        const isHighlighted = highlightedSection === sectionUuid;
-        const isFading = fadingHighlights.has(sectionUuid || "");
-        const showHighlight = isHighlighted || isFading;
-
-        // Add article header attribute for scroll targeting
-        const additionalAttributes =
-          node.tagName === "article" ? { "data-article-header": "true" } : {};
-
-        const containerProps = {
-          className: cn(
-            "my-4 scroll-mt-3 relative",
-            showHighlight && "z-10",
-            showHighlight && isMobile && "pl-1 pr-1 -ml-1 -mr-1",
-            showHighlight && !isMobile && "pr-2 -mr-2",
-          ),
-          ...dataAttributes,
-          ...additionalAttributes,
-        };
-
-        const highlightOverlay = showHighlight ? (
-          <div
-            className={cn(
-              "absolute inset-0 bg-primary/10 border border-primary/30 rounded-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
-              isHighlighted ? "opacity-100" : "opacity-0",
-            )}
-          />
-        ) : null;
-
-        if (isMobile) {
-          return (
-            <div key={tagId} {...containerProps}>
-              {highlightOverlay}
-              <div className="flex items-start gap-2">
-                {isCollapsible && (
-                  <button
-                    type="button"
-                    onClick={() => toggleCollapse(tagId)}
-                    data-collapse-toggle="true"
-                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
-                    aria-expanded={!isCollapsed}
-                    aria-label={
-                      isCollapsed ? "Expand section" : "Collapse section"
-                    }
-                  >
-                    {isCollapsed ? (
-                      <ChevronRight className="w-4 h-4" aria-hidden="true" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" aria-hidden="true" />
-                    )}
-                  </button>
-                )}
-
-                <h3 className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
-                  {title}
-                </h3>
-              </div>
-
-              {!isCollapsed && node.children && node.children.length > 0 && (
-                <div className="agreement-children mt-2 min-w-0">
-                  {renderChildren(node.children, depth + 1, node.tagName)}
-                </div>
-              )}
-            </div>
-          );
-        }
-
-        return (
-          <div key={tagId} {...containerProps}>
-            {highlightOverlay}
-            <div className="flex items-start gap-1.5">
-              <div className="flex-shrink-0">
-                {isCollapsible && (
-                  <button
-                    type="button"
-                    onClick={() => toggleCollapse(tagId)}
-                    data-collapse-toggle="true"
-                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
-                    aria-expanded={!isCollapsed}
-                    aria-label={
-                      isCollapsed ? "Expand section" : "Collapse section"
-                    }
-                  >
-                    {isCollapsed ? (
-                      <ChevronRight className="w-4 h-4" aria-hidden="true" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" aria-hidden="true" />
-                    )}
-                  </button>
-                )}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <h3 className={cn(headerLevel, "mb-2 break-words text-foreground [overflow-wrap:anywhere]")}>
-                  {title}
-                </h3>
-
-                {!isCollapsed && node.children && node.children.length > 0 && (
-                  <div className="agreement-children ml-2 min-w-0">
-                    {renderChildren(node.children, depth + 1, node.tagName)}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      if (mode === "agreement") {
-        return (
-          <div key={tagId} className="my-1 min-w-0 scroll-mt-3" {...dataAttributes}>
-            {renderChildren(node.children, depth + 1, node.tagName)}
-          </div>
-        );
-      }
-
-      // For other tags in search mode or non-collapsible tags
-      return (
-        <div key={tagId} className="my-1 scroll-mt-3" {...dataAttributes}>
-          <div className="flex items-start gap-1">
-            <div className="flex-shrink-0">
-              {isCollapsible && (
-                <button
-                  type="button"
-                  onClick={() => toggleCollapse(tagId)}
-                  data-collapse-toggle="true"
-                  className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
-                  aria-expanded={!isCollapsed}
-                  aria-label={
-                    isCollapsed ? "Expand section" : "Collapse section"
-                  }
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="w-3 h-3" aria-hidden="true" />
-                  ) : (
-                    <ChevronDown className="w-3 h-3" aria-hidden="true" />
-                  )}
-                </button>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <span className={cn("text-xs font-light", colorClass)}>
-                &lt;{node.tagName}&gt;
-              </span>
-
-              {!isCollapsed && node.children && node.children.length > 0 && (
-                <div className="ml-4 mt-1 min-w-0">
-                  {renderChildren(node.children, depth + 1, node.tagName)}
-                </div>
-              )}
-
-              {!isCollapsed && (
-                <div className="mt-1">
-                  <span className={cn("text-xs font-light", colorClass)}>
-                    &lt;/{node.tagName}&gt;
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return null;
+  const shared: SharedNodeProps = {
+    mode,
+    isMobile,
+    meta,
+    collapsedTags,
+    fadingHighlights,
+    highlightedSection,
+    onToggleCollapse: toggleCollapse,
   };
 
   return (
     <div className={cn("xml-renderer min-w-0 max-w-full", className)}>
-      {renderChildren(parsedXML, 0)}
+      {renderNodeList(parsedXML, 0, undefined, shared)}
     </div>
   );
-}
-
-function parseXMLContent(xmlContent: string): XMLNode[] {
-  const nodes: XMLNode[] = [];
-  let currentIndex = 0;
-
-  while (currentIndex < xmlContent.length) {
-    // Find the next opening tag
-    const tagStart = xmlContent.indexOf("<", currentIndex);
-
-    if (tagStart === -1) {
-      // No more tags, add remaining text
-      if (currentIndex < xmlContent.length) {
-        const remainingText = xmlContent.slice(currentIndex);
-        if (remainingText.trim()) {
-          nodes.push({
-            type: "text",
-            content: remainingText,
-          });
-        }
-      }
-      break;
-    }
-
-    // Add text before the tag if any
-    if (tagStart > currentIndex) {
-      const textContent = xmlContent.slice(currentIndex, tagStart);
-      if (textContent.trim()) {
-        nodes.push({
-          type: "text",
-          content: textContent,
-        });
-      }
-    }
-
-    // Skip XML declarations and comments
-    if (xmlContent.slice(tagStart, tagStart + 4) === "<!--") {
-      const commentEnd = xmlContent.indexOf("-->", tagStart);
-      if (commentEnd !== -1) {
-        currentIndex = commentEnd + 3;
-        continue;
-      }
-    }
-
-    if (xmlContent.slice(tagStart, tagStart + 5) === "<?xml") {
-      const declEnd = xmlContent.indexOf("?>", tagStart);
-      if (declEnd !== -1) {
-        currentIndex = declEnd + 2;
-        continue;
-      }
-    }
-
-    // Find the end of the opening tag
-    const tagEnd = xmlContent.indexOf(">", tagStart);
-    if (tagEnd === -1) {
-      // Malformed XML, treat as text
-      nodes.push({
-        type: "text",
-        content: xmlContent.slice(tagStart),
-      });
-      break;
-    }
-
-    // Extract tag content and name
-    const tagContent = xmlContent.slice(tagStart + 1, tagEnd);
-    const tagName = tagContent.split(/\s/)[0]; // Get tag name before any attributes
-
-    // Check if it's a self-closing tag
-    if (tagContent.endsWith("/")) {
-      nodes.push({
-        type: "tag",
-        content: `<${tagContent}>`,
-        tagName: tagName.replace("/", ""),
-        children: [],
-      });
-      currentIndex = tagEnd + 1;
-      continue;
-    }
-
-    // Find the corresponding closing tag
-    const closingTag = `</${tagName}>`;
-    const closingTagStart = xmlContent.indexOf(closingTag, tagEnd + 1);
-
-    if (closingTagStart === -1) {
-      // No closing tag found, treat as text
-      nodes.push({
-        type: "text",
-        content: xmlContent.slice(tagStart),
-      });
-      break;
-    }
-
-    // Extract content between opening and closing tags
-    const innerContent = xmlContent.slice(tagEnd + 1, closingTagStart);
-    const children = innerContent.trim() ? parseXMLContent(innerContent) : [];
-
-    nodes.push({
-      type: "tag",
-      content: `<${tagContent}>`,
-      tagName: tagName,
-      children: children,
-    });
-
-    currentIndex = closingTagStart + closingTag.length;
-  }
-
-  return nodes;
-}
-
-function findFirstTagNode(nodes: XMLNode[], tagName: string): XMLNode | null {
-  for (const node of nodes) {
-    if (node.type !== "tag") continue;
-    if (node.tagName === tagName) return node;
-
-    const childMatch = node.children
-      ? findFirstTagNode(node.children, tagName)
-      : null;
-    if (childMatch) return childMatch;
-  }
-
-  return null;
 }
 
 function isAdjacentToAgreementRegionBreak(

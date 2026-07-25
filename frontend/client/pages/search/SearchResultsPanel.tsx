@@ -5,6 +5,8 @@ import type { SearchMode } from "@shared/search";
 import {
   SearchPagination,
   SearchPaginationFallback,
+  SearchResultsTableFallback,
+  TransactionResultsFallback,
 } from "./lazy";
 
 interface SearchResultsPanelProps {
@@ -50,7 +52,7 @@ export function SearchResultsPanel({
 }: SearchResultsPanelProps) {
   const isLimited = accessTier === "anonymous";
 
-  const renderPagination = () =>
+  const renderPagination = (position: "top" | "bottom") =>
     hasHydrated ? (
       <Suspense fallback={<SearchPaginationFallback />}>
         <SearchPagination
@@ -65,6 +67,7 @@ export function SearchResultsPanel({
           onPageSizeChange={onPageSizeChange}
           isLoading={isSearching}
           isLimited={isLimited}
+          label={`Search results pagination (${position})`}
         />
       </Suspense>
     ) : (
@@ -72,7 +75,13 @@ export function SearchResultsPanel({
     );
 
   return (
-    <main className="flex-1 overflow-auto" aria-labelledby="search-page-title">
+    <section
+      // Not a <main>: AppLayout already renders the page's main landmark.
+      // tabIndex makes the scrollable results region keyboard-scrollable.
+      tabIndex={0}
+      className="flex-1 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      aria-labelledby="search-page-title"
+    >
       <div className="px-4 py-4 sm:px-8 sm:py-5">
         <div id="search-results-status" className="sr-only" role="status" aria-live="polite">
           {isSearching
@@ -140,7 +149,15 @@ export function SearchResultsPanel({
 
         {hasSearched && (
           <div className="space-y-4">
-            {totalCount === 0 ? (
+            {totalCount === 0 && isSearching ? (
+              // First fetch after a commit: no prior results to keep showing,
+              // so render the skeleton instead of flashing the empty state.
+              searchMode === "transactions" ? (
+                <TransactionResultsFallback />
+              ) : (
+                <SearchResultsTableFallback />
+              )
+            ) : totalCount === 0 ? (
               <div
                 className="mx-auto max-w-3xl text-center py-12 text-muted-foreground"
                 role="status"
@@ -158,7 +175,7 @@ export function SearchResultsPanel({
               </div>
             ) : (
               <>
-                {renderPagination()}
+                {renderPagination("top")}
                 {resultsList}
 
                 {selectedSize > 0 && (
@@ -177,12 +194,12 @@ export function SearchResultsPanel({
                   </div>
                 )}
 
-                {renderPagination()}
+                {renderPagination("bottom")}
               </>
             )}
           </div>
         )}
       </div>
-    </main>
+    </section>
   );
 }

@@ -57,10 +57,13 @@ export function TurnstileWidget({
   siteKey,
   onToken,
   onError,
+  resetSignal = 0,
 }: {
   siteKey: string;
   onToken: (token: string | null) => void;
   onError: (message: string) => void;
+  /** Increment to discard the consumed single-use token and request a fresh one. */
+  resetSignal?: number;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
@@ -72,6 +75,15 @@ export function TurnstileWidget({
     onTokenRef.current = onToken;
     onErrorRef.current = onError;
   }, [onError, onToken]);
+
+  useEffect(() => {
+    if (resetSignal === 0) return;
+    const api = window.turnstile;
+    const widgetId = widgetIdRef.current;
+    if (!api?.reset || !widgetId) return;
+    onTokenRef.current(null);
+    api.reset(widgetId);
+  }, [resetSignal]);
 
   useEffect(() => {
     if (!siteKey) return;
@@ -125,7 +137,7 @@ export function TurnstileWidget({
       {status === "loading" ? (
         <div className="text-xs text-muted-foreground">Loading captcha…</div>
       ) : status === "error" ? (
-        <div className="text-xs text-destructive">Captcha unavailable.</div>
+        <div className="text-xs text-destructive dark:text-red-400">Captcha unavailable.</div>
       ) : null}
     </div>
   );

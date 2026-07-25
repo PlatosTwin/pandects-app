@@ -44,11 +44,30 @@ describe("critical CSS", () => {
       const globalDeclarations = readDeclarations(readRule(globalCss, selector));
       const criticalDeclarations = readDeclarations(readRule(criticalCss, selector));
 
+      // Bidirectional: a token added to either file must be mirrored in the other.
+      expect(
+        [...criticalDeclarations.keys()].sort(),
+        `${selector} token set`,
+      ).toEqual([...globalDeclarations.keys()].sort());
+
       for (const [token, criticalValue] of criticalDeclarations) {
         expect(globalDeclarations.get(token), `${selector} ${token}`).toBe(
           criticalValue,
         );
       }
+    }
+  });
+
+  it("keeps the critical html rule aligned with the app html rule", () => {
+    const globalHtml = readRule(globalCss, "html");
+    const criticalHtml = readRule(criticalCss, "html");
+
+    for (const property of ["font-size", "scrollbar-gutter"]) {
+      const read = (rule: string) =>
+        rule.match(new RegExp(`${property}:\\s*([^;]+);`))?.[1].trim();
+
+      expect(read(criticalHtml), `html ${property}`).toBe(read(globalHtml));
+      expect(read(globalHtml), `html ${property}`).toBeDefined();
     }
   });
 

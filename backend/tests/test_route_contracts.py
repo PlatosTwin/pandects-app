@@ -72,6 +72,9 @@ class RouteContractTests(unittest.TestCase):
             "/v1/auth/oauth/token",
             "/v1/auth/oauth/consent",
             "/v1/auth/email/verify/resend",
+            "/v1/me/favorites",
+            "/v1/me/favorites/agreement-metadata",
+            "/v1/me/favorites/section-details",
         }
         for route in expected:
             self.assertIn(route, rules)

@@ -24,6 +24,8 @@ import { StarButton } from "@/components/StarButton";
 import { useAgreement } from "@/hooks/use-agreement";
 import { useFilterOptions } from "@/hooks/use-filter-options";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useNaics } from "@/hooks/use-naics";
+import { useScrollSpy } from "@/hooks/use-scroll-spy";
 import { TableOfContents } from "@/components/TableOfContents";
 import { XMLRenderer } from "@/components/XMLRenderer";
 import { Button } from "@/components/ui/button";
@@ -67,7 +69,9 @@ import {
 } from "@/lib/format-utils";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
+import { formatNaicsIndustry } from "@/lib/naics";
 import { logger } from "@/lib/logger";
+import { prefersReducedMotion } from "@/lib/scroll";
 import { cn } from "@/lib/utils";
 import type {
   AgreementSectionIndexResponse,
@@ -99,7 +103,10 @@ function HeaderFactChip({
   value: string;
 }) {
   return (
-    <div className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs">
+    <div
+      className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs"
+      title={value}
+    >
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="text-muted-foreground">{label}</span>
       <span className="min-w-0 truncate font-medium text-foreground">{value}</span>
@@ -166,8 +173,8 @@ function ReaderSearch({
         {isTextQueryActive ? (
           <p id="agreement-text-search-hint" className="text-xs text-muted-foreground">
             {matchCount === 0
-              ? "No matches"
-              : `${matchCount} match${matchCount === 1 ? "" : "es"}`}
+              ? "No matching sections"
+              : `${matchCount} section${matchCount === 1 ? "" : "s"}`}
           </p>
         ) : null}
       </div>
@@ -341,7 +348,17 @@ export function AgreementReader({
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
+  // Mirrors stickyHeaderBottom so scroll handlers read the latest measurement
+  // instead of a value captured in an effect closure.
+  const stickyHeaderBottomRef = useRef(240);
   const isMobile = useIsMobile();
+
+  const { activeId: spyActiveId, notifyJump } = useScrollSpy({
+    containerRef: contentRef,
+    topOffset: stickyHeaderBottom,
+    contentKey: agreement?.xml ?? null,
+    enabled: Boolean(agreement?.xml),
+  });
 
   useEffect(() => {
     if (isLoading) return;
@@ -350,9 +367,13 @@ export function AgreementReader({
     const update = () => {
       const rect = element.getBoundingClientRect();
       // sticky top-16 → header occupies [64px, 64+height] once pinned
-      setStickyHeaderBottom(64 + rect.height);
+      const next = 64 + rect.height;
+      stickyHeaderBottomRef.current = next;
+      setStickyHeaderBottom(next);
     };
     update();
+    // The ResizeObserver also covers height changes from header collapse and
+    // the redacted alert, so no separate re-measure effect is needed.
     const observer = new ResizeObserver(update);
     observer.observe(element);
     window.addEventListener("resize", update);
@@ -362,21 +383,12 @@ export function AgreementReader({
     };
   }, [isLoading]);
 
-  useEffect(() => {
-    const element = headerRef.current;
-    if (!element) return;
-    const raf = requestAnimationFrame(() => {
-      const rect = element.getBoundingClientRect();
-      setStickyHeaderBottom(64 + rect.height);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [headerCollapsed, agreement?.is_redacted]);
-
   const { clause_types } = useFilterOptions({ fields: ["clause_types"] });
   const clauseTypeLabelById = useMemo(
     () => indexClauseTypeLabels(clause_types),
     [clause_types],
   );
+  const { labelByCode: naicsLabelByCode } = useNaics();
 
   useEffect(() => {
     fetchAgreement(agreementUuid, focusSectionUuid ?? undefined);
@@ -421,6 +433,31 @@ export function AgreementReader({
     };
   }, [agreementUuid]);
 
+  const scrollBehavior = (): ScrollBehavior =>
+    prefersReducedMotion() ? "auto" : "smooth";
+
+  const attemptScrollToSection = (sectionUuid: string, retriesLeft: number) => {
+    const sectionElement = contentRef.current?.querySelector(
+      `[data-section-uuid="${sectionUuid}"]`,
+    ) as HTMLElement | null;
+    if (!sectionElement) {
+      // The target may sit inside a collapsed article: setting the highlight
+      // makes XMLRenderer expand its ancestors, but the section only exists in
+      // the DOM after the next render — retry briefly until it appears.
+      if (retriesLeft > 0) {
+        window.setTimeout(
+          () => attemptScrollToSection(sectionUuid, retriesLeft - 1),
+          80,
+        );
+      }
+      return;
+    }
+    const rect = sectionElement.getBoundingClientRect();
+    const targetY =
+      window.scrollY + rect.top - stickyHeaderBottomRef.current - 16;
+    window.scrollTo({ top: Math.max(0, targetY), behavior: scrollBehavior() });
+  };
+
   const scrollToSection = (sectionUuid: string) => {
     setHighlightedSection(sectionUuid);
     if (highlightTimeoutRef.current) {
@@ -430,13 +467,8 @@ export function AgreementReader({
       setHighlightedSection(null);
       highlightTimeoutRef.current = null;
     }, 2200);
-    const sectionElement = contentRef.current?.querySelector(
-      `[data-section-uuid="${sectionUuid}"]`,
-    ) as HTMLElement | null;
-    if (!sectionElement) return;
-    const rect = sectionElement.getBoundingClientRect();
-    const targetY = window.scrollY + rect.top - stickyHeaderBottom - 16;
-    window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+    notifyJump(sectionUuid);
+    attemptScrollToSection(sectionUuid, 5);
     setIsTocSheetOpen(false);
     setIsDetailsSheetOpen(false);
   };
@@ -445,12 +477,13 @@ export function AgreementReader({
     const element = document.getElementById(anchorId);
     if (!element) return;
 
+    notifyJump(anchorId);
     const targetY =
       element.getBoundingClientRect().top +
       window.scrollY -
-      stickyHeaderBottom -
+      stickyHeaderBottomRef.current -
       16;
-    window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+    window.scrollTo({ top: Math.max(0, targetY), behavior: scrollBehavior() });
   };
 
   useEffect(() => {
@@ -466,31 +499,46 @@ export function AgreementReader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreement?.xml, focusSectionUuid]);
 
-  const textSections = useMemo(
-    () => (agreement?.xml ? extractAgreementTextSections(agreement.xml) : []),
-    [agreement?.xml],
-  );
+  const textSections = useMemo(() => {
+    if (!agreement?.xml) return [];
+    // Precompute the lowercased text once so keystrokes don't re-lowercase
+    // every section on each match pass.
+    return extractAgreementTextSections(agreement.xml).map((section) => ({
+      ...section,
+      lowerText: section.text.toLowerCase(),
+    }));
+  }, [agreement?.xml]);
 
-  const normalizedTextQuery = textQuery.trim().toLowerCase();
+  // Debounce the query so matching runs once per pause, not per keystroke.
+  const [debouncedTextQuery, setDebouncedTextQuery] = useState("");
+  useEffect(() => {
+    if (!textQuery) {
+      setDebouncedTextQuery("");
+      return;
+    }
+    const timer = window.setTimeout(() => setDebouncedTextQuery(textQuery), 180);
+    return () => window.clearTimeout(timer);
+  }, [textQuery]);
+
+  const normalizedTextQuery = debouncedTextQuery.trim().toLowerCase();
   const isTextQueryActive = normalizedTextQuery.length > 0;
 
   const textMatches = useMemo(() => {
     if (!isTextQueryActive) return [];
-    return textSections
-      .filter((section) => section.text.toLowerCase().includes(normalizedTextQuery))
-      .map((section) => {
-        const matchIndex = section.text.toLowerCase().indexOf(normalizedTextQuery);
-        const previewStart = Math.max(0, matchIndex - 40);
-        const previewEnd = Math.min(section.text.length, matchIndex + 140);
-        const prefix = previewStart > 0 ? "\u2026" : "";
-        const suffix = previewEnd < section.text.length ? "\u2026" : "";
-        return {
-          sectionUuid: section.sectionUuid,
-          title: section.sectionTitle || section.articleTitle || "Matched section",
-          subtitle: section.articleTitle || "Text match",
-          preview: `${prefix}${section.text.slice(previewStart, previewEnd)}${suffix}`,
-        };
-      });
+    return textSections.flatMap((section) => {
+      const matchIndex = section.lowerText.indexOf(normalizedTextQuery);
+      if (matchIndex === -1) return [];
+      const previewStart = Math.max(0, matchIndex - 40);
+      const previewEnd = Math.min(section.text.length, matchIndex + 140);
+      const prefix = previewStart > 0 ? "\u2026" : "";
+      const suffix = previewEnd < section.text.length ? "\u2026" : "";
+      return {
+        sectionUuid: section.sectionUuid,
+        title: section.sectionTitle || section.articleTitle || "Matched section",
+        subtitle: section.articleTitle || "Text match",
+        preview: `${prefix}${section.text.slice(previewStart, previewEnd)}${suffix}`,
+      };
+    });
   }, [isTextQueryActive, normalizedTextQuery, textSections]);
 
   const sectionTypeOptions = useMemo(() => {
@@ -525,6 +573,15 @@ export function AgreementReader({
     : sectionTypeMatches.slice(0, 50);
   const matchCount = isTextQueryActive ? textMatches.length : null;
 
+  const targetIndustryDisplay = formatNaicsIndustry(
+    naicsLabelByCode,
+    agreement?.target_industry,
+  );
+  const acquirerIndustryDisplay = formatNaicsIndustry(
+    naicsLabelByCode,
+    agreement?.acquirer_industry,
+  );
+
   const metadata = [
     { label: "Target", value: formatTextValue(agreement?.target) },
     { label: "Acquirer", value: formatTextValue(agreement?.acquirer) },
@@ -537,8 +594,8 @@ export function AgreementReader({
     { label: "Purpose", value: formatEnumValue(agreement?.purpose) },
     { label: "Consideration", value: formatEnumValue(agreement?.transaction_consideration) },
     { label: "Value", value: formatCompactCurrencyValue(agreement?.transaction_price_total) },
-    { label: "Target industry", value: formatTextValue(agreement?.target_industry) },
-    { label: "Acquirer industry", value: formatTextValue(agreement?.acquirer_industry) },
+    { label: "Target industry", value: formatTextValue(targetIndustryDisplay) },
+    { label: "Acquirer industry", value: formatTextValue(acquirerIndustryDisplay) },
     { label: "Target PE", value: formatBooleanValue(agreement?.target_pe) },
     { label: "Acquirer PE", value: formatBooleanValue(agreement?.acquirer_pe) },
   ];
@@ -633,11 +690,14 @@ export function AgreementReader({
       value: formatDateValue(agreement.filing_date),
     });
   }
-  if (agreement.target_industry) {
+  // target_industry is a raw NAICS code on this surface (e.g. "325");
+  // formatNaicsIndustry resolves it to a label and returns null on a lookup
+  // miss — skip the chip rather than show an opaque code.
+  if (targetIndustryDisplay) {
     headerFacts.push({
       icon: Building2,
       label: "Industry",
-      value: agreement.target_industry,
+      value: targetIndustryDisplay,
     });
   }
 
@@ -649,11 +709,26 @@ export function AgreementReader({
       onSectionTypeChange={setSectionType}
       sectionTypeOptions={sectionTypeOptions}
       jumpItems={jumpItems}
-      activeSectionUuid={highlightedSection}
+      activeSectionUuid={spyActiveId}
       onJumpToSection={scrollToSection}
       matchCount={matchCount}
       isTextQueryActive={isTextQueryActive}
     />
+  );
+
+  // A failed section index only degrades the section-type filter; text search
+  // and the Details tab work without it, so surface the error inside the
+  // Search tab instead of blanking the whole panel.
+  const readerSearchPanel = sectionIndexError ? (
+    <div className="space-y-4">
+      <Alert variant="destructive">
+        <AlertTitle>Section index unavailable</AlertTitle>
+        <AlertDescription>{sectionIndexError}</AlertDescription>
+      </Alert>
+      {readerSearch}
+    </div>
+  ) : (
+    readerSearch
   );
 
   const readerDetails = (
@@ -672,7 +747,7 @@ export function AgreementReader({
       {/* Sticky header */}
       <div
         ref={headerRef}
-        className="sticky top-16 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        className="sticky top-16 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 print:hidden"
       >
         <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
           {/* Single row: back | title+subtitle | SEC filing */}
@@ -808,6 +883,7 @@ export function AgreementReader({
                       <TableOfContents
                         xmlContent={agreement.xml}
                         targetSectionUuid={highlightedSection ?? undefined}
+                        activeItemId={spyActiveId}
                         onSectionClick={scrollToSection}
                         onAnchorClick={scrollToAnchor}
                         className="h-full"
@@ -841,7 +917,7 @@ export function AgreementReader({
                           <TabsTrigger value="details">Details</TabsTrigger>
                         </TabsList>
                         <TabsContent value="search" className="mt-4">
-                          {readerSearch}
+                          {readerSearchPanel}
                         </TabsContent>
                         <TabsContent value="details" className="mt-4">
                           {readerDetails}
@@ -854,7 +930,7 @@ export function AgreementReader({
               {agreement.is_redacted ? (
                 <Alert className="border-amber-500/30 bg-amber-500/5 py-2.5 text-amber-900 dark:text-amber-100">
                   <FileSearch className="h-4 w-4" aria-hidden="true" />
-                  <AlertTitle className="text-sm">Limited agreement text</AlertTitle>
+                  <AlertTitle as="h2" className="text-sm">Limited agreement text</AlertTitle>
                   <AlertDescription className="text-xs">
                     Full-text access is limited in anonymous mode. Your matched section
                     stays in view, but some surrounding text may be redacted.
@@ -870,7 +946,7 @@ export function AgreementReader({
           onClick={() => setHeaderCollapsed((v) => !v)}
           aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
           aria-expanded={!headerCollapsed}
-          className="group flex min-h-[22px] w-full items-center justify-center gap-1.5 border-t border-border bg-muted/40 py-0 text-muted-foreground/60 transition-colors hover:bg-muted/70 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="group flex min-h-[22px] w-full items-center justify-center gap-1.5 border-t border-border bg-muted/40 py-0 text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <div className="h-px w-8 rounded-full bg-current transition-colors" aria-hidden="true" />
           <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide">
@@ -890,11 +966,14 @@ export function AgreementReader({
         </button>
       </div>
 
-      {/* Main layout */}
-      <main
+      {/* Main layout (a <section>: AppLayout already renders the page's main landmark) */}
+      <section
         aria-labelledby="agreement-reader-title"
         className={cn(
           "mx-auto grid max-w-[1600px] gap-6 px-4 sm:px-6 lg:px-8",
+          // Print: sidebars and header chrome are hidden, so drop the grid and
+          // let the document column take the full page width.
+          "print:block print:max-w-none print:px-0 print:py-0",
           headerCollapsed ? "py-3" : "py-6 sm:py-8",
           !isMobile &&
             (leftOpen && rightOpen
@@ -911,7 +990,7 @@ export function AgreementReader({
           <aside
             aria-label="Table of contents"
             className={cn(
-              "sticky self-start",
+              "sticky self-start print:hidden",
               leftOpen ? "overflow-y-auto" : "overflow-visible",
             )}
             style={{
@@ -941,6 +1020,7 @@ export function AgreementReader({
                 <TableOfContents
                   xmlContent={agreement.xml}
                   targetSectionUuid={highlightedSection ?? undefined}
+                  activeItemId={spyActiveId}
                   onSectionClick={scrollToSection}
                   onAnchorClick={scrollToAnchor}
                   scrollable={false}
@@ -969,24 +1049,28 @@ export function AgreementReader({
         {/* Center: document */}
         <div className="min-w-0">
           <article
-            className="rounded-lg border border-border bg-card shadow-sm"
+            className="rounded-lg border border-border bg-card shadow-sm print:rounded-none print:border-none print:shadow-none"
             aria-labelledby="agreement-reader-title"
           >
             <div
               ref={contentRef}
-              className="agreement-reader-content max-h-none overflow-visible p-4 sm:p-8 lg:px-10"
+              className="agreement-reader-content max-h-none overflow-visible p-4 sm:p-8 lg:px-10 print:p-0"
             >
-              <XMLRenderer
-                xmlContent={agreement.xml}
-                mode="agreement"
-                highlightedSection={highlightedSection}
-                isMobile={isMobile}
-                className={cn(
-                  "leading-relaxed text-foreground break-words",
-                  agreementTextSizeClass,
-                )}
-                showBodyOnly={showBodyOnly}
-              />
+              {/* ~75ch measure keeps desktop line length readable even with
+                  both sidebars collapsed. */}
+              <div className="mx-auto w-full min-w-0 max-w-[75ch] print:max-w-none">
+                <XMLRenderer
+                  xmlContent={agreement.xml}
+                  mode="agreement"
+                  highlightedSection={highlightedSection}
+                  isMobile={isMobile}
+                  className={cn(
+                    "leading-relaxed text-foreground break-words",
+                    agreementTextSizeClass,
+                  )}
+                  showBodyOnly={showBodyOnly}
+                />
+              </div>
             </div>
           </article>
         </div>
@@ -996,7 +1080,7 @@ export function AgreementReader({
           <aside
             aria-label="Search and details"
             className={cn(
-              "sticky self-start",
+              "sticky self-start print:hidden",
               rightOpen ? "overflow-y-auto" : "overflow-visible",
             )}
             style={{
@@ -1011,11 +1095,6 @@ export function AgreementReader({
                     <LoadingSpinner aria-label="Loading agreement index" />
                   </div>
                 </div>
-              ) : sectionIndexError ? (
-                <Alert variant="destructive">
-                  <AlertTitle>Section index unavailable</AlertTitle>
-                  <AlertDescription>{sectionIndexError}</AlertDescription>
-                </Alert>
               ) : (
                 <div className="rounded-xl border border-border bg-card shadow-sm">
                   <Tabs
@@ -1039,7 +1118,7 @@ export function AgreementReader({
                       </button>
                     </div>
                     <TabsContent value="search" className="m-0 p-4">
-                      {readerSearch}
+                      {readerSearchPanel}
                     </TabsContent>
                     <TabsContent value="details" className="m-0 p-4">
                       {readerDetails}
@@ -1066,7 +1145,7 @@ export function AgreementReader({
             )}
           </aside>
         ) : null}
-      </main>
+      </section>
     </div>
   );
 }

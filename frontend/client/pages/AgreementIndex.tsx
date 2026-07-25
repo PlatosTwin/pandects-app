@@ -53,7 +53,7 @@ import { useAgreementSummary } from "@/hooks/use-agreement-summary";
 import { cn } from "@/lib/utils";
 import { scheduleWhenBrowserIdle } from "@/lib/analytics";
 import { Link } from "react-router-dom";
-import brandLinks from "@branding/links.json";
+import { getDocsUrl } from "@/lib/docs-url";
 
 const AgreementIndexOverview = lazy(() =>
   import("@/components/AgreementIndexOverview").then((mod) => ({
@@ -118,7 +118,7 @@ const summaryCards = [
   },
 ] as const;
 export default function AgreementIndex() {
-  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const docsUrl = getDocsUrl();
   const [isPending, startPageTransition] = useTransition();
   const {
     summary,
@@ -304,10 +304,10 @@ export default function AgreementIndex() {
               key={card.key}
               className="relative overflow-hidden border-border bg-gradient-to-br from-background via-background to-muted/40 shadow-sm"
             >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] opacity-70" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.18),_transparent_55%)] opacity-70" />
               <CardContent className="relative flex min-h-[7.25rem] items-center gap-3.5 p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
-                  <Icon className="h-4.5 w-4.5" aria-hidden="true" />
+                  <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -613,10 +613,11 @@ export default function AgreementIndex() {
                       </TableCell>
                       <TableCell className="text-right">
                         {agreement.verified ? (
-                          <span
+                          <Badge
+                            variant="success"
+                            className="justify-end gap-1"
                             title="This agreement has been verified by hand."
                             aria-label="Verified agreement. This agreement has been verified by hand."
-                            className="inline-flex items-center justify-end gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20"
                           >
                             <BadgeCheck
                               className="h-3.5 w-3.5"
@@ -625,7 +626,7 @@ export default function AgreementIndex() {
                             <span className="hidden sm:inline">
                               Verified
                             </span>
-                          </span>
+                          </Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground">
                             —
@@ -678,13 +679,13 @@ export default function AgreementIndex() {
                         {formatYear(agreement.year)}
                       </Badge>
                       {agreement.verified ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20">
+                        <Badge variant="success" className="gap-1">
                           <BadgeCheck
                             className="h-3.5 w-3.5"
                             aria-hidden="true"
                           />
                           Verified
-                        </span>
+                        </Badge>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
@@ -741,6 +742,8 @@ export default function AgreementIndex() {
                 <PaginationItem>
                   <PaginationPrevious
                     href="#"
+                    aria-disabled={page === 1 || undefined}
+                    tabIndex={page === 1 ? -1 : undefined}
                     onClick={(event) => {
                       event.preventDefault();
                       if (page > 1) {
@@ -780,6 +783,8 @@ export default function AgreementIndex() {
                 <PaginationItem>
                   <PaginationNext
                     href="#"
+                    aria-disabled={page === total_pages || undefined}
+                    tabIndex={page === total_pages ? -1 : undefined}
                     onClick={(event) => {
                       event.preventDefault();
                       if (page < total_pages) {

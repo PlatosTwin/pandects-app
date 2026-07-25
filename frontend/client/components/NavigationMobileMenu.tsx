@@ -8,7 +8,9 @@ import logo256Png from "../../assets/logo-256.png";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
-import brandLinks from "@branding/links.json";
+import { getDocsUrl } from "@/lib/docs-url";
+import { ABOUT_LINKS, DATA_LINKS } from "@/components/navigation-links";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   Sheet,
   SheetClose,
@@ -32,8 +34,7 @@ function AuthMenuFallback() {
 function NavigationMobileMenuComponent() {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
-  const docsHomeUrl = `${docsUrl}/docs/guides/getting-started`;
+  const docsHomeUrl = `${getDocsUrl()}/docs/guides/getting-started`;
   const isActive = (path: string) => location.pathname === path;
   const navLinkBase =
     "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
@@ -46,30 +47,12 @@ function NavigationMobileMenuComponent() {
     ],
     [docsHomeUrl],
   );
-  const aboutLinks = useMemo(
-    () => [
-      { to: "/about", label: "About" },
-      { to: "/feedback", label: "Feedback" },
-      { to: "/support", label: "Support" },
-    ],
-    [],
-  );
-  const dataLinks = useMemo(
-    () => [
-      { type: "link", to: "/bulk-data", label: "Bulk Data" },
-      { type: "link", to: "/agreement-index", label: "Agreement Index" },
-      { type: "link", to: "/sources-methods", label: "Sources & Methods" },
-      { type: "link", to: "/xml-schema", label: "XML Schema" },
-      { type: "link", to: "/taxonomy", label: "Taxonomy" },
-      { type: "separator", key: "data-divider-1" },
-      { type: "link", to: "/leaderboards", label: "Leaderboards" },
-      { type: "link", to: "/trends-analyses", label: "Trends & Analyses" },
-    ] as const,
-    [],
-  );
 
   return (
     <div className="flex items-center md:hidden">
+      <div className="mr-1">
+        <ThemeToggle />
+      </div>
       <div className="mr-2">
         <Suspense fallback={<AuthMenuFallback />}>
           <AuthMenu />
@@ -147,7 +130,7 @@ function NavigationMobileMenuComponent() {
                           navLinkBase,
                           isActive(link.to)
                             ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                            : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                         )}
                       >
                         {link.label}
@@ -162,7 +145,7 @@ function NavigationMobileMenuComponent() {
                   Data
                 </div>
                 <div className="grid gap-1">
-                  {dataLinks.map((item) =>
+                  {DATA_LINKS.map((item) =>
                     item.type === "separator" ? (
                       <div
                         key={item.key}
@@ -186,7 +169,7 @@ function NavigationMobileMenuComponent() {
                             "pl-4",
                             isActive(item.to)
                               ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                              : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                           )}
                         >
                           {item.label}
@@ -202,7 +185,7 @@ function NavigationMobileMenuComponent() {
                   Project
                 </div>
                 <div className="grid gap-1">
-                  {aboutLinks.map((link) => (
+                  {ABOUT_LINKS.map((link) => (
                     <SheetClose asChild key={link.to}>
                       <Link
                         to={link.to}
@@ -219,7 +202,7 @@ function NavigationMobileMenuComponent() {
                           "pl-4",
                           isActive(link.to)
                             ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                            : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                         )}
                       >
                         {link.label}

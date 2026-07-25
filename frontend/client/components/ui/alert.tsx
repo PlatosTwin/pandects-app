@@ -10,7 +10,7 @@ const alertVariants = cva(
       variant: {
         default: "bg-background text-foreground",
         destructive:
-          "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+          "border-destructive/50 text-destructive dark:border-destructive dark:text-red-400 [&>svg]:text-destructive dark:[&>svg]:text-red-400",
       },
     },
     defaultVariants: {
@@ -33,12 +33,20 @@ const Alert = React.forwardRef<
 Alert.displayName = "Alert";
 
 const AlertTitle = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
-  <h5
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement> & {
+    /** Heading level; pick so the page's heading outline has no skips. */
+    as?: "h2" | "h3" | "h4" | "h5";
+  }
+>(({ className, as: Heading = "h5", ...props }, ref) => (
+  <Heading
     ref={ref}
-    className={cn("mb-1 font-medium leading-none tracking-tight", className)}
+    // text-[0.83em] pins the h5 UA size so changing the level (or the base
+    // h2/h3 styles) cannot change the look; callers can still override it.
+    className={cn(
+      "mb-1 text-[0.83em] font-medium leading-none tracking-tight",
+      className,
+    )}
     {...props}
   />
 ));

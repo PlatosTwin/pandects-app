@@ -3,7 +3,9 @@ import { ChevronDown } from "lucide-react";
 import { Suspense, lazy, memo, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
-import brandLinks from "@branding/links.json";
+import { getDocsUrl } from "@/lib/docs-url";
+import { ABOUT_LINKS, DATA_LINKS } from "@/components/navigation-links";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,26 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-// Pure constants — hoisted out of the component so the array identity is
-// stable across renders without needing useMemo(..., []).
-type AboutLink = { to: string; label: string; pandaTarget?: string };
-const ABOUT_LINKS: readonly AboutLink[] = [
-  { to: "/about", label: "About", pandaTarget: "nav-about" },
-  { to: "/feedback", label: "Feedback" },
-  { to: "/support", label: "Support", pandaTarget: "nav-support" },
-];
-
-const DATA_LINKS = [
-  { type: "link", to: "/bulk-data", label: "Bulk Data", pandaTarget: "nav-bulk-data" },
-  { type: "link", to: "/agreement-index", label: "Agreement Index" },
-  { type: "link", to: "/sources-methods", label: "Sources & Methods" },
-  { type: "link", to: "/xml-schema", label: "XML Schema" },
-  { type: "link", to: "/taxonomy", label: "Taxonomy" },
-  { type: "separator", key: "data-divider-1" },
-  { type: "link", to: "/leaderboards", label: "Leaderboards" },
-  { type: "link", to: "/trends-analyses", label: "Trends & Analyses" },
-] as const;
 
 const DATA_NAV_LINKS = DATA_LINKS.filter((item) => item.type === "link");
 
@@ -46,8 +28,7 @@ function AuthMenuFallback() {
 
 function NavigationDesktopMenusComponent() {
   const location = useLocation();
-  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
-  const docsHomeUrl = `${docsUrl}/docs/guides/getting-started`;
+  const docsHomeUrl = `${getDocsUrl()}/docs/guides/getting-started`;
   const isActive = (path: string) => location.pathname === path;
   const navLinkBase =
     "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
@@ -110,7 +91,7 @@ function NavigationDesktopMenusComponent() {
                 navLinkBase,
                 isActive(link.to)
                   ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
               )}
             >
               {link.label}
@@ -127,7 +108,7 @@ function NavigationDesktopMenusComponent() {
                 "inline-flex items-center gap-1",
                 isDataActive
                   ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
               )}
             >
               Data
@@ -150,7 +131,11 @@ function NavigationDesktopMenusComponent() {
                       })
                     }
                     aria-current={isActive(item.to) ? "page" : undefined}
-                    className="text-foreground"
+                    className={cn(
+                      isActive(item.to)
+                        ? "bg-primary/10 font-medium text-primary"
+                        : "text-foreground",
+                    )}
                   >
                     {item.label}
                   </Link>
@@ -169,7 +154,7 @@ function NavigationDesktopMenusComponent() {
                 "inline-flex items-center gap-1",
                 isAboutActive
                   ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
               )}
             >
               Project
@@ -190,7 +175,11 @@ function NavigationDesktopMenusComponent() {
                     })
                   }
                   aria-current={isActive(link.to) ? "page" : undefined}
-                  className="text-foreground"
+                  className={cn(
+                    isActive(link.to)
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-foreground",
+                  )}
                 >
                   {link.label}
                 </Link>
@@ -200,7 +189,8 @@ function NavigationDesktopMenusComponent() {
         </DropdownMenu>
       </div>
 
-      <div className="ml-2">
+      <div className="ml-2 flex items-center gap-1">
+        <ThemeToggle />
         <Suspense fallback={<AuthMenuFallback />}>
           <AuthMenu />
         </Suspense>

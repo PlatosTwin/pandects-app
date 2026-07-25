@@ -63,7 +63,11 @@ export function AdaptiveTooltip({
     return (
       <Popover>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-        <PopoverContent {...popoverProps}>{content}</PopoverContent>
+        {/* Radix popovers render role="dialog", which axe requires to be
+            named; callers can override via popoverProps["aria-label"]. */}
+        <PopoverContent aria-label="More information" {...popoverProps}>
+          {content}
+        </PopoverContent>
       </Popover>
     );
   }

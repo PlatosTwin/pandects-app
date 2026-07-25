@@ -10,8 +10,8 @@ function FooterComponent() {
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs leading-relaxed text-muted-foreground sm:justify-start sm:text-left">
-            <span className="hidden sm:inline">© {currentYear} Nikita Bogdanov</span>
-            <span aria-hidden="true" className="hidden opacity-60 sm:inline">
+            <span>© {currentYear} Nikita Bogdanov</span>
+            <span aria-hidden="true" className="opacity-60">
               •
             </span>
             <nav aria-label="Legal" className="flex items-center gap-x-3 whitespace-nowrap">
@@ -46,7 +46,7 @@ function FooterComponent() {
             href="https://github.com/PlatosTwin/pandects-app"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
+            className="inline-flex rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             title="View source code on GitHub"
             aria-label="View source code on GitHub"
           >

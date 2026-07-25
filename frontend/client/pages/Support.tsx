@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/PageShell";
+import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
@@ -89,30 +90,6 @@ function HelpCard({
     <Link to={to!} className={helpCardClass}>
       {body}
     </Link>
-  );
-}
-
-function SectionHeader({
-  number,
-  title,
-  id,
-}: {
-  number: string;
-  title: string;
-  id: string;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
-        {number}
-      </span>
-      <h2
-        id={id}
-        className="text-2xl font-semibold tracking-tight text-foreground"
-      >
-        {title}
-      </h2>
-    </div>
   );
 }
 

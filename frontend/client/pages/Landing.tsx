@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { FeaturedAgreements } from "@/components/FeaturedAgreements";
 import { useAgreementSummary } from "@/hooks/use-agreement-summary";
 import { formatNumber } from "@/lib/format-utils";
-import brandLinks from "@branding/links.json";
+import { getDocsUrl } from "@/lib/docs-url";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const LATEST_FILING_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -27,7 +27,7 @@ function formatLatestFiling(value: string | null): string | null {
 }
 
 export default function Landing() {
-  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const docsUrl = getDocsUrl();
   const { summary } = useAgreementSummary();
   const liveStats = useMemo(() => {
     if (!summary) return null;

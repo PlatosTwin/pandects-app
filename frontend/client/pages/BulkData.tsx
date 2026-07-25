@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
-import brandLinks from "@branding/links.json";
 import { API_BASE_URL, apiUrl } from "@/lib/api-config";
+import { getDocsUrl } from "@/lib/docs-url";
 import { authFetch } from "@/lib/auth-fetch";
 import { trackEvent } from "@/lib/analytics";
 import { logger } from "@/lib/logger";
@@ -38,11 +38,110 @@ interface DumpInfo {
   warning?: string;
 }
 
+const downloadManifest = async (url: string) => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      trackEvent("api_error", {
+        endpoint: "bulk/manifest",
+        status: res.status,
+      });
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const filename = url.split("/").pop()!;
+    const link = document.createElement("a");
+    const objectUrl = URL.createObjectURL(blob);
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      logger.error("Failed to download manifest", e);
+    }
+    trackEvent("api_error", {
+      endpoint: "bulk/manifest",
+      kind:
+        e instanceof TypeError && e.message.includes("fetch")
+          ? "network"
+          : "unknown",
+    });
+  }
+};
+
+function ShaCopyButton({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={onCopy}
+      className="h-7 w-7"
+      title="Copy SHA256"
+      aria-label="Copy SHA256"
+    >
+      {copied ? (
+        <Check className="w-3 h-3 text-primary" aria-hidden="true" />
+      ) : (
+        <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+      )}
+    </Button>
+  );
+}
+
+function DumpActions({ dump, className }: { dump: DumpInfo; className: string }) {
+  const trackDownload = (downloadType: "sql" | "manifest") => {
+    trackEvent("bulk_download_click", {
+      download_type: downloadType,
+      dump_version: dump.timestamp,
+      is_latest: dump.timestamp === "latest",
+    });
+    if (dump.timestamp !== "latest") {
+      trackEvent("bulk_dated_download_click", {
+        download_type: downloadType,
+        dump_version: dump.timestamp,
+      });
+    }
+  };
+
+  return (
+    <div className={className}>
+      <Button asChild variant="outline" size="sm">
+        <a
+          href={dump.sql}
+          onClick={() => trackDownload("sql")}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Download SQL (opens in a new tab)"
+        >
+          Download SQL
+        </a>
+      </Button>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          trackDownload("manifest");
+          void downloadManifest(dump.manifest);
+        }}
+      >
+        Manifest
+      </Button>
+    </div>
+  );
+}
+
 export default function BulkData() {
-  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const docsUrl = getDocsUrl();
   const [dumps, setDumps] = useState<DumpInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fetchAttempt, setFetchAttempt] = useState(0);
   const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>(
     {},
   );
@@ -112,7 +211,7 @@ export default function BulkData() {
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [fetchAttempt]);
 
   const formatTimestamp = (timestamp: string): string => {
     if (timestamp === "latest") {
@@ -164,44 +263,10 @@ export default function BulkData() {
     return `${sha256.slice(0, 12)}…${sha256.slice(-12)}`;
   };
 
-  const downloadManifest = async (url: string) => {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) {
-        trackEvent("api_error", {
-          endpoint: "bulk/manifest",
-          status: res.status,
-        });
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const blob = await res.blob();
-      const filename = url.split("/").pop()!;
-      const link = document.createElement("a");
-      const objectUrl = URL.createObjectURL(blob);
-      link.href = objectUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-    } catch (e) {
-      if (import.meta.env.DEV) {
-        logger.error("Failed to download manifest", e);
-      }
-      trackEvent("api_error", {
-        endpoint: "bulk/manifest",
-        kind:
-          e instanceof TypeError && e.message.includes("fetch")
-            ? "network"
-            : "unknown",
-      });
-    }
-  };
-
   return (
       <PageShell
       size="xl"
-      title="Bulk Data Downloads"
+      title="Bulk Data"
     >
       {/* Demo Code Blocks */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -380,7 +445,19 @@ export default function BulkData() {
           </div>
         ) : error ? (
           <div className="p-8 text-center" role="alert">
-            <p className="text-destructive">{error}</p>
+            <p className="text-foreground/90">
+              Could not load the list of downloads. Check your connection and
+              try again.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => setFetchAttempt((attempt) => attempt + 1)}
+            >
+              Try again
+            </Button>
           </div>
         ) : (
           <>
@@ -403,8 +480,8 @@ export default function BulkData() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border">
-                  {dumps.map((dump, index) => (
-                    <TableRow key={index} className="hover:bg-muted/40">
+                  {dumps.map((dump) => (
+                    <TableRow key={dump.timestamp} className="hover:bg-muted/40">
                       <TableCell className="px-6 py-4 whitespace-nowrap">
                         <div className="flex flex-col">
                           <span className="font-medium text-foreground">
@@ -431,23 +508,12 @@ export default function BulkData() {
                               {formatSha256(dump.sha256)}
                             </span>
                           </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              copyToClipboard(dump.sha256, `sha-${index}`)
+                          <ShaCopyButton
+                            copied={!!copiedStates[`sha-${dump.timestamp}`]}
+                            onCopy={() =>
+                              copyToClipboard(dump.sha256, `sha-${dump.timestamp}`)
                             }
-                            className="h-7 w-7"
-                            title="Copy SHA256"
-                            aria-label="Copy SHA256"
-                          >
-                            {copiedStates[`sha-${index}`] ? (
-                              <Check className="w-3 h-3 text-primary" aria-hidden="true" />
-                            ) : (
-                              <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-                            )}
-                          </Button>
+                          />
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap">
@@ -456,53 +522,7 @@ export default function BulkData() {
                         </span>
                       </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex space-x-2">
-                          <Button asChild variant="outline" size="sm">
-                            <a
-                              href={dump.sql}
-                              onClick={() => {
-                                trackEvent("bulk_download_click", {
-                                  download_type: "sql",
-                                  dump_version: dump.timestamp,
-                                  is_latest: dump.timestamp === "latest",
-                                });
-                                if (dump.timestamp !== "latest") {
-                                  trackEvent("bulk_dated_download_click", {
-                                    download_type: "sql",
-                                    dump_version: dump.timestamp,
-                                  });
-                                }
-                              }}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label="Download SQL (opens in a new tab)"
-                            >
-                              Download SQL
-                            </a>
-                          </Button>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              trackEvent("bulk_download_click", {
-                                download_type: "manifest",
-                                dump_version: dump.timestamp,
-                                is_latest: dump.timestamp === "latest",
-                              });
-                              if (dump.timestamp !== "latest") {
-                                trackEvent("bulk_dated_download_click", {
-                                  download_type: "manifest",
-                                  dump_version: dump.timestamp,
-                                });
-                              }
-                              void downloadManifest(dump.manifest);
-                            }}
-                          >
-                            Manifest
-                          </Button>
-                        </div>
+                        <DumpActions dump={dump} className="flex space-x-2" />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -511,8 +531,8 @@ export default function BulkData() {
             </div>
 
             <div className="lg:hidden p-4 space-y-4">
-              {dumps.map((dump, index) => (
-                <Card key={`mobile-${index}`} className="border-border">
+              {dumps.map((dump) => (
+                <Card key={dump.timestamp} className="border-border">
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -544,71 +564,15 @@ export default function BulkData() {
                         <span className="font-mono text-xs text-foreground/90">
                           {formatSha256(dump.sha256)}
                         </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() =>
-                            copyToClipboard(dump.sha256, `sha-${index}`)
+                        <ShaCopyButton
+                          copied={!!copiedStates[`sha-${dump.timestamp}`]}
+                          onCopy={() =>
+                            copyToClipboard(dump.sha256, `sha-${dump.timestamp}`)
                           }
-                          className="h-7 w-7"
-                          title="Copy SHA256"
-                          aria-label="Copy SHA256"
-                        >
-                          {copiedStates[`sha-${index}`] ? (
-                            <Check className="w-3 h-3 text-primary" aria-hidden="true" />
-                          ) : (
-                            <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-                          )}
-                        </Button>
+                        />
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button asChild variant="outline" size="sm">
-                        <a
-                          href={dump.sql}
-                          onClick={() => {
-                            trackEvent("bulk_download_click", {
-                              download_type: "sql",
-                              dump_version: dump.timestamp,
-                              is_latest: dump.timestamp === "latest",
-                            });
-                            if (dump.timestamp !== "latest") {
-                              trackEvent("bulk_dated_download_click", {
-                                download_type: "sql",
-                                dump_version: dump.timestamp,
-                              });
-                            }
-                          }}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label="Download SQL (opens in a new tab)"
-                        >
-                          Download SQL
-                        </a>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          trackEvent("bulk_download_click", {
-                            download_type: "manifest",
-                            dump_version: dump.timestamp,
-                            is_latest: dump.timestamp === "latest",
-                          });
-                          if (dump.timestamp !== "latest") {
-                            trackEvent("bulk_dated_download_click", {
-                              download_type: "manifest",
-                              dump_version: dump.timestamp,
-                            });
-                          }
-                          void downloadManifest(dump.manifest);
-                        }}
-                      >
-                        Manifest
-                      </Button>
-                    </div>
+                    <DumpActions dump={dump} className="flex flex-wrap gap-2" />
                   </CardContent>
                 </Card>
               ))}

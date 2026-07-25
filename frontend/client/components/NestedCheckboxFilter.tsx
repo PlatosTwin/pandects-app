@@ -380,7 +380,7 @@ export function NestedCheckboxFilter({
                     <span className="break-words">{result.key}</span>
                     {result.path.length > 0 && (
                       <span className="break-words text-xs text-muted-foreground">
-                        {result.path.join(" 92 ")}
+                        {result.path.join(" › ")}
                       </span>
                     )}
                   </div>
@@ -524,7 +524,11 @@ export function NestedCheckboxFilter({
               />
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-[420px] p-4">
+          <PopoverContent
+            align="start"
+            aria-labelledby={labelId}
+            className="w-[420px] p-4"
+          >
             {content}
           </PopoverContent>
         </Popover>

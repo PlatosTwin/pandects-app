@@ -15,11 +15,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import {
+  DEAL_TYPE_COLORS,
+  DEAL_TYPE_FALLBACK_COLORS,
+} from "@/lib/chart-palette";
+import {
   formatDateValue,
   formatEnumValue,
   formatNumberValue,
 } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
+import { buildYearAxisGuides } from "@/lib/year-axis";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const ProcessingStatusChart = lazy(() =>
@@ -52,15 +57,6 @@ const DEAL_TYPE_DISPLAY_ORDER = [
   "tender_offer",
   "unknown",
 ];
-
-const DEAL_TYPE_COLORS: Record<string, string> = {
-  merger: "hsl(212 93% 50%)",
-  stock_acquisition: "hsl(170 84% 36%)",
-  asset_acquisition: "hsl(35 92% 52%)",
-  membership_interest_purchase: "hsl(196 83% 42%)",
-  tender_offer: "hsl(0 84% 60%)",
-  unknown: "hsl(220 9% 60%)",
-};
 
 type AgreementStatusYearRow = {
   year: number;
@@ -626,19 +622,13 @@ export function AgreementIndexOverview() {
     stagedYearRange !== null &&
     stagedYearRange.minYear <= 2020 &&
     stagedYearRange.maxYear >= 2021;
-  const stagedYearTicks = useMemo(() => {
-    if (!stagedYearRange) return undefined;
-    const start = 2000;
-    const end = stagedYearRange.maxYear;
-    const availableYears = new Set(stagedChartData.map((row) => row.year));
-    const ticks: number[] = [];
-    for (let year = start; year <= end; year += 5) {
-      if (year >= stagedYearRange.minYear && availableYears.has(year)) {
-        ticks.push(year);
-      }
-    }
-    return ticks.length ? ticks : undefined;
-  }, [stagedChartData, stagedYearRange]);
+  const stagedYearTicks = useMemo(
+    () =>
+      stagedChartData.length > 0
+        ? buildYearAxisGuides(stagedChartData).majorYears
+        : undefined,
+    [stagedChartData],
+  );
   const dealTypeSeries = useMemo<DealTypeSeries[]>(() => {
     const totalsByType = new Map<string, number>();
     dealTypeSummary.forEach((row) => {
@@ -661,7 +651,7 @@ export function AgreementIndexOverview() {
       label: formatDealTypeLabel(dealType),
       color:
         DEAL_TYPE_COLORS[dealType] ??
-        (index % 2 === 0 ? "hsl(226 80% 58%)" : "hsl(191 82% 45%)"),
+        DEAL_TYPE_FALLBACK_COLORS[index % DEAL_TYPE_FALLBACK_COLORS.length],
       total: totalsByType.get(dealType) ?? 0,
     }));
   }, [dealTypeSummary]);
@@ -718,19 +708,13 @@ export function AgreementIndexOverview() {
     dealTypeYearRange !== null &&
     dealTypeYearRange.minYear <= 2020 &&
     dealTypeYearRange.maxYear >= 2021;
-  const dealTypeYearTicks = useMemo(() => {
-    if (!dealTypeYearRange) return undefined;
-    const start = 2000;
-    const end = dealTypeYearRange.maxYear;
-    const availableYears = new Set(dealTypeChartData.map((row) => row.year));
-    const ticks: number[] = [];
-    for (let year = start; year <= end; year += 5) {
-      if (year >= dealTypeYearRange.minYear && availableYears.has(year)) {
-        ticks.push(year);
-      }
-    }
-    return ticks.length ? ticks : undefined;
-  }, [dealTypeChartData, dealTypeYearRange]);
+  const dealTypeYearTicks = useMemo(
+    () =>
+      dealTypeChartData.length > 0
+        ? buildYearAxisGuides(dealTypeChartData).majorYears
+        : undefined,
+    [dealTypeChartData],
+  );
   const stageSummaryRows = useMemo(() => {
     const stageOrder = [
       { key: "0_staging", label: "Staging" },

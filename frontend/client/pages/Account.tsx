@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import {
   createApiKey,
   deleteAccount,
@@ -47,7 +47,7 @@ import {
   prewarmAuthBackend,
   withAuthWakeRetry,
 } from "@/lib/auth-wake";
-import brandLinks from "@branding/links.json";
+import { getDocsUrl } from "@/lib/docs-url";
 
 type UsageChartPoint = {
   day: string;
@@ -62,7 +62,7 @@ const USAGE_RANGE_WINDOW_DAYS: Record<Exclude<UsagePeriod, "all">, number> = {
 };
 
 const API_KEY_DELETE_ICON_BUTTON_CLASS =
-  "h-9 w-9 shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive";
+  "h-9 w-9 shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive dark:text-red-400 dark:hover:text-red-400";
 
 const USAGE_RANGE_LABELS: Record<UsagePeriod, string> = {
   "1w": "1 week",
@@ -97,7 +97,7 @@ const CODEX_MCP_COMMAND = `codex mcp add pandects --url ${PANDECTS_MCP_URL}`;
 const CODEX_MCP_LOGIN_COMMAND = "codex mcp login pandects";
 const CLAUDE_MCP_COMMAND = `claude mcp add --transport http pandects ${PANDECTS_MCP_URL}`;
 
-type MpcClientCardProps = {
+type McpClientCardProps = {
   id: string;
   title: string;
   description: string;
@@ -129,7 +129,7 @@ function utcDayToIso(utcMs: number): string {
   return new Date(utcMs).toISOString().slice(0, 10);
 }
 
-function MpcClientCard({ id, title, description, command, copied, onCopy }: MpcClientCardProps) {
+function McpClientCard({ id, title, description, command, copied, onCopy }: McpClientCardProps) {
   const titleId = `${id}-mcp-title`;
   const descriptionId = `${id}-mcp-description`;
   const commandId = `${id}-mcp-command`;
@@ -373,7 +373,7 @@ export default function Account() {
 
   const accountDataBootstrapping = !!user && !accountDataLoaded && !accountDataError;
   const accountWakeLoading = authWakePending && !accountDataLoaded && !accountDataError;
-  const docsUrl = import.meta.env.DEV ? "http://localhost:3001" : brandLinks.docsSiteUrl;
+  const docsUrl = getDocsUrl();
   const gettingStartedDocsUrl = `${docsUrl}/docs/guides/getting-started`;
   const activeApiKeys = useMemo(() => apiKeys.filter((key) => !key.revoked_at), [apiKeys]);
   const revokedApiKeys = useMemo(() => apiKeys.filter((key) => !!key.revoked_at), [apiKeys]);
@@ -523,7 +523,7 @@ export default function Account() {
         <div className="grid gap-6">
           {redactedReminder ? (
             <Alert>
-              <AlertTitle>API access</AlertTitle>
+              <AlertTitle as="h2">API access</AlertTitle>
               <AlertDescription className="prose-copy">{redactedReminder}</AlertDescription>
             </Alert>
           ) : null}
@@ -562,7 +562,7 @@ export default function Account() {
                     href={gettingStartedDocsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-primary hover:underline"
+                    className="text-primary underline underline-offset-4"
                   >
                     docs site
                   </a>
@@ -600,12 +600,12 @@ export default function Account() {
 
             {accountWakeLoading ? (
               <Alert className="mt-4">
-                <AlertTitle>Auth service is waking up</AlertTitle>
+                <AlertTitle as="h3">Auth service is waking up</AlertTitle>
                 <AlertDescription>{AUTH_WAKEUP_MESSAGE}</AlertDescription>
               </Alert>
             ) : accountDataError ? (
               <Alert className="mt-4" variant="destructive">
-                <AlertTitle>Account data unavailable</AlertTitle>
+                <AlertTitle as="h3">Account data unavailable</AlertTitle>
                 <AlertDescription>{accountDataError}</AlertDescription>
               </Alert>
             ) : null}
@@ -864,7 +864,7 @@ export default function Account() {
               </div>
 
               <Alert className="border-border bg-muted/20 text-muted-foreground">
-                <AlertTitle className="text-sm font-semibold text-foreground/80">
+                <AlertTitle as="h3" className="text-sm font-semibold text-foreground/80">
                   MCP uses account login, not API keys
                 </AlertTitle>
                 <AlertDescription className="prose-copy">
@@ -874,7 +874,7 @@ export default function Account() {
               </Alert>
 
               <div className="grid gap-4">
-                <MpcClientCard
+                <McpClientCard
                   id="codex"
                   title="Codex"
                   description={`Run \`${CODEX_MCP_COMMAND}\` first, then run \`${CODEX_MCP_LOGIN_COMMAND}\` to start the browser auth flow.`}
@@ -887,7 +887,7 @@ export default function Account() {
                     )
                   }
                 />
-                <MpcClientCard
+                <McpClientCard
                   id="claude"
                   title="Claude Code"
                   description="Add the remote HTTP server, then run `/mcp`, authenticate the `pandects` server there, and finish the Pandects sign-in flow in the browser."
@@ -903,12 +903,12 @@ export default function Account() {
                   href={`${docsUrl}/docs/mcp/using`}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-primary hover:underline"
+                  className="text-primary underline underline-offset-4"
                   aria-label="Open the MCP guide in a new tab"
                 >
                   MCP guide
                 </a>
-                <span className="ml-1 text-xs text-muted-foreground/80">(opens in a new tab)</span>
+                <span className="ml-1 text-xs text-muted-foreground">(opens in a new tab)</span>
                 .
               </div>
             </div>
@@ -1091,7 +1091,7 @@ export default function Account() {
           </Card>
 
           <Card className="p-6">
-            <h2 className="text-xl font-semibold text-destructive">
+            <h2 className="text-xl font-semibold text-destructive dark:text-red-400">
               Delete account
             </h2>
             <p className="mt-1 text-sm prose-copy">
@@ -1184,11 +1184,19 @@ export default function Account() {
               type="button"
               onClick={() => {
                 if (!revealedKey) return;
-                void navigator.clipboard.writeText(revealedKey);
-                setTimeout(() => {
-                  setCopiedNewKey(true);
-                  toast({ title: "Copied to clipboard" });
-                }, 0);
+                void (async () => {
+                  try {
+                    await navigator.clipboard.writeText(revealedKey);
+                    setCopiedNewKey(true);
+                    toast({ title: "Copied to clipboard" });
+                  } catch (err) {
+                    toast({
+                      title: "Copy failed",
+                      description: err instanceof Error ? err.message : String(err),
+                      variant: "destructive",
+                    });
+                  }
+                })();
               }}
               className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded border border-border bg-background p-0 shadow-sm hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-8 sm:w-8"
               title="Copy to clipboard"

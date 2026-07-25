@@ -122,7 +122,16 @@ export function CheckboxFilter({
         {label}
       </label>
 
-      <Popover open={disabled ? false : open} onOpenChange={(newOpen) => !disabled && setOpen(newOpen)}>
+      <Popover
+        open={disabled ? false : open}
+        onOpenChange={(newOpen) => {
+          if (disabled) return;
+          setOpen(newOpen);
+          // Drop the search term on close so reopening shows the full list
+          // instead of a stale pre-filtered one.
+          if (!newOpen) setSearchTerm("");
+        }}
+      >
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -149,7 +158,12 @@ export function CheckboxFilter({
             />
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
+        <PopoverContent
+          align="start"
+          // Radix popovers render role="dialog"; name it after the filter.
+          aria-labelledby={labelId}
+          className="w-[--radix-popover-trigger-width] p-0"
+>
           <Command shouldFilter={!hideSearch && !asyncSearch}>
             {!hideSearch && (
               <CommandInput

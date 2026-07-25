@@ -11,6 +11,13 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
+import {
+  CHART_NEUTRAL_SERIES_COLOR,
+  INDUSTRY_CHART_PALETTE,
+  OWNERSHIP_SERIES_COLORS,
+  SECTOR_CONCENTRATION_LINE_COLOR,
+  heatmapCellFill,
+} from "@/lib/chart-palette";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 import { cn } from "@/lib/utils";
@@ -98,23 +105,15 @@ const OWNERSHIP_SERIES: TrendsChartSeries[] = [
   {
     key: "public",
     label: "Public targets",
-    color: "hsl(212 93% 50%)",
+    color: OWNERSHIP_SERIES_COLORS.public,
   },
   {
     key: "private",
     label: "Private targets",
-    color: "hsl(170 84% 36%)",
+    color: OWNERSHIP_SERIES_COLORS.private,
   },
 ];
-const INDUSTRY_COLORS = [
-  "hsl(212 93% 50%)",
-  "hsl(170 84% 36%)",
-  "hsl(35 92% 52%)",
-  "hsl(0 84% 60%)",
-  "hsl(196 83% 42%)",
-  "hsl(262 83% 58%)",
-  "hsl(142 71% 45%)",
-];
+const INDUSTRY_COLORS = INDUSTRY_CHART_PALETTE;
 
 function formatMoney(value: number | null | undefined) {
   return formatCompactCurrencyValue(value ?? null);
@@ -236,9 +235,10 @@ function TrendsHeatmapTable({
               {columns.map((column) => {
                 const cell = getCell(row, column);
                 const opacity = 0.1 + (cell.intensity * 0.75);
-                const backgroundColor = `hsl(212 93% 50% / ${opacity})`;
-                const foregroundClass =
-                  cell.intensity > 0.58 ? "text-white" : "text-foreground";
+                const backgroundColor = heatmapCellFill(opacity);
+                // text-foreground clears WCAG AA against the blue fill at every
+                // intensity in both themes; white-on-blue fails in light mode.
+                const foregroundClass = "text-foreground";
 
                 return (
                   <td key={`${row}-${column}`} className="w-44 px-2 py-2 align-top">
@@ -254,7 +254,7 @@ function TrendsHeatmapTable({
                       }
                       aria-label={`${row}, ${column}, ${formatterLabel}: ${cell.displayValue}`}
                     >
-                      <div className="text-xs font-medium uppercase tracking-wide opacity-75">
+                      <div className="text-xs font-medium uppercase tracking-wide">
                         {formatterLabel}
                       </div>
                       <div className="mt-1 font-mono text-sm tabular-nums">
@@ -390,7 +390,7 @@ function OwnershipStructurePanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle id={mixDescriptionId} className="text-xl sm:text-2xl">
+            <CardTitle as="h2" id={mixDescriptionId} className="text-xl sm:text-2xl">
               Public vs. Private Target Mix Over Time
             </CardTitle>
             <CardDescription className="prose-copy text-sm sm:text-base">
@@ -477,7 +477,7 @@ function OwnershipStructurePanel({
       <Card variant="subtle">
         <CardHeader>
           <div className="space-y-2">
-            <CardTitle id={dealSizeDescriptionId} className="text-xl sm:text-2xl">
+            <CardTitle as="h2" id={dealSizeDescriptionId} className="text-xl sm:text-2xl">
               Public vs. Private Deal Size
             </CardTitle>
             <CardDescription className="prose-copy text-sm sm:text-base">
@@ -542,7 +542,7 @@ function OwnershipStructurePanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle id={matrixDescriptionId} className="text-xl sm:text-2xl">
+            <CardTitle as="h2" id={matrixDescriptionId} className="text-xl sm:text-2xl">
               Target Type by Buyer Type
             </CardTitle>
             <CardDescription className="prose-copy text-sm sm:text-base">
@@ -673,7 +673,7 @@ function IndustryDynamicsPanel({
       series.push({
         key: "Other",
         label: "Other",
-        color: "hsl(220 9% 60%)",
+        color: CHART_NEUTRAL_SERIES_COLOR,
       });
     }
 
@@ -793,7 +793,7 @@ function IndustryDynamicsPanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle id={compositionDescriptionId} className="text-xl sm:text-2xl">
+            <CardTitle as="h2" id={compositionDescriptionId} className="text-xl sm:text-2xl">
               Industry Composition Over Time
             </CardTitle>
             <CardDescription className="prose-copy text-sm sm:text-base">
@@ -883,7 +883,7 @@ function IndustryDynamicsPanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle id={pairingsDescriptionId} className="text-xl sm:text-2xl">
+            <CardTitle as="h2" id={pairingsDescriptionId} className="text-xl sm:text-2xl">
               Top Industry Pairings
             </CardTitle>
             <CardDescription className="prose-copy text-sm sm:text-base">
@@ -930,7 +930,7 @@ function IndustryDynamicsPanel({
       <Card variant="subtle">
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <CardTitle id={concentrationDescriptionId} className="text-xl sm:text-2xl">
+            <CardTitle as="h2" id={concentrationDescriptionId} className="text-xl sm:text-2xl">
               Sector Concentration Trend
             </CardTitle>
             <CardDescription className="prose-copy text-sm sm:text-base">
@@ -993,7 +993,7 @@ function IndustryDynamicsPanel({
                       ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
                       data={concentrationTrend.data}
                       describedBy={concentrationDescriptionId}
-                      lineColor="hsl(12 76% 61%)"
+                      lineColor={SECTOR_CONCENTRATION_LINE_COLOR}
                       tableId={concentrationTableId}
                     />
                   </Suspense>
@@ -1006,7 +1006,7 @@ function IndustryDynamicsPanel({
                 ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
                 data={concentrationTrend.data}
                 describedBy={concentrationDescriptionId}
-                lineColor="hsl(12 76% 61%)"
+                lineColor={SECTOR_CONCENTRATION_LINE_COLOR}
                 tableId={concentrationTableId}
               />
             </Suspense>
@@ -1053,7 +1053,8 @@ export default function TrendsAnalyses() {
 
     const fetchTrends = async () => {
       try {
-        setLoading(true);
+        // Stale-while-revalidate: `loading` starts true only when there is no
+        // session-cached payload, so revisits keep showing cached content.
         setError(null);
         const response = await authFetch(apiUrl("v1/agreement-trends"), {
           signal: controller.signal,
@@ -1103,7 +1104,7 @@ export default function TrendsAnalyses() {
         {!loading && error ? (
           <Card variant="subtle">
             <CardHeader>
-              <CardTitle className="text-xl">Unavailable</CardTitle>
+              <CardTitle as="h2" className="text-xl">Unavailable</CardTitle>
               <CardDescription>{error}</CardDescription>
             </CardHeader>
           </Card>

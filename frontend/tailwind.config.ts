@@ -49,40 +49,16 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
-        },
         cream: "hsl(var(--cream))",
-      },
-      spacing: {
-        // Design tokens for consistent spacing
-        "section": "1.5rem", // 24px - gap-6
-        "card": "1rem", // 16px - gap-4
-        "tight": "0.5rem", // 8px - gap-2
-      },
-      fontFamily: {
-        serif: [
-          "Lora",
-          "ui-serif",
-          "Georgia",
-          "Cambria",
-          "Times New Roman",
-          "serif",
-        ],
       },
       typography: {
         DEFAULT: {
           css: {
             a: {
               color: "hsl(var(--primary))",
-              textDecoration: "none",
+              // Underline is load-bearing: link color alone is under 3:1
+              // against prose body text (WCAG 1.4.1 / axe link-in-text-block).
+              textDecoration: "underline",
               fontWeight: "400",
               textUnderlineOffset: "4px",
               borderRadius: "0.125rem",

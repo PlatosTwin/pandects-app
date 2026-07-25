@@ -12,9 +12,11 @@ import {
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import { cn } from "@/lib/utils";
 import { useAgreement } from "@/hooks/use-agreement";
+import { useNaics } from "@/hooks/use-naics";
 import { XMLRenderer } from "./XMLRenderer";
 import { TableOfContents } from "./TableOfContents";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -37,6 +39,7 @@ import {
   formatTextValue,
   formatBooleanValue,
 } from "@/lib/format-utils";
+import { formatNaicsIndustry } from "@/lib/naics";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
 
 interface AgreementModalProps {
@@ -74,6 +77,7 @@ export function AgreementModal({
   const modalTitleId = useId();
   const modalDescriptionId = useId();
   const isMobile = useIsMobile();
+  const { labelByCode: naicsLabelByCode } = useNaics();
   const canUseDOM = typeof document !== "undefined";
   const year = agreementMetadata?.year ?? agreement?.year;
   const target = agreementMetadata?.target ?? agreement?.target;
@@ -99,11 +103,15 @@ export function AgreementModal({
         },
         {
           label: "Target industry",
-          value: formatTextValue(agreement?.target_industry),
+          value: formatTextValue(
+            formatNaicsIndustry(naicsLabelByCode, agreement?.target_industry),
+          ),
         },
         {
           label: "Acquirer industry",
-          value: formatTextValue(agreement?.acquirer_industry),
+          value: formatTextValue(
+            formatNaicsIndustry(naicsLabelByCode, agreement?.acquirer_industry),
+          ),
         },
         {
           label: "Target private equity",
@@ -498,9 +506,9 @@ export function AgreementModal({
             {/* Key metadata always visible */}
             <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
               {yearDisplay && (
-                <span className="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-foreground ring-1 ring-border">
+                <Badge variant="metadata" className="text-foreground">
                   {yearDisplay}
-                </span>
+                </Badge>
               )}
               {target && (
                 <span className="text-foreground">
@@ -554,7 +562,7 @@ export function AgreementModal({
                 </div>
               </summary>
 
-              <div className="mt-3 hidden sm:grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {metadataSections.map((section) => (
                   <section
                     key={section.title}
@@ -577,9 +585,6 @@ export function AgreementModal({
                     </dl>
                   </section>
                 ))}
-              </div>
-              <div className="mt-3 rounded-md border border-dashed border-border bg-background/70 px-3 py-2 text-xs text-muted-foreground sm:hidden">
-                To see deal metadata, view on desktop.
               </div>
             </details>
           </div>
@@ -614,7 +619,7 @@ export function AgreementModal({
 
             {error && (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center text-destructive" role="alert">
+                <div className="text-center text-destructive dark:text-red-400" role="alert">
                   <p className="mb-2">Failed to load agreement</p>
                   <p className="text-sm text-muted-foreground">{error}</p>
                 </div>

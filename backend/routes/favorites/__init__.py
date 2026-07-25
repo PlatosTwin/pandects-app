@@ -21,7 +21,9 @@ from backend.routes.favorites.helpers import (
     _db_session,
     _ensure_default_project,
     _ensure_favorite_project_assignment,
+    _load_agreement_metadata,
     _load_projects_for_favorites,
+    _load_section_details,
     _load_tags_for_favorites,
     _next_project_sort_order,
     _no_store,
@@ -38,6 +40,8 @@ from backend.schemas.favorites import (
     FavoriteExistsQuerySchema,
     FavoriteProjectsSetSchema,
     FavoriteTagsSetSchema,
+    FavoritesAgreementMetadataSchema,
+    FavoritesSectionDetailsSchema,
     FavoritesBulkTagsSchema,
     FavoritesBulkCopySchema,
     FavoritesBulkMoveSchema,
@@ -318,6 +322,63 @@ def register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blue
         return _no_store(
             {"favorites": {row.item_uuid: row.id for row in rows}}
         )
+
+    @favorites_blp.route("/favorites/agreement-metadata", methods=["POST"])
+    def favorites_agreement_metadata():
+        """Batch metadata lookup so the favorites page avoids one request per row.
+
+        POST (not GET) because large favorites lists would overflow URL limits,
+        matching the existing bulk-* endpoints.
+        """
+        _guard_not_mocked()
+        deps._require_auth_db()
+        _ = _require_favorites_user()
+        data = deps._load_json(FavoritesAgreementMetadataSchema())
+        raw_uuids = cast(list[object], data["agreement_uuids"])
+        agreement_uuids = list(
+            dict.fromkeys(
+                value for value in (str(raw).strip() for raw in raw_uuids) if value
+            )
+        )
+        if not agreement_uuids:
+            abort(400, description="agreement_uuids is required.")
+        if len(agreement_uuids) > 500:
+            abort(400, description="Too many agreement_uuids (max 500).")
+        try:
+            metadata_map = _load_agreement_metadata(
+                deps, agreement_uuids=agreement_uuids
+            )
+        except SQLAlchemyError:
+            _db_session(deps).rollback()
+            abort(503, description="Agreement metadata is unavailable right now.")
+        return _no_store({"agreements": metadata_map})
+
+    @favorites_blp.route("/favorites/section-details", methods=["POST"])
+    def favorites_section_details():
+        """Batch section lookup so the favorites page avoids one request per
+        section favorite. POST (not GET) for the same URL-length reason as
+        /favorites/agreement-metadata.
+        """
+        _guard_not_mocked()
+        deps._require_auth_db()
+        _ = _require_favorites_user()
+        data = deps._load_json(FavoritesSectionDetailsSchema())
+        raw_uuids = cast(list[object], data["section_uuids"])
+        section_uuids = list(
+            dict.fromkeys(
+                value for value in (str(raw).strip() for raw in raw_uuids) if value
+            )
+        )
+        if not section_uuids:
+            abort(400, description="section_uuids is required.")
+        if len(section_uuids) > 500:
+            abort(400, description="Too many section_uuids (max 500).")
+        try:
+            sections_map = _load_section_details(deps, section_uuids=section_uuids)
+        except SQLAlchemyError:
+            _db_session(deps).rollback()
+            abort(503, description="Section details are unavailable right now.")
+        return _no_store({"sections": sections_map})
 
     @favorites_blp.route("/favorites", methods=["POST"])
     def create_favorite():

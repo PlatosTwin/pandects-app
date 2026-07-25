@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from marshmallow import Schema
 
@@ -25,7 +26,12 @@ class FavoritesDeps:
     Sections: type
     Clauses: type
     Agreements: type
+    XML: type
     db: object
+    _section_latest_xml_join_condition: Callable[[], Any]
+    _agreement_latest_xml_join_condition: Callable[[], Any]
+    _coalesced_section_standard_ids: Callable[..., Any]
+    _parse_section_standard_ids: Callable[[object], list[str]]
     _require_auth_db: Callable[[], None]
     _require_verified_user: Callable[[], tuple[UserLikeProtocol, AccessContextProtocol]]
     _auth_is_mocked: Callable[[], bool]

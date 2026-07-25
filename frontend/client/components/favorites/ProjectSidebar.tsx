@@ -1,6 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useState } from "react";
-import { Check, ChevronDown, Folder, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Folder, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { ColorPicker } from "@/components/favorites/ColorPicker";
+import { ConfirmDeleteDialog } from "@/components/favorites/ConfirmDeleteDialog";
 import { TagSwatch } from "@/components/favorites/TagPill";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { useToast } from "@/hooks/use-toast";
-import {
-  TAG_COLORS,
-  type FavoriteProject,
-  type TagColor,
-} from "@/lib/favorites-api";
+import { type FavoriteProject, type TagColor } from "@/lib/favorites-api";
 
 function ProjectDropButton({
   project,
@@ -50,9 +48,9 @@ function ProjectDropButton({
         <TagSwatch color={project.color} className="h-3 w-3 shrink-0" />
         <span className="truncate font-medium">{project.name}</span>
       </span>
-      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+      <Badge variant="muted" className="px-1.5 text-[10px]">
         {count}
-      </span>
+      </Badge>
     </button>
   );
 }
@@ -83,6 +81,10 @@ export function ProjectSidebar({
   const [draftColor, setDraftColor] = useState<TagColor>("blue");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(true);
+  const [pendingDelete, setPendingDelete] = useState<{
+    project: FavoriteProject;
+    target: FavoriteProject;
+  } | null>(null);
 
   const total = Object.values(projectCounts).reduce(
     (sum, count) => sum + count,
@@ -135,7 +137,7 @@ export function ProjectSidebar({
     }
   };
 
-  const handleDelete = async (project: FavoriteProject) => {
+  const requestDelete = (project: FavoriteProject) => {
     const target = projects.find((candidate) => candidate.id !== project.id);
     if (!target) {
       toast({
@@ -146,10 +148,12 @@ export function ProjectSidebar({
       });
       return;
     }
-    const confirmed = window.confirm(
-      `Delete "${project.name}" and move its favorites to "${target.name}"?`,
-    );
-    if (!confirmed) return;
+    setPendingDelete({ project, target });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    const { project, target } = pendingDelete;
     setBusy(true);
     try {
       const result = await removeProject(project.id, target.id);
@@ -157,6 +161,7 @@ export function ProjectSidebar({
       if (activeProjectId === project.id) {
         onSelectProject(result.reassigned_to_project_id);
       }
+      setPendingDelete(null);
     } catch {
       toast({ title: "Couldn't delete project", variant: "destructive" });
     } finally {
@@ -204,9 +209,9 @@ export function ProjectSidebar({
               }`}
             >
               <span className="font-medium">All projects</span>
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              <Badge variant="muted" className="px-1.5 text-[10px]">
                 {total}
-              </span>
+              </Badge>
             </button>
             {projects.map((project) => (
               <div key={project.id} className="rounded-md">
@@ -226,26 +231,10 @@ export function ProjectSidebar({
                       autoFocus
                     />
                     <div className="flex flex-wrap gap-1.5">
-                      {TAG_COLORS.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => setDraftColor(color)}
-                          aria-label={`Use ${color} color`}
-                          aria-pressed={draftColor === color}
-                          className={
-                            "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-6 sm:w-6 " +
-                            (draftColor === color
-                              ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
-                              : "hover:ring-muted-foreground/40")
-                          }
-                        >
-                          <TagSwatch color={color} className="h-4 w-4" />
-                          {draftColor === color ? (
-                            <Check className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />
-                          ) : null}
-                        </button>
-                      ))}
+                      <ColorPicker
+                        value={draftColor}
+                        onChange={setDraftColor}
+                      />
                     </div>
                     <div className="flex justify-end gap-1">
                       <Button
@@ -297,7 +286,7 @@ export function ProjectSidebar({
                         className="h-11 w-11 text-muted-foreground hover:text-destructive sm:h-8 sm:w-8"
                         aria-label={`Delete project ${project.name}`}
                         title={`Delete project ${project.name}`}
-                        onClick={() => void handleDelete(project)}
+                        onClick={() => requestDelete(project)}
                         disabled={busy}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -327,26 +316,7 @@ export function ProjectSidebar({
               className="h-11 text-sm sm:h-8"
             />
             <div className="flex flex-wrap gap-1.5">
-              {TAG_COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setNewColor(color)}
-                  aria-label={`Use ${color} color`}
-                  aria-pressed={newColor === color}
-                  className={
-                    "relative inline-grid h-11 w-11 place-items-center rounded-full ring-1 ring-transparent transition-shadow sm:h-6 sm:w-6 " +
-                    (newColor === color
-                      ? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
-                      : "hover:ring-muted-foreground/40")
-                  }
-                >
-                  <TagSwatch color={color} className="h-4 w-4" />
-                  {newColor === color ? (
-                    <Check className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow" />
-                  ) : null}
-                </button>
-              ))}
+              <ColorPicker value={newColor} onChange={setNewColor} />
             </div>
             <Button
               type="button"
@@ -361,6 +331,21 @@ export function ProjectSidebar({
           </div>
         </CollapsibleContent>
       </Collapsible>
+      <ConfirmDeleteDialog
+        open={pendingDelete !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !busy) setPendingDelete(null);
+        }}
+        title="Delete project?"
+        description={
+          pendingDelete
+            ? `This deletes "${pendingDelete.project.name}" and moves its favorites to "${pendingDelete.target.name}".`
+            : ""
+        }
+        confirmLabel="Delete project"
+        pending={busy}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </aside>
   );
 }

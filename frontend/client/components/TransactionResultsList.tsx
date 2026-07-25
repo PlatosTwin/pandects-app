@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowDown,
-  ArrowUp,
   ArrowUpRight,
   Building2,
   Calendar,
@@ -18,21 +16,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResultsToolbar } from "@/components/ResultsToolbar";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import { StarButton } from "@/components/StarButton";
+import { useNaics } from "@/hooks/use-naics";
 import {
   formatCompactCurrencyValue,
   formatDateValue,
   formatEnumValue,
 } from "@/lib/format-utils";
+import { formatNaicsIndustry } from "@/lib/naics";
 import { cn } from "@/lib/utils";
 import type { TransactionSearchResult } from "@shared/transactions";
 
@@ -83,6 +76,7 @@ function MetaPill({
         "inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border bg-background/60 px-2.5 py-1 text-xs",
         className,
       )}
+      title={value}
     >
       <Icon
         className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
@@ -115,6 +109,7 @@ export function TransactionResultsList({
   const [expandedMatches, setExpandedMatches] = useState<Set<string>>(
     () => new Set(),
   );
+  const { labelByCode: naicsLabelByCode } = useNaics();
 
   const selectionEnabled = Boolean(onToggleResultSelection);
   const allSelected =
@@ -137,102 +132,29 @@ export function TransactionResultsList({
 
   return (
     <div className={cn("space-y-4", className)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {selectionEnabled && results.length > 0 ? (
-          // Search-result bulk selection is intentionally desktop-only; mobile
-          // result cards stay focused on opening individual agreements.
-          <div className="hidden items-center gap-2 sm:flex">
-            <Checkbox
-              checked={
-                allSelected ? true : someSelected ? "indeterminate" : false
+      <ResultsToolbar
+        selection={
+          selectionEnabled && results.length > 0
+            ? {
+                allSelected,
+                someSelected,
+                onToggleSelectAll: () => onToggleSelectAll?.(),
+                selectAllLabel: "Select all deals",
+                countLabel:
+                  (selectedResults?.size ?? 0) > 0
+                    ? `${selectedResults?.size} of ${results.length} selected`
+                    : "Select all",
               }
-              onCheckedChange={() => onToggleSelectAll?.()}
-              className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-              aria-label="Select all deals"
-            />
-            <span className="text-sm text-muted-foreground" aria-live="polite">
-              {(selectedResults?.size ?? 0) > 0
-                ? `${selectedResults?.size} of ${results.length} selected`
-                : "Select all"}
-            </span>
-          </div>
-        ) : null}
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
-            <div className="hidden items-center gap-2 sm:flex">
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                Density:
-              </span>
-              <ToggleGroup
-                type="single"
-                aria-label="Results density"
-                value={density}
-                onValueChange={(value) => {
-                  if (value === "comfy" || value === "compact")
-                    onDensityChange?.(value);
-                }}
-                variant="outline"
-                size="xs"
-                className="justify-start"
-              >
-                <ToggleGroupItem
-                  value="compact"
-                  aria-label="Compact density"
-                  className="text-muted-foreground data-[state=on]:text-foreground"
-                >
-                  Compact
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="comfy"
-                  aria-label="Comfy density"
-                  className="text-muted-foreground data-[state=on]:text-foreground"
-                >
-                  Comfy
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                Sort by:
-              </span>
-              <Select
-                value={sortBy}
-                onValueChange={(value) =>
-                  onSortResults?.(value as "year" | "target" | "acquirer")
-                }
-              >
-                <SelectTrigger
-                  className="h-11 w-full sm:h-9 sm:w-[160px]"
-                  aria-label="Sort deal results by"
-                >
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="year">Year</SelectItem>
-                  <SelectItem value="target">Target</SelectItem>
-                  <SelectItem value="acquirer">Acquirer</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleSortDirection}
-                className="h-10 w-10 p-1 hover:bg-muted/40 sm:h-8 sm:w-8"
-                title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
-                aria-label={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
-              >
-                {sortDirection === "asc" ? (
-                  <ArrowUp className="w-4 h-4" aria-hidden="true" />
-                ) : (
-                  <ArrowDown className="w-4 h-4" aria-hidden="true" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+            : undefined
+        }
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onSortResults={(field) => onSortResults?.(field)}
+        onToggleSortDirection={() => onToggleSortDirection?.()}
+        sortSelectLabel="Sort deal results by"
+        density={density}
+        onDensityChange={onDensityChange}
+      />
       <ol
         role="list"
         aria-label="Deal search results"
@@ -262,6 +184,14 @@ export function TransactionResultsList({
 
           const isSelected =
             selectionEnabled && !!selectedResults?.has(result.agreement_uuid);
+          const targetIndustry = formatNaicsIndustry(
+            naicsLabelByCode,
+            result.target_industry,
+          );
+          const acquirerIndustry = formatNaicsIndustry(
+            naicsLabelByCode,
+            result.acquirer_industry,
+          );
           return (
             <li
               key={result.agreement_uuid}
@@ -310,19 +240,19 @@ export function TransactionResultsList({
                         </Badge>
                       ) : null}
                       {result.deal_status ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        <Badge variant="muted" className="gap-1">
                           <ShieldCheck className="h-3 w-3" aria-hidden="true" />
                           {formatEnumValue(result.deal_status)}
-                        </span>
+                        </Badge>
                       ) : null}
                       {result.deal_type ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        <Badge variant="muted" className="gap-1">
                           <Tag className="h-3 w-3" aria-hidden="true" />
                           {formatEnumValue(result.deal_type)}
-                        </span>
+                        </Badge>
                       ) : null}
                     </div>
-                    <h3
+                    <h2
                       className="mt-2 text-base font-semibold leading-snug text-foreground sm:text-lg"
                       title={titleLabel}
                     >
@@ -330,7 +260,7 @@ export function TransactionResultsList({
                         Target
                       </span>{" "}
                       {target}
-                    </h3>
+                    </h2>
                     <div
                       className="mt-0.5 text-sm text-muted-foreground"
                       title={`Acquirer: ${acquirer}`}
@@ -347,7 +277,7 @@ export function TransactionResultsList({
                       </div>
                     ) : null}
                   </div>
-                  <div className="flex min-w-0 flex-row-reverse items-center justify-between gap-3 sm:flex-col sm:items-end sm:justify-start">
+                  <div className="flex min-w-0 flex-row-reverse flex-wrap items-center justify-between gap-3 sm:flex-col sm:flex-nowrap sm:items-end sm:justify-start">
                     {result.transaction_price_total !== null ? (
                       <div className="text-right">
                         <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -420,18 +350,18 @@ export function TransactionResultsList({
                       value={formatDateValue(result.announce_date)}
                     />
                   ) : null}
-                  {result.target_industry ? (
+                  {targetIndustry ? (
                     <MetaPill
                       icon={Building2}
                       label="Target industry"
-                      value={result.target_industry}
+                      value={targetIndustry}
                     />
                   ) : null}
-                  {result.acquirer_industry ? (
+                  {acquirerIndustry ? (
                     <MetaPill
                       icon={Building2}
                       label="Acquirer industry"
-                      value={result.acquirer_industry}
+                      value={acquirerIndustry}
                     />
                   ) : null}
                   {result.purpose ? (

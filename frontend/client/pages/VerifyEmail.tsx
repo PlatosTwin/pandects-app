@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { LegalAcceptancePrompt } from "@/components/auth/LegalAcceptancePrompt";
@@ -35,6 +35,7 @@ export default function VerifyEmail() {
   const [submitting, setSubmitting] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [legalCheckedAtMs, setLegalCheckedAtMs] = useState<number | null>(null);
+  const exchangeStartedRef = useRef(false);
 
   const finishSession = async (payload: {
     next_path: string;
@@ -58,7 +59,10 @@ export default function VerifyEmail() {
   }, [navigate, nextPath, status]);
 
   useEffect(() => {
-    let active = true;
+    // The verification code is single-use; guard against StrictMode's
+    // double-invoked effects consuming it twice in dev.
+    if (exchangeStartedRef.current) return;
+    exchangeStartedRef.current = true;
     const run = async () => {
       if (!userId || !code) {
         setError("The verification link is missing required information.");
@@ -71,7 +75,6 @@ export default function VerifyEmail() {
           code,
           next: nextPath,
         });
-        if (!active) return;
         if (result.status === "legal_required") {
           setState({
             kind: "legal",
@@ -82,15 +85,11 @@ export default function VerifyEmail() {
         }
         await finishSession(result);
       } catch (err) {
-        if (!active) return;
         setError(err instanceof Error ? err.message : String(err));
         setState({ kind: "done" });
       }
     };
     void run();
-    return () => {
-      active = false;
-    };
   }, [code, nextPath, userId]);
 
   const submitLegal = async () => {

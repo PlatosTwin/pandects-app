@@ -17,6 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
+import { CHART_SERIES_PALETTE } from "@/lib/chart-palette";
 import { formatCompactCurrencyValue } from "@/lib/format-utils";
 import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
 
@@ -57,23 +58,7 @@ type CounselSectionProps = {
   title: string;
 };
 
-const LEADERBOARD_COLORS = [
-  "hsl(212 93% 50%)",
-  "hsl(170 84% 36%)",
-  "hsl(35 92% 52%)",
-  "hsl(0 84% 60%)",
-  "hsl(196 83% 42%)",
-  "hsl(262 83% 58%)",
-  "hsl(142 71% 45%)",
-  "hsl(24 95% 53%)",
-  "hsl(221 83% 53%)",
-  "hsl(12 76% 61%)",
-  "hsl(187 72% 41%)",
-  "hsl(271 81% 56%)",
-  "hsl(43 96% 56%)",
-  "hsl(151 55% 42%)",
-  "hsl(215 70% 59%)",
-];
+const LEADERBOARD_COLORS = CHART_SERIES_PALETTE;
 const LEADERBOARDS_CACHE_KEY = "leaderboards:v1";
 const LEADERBOARDS_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -95,19 +80,21 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
   const descriptionId = useId();
   const tableId = useId();
 
-  const currentYear = new Date().getFullYear();
+  // Offer the five most recent years that actually appear in the response,
+  // rather than the last five calendar years (which can have no data yet).
   const yearOptions = useMemo(
     () => [
-      ...Array.from({ length: 5 }, (_, index) => {
-        const year = currentYear - index;
-        return {
+      ...side.annual
+        .map((entry) => entry.year)
+        .sort((a, b) => b - a)
+        .slice(0, 5)
+        .map((year) => ({
           value: String(year),
           label: String(year),
-        };
-      }),
+        })),
       { value: "all", label: "All time" },
     ],
-    [currentYear],
+    [side.annual],
   );
   const selectedAnnual = useMemo(
     () => side.annual.find((entry) => String(entry.year) === tableYear) ?? null,
@@ -274,6 +261,10 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
                 </TableBody>
               </Table>
             </div>
+          ) : chartData.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-background/70 px-4 py-8 text-sm text-muted-foreground">
+              No counsel leaderboard data is available yet.
+            </div>
           ) : (
             <>
               <p id={tableId} className="sr-only">
@@ -334,7 +325,8 @@ export default function Leaderboards() {
 
     const fetchLeaderboards = async () => {
       try {
-        setLoading(true);
+        // Stale-while-revalidate: `loading` starts true only when there is no
+        // session-cached payload, so revisits keep showing cached content.
         setError(null);
         const response = await authFetch(apiUrl("v1/counsel-leaderboards"), {
           signal: controller.signal,

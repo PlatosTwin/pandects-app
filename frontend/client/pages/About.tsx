@@ -16,12 +16,14 @@ import {
 } from "lucide-react";
 import type { SVGProps } from "react";
 import { PageShell } from "@/components/PageShell";
+import { SectionHeader } from "@/components/SectionHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAgreementSummary } from "@/hooks/use-agreement-summary";
 import { formatDateValue } from "@/lib/format-utils";
+import { getDocsUrl } from "@/lib/docs-url";
 import { Link } from "react-router-dom";
 
-const docsUrl = "https://docs.pandects.org/docs/guides/getting-started";
+const docsUrl = `${getDocsUrl()}/docs/guides/getting-started`;
 const ssrnUrl =
   "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6653778";
 const pandectsBibtex = String.raw`@article{Bogdanov2026Pandects,
@@ -174,17 +176,7 @@ export default function About() {
             className="scroll-mt-24 first:pt-0 pt-12"
             aria-labelledby="overview-heading"
           >
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
-                01
-              </span>
-              <h2
-                id="overview-heading"
-                className="text-2xl font-semibold tracking-tight text-foreground"
-              >
-                Overview
-              </h2>
-            </div>
+            <SectionHeader number="01" title="Overview" id="overview-heading" />
 
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {quickFacts.map(({ icon: Icon, eyebrow, value }) => (
@@ -304,16 +296,9 @@ export default function About() {
                 {extIcon}
               </a>
               . Finally, for more control, users may elect to{" "}
-              <a
-                href="https://pandects.org/bulk-data/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Bulk data download page (opens in a new tab)"
-                className="underline underline-offset-2"
-              >
+              <Link to="/bulk-data" className="underline underline-offset-2">
                 bulk download
-                {extIcon}
-              </a>{" "}
+              </Link>{" "}
               a copy of the complete database.
             </p>
           </section>
@@ -323,17 +308,11 @@ export default function About() {
             className="scroll-mt-24 pt-12"
             aria-labelledby="contributing-heading"
           >
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
-                02
-              </span>
-              <h2
-                id="contributing-heading"
-                className="text-2xl font-semibold tracking-tight text-foreground"
-              >
-                Contributing
-              </h2>
-            </div>
+            <SectionHeader
+              number="02"
+              title="Contributing"
+              id="contributing-heading"
+            />
 
             <p className="prose-copy mt-6">
               This is an open-source project, and contributions are welcome.
@@ -399,17 +378,7 @@ export default function About() {
             className="scroll-mt-24 pt-12"
             aria-labelledby="credits-heading"
           >
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
-                03
-              </span>
-              <h2
-                id="credits-heading"
-                className="text-2xl font-semibold tracking-tight text-foreground"
-              >
-                Credits
-              </h2>
-            </div>
+            <SectionHeader number="03" title="Credits" id="credits-heading" />
 
             <dl className="mt-6 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-x-6 gap-y-5">
               <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground self-start">
@@ -513,17 +482,11 @@ export default function About() {
             className="scroll-mt-24 pt-12"
             aria-labelledby="cite-pandects-heading"
           >
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-medium tabular-nums">
-                04
-              </span>
-              <h2
-                id="cite-pandects-heading"
-                className="text-2xl font-semibold tracking-tight text-foreground"
-              >
-                Cite Pandects
-              </h2>
-            </div>
+            <SectionHeader
+              number="04"
+              title="Cite Pandects"
+              id="cite-pandects-heading"
+            />
 
             <p className="prose-copy mt-6">
               If you use Pandects in academic work, please cite:

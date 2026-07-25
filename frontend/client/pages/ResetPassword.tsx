@@ -22,11 +22,13 @@ export default function ResetPassword() {
   );
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [captchaSiteKey, setCaptchaSiteKey] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
   const [captchaResolved, setCaptchaResolved] = useState(false);
+  const [captchaResetSignal, setCaptchaResetSignal] = useState(0);
 
   useEffect(() => {
     let canceled = false;
@@ -65,10 +67,14 @@ export default function ResetPassword() {
     setError(null);
     try {
       await requestPasswordReset({ email, captcha_token: captchaToken ?? undefined });
-      setSubmitted(true);
+      setSubmittedEmail(email);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
+      // Turnstile tokens are single-use: drop the consumed token and ask the
+      // widget for a fresh one so a retry doesn't fail on a stale token.
+      setCaptchaToken(null);
+      setCaptchaResetSignal((signal) => signal + 1);
       setSubmitting(false);
     }
   };
@@ -82,11 +88,11 @@ export default function ResetPassword() {
     >
       <Card className="mx-auto w-full max-w-xl border-border bg-card/95 p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
-          {submitted ? (
+          {submittedEmail ? (
             <Alert>
               <AlertTitle>Check your email</AlertTitle>
               <AlertDescription>
-                If an account exists for <span className="font-medium">{email}</span>, we sent a password reset link.
+                If an account exists for <span className="font-medium">{submittedEmail}</span>, we sent a password reset link.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -95,6 +101,13 @@ export default function ResetPassword() {
             <Alert variant="destructive">
               <AlertTitle>Could not request reset</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          {captchaError ? (
+            <Alert variant="destructive">
+              <AlertTitle>Captcha problem</AlertTitle>
+              <AlertDescription>{captchaError}</AlertDescription>
             </Alert>
           ) : null}
 
@@ -116,8 +129,12 @@ export default function ResetPassword() {
             {captchaSiteKey ? (
               <TurnstileWidget
                 siteKey={captchaSiteKey}
-                onToken={setCaptchaToken}
-                onError={setError}
+                onToken={(token) => {
+                  setCaptchaToken(token);
+                  if (token) setCaptchaError(null);
+                }}
+                onError={setCaptchaError}
+                resetSignal={captchaResetSignal}
               />
             ) : null}
             <div className="flex justify-center pt-1">
