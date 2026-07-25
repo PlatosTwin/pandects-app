@@ -28,8 +28,8 @@ interface NormalizedAgreementTocRow {
 }
 
 const XML_TAG_COLORS = {
-  text: "text-blue-600",
-  definition: "text-green-600",
+  text: "text-blue-600 dark:text-blue-400",
+  definition: "text-green-600 dark:text-green-400",
 } as const;
 
 const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);

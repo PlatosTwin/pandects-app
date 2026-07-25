@@ -29,6 +29,7 @@ class FavoritesDeps:
     XML: type
     db: object
     _section_latest_xml_join_condition: Callable[[], Any]
+    _agreement_latest_xml_join_condition: Callable[[], Any]
     _coalesced_section_standard_ids: Callable[..., Any]
     _parse_section_standard_ids: Callable[[object], list[str]]
     _require_auth_db: Callable[[], None]

@@ -236,12 +236,14 @@ def _load_agreement_metadata(
 ) -> dict[str, dict[str, object]]:
     """Batch-load display metadata for agreements the favorites UI renders.
 
-    Only touches the serving-schema `agreements` table (prod lacks ETL-only
-    tables) and applies the same public-eligibility filter as /v1/agreements.
+    Only touches serving-schema tables (prod lacks ETL-only tables) and applies
+    the same public-eligibility filter and latest-verified-XML join as
+    /v1/agreements/<uuid>, so batch misses match that endpoint's 404s.
     """
     if not agreement_uuids:
         return {}
     agreements = cast(Any, deps.Agreements)
+    xml = cast(Any, deps.XML)
     rows = (
         _db_session(deps)
         .query(
@@ -251,6 +253,7 @@ def _load_agreement_metadata(
             agreements.acquirer,
             agreements.transaction_price_total,
         )
+        .join(xml, deps._agreement_latest_xml_join_condition())
         .filter(
             agreements.agreement_uuid.in_(agreement_uuids),
             _agreement_is_public_eligible_expr(agreements),

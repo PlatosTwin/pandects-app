@@ -1679,6 +1679,7 @@ def _register_app(target_app: Flask) -> None:
             XML=XML,
             db=db,
             _section_latest_xml_join_condition=_section_latest_xml_join_condition,
+            _agreement_latest_xml_join_condition=_agreement_latest_xml_join_condition,
             _coalesced_section_standard_ids=_coalesced_section_standard_ids,
             _parse_section_standard_ids=_parse_section_standard_ids,
             _require_auth_db=_require_auth_db,

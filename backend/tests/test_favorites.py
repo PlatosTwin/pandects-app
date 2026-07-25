@@ -107,6 +107,7 @@ class FavoritesRoutesTests(unittest.TestCase):
                 XML=XML,
                 db=db,
                 _section_latest_xml_join_condition=backend_app._section_latest_xml_join_condition,
+                _agreement_latest_xml_join_condition=backend_app._agreement_latest_xml_join_condition,
                 _coalesced_section_standard_ids=backend_app._coalesced_section_standard_ids,
                 _parse_section_standard_ids=backend_app._parse_section_standard_ids,
                 _require_auth_db=lambda: None,
@@ -644,7 +645,17 @@ class FavoritesAgreementMetadataTests(unittest.TestCase):
                         "'50000000', 1, 0), "
                         "('fav-meta-2', '2021-02-01', 'Gated Target', 'Gated Acquirer', "
                         "'150000000', 0, 1), "
-                        "('fav-meta-3', NULL, 'No Date Target', NULL, NULL, 1, NULL)"
+                        "('fav-meta-3', NULL, 'No Date Target', NULL, NULL, 1, NULL), "
+                        "('fav-meta-4', '2022-03-01', 'No XML Target', "
+                        "'No XML Acquirer', '75000000', 1, 0)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, version, status, latest) VALUES "
+                        "('fav-meta-1', 1, 'verified', 1), "
+                        "('fav-meta-3', 1, NULL, 1), "
+                        "('fav-meta-4', 1, 'draft', 1)"
                     )
                 )
 
@@ -689,6 +700,7 @@ class FavoritesAgreementMetadataTests(unittest.TestCase):
                     "fav-meta-1",
                     "fav-meta-2",
                     "fav-meta-3",
+                    "fav-meta-4",
                     "fav-meta-missing",
                     " fav-meta-1 ",
                 ]
@@ -703,9 +715,10 @@ class FavoritesAgreementMetadataTests(unittest.TestCase):
         self.assertEqual(eligible["acquirer"], "Acquirer One")
         self.assertEqual(eligible["transaction_price_total"], 50000000.0)
 
-        # Gated + unverified agreements and unknown uuids are omitted, matching
-        # the public-eligibility behavior of /v1/agreements/<uuid>.
+        # Gated + unverified agreements, agreements without a latest-verified
+        # XML, and unknown uuids are all omitted, matching /v1/agreements/<uuid>.
         self.assertNotIn("fav-meta-2", agreements)
+        self.assertNotIn("fav-meta-4", agreements)
         self.assertNotIn("fav-meta-missing", agreements)
 
         sparse = agreements["fav-meta-3"]

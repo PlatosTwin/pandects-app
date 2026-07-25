@@ -83,7 +83,11 @@ steps use `/80`.
 - **Amber** = caution / markup highlight: unverified-data callouts
   (`TaxClauseResultsList`), before/after markup highlighting in Sources &
   Methods (`bg-amber-100/80 ... dark:bg-amber-500/20`).
-- **Red** goes through the `destructive` token, not Tailwind red classes.
+- **Red** goes through the `destructive` token, not Tailwind red classes — with one
+  systematic exception: `--destructive` doubles as a button background and is too dark
+  to read as text on dark surfaces, so destructive *text* pairs it with a
+  `dark:text-red-400` override (see `ui/alert.tsx`). Follow that pattern; don't
+  "fix" it back to the bare token.
 - Fixed-color exceptions: the Google sign-in button (`Login.tsx`) keeps literal
   slate/white brand colors in both themes. Anything else hardcoded needs a
   `dark:` variant and a reason.

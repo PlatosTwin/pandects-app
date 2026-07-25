@@ -930,7 +930,7 @@ export function AgreementReader({
               {agreement.is_redacted ? (
                 <Alert className="border-amber-500/30 bg-amber-500/5 py-2.5 text-amber-900 dark:text-amber-100">
                   <FileSearch className="h-4 w-4" aria-hidden="true" />
-                  <AlertTitle className="text-sm">Limited agreement text</AlertTitle>
+                  <AlertTitle as="h2" className="text-sm">Limited agreement text</AlertTitle>
                   <AlertDescription className="text-xs">
                     Full-text access is limited in anonymous mode. Your matched section
                     stays in view, but some surrounding text may be redacted.
