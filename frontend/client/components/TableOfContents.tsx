@@ -176,6 +176,9 @@ export function TableOfContents({
   };
 
   return (
+    // These listeners only observe user activity to pause the auto-scroll
+    // nudge; they add no behavior that needs a keyboard equivalent.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       ref={rootRef}
       className={cn(scrollable && "overflow-y-auto", className)}

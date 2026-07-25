@@ -284,7 +284,10 @@ export default function Search() {
     overrideSortBy?: SortField,
     overrideSortDirection?: SortDirection,
   ) => {
-    await adapters[nextMode].runSearch(
+    // buildAdapters is a hoisted function declaration (defined below, next to
+    // the JSX that consumes the record), so dispatching here reads the same
+    // render's adapter closures without a use-before-declaration on the const.
+    await buildAdapters()[nextMode].runSearch(
       nextFilters,
       markAsSearched,
       overrideSortBy ?? currentSort,
@@ -466,7 +469,8 @@ export default function Search() {
   // Per-mode adapters (see ModeAdapter). Rebuilt every render like the
   // ternaries they replace, so each field always reflects the latest hook
   // output. `runActiveSearch` above indexes this record by mode.
-  const adapters: Record<SearchMode, ModeAdapter> = {
+  function buildAdapters(): Record<SearchMode, ModeAdapter> {
+    return {
     sections: {
       isSearching: isSearchingSections,
       hasSearched: hasSearchedSections,
@@ -633,8 +637,9 @@ export default function Search() {
         />
       ),
     },
-  };
-  const adapter = adapters[searchMode];
+    };
+  }
+  const adapter = buildAdapters()[searchMode];
 
   // Latest search action for the global Enter handler, so the listener below
   // can be attached once instead of re-subscribing every render.

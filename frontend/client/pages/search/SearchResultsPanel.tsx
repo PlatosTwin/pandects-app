@@ -77,7 +77,9 @@ export function SearchResultsPanel({
   return (
     <section
       // Not a <main>: AppLayout already renders the page's main landmark.
-      // tabIndex makes the scrollable results region keyboard-scrollable.
+      // tabIndex makes the scrollable results region keyboard-scrollable
+      // (axe scrollable-region-focusable), which jsx-a11y can't model.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       className="flex-1 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       aria-labelledby="search-page-title"
