@@ -128,6 +128,30 @@ dev-all.sh
 /paper/_minted
 
 ############################
+# Graphify Knowledge Graph
+############################
+
+# graphify-out/ IS committed on purpose: graph.json, GRAPH_REPORT.md,
+# graph.html, and manifest.json are the shared code map that agents read.
+# manifest.json stores relative keys and is re-anchored on load, so committing
+# it is what lets a fresh checkout skip a full rebuild.
+#
+# Everything below is machine-specific or regenerable and must stay local.
+
+# Absolute interpreter and scan-root paths for THIS machine only.
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+
+# Per-machine token spend log.
+graphify-out/cost.json
+
+# AST extraction cache (~12 MB). Rebuilds itself; only speeds up local runs.
+graphify-out/cache/
+
+# Dated snapshots written by `graphify cluster-only` before it re-clusters.
+graphify-out/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+
+############################
 # Editor / OS Files
 ############################
 

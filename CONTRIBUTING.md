@@ -35,6 +35,20 @@ Use the repo root [README.md](README.md) for the main onboarding flow. The short
    - `make frontend-typecheck`
    - `make docs-build`
 
+## Code knowledge graph
+
+`graphify-out/` is a committed map of this repo's symbols and their relationships. It is optional, but it is the fastest way to orient yourself in an unfamiliar subsystem — it resolves calls, imports, and inheritance across directories that a text search will miss.
+
+```bash
+pip install graphifyy
+graphify explain "McpToolSpec"               # a symbol, its file:line, and every edge
+graphify affected "PipelineConfig" --depth 2 # what depends on this — run before refactoring shared code
+```
+
+`graphify-out/GRAPH_REPORT.md` is the readable summary. Two caveats: edges are tagged `EXTRACTED` (explicit in source) or `INFERRED` (model-reasoned), so confirm inferred ones against the code, and the graph describes structure rather than runtime behavior.
+
+`graphify-out/` is generated — never hand-edit it, and leave it out of your PR. CI refreshes it on `main` once your change merges. If you want your local copy to stay current as you commit, run `graphify hook install` once; that also registers the merge driver that keeps `graph.json` from producing conflict markers.
+
 ## Branches and pull requests
 
 1. Fork the repository.

@@ -1,0 +1,111 @@
+name: Graphify Graph
+
+# Keeps the committed code knowledge graph (graphify-out/) in sync with main.
+#
+# This is a BACKSTOP, not the primary refresh path. The primary path is the
+# local `graphify hook install` post-commit hook, which rebuilds after every
+# commit for free. This workflow covers the gaps that hook cannot: commits from
+# a machine without the hook installed, web-UI edits, and cloud agents.
+#
+# Rebuild is AST-only — deterministic, no LLM, no API key. The semantic layer
+# (doc/concept/rationale nodes from the /graphify subagent pass) is preserved
+# through the merge and never re-derived here. Refresh that with
+# `/graphify --update` when docs change materially.
+
+on:
+  # Manual trigger to force a resync without a source change.
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    # Source trees only. graphify-out/** is deliberately absent: the commit this
+    # workflow pushes touches nothing else, so it cannot retrigger itself.
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "etl/**"
+      - "docs/**"
+      - "emails/**"
+      - "examples/**"
+      - "bulk/**"
+      - "db/**"
+      - ".github/workflows/graphify-graph.yml"
+
+# Queue rather than cancel. This job pushes to main; cancelling it mid-push
+# risks leaving the graph half-written, so it follows the deploy-workflow
+# convention rather than the quality-workflow one.
+concurrency:
+  group: graphify-graph
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  # networkx's louvain clustering iterates string-keyed sets whose order is
+  # randomized per process. Without a pinned seed, community assignments churn
+  # run-to-run and every CI run would produce a spurious graph diff.
+  PYTHONHASHSEED: '0'
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install graphify
+        run: python -m pip install --quiet graphifyy
+
+      # This workflow maintains an existing graph; it does not create one. The
+      # first build is the semantic `/graphify .` pass, which needs an LLM and
+      # must be committed by a human. Fail loudly rather than pushing a
+      # code-only graph that silently drops the doc/concept/rationale layer.
+      - name: Require a committed baseline graph
+        run: |
+          if [ ! -f graphify-out/graph.json ]; then
+            echo "::error::graphify-out/graph.json is not committed. Run '/graphify .' locally and commit graphify-out/ before enabling this workflow."
+            exit 1
+          fi
+
+      - name: Rebuild code graph and push if changed
+        run: |
+          set -euo pipefail
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # The graph is fully derived from the source tree, so a push race is
+          # resolved by discarding our result and rebuilding on top of the new
+          # tip rather than by merging.
+          for attempt in 1 2 3; do
+            graphify update .
+
+            # --porcelain, not `git diff --quiet`: diff only reports tracked
+            # files, so a brand-new graphify output would be silently skipped.
+            if [ -z "$(git status --porcelain -- graphify-out/)" ]; then
+              echo "Graph already current for $(git rev-parse --short HEAD) - nothing to commit."
+              exit 0
+            fi
+
+            git add -- graphify-out/
+            git commit -m "Refresh graphify code graph for ${GITHUB_SHA::7}"
+
+            if git push origin HEAD:main; then
+              echo "Pushed refreshed graph on attempt ${attempt}."
+              exit 0
+            fi
+
+            echo "Push rejected (main advanced). Rebuilding on the new tip; attempt ${attempt} of 3."
+            git fetch origin main
+            git reset --hard origin/main
+          done
+
+          echo "::error::main advanced faster than the graph could be rebuilt after 3 attempts."
+          exit 1
