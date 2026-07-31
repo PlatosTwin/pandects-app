@@ -151,6 +151,10 @@ graphify-out/cache/
 # Dated snapshots written by `graphify cluster-only` before it re-clusters.
 graphify-out/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
 
+# Held while the post-commit hook rebuilds in the background. Normally removed
+# on completion, but survives a crashed or killed rebuild.
+graphify-out/.rebuild.lock
+
 ############################
 # Editor / OS Files
 ############################
