@@ -56,6 +56,16 @@ _STRUCTURED_FILTER_ARRAY_FIELDS = (
     "target_pe",
     "acquirer_pe",
 )
+_FEEDBACK_CATEGORY_VALUES = (
+    "bug",
+    "friction",
+    "missing_capability",
+    "data_quality",
+    "docs_gap",
+    "praise",
+    "other",
+)
+_FEEDBACK_SEVERITY_VALUES = ("low", "medium", "high")
 _FIELD_REPRESENTATION_VALUES = (
     "first_class_agreement_field",
     "first_class_section_field",
@@ -69,6 +79,54 @@ _TRENDS_SECTIONS_ALL = ("ownership", "target_industries", "pairings", "naics_cat
 # pairings (every industry x industry cell) and naics_catalog (full hierarchy) are
 # large; exclude them by default so the response stays small enough for an LLM context.
 _TRENDS_SECTIONS_DEFAULT = ("ownership", "target_industries")
+_LIST_AGREEMENTS_ROW_FIELDS = (
+    "agreement_uuid",
+    "year",
+    "target",
+    "acquirer",
+    "filing_date",
+    "prob_filing",
+    "filing_company_name",
+    "filing_company_cik",
+    "form_type",
+    "exhibit_type",
+    "transaction_price_total",
+    "transaction_price_stock",
+    "transaction_price_cash",
+    "transaction_price_assets",
+    "transaction_consideration",
+    "target_type",
+    "acquirer_type",
+    "target_industry",
+    "acquirer_industry",
+    "target_industry_label",
+    "acquirer_industry_label",
+    "announce_date",
+    "close_date",
+    "deal_status",
+    "attitude",
+    "deal_type",
+    "purpose",
+    "target_pe",
+    "acquirer_pe",
+    "url",
+    "section_count",
+    "target_counsel",
+    "acquirer_counsel",
+)
+_SEARCH_AGREEMENTS_ROW_FIELDS = (
+    "agreement_uuid",
+    "year",
+    "target",
+    "acquirer",
+    "filing_date",
+    "url",
+    "verified",
+    "section_count",
+    "target_counsel",
+    "acquirer_counsel",
+)
+_LIST_AGREEMENTS_SORT_FIELDS = ("agreement_uuid", "year", "target", "acquirer", "filing_date")
 _COUNT_MODE_VALUES = ("auto", "exact")
 _COUNT_METHOD_VALUES = ("query_count", "table_estimate", "filtered_lower_bound")
 _COUNT_RELIABILITY_VALUES = ("high", "medium", "low")

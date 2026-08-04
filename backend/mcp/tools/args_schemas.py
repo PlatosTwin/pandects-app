@@ -5,7 +5,12 @@ from typing import Any, cast
 from marshmallow import Schema, fields as ma_fields, validate
 
 from backend.mcp.tools.constants import (
+    _FEEDBACK_CATEGORY_VALUES,
+    _FEEDBACK_SEVERITY_VALUES,
     _FILTER_OPTIONS_FIELDS,
+    _LIST_AGREEMENTS_ROW_FIELDS,
+    _LIST_AGREEMENTS_SORT_FIELDS,
+    _SEARCH_AGREEMENTS_ROW_FIELDS,
     _SECTION_LIST_SORT_FIELDS,
     _TRENDS_SECTIONS_ALL,
     _TRENDS_SECTIONS_DEFAULT,
@@ -182,6 +187,133 @@ class McpSearchAgreementsExtraArgsSchema(Schema):
     year_max = ma_fields.Int(load_default=None, allow_none=True, validate=validate.Range(min=1900, max=2100))
     filed_after = ma_fields.Str(load_default=None, allow_none=True, validate=validate.Regexp(r'^\d{4}-\d{2}-\d{2}$'))
     filed_before = ma_fields.Str(load_default=None, allow_none=True, validate=validate.Regexp(r'^\d{4}-\d{2}-\d{2}$'))
+
+
+_SEARCH_AGREEMENTS_FIELDS_KWARGS: dict[str, Any] = {
+    "load_default": [],
+    "metadata": {
+        "description": (
+            "Restrict each result row to only these keys (agreement_uuid is always "
+            "included regardless). Omit for the full row. Use for bulk export or "
+            "corpus-scale scans to keep responses small, e.g. "
+            "fields=[\"agreement_uuid\", \"url\"] to fetch EDGAR URLs for out-of-band "
+            "full-text analysis."
+        ),
+        "examples": [["agreement_uuid", "url"]],
+    },
+}
+
+
+class McpSearchAgreementsFieldsArgsSchema(Schema):
+    fields = cast(
+        Any,
+        ma_fields.List(
+            ma_fields.Str(validate=validate.OneOf(list(_SEARCH_AGREEMENTS_ROW_FIELDS))),
+            **_SEARCH_AGREEMENTS_FIELDS_KWARGS,
+        ),
+    )
+
+
+class McpListAgreementsExtraArgsSchema(Schema):
+    fields = cast(
+        Any,
+        ma_fields.List(
+            ma_fields.Str(validate=validate.OneOf(list(_LIST_AGREEMENTS_ROW_FIELDS))),
+            **_SEARCH_AGREEMENTS_FIELDS_KWARGS,
+        ),
+    )
+    sort_by = ma_fields.Str(
+        load_default="agreement_uuid",
+        validate=validate.OneOf(list(_LIST_AGREEMENTS_SORT_FIELDS)),
+        metadata={
+            "description": (
+                "Sort key for cursor pagination. One of: agreement_uuid (default, the "
+                "original behavior), year, target, acquirer, filing_date. Changing "
+                "sort_by or sort_dir invalidates any cursor from a previous call with "
+                "different sort settings -- restart pagination without a cursor."
+            ),
+        },
+    )
+    sort_dir = ma_fields.Str(
+        load_default="asc",
+        validate=validate.OneOf(["asc", "desc"]),
+        metadata={"description": "Sort direction for sort_by. One of: asc, desc."},
+    )
+
+
+class McpBatchAgreementsArgsSchema(Schema):
+    agreement_uuids = ma_fields.List(
+        ma_fields.Str(),
+        required=True,
+        validate=validate.Length(min=1, max=25),
+        metadata={
+            "description": "Known agreement UUIDs to fetch metadata for (1-25 per call).",
+        },
+    )
+
+
+class McpSubmitFeedbackArgsSchema(Schema):
+    summary = ma_fields.Str(
+        required=True,
+        validate=validate.Length(min=1, max=200),
+        metadata={
+            "description": "One-line gist of the feedback (max 200 chars). Must contain non-whitespace text.",
+        },
+    )
+    detail = ma_fields.Str(
+        required=True,
+        validate=validate.Length(min=1, max=5000),
+        metadata={
+            "description": (
+                "Full description (max 5000 chars). Most useful shape: what you were "
+                "trying to do, the tool and arguments involved, what you expected, and "
+                "what actually happened."
+            ),
+        },
+    )
+    category = ma_fields.Str(
+        load_default="other",
+        validate=validate.OneOf(list(_FEEDBACK_CATEGORY_VALUES)),
+        metadata={
+            "description": f"Feedback category. One of: {', '.join(_FEEDBACK_CATEGORY_VALUES)}. Defaults to `other`.",
+        },
+    )
+    severity = ma_fields.Str(
+        load_default=None,
+        allow_none=True,
+        validate=validate.OneOf(list(_FEEDBACK_SEVERITY_VALUES)),
+        metadata={
+            "description": "Optional impact estimate: low, medium, or high. Omit when unsure.",
+        },
+    )
+    tool_name = ma_fields.Str(
+        load_default=None,
+        allow_none=True,
+        validate=validate.Length(min=1, max=128),
+        metadata={
+            "description": "MCP tool the feedback concerns, when it concerns one specific tool. Must be a real tool name from this server.",
+        },
+    )
+    suggestions = ma_fields.Str(
+        load_default=None,
+        allow_none=True,
+        validate=validate.Length(min=1, max=2000),
+        metadata={
+            "description": "Optional concrete improvement suggestion (max 2000 chars).",
+        },
+    )
+    context = ma_fields.Dict(
+        keys=ma_fields.Str(),
+        load_default=None,
+        allow_none=True,
+        metadata={
+            "description": (
+                "Optional small JSON object with reproduction context — typically the "
+                "arguments that triggered the issue. Capped at 2000 characters when "
+                "serialized; do not include document text or user data."
+            ),
+        },
+    )
 
 
 class McpFilterOptionsArgsSchema(Schema):

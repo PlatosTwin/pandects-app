@@ -13,12 +13,16 @@ from backend.mcp.tools.args_schemas import (
     McpAgreementIdentifierSchema,
     McpAgreementTrendsArgsSchema,
     McpBatchAgreementSectionsArgsSchema,
+    McpBatchAgreementsArgsSchema,
     McpFilterOptionsArgsSchema,
     McpListAgreementSectionsArgsSchema,
+    McpListAgreementsExtraArgsSchema,
     McpSearchAgreementsExtraArgsSchema,
+    McpSearchAgreementsFieldsArgsSchema,
     McpSectionArgsSchema,
     McpSectionsArgsSchema,
     McpSectionTaxClausesArgsSchema,
+    McpSubmitFeedbackArgsSchema,
 )
 from backend.mcp.tools.constants import (
     _CAPABILITIES_SECTIONS_ALL,
@@ -37,6 +41,7 @@ from backend.mcp.tools.handlers import (
     _get_agreement,
     _get_agreement_tax_clauses,
     _get_agreement_trends,
+    _get_agreements_batch,
     _get_agreements_summary,
     _get_clause_taxonomy,
     _get_counsel_catalog,
@@ -54,12 +59,14 @@ from backend.mcp.tools.handlers import (
     _search_agreements,
     _search_sections,
     _search_tax_clauses,
+    _submit_feedback,
     _suggest_clause_families,
 )
 from backend.mcp.tools.output_schemas import (
     _agreement_trends_output_schema,
     _agreements_summary_output_schema,
     _batch_agreement_sections_output_schema,
+    _batch_agreements_output_schema,
     _batch_section_snippet_output_schema,
     _batch_sections_output_schema,
     _counsel_catalog_output_schema,
@@ -78,6 +85,7 @@ from backend.mcp.tools.output_schemas import (
     _search_tax_clauses_output_schema,
     _section_snippet_output_schema,
     _server_capabilities_output_schema,
+    _submit_feedback_output_schema,
     _suggest_clause_families_output_schema,
     _taxonomy_output_schema,
     _tool_limits_for_pagination,
@@ -131,7 +139,26 @@ _YEAR_RANGE_OVERRIDES: dict[str, dict[str, object]] = {
 
 @lru_cache(maxsize=1)
 def _tool_specs() -> tuple[McpToolSpec, ...]:
-    search_agreements_schema = _merge_schema_instances(AgreementsIndexArgsSchema(), AgreementsBulkArgsSchema(), McpSearchAgreementsExtraArgsSchema())
+    # search_agreements and list_agreements both validate payloads against these exact
+    # merges (see handlers._search_agreements / handlers._list_agreements). Previously
+    # list_agreements advertised its schema from AgreementsBulkArgsSchema() alone, with
+    # any_counsel/year_min/year_max/filed_after/filed_before injected only as JSON-schema
+    # overrides -- which _schema_input_schema silently drops for a field the base schema
+    # does not already declare. The advertised schema therefore omitted those five
+    # properties entirely even though the handler accepted (and, after the filed_after/
+    # filed_before fix, applied) them. Building both advertised schemas from the same
+    # merge the handler validates against keeps the two from drifting apart again.
+    search_agreements_schema = _merge_schema_instances(
+        AgreementsIndexArgsSchema(),
+        AgreementsBulkArgsSchema(),
+        McpSearchAgreementsExtraArgsSchema(),
+        McpSearchAgreementsFieldsArgsSchema(),
+    )
+    list_agreements_schema = _merge_schema_instances(
+        AgreementsBulkArgsSchema(),
+        McpSearchAgreementsExtraArgsSchema(),
+        McpListAgreementsExtraArgsSchema(),
+    )
     structured_filter_overrides = _structured_filter_properties()
     agreements_list_overrides: dict[str, dict[str, object]] = {
         **_structured_filter_properties(include_cursor=True, include_xml=True),
@@ -220,13 +247,14 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
     return (
         McpToolSpec(
             name="search_agreements",
-            description="Find merger agreements by target/acquirer name, year, counsel, industry, deal type, any of the standard M&A filters, or by clause taxonomy (standard_id). Passing standard_id filters to agreements that contain at least one section tagged with that taxonomy node — this is the efficient way to find all deals with a specific clause type without paginating search_sections. Best for exploratory discovery where you may combine a free-text hint with structured filters. For deep pagination or bulk exports of a known filter set, use list_agreements instead.",
+            description="Find merger agreements by target/acquirer name, year, counsel, industry, deal type, any of the standard M&A filters, or by clause taxonomy (standard_id). Passing standard_id filters to agreements that contain at least one section tagged with that taxonomy node — this is the efficient way to find all deals with a specific clause type without paginating search_sections. Best for exploratory discovery where you may combine a free-text hint with structured filters. For deep pagination or bulk exports of a known filter set, use list_agreements instead. Rows are slim (agreement_uuid, year, target, acquirer, filing_date, url, verified, section_count, target_counsel, acquirer_counsel) — use list_agreements when you need full deal metadata. `verified` is a metadata human-verification flag, distinct from XML-structure verification during ingestion. Every row reports target_counsel/acquirer_counsel (canonical firm names by side) so a counsel filter's match is attributable to a side. Pass fields=[...] to project each row down to only the keys you need.",
             input_schema=_schema_input_schema(search_agreements_schema, field_overrides=search_agreements_overrides),
             output_schema=_search_agreements_output_schema(),
             examples=(
                 {"description": "Find agreements involving a target counsel.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"]}},
                 {"description": "Combine a text lookup with a year filter.", "arguments": {"query": "Target", "year": [2020]}},
                 {"description": "Find all agreements containing a go-shop or no-shop clause by taxonomy id.", "arguments": {"standard_id": ["1a7aeab47932d0d4"]}},
+                {"description": "Project a slim row for bulk scanning.", "arguments": {"query": "Target", "fields": ["agreement_uuid", "url"]}},
             ),
             response_examples=(
                 {"description": "Agreement discovery result page.", "content": {"returned_count": 1, "results": [{"agreement_uuid": "a1", "target": "Target A", "acquirer": "Acquirer A"}]}},
@@ -299,13 +327,15 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="list_agreements",
-            description="Paginate through agreements that match an exact structured filter set, with cursor pagination suitable for exporting or iterating large result sets. Supports standard_id to filter by clause taxonomy — pass a taxonomy node id to get only agreements containing that clause type. Use when filters are already known and you expect to scan many pages; use search_agreements for exploratory discovery.",
-            input_schema=_schema_input_schema(AgreementsBulkArgsSchema(), field_overrides=agreements_list_overrides),
+            description="Paginate through agreements that match an exact structured filter set, with cursor pagination suitable for exporting or iterating large result sets. Supports standard_id to filter by clause taxonomy — pass a taxonomy node id to get only agreements containing that clause type. Use when filters are already known and you expect to scan many pages; use search_agreements for exploratory discovery. Rows are rich (full deal metadata, unlike search_agreements' slim rows) and include target_counsel/acquirer_counsel (canonical firm names by side). Full rows at page_size=100 produce roughly 100k-character responses; pass fields=[...] (e.g. fields=[\"agreement_uuid\", \"url\"] for a bulk-export scan) or keep page_size <= 25 when reading results in-context. sort_by (agreement_uuid default -- the original behavior --, year, target, acquirer, filing_date) and sort_dir control iteration order; a cursor is only valid for the sort_by/sort_dir it was issued under.",
+            input_schema=_schema_input_schema(list_agreements_schema, field_overrides=agreements_list_overrides),
             output_schema=_list_agreements_output_schema(),
             examples=(
                 {"description": "Page through agreements by exact counsel filter.", "arguments": {"target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "page_size": 50}},
                 {"description": "Retrieve all cash deals with a cursor.", "arguments": {"transaction_consideration": ["cash"], "cursor": None}},
                 {"description": "Export all agreements containing a specific clause type by taxonomy id.", "arguments": {"standard_id": ["1a7aeab47932d0d4"], "page_size": 100}},
+                {"description": "Bulk-export a slim projection for out-of-band full-text analysis.", "arguments": {"fields": ["agreement_uuid", "url"], "page_size": 100}},
+                {"description": "Iterate the full corpus oldest-first by filing date.", "arguments": {"sort_by": "filing_date", "sort_dir": "asc", "page_size": 100}},
             ),
             response_examples=(
                 {"description": "Cursor-based agreement page.", "content": {"returned_count": 1, "has_next": False, "next_cursor": None, "results": [{"agreement_uuid": "a1"}], "access": {"tier": "mcp"}}},
@@ -314,6 +344,8 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             selection_hint="Use when filters are already known and you expect to paginate deeply or export exact result sets.",
             negative_guidance=(
                 "Do not use this tool for free-text exploration; prefer search_agreements when you are still discovering names or years.",
+                "Do not reuse a cursor after changing sort_by or sort_dir; it is rejected with an agent-visible error instead of silently producing a corrupted page sequence -- restart pagination without a cursor.",
+                "Do not pull full agreement text through this tool at corpus scale; project fields=[\"agreement_uuid\", \"url\", ...] and fetch bodies from the returned EDGAR url out-of-band.",
             ),
             pagination="cursor",
             access_behavior="strict_scope_required",
@@ -389,12 +421,38 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 "Do not use this tool for bulk discovery or corpus filtering.",
                 "Do not pass include_xml=true just to read a few clauses: most agreements run past 200k characters and will exhaust the context window. Use search_sections with agreement_uuid and include_snippet=true, or get_section for specific sections.",
                 "Do not expect focus_section_uuid/neighbor_sections to trim a full-text response: they only shape the redacted view shown to callers without agreements:read_fulltext, and are ignored once the full XML is returned.",
+                "Do not loop this tool for N known agreement UUIDs; use get_agreements_batch instead.",
             ),
             pagination="none",
             access_behavior="partial_access_with_redaction",
             redaction_behavior="redacted_without_fulltext_scope",
             fulltext_scope="agreements:read_fulltext",
             handler=_get_agreement,
+        ),
+        McpToolSpec(
+            name="get_agreements_batch",
+            description="Fetch metadata for up to 25 known agreement UUIDs in a single call. Metadata only (no include_xml option) using the same column list as get_agreement, plus target_industry_label/acquirer_industry_label and the target_counsel/acquirer_counsel echo shared with search_agreements/list_agreements. Eliminates N sequential get_agreement calls when comparing or exporting a known set of agreements.",
+            input_schema=_schema_input_schema(McpBatchAgreementsArgsSchema()),
+            output_schema=_batch_agreements_output_schema(),
+            examples=(
+                {"description": "Fetch metadata for three known agreements.", "arguments": {"agreement_uuids": ["a1", "a2", "a3"]}},
+            ),
+            response_examples=(
+                {"description": "Batch agreement metadata result.", "content": {"returned_count": 2, "results": [{"agreement_uuid": "a1", "target": "Target A", "acquirer": "Acquirer A", "target_counsel": ["Wachtell, Lipton, Rosen & Katz"], "acquirer_counsel": []}]}},
+            ),
+            scopes=("agreements:read",),
+            selection_hint="Use when you already hold multiple agreement UUIDs and need their metadata rows at once; replaces N calls to get_agreement.",
+            negative_guidance=(
+                "Do not loop get_agreement for N uuids; use this tool instead.",
+                "Do not use for full-text retrieval; this tool has no include_xml option. Use get_agreement per UUID, or get_sections_batch for section-level XML, when text is needed.",
+                "Do not assume returned_count equals the number of agreement_uuids you passed: a uuid that matches no retrievable agreement is omitted and reported under unresolved_agreement_uuids, so check that block before reading the shorter list as the answer.",
+                "Do not use for more than 25 agreements in one call; issue multiple batch calls instead.",
+            ),
+            pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
+            handler=_get_agreements_batch,
         ),
         McpToolSpec(
             name="get_section",
@@ -807,6 +865,73 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
             fulltext_scope=None,
             handler=_get_agreement_trends,
         ),
+        McpToolSpec(
+            name="submit_feedback",
+            description=(
+                "Submit experience feedback about this MCP server to its maintainer: bugs, workflow friction, "
+                "missing capabilities, data-quality issues, documentation gaps, and praise for what worked well. "
+                "Submissions are stored and read by the maintainer, and directly drive server improvements. "
+                "File observations as you hit them mid-session rather than losing them, and consider one wrap-up "
+                "submission at the end of a research session covering what worked and what did not. The most useful "
+                "reports are concrete: name the tool, the arguments you passed (context), what you expected, and what "
+                "actually happened. Confirmations that a workflow went smoothly are as valuable as complaints — they "
+                "tell the maintainer what not to break."
+            ),
+            input_schema=_schema_input_schema(
+                McpSubmitFeedbackArgsSchema(),
+                field_overrides={
+                    "context": {
+                        "type": ["object", "null"],
+                        "examples": [{"tool": "search_sections", "arguments": {"standard_id": ["1a7aeab47932d0d4"]}}],
+                    },
+                },
+            ),
+            output_schema=_submit_feedback_output_schema(),
+            examples=(
+                {
+                    "description": "Report friction with a specific tool, including the triggering arguments.",
+                    "arguments": {
+                        "summary": "search_sections has no free-text fallback for uncovered concepts",
+                        "detail": "Tried to find 'ticking fee' language. suggest_clause_families reported coverage 'none' and search_sections accepts no keyword query, so the concept was unreachable. Expected some way to confirm absence from clause text.",
+                        "category": "missing_capability",
+                        "tool_name": "search_sections",
+                        "severity": "medium",
+                        "context": {"concept": "ticking fee", "coverage": "none"},
+                    },
+                },
+                {
+                    "description": "Session-end wrap-up with praise.",
+                    "arguments": {
+                        "summary": "Batch snippet tools made a 40-agreement clause comparison fast",
+                        "detail": "search_sections with include_snippet=true plus get_section_snippets_batch covered a 40-agreement MAE carveout survey in a handful of calls. No friction worth reporting.",
+                        "category": "praise",
+                    },
+                },
+            ),
+            response_examples=(
+                {
+                    "description": "Acknowledgment with the stored feedback id.",
+                    "content": {
+                        "feedback_id": "0d9c1f7e-0000-0000-0000-000000000000",
+                        "recorded_at": "2026-08-04T12:00:00",
+                        "category": "missing_capability",
+                        "message": "Feedback recorded — thank you. Keep filing observations as you hit them; a short wrap-up submission at the end of a session is also welcome.",
+                    },
+                },
+            ),
+            scopes=("agreements:search",),
+            selection_hint="Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
+            negative_guidance=(
+                "Do not use this tool to get help or to retry a failed call: it only writes a note to the maintainer and returns an acknowledgment.",
+                "Do not include user personal data, credentials, or full document texts in feedback; tool names, arguments, and short excerpts are enough.",
+                "Do not file one submission per minor variation of the same issue; consolidate related observations into a single report.",
+            ),
+            pagination="none",
+            access_behavior="strict_scope_required",
+            redaction_behavior="none",
+            fulltext_scope=None,
+            handler=_submit_feedback,
+        ),
     )
 
 
@@ -831,8 +956,6 @@ def _field_inventory_payload() -> dict[str, object]:
                 "transaction_consideration",
                 "target_type",
                 "acquirer_type",
-                "target_counsel",
-                "acquirer_counsel",
                 "target_industry",
                 "acquirer_industry",
                 "deal_status",
@@ -847,6 +970,22 @@ def _field_inventory_payload() -> dict[str, object]:
                 "close_date",
                 "url",
             )
+        ]
+        + [
+            {
+                "name": field_name,
+                # Filter param on every structured-filter tool, plus a row-echo field
+                # (canonical firm names by side) on the four tools that return rows.
+                "applies_to_tools": [
+                    "search_agreements",
+                    "list_agreements",
+                    "get_agreements_batch",
+                    "search_sections",
+                ],
+                "source_table_or_surface": "agreement_counsel/counsel",
+                "representation": "first_class_agreement_field",
+            }
+            for field_name in ("target_counsel", "acquirer_counsel")
         ],
         "section_fields": [
             {
@@ -923,6 +1062,21 @@ def _concept_notes_payload() -> list[dict[str, object]]:
             "canonical_or_proxy": "proxy",
             "scope_note": "Antitrust-efforts concepts may span several nearby clause families and should be validated in the returned section text.",
         },
+        {
+            "concept": "corpus provenance and coverage",
+            "recommended_tools": ["list_filter_options", "search_agreements", "list_agreements"],
+            "representation": "not_represented",
+            "canonical_or_proxy": "proxy",
+            "scope_note": (
+                "The corpus is SEC-filed, predominantly public-target M&A exhibits sourced "
+                "from EDGAR; private-deal language is largely absent, so any language-"
+                "frequency study inherits that skew. target_type is the closest filter for "
+                "public/private, not an exact proxy for deal population. The same "
+                "underlying deal can also appear as multiple filings -- both parties file, "
+                "and amendments and closing re-filings add further copies -- and there is "
+                "currently no deal-level dedupe key, so a filing count is not a deal count."
+            ),
+        },
     ]
 
 
@@ -968,6 +1122,13 @@ def _server_capabilities_payload(sections: frozenset[str] | None = None) -> dict
             "primary_discovery_tool": "list_filter_options",
             "introspection_tool": "get_server_capabilities",
             "metrics_tool": "get_server_metrics",
+            "feedback_tool": "submit_feedback",
+            "feedback_note": (
+                "This server collects agent experience feedback. When a tool, filter, or "
+                "dataset causes friction, is missing something, or works notably well, "
+                "call submit_feedback — mid-session as issues arise, and optionally as a "
+                "wrap-up at session end."
+            ),
             "transport": "http_jsonrpc",
             "resources_supported": True,
             "resource_templates_supported": False,
@@ -1037,8 +1198,30 @@ def _server_capabilities_payload(sections: frozenset[str] | None = None) -> dict
                 "steps": ["list_filter_options", "list_agreements", "get_agreement"],
             },
             {
+                "name": "bulk text analytics via EDGAR urls",
+                "steps": ["list_filter_options", "list_agreements"],
+                "note": (
+                    "For corpus-scale text analysis, filter with list_agreements using "
+                    "fields=[\"agreement_uuid\", \"url\", ...] and fetch full agreement "
+                    "bodies from the returned EDGAR `url` out-of-band. Never pull full "
+                    "texts through MCP responses at scale: a full-row page_size=100 "
+                    "response already runs roughly 100k characters before any XML is "
+                    "attached."
+                ),
+            },
+            {
                 "name": "inspect MCP health and hot paths",
                 "steps": ["get_server_metrics", "get_server_capabilities"],
+            },
+            {
+                "name": "report friction or gaps you encountered",
+                "steps": ["submit_feedback"],
+                "note": (
+                    "File feedback the moment a tool, filter, or dataset surprises you — "
+                    "include the tool name, the arguments, and expected vs actual. Praise "
+                    "for what worked well is equally useful, and a short session-end "
+                    "wrap-up of observations is encouraged."
+                ),
             },
         ]
     return result
@@ -1096,7 +1279,7 @@ def call_tool(
     if spec is None:
         raise KeyError(name)
     handler_kwargs: dict[str, object] = {"principal": principal}
-    if name in {"search_agreements", "list_agreements", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_sections_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "get_agreements_summary"}:
+    if name in {"search_agreements", "list_agreements", "get_agreement", "get_agreements_batch", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_sections_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "get_agreements_summary"}:
         handler_kwargs["deps"] = agreements_deps
     if name in {"search_sections", "list_agreement_sections", "list_agreement_sections_batch"}:
         handler_kwargs["deps"] = sections_service_deps
@@ -1106,12 +1289,16 @@ def call_tool(
         handler_kwargs["agreements_deps"] = agreements_deps
     if name in {"get_clause_taxonomy", "get_tax_clause_taxonomy", "get_counsel_catalog", "get_naics_catalog", "suggest_clause_families"}:
         handler_kwargs["deps"] = reference_data_deps
-    if name in {"search_agreements", "search_sections", "search_tax_clauses", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_sections_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "get_counsel_catalog", "get_server_capabilities"}:
+    if name in {"search_agreements", "search_sections", "search_tax_clauses", "list_agreements", "list_agreement_sections", "list_agreement_sections_batch", "get_agreement", "get_agreements_batch", "get_section", "get_section_snippet", "get_section_snippets_batch", "get_sections_batch", "get_agreement_tax_clauses", "get_section_tax_clauses", "list_filter_options", "suggest_clause_families", "get_counsel_catalog", "get_server_capabilities", "submit_feedback"}:
         handler_kwargs["payload"] = arguments
     if name == "get_agreement_trends":
         handler_kwargs["deps"] = agreements_deps
         handler_kwargs["reference_data_deps"] = reference_data_deps
         handler_kwargs["payload"] = arguments
+    if name == "submit_feedback":
+        # The handler validates tool_name against the live registry; passing the
+        # names in avoids a handlers -> __init__ import cycle.
+        handler_kwargs["known_tool_names"] = frozenset(_tool_spec_map())
     result = spec.handler(**handler_kwargs)
     normalized_content = _json_compatible_structure(result.structured_content)
     output_errors = _validate_output_against_schema(spec.output_schema, normalized_content)

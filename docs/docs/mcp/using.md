@@ -57,6 +57,7 @@ Behind those prompts, the Pandects MCP gives your client access to:
 - Clause taxonomy and tax-clause taxonomy
 - Counsel and NAICS reference data
 - High-level corpus summaries and trend data
+- A feedback channel (`submit_feedback`) — your client can report bugs, friction, missing capabilities, and things that worked well straight to the maintainer, and is encouraged to do so during and at the end of a session
 
 You generally should not need to think about exact tool names or tool order unless you are debugging or building a more structured workflow on top of the MCP.
 

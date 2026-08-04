@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import binascii
+import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -9,7 +12,7 @@ from decimal import Decimal
 from html import unescape
 from typing import Any, NoReturn, cast
 
-from sqlalchemy import asc, desc, func, text
+from sqlalchemy import and_, asc, desc, func, or_, text
 from werkzeug.exceptions import BadRequest
 
 from backend.mcp.tools.constants import _STRUCTURED_FILTER_ARRAY_FIELDS
@@ -43,6 +46,127 @@ def _normalized_page(page: int) -> int:
 
 def _normalized_page_size(page_size: int) -> int:
     return page_size if 1 <= page_size <= 100 else 25
+
+
+def _project_result_fields(
+    row: dict[str, object], *, requested_fields: list[str]
+) -> dict[str, object]:
+    """Trim a result row to only the requested keys, always keeping agreement_uuid.
+
+    Empty ``requested_fields`` means no projection was requested: the row passes
+    through unchanged, preserving the pre-projection full-row default.
+    """
+    if not requested_fields:
+        return row
+    keep = set(requested_fields) | {"agreement_uuid"}
+    return {key: value for key, value in row.items() if key in keep}
+
+
+_LIST_AGREEMENTS_CURSOR_VERSION = 2
+
+
+def _encode_list_agreements_cursor(
+    *, sort_by: str, sort_dir: str, last_sort_value: object, last_agreement_uuid: str
+) -> str:
+    """Encode a composite keyset cursor: (sort settings, last sort value, last uuid).
+
+    Versioned (``v``) and self-describing (embeds sort_by/sort_dir) so a cursor from a
+    different sort request, or the pre-sort-parity plain-uuid cursor, is rejected
+    explicitly by the decoder rather than silently misapplied or crashing with a 500.
+    """
+    payload = json.dumps(
+        {
+            "v": _LIST_AGREEMENTS_CURSOR_VERSION,
+            "sort_by": sort_by,
+            "sort_dir": sort_dir,
+            "last_sort_value": _json_compatible_value(last_sort_value),
+            "last_agreement_uuid": last_agreement_uuid,
+        },
+        separators=(",", ":"),
+    )
+    token = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii")
+    return token.rstrip("=")
+
+
+def _decode_list_agreements_cursor(
+    cursor_raw: str | None, *, sort_by: str, sort_dir: str
+) -> tuple[object, str] | None:
+    """Decode a list_agreements cursor, returning (last_sort_value, last_agreement_uuid).
+
+    Returns None when no cursor was supplied (start from the beginning). Any malformed
+    cursor, a cursor in the old plain-uuid format, or one whose embedded sort_by/sort_dir
+    disagree with the current request raises an agent-visible 400 rather than a 500 or a
+    silently corrupted, non-monotonic page sequence.
+    """
+    if cursor_raw is None:
+        return None
+    cursor = cursor_raw.strip()
+    if not cursor:
+        return None
+    padded = cursor + ("=" * (-len(cursor) % 4))
+    try:
+        decoded_bytes = base64.urlsafe_b64decode(padded.encode("ascii"))
+        decoded_obj = cast(object, json.loads(decoded_bytes.decode("utf-8")))
+    except (binascii.Error, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        _abort_invalid_argument(
+            "Invalid cursor: could not decode. Restart pagination by omitting cursor."
+        )
+    if not isinstance(decoded_obj, dict) or decoded_obj.get("v") != _LIST_AGREEMENTS_CURSOR_VERSION:
+        _abort_invalid_argument(
+            "Invalid or outdated cursor format. Restart pagination by omitting cursor."
+        )
+    decoded_dict = cast(dict[str, object], decoded_obj)
+    cursor_sort_by = decoded_dict.get("sort_by")
+    cursor_sort_dir = decoded_dict.get("sort_dir")
+    last_agreement_uuid = decoded_dict.get("last_agreement_uuid")
+    if (
+        not isinstance(cursor_sort_by, str)
+        or not isinstance(cursor_sort_dir, str)
+        or not isinstance(last_agreement_uuid, str)
+        or not last_agreement_uuid
+        or "last_sort_value" not in decoded_dict
+    ):
+        _abort_invalid_argument("Invalid cursor. Restart pagination by omitting cursor.")
+    if cursor_sort_by != sort_by or cursor_sort_dir != sort_dir:
+        _abort_invalid_argument(
+            f"Cursor was issued for sort_by={cursor_sort_by!r}/sort_dir={cursor_sort_dir!r}, "
+            f"but this request specified sort_by={sort_by!r}/sort_dir={sort_dir!r}. "
+            "Restart pagination without a cursor when changing sort settings."
+        )
+    return decoded_dict.get("last_sort_value"), last_agreement_uuid
+
+
+def _keyset_pagination_filter(
+    *,
+    sort_column: Any,
+    uuid_column: Any,
+    sort_dir: str,
+    last_sort_value: object,
+    last_agreement_uuid: str,
+) -> Any:
+    """Build a NULLS-LAST keyset WHERE clause: rows strictly after the cursor position.
+
+    NULLS LAST applies regardless of sort_dir (MariaDB has no NULLS LAST keyword), and
+    ties -- including the all-null block -- break by agreement_uuid ascending, which
+    keeps a full paginated scan gap- and duplicate-free.
+    """
+    if last_sort_value is None:
+        # The cursor was left inside the null block: every remaining row is either a
+        # later null (by uuid tiebreak) since non-null rows all sort before nulls.
+        return and_(sort_column.is_(None), uuid_column > last_agreement_uuid)
+    primary = sort_column < last_sort_value if sort_dir == "desc" else sort_column > last_sort_value
+    return or_(
+        and_(sort_column.isnot(None), primary),
+        and_(sort_column.isnot(None), sort_column == last_sort_value, uuid_column > last_agreement_uuid),
+        sort_column.is_(None),
+    )
+
+
+def _keyset_order_by(*, sort_column: Any, uuid_column: Any, sort_dir: str) -> list[Any]:
+    """Order matching `_keyset_pagination_filter`: NULLS LAST, then uuid tiebreak."""
+    nulls_last = sort_column.is_(None).asc()
+    primary = sort_column.desc() if sort_dir == "desc" else sort_column.asc()
+    return [nulls_last, primary, uuid_column.asc()]
 
 
 def _json_compatible_value(value: object) -> object:
@@ -743,13 +867,64 @@ def _decorate_industry_labels(
     label_by_code: dict[str, str],
     fields: tuple[str, ...] = ("target_industry", "acquirer_industry"),
 ) -> None:
-    """Add a ``<field>_label`` sibling for each present, decodable industry code."""
+    """Add a ``<field>_label`` sibling for every present field, null when undecodable.
+
+    A field whose base key is present but the code is null or has no catalog entry
+    still gets the ``_label`` key, null rather than omitted: a real export hit 9/326
+    rows missing the key entirely, which breaks strict schema validation downstream
+    that expects the field to always be present. A field whose base key is absent
+    entirely (e.g. search_sections' `metadata` block when the caller only requested
+    `target_industry`, not `acquirer_industry`) is left alone -- adding a label for a
+    field the caller never asked for would leak an unrequested key into a projected
+    result.
+    """
     for field_name in fields:
+        if field_name not in payload:
+            continue
         raw = payload.get(field_name)
+        label: str | None = None
         if isinstance(raw, str) and raw.strip():
             label = label_by_code.get(raw.strip())
-            if label:
-                payload[f"{field_name}_label"] = label
+        payload[f"{field_name}_label"] = label
+
+
+def _counsel_names_by_agreement(
+    *,
+    db: Any,
+    agreement_counsel: Any,
+    counsel: Any,
+    agreement_uuids: list[str],
+) -> dict[str, dict[str, list[str]]]:
+    """Batch-fetch canonical counsel names for a page of agreements, one query total.
+
+    Returns ``{agreement_uuid: {"target": [names in position order], "acquirer": [...]}}``.
+    An agreement with no recorded counsel on a side is simply absent from that side's
+    list (not an error) -- filtering by ``any_counsel`` previously returned rows with no
+    way to tell which side the matched firm was on, which this closes.
+    """
+    result: dict[str, dict[str, list[str]]] = {}
+    if not agreement_uuids:
+        return result
+    rows = cast(
+        list[tuple[object, object, object, object]],
+        db.session.query(
+            agreement_counsel.agreement_uuid,
+            agreement_counsel.side,
+            agreement_counsel.position,
+            counsel.canonical_name,
+        )
+        .join(counsel, counsel.counsel_id == agreement_counsel.counsel_id)
+        .filter(agreement_counsel.agreement_uuid.in_(agreement_uuids))
+        .order_by(agreement_counsel.agreement_uuid, agreement_counsel.side, agreement_counsel.position)
+        .all(),
+    )
+    for uuid, side, _position, canonical_name in rows:
+        if not isinstance(uuid, str) or not isinstance(side, str) or not isinstance(canonical_name, str):
+            continue
+        by_side = result.setdefault(uuid, {"target": [], "acquirer": []})
+        if side in by_side:
+            by_side[side].append(canonical_name)
+    return result
 
 
 def _counsel_payload(

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, cast
 
 from flask import abort
@@ -9,6 +10,7 @@ from marshmallow import Schema, fields as ma_fields, validate
 from sqlalchemy import and_, asc, desc, func, or_, text
 
 from backend.auth.mcp_runtime import McpPrincipal
+from backend.extensions import db
 from backend.filtering import (
     build_any_counsel_agreement_uuid_subquery,
     build_canonical_counsel_agreement_uuid_subquery,
@@ -19,12 +21,16 @@ from backend.mcp.tools.args_schemas import (
     McpAgreementTaxClausesArgsSchema,
     McpAgreementTrendsArgsSchema,
     McpBatchAgreementSectionsArgsSchema,
+    McpBatchAgreementsArgsSchema,
     McpFilterOptionsArgsSchema,
     McpListAgreementSectionsArgsSchema,
+    McpListAgreementsExtraArgsSchema,
     McpSearchAgreementsExtraArgsSchema,
+    McpSearchAgreementsFieldsArgsSchema,
     McpSectionArgsSchema,
     McpSectionsArgsSchema,
     McpSectionTaxClausesArgsSchema,
+    McpSubmitFeedbackArgsSchema,
 )
 from backend.mcp.tools.constants import (
     _FILTER_OPTIONS_FIELDS,
@@ -44,19 +50,26 @@ from backend.mcp.tools.shared import (
     _agreements_summary_payload,
     _build_taxonomy_tree,
     _count_metadata_payload,
+    _counsel_names_by_agreement,
     _counsel_payload,
+    _decode_list_agreements_cursor,
     _decorate_industry_labels,
+    _encode_list_agreements_cursor,
     _extract_monetary_values_with_truncation,
     _extract_text_from_xml,
     _focused_snippet,
     _json_compatible_value,
+    _keyset_order_by,
+    _keyset_pagination_filter,
     _naics_label_map,
     _naics_payload,
     _normalized_page,
     _normalized_page_size,
+    _project_result_fields,
     _ranked_taxonomy_matches,
     _taxonomy_coverage,
 )
+from backend.models import McpFeedback
 from backend.routes.agreements import (
     _agreement_is_public_eligible_expr,
     _tax_clause_count,
@@ -188,17 +201,28 @@ def _list_agreements(
     parsed_args = cast(
         AgreementsBulkArgsPayload,
         cast(object, _validate_payload(
-            _merge_schema_instances(AgreementsBulkArgsSchema(), McpSearchAgreementsExtraArgsSchema()),
+            _merge_schema_instances(
+                AgreementsBulkArgsSchema(),
+                McpSearchAgreementsExtraArgsSchema(),
+                McpListAgreementsExtraArgsSchema(),
+            ),
             payload,
         )),
     )
-    any_counsel_values = cast(list[str], payload.get("any_counsel", []))
+    parsed_args_raw = cast(dict[str, object], cast(object, parsed_args))
+    any_counsel_values = cast(list[str], parsed_args_raw.get("any_counsel", []))
     include_xml = parsed_args["include_xml"]
     if include_xml:
         _require_scope(principal, "agreements:read_fulltext")
 
+    sort_by = cast(str, parsed_args_raw["sort_by"])
+    sort_dir = cast(str, parsed_args_raw["sort_dir"])
+    requested_fields = cast(list[str], parsed_args_raw.get("fields", []))
+    cursor_position = _decode_list_agreements_cursor(
+        cast(str | None, parsed_args["cursor"]), sort_by=sort_by, sort_dir=sort_dir
+    )
+
     page_size = _normalized_page_size(parsed_args["page_size"])
-    after_agreement_uuid = deps._decode_agreements_cursor(parsed_args["cursor"])
     agreements = deps.Agreements
     agreement_counsel = deps.AgreementCounsel
     counsel = deps.Counsel
@@ -264,12 +288,19 @@ def _list_agreements(
         )
         q = q.filter(or_(*year_filters))
 
-    year_min_val = cast(int | None, payload.get("year_min"))
-    year_max_val = cast(int | None, payload.get("year_max"))
+    year_min_val = cast(int | None, parsed_args_raw.get("year_min"))
+    year_max_val = cast(int | None, parsed_args_raw.get("year_max"))
     if year_min_val is not None:
         q = q.filter(agreements.filing_date >= f"{year_min_val:04d}-01-01")
     if year_max_val is not None:
         q = q.filter(agreements.filing_date < f"{year_max_val + 1:04d}-01-01")
+
+    filed_after = cast(str | None, parsed_args_raw.get("filed_after"))
+    filed_before = cast(str | None, parsed_args_raw.get("filed_before"))
+    if filed_after:
+        q = q.filter(agreements.filing_date >= filed_after)
+    if filed_before:
+        q = q.filter(agreements.filing_date < filed_before)
 
     list_filters = (
         ("target", agreements.target),
@@ -377,18 +408,57 @@ def _list_agreements(
     if any_counsel_subquery is not None:
         q = q.filter(agreements.agreement_uuid.in_(any_counsel_subquery))
 
-    if after_agreement_uuid:
-        q = q.filter(agreements.agreement_uuid > after_agreement_uuid)
+    sort_column_map = {
+        "agreement_uuid": agreements.agreement_uuid,
+        "year": year_expr,
+        "target": agreements.target,
+        "acquirer": agreements.acquirer,
+        "filing_date": agreements.filing_date,
+    }
+    sort_column = sort_column_map[sort_by]
+    if cursor_position is not None:
+        last_sort_value, last_agreement_uuid = cursor_position
+        q = q.filter(
+            _keyset_pagination_filter(
+                sort_column=sort_column,
+                uuid_column=agreements.agreement_uuid,
+                sort_dir=sort_dir,
+                last_sort_value=last_sort_value,
+                last_agreement_uuid=last_agreement_uuid,
+            )
+        )
+    order_by_clauses = _keyset_order_by(sort_column=sort_column, uuid_column=agreements.agreement_uuid, sort_dir=sort_dir)
 
-    rows = cast(list[object], q.order_by(asc(agreements.agreement_uuid)).limit(page_size + 1).all())
+    rows = cast(list[object], q.order_by(*order_by_clauses).limit(page_size + 1).all())
     has_next = len(rows) > page_size
     page_rows = rows[:page_size]
     naics_label_by_code = _naics_label_map(db=db, schema_prefix=deps._schema_prefix())
+
+    need_counsel = (
+        not requested_fields or "target_counsel" in requested_fields or "acquirer_counsel" in requested_fields
+    )
+    counsel_by_agreement: dict[str, dict[str, list[str]]] = {}
+    if need_counsel:
+        page_agreement_uuids = [
+            uuid
+            for uuid in (
+                cast(str | None, deps._row_mapping_as_dict(row).get("agreement_uuid")) for row in page_rows
+            )
+            if isinstance(uuid, str)
+        ]
+        counsel_by_agreement = _counsel_names_by_agreement(
+            db=db,
+            agreement_counsel=agreement_counsel,
+            counsel=counsel,
+            agreement_uuids=page_agreement_uuids,
+        )
+
     results: list[dict[str, object]] = []
     for row in page_rows:
         row_map = deps._row_mapping_as_dict(row)
+        row_agreement_uuid = row_map.get("agreement_uuid")
         item = {
-            "agreement_uuid": _json_compatible_value(row_map.get("agreement_uuid")),
+            "agreement_uuid": _json_compatible_value(row_agreement_uuid),
             "year": _json_compatible_value(row_map.get("year")),
             "target": _json_compatible_value(row_map.get("target")),
             "acquirer": _json_compatible_value(row_map.get("acquirer")),
@@ -421,7 +491,11 @@ def _list_agreements(
         _decorate_industry_labels(item, label_by_code=naics_label_by_code)
         if include_xml:
             item["xml"] = _json_compatible_value(row_map.get("xml"))
-        results.append(item)
+        if need_counsel:
+            sides = counsel_by_agreement.get(cast(str, row_agreement_uuid), {"target": [], "acquirer": []})
+            item["target_counsel"] = list(sides.get("target", []))
+            item["acquirer_counsel"] = list(sides.get("acquirer", []))
+        results.append(_project_result_fields(item, requested_fields=requested_fields))
 
     next_cursor: str | None = None
     if has_next:
@@ -429,7 +503,12 @@ def _list_agreements(
         last_agreement_uuid = last_row.get("agreement_uuid")
         if not isinstance(last_agreement_uuid, str) or not last_agreement_uuid:
             raise RuntimeError("Agreements list query returned a row without agreement_uuid.")
-        next_cursor = deps._encode_agreements_cursor(last_agreement_uuid)
+        next_cursor = _encode_list_agreements_cursor(
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+            last_sort_value=last_row.get(sort_by),
+            last_agreement_uuid=last_agreement_uuid,
+        )
 
     response: dict[str, object] = {
         "results": results,
@@ -464,7 +543,12 @@ def _search_agreements(
 ) -> McpToolResult:
     _require_scope(principal, "agreements:search")
     parsed_args = _validate_payload(
-        _merge_schema_instances(AgreementsIndexArgsSchema(), AgreementsBulkArgsSchema(), McpSearchAgreementsExtraArgsSchema()),
+        _merge_schema_instances(
+            AgreementsIndexArgsSchema(),
+            AgreementsBulkArgsSchema(),
+            McpSearchAgreementsExtraArgsSchema(),
+            McpSearchAgreementsFieldsArgsSchema(),
+        ),
         payload,
     )
     page = _normalized_page(cast(int, parsed_args["page"]))
@@ -472,6 +556,7 @@ def _search_agreements(
     sort_by = cast(str, parsed_args["sort_by"])
     sort_dir = cast(str, parsed_args["sort_dir"])
     query = cast(str, parsed_args["query"]).strip()
+    requested_fields = cast(list[str], parsed_args.get("fields", []))
 
     agreements = deps.Agreements
     agreement_counsel = deps.AgreementCounsel
@@ -704,22 +789,46 @@ def _search_agreements(
     items = cast(list[object], q.offset(offset).limit(page_size).all())
     meta = deps._pagination_metadata(total_count=total_count, page=page, page_size=page_size)
 
+    need_counsel = (
+        not requested_fields or "target_counsel" in requested_fields or "acquirer_counsel" in requested_fields
+    )
+    counsel_by_agreement: dict[str, dict[str, list[str]]] = {}
+    if need_counsel:
+        page_agreement_uuids = [
+            uuid
+            for uuid in (
+                cast(str | None, deps._row_mapping_as_dict(cast(object, row)).get("agreement_uuid"))
+                for row in items
+            )
+            if isinstance(uuid, str)
+        ]
+        counsel_by_agreement = _counsel_names_by_agreement(
+            db=db,
+            agreement_counsel=agreement_counsel,
+            counsel=counsel,
+            agreement_uuids=page_agreement_uuids,
+        )
+
     results: list[dict[str, object]] = []
     for row in items:
         row_map = deps._row_mapping_as_dict(cast(object, row))
         verified_value = row_map.get("verified")
-        results.append(
-            {
-                "agreement_uuid": _json_compatible_value(row_map.get("agreement_uuid")),
-                "year": _json_compatible_value(row_map.get("year")),
-                "target": _json_compatible_value(row_map.get("target")),
-                "acquirer": _json_compatible_value(row_map.get("acquirer")),
-                "filing_date": _json_compatible_value(row_map.get("filing_date")),
-                "url": _json_compatible_value(row_map.get("url")),
-                "verified": bool(verified_value) if verified_value is not None else False,
-                "section_count": _json_compatible_value(row_map.get("section_count")),
-            }
-        )
+        row_agreement_uuid = row_map.get("agreement_uuid")
+        item: dict[str, object] = {
+            "agreement_uuid": _json_compatible_value(row_agreement_uuid),
+            "year": _json_compatible_value(row_map.get("year")),
+            "target": _json_compatible_value(row_map.get("target")),
+            "acquirer": _json_compatible_value(row_map.get("acquirer")),
+            "filing_date": _json_compatible_value(row_map.get("filing_date")),
+            "url": _json_compatible_value(row_map.get("url")),
+            "verified": bool(verified_value) if verified_value is not None else False,
+            "section_count": _json_compatible_value(row_map.get("section_count")),
+        }
+        if need_counsel:
+            sides = counsel_by_agreement.get(cast(str, row_agreement_uuid), {"target": [], "acquirer": []})
+            item["target_counsel"] = list(sides.get("target", []))
+            item["acquirer_counsel"] = list(sides.get("acquirer", []))
+        results.append(_project_result_fields(item, requested_fields=requested_fields))
 
     response = {
         "results": results,
@@ -858,6 +967,147 @@ def _get_agreement(
             response["is_redacted"] = True
     return McpToolResult(
         text=f"Fetched agreement {agreement_uuid}.",
+        structured_content=response,
+    )
+
+
+def _get_agreements_batch(
+    deps: AgreementsDeps,
+    *,
+    principal: McpPrincipal,
+    payload: dict[str, object],
+) -> McpToolResult:
+    _require_scope(principal, "agreements:read")
+    parsed_args = _validate_payload(McpBatchAgreementsArgsSchema(), payload)
+    # Deduped for the same reason as the other batch tools: a repeated uuid would
+    # otherwise produce two identical result entries and double-count returned_count.
+    agreement_uuids = list(
+        dict.fromkeys(u.strip() for u in cast(list[str], parsed_args["agreement_uuids"]) if u.strip())
+    )
+    if not agreement_uuids:
+        _abort_invalid_argument("No valid agreement_uuids provided.")
+
+    agreements = deps.Agreements
+    agreement_counsel = deps.AgreementCounsel
+    counsel = deps.Counsel
+    xml = deps.XML
+    db = deps.db
+    year_expr = deps._agreement_year_expr().label("year")
+    columns = [
+        agreements.agreement_uuid.label("agreement_uuid"),
+        year_expr,
+        agreements.target.label("target"),
+        agreements.acquirer.label("acquirer"),
+        agreements.filing_date.label("filing_date"),
+        agreements.prob_filing.label("prob_filing"),
+        agreements.filing_company_name.label("filing_company_name"),
+        agreements.filing_company_cik.label("filing_company_cik"),
+        agreements.form_type.label("form_type"),
+        agreements.exhibit_type.label("exhibit_type"),
+        agreements.transaction_price_total.label("transaction_price_total"),
+        agreements.transaction_price_stock.label("transaction_price_stock"),
+        agreements.transaction_price_cash.label("transaction_price_cash"),
+        agreements.transaction_price_assets.label("transaction_price_assets"),
+        agreements.transaction_consideration.label("transaction_consideration"),
+        agreements.target_type.label("target_type"),
+        agreements.acquirer_type.label("acquirer_type"),
+        agreements.target_industry.label("target_industry"),
+        agreements.acquirer_industry.label("acquirer_industry"),
+        agreements.announce_date.label("announce_date"),
+        agreements.close_date.label("close_date"),
+        agreements.deal_status.label("deal_status"),
+        agreements.attitude.label("attitude"),
+        agreements.deal_type.label("deal_type"),
+        agreements.purpose.label("purpose"),
+        agreements.target_pe.label("target_pe"),
+        agreements.acquirer_pe.label("acquirer_pe"),
+        agreements.url.label("url"),
+    ]
+    rows = cast(
+        list[object],
+        db.session.query(*columns)
+        .join(xml, deps._agreement_latest_xml_join_condition())
+        .filter(_agreement_is_public_eligible_expr(agreements))
+        .filter(agreements.agreement_uuid.in_(agreement_uuids))
+        .all(),
+    )
+    row_by_uuid: dict[str, dict[str, object]] = {}
+    for row in rows:
+        row_map = deps._row_mapping_as_dict(cast(object, row))
+        uuid = row_map.get("agreement_uuid")
+        if isinstance(uuid, str):
+            row_by_uuid[uuid] = row_map
+
+    resolved_uuids = [uuid for uuid in agreement_uuids if uuid in row_by_uuid]
+    unresolved_uuids = [uuid for uuid in agreement_uuids if uuid not in row_by_uuid]
+    naics_label_by_code = _naics_label_map(db=db, schema_prefix=deps._schema_prefix())
+    counsel_by_agreement = _counsel_names_by_agreement(
+        db=db,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+        agreement_uuids=resolved_uuids,
+    )
+
+    results: list[dict[str, object]] = []
+    for uuid in resolved_uuids:
+        row_map = row_by_uuid[uuid]
+        item: dict[str, object] = {
+            "agreement_uuid": uuid,
+            "year": _json_compatible_value(row_map.get("year")),
+            "target": _json_compatible_value(row_map.get("target")),
+            "acquirer": _json_compatible_value(row_map.get("acquirer")),
+            "filing_date": _json_compatible_value(row_map.get("filing_date")),
+            "prob_filing": _json_compatible_value(row_map.get("prob_filing")),
+            "filing_company_name": _json_compatible_value(row_map.get("filing_company_name")),
+            "filing_company_cik": _json_compatible_value(row_map.get("filing_company_cik")),
+            "form_type": _json_compatible_value(row_map.get("form_type")),
+            "exhibit_type": _json_compatible_value(row_map.get("exhibit_type")),
+            "transaction_price_total": _json_compatible_value(row_map.get("transaction_price_total")),
+            "transaction_price_stock": _json_compatible_value(row_map.get("transaction_price_stock")),
+            "transaction_price_cash": _json_compatible_value(row_map.get("transaction_price_cash")),
+            "transaction_price_assets": _json_compatible_value(row_map.get("transaction_price_assets")),
+            "transaction_consideration": _json_compatible_value(row_map.get("transaction_consideration")),
+            "target_type": _json_compatible_value(row_map.get("target_type")),
+            "acquirer_type": _json_compatible_value(row_map.get("acquirer_type")),
+            "target_industry": _json_compatible_value(row_map.get("target_industry")),
+            "acquirer_industry": _json_compatible_value(row_map.get("acquirer_industry")),
+            "announce_date": _json_compatible_value(row_map.get("announce_date")),
+            "close_date": _json_compatible_value(row_map.get("close_date")),
+            "deal_status": _json_compatible_value(row_map.get("deal_status")),
+            "attitude": _json_compatible_value(row_map.get("attitude")),
+            "deal_type": _json_compatible_value(row_map.get("deal_type")),
+            "purpose": _json_compatible_value(row_map.get("purpose")),
+            "target_pe": _json_compatible_value(row_map.get("target_pe")),
+            "acquirer_pe": _json_compatible_value(row_map.get("acquirer_pe")),
+            "url": _json_compatible_value(row_map.get("url")),
+        }
+        _decorate_industry_labels(item, label_by_code=naics_label_by_code)
+        sides = counsel_by_agreement.get(uuid, {"target": [], "acquirer": []})
+        item["target_counsel"] = list(sides.get("target", []))
+        item["acquirer_counsel"] = list(sides.get("acquirer", []))
+        results.append(item)
+
+    response: dict[str, object] = {
+        "results": results,
+        "returned_count": len(results),
+    }
+    # Mirrors get_sections_batch / list_agreement_sections_batch: a uuid that matches no
+    # retrievable agreement is omitted from results rather than returned as a hollow
+    # entry, so a shorter result list must not be read as an absence -- check this block.
+    if unresolved_uuids:
+        response["unresolved_agreement_uuids"] = unresolved_uuids
+        response["interpretation"] = {
+            "notes": [
+                "No retrievable agreement was found for agreement_uuid(s): "
+                + ", ".join(unresolved_uuids)
+                + ". These are omitted from results entirely; they are not agreements "
+                "with empty metadata. Verify the UUID with search_agreements or "
+                "list_agreements."
+            ],
+            "unresolved_agreement_uuids": unresolved_uuids,
+        }
+    return McpToolResult(
+        text=f"Returned metadata for {len(results)} agreement(s).",
         structured_content=response,
     )
 
@@ -2238,3 +2488,83 @@ def _get_agreement_trends(
         structured_content=response,
     )
 
+
+_FEEDBACK_RATE_LIMIT_PER_HOUR = 20
+_FEEDBACK_CONTEXT_MAX_CHARS = 2000
+
+
+def _submit_feedback(
+    *,
+    principal: McpPrincipal,
+    payload: dict[str, object],
+    known_tool_names: frozenset[str],
+) -> McpToolResult:
+    # Any authenticated scope suffices (same policy as get_server_capabilities):
+    # the channel must be open to every existing token or it collects nothing.
+    if not principal.scopes:
+        raise PermissionError("Missing required scope: agreements:search")
+    parsed_args = _validate_payload(McpSubmitFeedbackArgsSchema(), payload)
+    summary = cast(str, parsed_args["summary"]).strip()
+    detail = cast(str, parsed_args["detail"]).strip()
+    if not summary:
+        _abort_invalid_argument("summary must contain non-whitespace text.")
+    if not detail:
+        _abort_invalid_argument("detail must contain non-whitespace text.")
+
+    tool_name = cast("str | None", parsed_args.get("tool_name"))
+    if tool_name is not None and tool_name not in known_tool_names:
+        _abort_invalid_argument(
+            f"Unknown tool_name: {tool_name}. Pass a tool name from this server's tools/list, or omit tool_name."
+        )
+
+    context = cast("dict[str, object] | None", parsed_args.get("context"))
+    if context is not None:
+        serialized_context = json.dumps(context, separators=(",", ":"), default=str)
+        if len(serialized_context) > _FEEDBACK_CONTEXT_MAX_CHARS:
+            _abort_invalid_argument(
+                f"context exceeds {_FEEDBACK_CONTEXT_MAX_CHARS} characters when serialized; trim it to the arguments that reproduce the issue."
+            )
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    recent_count = cast(
+        int,
+        db.session.query(func.count(McpFeedback.id))
+        .filter(
+            McpFeedback.user_id == principal.user_id,
+            McpFeedback.created_at >= now - timedelta(hours=1),
+        )
+        .scalar(),
+    )
+    if recent_count >= _FEEDBACK_RATE_LIMIT_PER_HOUR:
+        _abort_invalid_argument(
+            f"Feedback rate limit reached ({_FEEDBACK_RATE_LIMIT_PER_HOUR} submissions per hour). "
+            "Consolidate remaining observations into one submission later in the session."
+        )
+
+    row = McpFeedback()
+    row.user_id = principal.user_id
+    row.client_id = principal.client_id or ""
+    row.scopes = " ".join(sorted(principal.scopes))
+    row.category = cast(str, parsed_args["category"])
+    row.severity = cast("str | None", parsed_args.get("severity"))
+    row.tool_name = tool_name
+    row.summary = summary
+    row.detail = detail
+    row.suggestions = cast("str | None", parsed_args.get("suggestions"))
+    row.context = context
+    row.created_at = now
+    db.session.add(row)
+    db.session.commit()
+
+    return McpToolResult(
+        text=f"Feedback recorded ({row.id}).",
+        structured_content={
+            "feedback_id": row.id,
+            "recorded_at": row.created_at.isoformat(),
+            "category": row.category,
+            "message": (
+                "Feedback recorded — thank you. Keep filing observations as you hit "
+                "them; a short wrap-up submission at the end of a session is also welcome."
+            ),
+        },
+    )

@@ -178,7 +178,11 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                     "instructions": (
                         "Pandects MCP exposes M&A agreement and clause research tools. "
                         "Start with get_server_capabilities for concept guidance and scope mapping, "
-                        "then list_filter_options or search_agreements/search_sections for discovery."
+                        "then list_filter_options or search_agreements/search_sections for discovery. "
+                        "When you hit friction, missing capabilities, or data-quality issues — or when "
+                        "something works notably well — report it with submit_feedback as it happens, "
+                        "and consider a short wrap-up submission at the end of the session; the "
+                        "maintainer reads every report."
                     ),
                 },
                 extra_headers={"Mcp-Session-Id": _issue_session_id()},

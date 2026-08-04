@@ -884,6 +884,7 @@ class McpTests(unittest.TestCase):
                 "list_agreement_sections",
                 "list_agreement_sections_batch",
                 "get_agreement",
+                "get_agreements_batch",
                 "get_section",
                 "get_agreement_tax_clauses",
                 "get_section_tax_clauses",
@@ -900,6 +901,7 @@ class McpTests(unittest.TestCase):
                 "get_naics_catalog",
                 "get_agreements_summary",
                 "get_agreement_trends",
+                "submit_feedback",
             ],
         )
         self.assertEqual(payload["jsonrpc"], "2.0")
@@ -1830,8 +1832,16 @@ class McpTests(unittest.TestCase):
         payload: dict[str, object] = {"target_industry": "334", "acquirer_industry": "999"}
         _decorate_industry_labels(payload, label_by_code={"334": "Computer Manufacturing"})
         self.assertEqual(payload["target_industry_label"], "Computer Manufacturing")
-        # A code with no catalog entry gets no label rather than a bogus one.
-        self.assertNotIn("acquirer_industry_label", payload)
+        # A code with no catalog entry still gets the key, null rather than omitted --
+        # a real export previously dropped the key on 9/326 rows, breaking strict
+        # downstream schema validation that expected it always present.
+        self.assertIn("acquirer_industry_label", payload)
+        self.assertIsNone(payload["acquirer_industry_label"])
+
+        null_payload: dict[str, object] = {"target_industry": None, "acquirer_industry": None}
+        _decorate_industry_labels(null_payload, label_by_code={"334": "Computer Manufacturing"})
+        self.assertIsNone(null_payload["target_industry_label"])
+        self.assertIsNone(null_payload["acquirer_industry_label"])
 
         self.assertTrue(_year_in_range(2023, year_min=2022, year_max=2024))
         self.assertFalse(_year_in_range(2021, year_min=2022, year_max=None))
@@ -2342,6 +2352,27 @@ class McpTests(unittest.TestCase):
             self.assertNotIn("metadata", result)
             self.assertIn("transaction_price_total", result)
 
+    def test_search_sections_metadata_industry_label_does_not_leak_unrequested_side(self):
+        """_decorate_industry_labels must respect the `metadata` projection: requesting
+        only target_industry must not also inject an acquirer_industry_label the caller
+        never asked for. a1's target_industry='tech' has no NAICS catalog entry, so the
+        label is null -- still present, but only for the requested side.
+        """
+        res = self._call_tool(
+            "search_sections",
+            {"metadata": ["target_industry"], "agreement_uuid": "a1"},
+            scope="sections:search",
+        )
+        self.assertEqual(res.status_code, 200)
+        results = res.get_json()["result"]["structuredContent"]["results"]
+        self.assertTrue(results)
+        for result in results:
+            metadata = result["metadata"]
+            self.assertIn("target_industry_label", metadata)
+            self.assertIsNone(metadata["target_industry_label"])
+            self.assertNotIn("acquirer_industry", metadata)
+            self.assertNotIn("acquirer_industry_label", metadata)
+
     def test_capabilities_resources_supported_matches_resources_list(self):
         """The declared capability must track what resources/list actually serves.
 
@@ -2736,6 +2767,161 @@ class McpTests(unittest.TestCase):
         self.assertIn("catalogs", payload)
         self.assertNotIn("ownership", payload)
 
+    def _clear_feedback_rows(self) -> None:
+        from backend.models import McpFeedback
+
+        with self.app.app_context():
+            McpFeedback.query.delete()
+            self.app_module.db.session.commit()
+
+    def test_submit_feedback_persists_row_with_principal_identity(self):
+        from backend.models import McpFeedback
+
+        self._clear_feedback_rows()
+        harness = McpClientHarness(self)
+        harness.list_tools()
+        payload = harness.call_tool(
+            "submit_feedback",
+            {
+                "summary": "search_sections has no keyword fallback",
+                "detail": "Wanted 'ticking fee' language; coverage was none and no free-text query exists.",
+                "category": "missing_capability",
+                "severity": "medium",
+                "tool_name": "search_sections",
+                "suggestions": "Expose an explicit coverage-gap report format.",
+                "context": {"concept": "ticking fee"},
+            },
+        )
+        self.assertEqual(payload["category"], "missing_capability")
+        feedback_id = cast(str, payload["feedback_id"])
+        with self.app.app_context():
+            row = self.app_module.db.session.get(McpFeedback, feedback_id)
+            self.assertIsNotNone(row)
+            assert row is not None
+            self.assertEqual(row.user_id, "00000000-0000-0000-0000-0000000000f1")
+            self.assertEqual(row.client_id, "")
+            self.assertEqual(row.scopes, "agreements:read agreements:search sections:search")
+            self.assertEqual(row.summary, "search_sections has no keyword fallback")
+            self.assertEqual(row.tool_name, "search_sections")
+            self.assertEqual(row.severity, "medium")
+            self.assertEqual(row.context, {"concept": "ticking fee"})
+            self.assertIsNotNone(row.created_at)
+
+    def test_submit_feedback_defaults_optional_fields(self):
+        from backend.models import McpFeedback
+
+        self._clear_feedback_rows()
+        res = self._call_tool(
+            "submit_feedback",
+            {"summary": "Snippet batching worked well", "detail": "Compared 40 MAE carveouts in three calls."},
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["category"], "other")
+        with self.app.app_context():
+            row = self.app_module.db.session.get(McpFeedback, payload["feedback_id"])
+            assert row is not None
+            self.assertIsNone(row.severity)
+            self.assertIsNone(row.tool_name)
+            self.assertIsNone(row.suggestions)
+            self.assertIsNone(row.context)
+
+    def test_submit_feedback_rejects_whitespace_summary_with_agent_visible_error(self):
+        res = self._call_tool(
+            "submit_feedback",
+            {"summary": "   ", "detail": "Real detail text."},
+        )
+        self.assertEqual(res.status_code, 200)
+        error = res.get_json()["error"]
+        self.assertEqual(error["code"], -32602)
+        self.assertIn("summary must contain non-whitespace text", error["message"])
+
+    def test_submit_feedback_rejects_oversized_and_invalid_arguments(self):
+        overlong = self._call_tool(
+            "submit_feedback",
+            {"summary": "x" * 201, "detail": "d"},
+        )
+        self.assertEqual(overlong.get_json()["error"]["code"], -32602)
+
+        bad_category = self._call_tool(
+            "submit_feedback",
+            {"summary": "s", "detail": "d", "category": "rant"},
+        )
+        self.assertEqual(bad_category.get_json()["error"]["code"], -32602)
+
+        unknown_tool = self._call_tool(
+            "submit_feedback",
+            {"summary": "s", "detail": "d", "tool_name": "search_everything"},
+        )
+        unknown_tool_error = unknown_tool.get_json()["error"]
+        self.assertEqual(unknown_tool_error["code"], -32602)
+        self.assertIn("Unknown tool_name: search_everything", unknown_tool_error["message"])
+
+        big_context = self._call_tool(
+            "submit_feedback",
+            {"summary": "s", "detail": "d", "context": {"blob": "x" * 2100}},
+        )
+        big_context_error = big_context.get_json()["error"]
+        self.assertEqual(big_context_error["code"], -32602)
+        self.assertIn("context exceeds 2000 characters", big_context_error["message"])
+
+    def test_submit_feedback_rate_limit(self):
+        from backend.mcp.tools.handlers import _FEEDBACK_RATE_LIMIT_PER_HOUR
+        from backend.models import McpFeedback
+
+        self._clear_feedback_rows()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        with self.app.app_context():
+            for index in range(_FEEDBACK_RATE_LIMIT_PER_HOUR):
+                row = McpFeedback()
+                row.user_id = "00000000-0000-0000-0000-0000000000f1"
+                row.summary = f"filler {index}"
+                row.detail = "filler"
+                row.created_at = now
+                self.app_module.db.session.add(row)
+            self.app_module.db.session.commit()
+        try:
+            res = self._call_tool(
+                "submit_feedback",
+                {"summary": "one more", "detail": "should be rejected"},
+            )
+            self.assertEqual(res.status_code, 200)
+            error = res.get_json()["error"]
+            self.assertEqual(error["code"], -32602)
+            self.assertIn("rate limit reached", error["message"])
+        finally:
+            self._clear_feedback_rows()
+
+    def test_submit_feedback_requires_authenticated_scope(self):
+        # A single space keeps _call_tool from substituting its default scopes
+        # while still yielding an empty scope set after parsing.
+        res = self._call_tool(
+            "submit_feedback",
+            {"summary": "s", "detail": "d"},
+            scope=" ",
+        )
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.get_json()["error"]["data"]["category"], "authorization")
+
+    def test_submit_feedback_registered_and_promoted(self):
+        harness = McpClientHarness(self)
+        instructions = cast(
+            str,
+            cast("dict[str, object]", harness.initialize()["result"])["instructions"],
+        )
+        self.assertIn("submit_feedback", instructions)
+        tool_names = [tool["name"] for tool in harness.list_tools()]
+        self.assertIn("submit_feedback", tool_names)
+
+        capabilities = self._call_tool(
+            "get_server_capabilities", {"sections": ["server", "workflows"]}
+        ).get_json()["result"]["structuredContent"]
+        server_info = cast("dict[str, object]", capabilities["server"])
+        self.assertEqual(server_info["feedback_tool"], "submit_feedback")
+        self.assertIn("submit_feedback", cast(str, server_info["feedback_note"]))
+        workflow_names = [w["name"] for w in cast("list[dict[str, object]]", capabilities["workflows"])]
+        self.assertIn("report friction or gaps you encountered", workflow_names)
+
     def test_missing_scope_is_403(self):
         client = self.app.test_client()
         res = client.post(
@@ -2954,6 +3140,291 @@ class McpTests(unittest.TestCase):
                 os.environ.pop("MCP_IDENTITY_PROVIDER", None)
             else:
                 os.environ["MCP_IDENTITY_PROVIDER"] = previous
+
+    # -- P0: filed_after/filed_before were advertised and validated but never applied --
+
+    def test_list_agreements_filed_after_narrows_results(self):
+        """a1 filed 2020-01-01, a2 filed 2021-06-15; filed_after must drop a1."""
+        res = self._call_tool("list_agreements", {"filed_after": "2021-01-01"})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual([r["agreement_uuid"] for r in payload["results"]], ["a2"])
+
+    def test_list_agreements_filed_before_narrows_results(self):
+        res = self._call_tool("list_agreements", {"filed_before": "2021-01-01"})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual([r["agreement_uuid"] for r in payload["results"]], ["a1"])
+
+    def test_list_agreements_filed_after_and_before_combine_to_empty_window(self):
+        res = self._call_tool(
+            "list_agreements", {"filed_after": "2020-06-01", "filed_before": "2021-01-01"}
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["results"], [])
+
+    # -- P0: advertised input schema must stay a subset of what validation accepts --
+
+    def test_search_and_list_agreements_advertised_schema_matches_validated_fields(self):
+        """Guards the class of bug in test_list_agreements_filed_after_narrows_results:
+        filed_after/filed_before were accepted by validation and even documented in the
+        advertised schema (via a raw JSON-schema override), but list_agreements built
+        its advertised schema from a narrower base schema than the one it validated
+        against, and never read the values out of the parsed payload. Comparing the
+        advertised property names against the schema actually used for validation turns
+        that whole class of drift into a failing test instead of a silent no-op filter.
+        """
+        import backend.mcp.tools as tools_module
+        from backend.mcp.tools.args_schemas import (
+            McpListAgreementsExtraArgsSchema,
+            McpSearchAgreementsExtraArgsSchema,
+            McpSearchAgreementsFieldsArgsSchema,
+        )
+        from backend.mcp.tools.schema_utils import _merge_schema_instances
+        from backend.schemas.public_api import AgreementsBulkArgsSchema, AgreementsIndexArgsSchema
+
+        specs = {spec.name: spec for spec in tools_module._tool_specs()}
+        validated_schemas = {
+            "search_agreements": _merge_schema_instances(
+                AgreementsIndexArgsSchema(),
+                AgreementsBulkArgsSchema(),
+                McpSearchAgreementsExtraArgsSchema(),
+                McpSearchAgreementsFieldsArgsSchema(),
+            ),
+            "list_agreements": _merge_schema_instances(
+                AgreementsBulkArgsSchema(),
+                McpSearchAgreementsExtraArgsSchema(),
+                McpListAgreementsExtraArgsSchema(),
+            ),
+        }
+        for tool_name, schema in validated_schemas.items():
+            advertised = set(cast(dict[str, object], specs[tool_name].input_schema["properties"]).keys())
+            validated = set(schema.fields.keys())
+            missing = advertised - validated
+            self.assertEqual(
+                missing,
+                set(),
+                f"{tool_name} advertises {missing} which payload validation does not accept.",
+            )
+
+    # -- P0: industry labels are now always present (null rather than omitted) --
+
+    def test_list_agreements_and_get_agreement_always_emit_industry_label_keys(self):
+        """a1/a2 both carry target_industry/acquirer_industry='tech', which has no NAICS
+        catalog entry -- exactly the undecodable-code case that used to drop the key.
+        """
+        list_res = self._call_tool("list_agreements", {})
+        self.assertEqual(list_res.status_code, 200)
+        list_payload = list_res.get_json()["result"]["structuredContent"]
+        self.assertTrue(list_payload["results"])
+        for row in list_payload["results"]:
+            self.assertIn("target_industry_label", row)
+            self.assertIn("acquirer_industry_label", row)
+            self.assertIsNone(row["target_industry_label"])
+            self.assertIsNone(row["acquirer_industry_label"])
+
+        get_res = self._call_tool("get_agreement", {"agreement_uuid": "a1"})
+        self.assertEqual(get_res.status_code, 200)
+        get_payload = get_res.get_json()["result"]["structuredContent"]
+        self.assertIn("target_industry_label", get_payload)
+        self.assertIsNone(get_payload["target_industry_label"])
+
+    # -- P1: counsel echo on search_agreements / list_agreements rows --
+
+    def test_list_agreements_echoes_counsel_by_side(self):
+        res = self._call_tool("list_agreements", {})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        by_uuid = {row["agreement_uuid"]: row for row in payload["results"]}
+        self.assertEqual(by_uuid["a1"]["target_counsel"], ["Wachtell, Lipton, Rosen & Katz"])
+        self.assertEqual(by_uuid["a1"]["acquirer_counsel"], ["Skadden, Arps, Slate, Meagher & Flom LLP"])
+        self.assertEqual(by_uuid["a2"]["target_counsel"], ["Skadden, Arps, Slate, Meagher & Flom LLP"])
+        self.assertEqual(by_uuid["a2"]["acquirer_counsel"], ["Wachtell, Lipton, Rosen & Katz"])
+
+    def test_search_agreements_echoes_counsel_by_side(self):
+        res = self._call_tool("search_agreements", {"any_counsel": ["Wachtell, Lipton, Rosen & Katz"]})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        by_uuid = {row["agreement_uuid"]: row for row in payload["results"]}
+        self.assertEqual(set(by_uuid.keys()), {"a1", "a2"})
+        self.assertEqual(by_uuid["a1"]["target_counsel"], ["Wachtell, Lipton, Rosen & Katz"])
+        self.assertEqual(by_uuid["a2"]["acquirer_counsel"], ["Wachtell, Lipton, Rosen & Katz"])
+
+    # -- P1: `fields` projection on both tools --
+
+    def test_list_agreements_fields_projection_limits_row_keys(self):
+        res = self._call_tool("list_agreements", {"fields": ["agreement_uuid", "url"]})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertTrue(payload["results"])
+        for row in payload["results"]:
+            self.assertEqual(set(row.keys()), {"agreement_uuid", "url"})
+
+    def test_list_agreements_fields_projection_agreement_uuid_always_included(self):
+        res = self._call_tool("list_agreements", {"fields": ["url"]})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        for row in payload["results"]:
+            self.assertIn("agreement_uuid", row)
+            self.assertEqual(set(row.keys()), {"agreement_uuid", "url"})
+
+    def test_list_agreements_fields_projection_requesting_counsel_includes_only_that(self):
+        res = self._call_tool("list_agreements", {"fields": ["target_counsel"]})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        for row in payload["results"]:
+            self.assertEqual(set(row.keys()), {"agreement_uuid", "target_counsel"})
+
+    def test_list_agreements_without_fields_keeps_full_row(self):
+        res = self._call_tool("list_agreements", {})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertGreater(len(payload["results"][0].keys()), 10)
+        self.assertIn("target_counsel", payload["results"][0])
+
+    def test_search_agreements_fields_projection_limits_row_keys(self):
+        res = self._call_tool("search_agreements", {"query": "Target", "fields": ["agreement_uuid", "url"]})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertTrue(payload["results"])
+        for row in payload["results"]:
+            self.assertEqual(set(row.keys()), {"agreement_uuid", "url"})
+
+    def test_search_agreements_fields_projection_excludes_verified_when_not_requested(self):
+        """verified was previously required on every row; projection can now omit it."""
+        res = self._call_tool("search_agreements", {"query": "Target", "fields": ["agreement_uuid"]})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        for row in payload["results"]:
+            self.assertNotIn("verified", row)
+
+    # -- P2: get_agreements_batch --
+
+    def test_get_agreements_batch_tool(self):
+        res = self._call_tool(
+            "get_agreements_batch", {"agreement_uuids": ["a1", "a2", "nope"]}, scope="agreements:read"
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["returned_count"], 2)
+        by_uuid = {row["agreement_uuid"]: row for row in payload["results"]}
+        self.assertEqual(set(by_uuid.keys()), {"a1", "a2"})
+        self.assertEqual(by_uuid["a1"]["target"], "Target A")
+        self.assertEqual(by_uuid["a1"]["target_counsel"], ["Wachtell, Lipton, Rosen & Katz"])
+        self.assertIsNone(by_uuid["a1"]["target_industry_label"])
+        self.assertEqual(payload["unresolved_agreement_uuids"], ["nope"])
+        self.assertEqual(payload["interpretation"]["unresolved_agreement_uuids"], ["nope"])
+
+    def test_get_agreements_batch_rejects_more_than_25_uuids(self):
+        res = self._call_tool(
+            "get_agreements_batch",
+            {"agreement_uuids": [f"u{i}" for i in range(26)]},
+            scope="agreements:read",
+        )
+        self.assertEqual(res.status_code, 200)
+        error = res.get_json()["error"]
+        self.assertEqual(error["code"], -32602)
+
+    # -- P2: sort parity + keyset cursor on list_agreements --
+
+    def test_list_agreements_default_sort_matches_original_uuid_order(self):
+        res = self._call_tool("list_agreements", {"page_size": 1})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["results"][0]["agreement_uuid"], "a1")
+        self.assertTrue(payload["has_next"])
+        next_res = self._call_tool("list_agreements", {"page_size": 1, "cursor": payload["next_cursor"]})
+        next_payload = next_res.get_json()["result"]["structuredContent"]
+        self.assertEqual(next_payload["results"][0]["agreement_uuid"], "a2")
+
+    def test_list_agreements_cursor_rejects_mismatched_sort_settings(self):
+        first = self._call_tool("list_agreements", {"sort_by": "year", "sort_dir": "asc", "page_size": 1})
+        payload = first.get_json()["result"]["structuredContent"]
+        self.assertTrue(payload["has_next"])
+        cursor = payload["next_cursor"]
+        # Reusing a year-sorted cursor under a different sort_by must be rejected
+        # explicitly, not silently accepted into a corrupted, non-monotonic page.
+        res = self._call_tool("list_agreements", {"sort_by": "target", "sort_dir": "asc", "cursor": cursor})
+        self.assertEqual(res.status_code, 200)
+        error = res.get_json()["error"]
+        self.assertEqual(error["code"], -32602)
+
+    def test_list_agreements_rejects_pre_sort_parity_cursor_format(self):
+        """The old cursor only encoded {"agreement_uuid": ...}; it must 400, not 500."""
+        import base64
+        import json as jsonlib
+
+        old_cursor = base64.urlsafe_b64encode(
+            jsonlib.dumps({"agreement_uuid": "a1"}).encode("utf-8")
+        ).decode("ascii").rstrip("=")
+        res = self._call_tool("list_agreements", {"cursor": old_cursor})
+        self.assertEqual(res.status_code, 200)
+        error = res.get_json()["error"]
+        self.assertEqual(error["code"], -32602)
+
+    def test_list_agreements_sort_by_year_iterates_full_corpus_without_gaps_or_dupes(self):
+        extra_uuids = [f"sortyear-{i}" for i in range(6)]
+        # index 3 has a NULL filing_date, exercising the NULLS-LAST keyset branch.
+        filing_dates = ["2015-02-01", "2016-03-01", "2017-04-01", None, "2018-05-01", "2019-06-01"]
+        try:
+            with self.app.app_context():
+                with self.app_module.db.engine.begin() as conn:
+                    for uuid, filing_date in zip(extra_uuids, filing_dates):
+                        conn.execute(
+                            text(
+                                "INSERT INTO agreements ("
+                                "agreement_uuid, filing_date, target, acquirer, verified, url, "
+                                "transaction_consideration, target_type, acquirer_type, target_industry, "
+                                "acquirer_industry, deal_status, attitude, deal_type, purpose, target_pe, "
+                                "acquirer_pe"
+                                ") VALUES ("
+                                ":uuid, :filing_date, :target, :acquirer, 1, :url, "
+                                "'cash', 'public', 'public', 'tech', 'tech', 'complete', 'friendly', "
+                                "'merger', 'strategic', 0, 0)"
+                            ),
+                            {
+                                "uuid": uuid,
+                                "filing_date": filing_date,
+                                "target": f"SortYear {uuid}",
+                                "acquirer": f"SortAcq {uuid}",
+                                "url": f"http://example.com/{uuid}",
+                            },
+                        )
+                        conn.execute(
+                            text(
+                                "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                                "(:uuid, '<document><article></article></document>', 1, 'verified', 1)"
+                            ),
+                            {"uuid": uuid},
+                        )
+
+            expected_uuids = set(extra_uuids) | {"a1", "a2"}
+            seen: list[str] = []
+            cursor: str | None = None
+            for _ in range(20):
+                arguments: dict[str, object] = {"sort_by": "year", "sort_dir": "asc", "page_size": 2}
+                if cursor is not None:
+                    arguments["cursor"] = cursor
+                res = self._call_tool("list_agreements", arguments)
+                self.assertEqual(res.status_code, 200)
+                payload = res.get_json()["result"]["structuredContent"]
+                seen.extend(item["agreement_uuid"] for item in payload["results"])
+                if not payload["has_next"]:
+                    break
+                cursor = payload["next_cursor"]
+            else:
+                self.fail("Pagination did not terminate within 20 pages.")
+            self.assertEqual(len(seen), len(set(seen)), "Duplicate agreement_uuid seen across pages.")
+            self.assertEqual(set(seen), expected_uuids)
+            # Ascending year sort with NULLS LAST: the null-filing-date row sorts last.
+            self.assertEqual(seen[-1], extra_uuids[3])
+        finally:
+            with self.app.app_context():
+                with self.app_module.db.engine.begin() as conn:
+                    for uuid in extra_uuids:
+                        conn.execute(text("DELETE FROM xml WHERE agreement_uuid = :uuid"), {"uuid": uuid})
+                        conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = :uuid"), {"uuid": uuid})
 
 
 if __name__ == "__main__":

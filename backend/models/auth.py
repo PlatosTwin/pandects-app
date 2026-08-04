@@ -212,6 +212,40 @@ class McpUsageHourly(db.Model):
     )
 
 
+class McpFeedback(db.Model):
+    """Experience feedback submitted by LLM agents via the submit_feedback MCP tool.
+
+    Free-form but size-capped at the tool layer. ``scopes`` records the
+    submitting token's scope set (space-separated, sorted) so redaction/access
+    complaints can be read against what the caller could actually see;
+    ``client_id`` follows the McpUsageHourly convention (empty string when the
+    token carried no client claim). No serving read surface — the maintainer
+    reads this table via SQL.
+    """
+
+    __bind_key__ = "auth"
+    __tablename__ = "mcp_feedback"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(
+        db.String(36), db.ForeignKey("auth_users.id"), index=True, nullable=False
+    )
+    client_id = db.Column(db.String(128), nullable=False, default="")
+    scopes = db.Column(db.Text, nullable=False, default="")
+    category = db.Column(db.String(32), nullable=False, default="other")
+    severity = db.Column(db.String(16), nullable=True)
+    tool_name = db.Column(db.String(128), nullable=True)
+    summary = db.Column(db.String(200), nullable=False)
+    detail = db.Column(db.Text, nullable=False)
+    suggestions = db.Column(db.Text, nullable=True)
+    context = db.Column(db.JSON, nullable=True)
+    created_at = db.Column(db.DateTime, index=True, nullable=False, default=_utc_now_naive)
+
+    __table_args__ = (
+        db.Index("ix_mcp_feedback_user_time", "user_id", "created_at"),
+    )
+
+
 class WebUsageHourly(db.Model):
     """Hourly rollup of session-authenticated (browser) API traffic.
 

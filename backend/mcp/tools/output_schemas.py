@@ -5,6 +5,7 @@ from backend.mcp.tools.constants import (
     _CLAUSE_COVERAGE_VALUES,
     _CLAUSE_FIT_VALUES,
     _COUNT_METHOD_VALUES,
+    _FEEDBACK_CATEGORY_VALUES,
     _TAX_EXTRACTION_STATUS_VALUES,
     _COUNT_RELIABILITY_VALUES,
     _FIELD_REPRESENTATION_VALUES,
@@ -43,10 +44,24 @@ def _agreement_search_result_schema() -> dict[str, object]:
             "acquirer": {"type": ["string", "null"]},
             "filing_date": {"type": ["string", "null"]},
             "url": {"type": ["string", "null"]},
-            "verified": {"type": "boolean"},
+            "verified": {
+                "type": "boolean",
+                "description": (
+                    "Metadata human-verification flag: true when the agreement's "
+                    "deal metadata has been reviewed and confirmed by hand, independent "
+                    "of the automated XML-structure verifier run during ingestion. "
+                    "Gated agreements only appear in results when this is true; "
+                    "ungated agreements can appear with either value."
+                ),
+            },
             "section_count": {"type": ["integer", "null"]},
+            "target_counsel": _array_of({"type": "string"}),
+            "acquirer_counsel": _array_of({"type": "string"}),
         },
-        required=["agreement_uuid", "verified"],
+        # Only agreement_uuid is guaranteed: the `fields` projection parameter can trim
+        # a row to an arbitrary key subset, so no other field -- including `verified`,
+        # previously required -- is guaranteed present on every response.
+        required=["agreement_uuid"],
     )
 
 
@@ -71,8 +86,8 @@ def _agreement_list_result_schema(*, include_xml: bool = False) -> dict[str, obj
         "acquirer_type": {"type": ["string", "null"]},
         "target_industry": {"type": ["string", "null"]},
         "acquirer_industry": {"type": ["string", "null"]},
-        "target_industry_label": {"type": "string"},
-        "acquirer_industry_label": {"type": "string"},
+        "target_industry_label": {"type": ["string", "null"]},
+        "acquirer_industry_label": {"type": ["string", "null"]},
         "announce_date": {"type": ["string", "null"]},
         "close_date": {"type": ["string", "null"]},
         "deal_status": {"type": ["string", "null"]},
@@ -83,9 +98,15 @@ def _agreement_list_result_schema(*, include_xml: bool = False) -> dict[str, obj
         "acquirer_pe": {"type": ["integer", "null"]},
         "url": {"type": ["string", "null"]},
         "section_count": {"type": ["integer", "null"]},
+        "target_counsel": _array_of({"type": "string"}),
+        "acquirer_counsel": _array_of({"type": "string"}),
     }
     if include_xml:
         properties["xml"] = {"type": ["string", "null"]}
+    # Only agreement_uuid is required: the `fields` projection parameter can trim a row
+    # down to an arbitrary subset, so no other key is guaranteed present. When a row is
+    # not projected, every field (including the two industry labels) is always emitted,
+    # null rather than omitted when the underlying code is absent or undecodable.
     return _object_schema(properties, required=["agreement_uuid"])
 
 
@@ -391,6 +412,64 @@ def _batch_sections_output_schema() -> dict[str, object]:
     )
 
 
+def _batch_agreement_result_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "agreement_uuid": {"type": "string"},
+            "year": {"type": ["integer", "null"]},
+            "target": {"type": ["string", "null"]},
+            "acquirer": {"type": ["string", "null"]},
+            "filing_date": {"type": ["string", "null"]},
+            "prob_filing": {"type": ["number", "null"]},
+            "filing_company_name": {"type": ["string", "null"]},
+            "filing_company_cik": {"type": ["string", "null"]},
+            "form_type": {"type": ["string", "null"]},
+            "exhibit_type": {"type": ["string", "null"]},
+            "transaction_price_total": {"type": ["number", "null"]},
+            "transaction_price_stock": {"type": ["number", "null"]},
+            "transaction_price_cash": {"type": ["number", "null"]},
+            "transaction_price_assets": {"type": ["number", "null"]},
+            "transaction_consideration": {"type": ["string", "null"]},
+            "target_type": {"type": ["string", "null"]},
+            "acquirer_type": {"type": ["string", "null"]},
+            "target_industry": {"type": ["string", "null"]},
+            "acquirer_industry": {"type": ["string", "null"]},
+            "target_industry_label": {"type": ["string", "null"]},
+            "acquirer_industry_label": {"type": ["string", "null"]},
+            "announce_date": {"type": ["string", "null"]},
+            "close_date": {"type": ["string", "null"]},
+            "deal_status": {"type": ["string", "null"]},
+            "attitude": {"type": ["string", "null"]},
+            "deal_type": {"type": ["string", "null"]},
+            "purpose": {"type": ["string", "null"]},
+            "target_pe": {"type": ["integer", "null"]},
+            "acquirer_pe": {"type": ["integer", "null"]},
+            "url": {"type": ["string", "null"]},
+            "target_counsel": _array_of({"type": "string"}),
+            "acquirer_counsel": _array_of({"type": "string"}),
+        },
+        # get_agreements_batch has no field projection, so every metadata key on a
+        # resolved row -- including the two industry labels -- is always present, null
+        # when the underlying code is absent or undecodable.
+        required=["agreement_uuid", "target_industry_label", "acquirer_industry_label"],
+    )
+
+
+def _batch_agreements_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "results": _array_of(_batch_agreement_result_schema()),
+            "returned_count": {"type": "integer"},
+            "unresolved_agreement_uuids": _array_of({"type": "string"}),
+            "interpretation": _dropped_filter_interpretation_schema(
+                id_field="unresolved_agreement_uuids"
+            ),
+        },
+        required=["results", "returned_count"],
+        additional_properties=False,
+    )
+
+
 def _get_agreement_output_schema() -> dict[str, object]:
     return _object_schema(
         {
@@ -412,8 +491,8 @@ def _get_agreement_output_schema() -> dict[str, object]:
             "acquirer_type": {"type": ["string", "null"]},
             "target_industry": {"type": ["string", "null"]},
             "acquirer_industry": {"type": ["string", "null"]},
-            "target_industry_label": {"type": "string"},
-            "acquirer_industry_label": {"type": "string"},
+            "target_industry_label": {"type": ["string", "null"]},
+            "acquirer_industry_label": {"type": ["string", "null"]},
             "announce_date": {"type": ["string", "null"]},
             "close_date": {"type": ["string", "null"]},
             "deal_status": {"type": ["string", "null"]},
@@ -427,7 +506,10 @@ def _get_agreement_output_schema() -> dict[str, object]:
             "xml": {"type": ["string", "null"]},
             "is_redacted": {"type": "boolean"},
         },
-        required=["xml_included"],
+        # get_agreement has no field projection, so every metadata key -- including the
+        # two industry labels -- is always present, null when the underlying code is
+        # absent or undecodable.
+        required=["xml_included", "target_industry_label", "acquirer_industry_label"],
     )
 
 
@@ -955,6 +1037,19 @@ def _tool_response_example_schema() -> dict[str, object]:
     )
 
 
+def _submit_feedback_output_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "feedback_id": {"type": "string"},
+            "recorded_at": {"type": "string"},
+            "category": {"type": "string", "enum": list(_FEEDBACK_CATEGORY_VALUES)},
+            "message": {"type": "string"},
+        },
+        required=["feedback_id", "recorded_at", "category", "message"],
+        additional_properties=False,
+    )
+
+
 def _tool_limits_for_pagination(pagination: str) -> dict[str, object]:
     if pagination in {"page", "cursor"}:
         return {
@@ -1117,6 +1212,8 @@ def _server_capabilities_output_schema() -> dict[str, object]:
                     "primary_discovery_tool": {"type": "string"},
                     "introspection_tool": {"type": "string"},
                     "metrics_tool": {"type": "string"},
+                    "feedback_tool": {"type": "string"},
+                    "feedback_note": {"type": "string"},
                     "transport": {"type": "string"},
                     "resources_supported": {"type": "boolean"},
                     "resource_templates_supported": {"type": "boolean"},
@@ -1126,6 +1223,8 @@ def _server_capabilities_output_schema() -> dict[str, object]:
                     "primary_discovery_tool",
                     "introspection_tool",
                     "metrics_tool",
+                    "feedback_tool",
+                    "feedback_note",
                     "transport",
                     "resources_supported",
                     "resource_templates_supported",
