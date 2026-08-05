@@ -39,10 +39,7 @@ from etl.utils.agreement_signature_store import (
     mark_reconciled,
     upsert_signatures,
 )
-from etl.utils.reset_stuck_agreements import (
-    build_engine_from_env,
-    validate_schema_name,
-)
+from etl.utils.db_env import build_engine_from_env, validate_schema_name
 
 _BATCH_SIZE = 25
 
@@ -224,8 +221,8 @@ def main(argv: list[str] | None = None) -> None:
     with engine.begin() as conn:
         cleared = _clear_satisfied_pending(conn, args.schema)
     print(
-        f"Done: {processed} signatures upserted, {len(failed)} failures, "
-        f"{cleared} satisfied pending entries cleared."
+        f"Done: {processed} signatures upserted, {len(failed)} failures,"
+        + f" {cleared} satisfied pending entries cleared."
     )
     if failed:
         print("Failed agreement_uuids: " + ", ".join(failed))

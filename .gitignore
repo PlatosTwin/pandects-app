@@ -62,6 +62,9 @@ etl/sql/migrations/*
 *.parquet
 
 **/data/*
+# The dedupe-guard labeled eval dataset is a committed artifact.
+!etl/data/dedupe_eval/
+!etl/data/dedupe_eval/**
 **/deprecated/*
 **/eval_metrics/*
 **/model_files/
