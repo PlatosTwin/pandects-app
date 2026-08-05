@@ -1,18 +1,28 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false, reportMissingTypeStubs=false, reportPrivateUsage=false
 """Evaluate the dedupe similarity metric and decision policy on labeled pairs.
 
-Ground truth (two audited batches):
+Ground truth (four audited batches):
 - Batch A: pdx.dedupe_plan_20260805 — auto_tier=1: 171 true-dupe pairs
   (loser text in pdx.dedupe_bak_20260805_pages); auto_tier=0: 5 non-dupe
-  pairs, including 4 distinct-deal traps.
+  pairs, including 4 distinct-deal traps. One tier-0 pair was later
+  re-adjudicated as a true dupe by batch C and is skipped here.
 - Batch B: pdx.dedupe_plan_20260805b — 15 confirmed-dupe pairs (loser text in
   pdx.dedupe_bak_20260805b_pages), plus 13 audit-confirmed NON-dupe pairs
   (both sides still live in pdx.pages) hardcoded below — the strongest
   negatives available (SPAC boilerplate and same-accession sibling exhibits
   that defeated the first-cut A&R rule).
+- Batch C: pdx.dedupe_plan_20260805c — 1 confirmed-dupe pair (loser text in
+  pdx.dedupe_bak_20260805c_pages). This re-adjudicates a batch A tier-0
+  pair, so its label overrides batch A's.
+- Batch D: 12 NON-dupe pairs from the 2026-08-05 strong/moderate-similarity
+  review, document-audited as genuinely different deals (both sides live in
+  pdx.pages), committed in dedupe_labeled_negatives_20260805.json. Includes
+  the Wood Sage pair (jaccard ~0.97: same drafter template, different
+  transactions) — the hardest known negative. One pair duplicates a batch A
+  tier-0 negative and is skipped here.
 
-Requirement: ZERO auto-dedupe decisions across all 18 negatives; report recall
-on all 186 positives.
+Requirement: ZERO auto-dedupe decisions across all 28 negatives; report recall
+on all 187 positives.
 
 Compares:
 - OLD metric: Jaccard of the first-20k-char MinHash at the historical 0.85
@@ -27,6 +37,7 @@ Usage (from repo root):
 
 from __future__ import annotations
 
+import json
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -61,11 +72,17 @@ from etl.utils.reset_stuck_agreements import build_engine_from_env
 
 _SCHEMA = "pdx"
 _OLD_THRESHOLD = 0.85
-_PAGE_TABLES = ("pages", "dedupe_bak_20260805_pages", "dedupe_bak_20260805b_pages")
+_PAGE_TABLES = (
+    "pages",
+    "dedupe_bak_20260805_pages",
+    "dedupe_bak_20260805b_pages",
+    "dedupe_bak_20260805c_pages",
+)
 _AGREEMENT_TABLES = (
     "agreements",
     "dedupe_bak_20260805_agreements",
     "dedupe_bak_20260805b_agreements",
+    "dedupe_bak_20260805c_agreements",
 )
 
 # Batch B negatives: 13 pairs the 2026-08-05 audits confirmed as NOT duplicates
@@ -87,6 +104,22 @@ BATCH_B_NEGATIVE_PAIRS: Final[tuple[tuple[str, str], ...]] = (
     ("e33d8023-083a-529b-b540-ceed29bfccd3", "8ceacaf4-face-5fbe-b606-bebaf8f80be7"),
     ("98b2f389-b86f-5b29-ae79-ab9020121a75", "c8365dc6-c530-599c-be83-071700465512"),
 )
+
+# Batch D negatives: 12 pairs from the 2026-08-05 strong/moderate-similarity
+# review, each document-audited as a genuinely different deal. Fields are the
+# audit export's new_agreement_uuid (treated as loser) and
+# existing_agreement_uuid (treated as survivor); both sides live in pdx.pages.
+_BATCH_D_NEGATIVES_FIXTURE: Final[Path] = Path(__file__).with_name(
+    "dedupe_labeled_negatives_20260805.json"
+)
+
+
+def _load_batch_d_negative_pairs() -> list[tuple[str, str]]:
+    rows = json.loads(_BATCH_D_NEGATIVES_FIXTURE.read_text())
+    return [
+        (str(row["new_agreement_uuid"]), str(row["existing_agreement_uuid"]))
+        for row in rows
+    ]
 
 
 @dataclass(frozen=True)
@@ -118,6 +151,17 @@ class PairScore:
 
 
 def _load_pairs(conn: Connection) -> list[LabeledPair]:
+    batch_c_rows = conn.execute(
+        text(
+            f"""
+            SELECT loser_uuid, survivor_uuid
+            FROM {_SCHEMA}.dedupe_plan_20260805c
+            ORDER BY loser_uuid
+            """
+        )
+    ).fetchall()
+    batch_c_pairs = {(str(row[0]), str(row[1])) for row in batch_c_rows}
+
     pairs: list[LabeledPair] = []
     rows = conn.execute(
         text(
@@ -129,10 +173,14 @@ def _load_pairs(conn: Connection) -> list[LabeledPair]:
         )
     ).fetchall()
     for row in rows:
+        pair = (str(row[0]), str(row[1]))
+        if pair in batch_c_pairs:
+            # Batch C re-adjudicated this pair; its label wins.
+            continue
         pairs.append(
             LabeledPair(
-                loser_uuid=str(row[0]),
-                survivor_uuid=str(row[1]),
+                loser_uuid=pair[0],
+                survivor_uuid=pair[1],
                 is_dupe=int(row[2]) == 1,
                 batch="A",
             )
@@ -162,6 +210,28 @@ def _load_pairs(conn: Connection) -> list[LabeledPair]:
                 survivor_uuid=survivor_uuid,
                 is_dupe=False,
                 batch="B",
+            )
+        )
+    for loser_uuid, survivor_uuid in sorted(batch_c_pairs):
+        pairs.append(
+            LabeledPair(
+                loser_uuid=loser_uuid,
+                survivor_uuid=survivor_uuid,
+                is_dupe=True,
+                batch="C",
+            )
+        )
+    seen = {(pair.loser_uuid, pair.survivor_uuid) for pair in pairs}
+    for loser_uuid, survivor_uuid in _load_batch_d_negative_pairs():
+        if (loser_uuid, survivor_uuid) in seen:
+            # Already labeled by an earlier batch (e.g. a batch A tier-0 trap).
+            continue
+        pairs.append(
+            LabeledPair(
+                loser_uuid=loser_uuid,
+                survivor_uuid=survivor_uuid,
+                is_dupe=False,
+                batch="D",
             )
         )
     return pairs
@@ -303,13 +373,15 @@ def _report(scores: list[PairScore]) -> None:
             f"precision={precision:.3f} false_positives={false_pos}/{len(negatives)}"
         )
 
+    def _batch_breakdown(rows: list[PairScore]) -> str:
+        counts: dict[str, int] = {}
+        for row in rows:
+            counts[row.pair.batch] = counts.get(row.pair.batch, 0) + 1
+        return " + ".join(f"{count} batch {batch}" for batch, count in sorted(counts.items()))
+
     print(
-        f"\nLabeled pairs: {len(positives)} true-dupe "
-        f"({sum(1 for s in positives if s.pair.batch == 'A')} batch A + "
-        f"{sum(1 for s in positives if s.pair.batch == 'B')} batch B), "
-        f"{len(negatives)} non-dupe "
-        f"({sum(1 for s in negatives if s.pair.batch == 'A')} batch A + "
-        f"{sum(1 for s in negatives if s.pair.batch == 'B')} batch B)"
+        f"\nLabeled pairs: {len(positives)} true-dupe ({_batch_breakdown(positives)}), "
+        f"{len(negatives)} non-dupe ({_batch_breakdown(negatives)})"
     )
     _stats(f"OLD (first-20k jaccard >= {_OLD_THRESHOLD})", lambda s: s.old_jaccard >= _OLD_THRESHOLD)
     _stats(
