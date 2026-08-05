@@ -31,16 +31,18 @@ def _item(
     dated_as_of: date | None = None,
     parties: frozenset[str] = frozenset(),
     amends: bool = False,
+    ar_refs: frozenset[date] = frozenset(),
     target: str | None = None,
     acquirer: str | None = None,
     page_count: int = 100,
     ingested: datetime | None = None,
+    url: str | None = None,
 ) -> _CorpusItem:
-    url = f"https://example.com/{uuid}.htm"
+    resolved_url = url or f"https://example.com/{uuid}-dir/{uuid}.htm"
     return _CorpusItem(
         agreement=_CorpusAgreement(
             agreement_uuid=uuid,
-            url=url,
+            url=resolved_url,
             filing_date=filing,
             ingested_date=ingested,
             target=target,
@@ -48,12 +50,13 @@ def _item(
         ),
         stored=StoredSignature(
             agreement_uuid=uuid,
-            url=url,
+            url=resolved_url,
             signature=compute_document_signature(text, page_count=page_count),
             cover=CoverIdentity(
                 dated_as_of=dated_as_of,
                 party_tokens=parties,
                 amends_and_restates=amends,
+                ar_reference_dates=ar_refs,
             ),
         ),
     )
@@ -106,20 +109,79 @@ class PlanCorpusDedupeTests(unittest.TestCase):
         self.assertEqual(reviews[0].existing_agreement_uuid, "old-uuid")
         self.assertEqual(reviews[0].reason, "content_match_without_cover_identity")
 
-    def test_newer_amends_and_restates_dedupes_keeping_most_recent(self) -> None:
+    def test_confirmed_amends_and_restates_dedupes_keeping_most_recent(self) -> None:
         text = _text(0, 3000)
+        parties = frozenset({"TV AMMO", "BREEZE HOLDINGS ACQUISITION"})
         original = _item(
             "old-uuid", text,
-            filing=date(2021, 3, 31), dated_as_of=date(2021, 3, 31),
+            filing=date(2022, 11, 1), dated_as_of=date(2022, 10, 31), parties=parties,
         )
         restated = _item(
             "new-uuid", text + " " + _text(10000, 20),
-            filing=date(2021, 7, 9), dated_as_of=date(2021, 7, 9), amends=True,
+            filing=date(2024, 2, 21), dated_as_of=date(2024, 2, 14),
+            amends=True, ar_refs=frozenset({date(2022, 10, 31)}), parties=parties,
         )
         resolutions, reviews = _plan_corpus_dedupe({"new-uuid"}, [original, restated])
         self.assertEqual(reviews, [])
         self.assertEqual(len(resolutions), 1)
         self.assertEqual(resolutions[0].survivor_uuid, "new-uuid")
+
+    def test_ar_flag_without_recital_reference_is_review_not_delete(self) -> None:
+        # Audit regression: SPAC boilerplate made unrelated deals look like
+        # A&R supersessions; without the recital date citation, only review.
+        text = _text(0, 3000)
+        original = _item(
+            "old-uuid", text,
+            filing=date(2021, 3, 31), dated_as_of=date(2021, 3, 31),
+            parties=frozenset({"VG ACQUISITION"}),
+        )
+        lookalike = _item(
+            "new-uuid", text + " " + _text(10000, 20),
+            filing=date(2021, 7, 9), dated_as_of=date(2021, 7, 9), amends=True,
+            parties=frozenset({"DUDDELL STREET ACQUISITION"}),
+        )
+        resolutions, reviews = _plan_corpus_dedupe({"new-uuid"}, [original, lookalike])
+        self.assertEqual(resolutions, [])
+        self.assertEqual(len(reviews), 1)
+        self.assertEqual(reviews[0].reason, "dated_as_of_mismatch")
+
+    def test_same_accession_sibling_exhibits_never_dedupe(self) -> None:
+        # ex2-1 and ex2-2 of one filing are different agreements even when the
+        # boilerplate is near-identical and the cover dates match.
+        text = _text(0, 3000)
+        dated = date(2021, 4, 7)
+        accession = "https://www.sec.gov/Archives/edgar/data/1799983/000121390021020720"
+        first = _item(
+            "old-uuid", text, filing=date(2021, 4, 8), dated_as_of=dated,
+            url=f"{accession}/ea139171ex2-1_riceacq.htm",
+        )
+        second = _item(
+            "new-uuid", text + " " + _text(10000, 20),
+            filing=date(2021, 4, 8), dated_as_of=dated,
+            url=f"{accession}/ea139171ex2-2_riceacq.htm",
+        )
+        resolutions, reviews = _plan_corpus_dedupe({"new-uuid"}, [first, second])
+        self.assertEqual(resolutions, [])
+        self.assertEqual(reviews, [])
+
+    def test_party_metadata_disagreement_forces_review(self) -> None:
+        # Same-day sibling template deals: strong content + matching date but
+        # disjoint curated targets must reach review, never auto-delete.
+        text = _text(0, 3000)
+        dated = date(2021, 4, 7)
+        first = _item(
+            "old-uuid", text, filing=date(2021, 4, 8), dated_as_of=dated,
+            target="23andMe, Inc.", acquirer="VG Acquisition Corp.",
+        )
+        second = _item(
+            "new-uuid", text + " " + _text(10000, 20),
+            filing=date(2021, 4, 9), dated_as_of=dated,
+            target="FiscalNote, Inc.", acquirer="Duddell Street Acquisition Corp.",
+        )
+        resolutions, reviews = _plan_corpus_dedupe({"new-uuid"}, [first, second])
+        self.assertEqual(resolutions, [])
+        self.assertEqual(len(reviews), 1)
+        self.assertEqual(reviews[0].reason, "party_metadata_conflict")
 
     def test_drastically_less_parsed_content_never_survives(self) -> None:
         text = _text(0, 3000)

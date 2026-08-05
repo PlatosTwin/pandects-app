@@ -16,7 +16,7 @@ import dagster as dg
 from dagster import AssetExecutionContext
 from datasketch import MinHashLSH
 from sqlalchemy import bindparam, text
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine
 
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.a_staging import (
@@ -33,7 +33,9 @@ from etl.domain.dedupe_signatures import (
     SurvivorCandidate,
     decide_duplicate,
     normalize_party_name,
+    party_metadata_conflict,
     pick_survivor,
+    same_edgar_accession,
 )
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
 from etl.utils.agreement_signature_store import (
@@ -44,7 +46,10 @@ from etl.utils.agreement_signature_store import (
     insert_review,
     load_all_signatures,
     load_pending,
+    mark_reconciled,
     record_pending,
+    record_pending_if_absent,
+    select_unreconciled_uuids,
     upsert_signatures,
 )
 from etl.utils.logical_job_runs import (
@@ -284,14 +289,25 @@ def _plan_corpus_dedupe(
                 other_item.agreement.filing_date,
                 other_item.agreement.ingested_date or datetime.min,
             )
-            newer_item = new_item if new_key >= other_key else other_item
+            if new_key >= other_key:
+                newer_item, older_item = new_item, other_item
+            else:
+                newer_item, older_item = other_item, new_item
             decision = decide_duplicate(
-                new_item.stored.signature,
-                new_item.stored.cover,
-                other_item.stored.signature,
-                other_item.stored.cover,
-                newer_amends_and_restates=newer_item.stored.cover.amends_and_restates,
+                newer_item.stored.signature,
+                newer_item.stored.cover,
+                older_item.stored.signature,
+                older_item.stored.cover,
                 party_match=other_uuid in party_candidates,
+                party_conflict=party_metadata_conflict(
+                    new_item.agreement.target,
+                    new_item.agreement.acquirer,
+                    other_item.agreement.target,
+                    other_item.agreement.acquirer,
+                ),
+                same_accession=same_edgar_accession(
+                    new_item.agreement.url, other_item.agreement.url
+                ),
             )
             if decision.action is DuplicateAction.AUTO_DEDUPE:
                 union(new_uuid, other_uuid)
@@ -358,6 +374,93 @@ def _merge_secondary_filing_urls(
     )
 
 
+# Aligned with the manual-dedupe table set (dedupe_bak_20260805_* backups):
+# every live table keyed on agreement_uuid or (via pages) page_uuid.
+_AGREEMENT_KEYED_DELETE_TABLES = (
+    "xml_status_reasons",
+    "latest_sections_search_standard_ids",
+    "latest_sections_search",
+    "section_text_search",
+    "clauses",
+    "sections",
+    "xml",
+    "agreement_counsel",
+    "agreement_index_summary",
+    "ai_repair_source_verdicts",
+    "transaction_charts",
+    "tx_metadata_web_failures",
+    "pipeline_job_run_agreements",
+)
+_PAGE_KEYED_DELETE_TABLES = (
+    "ai_repair_processed_spans",
+    "ai_repair_rulings",
+    "ai_repair_requests",
+    "ai_repair_full_pages",
+    "tagged_outputs",
+    "ner_training_data",
+    "ner_training_realign_tracking",
+    "preprocess_backfill_tracking",
+)
+
+# Curated deal metadata carried from a deleted loser into survivor NULLs.
+# Pipeline-state flags (status, verified, gated, ...) are deliberately absent.
+_CARRY_OVER_METADATA_COLUMNS = (
+    "target",
+    "acquirer",
+    "announce_date",
+    "close_date",
+    "transaction_price_total",
+    "transaction_price_stock",
+    "transaction_price_cash",
+    "transaction_price_assets",
+    "transaction_consideration",
+    "target_type",
+    "acquirer_type",
+    "target_industry",
+    "acquirer_industry",
+    "deal_status",
+    "attitude",
+    "deal_type",
+    "purpose",
+    "target_pe",
+    "acquirer_pe",
+    "target_counsel",
+    "acquirer_counsel",
+    "metadata_sources",
+)
+
+
+def _carry_over_loser_metadata(
+    conn: Connection,
+    schema: str,
+    resolutions: Sequence[_DuplicateResolution],
+) -> None:
+    """COALESCE-copy each loser's curated metadata into survivor NULLs."""
+    if not resolutions:
+        return
+    set_clause = ", ".join(
+        f"s.{column} = COALESCE(s.{column}, l.{column})"
+        for column in _CARRY_OVER_METADATA_COLUMNS
+    )
+    sql = text(
+        f"""
+        UPDATE {schema}.agreements s
+        JOIN {schema}.agreements l
+            ON l.agreement_uuid = :loser_uuid
+        SET {set_clause}
+        WHERE s.agreement_uuid = :survivor_uuid
+        """
+    )
+    for resolution in resolutions:
+        _ = conn.execute(
+            sql,
+            {
+                "survivor_uuid": resolution.survivor_uuid,
+                "loser_uuid": resolution.loser_uuid,
+            },
+        )
+
+
 def _delete_duplicate_agreements(
     conn: Connection,
     schema: str,
@@ -367,28 +470,9 @@ def _delete_duplicate_agreements(
     if not target_uuids:
         return
 
-    agreement_tables = (
-        "xml_status_reasons",
-        "latest_sections_search_standard_ids",
-        "latest_sections_search",
-        "section_text_search",
-        "sections",
-        "xml",
-    )
-    page_tables = (
-        "ai_repair_processed_spans",
-        "ai_repair_rulings",
-        "ai_repair_requests",
-        "ai_repair_full_pages",
-    )
-
-    for table_name in agreement_tables:
-        delete_sql = text(
-            f"DELETE FROM {schema}.{table_name} WHERE agreement_uuid IN :agreement_uuids"
-        ).bindparams(bindparam("agreement_uuids", expanding=True))
-        _ = conn.execute(delete_sql, {"agreement_uuids": target_uuids})
-
-    for table_name in page_tables:
+    # Page-keyed tables first (they join through pages), then agreement-keyed
+    # tables, then pages, then the agreements row last.
+    for table_name in _PAGE_KEYED_DELETE_TABLES:
         delete_sql = text(
             f"""
             DELETE d
@@ -400,6 +484,17 @@ def _delete_duplicate_agreements(
         ).bindparams(bindparam("agreement_uuids", expanding=True))
         _ = conn.execute(delete_sql, {"agreement_uuids": target_uuids})
 
+    for table_name in _AGREEMENT_KEYED_DELETE_TABLES:
+        delete_sql = text(
+            f"DELETE FROM {schema}.{table_name} WHERE agreement_uuid IN :agreement_uuids"
+        ).bindparams(bindparam("agreement_uuids", expanding=True))
+        _ = conn.execute(delete_sql, {"agreement_uuids": target_uuids})
+
+    delete_pages_sql = text(
+        f"DELETE FROM {schema}.pages WHERE agreement_uuid IN :agreement_uuids"
+    ).bindparams(bindparam("agreement_uuids", expanding=True))
+    _ = conn.execute(delete_pages_sql, {"agreement_uuids": target_uuids})
+
     delete_agreements_sql = text(
         f"DELETE FROM {schema}.agreements WHERE agreement_uuid IN :agreement_uuids"
     ).bindparams(bindparam("agreement_uuids", expanding=True))
@@ -408,20 +503,28 @@ def _delete_duplicate_agreements(
 
 def _retry_pending_signatures(
     context: AssetExecutionContext,
-    conn: Connection,
+    engine: Engine,
     schema: str,
 ) -> None:
-    """Retry signature computation for candidates recorded in pending state."""
-    pending_entries = load_pending(conn, schema, limit=_PENDING_RETRY_LIMIT)
-    if not pending_entries:
-        return
-    agreements_table = f"{schema}.agreements"
-    existing_uuids = _select_existing_agreement_uuids(
-        conn, agreements_table, [entry.agreement_uuid for entry in pending_entries]
-    )
+    """Retry signature computation for candidates recorded in pending state.
+
+    EDGAR fetches happen OUTSIDE any DB transaction; each outcome is written in
+    its own short transaction. Recovered signatures land unreconciled, so the
+    reconciliation pass that follows scans them in the same run.
+    """
+    with engine.begin() as conn:
+        pending_entries = load_pending(conn, schema, limit=_PENDING_RETRY_LIMIT)
+        if not pending_entries:
+            return
+        agreements_table = f"{schema}.agreements"
+        existing_uuids = _select_existing_agreement_uuids(
+            conn, agreements_table, [entry.agreement_uuid for entry in pending_entries]
+        )
+
     for entry in pending_entries:
         if entry.agreement_uuid not in existing_uuids:
-            clear_pending(conn, schema, [entry.agreement_uuid])
+            with engine.begin() as conn:
+                clear_pending(conn, schema, [entry.agreement_uuid])
             continue
         try:
             result = fetch_document_signature(entry.url)
@@ -429,36 +532,38 @@ def _retry_pending_signatures(
             context.log.warning(
                 f"Dedupe guard: pending signature retry failed for {entry.url}: {exc}"
             )
-            record_pending(
-                conn,
-                schema,
-                agreement_uuid=entry.agreement_uuid,
-                url=entry.url,
-                reason=entry.reason,
-                error=str(exc),
-            )
-            continue
-        if result is None:
-            context.log.warning(
-                f"Dedupe guard: unsupported file type for {entry.url}; "
-                "cannot compute signature, clearing pending entry."
-            )
-            clear_pending(conn, schema, [entry.agreement_uuid])
-            continue
-        signature, cover = result
-        upsert_signatures(
-            conn,
-            schema,
-            [
-                StoredSignature(
+            with engine.begin() as conn:
+                record_pending(
+                    conn,
+                    schema,
                     agreement_uuid=entry.agreement_uuid,
                     url=entry.url,
-                    signature=signature,
-                    cover=cover,
+                    reason=entry.reason,
+                    error=str(exc),
                 )
-            ],
-        )
-        clear_pending(conn, schema, [entry.agreement_uuid])
+            continue
+        with engine.begin() as conn:
+            if result is None:
+                context.log.warning(
+                    f"Dedupe guard: unsupported file type for {entry.url}; "
+                    "cannot compute signature, clearing pending entry."
+                )
+                clear_pending(conn, schema, [entry.agreement_uuid])
+                continue
+            signature, cover = result
+            upsert_signatures(
+                conn,
+                schema,
+                [
+                    StoredSignature(
+                        agreement_uuid=entry.agreement_uuid,
+                        url=entry.url,
+                        signature=signature,
+                        cover=cover,
+                    )
+                ],
+            )
+            clear_pending(conn, schema, [entry.agreement_uuid])
         context.log.info(
             f"Dedupe guard: recovered pending signature for {entry.url}."
         )
@@ -468,17 +573,18 @@ def _reconcile_corpus_duplicates(
     context: AssetExecutionContext,
     conn: Connection,
     schema: str,
-    ingested_agreement_uuids: Sequence[str],
 ) -> tuple[int, set[str]]:
-    """Corpus-wide duplicate reconciliation for newly ingested agreements.
+    """Corpus-wide duplicate reconciliation with a persisted scan scope.
 
-    Replaces the old +/-30-day filing-date window: every new agreement is
-    checked against ALL persisted signatures via an LSH index built at run
-    time, so re-filings months later (10-Q/10-K/S-4 exhibit copies) are caught.
+    Replaces the old +/-30-day filing-date window: each pass scans every
+    signature not yet marked `reconciled_at` against ALL persisted signatures
+    via an LSH index built at run time, so re-filings months later
+    (10-Q/10-K/S-4 exhibit copies) are caught. The scope is persisted on
+    agreement_signatures rather than passed in memory, so pending-retry
+    recoveries get scanned and a crash between ingest commits and
+    reconciliation cannot orphan a run's agreements from scanning.
     """
     agreements_table = f"{schema}.agreements"
-
-    _retry_pending_signatures(context, conn, schema)
 
     stored_signatures = load_all_signatures(conn, schema)
     stored_by_uuid = {stored.agreement_uuid: stored for stored in stored_signatures}
@@ -500,7 +606,7 @@ def _reconcile_corpus_duplicates(
             "etl/src/etl/utils/backfill_agreement_signatures.py to backfill in bulk."
         )
         for agreement in missing:
-            record_pending(
+            record_pending_if_absent(
                 conn,
                 schema,
                 agreement_uuid=agreement.agreement_uuid,
@@ -508,23 +614,22 @@ def _reconcile_corpus_duplicates(
                 reason="missing_signature",
             )
 
-    new_uuids = set(ingested_agreement_uuids) & {
-        item.agreement.agreement_uuid for item in items
-    }
+    item_uuids = {item.agreement.agreement_uuid for item in items}
+    new_uuids = select_unreconciled_uuids(conn, schema) & item_uuids
     if not new_uuids:
-        context.log.info("Dedupe guard: no newly ingested agreements with signatures to scan.")
+        context.log.info("Dedupe guard: no unreconciled agreements with signatures to scan.")
         return 0, set()
 
     context.log.info(
-        f"Dedupe guard: scanning {len(new_uuids)} new agreements against "
+        f"Dedupe guard: scanning {len(new_uuids)} unreconciled agreements against "
         f"{len(items)} persisted signatures (corpus-wide)."
     )
     resolutions, reviews = _plan_corpus_dedupe(new_uuids, items)
 
     for review in reviews:
         context.log.warning(
-            "DEDUPE REVIEW NEEDED: content similarity hit without cover-identity "
-            f"confirmation ({review.reason}); NOT auto-deleting. "
+            "DEDUPE REVIEW NEEDED: content similarity hit without confirmed "
+            f"identity ({review.reason}); NOT auto-deleting. "
             f"new={review.new_url} existing={review.existing_url} "
             f"jaccard={review.jaccard:.3f} containment={review.containment:.3f}"
         )
@@ -541,20 +646,25 @@ def _reconcile_corpus_duplicates(
             reason=review.reason,
         )
 
-    if not resolutions:
+    deleted_uuids: set[str] = set()
+    if resolutions:
+        _carry_over_loser_metadata(conn, schema, resolutions)
+        _merge_secondary_filing_urls(conn, agreements_table, resolutions)
+        deleted_uuids = {resolution.loser_uuid for resolution in resolutions}
+        _delete_duplicate_agreements(conn, schema, sorted(deleted_uuids))
+        delete_signatures(conn, schema, deleted_uuids)
+        clear_pending(conn, schema, deleted_uuids)
+        context.log.info(
+            "Dedupe guard: removed "
+            + f"{len(resolutions)} duplicate agreements across "
+            + f"{len({resolution.survivor_uuid for resolution in resolutions})} clusters."
+        )
+    else:
         context.log.info("Dedupe guard: found 0 duplicate agreements.")
-        return 0, set()
 
-    _merge_secondary_filing_urls(conn, agreements_table, resolutions)
-    deleted_uuids = {resolution.loser_uuid for resolution in resolutions}
-    _delete_duplicate_agreements(conn, schema, sorted(deleted_uuids))
-    delete_signatures(conn, schema, deleted_uuids)
-    clear_pending(conn, schema, deleted_uuids)
-    context.log.info(
-        "Dedupe guard: removed "
-        + f"{len(resolutions)} duplicate agreements across "
-        + f"{len({resolution.survivor_uuid for resolution in resolutions})} clusters."
-    )
+    # Mark the scanned scope only after all writes above succeed; on rollback
+    # the scope stays unreconciled and the next run rescans it.
+    mark_reconciled(conn, schema, sorted(new_uuids - deleted_uuids))
     return len(resolutions), deleted_uuids
 
 
@@ -709,7 +819,6 @@ def _run_staging(
     latest_pulled_to = last_run_date
     processed_days = 0
     latest_expected_index_date = _latest_sec_index_date_available()
-    ingested_agreement_uuids: list[str] = []
     inserted_agreement_uuids: set[str] = set()
 
     try:
@@ -757,9 +866,6 @@ def _run_staging(
             filings = [staged.metadata for staged in staged_filings]
             day_count = len(filings)
             total_count += day_count
-            ingested_agreement_uuids.extend(
-                filing.agreement_uuid for filing in filings if filing.agreement_uuid
-            )
 
             # Persist each day independently so retries resume from the last completed date.
             with engine.begin() as conn:
@@ -794,10 +900,12 @@ def _run_staging(
         context.log.info(
             f"Staging complete: {total_count} total filings across {processed_days} processed days"
         )
+        # EDGAR retry fetches run outside any write transaction; the
+        # reconciliation pass itself is one transaction and scopes itself from
+        # the persisted reconciled_at flag (not the in-memory ingest list).
+        _retry_pending_signatures(context, engine, schema)
         with engine.begin() as conn:
-            _, deleted_uuids = _reconcile_corpus_duplicates(
-                context, conn, schema, ingested_agreement_uuids
-            )
+            _, deleted_uuids = _reconcile_corpus_duplicates(context, conn, schema)
         scoped_agreement_uuids = sorted(inserted_agreement_uuids - deleted_uuids)
         run_post_asset_refresh(context, db, pipeline_config)
 

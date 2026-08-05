@@ -30,11 +30,13 @@ Design notes (from the 2026-08-05 duplicate audit of 176 known dupe pairs):
 from __future__ import annotations
 
 import hashlib
+import posixpath
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import Enum
 from typing import Final
+from urllib.parse import urlparse
 
 from datasketch import MinHash
 
@@ -75,9 +77,18 @@ DRASTIC_CONTENT_RATIO: Final[float] = 0.5
 # Window of leading text scanned for cover-page identity signals. The date
 # window is wide because "dated as of" can sit in the recitals after the TOC;
 # party names live on the cover/preamble, so their window is narrow to avoid
-# harvesting TOC headings as entity names.
+# harvesting TOC headings as entity names. The A&R flag is scoped to the
+# document's own TITLE (first ~300 chars): a wider window reaches recitals that
+# reference OTHER amended-and-restated documents (e.g. "Amended and Restated
+# Registration Rights Agreement") — a prod sample of 8 wide-window A&R flags
+# found all 8 false.
 COVER_WINDOW_CHARS: Final[int] = 8000
 PARTY_WINDOW_CHARS: Final[int] = 2500
+AR_TITLE_WINDOW_CHARS: Final[int] = 300
+# How far past an A&R phrase to look for the recital's reference to the
+# superseded agreement's date ("...amends and restates ... the Original
+# Agreement, dated as of October 31, 2022").
+AR_REFERENCE_SCAN_CHARS: Final[int] = 400
 
 _SHINGLE_TOKEN_RE: Final[re.Pattern[str]] = re.compile(r"[a-z]+")
 
@@ -95,11 +106,19 @@ class DocumentSignature:
 
 @dataclass(frozen=True)
 class CoverIdentity:
-    """High-precision identity signals extracted from the cover pages."""
+    """High-precision identity signals extracted from the cover pages.
+
+    `amends_and_restates` is a TITLE-level flag (first ~300 chars only).
+    `ar_reference_dates` holds dates the document cites near its own
+    amends-and-restates language — for a genuine A&R agreement this includes
+    the superseded agreement's dated-as-of ("Original Agreement, dated as of
+    October 31, 2022").
+    """
 
     dated_as_of: date | None
     party_tokens: frozenset[str]
     amends_and_restates: bool
+    ar_reference_dates: frozenset[date] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)
@@ -333,6 +352,11 @@ def _parse_extracted_date(day_raw: str, month_raw: str, year_raw: str) -> date |
         return None
 
 
+def _normalize_window(raw: str) -> str:
+    """Collapse whitespace and join OCR-split digit runs ("202 5" -> "2025")."""
+    return _SPLIT_DIGITS_RE.sub("", re.sub(r"\s+", " ", raw))
+
+
 def extract_dated_as_of(rendered_text: str, *, window_chars: int = COVER_WINDOW_CHARS) -> date | None:
     """Extract the cover page's "dated as of <date>" (and variants).
 
@@ -340,9 +364,7 @@ def extract_dated_as_of(rendered_text: str, *, window_chars: int = COVER_WINDOW_
     "dated as of the 21st day of June, 2021", "21 June 2021", and OCR
     artifacts that split digit runs ("202 1").
     """
-    window = rendered_text[:window_chars]
-    window = re.sub(r"\s+", " ", window)
-    window = _SPLIT_DIGITS_RE.sub("", window)
+    window = _normalize_window(rendered_text[:window_chars])
 
     best: tuple[int, date] | None = None
     for pattern in _DATED_AS_OF_RES:
@@ -357,6 +379,33 @@ def extract_dated_as_of(rendered_text: str, *, window_chars: int = COVER_WINDOW_
         if best is None or match.start() < best[0]:
             best = (match.start(), parsed)
     return None if best is None else best[1]
+
+
+def extract_ar_reference_dates(
+    rendered_text: str, *, window_chars: int = COVER_WINDOW_CHARS
+) -> frozenset[date]:
+    """Dates cited near the document's amends-and-restates language.
+
+    A genuine A&R agreement's recital references the superseded agreement's
+    exact date ("...amends and restates in its entirety the Original
+    Agreement, dated as of October 31, 2022"). Boilerplate references to
+    unrelated A&R documents rarely cite the older merger agreement's
+    dated-as-of, so this is the confirmation signal for A&R supersession.
+    """
+    window = _normalize_window(rendered_text[:window_chars])
+    reference_dates: set[date] = set()
+    for ar_match in _AMENDS_AND_RESTATES_RE.finditer(window):
+        scan_slice = window[ar_match.start() : ar_match.end() + AR_REFERENCE_SCAN_CHARS]
+        for pattern in _DATED_AS_OF_RES:
+            for date_match in pattern.finditer(scan_slice):
+                parsed = _parse_extracted_date(
+                    date_match.group("day"),
+                    date_match.group("month"),
+                    date_match.group("year"),
+                )
+                if parsed is not None:
+                    reference_dates.add(parsed)
+    return frozenset(reference_dates)
 
 
 def extract_party_tokens(
@@ -375,13 +424,20 @@ def extract_party_tokens(
 def extract_cover_identity(
     rendered_text: str, *, window_chars: int = COVER_WINDOW_CHARS
 ) -> CoverIdentity:
-    window = rendered_text[:window_chars]
+    # The A&R flag is TITLE-scoped: only the document's own title region may
+    # set it, never recital references to other A&R documents.
+    title_window = _normalize_window(
+        rendered_text[: min(window_chars, AR_TITLE_WINDOW_CHARS)]
+    )
     return CoverIdentity(
         dated_as_of=extract_dated_as_of(rendered_text, window_chars=window_chars),
         party_tokens=extract_party_tokens(
             rendered_text, window_chars=min(window_chars, PARTY_WINDOW_CHARS)
         ),
-        amends_and_restates=_AMENDS_AND_RESTATES_RE.search(window) is not None,
+        amends_and_restates=_AMENDS_AND_RESTATES_RE.search(title_window) is not None,
+        ar_reference_dates=extract_ar_reference_dates(
+            rendered_text, window_chars=window_chars
+        ),
     )
 
 
@@ -389,27 +445,106 @@ def party_tokens_overlap(left: CoverIdentity, right: CoverIdentity) -> bool:
     return bool(left.party_tokens & right.party_tokens)
 
 
+def same_edgar_accession(left_url: str, right_url: str) -> bool:
+    """Whether two exhibit URLs belong to the same EDGAR filing (accession).
+
+    Sibling exhibits of one filing (.../<accession>/ex2-1.htm and
+    .../<accession>/ex2-2.htm) are DIFFERENT agreements filed together
+    (audit-verified: Aria Energy vs Archaea Energy II, Cottonwood REIT I vs
+    II, DESRI II vs V) and must never auto-dedupe, however similar their
+    boilerplate is.
+    """
+    left_parsed = urlparse(left_url)
+    right_parsed = urlparse(right_url)
+    left_dir = posixpath.dirname(left_parsed.path)
+    right_dir = posixpath.dirname(right_parsed.path)
+    # A root-level directory is not an accession folder.
+    if left_dir in {"", "/"} or right_dir in {"", "/"}:
+        return False
+    return (left_parsed.netloc, left_dir) == (right_parsed.netloc, right_dir)
+
+
+def party_names_conflict(left_name: str | None, right_name: str | None) -> bool:
+    """Whether two recorded party names materially disagree.
+
+    Lenient by design: normalized equality, containment, or ANY shared token
+    counts as agreement (tolerating merger-sub-vs-parent and long/short name
+    variance). Only fully disjoint names conflict — that is what defeats
+    same-day sibling template deals with different parties.
+    """
+    if not left_name or not right_name:
+        return False
+    left_tokens = set(normalize_party_name(left_name).split())
+    right_tokens = set(normalize_party_name(right_name).split())
+    if not left_tokens or not right_tokens:
+        return False
+    return not (left_tokens & right_tokens)
+
+
+def party_metadata_conflict(
+    left_target: str | None,
+    left_acquirer: str | None,
+    right_target: str | None,
+    right_acquirer: str | None,
+) -> bool:
+    """Whether curated (target, acquirer) metadata materially disagrees."""
+    return party_names_conflict(left_target, right_target) or party_names_conflict(
+        left_acquirer, right_acquirer
+    )
+
+
 # --- Duplicate decision --------------------------------------------------------
 
 
+def _ar_supersedes(
+    newer_cover: CoverIdentity, older_cover: CoverIdentity, *, strong_hit: bool
+) -> bool:
+    """Whether the newer document is a confirmed A&R of the older one.
+
+    Requires ALL of: strong content tier, a title-level A&R flag on the newer
+    document, an explicit recital reference to the older document's exact
+    dated-as-of, and party-token overlap. A loose "newer doc says A&R" rule
+    was audit-tested at 10/11 false (SPAC boilerplate pairing unrelated
+    deals), so every leg is mandatory.
+    """
+    return (
+        strong_hit
+        and newer_cover.amends_and_restates
+        and older_cover.dated_as_of is not None
+        and older_cover.dated_as_of in newer_cover.ar_reference_dates
+        and party_tokens_overlap(newer_cover, older_cover)
+    )
+
+
 def decide_duplicate(
-    left_signature: DocumentSignature,
-    left_cover: CoverIdentity,
-    right_signature: DocumentSignature,
-    right_cover: CoverIdentity,
+    newer_signature: DocumentSignature,
+    newer_cover: CoverIdentity,
+    older_signature: DocumentSignature,
+    older_cover: CoverIdentity,
     *,
-    newer_amends_and_restates: bool,
     party_match: bool = False,
+    party_conflict: bool = False,
+    same_accession: bool = False,
 ) -> DuplicateDecision:
     """Decide whether two documents are duplicates and how to act.
 
+    The caller orders the pair by recency (filing_date, then ingested_date).
     `party_match=True` means the pair was surfaced by a party-identity trigger;
     it NEVER suffices on its own (the same parties can sign genuinely different
-    agreements). `newer_amends_and_restates` is the A&R flag of whichever
-    document the caller determined to be the more recent filing.
+    agreements). `party_conflict=True` means both sides carry curated
+    (target, acquirer) metadata that materially disagrees — such pairs never
+    auto-dedupe. `same_accession=True` means both URLs belong to the same
+    EDGAR filing: sibling exhibits are never duplicates, hard-block.
     """
-    fingerprint_match = left_signature.content_fingerprint == right_signature.content_fingerprint
-    scores = similarity_scores(left_signature, right_signature)
+    fingerprint_match = newer_signature.content_fingerprint == older_signature.content_fingerprint
+    scores = similarity_scores(newer_signature, older_signature)
+    if same_accession:
+        return DuplicateDecision(
+            action=DuplicateAction.NONE,
+            reason="same_accession_siblings",
+            fingerprint_match=fingerprint_match,
+            scores=scores,
+        )
     content_hit = fingerprint_match or (
         scores.jaccard >= JACCARD_DUPLICATE_THRESHOLD
         or scores.containment >= CONTAINMENT_DUPLICATE_THRESHOLD
@@ -419,6 +554,15 @@ def decide_duplicate(
         return DuplicateDecision(
             action=DuplicateAction.NONE,
             reason=reason,
+            fingerprint_match=fingerprint_match,
+            scores=scores,
+        )
+    if party_conflict:
+        # Disagreeing curated party metadata defeats same-day sibling template
+        # deals: never auto-dedupe, even on strong content + matching date.
+        return DuplicateDecision(
+            action=DuplicateAction.REVIEW,
+            reason="party_metadata_conflict",
             fingerprint_match=fingerprint_match,
             scores=scores,
         )
@@ -433,8 +577,8 @@ def decide_duplicate(
         scores.jaccard >= STRONG_JACCARD_THRESHOLD
         or scores.containment >= STRONG_CONTAINMENT_THRESHOLD
     )
-    if left_cover.dated_as_of is not None and right_cover.dated_as_of is not None:
-        if left_cover.dated_as_of == right_cover.dated_as_of:
+    if newer_cover.dated_as_of is not None and older_cover.dated_as_of is not None:
+        if newer_cover.dated_as_of == older_cover.dated_as_of:
             if strong_hit:
                 return DuplicateDecision(
                     action=DuplicateAction.AUTO_DEDUPE,
@@ -451,9 +595,9 @@ def decide_duplicate(
                 fingerprint_match=False,
                 scores=scores,
             )
-        if newer_amends_and_restates:
-            # Amended & restated: different dated-as-of but the same live deal.
-            # Keep the most recent per the operative-document principle.
+        if _ar_supersedes(newer_cover, older_cover, strong_hit=strong_hit):
+            # Confirmed amended & restated: same live deal, keep the most
+            # recent per the operative-document principle.
             return DuplicateDecision(
                 action=DuplicateAction.AUTO_DEDUPE,
                 reason="amends_and_restates_keep_most_recent",
@@ -466,7 +610,7 @@ def decide_duplicate(
             fingerprint_match=False,
             scores=scores,
         )
-    if newer_amends_and_restates:
+    if _ar_supersedes(newer_cover, older_cover, strong_hit=strong_hit):
         return DuplicateDecision(
             action=DuplicateAction.AUTO_DEDUPE,
             reason="amends_and_restates_keep_most_recent",

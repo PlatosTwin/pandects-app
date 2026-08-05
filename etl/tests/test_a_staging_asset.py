@@ -181,6 +181,10 @@ class StagingAssetTests(unittest.TestCase):
                 return_value=None,
             ),
             patch(
+                "etl.defs.a_staging_asset._retry_pending_signatures",
+                return_value=None,
+            ),
+            patch(
                 "etl.defs.a_staging_asset._reconcile_corpus_duplicates",
                 return_value=(0, set()),
             ),
@@ -231,6 +235,10 @@ class StagingAssetTests(unittest.TestCase):
             ) as fetch_new_filings,
             patch(
                 "etl.defs.a_staging_asset.assert_tables_exist",
+                return_value=None,
+            ),
+            patch(
+                "etl.defs.a_staging_asset._retry_pending_signatures",
                 return_value=None,
             ),
             patch(

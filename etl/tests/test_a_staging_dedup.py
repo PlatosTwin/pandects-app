@@ -56,6 +56,7 @@ def _candidate(
             dated_as_of=dated_as_of,
             party_tokens=cover.party_tokens,
             amends_and_restates=cover.amends_and_restates,
+            ar_reference_dates=cover.ar_reference_dates,
         )
     return AgreementCandidateResult(
         candidate_url=url,
@@ -265,6 +266,42 @@ class StagingDedupTests(unittest.TestCase):
 
         self.assertEqual(len(staged), 1)
         self.assertEqual(staged[0].metadata.url, "https://example.com/complete.htm")
+
+    def test_fetch_new_filings_sec_index_never_merges_same_accession_siblings(self) -> None:
+        # Sibling exhibits of one filing (ex2-1 vs ex2-2) are different
+        # agreements even with near-identical boilerplate and matching dates.
+        pipeline_config = PipelineConfig()
+        context = _Context()
+        classifier = Mock()
+        shared_text = _text(0, 2000)
+        accession = "https://www.sec.gov/Archives/edgar/data/1799983/000121390021020720"
+        candidates = [
+            _candidate(
+                f"{accession}/ea139171ex2-1_riceacq.htm",
+                shared_text,
+                filing_date="20210407",
+                page_count=90,
+                dated_as_of=date(2021, 4, 7),
+            ),
+            _candidate(
+                f"{accession}/ea139171ex2-2_riceacq.htm",
+                shared_text,
+                filing_date="20210407",
+                page_count=95,
+                dated_as_of=date(2021, 4, 7),
+                cik="2",
+            ),
+        ]
+
+        with patch("etl.domain.a_staging.classify_exhibit_candidates", return_value=candidates):
+            staged = fetch_new_filings_sec_index(
+                exhibit_classifier=classifier,
+                context=context,
+                start_date="2021-04-06",
+                pipeline_config=pipeline_config,
+            )
+
+        self.assertEqual(len(staged), 2)
 
 
 if __name__ == "__main__":

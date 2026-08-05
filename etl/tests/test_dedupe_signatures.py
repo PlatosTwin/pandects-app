@@ -1,8 +1,10 @@
 # pyright: reportPrivateUsage=false
 import itertools
+import re
 import string
 import unittest
 from datetime import date, datetime
+from pathlib import Path
 
 from etl.domain.dedupe_signatures import (
     CoverIdentity,
@@ -10,15 +12,20 @@ from etl.domain.dedupe_signatures import (
     SurvivorCandidate,
     compute_document_signature,
     decide_duplicate,
+    extract_ar_reference_dates,
     extract_cover_identity,
     extract_dated_as_of,
     extract_party_tokens,
     is_content_duplicate,
     normalize_party_name,
     normalized_shingles,
+    party_metadata_conflict,
+    party_names_conflict,
     pick_survivor,
+    same_edgar_accession,
     similarity_scores,
 )
+from etl.utils.agreement_signature_store import _CREATE_TABLE_DDL
 
 _WORDS = ["".join(letters) for letters in itertools.product(string.ascii_lowercase, repeat=3)]
 
@@ -39,8 +46,14 @@ def _cover(
     *,
     amends: bool = False,
     parties: frozenset[str] = frozenset(),
+    ar_refs: frozenset[date] = frozenset(),
 ) -> CoverIdentity:
-    return CoverIdentity(dated_as_of=dated, party_tokens=parties, amends_and_restates=amends)
+    return CoverIdentity(
+        dated_as_of=dated,
+        party_tokens=parties,
+        amends_and_restates=amends,
+        ar_reference_dates=ar_refs,
+    )
 
 
 class SimilarityTests(unittest.TestCase):
@@ -132,9 +145,17 @@ class CoverIdentityTests(unittest.TestCase):
         text = "AMENDED AND RESTATED AGREEMENT AND PLAN OF MERGER dated as of April 1, 2021"
         self.assertTrue(extract_cover_identity(text).amends_and_restates)
 
-    def test_amends_and_restates_recital_form_detected(self) -> None:
-        text = "This Agreement amends and restates in its entirety the Agreement and Plan of Merger"
-        self.assertTrue(extract_cover_identity(text).amends_and_restates)
+    def test_amends_and_restates_flag_is_title_scoped(self) -> None:
+        # Audit regression: a plain agreement whose recitals reference an
+        # unrelated A&R document (all 8 sampled wide-window flags were false).
+        text = (
+            "AGREEMENT AND PLAN OF MERGER dated as of March 31, 2021 among the parties. "
+            + ("The parties agree as follows. " * 15)
+            + "Pursuant to the Amended and Restated Registration Rights Agreement, "
+            "the holders retain their rights."
+        )
+        self.assertGreater(text.index("Amended and Restated"), 300)
+        self.assertFalse(extract_cover_identity(text).amends_and_restates)
 
     def test_amended_certificate_boilerplate_does_not_trigger(self) -> None:
         text = (
@@ -142,6 +163,78 @@ class CoverIdentityTests(unittest.TestCase):
             "Restated Certificate of Incorporation of the Company shall remain in effect."
         )
         self.assertFalse(extract_cover_identity(text).amends_and_restates)
+
+    def test_ar_reference_dates_capture_superseded_agreement_date(self) -> None:
+        text = (
+            "AMENDED AND RESTATED AGREEMENT AND PLAN OF MERGER dated as of "
+            "February 14, 2024. This Agreement amends and restates in its entirety "
+            "the Agreement and Plan of Merger, dated as of October 31, 2022 "
+            "(the Original Agreement), by and among the parties."
+        )
+        refs = extract_ar_reference_dates(text)
+        self.assertIn(date(2022, 10, 31), refs)
+
+    def test_ar_reference_dates_empty_without_ar_language(self) -> None:
+        text = "AGREEMENT AND PLAN OF MERGER dated as of March 31, 2021 among the parties"
+        self.assertEqual(extract_ar_reference_dates(text), frozenset())
+
+
+class PartyConflictTests(unittest.TestCase):
+    def test_equal_names_do_not_conflict(self) -> None:
+        self.assertFalse(party_names_conflict("KushCo Holdings, Inc.", "KUSHCO HOLDINGS INC"))
+
+    def test_long_short_variants_do_not_conflict(self) -> None:
+        self.assertFalse(
+            party_names_conflict(
+                "Canadian Pacific Railway Limited", "Canadian Pacific Railway Ltd"
+            )
+        )
+
+    def test_shared_token_tolerates_merger_sub_variance(self) -> None:
+        self.assertFalse(
+            party_names_conflict(
+                "Osprey Technology Acquisition Corp.", "Osprey Technology Merger Sub, Inc."
+            )
+        )
+
+    def test_disjoint_names_conflict(self) -> None:
+        self.assertTrue(party_names_conflict("BlackSky Holdings, Inc.", "FiscalNote, Inc."))
+
+    def test_missing_side_never_conflicts(self) -> None:
+        self.assertFalse(party_names_conflict(None, "FiscalNote, Inc."))
+        self.assertFalse(party_names_conflict("BlackSky Holdings, Inc.", None))
+
+    def test_metadata_conflict_requires_disagreement_on_either_role(self) -> None:
+        self.assertTrue(
+            party_metadata_conflict(
+                "23andMe, Inc.", "VG Acquisition Corp.",
+                "FiscalNote, Inc.", "VG Acquisition Corp.",
+            )
+        )
+        self.assertFalse(
+            party_metadata_conflict(
+                "Bridg, Inc.", "Cardlytics, Inc.",
+                "BRIDG, INC.", "CARDLYTICS, INC.",
+            )
+        )
+
+
+class SameAccessionTests(unittest.TestCase):
+    def test_sibling_exhibits_share_accession(self) -> None:
+        self.assertTrue(
+            same_edgar_accession(
+                "https://www.sec.gov/Archives/edgar/data/1799983/000121390021020720/ea139171ex2-1_riceacq.htm",
+                "https://www.sec.gov/Archives/edgar/data/1799983/000121390021020720/ea139171ex2-2_riceacq.htm",
+            )
+        )
+
+    def test_different_filings_do_not_share_accession(self) -> None:
+        self.assertFalse(
+            same_edgar_accession(
+                "https://www.sec.gov/Archives/edgar/data/1799983/000121390021020720/ea139171ex2-1_riceacq.htm",
+                "https://www.sec.gov/Archives/edgar/data/1799983/000121390022067959/ea167651ex2-1_rice.htm",
+            )
+        )
 
 
 class DecideDuplicateTests(unittest.TestCase):
@@ -153,19 +246,17 @@ class DecideDuplicateTests(unittest.TestCase):
         self.near_sig = _sig(near_copy)
         self.moderate_sig = _sig(moderate_copy)
         self.dated = date(2021, 6, 21)
+        self.newer_dated = date(2021, 9, 15)
+        self.parties = frozenset({"BLACKSKY HOLDINGS", "OSPREY TECHNOLOGY ACQUISITION"})
 
     def test_exact_fingerprint_auto_dedupes(self) -> None:
-        decision = decide_duplicate(
-            self.base_sig, _NO_COVER, self.base_sig, _NO_COVER,
-            newer_amends_and_restates=False,
-        )
+        decision = decide_duplicate(self.base_sig, _NO_COVER, self.base_sig, _NO_COVER)
         self.assertIs(decision.action, DuplicateAction.AUTO_DEDUPE)
         self.assertEqual(decision.reason, "exact_fingerprint")
 
     def test_strong_content_with_matching_dated_as_of_auto_dedupes(self) -> None:
         decision = decide_duplicate(
-            self.base_sig, _cover(self.dated), self.near_sig, _cover(self.dated),
-            newer_amends_and_restates=False,
+            self.near_sig, _cover(self.dated), self.base_sig, _cover(self.dated)
         )
         self.assertIs(decision.action, DuplicateAction.AUTO_DEDUPE)
         self.assertEqual(decision.reason, "content_and_dated_as_of")
@@ -177,48 +268,135 @@ class DecideDuplicateTests(unittest.TestCase):
         self.assertGreaterEqual(scores.jaccard, 0.6)
         self.assertLess(scores.jaccard, 0.94)
         decision = decide_duplicate(
-            self.base_sig, _cover(self.dated), self.moderate_sig, _cover(self.dated),
-            newer_amends_and_restates=False,
+            self.moderate_sig, _cover(self.dated), self.base_sig, _cover(self.dated)
         )
         self.assertIs(decision.action, DuplicateAction.REVIEW)
         self.assertEqual(decision.reason, "dated_as_of_match_but_moderate_similarity")
 
     def test_content_hit_with_dated_mismatch_goes_to_review(self) -> None:
         decision = decide_duplicate(
-            self.base_sig, _cover(self.dated), self.near_sig, _cover(date(2021, 9, 15)),
-            newer_amends_and_restates=False,
+            self.near_sig, _cover(self.newer_dated), self.base_sig, _cover(self.dated)
         )
         self.assertIs(decision.action, DuplicateAction.REVIEW)
         self.assertEqual(decision.reason, "dated_as_of_mismatch")
 
-    def test_content_hit_with_dated_mismatch_and_newer_amends_and_restates_auto_dedupes(self) -> None:
+    def test_confirmed_ar_supersession_auto_dedupes(self) -> None:
+        # All four legs present: strong content, title A&R flag on the newer
+        # doc, recital citing the older doc's exact date, party overlap
+        # (modeled on the one TRUE A&R in the audit: TV Ammo / Breeze).
         decision = decide_duplicate(
-            self.base_sig, _cover(self.dated), self.near_sig, _cover(date(2021, 9, 15)),
-            newer_amends_and_restates=True,
+            self.near_sig,
+            _cover(
+                self.newer_dated,
+                amends=True,
+                parties=self.parties,
+                ar_refs=frozenset({self.dated}),
+            ),
+            self.base_sig,
+            _cover(self.dated, parties=self.parties),
         )
         self.assertIs(decision.action, DuplicateAction.AUTO_DEDUPE)
         self.assertEqual(decision.reason, "amends_and_restates_keep_most_recent")
 
-    def test_content_hit_without_cover_identity_goes_to_review(self) -> None:
+    def test_ar_flag_without_recital_reference_goes_to_review(self) -> None:
+        # Audit regression: 10 of 11 loose-A&R fires paired UNRELATED deals
+        # (23andMe/VG Acquisition vs FiscalNote/Duddell etc.). Without the
+        # recital citing the older agreement's date, never auto-dedupe.
         decision = decide_duplicate(
-            self.base_sig, _NO_COVER, self.near_sig, _NO_COVER,
-            newer_amends_and_restates=False,
+            self.near_sig,
+            _cover(self.newer_dated, amends=True, parties=self.parties),
+            self.base_sig,
+            _cover(self.dated, parties=self.parties),
         )
+        self.assertIs(decision.action, DuplicateAction.REVIEW)
+        self.assertEqual(decision.reason, "dated_as_of_mismatch")
+
+    def test_ar_without_party_overlap_goes_to_review(self) -> None:
+        decision = decide_duplicate(
+            self.near_sig,
+            _cover(
+                self.newer_dated,
+                amends=True,
+                parties=frozenset({"FISCALNOTE"}),
+                ar_refs=frozenset({self.dated}),
+            ),
+            self.base_sig,
+            _cover(self.dated, parties=self.parties),
+        )
+        self.assertIs(decision.action, DuplicateAction.REVIEW)
+        self.assertEqual(decision.reason, "dated_as_of_mismatch")
+
+    def test_ar_with_moderate_content_goes_to_review(self) -> None:
+        decision = decide_duplicate(
+            self.moderate_sig,
+            _cover(
+                self.newer_dated,
+                amends=True,
+                parties=self.parties,
+                ar_refs=frozenset({self.dated}),
+            ),
+            self.base_sig,
+            _cover(self.dated, parties=self.parties),
+        )
+        self.assertIs(decision.action, DuplicateAction.REVIEW)
+        self.assertEqual(decision.reason, "dated_as_of_mismatch")
+
+    def test_content_hit_without_cover_identity_goes_to_review(self) -> None:
+        decision = decide_duplicate(self.near_sig, _NO_COVER, self.base_sig, _NO_COVER)
         self.assertIs(decision.action, DuplicateAction.REVIEW)
         self.assertEqual(decision.reason, "content_match_without_cover_identity")
 
     def test_party_match_alone_never_dedupes(self) -> None:
-        parties = frozenset({"BLACKSKY HOLDINGS", "OSPREY TECHNOLOGY ACQUISITION"})
         left_sig = _sig(_text(0, 2000))
         right_sig = _sig(_text(3000, 2000))
         decision = decide_duplicate(
-            left_sig, _cover(self.dated, parties=parties),
-            right_sig, _cover(self.dated, parties=parties),
-            newer_amends_and_restates=False,
+            left_sig, _cover(self.dated, parties=self.parties),
+            right_sig, _cover(self.dated, parties=self.parties),
             party_match=True,
         )
         self.assertIs(decision.action, DuplicateAction.NONE)
         self.assertEqual(decision.reason, "party_match_without_content_match")
+
+    def test_same_accession_hard_blocks_even_exact_fingerprint(self) -> None:
+        decision = decide_duplicate(
+            self.base_sig, _cover(self.dated), self.base_sig, _cover(self.dated),
+            same_accession=True,
+        )
+        self.assertIs(decision.action, DuplicateAction.NONE)
+        self.assertEqual(decision.reason, "same_accession_siblings")
+
+    def test_party_metadata_conflict_forces_review_on_strong_content_and_date(self) -> None:
+        decision = decide_duplicate(
+            self.near_sig, _cover(self.dated), self.base_sig, _cover(self.dated),
+            party_conflict=True,
+        )
+        self.assertIs(decision.action, DuplicateAction.REVIEW)
+        self.assertEqual(decision.reason, "party_metadata_conflict")
+
+
+class MigrationDdlSyncTests(unittest.TestCase):
+    def test_migration_file_matches_store_ddl(self) -> None:
+        migration_path = (
+            Path(__file__).resolve().parents[1]
+            / "sql"
+            / "migrations"
+            / "20260805_agreement_signatures.sql"
+        )
+        raw = migration_path.read_text(encoding="utf-8")
+        without_comments = re.sub(r"--[^\n]*", "", raw)
+        statements = [
+            statement.strip()
+            for statement in without_comments.split(";")
+            if statement.strip()
+        ]
+
+        def normalize(sql: str) -> str:
+            return re.sub(r"\s+", " ", sql).strip().lower()
+
+        self.assertEqual(
+            [normalize(statement) for statement in statements],
+            [normalize(ddl) for ddl in _CREATE_TABLE_DDL],
+        )
 
 
 class SurvivorTests(unittest.TestCase):

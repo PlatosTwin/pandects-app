@@ -36,6 +36,7 @@ from etl.domain.dedupe_signatures import (
 from etl.utils.agreement_signature_store import (
     StoredSignature,
     create_signature_tables,
+    mark_reconciled,
     upsert_signatures,
 )
 from etl.utils.reset_stuck_agreements import (
@@ -89,8 +90,10 @@ def load_agreement_text_from_pages(
     """Rebuild the rendered agreement text from stored page content.
 
     Mirrors _render_agreement_text_and_page_count in etl.domain.a_staging:
-    non-empty stripped pages joined with blank lines; page_count counts all
-    pages including empty ones.
+    text is non-empty stripped pages joined with blank lines, and page_count is
+    the number of page rows — which equals the staging-side split count because
+    split_to_pages drops empty fragments before pages are persisted, so the
+    <50%-content survivor guard sees the same page_count on both paths.
     """
     rows = conn.execute(
         text(
@@ -158,6 +161,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Include non-edgar agreements (the dedupe guard only scans edgar).",
     )
+    _ = parser.add_argument(
+        "--leave-unreconciled",
+        action="store_true",
+        help=(
+            "Leave backfilled signatures unreconciled so the next staging run "
+            "sweeps the whole backlog through the dedupe guard. Default marks "
+            "them reconciled: the historical backlog goes through the manual "
+            "audit-then-delete process, not automatic deletion."
+        ),
+    )
     _ = parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args(argv)
     args.schema = validate_schema_name(args.schema)
@@ -202,6 +215,8 @@ def main(argv: list[str] | None = None) -> None:
                     failed.append(agreement_uuid)
                     print(f"WARNING: failed to compute signature for {url}: {exc}")
             upsert_signatures(conn, args.schema, rows)
+            if not args.leave_unreconciled:
+                mark_reconciled(conn, args.schema, [row.agreement_uuid for row in rows])
         processed += len(rows)
         if processed % 500 < _BATCH_SIZE:
             print(f"Progress: {processed}/{len(targets)}")

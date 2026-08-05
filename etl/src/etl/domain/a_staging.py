@@ -35,6 +35,7 @@ from etl.domain.dedupe_signatures import (
     decide_duplicate,
     extract_cover_identity,
     pick_survivor,
+    same_edgar_accession,
 )
 from etl.defs.resources import PipelineConfig
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
@@ -432,19 +433,29 @@ def _should_merge_batch_pair(
     """
     if left.signature is None or right.signature is None:
         return False
+    same_accession = same_edgar_accession(left.candidate_url, right.candidate_url)
     left_cover = left.cover_identity
     right_cover = right.cover_identity
     if left_cover is None or right_cover is None:
+        # Sibling exhibits of one filing are never duplicates, even byte-identical.
+        if same_accession:
+            return False
         return left.signature.content_fingerprint == right.signature.content_fingerprint
     left_key = (left.filing_date, left_idx)
     right_key = (right.filing_date, right_idx)
-    newer_cover = left_cover if left_key >= right_key else right_cover
+    if left_key >= right_key:
+        newer, older = left, right
+        newer_cover_ordered, older_cover_ordered = left_cover, right_cover
+    else:
+        newer, older = right, left
+        newer_cover_ordered, older_cover_ordered = right_cover, left_cover
+    assert newer.signature is not None and older.signature is not None
     decision = decide_duplicate(
-        left.signature,
-        left_cover,
-        right.signature,
-        right_cover,
-        newer_amends_and_restates=newer_cover.amends_and_restates,
+        newer.signature,
+        newer_cover_ordered,
+        older.signature,
+        older_cover_ordered,
+        same_accession=same_accession,
     )
     return decision.action is DuplicateAction.AUTO_DEDUPE
 
@@ -513,7 +524,11 @@ def fetch_new_filings_sec_index(
         first_seen_idx = fingerprint_first_seen.get(candidate.signature.content_fingerprint)
         if first_seen_idx is None:
             fingerprint_first_seen[candidate.signature.content_fingerprint] = idx
-        else:
+        elif _should_merge_batch_pair(
+            first_seen_idx, ma_candidates[first_seen_idx], idx, candidate
+        ):
+            # Even exact fingerprints go through the decision gate: sibling
+            # exhibits of one accession must never merge.
             union(idx, first_seen_idx)
 
         # Query for similar items before inserting

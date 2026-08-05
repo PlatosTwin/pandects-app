@@ -3,7 +3,10 @@
 -- Idempotent; apply to the pdx schema. The ETL asset asserts these tables exist
 -- (etl/src/etl/utils/schema_guards.py) and never issues DDL itself.
 -- `etl/src/etl/utils/backfill_agreement_signatures.py --create-tables` applies
--- this same DDL programmatically.
+-- this same DDL programmatically; the CREATE statements below must stay
+-- byte-identical (modulo whitespace) to _CREATE_TABLE_DDL in
+-- etl/src/etl/utils/agreement_signature_store.py — enforced by
+-- etl/tests/test_dedupe_signatures.py::MigrationDdlSyncTests.
 
 CREATE TABLE IF NOT EXISTS agreement_signatures (
     agreement_uuid CHAR(36) NOT NULL PRIMARY KEY,
@@ -16,9 +19,12 @@ CREATE TABLE IF NOT EXISTS agreement_signatures (
     dated_as_of DATE NULL,
     party_tokens_json TEXT NULL,
     amends_and_restates TINYINT(1) NOT NULL DEFAULT 0,
+    ar_reference_dates_json TEXT NULL,
     computed_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
+    reconciled_at DATETIME NULL,
     KEY idx_agreement_signatures_fingerprint (content_fingerprint),
-    KEY idx_agreement_signatures_dated_as_of (dated_as_of)
+    KEY idx_agreement_signatures_dated_as_of (dated_as_of),
+    KEY idx_agreement_signatures_reconciled (reconciled_at)
 );
 
 CREATE TABLE IF NOT EXISTS agreement_signature_pending (

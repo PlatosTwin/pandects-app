@@ -44,9 +44,12 @@ _CREATE_TABLE_DDL: Final[tuple[str, ...]] = (
         dated_as_of DATE NULL,
         party_tokens_json TEXT NULL,
         amends_and_restates TINYINT(1) NOT NULL DEFAULT 0,
+        ar_reference_dates_json TEXT NULL,
         computed_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
+        reconciled_at DATETIME NULL,
         KEY idx_agreement_signatures_fingerprint (content_fingerprint),
-        KEY idx_agreement_signatures_dated_as_of (dated_as_of)
+        KEY idx_agreement_signatures_dated_as_of (dated_as_of),
+        KEY idx_agreement_signatures_reconciled (reconciled_at)
     )
     """,
     f"""
@@ -120,6 +123,8 @@ def upsert_signatures(
 ) -> None:
     if not rows:
         return
+    # REPLACE resets reconciled_at to NULL on purpose: a new or refreshed
+    # signature must be re-scanned by the next reconciliation pass.
     sql = text(
         f"""
         REPLACE INTO {schema}.{SIGNATURES_TABLE} (
@@ -132,7 +137,8 @@ def upsert_signatures(
             page_count,
             dated_as_of,
             party_tokens_json,
-            amends_and_restates
+            amends_and_restates,
+            ar_reference_dates_json
         ) VALUES (
             :agreement_uuid,
             :url,
@@ -143,7 +149,8 @@ def upsert_signatures(
             :page_count,
             :dated_as_of,
             :party_tokens_json,
-            :amends_and_restates
+            :amends_and_restates,
+            :ar_reference_dates_json
         )
         """
     )
@@ -161,6 +168,9 @@ def upsert_signatures(
                 "dated_as_of": row.cover.dated_as_of,
                 "party_tokens_json": json.dumps(sorted(row.cover.party_tokens)),
                 "amends_and_restates": int(row.cover.amends_and_restates),
+                "ar_reference_dates_json": json.dumps(
+                    sorted(value.isoformat() for value in row.cover.ar_reference_dates)
+                ),
             }
             for row in rows
         ],
@@ -173,7 +183,7 @@ def load_all_signatures(conn: Connection, schema: str) -> list[StoredSignature]:
             f"""
             SELECT agreement_uuid, url, content_fingerprint, minhash_json,
                    shingle_count, char_count, page_count, dated_as_of,
-                   party_tokens_json, amends_and_restates
+                   party_tokens_json, amends_and_restates, ar_reference_dates_json
             FROM {schema}.{SIGNATURES_TABLE}
             """
         )
@@ -187,6 +197,12 @@ def load_all_signatures(conn: Connection, schema: str) -> list[StoredSignature]:
         if party_tokens_raw:
             party_tokens = frozenset(
                 str(token) for token in json.loads(str(party_tokens_raw))
+            )
+        ar_reference_raw = row["ar_reference_dates_json"]
+        ar_reference_dates: frozenset[date] = frozenset()
+        if ar_reference_raw:
+            ar_reference_dates = frozenset(
+                date.fromisoformat(str(value)) for value in json.loads(str(ar_reference_raw))
             )
         stored.append(
             StoredSignature(
@@ -203,10 +219,44 @@ def load_all_signatures(conn: Connection, schema: str) -> list[StoredSignature]:
                     dated_as_of=dated_as_of,
                     party_tokens=party_tokens,
                     amends_and_restates=bool(row["amends_and_restates"]),
+                    ar_reference_dates=ar_reference_dates,
                 ),
             )
         )
     return stored
+
+
+def select_unreconciled_uuids(conn: Connection, schema: str) -> set[str]:
+    """Signatures not yet scanned by a reconciliation pass.
+
+    Persisted scope: signatures written during ingest (or recovered by the
+    pending retry) stay unreconciled until a reconciliation pass marks them,
+    so a crash between ingest commits and reconciliation cannot orphan them.
+    """
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT agreement_uuid
+            FROM {schema}.{SIGNATURES_TABLE}
+            WHERE reconciled_at IS NULL
+            """
+        )
+    ).scalars().all()
+    return {str(row) for row in rows}
+
+
+def mark_reconciled(conn: Connection, schema: str, agreement_uuids: Iterable[str]) -> None:
+    target = tuple(sorted({uuid for uuid in agreement_uuids if uuid}))
+    if not target:
+        return
+    sql = text(
+        f"""
+        UPDATE {schema}.{SIGNATURES_TABLE}
+        SET reconciled_at = UTC_TIMESTAMP()
+        WHERE agreement_uuid IN :agreement_uuids
+        """
+    ).bindparams(bindparam("agreement_uuids", expanding=True))
+    _ = conn.execute(sql, {"agreement_uuids": target})
 
 
 def delete_signatures(conn: Connection, schema: str, agreement_uuids: Iterable[str]) -> None:
@@ -219,6 +269,11 @@ def delete_signatures(conn: Connection, schema: str, agreement_uuids: Iterable[s
     _ = conn.execute(sql, {"agreement_uuids": target})
 
 
+# Stop retrying an entry after this many failed attempts; the row stays for
+# operator visibility but load_pending no longer returns it.
+PENDING_MAX_ATTEMPTS: Final[int] = 10
+
+
 def record_pending(
     conn: Connection,
     schema: str,
@@ -228,7 +283,7 @@ def record_pending(
     reason: str,
     error: str | None = None,
 ) -> None:
-    """Record (or bump) a pending-reconciliation entry so a later run retries."""
+    """Record (or bump) a pending-reconciliation entry after a failed attempt."""
     sql = text(
         f"""
         INSERT INTO {schema}.{PENDING_TABLE}
@@ -244,6 +299,32 @@ def record_pending(
     _ = conn.execute(
         sql,
         {"agreement_uuid": agreement_uuid, "url": url, "reason": reason, "error": error},
+    )
+
+
+def record_pending_if_absent(
+    conn: Connection,
+    schema: str,
+    *,
+    agreement_uuid: str,
+    url: str,
+    reason: str,
+) -> None:
+    """Record a pending entry without bumping attempts on re-observation.
+
+    Used for known-missing signatures observed every run; attempts should only
+    count actual retry failures.
+    """
+    sql = text(
+        f"""
+        INSERT IGNORE INTO {schema}.{PENDING_TABLE}
+            (agreement_uuid, url, reason, attempts)
+        VALUES (:agreement_uuid, :url, :reason, 0)
+        """
+    )
+    _ = conn.execute(
+        sql,
+        {"agreement_uuid": agreement_uuid, "url": url, "reason": reason},
     )
 
 
@@ -263,11 +344,12 @@ def load_pending(conn: Connection, schema: str, *, limit: int) -> list[PendingSi
             f"""
             SELECT agreement_uuid, url, reason, attempts
             FROM {schema}.{PENDING_TABLE}
+            WHERE attempts < :max_attempts
             ORDER BY attempts ASC, first_recorded_at ASC
             LIMIT :limit
             """
         ),
-        {"limit": limit},
+        {"limit": limit, "max_attempts": PENDING_MAX_ATTEMPTS},
     ).mappings().all()
     return [
         PendingSignature(
