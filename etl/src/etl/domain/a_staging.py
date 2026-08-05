@@ -2,7 +2,6 @@
 # pyright: reportMissingTypeStubs=false
 import argparse
 import datetime
-import hashlib
 import re
 import time
 import uuid
@@ -25,6 +24,18 @@ from requests.models import Response
 from requests.sessions import Session
 
 from etl.domain.b_pre_processing import format_content, split_to_pages
+from etl.domain.dedupe_signatures import (
+    CoverIdentity,
+    DocumentSignature,
+    DuplicateAction,
+    LSH_INDEX_THRESHOLD,
+    SurvivorCandidate,
+    compute_content_fingerprint,
+    compute_document_signature,
+    decide_duplicate,
+    extract_cover_identity,
+    pick_survivor,
+)
 from etl.defs.resources import PipelineConfig
 from etl.models.exhibit_classifier.exhibit_classifier import ExhibitClassifier
 from etl.utils.sec_utils import SEC_USER_AGENT
@@ -74,6 +85,8 @@ class ExhibitClassifierProtocol(Protocol):
 class _Logger(Protocol):
     def info(self, msg: str) -> None: ...
 
+    def warning(self, msg: str) -> None: ...
+
 
 class _Context(Protocol):
     @property
@@ -106,8 +119,20 @@ class AgreementCandidateResult:
     exhibit_type: str  # "2" or "10"
     page_count: int
     auto_status_verified: bool
-    content_fingerprint: str  # Deterministic normalized-content fingerprint for exact duplicate detection
-    minhash: MinHash  # For near-duplicate detection via LSH
+    # Full-text content signature and cover identity for duplicate detection.
+    # None when computation failed; such candidates are never silently merged
+    # and get recorded in pending-reconciliation state by the staging asset.
+    signature: DocumentSignature | None
+    cover_identity: CoverIdentity | None
+
+
+@dataclass(frozen=True)
+class StagedFiling:
+    """A staged filing plus the content signature persisted alongside it."""
+
+    metadata: FilingMetadata
+    signature: DocumentSignature | None
+    cover_identity: CoverIdentity | None
 
 
 @dataclass(frozen=True)
@@ -177,11 +202,31 @@ def _compute_minhash(rendered_text: str) -> MinHash:
 def _compute_content_fingerprint(rendered_text: str) -> str:
     """Compute a stable fingerprint for exact duplicate detection.
 
-    Normalizes case and collapses whitespace so filings that differ only in SEC
-    wrapper formatting still collapse deterministically.
+    Delegates to dedupe_signatures.compute_content_fingerprint (kept as a
+    module-level name for the legacy ExhibitSignature path and tests).
     """
-    normalized = re.sub(r"\s+", " ", rendered_text.lower()).strip()
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return compute_content_fingerprint(rendered_text)
+
+
+def fetch_document_signature(
+    exhibit_url: str, *, user_agent: str = SEC_USER_AGENT
+) -> tuple[DocumentSignature, CoverIdentity] | None:
+    """Fetch a document and compute its full-text signature and cover identity.
+
+    Returns None for unsupported file types. Raises on fetch failures so
+    callers can record the candidate for retry instead of silently skipping.
+    """
+    fetch_result = _fetch_exhibit_content(exhibit_url, user_agent=user_agent)
+    if fetch_result is None:
+        return None
+    content, is_txt, is_html = fetch_result
+    agreement_text, page_count = _render_agreement_text_and_page_count(
+        content, is_txt=is_txt, is_html=is_html
+    )
+    return (
+        compute_document_signature(agreement_text, page_count=page_count),
+        extract_cover_identity(agreement_text),
+    )
 
 
 def fetch_exhibit_signature(exhibit_url: str, *, user_agent: str = SEC_USER_AGENT) -> ExhibitSignature | None:
@@ -250,11 +295,13 @@ def classify_exhibit_candidates(
     # Fetch content and filter out unsupported file types
     valid_candidates: list[ExhibitCandidate] = []
     agreement_texts: list[str] = []
-    content_fingerprints: list[str] = []
-    minhashes: list[MinHash] = []
+    signatures: list[DocumentSignature | None] = []
+    cover_identities: list[CoverIdentity | None] = []
     page_counts: list[int] = []
     auto_statuses_verified: list[bool] = []
-    cached_exhibits: dict[str, tuple[str, int, str, MinHash, bool] | None] = {}
+    cached_exhibits: dict[
+        str, tuple[str, int, DocumentSignature | None, CoverIdentity | None, bool] | None
+    ] = {}
 
     for candidate in exhibit_candidates:
         cached = cached_exhibits.get(candidate.exhibit_url)
@@ -283,21 +330,32 @@ def classify_exhibit_candidates(
                 agreement_text,
                 page_count,
             )
-            content_fingerprint = _compute_content_fingerprint(agreement_text)
-            minhash = _compute_minhash(agreement_text)
+            signature: DocumentSignature | None
+            cover_identity: CoverIdentity | None
+            try:
+                signature = compute_document_signature(agreement_text, page_count=page_count)
+                cover_identity = extract_cover_identity(agreement_text)
+            except Exception as e:
+                # Never silently drop the candidate: it is still ingested, and
+                # the staging asset records it for pending reconciliation.
+                context.log.warning(
+                    f"Signature computation failed for {candidate.exhibit_url}: {e}"
+                )
+                signature = None
+                cover_identity = None
             cached_exhibits[candidate.exhibit_url] = (
                 agreement_text,
                 page_count,
-                content_fingerprint,
-                minhash,
+                signature,
+                cover_identity,
                 auto_status_verified,
             )
         else:
-            agreement_text, page_count, content_fingerprint, minhash, auto_status_verified = cached
+            agreement_text, page_count, signature, cover_identity, auto_status_verified = cached
 
         agreement_texts.append(agreement_text)
-        content_fingerprints.append(content_fingerprint)
-        minhashes.append(minhash)
+        signatures.append(signature)
+        cover_identities.append(cover_identity)
         page_counts.append(page_count)
         auto_statuses_verified.append(auto_status_verified)
         valid_candidates.append(candidate)
@@ -334,18 +392,61 @@ def classify_exhibit_candidates(
                 exhibit_type=candidate.exhibit_type,
                 page_count=page_counts[idx],
                 auto_status_verified=auto_statuses_verified[idx],
-                content_fingerprint=content_fingerprints[idx],
-                minhash=minhashes[idx],
+                signature=signatures[idx],
+                cover_identity=cover_identities[idx],
             )
         )
 
     return results
 
 
-# LSH threshold for near-duplicate detection (Jaccard similarity)
-# 0.85 means documents with ~85% similarity are considered duplicates
-# Provides headroom for title/signature page diffs and minor formatting variations
-_LSH_THRESHOLD = 0.85
+def _parse_idx_filing_date(filing_date: str) -> datetime.date:
+    return datetime.datetime.strptime(filing_date, "%Y%m%d").date()
+
+
+def _candidate_survivor_input(idx: int, candidate: AgreementCandidateResult) -> SurvivorCandidate:
+    # Encode batch order in ingested_date so recency tie-breaks follow .idx
+    # file order deterministically (later in the index = more recent).
+    return SurvivorCandidate(
+        agreement_uuid=get_uuid(candidate.candidate_url),
+        url=candidate.candidate_url,
+        filing_date=_parse_idx_filing_date(candidate.filing_date),
+        ingested_date=datetime.datetime.min + datetime.timedelta(seconds=idx),
+        page_count=candidate.page_count,
+    )
+
+
+def _should_merge_batch_pair(
+    left_idx: int,
+    left: AgreementCandidateResult,
+    right_idx: int,
+    right: AgreementCandidateResult,
+) -> bool:
+    """Decide whether two same-batch candidates are copies of the same agreement.
+
+    Only auto-merges on an exact fingerprint match or a content hit confirmed by
+    cover identity (matching dated-as-of, or an amends-and-restates newer copy).
+    Unconfirmed content hits are left un-merged on purpose: both copies get
+    ingested and the corpus-wide reconciliation flags the pair for review
+    instead of silently dropping one.
+    """
+    if left.signature is None or right.signature is None:
+        return False
+    left_cover = left.cover_identity
+    right_cover = right.cover_identity
+    if left_cover is None or right_cover is None:
+        return left.signature.content_fingerprint == right.signature.content_fingerprint
+    left_key = (left.filing_date, left_idx)
+    right_key = (right.filing_date, right_idx)
+    newer_cover = left_cover if left_key >= right_key else right_cover
+    decision = decide_duplicate(
+        left.signature,
+        left_cover,
+        right.signature,
+        right_cover,
+        newer_amends_and_restates=newer_cover.amends_and_restates,
+    )
+    return decision.action is DuplicateAction.AUTO_DEDUPE
 
 
 def fetch_new_filings_sec_index(
@@ -355,15 +456,19 @@ def fetch_new_filings_sec_index(
     pipeline_config: PipelineConfig,
     *,
     days_override: int | None = None,
-) -> list[FilingMetadata]:
+) -> list[StagedFiling]:
     """
     Fetch agreement candidates from SEC indexes and filter using the exhibit classifier.
-    
+
     Returns only filings classified as M&A agreements under the model's
-    decision threshold and hard-negative guards.
-    De-duplicates near-duplicate filings using MinHash LSH (same agreement filed by 
-    target and acquirer, possibly with minor differences in title/signature pages).
-    
+    decision threshold and hard-negative guards, each paired with its full-text
+    content signature for persistence.
+
+    De-duplicates same-batch copies of the same agreement (same agreement filed
+    by target and acquirer, possibly with heavy wrapper/formatting differences)
+    using full-text MinHash LSH at a low index threshold plus Jaccard/containment
+    verification, gated on cover-identity confirmation.
+
     Args:
         days_override: Number of days to fetch starting from start_date.
                        Useful for day-by-day processing with incremental commits.
@@ -379,20 +484,14 @@ def fetch_new_filings_sec_index(
     # Filter to M&A candidates only
     ma_candidates = [c for c in all_candidates if c.is_ma_agreement]
 
-    # Use LSH for near-duplicate detection
-    # Each candidate carries its original index for stable ordering (reflects .idx file order)
-    lsh = MinHashLSH(threshold=_LSH_THRESHOLD, num_perm=_MINHASH_NUM_PERM)
-    
-    # Track which indices belong to which duplicate group
     # union-find structure: parent[i] = parent index, or self if root
     parent: list[int] = list(range(len(ma_candidates)))
-    fingerprint_first_seen: dict[str, int] = {}
-    
+
     def find(x: int) -> int:
         if parent[x] != x:
             parent[x] = find(parent[x])  # path compression
         return parent[x]
-    
+
     def union(x: int, y: int) -> None:
         px, py = find(x), find(y)
         if px != py:
@@ -401,24 +500,33 @@ def fetch_new_filings_sec_index(
                 parent[py] = px
             else:
                 parent[px] = py
-    
-    # First merge exact duplicates deterministically by normalized-content fingerprint.
-    # Then use MinHash/LSH to catch near-duplicates with small title/signature differences.
+
+    # LSH over FULL-TEXT minhashes at a low threshold: a copy embedded in a
+    # larger wrapper can have low Jaccard despite near-total containment, so
+    # the index only surfaces candidates and _should_merge_batch_pair decides.
+    lsh = MinHashLSH(threshold=LSH_INDEX_THRESHOLD, num_perm=_MINHASH_NUM_PERM)
+    fingerprint_first_seen: dict[str, int] = {}
+
     for idx, candidate in enumerate(ma_candidates):
-        first_seen_idx = fingerprint_first_seen.get(candidate.content_fingerprint)
+        if candidate.signature is None:
+            continue
+        first_seen_idx = fingerprint_first_seen.get(candidate.signature.content_fingerprint)
         if first_seen_idx is None:
-            fingerprint_first_seen[candidate.content_fingerprint] = idx
+            fingerprint_first_seen[candidate.signature.content_fingerprint] = idx
         else:
             union(idx, first_seen_idx)
 
         # Query for similar items before inserting
-        similar_keys = lsh.query(candidate.minhash)
+        similar_keys = lsh.query(candidate.signature.minhash)
         for key in similar_keys:
-            # Keys are string representations of indices
-            union(idx, int(cast(str, key)))
+            other_idx = int(cast(str, key))
+            if _should_merge_batch_pair(
+                other_idx, ma_candidates[other_idx], idx, candidate
+            ):
+                union(idx, other_idx)
         # Insert with index as key
-        lsh.insert(str(idx), candidate.minhash)
-    
+        lsh.insert(str(idx), candidate.signature.minhash)
+
     # Group by root parent
     groups: dict[int, list[tuple[int, AgreementCandidateResult]]] = {}
     for idx, candidate in enumerate(ma_candidates):
@@ -427,57 +535,48 @@ def fetch_new_filings_sec_index(
             groups[root] = []
         groups[root].append((idx, candidate))
 
-    results: list[FilingMetadata] = []
+    results: list[StagedFiling] = []
     for _, group in groups.items():
-        # Sort by filing_date (earliest first), then by original index (idx order = .idx file order)
+        # Stable order: filing_date, then original index (.idx file order)
         group.sort(key=lambda x: (x[1].filing_date, x[0]))
-        
+
         secondary_url: str | None = None
-        
-        # If there are duplicates, prefer the one with valid pagination (10 < pages <= 350)
+        primary_idx, primary = group[0]
+
         if len(group) > 1:
-            # Check pagination for each candidate in the group
-            candidates_with_pagination = []
-            
-            for idx, candidate in group:
-                has_pagination = 10 < candidate.page_count <= 350
-                if has_pagination:
-                    candidates_with_pagination.append((idx, candidate))
-            
-            # Prefer candidates with pagination; if multiple have pagination, use the first in file order
-            if candidates_with_pagination:
-                # Already sorted by filing_date and index, so first one is earliest
-                _, primary = candidates_with_pagination[0]
-                # Log all other candidates as secondary
-                other_urls = [c.candidate_url for _, c in group if c.candidate_url != primary.candidate_url]
-                secondary_url = other_urls[0] if other_urls else None
-                context.log.info(
-                    f"De-dup: {primary.candidate_url} (primary, has pagination) has near-duplicate(s): {', '.join(other_urls)}"
+            # Survivor rule: keep the most recent copy, unless it has
+            # drastically less parsed content than a complete one.
+            survivor_input = _candidate_survivor_input(primary_idx, primary)
+            by_url = {candidate.candidate_url: (idx, candidate) for idx, candidate in group}
+            for idx, candidate in group[1:]:
+                survivor_input, _ = pick_survivor(
+                    survivor_input, _candidate_survivor_input(idx, candidate)
                 )
-            else:
-                # No candidates have valid pagination, use the first in file order (already sorted)
-                _, primary = group[0]
-                other_urls = [c.candidate_url for _, c in group[1:]]
-                secondary_url = other_urls[0] if other_urls else None
-                context.log.info(
-                    f"De-dup: {primary.candidate_url} (primary, no pagination) has near-duplicate(s): {', '.join(other_urls)}"
-                )
-        else:
-            # No duplicates, use the single candidate
-            _, primary = group[0]
+            primary_idx, primary = by_url[survivor_input.url]
+            other_urls = [
+                c.candidate_url for _, c in group if c.candidate_url != primary.candidate_url
+            ]
+            secondary_url = other_urls[0] if other_urls else None
+            context.log.info(
+                f"De-dup: {primary.candidate_url} (primary, survivor rule) has near-duplicate(s): {', '.join(other_urls)}"
+            )
 
         results.append(
-            FilingMetadata(
-                agreement_uuid=get_uuid(primary.candidate_url),
-                url=primary.candidate_url,
-                filing_date=primary.filing_date,
-                prob_filing=primary.ma_probability,
-                filing_company_name=primary.filing_company_name,
-                filing_company_cik=primary.filing_company_cik,
-                form_type=primary.form_type,
-                exhibit_type=primary.exhibit_type,
-                secondary_filing_url=secondary_url,
-                auto_status_verified=primary.auto_status_verified,
+            StagedFiling(
+                metadata=FilingMetadata(
+                    agreement_uuid=get_uuid(primary.candidate_url),
+                    url=primary.candidate_url,
+                    filing_date=primary.filing_date,
+                    prob_filing=primary.ma_probability,
+                    filing_company_name=primary.filing_company_name,
+                    filing_company_cik=primary.filing_company_cik,
+                    form_type=primary.form_type,
+                    exhibit_type=primary.exhibit_type,
+                    secondary_filing_url=secondary_url,
+                    auto_status_verified=primary.auto_status_verified,
+                ),
+                signature=primary.signature,
+                cover_identity=primary.cover_identity,
             )
         )
 
@@ -979,6 +1078,9 @@ def fetch_material_exhibit_links(
 class _CliLogger:
     def info(self, msg: str) -> None:
         print(msg)
+
+    def warning(self, msg: str) -> None:
+        print(f"WARNING: {msg}")
 
 
 class _CliContext:
