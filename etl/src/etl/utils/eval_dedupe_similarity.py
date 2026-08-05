@@ -1,25 +1,20 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false, reportMissingTypeStubs=false, reportPrivateUsage=false
 """Evaluate the dedupe similarity metric and decision policy on labeled pairs.
 
-Ground truth (four audited batches):
-- Batch A: pdx.dedupe_plan_20260805 — auto_tier=1: 171 true-dupe pairs
-  (loser text in pdx.dedupe_bak_20260805_pages); auto_tier=0: 5 non-dupe
-  pairs, including 4 distinct-deal traps. One tier-0 pair was later
-  re-adjudicated as a true dupe by batch C and is skipped here.
-- Batch B: pdx.dedupe_plan_20260805b — 15 confirmed-dupe pairs (loser text in
-  pdx.dedupe_bak_20260805b_pages), plus 13 audit-confirmed NON-dupe pairs
-  (both sides still live in pdx.pages) hardcoded below — the strongest
-  negatives available (SPAC boilerplate and same-accession sibling exhibits
-  that defeated the first-cut A&R rule).
-- Batch C: pdx.dedupe_plan_20260805c — 1 confirmed-dupe pair (loser text in
-  pdx.dedupe_bak_20260805c_pages). This re-adjudicates a batch A tier-0
-  pair, so its label overrides batch A's.
-- Batch D: 12 NON-dupe pairs from the 2026-08-05 strong/moderate-similarity
-  review, document-audited as genuinely different deals (both sides live in
-  pdx.pages), committed in dedupe_labeled_negatives_20260805.json. Includes
-  the Wood Sage pair (jaccard ~0.97: same drafter template, different
-  transactions) — the hardest known negative. One pair duplicates a batch A
-  tier-0 negative and is skipped here.
+Ground truth is the committed dataset etl/data/dedupe_eval/labels.json:
+187 true-dupe and 28 non-dupe pairs across four audited 2026-08-05 batches
+(A: dedupe-plan tier flags, B: confirmed dupes plus audit-confirmed hard
+negatives, C: one re-adjudicated batch A pair, D: review-audited negatives
+including the Wood Sage pair -- the hardest known negative). Each pair carries
+an orientation-insensitive pair id and its adjudication provenance.
+
+Document text comes exclusively from the local pdx.dedupe_eval_documents
+corpus, materialized by etl.utils.build_dedupe_eval_corpus and pinned by the
+committed etl/data/dedupe_eval/corpus_manifest.json; a missing or drifted
+corpus fails loudly before any scoring. The pdx.dedupe_plan_20260805{,b,c}
+and pdx.dedupe_bak_20260805* tables are pure disaster-recovery backups now --
+dropping them does not affect this eval (only re-materializing the corpus
+would need the *_pages backups).
 
 Requirement: ZERO auto-dedupe decisions across all 28 negatives; report recall
 on all 187 positives.
@@ -37,16 +32,13 @@ Usage (from repo root):
 
 from __future__ import annotations
 
-import json
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Final
 
 from datasketch import MinHashLSH
-from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 if __package__ in {None, ""}:
@@ -67,80 +59,23 @@ from etl.domain.dedupe_signatures import (
     same_edgar_accession,
     similarity_scores,
 )
-from etl.utils.backfill_agreement_signatures import load_agreement_text_from_pages
-from etl.utils.reset_stuck_agreements import build_engine_from_env
+from etl.utils.db_env import build_engine_from_env
+from etl.utils.dedupe_eval_dataset import (
+    EvalPair,
+    load_corpus_manifest,
+    load_document,
+    load_labels,
+    missing_from_manifest,
+    verify_corpus,
+)
 
 _SCHEMA = "pdx"
 _OLD_THRESHOLD = 0.85
-_PAGE_TABLES = (
-    "pages",
-    "dedupe_bak_20260805_pages",
-    "dedupe_bak_20260805b_pages",
-    "dedupe_bak_20260805c_pages",
-)
-_AGREEMENT_TABLES = (
-    "agreements",
-    "dedupe_bak_20260805_agreements",
-    "dedupe_bak_20260805b_agreements",
-    "dedupe_bak_20260805c_agreements",
-)
-
-# Batch B negatives: 13 pairs the 2026-08-05 audits confirmed as NOT duplicates
-# even though the first-cut guard auto-flagged them (10 via the loose A&R rule,
-# 3 via content+dated on same-accession sibling exhibits). (loser, survivor)
-# uuids as recorded in the residual-dupes export.
-BATCH_B_NEGATIVE_PAIRS: Final[tuple[tuple[str, str], ...]] = (
-    ("8b54570c-101c-563d-adf4-2f16c73a7598", "0ffd3729-55d4-5f9d-8290-ff972cd423ac"),
-    ("e1217f37-91cc-5f60-8304-44f7093e2029", "1818ad1c-d292-5128-b698-b9ea20982b6b"),
-    ("00508685-e189-5314-84ef-d275b70faff4", "1b76ed40-ca07-5acf-954e-e8aafcb6621c"),
-    ("8c431e2d-7c3f-5201-ba29-588f8e4227a7", "395016d5-eea1-52c1-84d5-3ebc925bfb19"),
-    ("154fd281-cd3f-594a-afe9-9f30aadea943", "45483aee-f45d-50d9-a0d9-b807017fd0ca"),
-    ("93ca6bef-f2cd-5b0c-8bc2-1bfedcab0bf1", "76072bed-6446-5c2e-8d53-ad379be5c3bb"),
-    ("1003a6f4-ca70-5101-a77c-2824ed79495c", "b252607c-b53a-56c9-8329-ac50e8bc957e"),
-    ("d90c8847-9979-59e5-b6da-ef4478f492b9", "c78b8d42-2639-5672-926f-6a32f43317ee"),
-    ("c44799bf-b495-5dde-94b8-0e47d87dda23", "cb6d4d12-e081-5726-8bb2-a86f6b61356d"),
-    ("d11d5abd-e3d1-5147-82f7-3961167dff0b", "d5148d6d-ee5f-5570-9b95-e4440e38fa92"),
-    ("c918c3e5-0613-5089-a8a6-b0954f4f2da7", "5d868b8b-739e-5c91-aa2d-4bf5327ead0a"),
-    ("e33d8023-083a-529b-b540-ceed29bfccd3", "8ceacaf4-face-5fbe-b606-bebaf8f80be7"),
-    ("98b2f389-b86f-5b29-ae79-ab9020121a75", "c8365dc6-c530-599c-be83-071700465512"),
-)
-
-# Batch D negatives: 12 pairs from the 2026-08-05 strong/moderate-similarity
-# review, each document-audited as a genuinely different deal. Fields are the
-# audit export's new_agreement_uuid (treated as loser) and
-# existing_agreement_uuid (treated as survivor); both sides live in pdx.pages.
-_BATCH_D_NEGATIVES_FIXTURE: Final[Path] = Path(__file__).with_name(
-    "dedupe_labeled_negatives_20260805.json"
-)
-
-
-def _load_batch_d_negative_pairs() -> list[tuple[str, str]]:
-    rows = json.loads(_BATCH_D_NEGATIVES_FIXTURE.read_text())
-    return [
-        (str(row["new_agreement_uuid"]), str(row["existing_agreement_uuid"]))
-        for row in rows
-    ]
-
-
-@dataclass(frozen=True)
-class LabeledPair:
-    loser_uuid: str
-    survivor_uuid: str
-    is_dupe: bool
-    batch: str
-
-
-@dataclass(frozen=True)
-class AgreementMeta:
-    url: str
-    filing_date: date | None
-    target: str | None
-    acquirer: str | None
 
 
 @dataclass(frozen=True)
 class PairScore:
-    pair: LabeledPair
+    pair: EvalPair
     old_jaccard: float
     new_jaccard: float
     new_containment: float
@@ -150,137 +85,19 @@ class PairScore:
     decision_reason: str
 
 
-def _load_pairs(conn: Connection) -> list[LabeledPair]:
-    batch_c_rows = conn.execute(
-        text(
-            f"""
-            SELECT loser_uuid, survivor_uuid
-            FROM {_SCHEMA}.dedupe_plan_20260805c
-            ORDER BY loser_uuid
-            """
-        )
-    ).fetchall()
-    batch_c_pairs = {(str(row[0]), str(row[1])) for row in batch_c_rows}
-
-    pairs: list[LabeledPair] = []
-    rows = conn.execute(
-        text(
-            f"""
-            SELECT loser_uuid, survivor_uuid, auto_tier
-            FROM {_SCHEMA}.dedupe_plan_20260805
-            ORDER BY auto_tier DESC, loser_uuid
-            """
-        )
-    ).fetchall()
-    for row in rows:
-        pair = (str(row[0]), str(row[1]))
-        if pair in batch_c_pairs:
-            # Batch C re-adjudicated this pair; its label wins.
-            continue
-        pairs.append(
-            LabeledPair(
-                loser_uuid=pair[0],
-                survivor_uuid=pair[1],
-                is_dupe=int(row[2]) == 1,
-                batch="A",
-            )
-        )
-    rows = conn.execute(
-        text(
-            f"""
-            SELECT loser_uuid, survivor_uuid
-            FROM {_SCHEMA}.dedupe_plan_20260805b
-            ORDER BY loser_uuid
-            """
-        )
-    ).fetchall()
-    for row in rows:
-        pairs.append(
-            LabeledPair(
-                loser_uuid=str(row[0]),
-                survivor_uuid=str(row[1]),
-                is_dupe=True,
-                batch="B",
-            )
-        )
-    for loser_uuid, survivor_uuid in BATCH_B_NEGATIVE_PAIRS:
-        pairs.append(
-            LabeledPair(
-                loser_uuid=loser_uuid,
-                survivor_uuid=survivor_uuid,
-                is_dupe=False,
-                batch="B",
-            )
-        )
-    for loser_uuid, survivor_uuid in sorted(batch_c_pairs):
-        pairs.append(
-            LabeledPair(
-                loser_uuid=loser_uuid,
-                survivor_uuid=survivor_uuid,
-                is_dupe=True,
-                batch="C",
-            )
-        )
-    seen = {(pair.loser_uuid, pair.survivor_uuid) for pair in pairs}
-    for loser_uuid, survivor_uuid in _load_batch_d_negative_pairs():
-        if (loser_uuid, survivor_uuid) in seen:
-            # Already labeled by an earlier batch (e.g. a batch A tier-0 trap).
-            continue
-        pairs.append(
-            LabeledPair(
-                loser_uuid=loser_uuid,
-                survivor_uuid=survivor_uuid,
-                is_dupe=False,
-                batch="D",
-            )
-        )
-    return pairs
-
-
-def _load_agreement_meta(conn: Connection) -> dict[str, AgreementMeta]:
-    meta: dict[str, AgreementMeta] = {}
-    # Live table last so live rows win over backups for undeleted agreements.
-    for table in reversed(_AGREEMENT_TABLES):
-        rows = conn.execute(
-            text(
-                f"""
-                SELECT agreement_uuid, url, filing_date, target, acquirer
-                FROM {_SCHEMA}.{table}
-                """
-            )
-        ).fetchall()
-        for row in rows:
-            filing_raw = row[2]
-            filing = filing_raw if isinstance(filing_raw, date) else None
-            meta[str(row[0])] = AgreementMeta(
-                url=str(row[1]),
-                filing_date=filing,
-                target=None if row[3] is None else str(row[3]),
-                acquirer=None if row[4] is None else str(row[4]),
-            )
-    return meta
-
-
-def _load_text(conn: Connection, agreement_uuid: str, *, prefer_backup: bool) -> tuple[str, int]:
-    tables = list(_PAGE_TABLES)
-    if prefer_backup:
-        tables = tables[1:] + tables[:1]
-    for table in tables:
-        rendered, page_count = load_agreement_text_from_pages(
-            conn, _SCHEMA, agreement_uuid, pages_table=table
-        )
-        if rendered:
-            return rendered, page_count
-    raise RuntimeError(f"No page text found for {agreement_uuid}")
-
-
-def _score_pairs(conn: Connection) -> list[PairScore]:
-    pairs = _load_pairs(conn)
-    meta = _load_agreement_meta(conn)
+def _score_pairs(
+    conn: Connection, pairs: list[EvalPair], manifest: Mapping[str, str]
+) -> list[PairScore]:
     scores: list[PairScore] = []
     for index, pair in enumerate(pairs, start=1):
-        loser_text, loser_pages = _load_text(conn, pair.loser_uuid, prefer_backup=pair.is_dupe)
-        survivor_text, survivor_pages = _load_text(conn, pair.survivor_uuid, prefer_backup=False)
+        loser = pair.loser
+        survivor = pair.survivor
+        loser_text, loser_pages = load_document(
+            conn, _SCHEMA, loser.agreement_uuid, manifest[loser.agreement_uuid]
+        )
+        survivor_text, survivor_pages = load_document(
+            conn, _SCHEMA, survivor.agreement_uuid, manifest[survivor.agreement_uuid]
+        )
 
         old_jaccard = float(
             _compute_minhash(loser_text).jaccard(_compute_minhash(survivor_text))
@@ -300,15 +117,13 @@ def _score_pairs(conn: Connection) -> list[PairScore]:
         if loser_cover.dated_as_of is not None and survivor_cover.dated_as_of is not None:
             dated_match = loser_cover.dated_as_of == survivor_cover.dated_as_of
 
-        loser_meta = meta.get(pair.loser_uuid)
-        survivor_meta = meta.get(pair.survivor_uuid)
         loser_key = (
-            loser_meta.filing_date if loser_meta and loser_meta.filing_date else date.min,
-            pair.loser_uuid,
+            loser.filing_date if loser.filing_date else date.min,
+            loser.agreement_uuid,
         )
         survivor_key = (
-            survivor_meta.filing_date if survivor_meta and survivor_meta.filing_date else date.min,
-            pair.survivor_uuid,
+            survivor.filing_date if survivor.filing_date else date.min,
+            survivor.agreement_uuid,
         )
         if loser_key >= survivor_key:
             newer_sig, newer_cover = loser_sig, loser_cover
@@ -322,16 +137,12 @@ def _score_pairs(conn: Connection) -> list[PairScore]:
             older_sig,
             older_cover,
             party_conflict=party_metadata_conflict(
-                loser_meta.target if loser_meta else None,
-                loser_meta.acquirer if loser_meta else None,
-                survivor_meta.target if survivor_meta else None,
-                survivor_meta.acquirer if survivor_meta else None,
+                loser.target,
+                loser.acquirer,
+                survivor.target,
+                survivor.acquirer,
             ),
-            same_accession=(
-                same_edgar_accession(loser_meta.url, survivor_meta.url)
-                if loser_meta and survivor_meta
-                else False
-            ),
+            same_accession=same_edgar_accession(loser.url, survivor.url),
         )
 
         scores.append(
@@ -369,8 +180,8 @@ def _report(scores: list[PairScore]) -> None:
         precision = true_pos / flagged if flagged else 1.0
         recall = true_pos / len(positives) if positives else 0.0
         print(
-            f"{name}: recall={recall:.3f} ({true_pos}/{len(positives)}) "
-            f"precision={precision:.3f} false_positives={false_pos}/{len(negatives)}"
+            f"{name}: recall={recall:.3f} ({true_pos}/{len(positives)})"
+            + f" precision={precision:.3f} false_positives={false_pos}/{len(negatives)}"
         )
 
     def _batch_breakdown(rows: list[PairScore]) -> str:
@@ -380,8 +191,8 @@ def _report(scores: list[PairScore]) -> None:
         return " + ".join(f"{count} batch {batch}" for batch, count in sorted(counts.items()))
 
     print(
-        f"\nLabeled pairs: {len(positives)} true-dupe ({_batch_breakdown(positives)}), "
-        f"{len(negatives)} non-dupe ({_batch_breakdown(negatives)})"
+        f"\nLabeled pairs: {len(positives)} true-dupe ({_batch_breakdown(positives)}),"
+        + f" {len(negatives)} non-dupe ({_batch_breakdown(negatives)})"
     )
     _stats(f"OLD (first-20k jaccard >= {_OLD_THRESHOLD})", lambda s: s.old_jaccard >= _OLD_THRESHOLD)
     _stats(
@@ -415,17 +226,17 @@ def _report(scores: list[PairScore]) -> None:
     print(f"FALSE AUTO-DEDUPES ON THE {len(negatives)} KNOWN NEGATIVES: {len(false_autos)}")
     for score in false_autos:
         print(
-            f"  !! loser={score.pair.loser_uuid} survivor={score.pair.survivor_uuid} "
-            f"{score.decision_action}:{score.decision_reason}"
+            f"  !! loser={score.pair.loser.agreement_uuid} survivor={score.pair.survivor.agreement_uuid}"
+            + f" {score.decision_action}:{score.decision_reason}"
         )
 
     print("\nNon-dupe pair scores:")
     for score in negatives:
         print(
-            f"  [{score.pair.batch}] loser={score.pair.loser_uuid} survivor={score.pair.survivor_uuid} "
-            f"old_j={score.old_jaccard:.3f} new_j={score.new_jaccard:.3f} "
-            f"new_c={score.new_containment:.3f} dated_match={score.dated_as_of_match} "
-            f"decision={score.decision_action}:{score.decision_reason}"
+            f"  [{score.pair.batch}] loser={score.pair.loser.agreement_uuid} survivor={score.pair.survivor.agreement_uuid}"
+            + f" old_j={score.old_jaccard:.3f} new_j={score.new_jaccard:.3f}"
+            + f" new_c={score.new_containment:.3f} dated_match={score.dated_as_of_match}"
+            + f" decision={score.decision_action}:{score.decision_reason}"
         )
 
     missed = [s for s in positives if s.decision_action == "none"]
@@ -433,17 +244,27 @@ def _report(scores: list[PairScore]) -> None:
         print(f"\nTrue-dupe pairs invisible to the guard ({len(missed)}):")
         for score in missed:
             print(
-                f"  [{score.pair.batch}] loser={score.pair.loser_uuid} survivor={score.pair.survivor_uuid} "
-                f"old_j={score.old_jaccard:.3f} new_j={score.new_jaccard:.3f} "
-                f"new_c={score.new_containment:.3f} lsh={score.lsh_retrievable} "
-                f"dated_match={score.dated_as_of_match} reason={score.decision_reason}"
+                f"  [{score.pair.batch}] loser={score.pair.loser.agreement_uuid} survivor={score.pair.survivor.agreement_uuid}"
+                + f" old_j={score.old_jaccard:.3f} new_j={score.new_jaccard:.3f}"
+                + f" new_c={score.new_containment:.3f} lsh={score.lsh_retrievable}"
+                + f" dated_match={score.dated_as_of_match} reason={score.decision_reason}"
             )
 
 
 def main() -> None:
+    pairs = load_labels()
+    manifest = load_corpus_manifest()
+    unlisted = missing_from_manifest(pairs, manifest)
+    if unlisted:
+        raise RuntimeError(
+            "Labeled documents missing from corpus_manifest.json (regenerate"
+            + " with build_dedupe_eval_corpus --write-manifest and commit): "
+            + ", ".join(unlisted)
+        )
     db = build_engine_from_env()
     with db.get_engine().begin() as conn:
-        scores = _score_pairs(conn)
+        verify_corpus(conn, _SCHEMA, manifest)
+        scores = _score_pairs(conn, pairs, manifest)
     _report(scores)
 
 

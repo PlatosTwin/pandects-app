@@ -1,0 +1,5170 @@
+{
+ "dataset": "dedupe_eval_labels",
+ "adjudicated_on": "2026-08-05",
+ "counts": {
+  "positive": 187,
+  "negative": 28
+ },
+ "pairs": [
+  {
+   "pair_id": "00e424e7-641b-533c-a5cc-e0b8e3113fe3__bc1414c3-5720-510e-9e98-7c5aa07fd3e7",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "00e424e7-641b-533c-a5cc-e0b8e3113fe3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1029800/000119312523148285/d503413dex21.htm",
+    "filing_date": "2023-05-18",
+    "target": "Urstadt Biddle Properties Inc.",
+    "acquirer": "Regency Centers Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "bc1414c3-5720-510e-9e98-7c5aa07fd3e7",
+    "url": "https://www.sec.gov/Archives/edgar/data/910606/000119312523148249/d506307dex21.htm",
+    "filing_date": "2023-05-18",
+    "target": "Urstadt Biddle Properties Inc.",
+    "acquirer": "Regency Centers Corporation"
+   }
+  },
+  {
+   "pair_id": "01ad0054-33e0-5f28-b706-a1c00f629468__358ac698-5626-5dbf-9367-721a3698f815",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "01ad0054-33e0-5f28-b706-a1c00f629468",
+    "url": "https://www.sec.gov/Archives/edgar/data/1993004/000199300425000143/exh21mergeragreement.htm",
+    "filing_date": "2025-08-19",
+    "target": "NorthWestern Energy Group, Inc.",
+    "acquirer": "Black Hills Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "358ac698-5626-5dbf-9367-721a3698f815",
+    "url": "https://www.sec.gov/Archives/edgar/data/1130464/000110465925080276/tm2523729d1_ex2-1.htm",
+    "filing_date": "2025-08-19",
+    "target": "NorthWestern Energy Group, Inc.",
+    "acquirer": "Black Hills Corporation"
+   }
+  },
+  {
+   "pair_id": "01bbb61f-b33a-547d-99db-c8f903dda510__883da7cf-467c-5069-ae97-1036ac88b162",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "01bbb61f-b33a-547d-99db-c8f903dda510",
+    "url": "https://www.sec.gov/Archives/edgar/data/1366561/000162828024041152/exhibit21-8xk.htm",
+    "filing_date": "2024-09-24",
+    "target": "SMARTSHEET INC.",
+    "acquirer": "EINSTEIN PARENT, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "883da7cf-467c-5069-ae97-1036ac88b162",
+    "url": "https://www.sec.gov/Archives/edgar/data/1366561/000162828025002101/exhibit21-closing8xk.htm",
+    "filing_date": "2025-01-22",
+    "target": "Smartsheet Inc.",
+    "acquirer": "Einstein Parent, Inc."
+   }
+  },
+  {
+   "pair_id": "0251b87a-a1e4-56dd-99bb-fcec3938760b__88304825-4234-59e4-af16-65e081ec61d1",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "0251b87a-a1e4-56dd-99bb-fcec3938760b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1726711/000121390023095155/ea189850ex2-1_aditxtinc.htm",
+    "filing_date": "2023-12-12",
+    "target": "EVOFEM BIOSCIENCES, INC.",
+    "acquirer": "ADITXT, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "88304825-4234-59e4-af16-65e081ec61d1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1618835/000149315223044597/ex2-1.htm",
+    "filing_date": "2023-12-12",
+    "target": "Evofem Biosciences, Inc.",
+    "acquirer": "Aditxt, Inc."
+   }
+  },
+  {
+   "pair_id": "028b6796-423b-569b-a6c1-76b9753b4603__0620b6bb-37e1-544e-b760-c6080176b927",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "028b6796-423b-569b-a6c1-76b9753b4603",
+    "url": "https://www.sec.gov/Archives/edgar/data/1163302/000110465921078033/tm2118228d1_ex10-1.htm",
+    "filing_date": "2021-06-08",
+    "target": "TRANSTAR, LLC",
+    "acquirer": "PERCY ACQUISITION LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "0620b6bb-37e1-544e-b760-c6080176b927",
+    "url": "https://www.sec.gov/Archives/edgar/data/1590364/000114036121020135/brhc10025553_ex10-1.htm",
+    "filing_date": "2021-06-08",
+    "target": "TRANSTAR, LLC",
+    "acquirer": "PERCY ACQUISITION LLC"
+   }
+  },
+  {
+   "pair_id": "037b7a7f-d9a6-5708-89a7-6e865ae69c68__24b0b971-e0fc-51ef-9d86-bf157ef0f0ea",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "037b7a7f-d9a6-5708-89a7-6e865ae69c68",
+    "url": "https://www.sec.gov/Archives/edgar/data/1053584/000090572924000065/mcbcex21_041524.htm",
+    "filing_date": "2024-04-15",
+    "target": "Macatawa Bank Corporation",
+    "acquirer": "Wintrust Financial Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "24b0b971-e0fc-51ef-9d86-bf157ef0f0ea",
+    "url": "https://www.sec.gov/Archives/edgar/data/1015328/000110465924047276/tm2411576d1_ex2-1.htm",
+    "filing_date": "2024-04-15",
+    "target": "Macatawa Bank Corporation",
+    "acquirer": "Wintrust Financial Corporation"
+   }
+  },
+  {
+   "pair_id": "0514e363-a8fc-5202-a6cb-83e72cd1e8ed__1f5b8a5b-8fe7-5d1c-8ec5-326d2f3ca2f9",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "0514e363-a8fc-5202-a6cb-83e72cd1e8ed",
+    "url": "https://www.sec.gov/Archives/edgar/data/1169770/000119312521090238/d35268dex21.htm",
+    "filing_date": "2021-03-23",
+    "target": "PACIFIC MERCANTILE BANCORP",
+    "acquirer": "BANC OF CALIFORNIA, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "1f5b8a5b-8fe7-5d1c-8ec5-326d2f3ca2f9",
+    "url": "https://www.sec.gov/Archives/edgar/data/1109546/000110954621000009/mergeragreement.htm",
+    "filing_date": "2021-03-23",
+    "target": "PACIFIC MERCANTILE BANCORP",
+    "acquirer": "BANC OF CALIFORNIA, INC."
+   }
+  },
+  {
+   "pair_id": "07d62d52-bc13-59e4-b233-5b7eb41c6eae__7e99d086-03f6-507a-b584-c5f0560abb04",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "07d62d52-bc13-59e4-b233-5b7eb41c6eae",
+    "url": "https://www.sec.gov/Archives/edgar/data/866439/000168316822008440/darkpulse_ex0201.htm",
+    "filing_date": "2022-12-15",
+    "target": "DarkPulse, Inc.",
+    "acquirer": "Global System Dynamics, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "7e99d086-03f6-507a-b584-c5f0560abb04",
+    "url": "https://www.sec.gov/Archives/edgar/data/1843248/000166357722000706/ex2_1.htm",
+    "filing_date": "2022-12-15",
+    "target": "DARKPULSE, INC.",
+    "acquirer": "GLOBAL SYSTEM DYNAMICS, INC."
+   }
+  },
+  {
+   "pair_id": "085c8bee-1d56-56ce-9d1d-30d9618c12d2__9e6abc16-8ce0-50d3-8aff-4be61b60966e",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "085c8bee-1d56-56ce-9d1d-30d9618c12d2",
+    "url": "https://www.sec.gov/Archives/edgar/data/19446/000110465921003484/tm212717d3_ex2-1.htm",
+    "filing_date": "2021-01-12",
+    "target": "Cantel Medical Corp.",
+    "acquirer": "STERIS plc"
+   },
+   "survivor": {
+    "agreement_uuid": "9e6abc16-8ce0-50d3-8aff-4be61b60966e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1757898/000114036121000965/nc10018867x1_ex2-1.htm",
+    "filing_date": "2021-01-12",
+    "target": "Cantel Medical Corp.",
+    "acquirer": "STERIS plc"
+   }
+  },
+  {
+   "pair_id": "08ce3086-232e-59b8-bd10-c5f9900180d7__459d03ed-94a7-5535-b60c-64ee2494f2cb",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "08ce3086-232e-59b8-bd10-c5f9900180d7",
+    "url": "https://www.sec.gov/Archives/edgar/data/1461755/000110465921095936/tm2123164d1_ex2-1.htm",
+    "filing_date": "2021-07-26",
+    "target": "ATLANTIC CAPITAL BANCSHARES, INC.",
+    "acquirer": "SOUTH STATE CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "459d03ed-94a7-5535-b60c-64ee2494f2cb",
+    "url": "https://www.sec.gov/Archives/edgar/data/764038/000095010321011170/dp155014_ex0201.htm",
+    "filing_date": "2021-07-26",
+    "target": "Atlantic Capital Bancshares, Inc.",
+    "acquirer": "South State Corporation"
+   }
+  },
+  {
+   "pair_id": "09bd5c23-e08d-5ad2-88b9-0ea55eb2fcd3__199bd760-eebd-5ac4-b055-83cd1ab3d767",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "09bd5c23-e08d-5ad2-88b9-0ea55eb2fcd3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1427570/000155837024009704/rsls-20240708xex2d1.htm",
+    "filing_date": "2024-07-09",
+    "target": "Vyome Therapeutics, Inc.",
+    "acquirer": "ReShape Lifesciences Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "199bd760-eebd-5ac4-b055-83cd1ab3d767",
+    "url": "https://www.sec.gov/Archives/edgar/data/1427570/000110465924105017/rsls-20240630xex2d1.htm",
+    "filing_date": "2024-10-01",
+    "target": "Vyome Therapeutics, Inc.",
+    "acquirer": "ReShape Lifesciences Inc."
+   }
+  },
+  {
+   "pair_id": "0cdaee30-9dc7-5fac-9d49-61848939bc33__bcd11097-77df-579f-900f-980dc1fa08ee",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "0cdaee30-9dc7-5fac-9d49-61848939bc33",
+    "url": "https://www.sec.gov/Archives/edgar/data/1671858/000095017022016840/sbtx-ex2_1.htm",
+    "filing_date": "2022-08-11",
+    "target": "ARS PHARMACEUTICALS, INC.",
+    "acquirer": "SILVERBACK THERAPEUTICS, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "bcd11097-77df-579f-900f-980dc1fa08ee",
+    "url": "https://www.sec.gov/Archives/edgar/data/1671858/000119312522280241/d388226dex21.htm",
+    "filing_date": "2022-11-08",
+    "target": "ARS PHARMACEUTICALS, INC.",
+    "acquirer": "SILVERBACK THERAPEUTICS, INC."
+   }
+  },
+  {
+   "pair_id": "0d64b7a7-847a-5947-a793-46a29d97fa7c__d0b6e8cc-d09f-5c89-91a0-2741477b8d4f",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "0d64b7a7-847a-5947-a793-46a29d97fa7c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1616318/000161631822000085/projecttrophy-agreementand.htm",
+    "filing_date": "2022-07-28",
+    "target": "Simms Fishing Products LLC",
+    "acquirer": "Vista Outdoor Operations LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "d0b6e8cc-d09f-5c89-91a0-2741477b8d4f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1943705/000162828024001391/exhibit26-sx4.htm",
+    "filing_date": "2024-01-16",
+    "target": "Simms Fishing Products LLC",
+    "acquirer": "Vista Outdoor Operations LLC"
+   }
+  },
+  {
+   "pair_id": "0e98c8f1-c553-52b0-9a02-e5568b1603f1__90516263-21ab-5f4d-a7f6-5a554f5b0d1e",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "0e98c8f1-c553-52b0-9a02-e5568b1603f1",
+    "url": "https://www.sec.gov/Archives/edgar/data/917470/000143774925032436/ex_878842.htm",
+    "filing_date": "2025-10-30",
+    "target": "Olympic Steel, Inc.",
+    "acquirer": "Ryerson Holding Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "90516263-21ab-5f4d-a7f6-5a554f5b0d1e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1481582/000119312525257064/d80122dex21.htm",
+    "filing_date": "2025-10-30",
+    "target": "Olympic Steel, Inc.",
+    "acquirer": "Ryerson Holding Corporation"
+   }
+  },
+  {
+   "pair_id": "0ee4527d-5f6e-5af0-bcd4-ccc0b35ce368__9fe66db2-b4aa-5332-82a0-ca63f6ba99d6",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "0ee4527d-5f6e-5af0-bcd4-ccc0b35ce368",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819493/000121390021010735/ea136126ex2-1_nextgenacq.htm",
+    "filing_date": "2021-02-22",
+    "target": "Xos, INC.",
+    "acquirer": "NextGen Acquisition Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "9fe66db2-b4aa-5332-82a0-ca63f6ba99d6",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819493/000121390021045049/ea146322ex2-1_xosinc.htm",
+    "filing_date": "2021-08-26",
+    "target": "Xos, Inc.",
+    "acquirer": "NextGen Acquisition Corporation"
+   }
+  },
+  {
+   "pair_id": "10717106-67d8-56a1-a758-70be87c96dc1__18c55091-0f1d-58bd-b51a-4f0e42e40171",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "10717106-67d8-56a1-a758-70be87c96dc1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1716697/000149315221009660/ex2-1.htm",
+    "filing_date": "2021-04-26",
+    "target": "First Choice Bancorp",
+    "acquirer": "Enterprise Financial Services Corp"
+   },
+   "survivor": {
+    "agreement_uuid": "18c55091-0f1d-58bd-b51a-4f0e42e40171",
+    "url": "https://www.sec.gov/Archives/edgar/data/1025835/000102583521000061/exhibit21mergeragreement.htm",
+    "filing_date": "2021-04-26",
+    "target": "First Choice Bancorp",
+    "acquirer": "Enterprise Financial Services Corp"
+   }
+  },
+  {
+   "pair_id": "1174e2f6-f89d-5872-9fa8-eec010d3615a__9661b816-354c-53a6-b0f7-174c6ee58066",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "1174e2f6-f89d-5872-9fa8-eec010d3615a",
+    "url": "https://www.sec.gov/Archives/edgar/data/72331/000119312524148409/d816726dex21.htm",
+    "filing_date": "2024-05-29",
+    "target": "ATRION CORPORATION",
+    "acquirer": "NORDSON CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "9661b816-354c-53a6-b0f7-174c6ee58066",
+    "url": "https://www.sec.gov/Archives/edgar/data/72331/000119312524204098/d874837dex21.htm",
+    "filing_date": "2024-08-21",
+    "target": "ATRION CORPORATION",
+    "acquirer": "NORDSON CORPORATION"
+   }
+  },
+  {
+   "pair_id": "11f4a441-3f92-50e2-a347-1bd1e784b9c5__92cca00c-ccaf-5d89-b06c-f565aa896972",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "11f4a441-3f92-50e2-a347-1bd1e784b9c5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1941365/000114036124026961/ef20029605_ex2-1.htm",
+    "filing_date": "2024-05-21",
+    "target": "Dura Investment Holdings LLC",
+    "acquirer": "MasterBrand Cabinets LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "92cca00c-ccaf-5d89-b06c-f565aa896972",
+    "url": "https://www.sec.gov/Archives/edgar/data/1941365/000114036124032888/ef20032280_ex2-1.htm",
+    "filing_date": "2024-07-11",
+    "target": "Dura Investment Holdings LLC",
+    "acquirer": "MasterBrand Cabinets LLC"
+   }
+  },
+  {
+   "pair_id": "0b0919f1-77bf-5830-8fab-4e2686ca9dd0__13a8c6a5-2bb5-56d1-a063-293635fc15b0",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "13a8c6a5-2bb5-56d1-a063-293635fc15b0",
+    "url": "https://www.sec.gov/Archives/edgar/data/1525287/000152528722000029/srlpagmtandplanofmerger060.htm",
+    "filing_date": "2022-06-02",
+    "target": "Sprague Resources LP",
+    "acquirer": "Sprague HP Holdings, LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "0b0919f1-77bf-5830-8fab-4e2686ca9dd0",
+    "url": "https://www.sec.gov/Archives/edgar/data/1525287/000152528722000035/ex22agmtplanofmerger6-2x22.htm",
+    "filing_date": "2022-08-04",
+    "target": "Sprague Resources LP",
+    "acquirer": "Sprague HP Holdings, LLC"
+   }
+  },
+  {
+   "pair_id": "13cbe337-68c2-586f-9daf-a9249548475a__3c22e10e-a5d4-55f3-bcb9-473acda46a48",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "13cbe337-68c2-586f-9daf-a9249548475a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1308606/000119312523265669/d576887dex21.htm",
+    "filing_date": "2023-10-30",
+    "target": "SPIRIT REALTY CAPITAL, INC.",
+    "acquirer": "REALTY INCOME CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "3c22e10e-a5d4-55f3-bcb9-473acda46a48",
+    "url": "https://www.sec.gov/Archives/edgar/data/726728/000110465923112361/tm2329370d1_ex2-1.htm",
+    "filing_date": "2023-10-30",
+    "target": "Spirit Realty Capital, Inc.",
+    "acquirer": "Realty Income Corporation"
+   }
+  },
+  {
+   "pair_id": "1479ce50-39a9-5c40-aa24-30d0aa9d864d__965a093a-752a-53ca-85e5-fe932f882e37",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "1479ce50-39a9-5c40-aa24-30d0aa9d864d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1782223/000095017023023753/pyxs-ex2_1.htm",
+    "filing_date": "2023-05-24",
+    "target": "Apexigen, Inc.",
+    "acquirer": "Pyxis Oncology, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "965a093a-752a-53ca-85e5-fe932f882e37",
+    "url": "https://www.sec.gov/Archives/edgar/data/1814140/000119312523152387/d493912dex21.htm",
+    "filing_date": "2023-05-24",
+    "target": "Apexigen, Inc.",
+    "acquirer": "Pyxis Oncology, Inc."
+   }
+  },
+  {
+   "pair_id": "14eb7787-1f7e-5b63-95a3-7ee55b588eae__679253ef-c108-5968-b5eb-c4ecae4a1b77",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "14eb7787-1f7e-5b63-95a3-7ee55b588eae",
+    "url": "https://www.sec.gov/Archives/edgar/data/1830214/000119312522200433/d368627dex21.htm",
+    "filing_date": "2022-07-25",
+    "target": "Zymergen Inc.",
+    "acquirer": "Ginkgo Bioworks Holdings, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "679253ef-c108-5968-b5eb-c4ecae4a1b77",
+    "url": "https://www.sec.gov/Archives/edgar/data/1645842/000110465922082213/tm2221715d1_ex2-1.htm",
+    "filing_date": "2022-07-25",
+    "target": "Zymergen Inc.",
+    "acquirer": "Ginkgo Bioworks Holdings, Inc."
+   }
+  },
+  {
+   "pair_id": "15098c8d-ac15-50b2-b8be-91f508c93274__bcea3354-0cbc-5591-aefc-4beece955ff2",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "15098c8d-ac15-50b2-b8be-91f508c93274",
+    "url": "https://www.sec.gov/Archives/edgar/data/1813452/000143774923024785/ex_555997.htm",
+    "filing_date": "2023-08-29",
+    "target": "VidaCann, LLC",
+    "acquirer": "Planet 13 Holdings Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "bcea3354-0cbc-5591-aefc-4beece955ff2",
+    "url": "https://www.sec.gov/Archives/edgar/data/1813452/000143774923030956/ex_592456.htm",
+    "filing_date": "2023-11-08",
+    "target": "VidaCann, LLC",
+    "acquirer": "Planet 13 Holdings Inc."
+   }
+  },
+  {
+   "pair_id": "166f4bfe-0a77-5487-990b-1589ac5da60f__4f02b089-33ee-52c9-b5f2-25a121a4f244",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "166f4bfe-0a77-5487-990b-1589ac5da60f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1740332/000119312524096352/d802361dex21.htm",
+    "filing_date": "2024-04-15",
+    "target": "Snap One Holdings Corp.",
+    "acquirer": "Resideo Technologies, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "4f02b089-33ee-52c9-b5f2-25a121a4f244",
+    "url": "https://www.sec.gov/Archives/edgar/data/1856430/000110465924048837/tm2411564d2_ex2-1.htm",
+    "filing_date": "2024-04-18",
+    "target": "Snap One Holdings Corp.",
+    "acquirer": "Resideo Technologies, Inc."
+   }
+  },
+  {
+   "pair_id": "175840cf-bee0-529c-ac61-5b53bd9a4c41__7f8c8902-b0c1-5c64-99bb-c0cabda77627",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "175840cf-bee0-529c-ac61-5b53bd9a4c41",
+    "url": "https://www.sec.gov/Archives/edgar/data/1689731/000162828025015545/projectyellowhammer-draf.htm",
+    "filing_date": "2025-03-31",
+    "target": "Southern States Bancshares, Inc.",
+    "acquirer": "FB Financial Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "7f8c8902-b0c1-5c64-99bb-c0cabda77627",
+    "url": "https://www.sec.gov/Archives/edgar/data/1649749/000164974925000069/ex21mergeragreement.htm",
+    "filing_date": "2025-03-31",
+    "target": "Southern States Bancshares, Inc.",
+    "acquirer": "FB Financial Corporation"
+   }
+  },
+  {
+   "pair_id": "18ed66e4-22db-5f26-8fbb-d17ce6602a15__6ad31634-534a-59c8-9e32-729d0c56ead0",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "18ed66e4-22db-5f26-8fbb-d17ce6602a15",
+    "url": "https://www.sec.gov/Archives/edgar/data/36506/000110465921049345/tm2112674d1_ex2-1.htm",
+    "filing_date": "2021-04-12",
+    "target": "Mackinac Financial Corporation",
+    "acquirer": "Nicolet Bankshares, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "6ad31634-534a-59c8-9e32-729d0c56ead0",
+    "url": "https://www.sec.gov/Archives/edgar/data/1174850/000117485021000018/exhibit21mergeragreement.htm",
+    "filing_date": "2021-04-12",
+    "target": "Mackinac Financial Corporation",
+    "acquirer": "Nicolet Bankshares, Inc."
+   }
+  },
+  {
+   "pair_id": "18ef6e6b-b4b5-51eb-858d-323c59709fd4__9808a99d-d91d-5401-965f-b363240bdb84",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "18ef6e6b-b4b5-51eb-858d-323c59709fd4",
+    "url": "https://www.sec.gov/Archives/edgar/data/1844505/000119312522302292/d376793dex21.htm",
+    "filing_date": "2022-12-12",
+    "target": "QT IMAGING, INC.",
+    "acquirer": "GIGCAPITAL5, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "9808a99d-d91d-5401-965f-b363240bdb84",
+    "url": "https://www.sec.gov/Archives/edgar/data/1844505/000119312524063762/d767871dex21.htm",
+    "filing_date": "2024-03-08",
+    "target": "QT Imaging, Inc.",
+    "acquirer": "GigCapital5, Inc."
+   }
+  },
+  {
+   "pair_id": "18f7bb20-41d5-57f8-8877-cad5083752d4__d94a8bb1-b90b-5951-8a13-a5c83365c1be",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "18f7bb20-41d5-57f8-8877-cad5083752d4",
+    "url": "https://www.sec.gov/Archives/edgar/data/1024725/000119312522049199/d255415dex21.htm",
+    "filing_date": "2022-02-23",
+    "target": "TENNECO INC.",
+    "acquirer": "PEGASUS HOLDINGS III, LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "d94a8bb1-b90b-5951-8a13-a5c83365c1be",
+    "url": "https://www.sec.gov/Archives/edgar/data/1024725/000102472522000005/ten-20211231x10kexx21a.htm",
+    "filing_date": "2022-02-24",
+    "target": "TENNECO INC.",
+    "acquirer": "PEGASUS HOLDINGS III, LLC"
+   }
+  },
+  {
+   "pair_id": "198e6ca2-ed21-5735-ad11-67cfb38a1e27__c577b378-2196-5e0f-b380-a3d9dcfab3dd",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "198e6ca2-ed21-5735-ad11-67cfb38a1e27",
+    "url": "https://www.sec.gov/Archives/edgar/data/1366246/000110465921013687/tm215689d1_ex2-1.htm",
+    "filing_date": "2021-02-08",
+    "target": "Glu Mobile Inc.",
+    "acquirer": "Electronic Arts Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "c577b378-2196-5e0f-b380-a3d9dcfab3dd",
+    "url": "https://www.sec.gov/Archives/edgar/data/712515/000119312521032346/d125236dex21.htm",
+    "filing_date": "2021-02-08",
+    "target": "GLU MOBILE INC.",
+    "acquirer": "ELECTRONIC ARTS INC."
+   }
+  },
+  {
+   "pair_id": "198f425d-4238-5309-a776-9175bc8055d5__1e961ca2-e82b-5e3a-ad73-2522c02214c1",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "198f425d-4238-5309-a776-9175bc8055d5",
+    "url": "https://www.sec.gov/Archives/edgar/data/707179/000110465923112981/tm2329233d4_ex2-1.htm",
+    "filing_date": "2023-10-31",
+    "target": "CapStar Financial Holdings, Inc.",
+    "acquirer": "Old National Bancorp"
+   },
+   "survivor": {
+    "agreement_uuid": "1e961ca2-e82b-5e3a-ad73-2522c02214c1",
+    "url": "https://www.sec.gov/Archives/edgar/data/707179/000110465924000870/tm2332717d2_ex2-1.htm",
+    "filing_date": "2024-01-03",
+    "target": "CapStar Financial Holdings, Inc.",
+    "acquirer": "Old National Bancorp"
+   }
+  },
+  {
+   "pair_id": "19f6d47c-323b-56b7-91d2-956f89246dab__24e4104b-1434-5192-80e2-fb1132e573bb",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "19f6d47c-323b-56b7-91d2-956f89246dab",
+    "url": "https://www.sec.gov/Archives/edgar/data/1158463/000119312522204208/d319514dex21.htm",
+    "filing_date": "2022-07-28",
+    "target": "Spirit Airlines, Inc.",
+    "acquirer": "JetBlue Airways Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "24e4104b-1434-5192-80e2-fb1132e573bb",
+    "url": "https://www.sec.gov/Archives/edgar/data/1498710/000119312522204192/d368049dex21.htm",
+    "filing_date": "2022-07-28",
+    "target": "Spirit Airlines, Inc.",
+    "acquirer": "JetBlue Airways Corporation"
+   }
+  },
+  {
+   "pair_id": "1b0a603c-db06-5b37-86d3-bac1d8fbcbaf__bb033abb-cf0e-590d-a0c1-922296b09aac",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "1b0a603c-db06-5b37-86d3-bac1d8fbcbaf",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819263/000110465921059579/tm2114865d1_ex2-1.htm",
+    "filing_date": "2021-05-03",
+    "target": "Montes Archimedes Acquisition Corp.",
+    "acquirer": "Roivant Sciences Ltd."
+   },
+   "survivor": {
+    "agreement_uuid": "bb033abb-cf0e-590d-a0c1-922296b09aac",
+    "url": "https://www.sec.gov/Archives/edgar/data/1635088/000119312522183362/d307489dex21.htm",
+    "filing_date": "2022-06-28",
+    "target": "MONTES ARCHIMEDES ACQUISITION CORP.",
+    "acquirer": "ROIVANT SCIENCES LTD."
+   }
+  },
+  {
+   "pair_id": "1b2d158d-0d04-560b-a1e8-e573ee162b9e__ecc550bd-33cd-552f-a747-aa7950b8cafb",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "1b2d158d-0d04-560b-a1e8-e573ee162b9e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1039684/000121390024102220/ea022242001ex2-1_oneokinc.htm",
+    "filing_date": "2024-11-25",
+    "target": "EnLink Midstream, LLC",
+    "acquirer": "ONEOK, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "ecc550bd-33cd-552f-a747-aa7950b8cafb",
+    "url": "https://www.sec.gov/Archives/edgar/data/1592000/000110465924122279/tm2429427d1_ex2-1.htm",
+    "filing_date": "2024-11-25",
+    "target": "EnLink Midstream, LLC",
+    "acquirer": "ONEOK, Inc."
+   }
+  },
+  {
+   "pair_id": "1c1e40d4-ea3c-5654-a0de-2809e6815d0d__dfccdd75-945b-5204-88d6-0ad8ba6045f5",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "1c1e40d4-ea3c-5654-a0de-2809e6815d0d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1372299/000110465925061435/tm2518642d1_ex10-1.htm",
+    "filing_date": "2025-06-23",
+    "target": "OrthoCellix, Inc.",
+    "acquirer": "Carisma Therapeutics Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "dfccdd75-945b-5204-88d6-0ad8ba6045f5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1485003/000110465925061397/tm2518620d1_ex2-1.htm",
+    "filing_date": "2025-06-23",
+    "target": "OrthoCellix, Inc.",
+    "acquirer": "Carisma Therapeutics Inc."
+   }
+  },
+  {
+   "pair_id": "1c74e7e3-4d4b-54a1-b873-527f2b4bd6f3__d39418dd-5d7c-5df5-a196-7a080ecce3ca",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "1c74e7e3-4d4b-54a1-b873-527f2b4bd6f3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1920145/000119312525158236/d94061dex21.htm",
+    "filing_date": "2025-07-11",
+    "target": "Goldman Sachs Middle Market Lending Corp. II",
+    "acquirer": "Goldman Sachs Private Credit Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "d39418dd-5d7c-5df5-a196-7a080ecce3ca",
+    "url": "https://www.sec.gov/Archives/edgar/data/1865174/000119312525158218/d19119dex21.htm",
+    "filing_date": "2025-07-11",
+    "target": "Goldman Sachs Middle Market Lending Corp. II",
+    "acquirer": "Goldman Sachs Private Credit Corp."
+   }
+  },
+  {
+   "pair_id": "1c842af7-d819-5098-990a-8a2c10b23052__6aeb0248-4625-5cd3-8b46-660e382699c3",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "1c842af7-d819-5098-990a-8a2c10b23052",
+    "url": "https://www.sec.gov/Archives/edgar/data/1362468/000114036126000907/ef20062707_ex2-1.htm",
+    "filing_date": "2026-01-12",
+    "target": "Sun Country Airlines Holdings, Inc.",
+    "acquirer": "Allegiant Travel Company"
+   },
+   "survivor": {
+    "agreement_uuid": "6aeb0248-4625-5cd3-8b46-660e382699c3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1743907/000119312526009914/d20291dex21.htm",
+    "filing_date": "2026-01-12",
+    "target": "Sun Country Airlines Holdings, Inc.",
+    "acquirer": "Allegiant Travel Company"
+   }
+  },
+  {
+   "pair_id": "1f76d974-bf33-5c81-93fe-eb75a2ef178a__5c2149f3-8555-5e7d-b083-a29dd2011c4a",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "1f76d974-bf33-5c81-93fe-eb75a2ef178a",
+    "url": "https://www.sec.gov/Archives/edgar/data/4447/000119312523260801/d571070dex21.htm",
+    "filing_date": "2023-10-23",
+    "target": "HESS CORPORATION",
+    "acquirer": "CHEVRON CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "5c2149f3-8555-5e7d-b083-a29dd2011c4a",
+    "url": "https://www.sec.gov/Archives/edgar/data/4447/000162828024006845/mergeragreement.htm",
+    "filing_date": "2024-02-26",
+    "target": "Hess Corporation",
+    "acquirer": "Chevron Corporation"
+   }
+  },
+  {
+   "pair_id": "21672f33-9e63-5644-9f8a-7f15e8486760__31ce40ab-29cd-573d-ae39-bdb8af738903",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "21672f33-9e63-5644-9f8a-7f15e8486760",
+    "url": "https://www.sec.gov/Archives/edgar/data/12927/000119312524172676/d838733dex21.htm",
+    "filing_date": "2024-07-01",
+    "target": "SPIRIT AEROSYSTEMS HOLDINGS, INC.",
+    "acquirer": "THE BOEING COMPANY"
+   },
+   "survivor": {
+    "agreement_uuid": "31ce40ab-29cd-573d-ae39-bdb8af738903",
+    "url": "https://www.sec.gov/Archives/edgar/data/1364885/000110465924076479/tm2418602d1_ex2-1.htm",
+    "filing_date": "2024-07-01",
+    "target": "SPIRIT AEROSYSTEMS HOLDINGS, INC.",
+    "acquirer": "THE BOEING COMPANY"
+   }
+  },
+  {
+   "pair_id": "2230b534-b0bc-5ea1-94d7-39be7c9fccd7__903a3a71-08c4-5e2c-b572-fdd1c8faac3d",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "2230b534-b0bc-5ea1-94d7-39be7c9fccd7",
+    "url": "https://www.sec.gov/Archives/edgar/data/2007825/000119312525197773/d14599dex21.htm",
+    "filing_date": "2025-09-08",
+    "target": "ColdQuanta, Inc.",
+    "acquirer": "Churchill Capital Corp X"
+   },
+   "survivor": {
+    "agreement_uuid": "903a3a71-08c4-5e2c-b572-fdd1c8faac3d",
+    "url": "https://www.sec.gov/Archives/edgar/data/2007825/000119312526053097/d900344dex21.htm",
+    "filing_date": "2026-02-17",
+    "target": "ColdQuanta, Inc.",
+    "acquirer": "Churchill Capital Corp X"
+   }
+  },
+  {
+   "pair_id": "230ccb56-ca59-530d-b87e-f35a49bd1a02__4cd07004-d5b8-5d79-abf5-f0341c3186fa",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "230ccb56-ca59-530d-b87e-f35a49bd1a02",
+    "url": "https://www.sec.gov/Archives/edgar/data/1534133/000119312522290244/d403773dex21.htm",
+    "filing_date": "2022-11-22",
+    "target": "CALCIMEDICA, INC.",
+    "acquirer": "GRAYBUG VISION, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "4cd07004-d5b8-5d79-abf5-f0341c3186fa",
+    "url": "https://www.sec.gov/Archives/edgar/data/1534133/000119312523076714/d485425dex21.htm",
+    "filing_date": "2023-03-22",
+    "target": "CALCIMEDICA, INC.",
+    "acquirer": "GRAYBUG VISION, INC."
+   }
+  },
+  {
+   "pair_id": "23296ae0-b7da-5481-be44-e925209f826f__ad55a468-48cc-5187-9aff-4eee155ad685",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "23296ae0-b7da-5481-be44-e925209f826f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1592782/000121390022008808/ea155985ex2-1_nukkleusinc.htm",
+    "filing_date": "2022-02-23",
+    "target": "Nukkleus Inc.",
+    "acquirer": "Brilliant Acquisition Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "ad55a468-48cc-5187-9aff-4eee155ad685",
+    "url": "https://www.sec.gov/Archives/edgar/data/1787518/000121390022008813/ea155992ex2-1_brilliantacq.htm",
+    "filing_date": "2022-02-23",
+    "target": "Nukkleus Inc.",
+    "acquirer": "Brilliant Acquisition Corporation"
+   }
+  },
+  {
+   "pair_id": "23f0b7b1-f58e-5e7d-86fa-ff554df75e05__c38bff05-f6f8-5461-8f99-49307e9439af",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "23f0b7b1-f58e-5e7d-86fa-ff554df75e05",
+    "url": "https://www.sec.gov/Archives/edgar/data/1289850/000110465924129439/tm2431279d1_ex2-1.htm",
+    "filing_date": "2024-12-17",
+    "target": "NEUROMETRIX, INC.",
+    "acquirer": "ELECTROCORE, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "c38bff05-f6f8-5461-8f99-49307e9439af",
+    "url": "https://www.sec.gov/Archives/edgar/data/1560258/000119380524001481/e664079_ex2-1.htm",
+    "filing_date": "2024-12-17",
+    "target": "NEUROMETRIX, INC.",
+    "acquirer": "ELECTROCORE, INC."
+   }
+  },
+  {
+   "pair_id": "24ebf682-c367-550d-ac44-2dfa0f7422c9__b59ba240-8b89-5bfd-a80b-87582bfd9e89",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "24ebf682-c367-550d-ac44-2dfa0f7422c9",
+    "url": "https://www.sec.gov/Archives/edgar/data/1658566/000119312523217088/d703494dex21.htm",
+    "filing_date": "2023-08-21",
+    "target": "EARTHSTONE ENERGY, INC.",
+    "acquirer": "PERMIAN RESOURCES CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "b59ba240-8b89-5bfd-a80b-87582bfd9e89",
+    "url": "https://www.sec.gov/Archives/edgar/data/10254/000001025423000175/ex21-mergeragreement.htm",
+    "filing_date": "2023-08-22",
+    "target": "EARTHSTONE ENERGY, INC.",
+    "acquirer": "PERMIAN RESOURCES CORPORATION"
+   }
+  },
+  {
+   "pair_id": "25dce0a5-66fe-56d6-b94f-b22bb2e84564__abe126d7-6abf-544f-8c4e-ce5813d5b0b1",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "25dce0a5-66fe-56d6-b94f-b22bb2e84564",
+    "url": "https://www.sec.gov/Archives/edgar/data/1838672/000119312524082733/d816521dex21.htm",
+    "filing_date": "2024-04-01",
+    "target": "AdTheorent Holding Company, Inc.",
+    "acquirer": "Cadent, LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "abe126d7-6abf-544f-8c4e-ce5813d5b0b1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1838672/000114036124030833/ef20031401_ex2-1.htm",
+    "filing_date": "2024-06-21",
+    "target": "AdTheorent Holding Company, Inc.",
+    "acquirer": "Cadent, LLC"
+   }
+  },
+  {
+   "pair_id": "1dcd7d36-724e-5099-b5af-c364ba880380__277afbe4-a24e-511d-8195-684f42d0032d",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "277afbe4-a24e-511d-8195-684f42d0032d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1413837/000155837021007954/ffwm-20210602xex2d1.htm",
+    "filing_date": "2021-06-03",
+    "target": "TGR Financial, Inc.",
+    "acquirer": "First Foundation Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "1dcd7d36-724e-5099-b5af-c364ba880380",
+    "url": "https://www.sec.gov/Archives/edgar/data/1413837/000155837021010755/ffwm-20210630xex2d1.htm",
+    "filing_date": "2021-08-06",
+    "target": "TGR Financial, Inc.",
+    "acquirer": "First Foundation Inc."
+   }
+  },
+  {
+   "pair_id": "27f9f3f2-59a3-5bd3-86b2-ea7ec0af1e81__a246c685-e5f6-53ef-a730-f3f0e17f085e",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "27f9f3f2-59a3-5bd3-86b2-ea7ec0af1e81",
+    "url": "https://www.sec.gov/Archives/edgar/data/1466085/000156459021037931/irt-ex21_230.htm",
+    "filing_date": "2021-07-26",
+    "target": "Steadfast Apartment REIT, Inc.",
+    "acquirer": "Independence Realty Trust, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "a246c685-e5f6-53ef-a730-f3f0e17f085e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1585219/000158521921000109/ex21agreementandplanofmerg.htm",
+    "filing_date": "2021-07-26",
+    "target": "Steadfast Apartment REIT, Inc.",
+    "acquirer": "Independence Realty Trust, Inc."
+   }
+  },
+  {
+   "pair_id": "299f6aa8-67a3-5f43-b171-23b9221fa0be__c730cdab-31f1-5a3e-af3b-a62bcbdf5c29",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "299f6aa8-67a3-5f43-b171-23b9221fa0be",
+    "url": "https://www.sec.gov/Archives/edgar/data/828944/000155278121000105/e21111_ex2-1.htm",
+    "filing_date": "2021-03-10",
+    "target": "Bryn Mawr Bank Corporation",
+    "acquirer": "WSFS Financial Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "c730cdab-31f1-5a3e-af3b-a62bcbdf5c29",
+    "url": "https://www.sec.gov/Archives/edgar/data/802681/000143774921005575/ex_232901.htm",
+    "filing_date": "2021-03-10",
+    "target": "Bryn Mawr Bank Corporation",
+    "acquirer": "WSFS Financial Corporation"
+   }
+  },
+  {
+   "pair_id": "2a4b0dc3-c6e9-5f9d-87df-16e217aa0db2__40d34d44-ca8f-55ef-852d-57344d6eedcd",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "2a4b0dc3-c6e9-5f9d-87df-16e217aa0db2",
+    "url": "https://www.sec.gov/Archives/edgar/data/1127371/000162828025057501/exhibit21-definitiveagreem.htm",
+    "filing_date": "2025-12-17",
+    "target": "United Security Bancshares",
+    "acquirer": "Community West Bancshares"
+   },
+   "survivor": {
+    "agreement_uuid": "40d34d44-ca8f-55ef-852d-57344d6eedcd",
+    "url": "https://www.sec.gov/Archives/edgar/data/1137547/000113754725000130/projectutopia-agreementand.htm",
+    "filing_date": "2025-12-17",
+    "target": "United Security Bancshares",
+    "acquirer": "Community West Bancshares"
+   }
+  },
+  {
+   "pair_id": "2ac1d659-fd67-5251-ae44-5b4a451cb044__e0581ea6-d251-5cad-826f-f5b11c6e23dd",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "2ac1d659-fd67-5251-ae44-5b4a451cb044",
+    "url": "https://www.sec.gov/Archives/edgar/data/1772921/000114036122023782/brhc10038965_ex2-1.htm",
+    "filing_date": "2022-06-22",
+    "target": "OCEAN BIO-CHEM, INC.",
+    "acquirer": "ONEWATER MARINE INC."
+   },
+   "survivor": {
+    "agreement_uuid": "e0581ea6-d251-5cad-826f-f5b11c6e23dd",
+    "url": "https://www.sec.gov/Archives/edgar/data/350737/000121390022034130/ea161885ex2-1_ocean.htm",
+    "filing_date": "2022-06-22",
+    "target": "OCEAN BIO-CHEM, INC.",
+    "acquirer": "ONEWATER MARINE INC."
+   }
+  },
+  {
+   "pair_id": "2c52bc86-4984-5028-9a17-83a99733175a__d0658fa1-45a7-5792-ae44-d4b66e48ea6c",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "2c52bc86-4984-5028-9a17-83a99733175a",
+    "url": "https://www.sec.gov/Archives/edgar/data/842518/000110465924098154/tm2423569d1_ex2-1.htm",
+    "filing_date": "2024-09-09",
+    "target": "Evans Bancorp, Inc.",
+    "acquirer": "NBT Bancorp Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "d0658fa1-45a7-5792-ae44-d4b66e48ea6c",
+    "url": "https://www.sec.gov/Archives/edgar/data/790359/000114036124040588/ef20035633_ex2-1.htm",
+    "filing_date": "2024-09-09",
+    "target": "Evans Bancorp, Inc.",
+    "acquirer": "NBT Bancorp Inc."
+   }
+  },
+  {
+   "pair_id": "2fb6eba9-e840-5d25-86b2-3746f3829c76__e5b456aa-0457-5e38-9d05-d1aeb2b206c6",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "2fb6eba9-e840-5d25-86b2-3746f3829c76",
+    "url": "https://www.sec.gov/Archives/edgar/data/1820875/000110465922102856/tm2226567d1_ex2-1.htm",
+    "filing_date": "2022-09-26",
+    "target": "CXApp Holding Corp.",
+    "acquirer": "KINS Technology Group Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "e5b456aa-0457-5e38-9d05-d1aeb2b206c6",
+    "url": "https://www.sec.gov/Archives/edgar/data/1529113/000121390022058646/ea166248ex2-1_inpixon.htm",
+    "filing_date": "2022-09-26",
+    "target": "CXApp Holding Corp.",
+    "acquirer": "KINS Technology Group Inc."
+   }
+  },
+  {
+   "pair_id": "304079d8-af59-5098-a3f2-7f2e707a01ab__de259d95-bc5a-5836-93ff-ed2e136da173",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "304079d8-af59-5098-a3f2-7f2e707a01ab",
+    "url": "https://www.sec.gov/Archives/edgar/data/58492/000119312526151966/d38467dex21.htm",
+    "filing_date": "2026-04-13",
+    "target": "Leggett & Platt, Incorporated",
+    "acquirer": "Somnigroup International Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "de259d95-bc5a-5836-93ff-ed2e136da173",
+    "url": "https://www.sec.gov/Archives/edgar/data/1206264/000120626426000048/exhibit21-agreementandplan.htm",
+    "filing_date": "2026-04-13",
+    "target": "Leggett & Platt, Incorporated",
+    "acquirer": "Somnigroup International Inc."
+   }
+  },
+  {
+   "pair_id": "31b9aa30-bdba-551f-b334-15b9bac0ffd4__b9dbb580-e1c5-57d3-920a-15ab4349d2f9",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "31b9aa30-bdba-551f-b334-15b9bac0ffd4",
+    "url": "https://www.sec.gov/Archives/edgar/data/1674168/000119312523271642/d550342dex21.htm",
+    "filing_date": "2023-11-07",
+    "target": "Bluegreen Vacations Holding Corporation",
+    "acquirer": "Hilton Grand Vacations Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "b9dbb580-e1c5-57d3-920a-15ab4349d2f9",
+    "url": "https://www.sec.gov/Archives/edgar/data/315858/000119312523274475/d576466dex21.htm",
+    "filing_date": "2023-11-09",
+    "target": "BLUEGREEN VACATIONS HOLDING CORPORATION",
+    "acquirer": "HILTON GRAND VACATIONS INC."
+   }
+  },
+  {
+   "pair_id": "327440bd-79ae-53a1-9015-0c51c9d93dc0__740304ec-c831-5448-ad26-86cba8c10e6f",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "327440bd-79ae-53a1-9015-0c51c9d93dc0",
+    "url": "https://www.sec.gov/Archives/edgar/data/1550603/000143774922029088/ex_456217.htm",
+    "filing_date": "2022-12-14",
+    "target": "Malvern Bancorp, Inc.",
+    "acquirer": "First Bank"
+   },
+   "survivor": {
+    "agreement_uuid": "740304ec-c831-5448-ad26-86cba8c10e6f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1550603/000143774923020011/ex_544261.htm",
+    "filing_date": "2023-07-17",
+    "target": "Malvern Bancorp, Inc.",
+    "acquirer": "First Bank"
+   }
+  },
+  {
+   "pair_id": "332472db-1438-52a7-b9e1-c54ee3c614d6__cde91fc1-5d49-56bd-a3a6-6a9311d33076",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "332472db-1438-52a7-b9e1-c54ee3c614d6",
+    "url": "https://www.sec.gov/Archives/edgar/data/1514281/000151428123000089/mitt-exhibit21.htm",
+    "filing_date": "2023-08-09",
+    "target": "AG MORTGAGE INVESTMENT TRUST, INC.",
+    "acquirer": "WESTERN ASSET MORTGAGE CAPITAL CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "cde91fc1-5d49-56bd-a3a6-6a9311d33076",
+    "url": "https://www.sec.gov/Archives/edgar/data/1465885/000162828023028634/exhibit21-maverickxmergera.htm",
+    "filing_date": "2023-08-09",
+    "target": "AG MORTGAGE INVESTMENT TRUST, INC.",
+    "acquirer": "WESTERN ASSET MORTGAGE CAPITAL CORPORATION"
+   }
+  },
+  {
+   "pair_id": "341f6fdc-67fe-575e-bab1-10b2bc7383dd__c1068c16-bc26-5a4c-8f20-f9c5f01e076c",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "341f6fdc-67fe-575e-bab1-10b2bc7383dd",
+    "url": "https://www.sec.gov/Archives/edgar/data/16732/000095010323011620/dp198090_ex0201.htm",
+    "filing_date": "2023-08-07",
+    "target": "Sovos Brands, Inc.",
+    "acquirer": "Campbell Soup Company"
+   },
+   "survivor": {
+    "agreement_uuid": "c1068c16-bc26-5a4c-8f20-f9c5f01e076c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1856608/000110465923088066/tm2322799d1_ex2-1.htm",
+    "filing_date": "2023-08-07",
+    "target": "Sovos Brands, Inc.",
+    "acquirer": "Campbell Soup Company"
+   }
+  },
+  {
+   "pair_id": "34d38afb-2df1-5163-abac-63f3c3d071b6__9d6468e2-a930-5942-a53e-ae340a8be8d4",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "34d38afb-2df1-5163-abac-63f3c3d071b6",
+    "url": "https://www.sec.gov/Archives/edgar/data/1113148/000114036123008332/brhc10048558_ex2-1.htm",
+    "filing_date": "2023-02-23",
+    "target": "INFINITY PHARMACEUTICALS, INC.",
+    "acquirer": "MEI PHARMA, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "9d6468e2-a930-5942-a53e-ae340a8be8d4",
+    "url": "https://www.sec.gov/Archives/edgar/data/1262104/000119312523046815/d428092dex21.htm",
+    "filing_date": "2023-02-23",
+    "target": "INFINITY PHARMACEUTICALS, INC.",
+    "acquirer": "MEI PHARMA, INC."
+   }
+  },
+  {
+   "pair_id": "3523b373-04e7-5eee-b97c-40162dd0f829__b8c89473-7178-54fb-ab30-6086ac060533",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "3523b373-04e7-5eee-b97c-40162dd0f829",
+    "url": "https://www.sec.gov/Archives/edgar/data/1473844/000110465921138192/tm2131964d8_ex2-1.htm",
+    "filing_date": "2021-11-12",
+    "target": "Allegiance Bancshares, Inc.",
+    "acquirer": "CBTX, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "b8c89473-7178-54fb-ab30-6086ac060533",
+    "url": "https://www.sec.gov/Archives/edgar/data/1642081/000164208121000017/merger_agreementtobefiled.htm",
+    "filing_date": "2021-11-12",
+    "target": "Allegiance Bancshares, Inc.",
+    "acquirer": "CBTX, Inc."
+   }
+  },
+  {
+   "pair_id": "38516ef8-8b5f-52bb-9180-186acaab82d5__92b11e83-fe83-587e-b1a5-7dd2b191e58a",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "38516ef8-8b5f-52bb-9180-186acaab82d5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1106838/000164117225018877/ex2-1.htm",
+    "filing_date": "2025-07-14",
+    "target": "SONNET BIOTHERAPEUTICS HOLDINGS, INC.",
+    "acquirer": "HYPERLIQUID STRATEGIES INC"
+   },
+   "survivor": {
+    "agreement_uuid": "92b11e83-fe83-587e-b1a5-7dd2b191e58a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1106838/000149315225025884/ex2-1.htm",
+    "filing_date": "2025-12-03",
+    "target": "SONNET BIOTHERAPEUTICS HOLDINGS, INC.",
+    "acquirer": "HYPERLIQUID STRATEGIES INC"
+   }
+  },
+  {
+   "pair_id": "3a645476-dbd2-5692-9665-6d95f81461f0__badb091e-6d58-585b-8301-981fb269dcf3",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "3a645476-dbd2-5692-9665-6d95f81461f0",
+    "url": "https://www.sec.gov/Archives/edgar/data/20520/000114036124040148/ef20035469_ex2-1.htm",
+    "filing_date": "2024-09-05",
+    "target": "FRONTIER COMMUNICATIONS PARENT, INC.",
+    "acquirer": "VERIZON COMMUNICATIONS INC."
+   },
+   "survivor": {
+    "agreement_uuid": "badb091e-6d58-585b-8301-981fb269dcf3",
+    "url": "https://www.sec.gov/Archives/edgar/data/732712/000119312524213664/d828371dex21.htm",
+    "filing_date": "2024-09-05",
+    "target": "Frontier Communications Parent, Inc.",
+    "acquirer": "Verizon Communications Inc."
+   }
+  },
+  {
+   "pair_id": "286aa7d6-28bf-5ee4-bac3-612ac089896f__3aa48663-d16d-5d75-99f8-255496c9f362",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "3aa48663-d16d-5d75-99f8-255496c9f362",
+    "url": "https://www.sec.gov/Archives/edgar/data/1828723/000119312525021325/d929928dex21.htm",
+    "filing_date": "2025-02-06",
+    "target": "Altus Power, Inc.",
+    "acquirer": "Avenger Parent, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "286aa7d6-28bf-5ee4-bac3-612ac089896f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1828723/000119312525082841/d870221dex21.htm",
+    "filing_date": "2025-04-16",
+    "target": "Altus Power, Inc.",
+    "acquirer": "Avenger Parent, Inc."
+   }
+  },
+  {
+   "pair_id": "22ee0818-04d9-573a-8444-dd807d0a7d10__3d95b7fb-5559-5044-9049-7f0d2e1058bb",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "3d95b7fb-5559-5044-9049-7f0d2e1058bb",
+    "url": "https://www.sec.gov/Archives/edgar/data/1838615/000121390021049588/ea147796ex2-1_cartesian.htm",
+    "filing_date": "2021-09-23",
+    "target": "ALVARIUM INVESTMENTS LIMITED",
+    "acquirer": "CARTESIAN GROWTH CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "22ee0818-04d9-573a-8444-dd807d0a7d10",
+    "url": "https://www.sec.gov/Archives/edgar/data/1838615/000119312522268793/d514195dex21.htm",
+    "filing_date": "2022-10-26",
+    "target": "ALVARIUM INVESTMENTS LIMITED",
+    "acquirer": "CARTESIAN GROWTH CORPORATION"
+   }
+  },
+  {
+   "pair_id": "1e024ca8-9b8b-5b06-b8a7-10021d695a0f__3f11c9ad-72a9-53a0-9f21-fc7be7d1324d",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "3f11c9ad-72a9-53a0-9f21-fc7be7d1324d",
+    "url": "https://www.sec.gov/Archives/edgar/data/350868/000110465924087480/tm2421283d1_ex2-1.htm",
+    "filing_date": "2024-08-09",
+    "target": "ITERIS, INC.",
+    "acquirer": "ALMAVIVA S.p.A."
+   },
+   "survivor": {
+    "agreement_uuid": "1e024ca8-9b8b-5b06-b8a7-10021d695a0f",
+    "url": "https://www.sec.gov/Archives/edgar/data/350868/000114036124044894/ef20038030_ex2-1.htm",
+    "filing_date": "2024-11-01",
+    "target": "ITERIS, INC.",
+    "acquirer": "ALMAVIVA S.p.A."
+   }
+  },
+  {
+   "pair_id": "3faabb71-d1a4-5038-85ed-80429ed9f840__e7e87e2b-c216-509e-8e96-eff753a5eb1d",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "3faabb71-d1a4-5038-85ed-80429ed9f840",
+    "url": "https://www.sec.gov/Archives/edgar/data/1417663/000114036123041023/brhc20057802_ex2-1.htm",
+    "filing_date": "2023-08-23",
+    "target": "SANUWAVE HEALTH, INC.",
+    "acquirer": "SEP ACQUISITION CORP."
+   },
+   "survivor": {
+    "agreement_uuid": "e7e87e2b-c216-509e-8e96-eff753a5eb1d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1849902/000175392623001110/g083718_ex2-1.htm",
+    "filing_date": "2023-08-23",
+    "target": "SANUWAVE Health, Inc.",
+    "acquirer": "SEP Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "40038900-9108-5f09-8bc7-039de29fec7a__4dd5ece6-d425-5280-87c5-b6cf7a8461a3",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "40038900-9108-5f09-8bc7-039de29fec7a",
+    "url": "https://www.sec.gov/Archives/edgar/data/947559/000110465924083577/tm2420347d1_ex2-1.htm",
+    "filing_date": "2024-07-29",
+    "target": "The First Bancshares, Inc.",
+    "acquirer": "Renasant Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "4dd5ece6-d425-5280-87c5-b6cf7a8461a3",
+    "url": "https://www.sec.gov/Archives/edgar/data/715072/000119312524187608/d860233dex21.htm",
+    "filing_date": "2024-07-29",
+    "target": "The First Bancshares, Inc.",
+    "acquirer": "Renasant Corporation"
+   }
+  },
+  {
+   "pair_id": "40a05fb3-8956-585e-b34f-f6448c33c164__8fc65388-36cb-5d42-aba5-2f364a8adba0",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "40a05fb3-8956-585e-b34f-f6448c33c164",
+    "url": "https://www.sec.gov/Archives/edgar/data/1303942/000143774925025934/ex_850720.htm",
+    "filing_date": "2025-08-11",
+    "target": "BankFinancial Corporation",
+    "acquirer": "First Financial Bancorp."
+   },
+   "survivor": {
+    "agreement_uuid": "8fc65388-36cb-5d42-aba5-2f364a8adba0",
+    "url": "https://www.sec.gov/Archives/edgar/data/708955/000070895525000109/americas1103544939v13-me.htm",
+    "filing_date": "2025-11-04",
+    "target": "BankFinancial Corporation",
+    "acquirer": "First Financial Bancorp."
+   }
+  },
+  {
+   "pair_id": "4174337d-470b-57fb-9069-3d8080134b6c__7d64778b-b270-5e60-b4d3-0df38eda3451",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "4174337d-470b-57fb-9069-3d8080134b6c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1661998/000119312523278334/d350392dex21.htm",
+    "filing_date": "2023-11-16",
+    "target": "Q32 BIO INC.",
+    "acquirer": "HOMOLOGY MEDICINES, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "7d64778b-b270-5e60-b4d3-0df38eda3451",
+    "url": "https://www.sec.gov/Archives/edgar/data/1661998/000119312523296880/d938280dex21.htm",
+    "filing_date": "2023-12-18",
+    "target": "Q32 BIO INC.",
+    "acquirer": "HOMOLOGY MEDICINES, INC."
+   }
+  },
+  {
+   "pair_id": "41ab5828-b015-5b36-8399-e2b36fed25d1__f99778a0-473c-5ed7-8b59-e3d6ea369c8f",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "41ab5828-b015-5b36-8399-e2b36fed25d1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1524472/000119312523012563/d441004dex21.htm",
+    "filing_date": "2023-01-23",
+    "target": "EVOQUA WATER TECHNOLOGIES CORP.",
+    "acquirer": "XYLEM INC."
+   },
+   "survivor": {
+    "agreement_uuid": "f99778a0-473c-5ed7-8b59-e3d6ea369c8f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1604643/000119312523012554/d436060dex21.htm",
+    "filing_date": "2023-01-23",
+    "target": "Evoqua Water Technologies Corp.",
+    "acquirer": "Xylem Inc."
+   }
+  },
+  {
+   "pair_id": "42d9f77a-07c6-5a65-a282-e2f0fcd92caa__67ec5820-31df-514d-b2d6-8afde6e540f6",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "42d9f77a-07c6-5a65-a282-e2f0fcd92caa",
+    "url": "https://www.sec.gov/Archives/edgar/data/74303/000119312526272877/d157699dex21.htm",
+    "filing_date": "2026-06-16",
+    "target": "Huntsman Corporation",
+    "acquirer": "Olin Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "67ec5820-31df-514d-b2d6-8afde6e540f6",
+    "url": "https://www.sec.gov/Archives/edgar/data/1307954/000110465926074683/tm2618028d1_ex2-1.htm",
+    "filing_date": "2026-06-16",
+    "target": "Huntsman Corporation",
+    "acquirer": "Olin Corporation"
+   }
+  },
+  {
+   "pair_id": "43560591-7114-5090-b846-1690d1bd78a5__c3957a8d-c35a-5186-9b19-3e1e7bd9ac2d",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "43560591-7114-5090-b846-1690d1bd78a5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1512228/000153949722001611/n2574_x43exh2-1.htm",
+    "filing_date": "2022-09-29",
+    "target": "NIOCORP DEVELOPMENTS LTD.",
+    "acquirer": "GX ACQUISITION CORP. II"
+   },
+   "survivor": {
+    "agreement_uuid": "c3957a8d-c35a-5186-9b19-3e1e7bd9ac2d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1826669/000121390022060266/ea166343ex2-1_gxacq2.htm",
+    "filing_date": "2022-09-29",
+    "target": "NIOCORP DEVELOPMENTS LTD.",
+    "acquirer": "GX ACQUISITION CORP. II"
+   }
+  },
+  {
+   "pair_id": "44ff024b-f0dd-5d1f-8652-299892e0f75e__67a41e52-9288-5b85-983b-13aa205878c9",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "44ff024b-f0dd-5d1f-8652-299892e0f75e",
+    "url": "https://www.sec.gov/Archives/edgar/data/354908/000119312521002589/d57696dex21.htm",
+    "filing_date": "2021-01-06",
+    "target": "FLIR SYSTEMS, INC.",
+    "acquirer": "TELEDYNE TECHNOLOGIES INCORPORATED"
+   },
+   "survivor": {
+    "agreement_uuid": "67a41e52-9288-5b85-983b-13aa205878c9",
+    "url": "https://www.sec.gov/Archives/edgar/data/1094285/000119312521002733/d105076dex21.htm",
+    "filing_date": "2021-01-06",
+    "target": "FLIR SYSTEMS, INC.",
+    "acquirer": "TELEDYNE TECHNOLOGIES INCORPORATED"
+   }
+  },
+  {
+   "pair_id": "487e11a8-6021-5483-ac0c-e4e412b08dca__84fa8928-5d68-509e-b4e9-41adf37ea6b1",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "487e11a8-6021-5483-ac0c-e4e412b08dca",
+    "url": "https://www.sec.gov/Archives/edgar/data/850261/000110465922035362/tm229691d1_ex2-1.htm",
+    "filing_date": "2022-03-18",
+    "target": "Scilex Holding Company",
+    "acquirer": "Vickers Vantage Corp. I"
+   },
+   "survivor": {
+    "agreement_uuid": "84fa8928-5d68-509e-b4e9-41adf37ea6b1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1820190/000121390022013697/ea157097ex2-1_vickers1.htm",
+    "filing_date": "2022-03-21",
+    "target": "Scilex Holding Company",
+    "acquirer": "Vickers Vantage Corp. I"
+   }
+  },
+  {
+   "pair_id": "4907fd8c-57d0-50d2-b03f-48c6881fbdf0__a91c345f-9213-5dfd-a905-19c8155ae9ba",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "4907fd8c-57d0-50d2-b03f-48c6881fbdf0",
+    "url": "https://www.sec.gov/Archives/edgar/data/1089063/000119312525120951/d898387dex21.htm",
+    "filing_date": "2025-05-15",
+    "target": "Foot Locker, Inc.",
+    "acquirer": "DICK\u2019S Sporting Goods, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "a91c345f-9213-5dfd-a905-19c8155ae9ba",
+    "url": "https://www.sec.gov/Archives/edgar/data/850209/000110465925049592/tm2515123d3_ex2-1.htm",
+    "filing_date": "2025-05-15",
+    "target": "Foot Locker, Inc.",
+    "acquirer": "DICK\u2019S Sporting Goods, Inc."
+   }
+  },
+  {
+   "pair_id": "12f666e7-351c-5f89-b0ef-eea033fff4a3__497f8a9e-d438-5eed-877c-b098ef18eaa5",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "497f8a9e-d438-5eed-877c-b098ef18eaa5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1339605/000119312525029610/d936853dex21.htm",
+    "filing_date": "2025-02-19",
+    "target": "H&E EQUIPMENT SERVICES, INC.",
+    "acquirer": "HERC HOLDINGS INC."
+   },
+   "survivor": {
+    "agreement_uuid": "12f666e7-351c-5f89-b0ef-eea033fff4a3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1364479/000119312525030725/d936893dex21.htm",
+    "filing_date": "2025-02-20",
+    "target": "H&E EQUIPMENT SERVICES, INC.",
+    "acquirer": "HERC HOLDINGS INC."
+   }
+  },
+  {
+   "pair_id": "4a02edd7-cde4-5d2d-8dad-250af3d3f01f__b97a9641-f28d-5626-99c4-c014d11297ac",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "4a02edd7-cde4-5d2d-8dad-250af3d3f01f",
+    "url": "https://www.sec.gov/Archives/edgar/data/91388/000121390026005905/ea027349301ex2-1_smith.htm",
+    "filing_date": "2026-01-21",
+    "target": "NATHAN\u2019S FAMOUS, INC.",
+    "acquirer": "SMITHFIELD FOODS, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "b97a9641-f28d-5626-99c4-c014d11297ac",
+    "url": "https://www.sec.gov/Archives/edgar/data/69733/000110465926005233/tm263713d1_ex2-1.htm",
+    "filing_date": "2026-01-21",
+    "target": "NATHAN\u2019S FAMOUS, INC.",
+    "acquirer": "SMITHFIELD FOODS, INC."
+   }
+  },
+  {
+   "pair_id": "4a8ef90e-8383-5f9c-b941-a76685e4eb32__e88fed83-2a56-5aa9-8043-d767b7eb0be3",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "4a8ef90e-8383-5f9c-b941-a76685e4eb32",
+    "url": "https://www.sec.gov/Archives/edgar/data/1013871/000110465922124932/tm2231415d2_ex2-1.htm",
+    "filing_date": "2022-12-06",
+    "target": "Vivint Smart Home, Inc.",
+    "acquirer": "NRG Energy, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "e88fed83-2a56-5aa9-8043-d767b7eb0be3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1713952/000119312522299484/d346932dex21.htm",
+    "filing_date": "2022-12-06",
+    "target": "VIVINT SMART HOME, INC.",
+    "acquirer": "NRG ENERGY, INC."
+   }
+  },
+  {
+   "pair_id": "4ab2be7c-6fee-58ba-a887-1871c0a2a741__dcc2329e-847d-5ffc-9731-d0899df16b13",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "4ab2be7c-6fee-58ba-a887-1871c0a2a741",
+    "url": "https://www.sec.gov/Archives/edgar/data/1844840/000110465921115969/tm2127447d1_ex2-1.htm",
+    "filing_date": "2021-09-15",
+    "target": "Prenetics Group Limited",
+    "acquirer": "Prenetics Global Limited"
+   },
+   "survivor": {
+    "agreement_uuid": "dcc2329e-847d-5ffc-9731-d0899df16b13",
+    "url": "https://www.sec.gov/Archives/edgar/data/1876431/000110465921136389/tm2127588d28_ex2-1.htm",
+    "filing_date": "2021-11-09",
+    "target": "Prenetics Group Limited",
+    "acquirer": "Prenetics Global Limited"
+   }
+  },
+  {
+   "pair_id": "4ce14ae5-5c49-548a-af3a-783e0f788c67__cfe86a9f-bae9-513c-b54d-3f4e8311d416",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "4ce14ae5-5c49-548a-af3a-783e0f788c67",
+    "url": "https://www.sec.gov/Archives/edgar/data/1561743/000156174321000041/exhibit21mergeragreement-2.htm",
+    "filing_date": "2021-06-16",
+    "target": "Kindred Biosciences, Inc.",
+    "acquirer": "Elanco Animal Health Incorporated"
+   },
+   "survivor": {
+    "agreement_uuid": "cfe86a9f-bae9-513c-b54d-3f4e8311d416",
+    "url": "https://www.sec.gov/Archives/edgar/data/1739104/000110465921081752/tm2118507d3_ex2-1.htm",
+    "filing_date": "2021-06-16",
+    "target": "Kindred Biosciences, Inc.",
+    "acquirer": "Elanco Animal Health Incorporated"
+   }
+  },
+  {
+   "pair_id": "51390a59-d254-591f-8326-6bc46cde3a99__a77a066a-51c6-5007-b5ee-ede37231236b",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "51390a59-d254-591f-8326-6bc46cde3a99",
+    "url": "https://www.sec.gov/Archives/edgar/data/1771706/000110465924131371/tm2431729d1_ex2-1.htm",
+    "filing_date": "2024-12-23",
+    "target": "Deep Roots Holdings, Inc.",
+    "acquirer": "Vireo Growth Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "a77a066a-51c6-5007-b5ee-ede37231236b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1771706/000155837025002130/vreof-20241231xex2d2.htm",
+    "filing_date": "2025-03-04",
+    "target": "DEEP ROOTS HOLDINGS, INC.",
+    "acquirer": "VIREO GROWTH INC."
+   }
+  },
+  {
+   "pair_id": "545a4a7c-acdb-587c-b2b5-5a04b657bb5d__d580442f-197d-5a1c-9834-aee1b628d468",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "545a4a7c-acdb-587c-b2b5-5a04b657bb5d",
+    "url": "https://www.sec.gov/Archives/edgar/data/716605/000110465924130506/tm2431604d1_ex2-1.htm",
+    "filing_date": "2024-12-20",
+    "target": "PENNS WOODS BANCORP, INC.",
+    "acquirer": "NORTHWEST BANCSHARES, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "d580442f-197d-5a1c-9834-aee1b628d468",
+    "url": "https://www.sec.gov/Archives/edgar/data/1471265/000147126524000142/exhibit21.htm",
+    "filing_date": "2024-12-20",
+    "target": "PENNS WOODS BANCORP, INC.",
+    "acquirer": "NORTHWEST BANCSHARES, INC."
+   }
+  },
+  {
+   "pair_id": "54fd07f4-4da9-5015-a442-83b510587d74__5c2149f3-8555-5e7d-b083-a29dd2011c4a",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "54fd07f4-4da9-5015-a442-83b510587d74",
+    "url": "https://www.sec.gov/Archives/edgar/data/93410/000095014223002670/eh230413259_ex0201.htm",
+    "filing_date": "2023-10-23",
+    "target": "HESS CORPORATION",
+    "acquirer": "CHEVRON CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "5c2149f3-8555-5e7d-b083-a29dd2011c4a",
+    "url": "https://www.sec.gov/Archives/edgar/data/4447/000162828024006845/mergeragreement.htm",
+    "filing_date": "2024-02-26",
+    "target": "Hess Corporation",
+    "acquirer": "Chevron Corporation"
+   }
+  },
+  {
+   "pair_id": "57956557-c24b-56c2-aad3-fba7b474bdd9__bbac046f-89f0-555c-bcf7-7454f414b0f2",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "57956557-c24b-56c2-aad3-fba7b474bdd9",
+    "url": "https://www.sec.gov/Archives/edgar/data/1567925/000114036126015496/ef20070982_ex2-1.htm",
+    "filing_date": "2026-04-20",
+    "target": "Sila Realty Trust, Inc.",
+    "acquirer": "Sunshine Ultimate Parent LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "bbac046f-89f0-555c-bcf7-7454f414b0f2",
+    "url": "https://www.sec.gov/Archives/edgar/data/1944366/000194436626000053/mergeragreement-projectsun.htm",
+    "filing_date": "2026-07-08",
+    "target": "Sila Realty Trust, Inc.",
+    "acquirer": "Sunshine Ultimate Parent LLC"
+   }
+  },
+  {
+   "pair_id": "4ee17bb4-d43b-52be-b681-c1cde140c192__59e71004-c141-5993-bc7b-6b2c85e4a19d",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "59e71004-c141-5993-bc7b-6b2c85e4a19d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1964789/000110465923019807/tm235928d2_ex2-1.htm",
+    "filing_date": "2023-02-13",
+    "target": "HUT 8 MINING CORP.",
+    "acquirer": "HUT 8 CORP."
+   },
+   "survivor": {
+    "agreement_uuid": "4ee17bb4-d43b-52be-b681-c1cde140c192",
+    "url": "https://www.sec.gov/Archives/edgar/data/1964789/000110465923122902/tm2331643d4_ex2-1.htm",
+    "filing_date": "2023-12-01",
+    "target": "HUT 8 MINING CORP.",
+    "acquirer": "HUT 8 CORP."
+   }
+  },
+  {
+   "pair_id": "5a353699-e10c-5096-b1af-58cd3376e2cf__fe6db1f6-4e65-586a-abf9-aa72ed6c608a",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "5a353699-e10c-5096-b1af-58cd3376e2cf",
+    "url": "https://www.sec.gov/Archives/edgar/data/1642985/000147237522000133/exhibit2-1.htm",
+    "filing_date": "2022-12-14",
+    "target": "Mobile Infrastructure Corporation",
+    "acquirer": "Fifth Wall Acquisition Corp. III"
+   },
+   "survivor": {
+    "agreement_uuid": "fe6db1f6-4e65-586a-abf9-aa72ed6c608a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1847874/000119312522304176/d432666dex21.htm",
+    "filing_date": "2022-12-14",
+    "target": "MOBILE INFRASTRUCTURE CORPORATION",
+    "acquirer": "FIFTH WALL ACQUISITION CORP. III"
+   }
+  },
+  {
+   "pair_id": "5a385761-e24c-5b5a-bfab-f719f72ec571__e90617f5-bf0c-50a3-a06e-28542f4499a5",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "5a385761-e24c-5b5a-bfab-f719f72ec571",
+    "url": "https://www.sec.gov/Archives/edgar/data/66382/000114036121013938/nt10023299x11_ex2-1.htm",
+    "filing_date": "2021-04-22",
+    "target": "KNOLL, INC.",
+    "acquirer": "HERMAN MILLER, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "e90617f5-bf0c-50a3-a06e-28542f4499a5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1011570/000110465921053902/tm2113369d17_ex2-1.htm",
+    "filing_date": "2021-04-22",
+    "target": "KNOLL, INC.",
+    "acquirer": "HERMAN MILLER, INC."
+   }
+  },
+  {
+   "pair_id": "5ac2649d-cc61-5927-9b33-3288f8fd695c__ce8b44ac-d1ab-5329-9d9d-4242e61a5964",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "5ac2649d-cc61-5927-9b33-3288f8fd695c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1302028/000119312524217989/d850504dex21.htm",
+    "filing_date": "2024-09-12",
+    "target": "Manitex International, Inc.",
+    "acquirer": "Tadano Ltd."
+   },
+   "survivor": {
+    "agreement_uuid": "ce8b44ac-d1ab-5329-9d9d-4242e61a5964",
+    "url": "https://www.sec.gov/Archives/edgar/data/1302028/000095017024122863/mntx-ex2_1.htm",
+    "filing_date": "2024-11-07",
+    "target": "Manitex International, Inc.",
+    "acquirer": "Tadano Ltd."
+   }
+  },
+  {
+   "pair_id": "5b144752-793f-525f-b5dc-f8cf754c4d55__7d1eb5e6-db88-554d-8019-800a16bac62d",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "5b144752-793f-525f-b5dc-f8cf754c4d55",
+    "url": "https://www.sec.gov/Archives/edgar/data/1289636/000128963624000038/ex21agreementandplanofme.htm",
+    "filing_date": "2024-10-29",
+    "target": "PROFIRE ENERGY, INC.",
+    "acquirer": "CECO ENVIRONMENTAL CORP."
+   },
+   "survivor": {
+    "agreement_uuid": "7d1eb5e6-db88-554d-8019-800a16bac62d",
+    "url": "https://www.sec.gov/Archives/edgar/data/3197/000110465924111987/tm2426882d1_ex10-1.htm",
+    "filing_date": "2024-10-29",
+    "target": "Profire Energy, Inc.",
+    "acquirer": "CECO Environmental Corp."
+   }
+  },
+  {
+   "pair_id": "5b8b5806-3981-59e6-8b24-697ebb382a18__ff5e5b9a-c023-5d74-86a6-ff52e4b3ca66",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "5b8b5806-3981-59e6-8b24-697ebb382a18",
+    "url": "https://www.sec.gov/Archives/edgar/data/1840292/000121390025048489/ea024290001ex2-1_heliogen.htm",
+    "filing_date": "2025-05-29",
+    "target": "Heliogen, Inc.",
+    "acquirer": "Zeo Energy Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "ff5e5b9a-c023-5d74-86a6-ff52e4b3ca66",
+    "url": "https://www.sec.gov/Archives/edgar/data/1865506/000121390025048509/ea024349301ex2-1_zeo.htm",
+    "filing_date": "2025-05-29",
+    "target": "Heliogen, Inc.",
+    "acquirer": "Zeo Energy Corp."
+   }
+  },
+  {
+   "pair_id": "5bf65ceb-c356-5142-ba87-e0e9ea267926__7f32b6c9-bf68-5c89-9c85-72bc7bbc42a7",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "5bf65ceb-c356-5142-ba87-e0e9ea267926",
+    "url": "https://www.sec.gov/Archives/edgar/data/1077771/000114036121034624/ny20000977x8_ex2-1.htm",
+    "filing_date": "2021-10-15",
+    "target": "Umpqua Holdings Corporation",
+    "acquirer": "Columbia Banking System, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "7f32b6c9-bf68-5c89-9c85-72bc7bbc42a7",
+    "url": "https://www.sec.gov/Archives/edgar/data/887343/000119312521300178/d237749dex21.htm",
+    "filing_date": "2021-10-15",
+    "target": "Umpqua Holdings Corporation",
+    "acquirer": "Columbia Banking System, Inc."
+   }
+  },
+  {
+   "pair_id": "5c22cb3f-dd1e-54aa-be66-1f025409a6a3__9ba1317f-51fc-526d-b3ef-00af5c0bfa5a",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "5c22cb3f-dd1e-54aa-be66-1f025409a6a3",
+    "url": "https://www.sec.gov/Archives/edgar/data/915778/000143774921021121/ex_279757.htm",
+    "filing_date": "2021-08-30",
+    "target": "DSP GROUP, INC.",
+    "acquirer": "SYNAPTICS INCORPORATED"
+   },
+   "survivor": {
+    "agreement_uuid": "9ba1317f-51fc-526d-b3ef-00af5c0bfa5a",
+    "url": "https://www.sec.gov/Archives/edgar/data/817720/000095017021003116/syna-ex2_1.htm",
+    "filing_date": "2021-11-04",
+    "target": "DSP Group, Inc.",
+    "acquirer": "Synaptics Incorporated"
+   }
+  },
+  {
+   "pair_id": "5ce196e4-d4d9-5fd0-a632-667295c4356f__6484673f-6c48-56b6-be29-6f17b57242c8",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "5ce196e4-d4d9-5fd0-a632-667295c4356f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1869824/000110465923067274/tm2317462d1_ex2-1.htm",
+    "filing_date": "2023-06-02",
+    "target": "AMERICAN BATTERY MATERIALS, INC.",
+    "acquirer": "SEAPORT GLOBAL ACQUISITION II CORP."
+   },
+   "survivor": {
+    "agreement_uuid": "6484673f-6c48-56b6-be29-6f17b57242c8",
+    "url": "https://www.sec.gov/Archives/edgar/data/1487718/000121390023045390/ea179613ex2-1_american.htm",
+    "filing_date": "2023-06-02",
+    "target": "AMERICAN BATTERY MATERIALS, INC.",
+    "acquirer": "SEAPORT GLOBAL ACQUISITION II CORP."
+   }
+  },
+  {
+   "pair_id": "6000dd87-a5e4-57ca-9b36-a9ed781ee3a7__e0999da5-c1b0-5a0e-9489-50ba6d9b9551",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "6000dd87-a5e4-57ca-9b36-a9ed781ee3a7",
+    "url": "https://www.sec.gov/Archives/edgar/data/811589/000110465922072996/tm2218969d1_ex2-1.htm",
+    "filing_date": "2022-06-21",
+    "target": "GrandSouth Bancorporation",
+    "acquirer": "First Bancorp"
+   },
+   "survivor": {
+    "agreement_uuid": "e0999da5-c1b0-5a0e-9489-50ba6d9b9551",
+    "url": "https://www.sec.gov/Archives/edgar/data/1126961/000155278122000467/e22353_ex2-1.htm",
+    "filing_date": "2022-06-21",
+    "target": "GrandSouth Bancorporation",
+    "acquirer": "First Bancorp"
+   }
+  },
+  {
+   "pair_id": "604187a7-b49a-5faa-a6a8-27169e53c9ef__6d247b5e-0a89-560e-b0bf-4fe28c23b699",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "604187a7-b49a-5faa-a6a8-27169e53c9ef",
+    "url": "https://www.sec.gov/Archives/edgar/data/1771706/000110465924131371/tm2431729d1_ex2-3.htm",
+    "filing_date": "2024-12-23",
+    "target": "WHOLESOMECO, INC.",
+    "acquirer": "VIREO GROWTH INC."
+   },
+   "survivor": {
+    "agreement_uuid": "6d247b5e-0a89-560e-b0bf-4fe28c23b699",
+    "url": "https://www.sec.gov/Archives/edgar/data/1771706/000155837025002130/vreof-20241231xex2d4.htm",
+    "filing_date": "2025-03-04",
+    "target": "WHOLESOMECO, INC.",
+    "acquirer": "VIREO GROWTH INC."
+   }
+  },
+  {
+   "pair_id": "6262361e-3be8-5782-b856-defacb5c46eb__d82c845f-178e-54c8-b1c3-c31e18641595",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "6262361e-3be8-5782-b856-defacb5c46eb",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819994/000175392626001085/g085783_ex2-1.htm",
+    "filing_date": "2026-06-29",
+    "target": "IRIDIUM COMMUNICATIONS INC.",
+    "acquirer": "ROCKET LAB CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "d82c845f-178e-54c8-b1c3-c31e18641595",
+    "url": "https://www.sec.gov/Archives/edgar/data/1418819/000110465926078482/tm2619278d1_ex2-1.htm",
+    "filing_date": "2026-06-29",
+    "target": "Iridium Communications Inc.",
+    "acquirer": "Rocket Lab Corporation"
+   }
+  },
+  {
+   "pair_id": "42fde9f8-2ec1-5409-8f2e-56c5837861f9__6262d5ca-0317-5d7a-b423-c2a05534830b",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "6262d5ca-0317-5d7a-b423-c2a05534830b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1879297/000119312523218122/d537536dex21.htm",
+    "filing_date": "2023-08-22",
+    "target": "Nuvo Group Ltd.",
+    "acquirer": "LAMF Global Ventures Corp. I"
+   },
+   "survivor": {
+    "agreement_uuid": "42fde9f8-2ec1-5409-8f2e-56c5837861f9",
+    "url": "https://www.sec.gov/Archives/edgar/data/1990145/000182912623006389/nuvogroup_ex2-1.htm",
+    "filing_date": "2023-09-29",
+    "target": "Nuvo Group Ltd.",
+    "acquirer": "LAMF Global Ventures Corp. I"
+   }
+  },
+  {
+   "pair_id": "65302253-4c6e-56f7-b4d0-8cf411ff99c1__6a20cc78-a14f-591b-a215-1b77b0bddfe6",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "65302253-4c6e-56f7-b4d0-8cf411ff99c1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1841666/000119312524002515/d680825dex21.htm",
+    "filing_date": "2024-01-04",
+    "target": "Callon Petroleum Company",
+    "acquirer": "APA Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "6a20cc78-a14f-591b-a215-1b77b0bddfe6",
+    "url": "https://www.sec.gov/Archives/edgar/data/928022/000092802224000007/ex21-agreementandplanofmer.htm",
+    "filing_date": "2024-01-04",
+    "target": "Callon Petroleum Company",
+    "acquirer": "APA Corporation"
+   }
+  },
+  {
+   "pair_id": "65fdf0ec-cb33-5419-a93f-35063613d87b__9661b816-354c-53a6-b0f7-174c6ee58066",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "65fdf0ec-cb33-5419-a93f-35063613d87b",
+    "url": "https://www.sec.gov/Archives/edgar/data/701288/000094787124000536/ss3435053_ex0201.htm",
+    "filing_date": "2024-05-29",
+    "target": "ATRION CORPORATION",
+    "acquirer": "NORDSON CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "9661b816-354c-53a6-b0f7-174c6ee58066",
+    "url": "https://www.sec.gov/Archives/edgar/data/72331/000119312524204098/d874837dex21.htm",
+    "filing_date": "2024-08-21",
+    "target": "ATRION CORPORATION",
+    "acquirer": "NORDSON CORPORATION"
+   }
+  },
+  {
+   "pair_id": "66a5a5a0-2873-5b45-a088-07f3d1d290c8__cc48597b-198f-5e36-9329-ebe6223d89e0",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "66a5a5a0-2873-5b45-a088-07f3d1d290c8",
+    "url": "https://www.sec.gov/Archives/edgar/data/821127/000114036121000609/nc10018581x5_ex2-1.htm",
+    "filing_date": "2021-01-08",
+    "target": "Boston Private Financial Holdings, Inc.",
+    "acquirer": "SVB Financial Group"
+   },
+   "survivor": {
+    "agreement_uuid": "cc48597b-198f-5e36-9329-ebe6223d89e0",
+    "url": "https://www.sec.gov/Archives/edgar/data/719739/000119312521004704/d103536dex21.htm",
+    "filing_date": "2021-01-08",
+    "target": "Boston Private Financial Holdings, Inc.",
+    "acquirer": "SVB Financial Group"
+   }
+  },
+  {
+   "pair_id": "672f7db6-8c2c-5fd8-a9e5-ead27ef5c750__b9ee24fa-d724-5a42-be20-b21a41126ca3",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "672f7db6-8c2c-5fd8-a9e5-ead27ef5c750",
+    "url": "https://www.sec.gov/Archives/edgar/data/1379785/000114036121032018/ny20000760x1_ex2-1.htm",
+    "filing_date": "2021-09-22",
+    "target": "SIERRA INCOME CORPORATION",
+    "acquirer": "BARINGS BDC, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "b9ee24fa-d724-5a42-be20-b21a41126ca3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1523526/000121390021049252/ea147757ex2-1_sierra.htm",
+    "filing_date": "2021-09-22",
+    "target": "SIERRA INCOME CORPORATION",
+    "acquirer": "BARINGS BDC, INC."
+   }
+  },
+  {
+   "pair_id": "6a91621d-5222-5cd8-a047-c9eb7d3742cc__6e18aced-5df2-5d6a-b11a-6f131b69bb7a",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "6a91621d-5222-5cd8-a047-c9eb7d3742cc",
+    "url": "https://www.sec.gov/Archives/edgar/data/1029199/000155485525000873/ex21_1.htm",
+    "filing_date": "2025-07-31",
+    "target": "CORECARD CORPORATION",
+    "acquirer": "EURONET WORLDWIDE, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "6e18aced-5df2-5d6a-b11a-6f131b69bb7a",
+    "url": "https://www.sec.gov/Archives/edgar/data/320340/000143774925024000/ex_845645.htm",
+    "filing_date": "2025-07-31",
+    "target": "CORECARD CORPORATION",
+    "acquirer": "EURONET WORLDWIDE, INC."
+   }
+  },
+  {
+   "pair_id": "6d1b767c-8150-54b8-a446-f2104c92fb23__e8eb1b82-291d-545f-a7c9-880c4bc259ce",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "6d1b767c-8150-54b8-a446-f2104c92fb23",
+    "url": "https://www.sec.gov/Archives/edgar/data/1634038/000110465921005010/tm213517d1_ex2-1.htm",
+    "filing_date": "2021-01-19",
+    "target": "ProSight Global, Inc.",
+    "acquirer": "Pedal Parent, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "e8eb1b82-291d-545f-a7c9-880c4bc259ce",
+    "url": "https://www.sec.gov/Archives/edgar/data/1634038/000110465921099896/tm2124071d1_ex2-1.htm",
+    "filing_date": "2021-08-04",
+    "target": "PROSIGHT GLOBAL, INC.",
+    "acquirer": "PEDAL PARENT, INC."
+   }
+  },
+  {
+   "pair_id": "6dd8dca4-6847-5419-af73-c4dc2cad0a0a__a35e7834-4607-5271-95e6-8cf4ab26e204",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "6dd8dca4-6847-5419-af73-c4dc2cad0a0a",
+    "url": "https://www.sec.gov/Archives/edgar/data/702325/000110465921075415/tm2117976d3_ex2-1.htm",
+    "filing_date": "2021-06-02",
+    "target": "First Midwest Bancorp, Inc.",
+    "acquirer": "Old National Bancorp"
+   },
+   "survivor": {
+    "agreement_uuid": "a35e7834-4607-5271-95e6-8cf4ab26e204",
+    "url": "https://www.sec.gov/Archives/edgar/data/707179/000114036121019539/nt10025327x8_ex2-1.htm",
+    "filing_date": "2021-06-02",
+    "target": "FIRST MIDWEST BANCORP, INC.",
+    "acquirer": "OLD NATIONAL BANCORP"
+   }
+  },
+  {
+   "pair_id": "6e633e3d-285b-5586-a146-4602c520667f__edb7b308-1c7c-59f4-a534-c5afa5570b14",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "6e633e3d-285b-5586-a146-4602c520667f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1964333/000196433325000256/exhibit21-agreementandplan.htm",
+    "filing_date": "2025-12-18",
+    "target": "LINKBANCORP, INC.",
+    "acquirer": "BURKE & HERBERT FINANCIAL SERVICES CORP."
+   },
+   "survivor": {
+    "agreement_uuid": "edb7b308-1c7c-59f4-a534-c5afa5570b14",
+    "url": "https://www.sec.gov/Archives/edgar/data/1756701/000119312525324855/d937303dex21.htm",
+    "filing_date": "2025-12-18",
+    "target": "LINKBANCORP, Inc.",
+    "acquirer": "Burke & Herbert Financial Services Corp."
+   }
+  },
+  {
+   "pair_id": "70bcb176-9023-50da-90b8-da1d3db6acfd__9097dcc0-c1fb-5a89-af16-fa7ae90003c7",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "70bcb176-9023-50da-90b8-da1d3db6acfd",
+    "url": "https://www.sec.gov/Archives/edgar/data/1635881/000119312522015435/d279657dex21.htm",
+    "filing_date": "2022-01-24",
+    "target": "Exterran Corporation",
+    "acquirer": "Enerflex Ltd."
+   },
+   "survivor": {
+    "agreement_uuid": "9097dcc0-c1fb-5a89-af16-fa7ae90003c7",
+    "url": "https://www.sec.gov/Archives/edgar/data/1635881/000119312522263429/d399637dex21.htm",
+    "filing_date": "2022-10-17",
+    "target": "Exterran Corporation",
+    "acquirer": "Enerflex Ltd."
+   }
+  },
+  {
+   "pair_id": "72b2be87-2020-519b-a5d8-6476aa98d0dc__81bac1a8-86b3-5fb8-bbd7-4818c93fffd0",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "72b2be87-2020-519b-a5d8-6476aa98d0dc",
+    "url": "https://www.sec.gov/Archives/edgar/data/1564618/000114036124026773/ny20029459x1_ex2-1.htm",
+    "filing_date": "2024-05-20",
+    "target": "INDEPENDENT BANK GROUP, INC.",
+    "acquirer": "SOUTHSTATE CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "81bac1a8-86b3-5fb8-bbd7-4818c93fffd0",
+    "url": "https://www.sec.gov/Archives/edgar/data/764038/000155837024008442/ssb-20240517xex2d1.htm",
+    "filing_date": "2024-05-20",
+    "target": "Independent Bank Group, Inc.",
+    "acquirer": "SouthState Corporation"
+   }
+  },
+  {
+   "pair_id": "72f8c85a-ad61-52d2-9c85-d8630a5bff0c__c3be79be-6b89-5f8b-af78-09b821888bfa",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "72f8c85a-ad61-52d2-9c85-d8630a5bff0c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1795815/000149315224004219/ex2-1.htm",
+    "filing_date": "2024-01-30",
+    "target": "California BanCorp",
+    "acquirer": "Southern California Bancorp"
+   },
+   "survivor": {
+    "agreement_uuid": "c3be79be-6b89-5f8b-af78-09b821888bfa",
+    "url": "https://www.sec.gov/Archives/edgar/data/1752036/000119312524018670/d745509dex21.htm",
+    "filing_date": "2024-01-30",
+    "target": "California BanCorp",
+    "acquirer": "Southern California Bancorp"
+   }
+  },
+  {
+   "pair_id": "735b0f89-f856-5d2d-8998-5fe0bb2e2a04__b37195f4-9323-51a2-9e35-40727adc19ae",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "735b0f89-f856-5d2d-8998-5fe0bb2e2a04",
+    "url": "https://www.sec.gov/Archives/edgar/data/1764974/000119312525151306/d928306dex21.htm",
+    "filing_date": "2025-06-27",
+    "target": "Turnstone Biologics Corp.",
+    "acquirer": "XOMA Royalty Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "b37195f4-9323-51a2-9e35-40727adc19ae",
+    "url": "https://www.sec.gov/Archives/edgar/data/791908/000119312525181840/d41745dex21.htm",
+    "filing_date": "2025-08-15",
+    "target": "Turnstone Biologics Corp.",
+    "acquirer": "XOMA Royalty Corporation"
+   }
+  },
+  {
+   "pair_id": "74c1fe3c-c2c8-5fe2-ad05-8f5131b69307__ef015b9d-1cbe-547c-bbd7-b2670c40e457",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "74c1fe3c-c2c8-5fe2-ad05-8f5131b69307",
+    "url": "https://www.sec.gov/Archives/edgar/data/1635088/000114036124041663/ny20036156x1_ex2-1.htm",
+    "filing_date": "2024-09-23",
+    "target": "Dermavant Sciences Ltd.",
+    "acquirer": "Organon & Co."
+   },
+   "survivor": {
+    "agreement_uuid": "ef015b9d-1cbe-547c-bbd7-b2670c40e457",
+    "url": "https://www.sec.gov/Archives/edgar/data/1821825/000110465924102053/tm2424316d1_ex10-1.htm",
+    "filing_date": "2024-09-23",
+    "target": "Dermavant Sciences Ltd.",
+    "acquirer": "Organon & Co."
+   }
+  },
+  {
+   "pair_id": "757e6b3e-5c74-512b-921d-2a62c7ff7ffe__da287350-8ad2-50f1-88db-e57c4163fe66",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "757e6b3e-5c74-512b-921d-2a62c7ff7ffe",
+    "url": "https://www.sec.gov/Archives/edgar/data/1338749/000119312522162937/d327944dex21.htm",
+    "filing_date": "2022-05-31",
+    "target": "CATCHMARK TIMBER TRUST, INC.",
+    "acquirer": "POTLATCHDELTIC CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "da287350-8ad2-50f1-88db-e57c4163fe66",
+    "url": "https://www.sec.gov/Archives/edgar/data/1341141/000110465922066105/tm2217242d1_ex2-1.htm",
+    "filing_date": "2022-05-31",
+    "target": "CatchMark Timber Trust, Inc.",
+    "acquirer": "PotlatchDeltic Corporation"
+   }
+  },
+  {
+   "pair_id": "3c5be027-d2fd-5725-8689-dd4788dc3eef__7623ec01-709a-555b-91eb-ffc2c7b9e2f1",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "7623ec01-709a-555b-91eb-ffc2c7b9e2f1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1808665/000110465926059856/tm2611405d26_ex2-1.htm",
+    "filing_date": "2026-05-13",
+    "target": "Assertio Holdings, Inc.",
+    "acquirer": "Zydus Worldwide DMCC"
+   },
+   "survivor": {
+    "agreement_uuid": "3c5be027-d2fd-5725-8689-dd4788dc3eef",
+    "url": "https://www.sec.gov/Archives/edgar/data/1808665/000110465926074619/tm2617883d1_ex2-1.htm",
+    "filing_date": "2026-06-16",
+    "target": "Assertio Holdings, Inc.",
+    "acquirer": "Zydus Worldwide DMCC"
+   }
+  },
+  {
+   "pair_id": "76776d18-5de9-5e85-a5c0-abf0bf466924__e87a366e-17fb-5e35-83a8-47ff26858ccf",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "76776d18-5de9-5e85-a5c0-abf0bf466924",
+    "url": "https://www.sec.gov/Archives/edgar/data/1666071/000166607121000159/cdlx_form10-qx2021q2xex103.htm",
+    "filing_date": "2021-08-03",
+    "target": "BRIDG, INC.",
+    "acquirer": "CARDLYTICS, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "e87a366e-17fb-5e35-83a8-47ff26858ccf",
+    "url": "https://www.sec.gov/Archives/edgar/data/1666071/000166607122000155/ex101_2022x8-kx11182022.htm",
+    "filing_date": "2022-11-18",
+    "target": "Bridg, Inc.",
+    "acquirer": "Cardlytics, Inc."
+   }
+  },
+  {
+   "pair_id": "781827df-6e5f-56ec-8f9c-f0fd6bd671fa__79b16df3-276d-572e-b73a-18dbed8a6cff",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "781827df-6e5f-56ec-8f9c-f0fd6bd671fa",
+    "url": "https://www.sec.gov/Archives/edgar/data/1507385/000150738521000116/ex21mergeragreement.htm",
+    "filing_date": "2021-04-30",
+    "target": "VEREIT, INC.",
+    "acquirer": "REALTY INCOME CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "79b16df3-276d-572e-b73a-18dbed8a6cff",
+    "url": "https://www.sec.gov/Archives/edgar/data/726728/000110465921058137/tm2114533d10_ex2-1.htm",
+    "filing_date": "2021-04-30",
+    "target": "VEREIT, INC.",
+    "acquirer": "REALTY INCOME CORPORATION"
+   }
+  },
+  {
+   "pair_id": "79374610-592e-516c-a7ea-6e5fa3d89762__b58bf2c7-f777-55ff-80ce-10178e09b3cd",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "79374610-592e-516c-a7ea-6e5fa3d89762",
+    "url": "https://www.sec.gov/Archives/edgar/data/32604/000095010323005685/dp192144_ex0201.htm",
+    "filing_date": "2023-04-12",
+    "target": "National Instruments Corporation",
+    "acquirer": "Emerson Electric Co."
+   },
+   "survivor": {
+    "agreement_uuid": "b58bf2c7-f777-55ff-80ce-10178e09b3cd",
+    "url": "https://www.sec.gov/Archives/edgar/data/935494/000114036123018010/brhc20051364_ex2-1.htm",
+    "filing_date": "2023-04-12",
+    "target": "NATIONAL INSTRUMENTS CORPORATION",
+    "acquirer": "EMERSON ELECTRIC CO."
+   }
+  },
+  {
+   "pair_id": "7981e739-91b6-54b3-8a80-a9671772e45a__8e3d96e1-9084-5ad6-b544-beca55a48c45",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "7981e739-91b6-54b3-8a80-a9671772e45a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1604627/000160462721000071/projectgrass-mergeragreeme.htm",
+    "filing_date": "2021-04-01",
+    "target": "KUSHCO HOLDINGS, INC.",
+    "acquirer": "GREENLANE HOLDINGS, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "8e3d96e1-9084-5ad6-b544-beca55a48c45",
+    "url": "https://www.sec.gov/Archives/edgar/data/1743745/000110465921045619/tm2111603d1_ex2-1.htm",
+    "filing_date": "2021-04-01",
+    "target": "KushCo Holdings, Inc.",
+    "acquirer": "Greenlane Holdings, Inc."
+   }
+  },
+  {
+   "pair_id": "77e6fbb1-799d-5945-a0af-ff9115f1ddab__7a7bd123-3a55-558e-9c88-043f791cc81b",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "7a7bd123-3a55-558e-9c88-043f791cc81b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1771706/000110465924131371/tm2431729d1_ex2-2.htm",
+    "filing_date": "2024-12-23",
+    "target": "NGH Investments, Inc.",
+    "acquirer": "Vireo Growth Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "77e6fbb1-799d-5945-a0af-ff9115f1ddab",
+    "url": "https://www.sec.gov/Archives/edgar/data/1771706/000155837025002130/vreof-20241231xex2d3.htm",
+    "filing_date": "2025-03-04",
+    "target": "NGH INVESTMENTS, INC.",
+    "acquirer": "VIREO GROWTH INC."
+   }
+  },
+  {
+   "pair_id": "7e65944d-b3cf-5c22-9361-e33ee320736e__945219fb-138f-5ff9-9b33-fd4d32e69f55",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "7e65944d-b3cf-5c22-9361-e33ee320736e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1049782/000110465922064110/tm2216573d1_ex2-1.htm",
+    "filing_date": "2022-05-24",
+    "target": "PCSB Financial Corporation",
+    "acquirer": "Brookline Bancorp, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "945219fb-138f-5ff9-9b33-fd4d32e69f55",
+    "url": "https://www.sec.gov/Archives/edgar/data/1691337/000095017022010585/pcsb-ex2_1.htm",
+    "filing_date": "2022-05-24",
+    "target": "PCSB Financial Corporation",
+    "acquirer": "Brookline Bancorp, Inc."
+   }
+  },
+  {
+   "pair_id": "7f2e6fa9-1518-50be-b4e8-5fd78ed55be2__b0e98562-6e1b-52f9-9f39-1b778abb5c37",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "7f2e6fa9-1518-50be-b4e8-5fd78ed55be2",
+    "url": "https://www.sec.gov/Archives/edgar/data/1411342/000141134223000119/ex21agreementandplanofmerg.htm",
+    "filing_date": "2023-05-30",
+    "target": "ARLINGTON ASSET INVESTMENT CORP.",
+    "acquirer": "ELLINGTON FINANCIAL INC."
+   },
+   "survivor": {
+    "agreement_uuid": "b0e98562-6e1b-52f9-9f39-1b778abb5c37",
+    "url": "https://www.sec.gov/Archives/edgar/data/1209028/000119312523157177/d465936dex21.htm",
+    "filing_date": "2023-05-31",
+    "target": "ARLINGTON ASSET INVESTMENT CORP.",
+    "acquirer": "ELLINGTON FINANCIAL INC."
+   }
+  },
+  {
+   "pair_id": "7f30c798-0ed3-5b27-a1ca-c76fa025df10__e59eee03-b11c-5f82-8d3b-9e5565a020f4",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "7f30c798-0ed3-5b27-a1ca-c76fa025df10",
+    "url": "https://www.sec.gov/Archives/edgar/data/1470205/000119312521195790/d204114dex21.htm",
+    "filing_date": "2021-06-22",
+    "target": "County Bancorp, Inc.",
+    "acquirer": "Nicolet Bankshares, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "e59eee03-b11c-5f82-8d3b-9e5565a020f4",
+    "url": "https://www.sec.gov/Archives/edgar/data/1174850/000117485021000045/exhibit21definitiveagreeme.htm",
+    "filing_date": "2021-06-22",
+    "target": "County Bancorp, Inc.",
+    "acquirer": "Nicolet Bankshares, Inc."
+   }
+  },
+  {
+   "pair_id": "7fce0e75-3feb-54d7-835e-7f5b26db428c__f5785647-bfeb-514d-82d4-f455dc67a21a",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "7fce0e75-3feb-54d7-835e-7f5b26db428c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1851484/000149315223038045/ex2-1.htm",
+    "filing_date": "2023-10-24",
+    "target": "CITIUS ONCOLOGY, INC.",
+    "acquirer": "TENX KEANE ACQUISITION"
+   },
+   "survivor": {
+    "agreement_uuid": "f5785647-bfeb-514d-82d4-f455dc67a21a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1506251/000101376223006005/ea186984ex2-1_citius.htm",
+    "filing_date": "2023-10-24",
+    "target": "Citius Oncology, Inc.",
+    "acquirer": "TenX Keane Acquisition"
+   }
+  },
+  {
+   "pair_id": "8278fb12-3f7f-5ecb-81a0-a834d33f4463__ad42446f-c044-5e64-b0c0-89e5988f3bd6",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "8278fb12-3f7f-5ecb-81a0-a834d33f4463",
+    "url": "https://www.sec.gov/Archives/edgar/data/1057352/000119312524103937/d828310dex21.htm",
+    "filing_date": "2024-04-22",
+    "target": "Matterport, Inc.",
+    "acquirer": "CoStar Group, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "ad42446f-c044-5e64-b0c0-89e5988f3bd6",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819394/000110465924049761/tm2411308d1_ex2-1.htm",
+    "filing_date": "2024-04-22",
+    "target": "Matterport, Inc.",
+    "acquirer": "CoStar Group, Inc."
+   }
+  },
+  {
+   "pair_id": "83040768-8497-51f7-889c-83c95f768d4b__a2e91d01-8a24-5667-aaef-07b41dc8666a",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "83040768-8497-51f7-889c-83c95f768d4b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1013272/000119312525156255/d849228dex21.htm",
+    "filing_date": "2025-07-07",
+    "target": "PB Bankshares, Inc.",
+    "acquirer": "Norwood Financial Corp"
+   },
+   "survivor": {
+    "agreement_uuid": "a2e91d01-8a24-5667-aaef-07b41dc8666a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1849670/000184967025000021/pbbk-20250707xex2d1.htm",
+    "filing_date": "2025-07-07",
+    "target": "PB Bankshares, Inc.",
+    "acquirer": "Norwood Financial Corp"
+   }
+  },
+  {
+   "pair_id": "844b5b44-3d6a-510d-ae4e-8fdae27b955c__de35df13-586f-5c3f-9fde-3aa38ed53260",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "844b5b44-3d6a-510d-ae4e-8fdae27b955c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1237831/000119312523030375/d447800dex21.htm",
+    "filing_date": "2023-02-09",
+    "target": "NUVASIVE, INC.",
+    "acquirer": "GLOBUS MEDICAL, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "de35df13-586f-5c3f-9fde-3aa38ed53260",
+    "url": "https://www.sec.gov/Archives/edgar/data/1142596/000119312523029489/d451550dex21.htm",
+    "filing_date": "2023-02-09",
+    "target": "NUVASIVE, INC.",
+    "acquirer": "GLOBUS MEDICAL, INC."
+   }
+  },
+  {
+   "pair_id": "31559a9a-3998-5cbf-ab7c-765a1dcc1371__84f94ae4-534b-5e4d-aa30-c52c076be753",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "84f94ae4-534b-5e4d-aa30-c52c076be753",
+    "url": "https://www.sec.gov/Archives/edgar/data/1892922/000110465923099289/tm2325654d1_ex2-1.htm",
+    "filing_date": "2023-09-08",
+    "target": "SCANTECH IDENTIFICATION BEAM SYSTEMS, LLC",
+    "acquirer": "MARS ACQUISITION CORP."
+   },
+   "survivor": {
+    "agreement_uuid": "31559a9a-3998-5cbf-ab7c-765a1dcc1371",
+    "url": "https://www.sec.gov/Archives/edgar/data/1994624/000141057825001275/tmb-20241231xex2d1.htm",
+    "filing_date": "2025-05-14",
+    "target": "SCANTECH IDENTIFICATION BEAM SYSTEMS, LLC",
+    "acquirer": "MARS ACQUISITION CORP."
+   }
+  },
+  {
+   "pair_id": "856e3658-be56-59bb-8aa0-772a9a9a2d4e__8ec47e36-c806-5be0-b657-6577dcb0a55c",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "856e3658-be56-59bb-8aa0-772a9a9a2d4e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1711933/000110465925002310/tm252908d1_ex2-1.htm",
+    "filing_date": "2025-01-10",
+    "target": "AKOYA BIOSCIENCES, INC.",
+    "acquirer": "QUANTERIX CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "8ec47e36-c806-5be0-b657-6577dcb0a55c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1503274/000150327425000002/qtrx-20250110x8kxexx21.htm",
+    "filing_date": "2025-01-10",
+    "target": "AKOYA BIOSCIENCES, INC.",
+    "acquirer": "QUANTERIX CORPORATION"
+   }
+  },
+  {
+   "pair_id": "8851b1eb-fbdd-5cc3-abb5-fd074caac278__bcd11097-77df-579f-900f-980dc1fa08ee",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "8851b1eb-fbdd-5cc3-abb5-fd074caac278",
+    "url": "https://www.sec.gov/Archives/edgar/data/1671858/000119312522199246/d379554dex21.htm",
+    "filing_date": "2022-07-21",
+    "target": "ARS PHARMACEUTICALS, INC.",
+    "acquirer": "SILVERBACK THERAPEUTICS, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "bcd11097-77df-579f-900f-980dc1fa08ee",
+    "url": "https://www.sec.gov/Archives/edgar/data/1671858/000119312522280241/d388226dex21.htm",
+    "filing_date": "2022-11-08",
+    "target": "ARS PHARMACEUTICALS, INC.",
+    "acquirer": "SILVERBACK THERAPEUTICS, INC."
+   }
+  },
+  {
+   "pair_id": "8a6865da-6675-5d07-88e0-3458bcee2706__bf479750-b7bc-5376-9eef-f5b0a2dc1e58",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "8a6865da-6675-5d07-88e0-3458bcee2706",
+    "url": "https://www.sec.gov/Archives/edgar/data/1031623/000114036125041387/ny20056788x3_ex2-1.htm",
+    "filing_date": "2025-11-10",
+    "target": "GULF ISLAND FABRICATION, INC.",
+    "acquirer": "IES HOLDINGS, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "bf479750-b7bc-5376-9eef-f5b0a2dc1e58",
+    "url": "https://www.sec.gov/Archives/edgar/data/1048268/000104826825000165/mergeragreementforedgarizi.htm",
+    "filing_date": "2025-11-12",
+    "target": "Gulf Island Fabrication, Inc.",
+    "acquirer": "IES Holdings, Inc."
+   }
+  },
+  {
+   "pair_id": "8b50fd3b-676d-53bb-bb6e-c3b60ac296ab__c4e0220e-be18-50af-9b1b-cd539995b689",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "8b50fd3b-676d-53bb-bb6e-c3b60ac296ab",
+    "url": "https://www.sec.gov/Archives/edgar/data/1018399/000117494724001307/ea022401801ex2-1_enter.htm",
+    "filing_date": "2024-12-09",
+    "target": "Enterprise Bancorp, Inc.",
+    "acquirer": "Independent Bank Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "c4e0220e-be18-50af-9b1b-cd539995b689",
+    "url": "https://www.sec.gov/Archives/edgar/data/776901/000077690124000182/exhibit21-enterprisexagr.htm",
+    "filing_date": "2024-12-09",
+    "target": "Enterprise Bancorp, Inc.",
+    "acquirer": "Independent Bank Corp."
+   }
+  },
+  {
+   "pair_id": "90b60402-97ef-52a9-bc8c-7245259b8c2c__c14d3840-57b5-534e-82dd-5c0af8c13427",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "90b60402-97ef-52a9-bc8c-7245259b8c2c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1636282/000119312523173242/d433690dex21.htm",
+    "filing_date": "2023-06-23",
+    "target": "SPYRE THERAPEUTICS, INC.",
+    "acquirer": "AEGLEA BIOTHERAPEUTICS, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "c14d3840-57b5-534e-82dd-5c0af8c13427",
+    "url": "https://www.sec.gov/Archives/edgar/data/1636282/000119312523302158/d518298dex21.htm",
+    "filing_date": "2023-12-22",
+    "target": "SPYRE THERAPEUTICS, INC.",
+    "acquirer": "AEGLEA BIOTHERAPEUTICS, INC."
+   }
+  },
+  {
+   "pair_id": "56805951-ce58-56f3-8518-28b3e6efd5b3__91385ff0-9ffe-5135-a611-892a3ce822c8",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "91385ff0-9ffe-5135-a611-892a3ce822c8",
+    "url": "https://www.sec.gov/Archives/edgar/data/1581091/000110465926049628/tm2612789d1_ex2-1.htm",
+    "filing_date": "2026-04-28",
+    "target": "RE/MAX Holdings, Inc.",
+    "acquirer": "The Real Brokerage Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "56805951-ce58-56f3-8518-28b3e6efd5b3",
+    "url": "https://www.sec.gov/Archives/edgar/data/2136387/000110465926073581/tm2615804d2_ex2-1.htm",
+    "filing_date": "2026-06-12",
+    "target": "RE/MAX Holdings, Inc.",
+    "acquirer": "The Real Brokerage Inc."
+   }
+  },
+  {
+   "pair_id": "2ef1835e-0de7-51ff-8ee0-85a359dd1736__936d6d2d-4481-58cf-bd61-1787b632dea3",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "936d6d2d-4481-58cf-bd61-1787b632dea3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1858180/000110465922131091/tm2233726d1_ex2-1.htm",
+    "filing_date": "2022-12-30",
+    "target": "NOCO-NOCO PTE. LTD.",
+    "acquirer": "Prime Number Acquisition I Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "2ef1835e-0de7-51ff-8ee0-85a359dd1736",
+    "url": "https://www.sec.gov/Archives/edgar/data/1964021/000110465923061725/tm234083d4_ex2-1.htm",
+    "filing_date": "2023-05-17",
+    "target": "NOCO-NOCO PTE. LTD.",
+    "acquirer": "Prime Number Acquisition I Corp."
+   }
+  },
+  {
+   "pair_id": "95e229a2-cc9f-5c04-bbf8-7f75d1b37955__e4d6b102-0e40-52b8-8f12-9dccd602459f",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "95e229a2-cc9f-5c04-bbf8-7f75d1b37955",
+    "url": "https://www.sec.gov/Archives/edgar/data/1824577/000119312521079861/d153292dex21.htm",
+    "filing_date": "2021-03-12",
+    "target": "Maple Holdings Inc.",
+    "acquirer": "Cerberus Telecom Acquisition Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "e4d6b102-0e40-52b8-8f12-9dccd602459f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1855457/000119312521300083/d228283dex21.htm",
+    "filing_date": "2021-10-15",
+    "target": "Maple Holdings Inc.",
+    "acquirer": "Cerberus Telecom Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "3f0e5ddc-5e2d-540a-aef4-b70182583594__99da0cae-cc29-5b26-982e-0c4027feece4",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "99da0cae-cc29-5b26-982e-0c4027feece4",
+    "url": "https://www.sec.gov/Archives/edgar/data/1070154/000110465921053873/tm2113479d1_ex2-1.htm",
+    "filing_date": "2021-04-22",
+    "target": "Sterling Bancorp",
+    "acquirer": "Webster Financial Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "3f0e5ddc-5e2d-540a-aef4-b70182583594",
+    "url": "https://www.sec.gov/Archives/edgar/data/801337/000114036121013969/nt10023268x3_ex2-1.htm",
+    "filing_date": "2021-04-23",
+    "target": "STERLING BANCORP",
+    "acquirer": "WEBSTER FINANCIAL CORPORATION"
+   }
+  },
+  {
+   "pair_id": "9ca93e2c-b4a0-5213-a726-fab4597b7def__d28228f3-6c29-5b2a-885c-2bba03e5d96b",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "9ca93e2c-b4a0-5213-a726-fab4597b7def",
+    "url": "https://www.sec.gov/Archives/edgar/data/55772/000005577223000051/exhibit21mergeragreement.htm",
+    "filing_date": "2023-03-10",
+    "target": "KIMBALL INTERNATIONAL, INC.",
+    "acquirer": "HNI CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "d28228f3-6c29-5b2a-885c-2bba03e5d96b",
+    "url": "https://www.sec.gov/Archives/edgar/data/48287/000004828723000106/mergeragreement.htm",
+    "filing_date": "2023-03-10",
+    "target": "Kimball International, Inc.",
+    "acquirer": "HNI Corporation"
+   }
+  },
+  {
+   "pair_id": "9cadcf69-411f-5574-8195-146b4d9bbeea__fb479792-77b5-54c7-abd7-7bec1071a7ac",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "9cadcf69-411f-5574-8195-146b4d9bbeea",
+    "url": "https://www.sec.gov/Archives/edgar/data/761648/000119312522064518/d239117dex22.htm",
+    "filing_date": "2022-03-03",
+    "target": "CEDAR REALTY TRUST, INC.",
+    "acquirer": "WHEELER REAL ESTATE INVESTMENT TRUST, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "fb479792-77b5-54c7-abd7-7bec1071a7ac",
+    "url": "https://www.sec.gov/Archives/edgar/data/1527541/000121390022010828/ea156481ex2-1_wheelerreal.htm",
+    "filing_date": "2022-03-07",
+    "target": "Cedar Realty Trust, Inc.",
+    "acquirer": "Wheeler Real Estate Investment Trust, Inc."
+   }
+  },
+  {
+   "pair_id": "a3a4385f-14d1-51e9-86be-ee2d5448a34e__f7bedcae-9b09-5409-823b-c6c3d3c39223",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "a3a4385f-14d1-51e9-86be-ee2d5448a34e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1556593/000114036123035750/brhc20056286_ex2-1.htm",
+    "filing_date": "2023-07-24",
+    "target": "SCULPTOR CAPITAL MANAGEMENT, INC.",
+    "acquirer": "RITHM CAPITAL CORP."
+   },
+   "survivor": {
+    "agreement_uuid": "f7bedcae-9b09-5409-823b-c6c3d3c39223",
+    "url": "https://www.sec.gov/Archives/edgar/data/1403256/000140325623000116/exhibit21.htm",
+    "filing_date": "2023-11-08",
+    "target": "Sculptor Capital Management, Inc.",
+    "acquirer": "Rithm Capital Corp."
+   }
+  },
+  {
+   "pair_id": "a3f28ac4-94e1-56e6-98ea-ffcde0a71ae2__d285158b-e8ae-5a83-b45c-49ef66985807",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "a3f28ac4-94e1-56e6-98ea-ffcde0a71ae2",
+    "url": "https://www.sec.gov/Archives/edgar/data/1060219/000155479522000400/sal1205form8kexh2_1.htm",
+    "filing_date": "2022-12-05",
+    "target": "Salisbury Bancorp, Inc.",
+    "acquirer": "NBT Bancorp Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "d285158b-e8ae-5a83-b45c-49ef66985807",
+    "url": "https://www.sec.gov/Archives/edgar/data/790359/000114036122044364/brhc10045075_ex2-1.htm",
+    "filing_date": "2022-12-05",
+    "target": "Salisbury Bancorp, Inc.",
+    "acquirer": "NBT Bancorp Inc."
+   }
+  },
+  {
+   "pair_id": "a7ead3d6-2a9b-5f98-953f-fda5c83b4f33__f7e43816-1f58-5a49-a715-a8275d845d4e",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "a7ead3d6-2a9b-5f98-953f-fda5c83b4f33",
+    "url": "https://www.sec.gov/Archives/edgar/data/1509589/000110465925105649/tm2530051d2_ex2-1.htm",
+    "filing_date": "2025-11-03",
+    "target": "Civitas Resources, Inc.",
+    "acquirer": "SM Energy Company"
+   },
+   "survivor": {
+    "agreement_uuid": "f7e43816-1f58-5a49-a715-a8275d845d4e",
+    "url": "https://www.sec.gov/Archives/edgar/data/893538/000089353825000144/exhibit21agreementandplano.htm",
+    "filing_date": "2025-11-03",
+    "target": "CIVITAS RESOURCES, INC.",
+    "acquirer": "SM ENERGY COMPANY"
+   }
+  },
+  {
+   "pair_id": "a8cb3473-a608-50cb-b61b-50184ab6b2c3__dfccf706-3aee-5a6c-8b71-e6c859c4bb23",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "a8cb3473-a608-50cb-b61b-50184ab6b2c3",
+    "url": "https://www.sec.gov/Archives/edgar/data/740260/000110465921086336/tm2120804d1_ex2-1.htm",
+    "filing_date": "2021-06-28",
+    "target": "NEW SENIOR INVESTMENT GROUP INC.",
+    "acquirer": "VENTAS, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "dfccf706-3aee-5a6c-8b71-e6c859c4bb23",
+    "url": "https://www.sec.gov/Archives/edgar/data/1610114/000119312521202400/d149997dex21.htm",
+    "filing_date": "2021-06-29",
+    "target": "NEW SENIOR INVESTMENT GROUP INC.",
+    "acquirer": "VENTAS, INC."
+   }
+  },
+  {
+   "pair_id": "aa8aa8d6-866a-5ee5-9fba-cfd9593540d8__c685e7b9-28a5-547c-b3ff-8b38587b11f0",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "aa8aa8d6-866a-5ee5-9fba-cfd9593540d8",
+    "url": "https://www.sec.gov/Archives/edgar/data/763744/000076374426000040/lciiex21agreementandplanof.htm",
+    "filing_date": "2026-06-30",
+    "target": "Lightspeed",
+    "acquirer": "Planet"
+   },
+   "survivor": {
+    "agreement_uuid": "c685e7b9-28a5-547c-b3ff-8b38587b11f0",
+    "url": "https://www.sec.gov/Archives/edgar/data/76605/000007660526000059/marvel-8xkex21mergeragreem.htm",
+    "filing_date": "2026-06-30",
+    "target": "Lightspeed",
+    "acquirer": "Planet"
+   }
+  },
+  {
+   "pair_id": "aaf0ee74-dfef-5d8d-8110-6e9b4e343bc6__d1a80ace-7c99-5b43-b9a7-506906be51e3",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "aaf0ee74-dfef-5d8d-8110-6e9b4e343bc6",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819974/000181997425000052/skyt-20250928xex21.htm",
+    "filing_date": "2025-11-12",
+    "target": "SPANSION LLC",
+    "acquirer": "SkyWater Technology, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "d1a80ace-7c99-5b43-b9a7-506906be51e3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819974/000181997426000014/skyt-20250330xex211.htm",
+    "filing_date": "2026-05-08",
+    "target": "Spansion LLC",
+    "acquirer": "SkyWater Technology, Inc."
+   }
+  },
+  {
+   "pair_id": "0a50c6d1-83b9-5426-b82f-7977a9d94d20__ab45ffcf-add5-53d1-b5dc-d4fe070dd1fe",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "ab45ffcf-add5-53d1-b5dc-d4fe070dd1fe",
+    "url": "https://www.sec.gov/Archives/edgar/data/1818787/000119312522082058/d299964dex21.htm",
+    "filing_date": "2022-03-23",
+    "target": "FOSUN FASHION GROUP (CAYMAN) LIMITED",
+    "acquirer": "PRIMAVERA CAPITAL ACQUISITION CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "0a50c6d1-83b9-5426-b82f-7977a9d94d20",
+    "url": "https://www.sec.gov/Archives/edgar/data/1922097/000119312522191351/d373479dex21.htm",
+    "filing_date": "2022-07-11",
+    "target": "FOSUN FASHION GROUP (CAYMAN) LIMITED",
+    "acquirer": "PRIMAVERA CAPITAL ACQUISITION CORPORATION"
+   }
+  },
+  {
+   "pair_id": "32b2040b-c117-5797-88bc-6ae134405010__ad286120-b0a9-5ec2-a62b-98cbf45bfd6b",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "ad286120-b0a9-5ec2-a62b-98cbf45bfd6b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1645666/000119312526130486/d106892dex21.htm",
+    "filing_date": "2026-03-30",
+    "target": "Kezar Life Sciences, Inc.",
+    "acquirer": "Aurinia Pharma U.S., Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "32b2040b-c117-5797-88bc-6ae134405010",
+    "url": "https://www.sec.gov/Archives/edgar/data/1600620/000160062026000035/exhibit21.htm",
+    "filing_date": "2026-04-03",
+    "target": "Kezar Life Sciences, Inc.",
+    "acquirer": "Aurinia Pharma U.S., Inc."
+   }
+  },
+  {
+   "pair_id": "ad4f283c-881f-5a28-8a05-941918db4821__c3d1b078-18e2-5296-b7ca-cfd1efabad23",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "ad4f283c-881f-5a28-8a05-941918db4821",
+    "url": "https://www.sec.gov/Archives/edgar/data/1648365/000110465922059649/tm2215461d1_ex2-1.htm",
+    "filing_date": "2022-05-13",
+    "target": "TINGO, INC.",
+    "acquirer": "MICT, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "c3d1b078-18e2-5296-b7ca-cfd1efabad23",
+    "url": "https://www.sec.gov/Archives/edgar/data/854800/000121390022027380/ea160075ex2-1_mictinc.htm",
+    "filing_date": "2022-05-17",
+    "target": "TINGO, INC.",
+    "acquirer": "MICT, INC."
+   }
+  },
+  {
+   "pair_id": "af7fad11-67e1-5784-9f8d-91e4524bbdd3__f33a5df9-8945-5d14-875d-11daadccd17a",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "af7fad11-67e1-5784-9f8d-91e4524bbdd3",
+    "url": "https://www.sec.gov/Archives/edgar/data/860413/000095010321014191/dp158094_ex0201.htm",
+    "filing_date": "2021-09-20",
+    "target": "Great Western Bancorp, Inc.",
+    "acquirer": "First Interstate BancSystem, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "f33a5df9-8945-5d14-875d-11daadccd17a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1613665/000114036121031757/ny20000732x4_ex2-1.htm",
+    "filing_date": "2021-09-20",
+    "target": "Great Western Bancorp, Inc.",
+    "acquirer": "First Interstate BancSystem, Inc."
+   }
+  },
+  {
+   "pair_id": "7f969371-bdb2-5531-9f51-c3e99ac1e91b__b0898018-df3c-537c-9b5b-792c9ea397fe",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "b0898018-df3c-537c-9b5b-792c9ea397fe",
+    "url": "https://www.sec.gov/Archives/edgar/data/1805284/000095014225000894/eh250610319_ex0201.htm",
+    "filing_date": "2025-03-31",
+    "target": "MR. COOPER GROUP INC.",
+    "acquirer": "ROCKET COMPANIES, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "7f969371-bdb2-5531-9f51-c3e99ac1e91b",
+    "url": "https://www.sec.gov/Archives/edgar/data/933136/000119312525070493/d925043dex21.htm",
+    "filing_date": "2025-04-01",
+    "target": "MR. COOPER GROUP INC.",
+    "acquirer": "ROCKET COMPANIES, INC."
+   }
+  },
+  {
+   "pair_id": "04729f02-15e9-59f9-b5f7-18623d6471bd__b10b2df4-1c24-530e-bb27-d88d8d88420d",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "b10b2df4-1c24-530e-bb27-d88d8d88420d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1888012/000119312525172151/d62399dex21.htm",
+    "filing_date": "2025-08-04",
+    "target": "HILLEVAX, INC.",
+    "acquirer": "XOMA ROYALTY CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "04729f02-15e9-59f9-b5f7-18623d6471bd",
+    "url": "https://www.sec.gov/Archives/edgar/data/791908/000119312525213583/d48493dex21.htm",
+    "filing_date": "2025-09-23",
+    "target": "HilleVax, Inc.",
+    "acquirer": "XOMA Royalty Corporation"
+   }
+  },
+  {
+   "pair_id": "8fc65388-36cb-5d42-aba5-2f364a8adba0__b213b89e-f2de-5141-bdf8-a982cb430a6f",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "b213b89e-f2de-5141-bdf8-a982cb430a6f",
+    "url": "https://www.sec.gov/Archives/edgar/data/708955/000070895525000074/americas1103544939v13-me.htm",
+    "filing_date": "2025-08-11",
+    "target": "BankFinancial Corporation",
+    "acquirer": "First Financial Bancorp."
+   },
+   "survivor": {
+    "agreement_uuid": "8fc65388-36cb-5d42-aba5-2f364a8adba0",
+    "url": "https://www.sec.gov/Archives/edgar/data/708955/000070895525000109/americas1103544939v13-me.htm",
+    "filing_date": "2025-11-04",
+    "target": "BankFinancial Corporation",
+    "acquirer": "First Financial Bancorp."
+   }
+  },
+  {
+   "pair_id": "b5999ba6-29e6-5b66-b242-d5216f2b3c58__c576d851-b45b-573a-9ed1-a3aac087af26",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "b5999ba6-29e6-5b66-b242-d5216f2b3c58",
+    "url": "https://www.sec.gov/Archives/edgar/data/2032966/000121390025043678/ea024232501ex2-1_acuren.htm",
+    "filing_date": "2025-05-15",
+    "target": "NV5 Global, Inc.",
+    "acquirer": "Acuren Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "c576d851-b45b-573a-9ed1-a3aac087af26",
+    "url": "https://www.sec.gov/Archives/edgar/data/1532961/000162828025025816/projectryder-mergeragreeme.htm",
+    "filing_date": "2025-05-15",
+    "target": "NV5 Global, Inc.",
+    "acquirer": "Acuren Corporation"
+   }
+  },
+  {
+   "pair_id": "63216776-ea4c-5cff-ba64-fe6c5fbdd03c__b9dc3129-73d6-5d66-822e-c6b44a6bff62",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "b9dc3129-73d6-5d66-822e-c6b44a6bff62",
+    "url": "https://www.sec.gov/Archives/edgar/data/1724570/000119312522103692/d329442dex21.htm",
+    "filing_date": "2022-04-13",
+    "target": "Datto Holding Corp.",
+    "acquirer": "Knockout Parent Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "63216776-ea4c-5cff-ba64-fe6c5fbdd03c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1724570/000119312522179443/d345298dex21.htm",
+    "filing_date": "2022-06-23",
+    "target": "Datto Holding Corp.",
+    "acquirer": "Knockout Parent Inc."
+   }
+  },
+  {
+   "pair_id": "bab072ac-46d1-57bc-a010-92152d31c52c__c742eeff-acc3-572b-82ab-aa30bf2b1828",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "bab072ac-46d1-57bc-a010-92152d31c52c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1800637/000121390024043986/ea020633401ex2-1_agrify.htm",
+    "filing_date": "2024-05-16",
+    "target": "AGRIFY CORPORATION",
+    "acquirer": "NATURE\u2019S MIRACLE HOLDING INC."
+   },
+   "survivor": {
+    "agreement_uuid": "c742eeff-acc3-572b-82ab-aa30bf2b1828",
+    "url": "https://www.sec.gov/Archives/edgar/data/1947861/000121390024043985/ea020632201ex2-1_natures.htm",
+    "filing_date": "2024-05-16",
+    "target": "AGRIFY CORPORATION",
+    "acquirer": "NATURE\u2019S MIRACLE HOLDING INC."
+   }
+  },
+  {
+   "pair_id": "5bf9b834-899a-54c1-a529-ca5270593675__baf63365-367d-5153-b284-f4c1f22b3244",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "baf63365-367d-5153-b284-f4c1f22b3244",
+    "url": "https://www.sec.gov/Archives/edgar/data/1169770/000114036123036791/brhc20056446_ex2-1.htm",
+    "filing_date": "2023-07-28",
+    "target": "PACWEST BANCORP",
+    "acquirer": "BANC OF CALIFORNIA, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "5bf9b834-899a-54c1-a529-ca5270593675",
+    "url": "https://www.sec.gov/Archives/edgar/data/1102112/000110465923085528/tm2322296d1_ex2-1.htm",
+    "filing_date": "2023-07-31",
+    "target": "PacWest Bancorp",
+    "acquirer": "Banc of California, Inc."
+   }
+  },
+  {
+   "pair_id": "bc699f1a-c7e9-5db1-8213-bceb35174812__e1115014-b3cb-5a80-8f5e-6b753301136f",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "bc699f1a-c7e9-5db1-8213-bceb35174812",
+    "url": "https://www.sec.gov/Archives/edgar/data/103145/000110465925095312/tm2527554d1_ex2-1.htm",
+    "filing_date": "2025-10-01",
+    "target": "Veeco Instruments Inc.",
+    "acquirer": "Axcelis Technologies, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "e1115014-b3cb-5a80-8f5e-6b753301136f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1113232/000110465925095307/tm2527661d1_ex2-1.htm",
+    "filing_date": "2025-10-01",
+    "target": "Veeco Instruments Inc.",
+    "acquirer": "Axcelis Technologies, Inc."
+   }
+  },
+  {
+   "pair_id": "bd19017c-a975-569d-ab8b-87f9a2772444__d853ed1a-b469-5f20-97fb-f749cdb3904f",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "bd19017c-a975-569d-ab8b-87f9a2772444",
+    "url": "https://www.sec.gov/Archives/edgar/data/739421/000114036122037743/brhc10043044_ex2-1.htm",
+    "filing_date": "2022-10-19",
+    "target": "HV Bancorp, Inc.",
+    "acquirer": "Citizens Financial Services, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "d853ed1a-b469-5f20-97fb-f749cdb3904f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1594555/000156459022034756/hvbc-ex21_11.htm",
+    "filing_date": "2022-10-20",
+    "target": "HV Bancorp, Inc.",
+    "acquirer": "Citizens Financial Services, Inc."
+   }
+  },
+  {
+   "pair_id": "c21b389e-398a-5d8c-b674-9578e8260c1a__d1a80ace-7c99-5b43-b9a7-506906be51e3",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "c21b389e-398a-5d8c-b674-9578e8260c1a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819974/000181997425000028/skyt-20250629xex21.htm",
+    "filing_date": "2025-08-07",
+    "target": "Spansion LLC",
+    "acquirer": "SkyWater Technology, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "d1a80ace-7c99-5b43-b9a7-506906be51e3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819974/000181997426000014/skyt-20250330xex211.htm",
+    "filing_date": "2026-05-08",
+    "target": "Spansion LLC",
+    "acquirer": "SkyWater Technology, Inc."
+   }
+  },
+  {
+   "pair_id": "1e961ca2-e82b-5e3a-ad73-2522c02214c1__c4c4d6bc-70ca-5be3-9c8d-9cdaca81a505",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "c4c4d6bc-70ca-5be3-9c8d-9cdaca81a505",
+    "url": "https://www.sec.gov/Archives/edgar/data/1676479/000119312523267286/d504221dex21.htm",
+    "filing_date": "2023-10-31",
+    "target": "CAPSTAR FINANCIAL HOLDINGS, INC.",
+    "acquirer": "OLD NATIONAL BANCORP"
+   },
+   "survivor": {
+    "agreement_uuid": "1e961ca2-e82b-5e3a-ad73-2522c02214c1",
+    "url": "https://www.sec.gov/Archives/edgar/data/707179/000110465924000870/tm2332717d2_ex2-1.htm",
+    "filing_date": "2024-01-03",
+    "target": "CapStar Financial Holdings, Inc.",
+    "acquirer": "Old National Bancorp"
+   }
+  },
+  {
+   "pair_id": "ca7c0840-ff85-5c9a-8cce-1cd6d21376b1__d641f037-3bca-5005-b9b3-9fdae8c0df0e",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "ca7c0840-ff85-5c9a-8cce-1cd6d21376b1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1816816/000119312521051423/d61123dex21.htm",
+    "filing_date": "2021-02-23",
+    "target": "GORES HOLDINGS V, INC.",
+    "acquirer": "ARDAGH METAL PACKAGING S.A."
+   },
+   "survivor": {
+    "agreement_uuid": "d641f037-3bca-5005-b9b3-9fdae8c0df0e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1845097/000104746921000541/a2242973zex-2_1.htm",
+    "filing_date": "2021-03-08",
+    "target": "GORES HOLDINGS V, INC.",
+    "acquirer": "ARDAGH METAL PACKAGING S.A."
+   }
+  },
+  {
+   "pair_id": "73796fef-ff5f-532b-8ffd-bc4cd1175c64__cba7a65a-2d84-53eb-a3ab-c2401bd80c61",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "cba7a65a-2d84-53eb-a3ab-c2401bd80c61",
+    "url": "https://www.sec.gov/Archives/edgar/data/1424929/000142492923000153/exhibit21agreementandplano.htm",
+    "filing_date": "2023-11-03",
+    "target": "Wheelhouse Holdings Inc.",
+    "acquirer": "Fox Factory, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "73796fef-ff5f-532b-8ffd-bc4cd1175c64",
+    "url": "https://www.sec.gov/Archives/edgar/data/1345122/000134512623000056/ex21marucciagreementandpla.htm",
+    "filing_date": "2023-11-02",
+    "target": "Wheelhouse Holdings Inc.",
+    "acquirer": "Fox Factory, Inc."
+   }
+  },
+  {
+   "pair_id": "77e60526-338e-5ee6-9909-dad6d9180958__ccafa9fc-75ad-589b-a996-63a909fc003e",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "ccafa9fc-75ad-589b-a996-63a909fc003e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1575434/000114036123046631/ny20011726x1_ex2-1.htm",
+    "filing_date": "2023-10-03",
+    "target": "Vericity, Inc.",
+    "acquirer": "iA American Holdings Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "77e60526-338e-5ee6-9909-dad6d9180958",
+    "url": "https://www.sec.gov/Archives/edgar/data/1575434/000095017024078988/very-ex2_1.htm",
+    "filing_date": "2024-06-28",
+    "target": "Vericity, Inc.",
+    "acquirer": "iA American Holdings Inc."
+   }
+  },
+  {
+   "pair_id": "ce63eada-06d9-5324-b0c3-d2d7ccd0ddc7__e0e85c0b-d745-59c9-9eb9-996b4fc4f085",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "ce63eada-06d9-5324-b0c3-d2d7ccd0ddc7",
+    "url": "https://www.sec.gov/Archives/edgar/data/1124140/000119312525288896/d38144dex21.htm",
+    "filing_date": "2025-11-20",
+    "target": "Exact Sciences Corporation",
+    "acquirer": "Abbott Laboratories"
+   },
+   "survivor": {
+    "agreement_uuid": "e0e85c0b-d745-59c9-9eb9-996b4fc4f085",
+    "url": "https://www.sec.gov/Archives/edgar/data/1800/000110465925114422/tm2531676d2_ex2-1.htm",
+    "filing_date": "2025-11-20",
+    "target": "Exact Sciences Corporation",
+    "acquirer": "Abbott Laboratories"
+   }
+  },
+  {
+   "pair_id": "ce89d5d8-1e54-529a-900f-9d214870cedc__f61d4b2f-e258-5a2f-a84a-25c73effe572",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "ce89d5d8-1e54-529a-900f-9d214870cedc",
+    "url": "https://www.sec.gov/Archives/edgar/data/1437107/000143710726000018/exhibit21.htm",
+    "filing_date": "2026-02-27",
+    "target": "Warner Bros. Discovery, Inc.",
+    "acquirer": "Paramount Skydance Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "f61d4b2f-e258-5a2f-a84a-25c73effe572",
+    "url": "https://www.sec.gov/Archives/edgar/data/2041610/000110465926021911/tm2533570d75_ex2-1.htm",
+    "filing_date": "2026-03-02",
+    "target": "Warner Bros. Discovery, Inc.",
+    "acquirer": "Paramount Skydance Corporation"
+   }
+  },
+  {
+   "pair_id": "d156f40c-f04e-5d61-93f5-0697670ea89c__d1ab4bbc-0540-5afb-917e-a52489b2650b",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "d1ab4bbc-0540-5afb-917e-a52489b2650b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1821769/000162828022022882/exhibit21-agreementandplan.htm",
+    "filing_date": "2022-08-15",
+    "target": "GENESIC SEMICONDUCTOR INC.",
+    "acquirer": "NAVITAS SEMICONDUCTOR CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "d156f40c-f04e-5d61-93f5-0697670ea89c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1821769/000182176922000034/exhibit21-mergeragreementf.htm",
+    "filing_date": "2022-11-14",
+    "target": "GeneSiC Semiconductor Inc.",
+    "acquirer": "Navitas Semiconductor Corporation"
+   }
+  },
+  {
+   "pair_id": "d4541985-6af9-50f3-9c03-2fdfda3f1db8__d47da12d-544e-5a24-88da-b2e974f80382",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "d4541985-6af9-50f3-9c03-2fdfda3f1db8",
+    "url": "https://www.sec.gov/Archives/edgar/data/1281895/000114036122034038/brhc10042060_ex2-1.htm",
+    "filing_date": "2022-09-20",
+    "target": "RENOVACOR, INC.",
+    "acquirer": "ROCKET PHARMACEUTICALS, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "d47da12d-544e-5a24-88da-b2e974f80382",
+    "url": "https://www.sec.gov/Archives/edgar/data/1799850/000119312522247756/d406782dex21.htm",
+    "filing_date": "2022-09-20",
+    "target": "RENOVACOR, INC.",
+    "acquirer": "ROCKET PHARMACEUTICALS, INC."
+   }
+  },
+  {
+   "pair_id": "d6211606-a6e6-5427-9838-15f20282f6e9__ff063da5-e89b-57be-b0ed-71757745c5d0",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "d6211606-a6e6-5427-9838-15f20282f6e9",
+    "url": "https://www.sec.gov/Archives/edgar/data/883948/000110465923083643/tm2321870d1_ex2-1.htm",
+    "filing_date": "2023-07-25",
+    "target": "American National Bankshares Inc.",
+    "acquirer": "Atlantic Union Bankshares Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "ff063da5-e89b-57be-b0ed-71757745c5d0",
+    "url": "https://www.sec.gov/Archives/edgar/data/741516/000119312523192788/d535369dex21.htm",
+    "filing_date": "2023-07-25",
+    "target": "AMERICAN NATIONAL BANKSHARES INC.",
+    "acquirer": "ATLANTIC UNION BANKSHARES CORPORATION"
+   }
+  },
+  {
+   "pair_id": "81da77f8-f6a8-5076-a697-f3d85b24df4c__e47a8620-fd70-5698-bdcf-9590987d087d",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "e47a8620-fd70-5698-bdcf-9590987d087d",
+    "url": "https://www.sec.gov/Archives/edgar/data/837852/000110465921004967/tm213463d1_ex10-1.htm",
+    "filing_date": "2021-01-19",
+    "target": "Wireless Advanced Vehicle Electrification, Inc.",
+    "acquirer": "Ideanomics, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "81da77f8-f6a8-5076-a697-f3d85b24df4c",
+    "url": "https://www.sec.gov/Archives/edgar/data/837852/000110465921068054/idex-20210331xex10d1.htm",
+    "filing_date": "2021-05-17",
+    "target": "Wireless Advanced Vehicle Electrification, Inc.",
+    "acquirer": "Ideanomics, Inc."
+   }
+  },
+  {
+   "pair_id": "5b1d45b1-fb84-570b-9067-5a6d10186178__e5c90864-4952-53ce-b269-15d17e141f46",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "e5c90864-4952-53ce-b269-15d17e141f46",
+    "url": "https://www.sec.gov/Archives/edgar/data/1769624/000121390021056866/ea147097ex2-1_agbaacq.htm",
+    "filing_date": "2021-11-05",
+    "target": "TAG International Limited and TAG Asia Capital Holdings Limited",
+    "acquirer": "AGBA Acquisition Limited"
+   },
+   "survivor": {
+    "agreement_uuid": "5b1d45b1-fb84-570b-9067-5a6d10186178",
+    "url": "https://www.sec.gov/Archives/edgar/data/1769624/000121390022073874/ea168953ex2-1_agbagroup.htm",
+    "filing_date": "2022-11-18",
+    "target": "TAG International Limited and TAG Asia Capital Holdings Limited",
+    "acquirer": "AGBA Acquisition Limited"
+   }
+  },
+  {
+   "pair_id": "225f6af0-daa2-5ba8-b4db-ac1a72d71493__e69cc985-c549-5766-bbb5-e2c5157e9dbf",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "e69cc985-c549-5766-bbb5-e2c5157e9dbf",
+    "url": "https://www.sec.gov/Archives/edgar/data/1882782/000119312525008362/d818486dex1014.htm",
+    "filing_date": "2025-01-17",
+    "target": "IFM Discovery, LLC",
+    "acquirer": "Odyssey Therapeutics, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "225f6af0-daa2-5ba8-b4db-ac1a72d71493",
+    "url": "https://www.sec.gov/Archives/edgar/data/1882782/000119312526161514/odtx-ex10_10.htm",
+    "filing_date": "2026-04-17",
+    "target": "IFM Discovery, LLC",
+    "acquirer": "Odyssey Therapeutics, Inc."
+   }
+  },
+  {
+   "pair_id": "d1a80ace-7c99-5b43-b9a7-506906be51e3__e9753536-bf05-5a8b-bfdc-b943c85c39a1",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "e9753536-bf05-5a8b-bfdc-b943c85c39a1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819974/000181997425000018/skyt-20250330xex21.htm",
+    "filing_date": "2025-05-08",
+    "target": "SPANSION LLC",
+    "acquirer": "SkyWater Technology, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "d1a80ace-7c99-5b43-b9a7-506906be51e3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819974/000181997426000014/skyt-20250330xex211.htm",
+    "filing_date": "2026-05-08",
+    "target": "Spansion LLC",
+    "acquirer": "SkyWater Technology, Inc."
+   }
+  },
+  {
+   "pair_id": "e9b02eca-e6f3-571e-8eec-fe38d7c49d63__f0fb0b1a-77be-5588-8ccf-0eb85d276ac5",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "e9b02eca-e6f3-571e-8eec-fe38d7c49d63",
+    "url": "https://www.sec.gov/Archives/edgar/data/811589/000081158921000021/exhibit21-firstbancorpxs.htm",
+    "filing_date": "2021-06-01",
+    "target": "Select Bancorp, Inc.",
+    "acquirer": "First Bancorp"
+   },
+   "survivor": {
+    "agreement_uuid": "f0fb0b1a-77be-5588-8ccf-0eb85d276ac5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1263762/000110465921075148/tm2118073d1_ex2-1.htm",
+    "filing_date": "2021-06-01",
+    "target": "Select Bancorp, Inc.",
+    "acquirer": "First Bancorp"
+   }
+  },
+  {
+   "pair_id": "7d084685-3151-530e-a66e-15ab82944832__eaaf707c-b577-50e3-86e0-98afa4dfbb7f",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "eaaf707c-b577-50e3-86e0-98afa4dfbb7f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1584549/000156459021044733/vff-ex21_57.htm",
+    "filing_date": "2021-08-17",
+    "target": "BALANCED HEALTH BOTANICALS, LLC",
+    "acquirer": "VILLAGE FARMS INTERNATIONAL, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "7d084685-3151-530e-a66e-15ab82944832",
+    "url": "https://www.sec.gov/Archives/edgar/data/1584549/000156459021055450/vff-ex21_82.htm",
+    "filing_date": "2021-11-09",
+    "target": "Balanced Health Botanicals, LLC",
+    "acquirer": "Village Farms International, Inc."
+   }
+  },
+  {
+   "pair_id": "7305f652-78a7-5a47-84c3-259f385a1d6b__f42489de-5262-5ec4-b5e2-6441145527a1",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "f42489de-5262-5ec4-b5e2-6441145527a1",
+    "url": "https://www.sec.gov/Archives/edgar/data/1769759/000110465925067582/tm2520751d1_ex2-1.htm",
+    "filing_date": "2025-07-14",
+    "target": "Monogram Technologies Inc.",
+    "acquirer": "Zimmer Biomet Holdings, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "7305f652-78a7-5a47-84c3-259f385a1d6b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1769759/000110465925097530/tm2527971d1_ex2-1.htm",
+    "filing_date": "2025-10-07",
+    "target": "MONOGRAM TECHNOLOGIES INC.",
+    "acquirer": "ZIMMER BIOMET HOLDINGS, INC."
+   }
+  },
+  {
+   "pair_id": "61c89057-784f-57c4-bc7e-f2a4386871d6__f86909f9-c18c-568f-a1fb-0559d98ce1e3",
+   "label": "duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "date-identity match",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "f86909f9-c18c-568f-a1fb-0559d98ce1e3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1581091/000110465926049628/tm2612789d1_ex2-2.htm",
+    "filing_date": "2026-04-28",
+    "target": "RIHI, Inc.",
+    "acquirer": "RE/MAX Holdings, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "61c89057-784f-57c4-bc7e-f2a4386871d6",
+    "url": "https://www.sec.gov/Archives/edgar/data/2136387/000110465926073581/tm2615804d2_ex2-3.htm",
+    "filing_date": "2026-06-12",
+    "target": "RIHI, Inc.",
+    "acquirer": "RE/MAX Holdings, Inc."
+   }
+  },
+  {
+   "pair_id": "2e98c86a-6857-5b0a-a7cd-c3a689fa1839__da1edf5b-8363-520b-9b8e-c6146e19f267",
+   "label": "not_duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "tier-0 in the 2026-08-05 dedupe plan audit; distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "2e98c86a-6857-5b0a-a7cd-c3a689fa1839",
+    "url": "https://www.sec.gov/Archives/edgar/data/1494259/000156459021005612/carg-ex21_246.htm",
+    "filing_date": "2021-02-12",
+    "target": "CarOffer, LLC",
+    "acquirer": "CarGurus, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "da1edf5b-8363-520b-9b8e-c6146e19f267",
+    "url": "https://www.sec.gov/Archives/edgar/data/1494259/000095017023060228/carg-ex2_1.htm",
+    "filing_date": "2023-11-07",
+    "target": "CarOffer, LLC",
+    "acquirer": "CarGurus, Inc."
+   }
+  },
+  {
+   "pair_id": "3652de8d-a05b-541d-86fc-d4f477004555__acd2c7b6-f85d-5b28-9569-fca073568f33",
+   "label": "not_duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "tier-0 in the 2026-08-05 dedupe plan audit; distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "3652de8d-a05b-541d-86fc-d4f477004555",
+    "url": "https://www.sec.gov/Archives/edgar/data/16875/000119312521088339/d146726dex21.htm",
+    "filing_date": "2021-03-22",
+    "target": "Kansas City Southern",
+    "acquirer": "Canadian Pacific Railway Limited"
+   },
+   "survivor": {
+    "agreement_uuid": "acd2c7b6-f85d-5b28-9569-fca073568f33",
+    "url": "https://www.sec.gov/Archives/edgar/data/54480/000119312521274158/d233365dex21.htm",
+    "filing_date": "2021-09-15",
+    "target": "Kansas City Southern",
+    "acquirer": "Canadian Pacific Railway Limited"
+   }
+  },
+  {
+   "pair_id": "3d3f6ef8-352a-50b6-8b1c-0cc3f623cbc3__635a605b-3805-5f7f-bf5b-e009a8e44789",
+   "label": "not_duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "tier-0 in the 2026-08-05 dedupe plan audit; distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "3d3f6ef8-352a-50b6-8b1c-0cc3f623cbc3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1857086/000149315222019722/ex2-1.htm",
+    "filing_date": "2022-07-18",
+    "target": "Chijet Inc.",
+    "acquirer": "Deep Medicine Acquisition Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "635a605b-3805-5f7f-bf5b-e009a8e44789",
+    "url": "https://www.sec.gov/Archives/edgar/data/1883799/000149315222030001/ex2-1.htm",
+    "filing_date": "2022-10-31",
+    "target": "Chijet Inc.",
+    "acquirer": "Jupiter Wellness Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "07d9e8e3-c0f8-5323-8939-a2d78b6fff63__a2701f2f-92c2-5bed-9b3d-2bda7a7ebe5d",
+   "label": "not_duplicate",
+   "batch": "A",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "tier-0 in the 2026-08-05 dedupe plan audit; distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "a2701f2f-92c2-5bed-9b3d-2bda7a7ebe5d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1890671/000149315222020670/ex2-1.htm",
+    "filing_date": "2022-07-29",
+    "target": "Anteco Systems, S.L., trading as AnyTech365",
+    "acquirer": "DUET Acquisition Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "07d9e8e3-c0f8-5323-8939-a2d78b6fff63",
+    "url": "https://www.sec.gov/Archives/edgar/data/1846750/000119312523231370/d549277dex21.htm",
+    "filing_date": "2023-09-08",
+    "target": "Anteco Systems, S.L., trading as AnyTech365",
+    "acquirer": "Zalatoris Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "1f358598-9519-54c1-8018-12069a250a68__7bad7293-2af6-5b6b-86a8-2db2691d7951",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "1f358598-9519-54c1-8018-12069a250a68",
+    "url": "https://www.sec.gov/Archives/edgar/data/1590714/000110465926080825/tm2619788d2_ex2-1.htm",
+    "filing_date": "2026-07-06",
+    "target": "Element Solutions Inc.",
+    "acquirer": "Solstice Advanced Materials Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "7bad7293-2af6-5b6b-86a8-2db2691d7951",
+    "url": "https://www.sec.gov/Archives/edgar/data/2064953/000121390026075618/ea029714301ex2-1.htm",
+    "filing_date": "2026-07-07",
+    "target": "Element Solutions Inc",
+    "acquirer": "Solstice Advanced Materials Inc."
+   }
+  },
+  {
+   "pair_id": "2b0d2a31-4db5-5d61-a0ba-ecd6d14ddc5b__f3ab510d-cb2a-53d9-a53a-33e20ce0b614",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "2b0d2a31-4db5-5d61-a0ba-ecd6d14ddc5b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1328143/000110465921124979/tm2129361d1_ex2-1.htm",
+    "filing_date": "2021-10-12",
+    "target": "Adamas Pharmaceuticals, Inc.",
+    "acquirer": "Supernus Pharmaceuticals, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "f3ab510d-cb2a-53d9-a53a-33e20ce0b614",
+    "url": "https://www.sec.gov/Archives/edgar/data/1356576/000110465921125026/tm2129753d1_ex2-1.htm",
+    "filing_date": "2021-10-12",
+    "target": "Adamas Pharmaceuticals, Inc.",
+    "acquirer": "Supernus Reef, Inc."
+   }
+  },
+  {
+   "pair_id": "2bbb342d-bdb9-58a3-9fae-2ded305d8a8d__758153ab-3574-5913-a973-0a627be31237",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "2bbb342d-bdb9-58a3-9fae-2ded305d8a8d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1016169/000114036122014261/ny20002681x1_ex2-1.htm",
+    "filing_date": "2022-04-13",
+    "target": "ANTARES PHARMA, INC.",
+    "acquirer": "ATLAS MERGER SUB, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "758153ab-3574-5913-a973-0a627be31237",
+    "url": "https://www.sec.gov/Archives/edgar/data/1159036/000119312522104452/d259127dex21.htm",
+    "filing_date": "2022-04-13",
+    "target": "Antares Pharma, Inc.",
+    "acquirer": "Halozyme Therapeutics, Inc."
+   }
+  },
+  {
+   "pair_id": "2bf195fd-9cc0-5947-97fd-9ba2acf97916__a1e5292b-481a-5e09-8427-2b5378001357",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "2bf195fd-9cc0-5947-97fd-9ba2acf97916",
+    "url": "https://www.sec.gov/Archives/edgar/data/1080014/000114036122025657/ny20004741x1_ex2-1.htm",
+    "filing_date": "2022-07-11",
+    "target": "La Jolla Pharmaceutical Company",
+    "acquirer": "Innoviva Acquisition Sub, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "a1e5292b-481a-5e09-8427-2b5378001357",
+    "url": "https://www.sec.gov/Archives/edgar/data/920465/000119312522190913/d378167dex21.htm",
+    "filing_date": "2022-07-11",
+    "target": "LA JOLLA PHARMACEUTICAL COMPANY",
+    "acquirer": "INNOVIVA, INC."
+   }
+  },
+  {
+   "pair_id": "4ba2c63e-f4d6-5fa2-825b-bba89ee914a4__b255ab6f-8c64-537c-abe7-46f52f0f9a3e",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "4ba2c63e-f4d6-5fa2-825b-bba89ee914a4",
+    "url": "https://www.sec.gov/Archives/edgar/data/1831481/000119312522275898/d403393dex21.htm",
+    "filing_date": "2022-11-02",
+    "target": "Sable Offshore Corp.",
+    "acquirer": "Flame Acquisition Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "b255ab6f-8c64-537c-abe7-46f52f0f9a3e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1831481/000119312524036506/d737623dex21.htm",
+    "filing_date": "2024-02-14",
+    "target": "Sable Offshore Holdings LLC",
+    "acquirer": "Flame Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "4dd25f22-ac66-5f94-9882-3b2c8b83443a__a1f4ae28-7bff-5c27-a2b6-1f37266f8379",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "4dd25f22-ac66-5f94-9882-3b2c8b83443a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1042074/000119312524031185/d791540dex21.htm",
+    "filing_date": "2024-02-12",
+    "target": "CymaBay Therapeutics, Inc.",
+    "acquirer": "Pacific Merger Sub, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "a1f4ae28-7bff-5c27-a2b6-1f37266f8379",
+    "url": "https://www.sec.gov/Archives/edgar/data/882095/000095010324002027/dp206638_ex0201.htm",
+    "filing_date": "2024-02-12",
+    "target": "CymaBay Therapeutics, Inc.",
+    "acquirer": "Gilead Sciences, Inc."
+   }
+  },
+  {
+   "pair_id": "3b14ba26-2e7d-5b07-8ce1-f03b033c1d39__4f5de9af-d8c1-568c-a633-2b271bd004bf",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "4f5de9af-d8c1-568c-a633-2b271bd004bf",
+    "url": "https://www.sec.gov/Archives/edgar/data/1868269/000110465923128463/tm2333350d1_ex2-1.htm",
+    "filing_date": "2023-12-22",
+    "target": "CHENGHE ACQUISITION I CO.",
+    "acquirer": "FST CORP."
+   },
+   "survivor": {
+    "agreement_uuid": "3b14ba26-2e7d-5b07-8ce1-f03b033c1d39",
+    "url": "https://www.sec.gov/Archives/edgar/data/1868269/000110465925003788/tm252928d1_ex2-1.htm",
+    "filing_date": "2025-01-15",
+    "target": "FEMCO STEEL TECHNOLOGY CO., LTD.",
+    "acquirer": "CHENGHE ACQUISITION I CO."
+   }
+  },
+  {
+   "pair_id": "0e3409e6-28f1-5647-95d8-e01a7ba89810__593550f0-e71a-5334-99a2-c0bbbd70b2bc",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "593550f0-e71a-5334-99a2-c0bbbd70b2bc",
+    "url": "https://www.sec.gov/Archives/edgar/data/1856948/000110465923082908/tm2321641d1_ex2-1.htm",
+    "filing_date": "2023-07-21",
+    "target": "Taiwan Color Optics, Inc.",
+    "acquirer": "Chenghe Acquisition Co."
+   },
+   "survivor": {
+    "agreement_uuid": "0e3409e6-28f1-5647-95d8-e01a7ba89810",
+    "url": "https://www.sec.gov/Archives/edgar/data/1856948/000110465924024566/tm245602d2_ex2-1.htm",
+    "filing_date": "2024-02-15",
+    "target": "TAIWAN COLOR OPTICS, INC.",
+    "acquirer": "CHENGHE ACQUISITION CO."
+   }
+  },
+  {
+   "pair_id": "184a52f3-db5b-52bf-bbdb-bfa28b14b120__93b9ed0d-511a-5696-a5b1-3c37b247efc9",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "93b9ed0d-511a-5696-a5b1-3c37b247efc9",
+    "url": "https://www.sec.gov/Archives/edgar/data/1310527/000149315224005356/ex2-1.htm",
+    "filing_date": "2024-02-08",
+    "target": "QSAM Biosciences, Inc.",
+    "acquirer": "Telix Pharmaceuticals Limited"
+   },
+   "survivor": {
+    "agreement_uuid": "184a52f3-db5b-52bf-bbdb-bfa28b14b120",
+    "url": "https://www.sec.gov/Archives/edgar/data/2007191/000114036124026584/ny20018048x9_ex10-14.htm",
+    "filing_date": "2024-05-17",
+    "target": "QSAM Biosciences, Inc.",
+    "acquirer": "Telix Pharmaceuticals Limited ACN 616 620 369"
+   }
+  },
+  {
+   "pair_id": "07effc6f-c242-5a49-958b-9166bac435ce__96215668-3a24-5505-9f8e-51869a6147b3",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "96215668-3a24-5505-9f8e-51869a6147b3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1817640/000121390022067959/ea167651ex2-1_breezehold.htm",
+    "filing_date": "2022-11-01",
+    "target": "TV Ammo, Inc.",
+    "acquirer": "Breeze Holdings Acquisition Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "07effc6f-c242-5a49-958b-9166bac435ce",
+    "url": "https://www.sec.gov/Archives/edgar/data/1817640/000121390024015851/ea0200413ex2-1_breeze.htm",
+    "filing_date": "2024-02-21",
+    "target": "TV Ammo, Inc.",
+    "acquirer": "Breeze Holdings Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "1ed71baa-d24c-5c62-956f-d7f2776985cf__9adc5f5b-b803-58f0-bdc6-c6037254e66f",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "9adc5f5b-b803-58f0-bdc6-c6037254e66f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1450704/000182912624001850/vivakorinc_ex2-1.htm",
+    "filing_date": "2024-03-25",
+    "target": "ENDEAVOR CRUDE, LLC f/k/a Meridian Transport, LLC; EQUIPMENT TRANSPORT, LLC; MERIDIAN EQUIPMENT LEASING, LLC; and SILVER FUELS PROCESSING, LLC",
+    "acquirer": "VIVAKOR, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "1ed71baa-d24c-5c62-956f-d7f2776985cf",
+    "url": "https://www.sec.gov/Archives/edgar/data/1450704/000182912624006683/vivakorinc_ex2-1.htm",
+    "filing_date": "2024-10-07",
+    "target": "ENDEAVOR CRUDE, LLC f/k/a Meridian Transport, LLC; EQUIPMENT TRANSPORT, LLC; MERIDIAN EQUIPMENT LEASING, LLC; SILVER FUELS PROCESSING, LLC",
+    "acquirer": "VIVAKOR, INC."
+   }
+  },
+  {
+   "pair_id": "9d8781d4-6289-5f74-9ed0-3f6aeab69c85__afb0ba92-01d6-5a06-a6ad-0f165d30d18c",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "afb0ba92-01d6-5a06-a6ad-0f165d30d18c",
+    "url": "https://www.sec.gov/Archives/edgar/data/32604/000095010321015731/dp159638_ex0201.htm",
+    "filing_date": "2021-10-12",
+    "target": "Aspen Technology, Inc.",
+    "acquirer": "Emersub CX, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "9d8781d4-6289-5f74-9ed0-3f6aeab69c85",
+    "url": "https://www.sec.gov/Archives/edgar/data/929940/000119312521296471/d241710dex21.htm",
+    "filing_date": "2021-10-12",
+    "target": "Aspen Technology, Inc.",
+    "acquirer": "Emerson Electric Co."
+   }
+  },
+  {
+   "pair_id": "909d5354-1859-5a79-b16b-d61d234e2db9__b5c24ff6-54e2-586f-8395-2c977ddd7b1f",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "b5c24ff6-54e2-586f-8395-2c977ddd7b1f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1841304/000119312521185882/d114752dex21.htm",
+    "filing_date": "2021-06-09",
+    "target": "Wallbox Chargers, S.L.",
+    "acquirer": "Kensington Capital Acquisition Corp. II"
+   },
+   "survivor": {
+    "agreement_uuid": "909d5354-1859-5a79-b16b-d61d234e2db9",
+    "url": "https://www.sec.gov/Archives/edgar/data/1866501/000119312521314654/d243599dex21.htm",
+    "filing_date": "2021-11-01",
+    "target": "Wall Box Chargers, S.L.",
+    "acquirer": "Wallbox B.V."
+   }
+  },
+  {
+   "pair_id": "340c56e1-80c0-57c6-8376-cde84c6d8ae5__c24496c4-580d-533c-8359-5363b128a806",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "c24496c4-580d-533c-8359-5363b128a806",
+    "url": "https://www.sec.gov/Archives/edgar/data/840715/000175392626001137/ex21_1.htm",
+    "filing_date": "2026-07-06",
+    "target": "CORTIGENT, INC.",
+    "acquirer": "CLEARONE INC."
+   },
+   "survivor": {
+    "agreement_uuid": "340c56e1-80c0-57c6-8376-cde84c6d8ae5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1266806/000175392626001144/ex21_1.htm",
+    "filing_date": "2026-07-07",
+    "target": "Cortigent, Inc.",
+    "acquirer": "ClearOne, Inc."
+   }
+  },
+  {
+   "pair_id": "ab16394d-4a41-52d4-aa7c-ab64beb9cc20__d79f360e-456a-520b-bfbb-544ab1cbea14",
+   "label": "duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": null
+   },
+   "loser": {
+    "agreement_uuid": "d79f360e-456a-520b-bfbb-544ab1cbea14",
+    "url": "https://www.sec.gov/Archives/edgar/data/1797768/000114036124008282/ny20021737x1_ex2-1.htm",
+    "filing_date": "2024-02-16",
+    "target": "KINNATE BIOPHARMA INC.",
+    "acquirer": "XOMA CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "ab16394d-4a41-52d4-aa7c-ab64beb9cc20",
+    "url": "https://www.sec.gov/Archives/edgar/data/791908/000119312524038129/d793007dex21.htm",
+    "filing_date": "2024-02-16",
+    "target": "Kinnate Biopharma Inc.",
+    "acquirer": "XRA 1 Corp."
+   }
+  },
+  {
+   "pair_id": "0ffd3729-55d4-5f9d-8290-ff972cd423ac__8b54570c-101c-563d-adf4-2f16c73a7598",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "8b54570c-101c-563d-adf4-2f16c73a7598",
+    "url": "https://www.sec.gov/Archives/edgar/data/1979005/000149315224024409/ex2-1.htm",
+    "filing_date": "2024-06-20",
+    "target": "UNITED HYDROGEN GROUP INC.",
+    "acquirer": "AIMEI HEALTH TECHNOLOGY CO., LTD"
+   },
+   "survivor": {
+    "agreement_uuid": "0ffd3729-55d4-5f9d-8290-ff972cd423ac",
+    "url": "https://www.sec.gov/Archives/edgar/data/1895144/000182912623006232/goldenstar_ex2-1.htm",
+    "filing_date": "2023-09-21",
+    "target": "GAMEHAUS INC.",
+    "acquirer": "GOLDEN STAR ACQUISITION CORPORATION"
+   }
+  },
+  {
+   "pair_id": "1818ad1c-d292-5128-b698-b9ea20982b6b__e1217f37-91cc-5f60-8304-44f7093e2029",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "e1217f37-91cc-5f60-8304-44f7093e2029",
+    "url": "https://www.sec.gov/Archives/edgar/data/1865468/000149315222035243/ex2-1.htm",
+    "filing_date": "2022-12-13",
+    "target": "WELLOUS GROUP LIMITED",
+    "acquirer": "Kairous Acquisition Corp. Limited"
+   },
+   "survivor": {
+    "agreement_uuid": "1818ad1c-d292-5128-b698-b9ea20982b6b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1865468/000149315223036354/ex2-1.htm",
+    "filing_date": "2023-10-05",
+    "target": "Bamboo Mart Limited",
+    "acquirer": "Kairous Acquisition Corp. Limited"
+   }
+  },
+  {
+   "pair_id": "00508685-e189-5314-84ef-d275b70faff4__1b76ed40-ca07-5acf-954e-e8aafcb6621c",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "00508685-e189-5314-84ef-d275b70faff4",
+    "url": "https://www.sec.gov/Archives/edgar/data/2000775/000182912625003009/blackhawk_ex2-1.htm",
+    "filing_date": "2025-04-29",
+    "target": "Vesicor Therapeutics, Inc.",
+    "acquirer": "Black Hawk Acquisition Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "1b76ed40-ca07-5acf-954e-e8aafcb6621c",
+    "url": "https://www.sec.gov/Archives/edgar/data/2035016/000121390025060364/ea024771401ex2-1_ribbon.htm",
+    "filing_date": "2025-07-01",
+    "target": "DRC Medicine Ltd.",
+    "acquirer": "Ribbon Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "395016d5-eea1-52c1-84d5-3ebc925bfb19__8c431e2d-7c3f-5201-ba29-588f8e4227a7",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "8c431e2d-7c3f-5201-ba29-588f8e4227a7",
+    "url": "https://www.sec.gov/Archives/edgar/data/1633978/000110465921005024/tm213409d1_ex2-1.htm",
+    "filing_date": "2021-01-19",
+    "target": "Coherent, Inc.",
+    "acquirer": "Lumentum Holdings Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "395016d5-eea1-52c1-84d5-3ebc925bfb19",
+    "url": "https://www.sec.gov/Archives/edgar/data/21510/000110465921041590/tm213408d45_ex2-1.htm",
+    "filing_date": "2021-03-25",
+    "target": "Coherent, Inc.",
+    "acquirer": "II-VI Incorporated"
+   }
+  },
+  {
+   "pair_id": "154fd281-cd3f-594a-afe9-9f30aadea943__45483aee-f45d-50d9-a0d9-b807017fd0ca",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "154fd281-cd3f-594a-afe9-9f30aadea943",
+    "url": "https://www.sec.gov/Archives/edgar/data/1574596/000119312521223612/d193271dex21.htm",
+    "filing_date": "2021-07-26",
+    "target": "The New Home Company Inc.",
+    "acquirer": "Newport Holdings, LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "45483aee-f45d-50d9-a0d9-b807017fd0ca",
+    "url": "https://www.sec.gov/Archives/edgar/data/1721386/000173112225000715/e6593_ex2-1.htm",
+    "filing_date": "2025-05-13",
+    "target": "Landsea Homes Corporation",
+    "acquirer": "Lido Holdco, Inc."
+   }
+  },
+  {
+   "pair_id": "76072bed-6446-5c2e-8d53-ad379be5c3bb__93ca6bef-f2cd-5b0c-8bc2-1bfedcab0bf1",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "93ca6bef-f2cd-5b0c-8bc2-1bfedcab0bf1",
+    "url": "https://www.sec.gov/Archives/edgar/data/2028699/000121390025067776/ea0250107ex2-1_dynamix.htm",
+    "filing_date": "2025-07-25",
+    "target": "THE ETHER RESERVE LLC",
+    "acquirer": "THE ETHER MACHINE, INC."
+   },
+   "survivor": {
+    "agreement_uuid": "76072bed-6446-5c2e-8d53-ad379be5c3bb",
+    "url": "https://www.sec.gov/Archives/edgar/data/2029492/000121390025097093/ea026048601ex2-1_mount.htm",
+    "filing_date": "2025-10-07",
+    "target": "AVALANCHE TREASURY COMPANY LLC",
+    "acquirer": "Mountain Lake Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "1003a6f4-ca70-5101-a77c-2824ed79495c__b252607c-b53a-56c9-8329-ac50e8bc957e",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "1003a6f4-ca70-5101-a77c-2824ed79495c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1805385/000121390021013856/ea137148ex2-1_newholdinves.htm",
+    "filing_date": "2021-03-08",
+    "target": "Evolv Technologies, Inc.",
+    "acquirer": "NewHold Investment Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "b252607c-b53a-56c9-8329-ac50e8bc957e",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819113/000110465921062780/tm2115351d1_ex2-1.htm",
+    "filing_date": "2021-05-07",
+    "target": "Science 37, Inc.",
+    "acquirer": "LifeSci Acquisition II Corp."
+   }
+  },
+  {
+   "pair_id": "c78b8d42-2639-5672-926f-6a32f43317ee__d90c8847-9979-59e5-b6da-ef4478f492b9",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "d90c8847-9979-59e5-b6da-ef4478f492b9",
+    "url": "https://www.sec.gov/Archives/edgar/data/1837412/000121390021018105/ea138502ex2-1_cmlife2.htm",
+    "filing_date": "2021-03-29",
+    "target": "SomaLogic, Inc.",
+    "acquirer": "CM Life Sciences II, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "c78b8d42-2639-5672-926f-6a32f43317ee",
+    "url": "https://www.sec.gov/Archives/edgar/data/1843762/000121390021040657/ea145157ex2-1_cmlifescien3.htm",
+    "filing_date": "2021-08-06",
+    "target": "EQRx, Inc.",
+    "acquirer": "CM Life Sciences III Inc."
+   }
+  },
+  {
+   "pair_id": "c44799bf-b495-5dde-94b8-0e47d87dda23__cb6d4d12-e081-5726-8bb2-a86f6b61356d",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "c44799bf-b495-5dde-94b8-0e47d87dda23",
+    "url": "https://www.sec.gov/Archives/edgar/data/1804591/000095010321001779/dp145636_ex0201.htm",
+    "filing_date": "2021-02-04",
+    "target": "23andMe, Inc.",
+    "acquirer": "VG Acquisition Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "cb6d4d12-e081-5726-8bb2-a86f6b61356d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1823466/000110465921135294/tm2132074d3_ex2-1.htm",
+    "filing_date": "2021-11-08",
+    "target": "FiscalNote Holdings, Inc.",
+    "acquirer": "Duddell Street Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "d11d5abd-e3d1-5147-82f7-3961167dff0b__d5148d6d-ee5f-5570-9b95-e4440e38fa92",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "auto-flagged by the first-cut loose A&R rule; audit-confirmed distinct deals"
+   },
+   "loser": {
+    "agreement_uuid": "d11d5abd-e3d1-5147-82f7-3961167dff0b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1897245/000149315222025583/ex2-1.htm",
+    "filing_date": "2022-09-12",
+    "target": "HWH INTERNATIONAL INC.",
+    "acquirer": "ALSET CAPITAL ACQUISITION CORP."
+   },
+   "survivor": {
+    "agreement_uuid": "d5148d6d-ee5f-5570-9b95-e4440e38fa92",
+    "url": "https://www.sec.gov/Archives/edgar/data/1855751/000149315222028619/ex2-1.htm",
+    "filing_date": "2022-10-18",
+    "target": "Enteractive Media Inc.",
+    "acquirer": "Parsec Capital Acquisitions Corp."
+   }
+  },
+  {
+   "pair_id": "5d868b8b-739e-5c91-aa2d-4bf5327ead0a__c918c3e5-0613-5089-a8a6-b0954f4f2da7",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "same-accession sibling exhibits auto-flagged by the first-cut content+dated rule; audit-confirmed distinct documents"
+   },
+   "loser": {
+    "agreement_uuid": "c918c3e5-0613-5089-a8a6-b0954f4f2da7",
+    "url": "https://www.sec.gov/Archives/edgar/data/1692951/000114036121002949/nt10019365x1_ex2-2.htm",
+    "filing_date": "2021-02-01",
+    "target": "COTTONWOOD MULTIFAMILY REIT I, INC.",
+    "acquirer": "COTTONWOOD COMMUNITIES GP SUBSIDIARY, LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "5d868b8b-739e-5c91-aa2d-4bf5327ead0a",
+    "url": "https://www.sec.gov/Archives/edgar/data/1692951/000114036121002949/nt10019365x1_ex2-3.htm",
+    "filing_date": "2021-02-01",
+    "target": "Cottonwood Multifamily REIT II, Inc.",
+    "acquirer": "Cottonwood Communities GP Subsidiary, LLC"
+   }
+  },
+  {
+   "pair_id": "8ceacaf4-face-5fbe-b606-bebaf8f80be7__e33d8023-083a-529b-b540-ceed29bfccd3",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "same-accession sibling exhibits auto-flagged by the first-cut content+dated rule; audit-confirmed distinct documents"
+   },
+   "loser": {
+    "agreement_uuid": "e33d8023-083a-529b-b540-ceed29bfccd3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1828723/000182872322000142/altus-desriiimembershipint.htm",
+    "filing_date": "2022-11-14",
+    "target": "DESRI II Acquisition Holdings, L.L.C.",
+    "acquirer": "APA Finance II, LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "8ceacaf4-face-5fbe-b606-bebaf8f80be7",
+    "url": "https://www.sec.gov/Archives/edgar/data/1828723/000182872322000142/altus-desrivmembershipinte.htm",
+    "filing_date": "2022-11-14",
+    "target": "DESRI V Acquisition Holdings, L.L.C.",
+    "acquirer": "APA Finance II, LLC"
+   }
+  },
+  {
+   "pair_id": "98b2f389-b86f-5b29-ae79-ab9020121a75__c8365dc6-c530-599c-be83-071700465512",
+   "label": "not_duplicate",
+   "batch": "B",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "same-accession sibling exhibits auto-flagged by the first-cut content+dated rule; audit-confirmed distinct documents"
+   },
+   "loser": {
+    "agreement_uuid": "98b2f389-b86f-5b29-ae79-ab9020121a75",
+    "url": "https://www.sec.gov/Archives/edgar/data/1823766/000121390021020720/ea139171ex2-1_riceacq.htm",
+    "filing_date": "2021-04-08",
+    "target": "Aria Energy LLC",
+    "acquirer": "Rice Acquisition Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "c8365dc6-c530-599c-be83-071700465512",
+    "url": "https://www.sec.gov/Archives/edgar/data/1823766/000121390021020720/ea139171ex2-2_riceacq.htm",
+    "filing_date": "2021-04-08",
+    "target": "Archaea Energy II LLC",
+    "acquirer": "Rice Acquisition Corp."
+   }
+  },
+  {
+   "pair_id": "8e3d96e1-9084-5ad6-b544-beca55a48c45__cc3f3711-811e-5bbe-ba57-f81ec0faff8b",
+   "label": "duplicate",
+   "batch": "C",
+   "adjudication": {
+    "method": "document audit",
+    "date": "2026-08-05",
+    "evidence": "re-adjudication of a batch A tier-0 pair; confirmed true duplicate"
+   },
+   "loser": {
+    "agreement_uuid": "cc3f3711-811e-5bbe-ba57-f81ec0faff8b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1604627/000160462721000131/projectgrass-mergeragreeme.htm",
+    "filing_date": "2021-07-09",
+    "target": "KushCo Holdings, Inc.",
+    "acquirer": "Greenlane Holdings, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "8e3d96e1-9084-5ad6-b544-beca55a48c45",
+    "url": "https://www.sec.gov/Archives/edgar/data/1743745/000110465921045619/tm2111603d1_ex2-1.htm",
+    "filing_date": "2021-04-01",
+    "target": "KushCo Holdings, Inc.",
+    "acquirer": "Greenlane Holdings, Inc."
+   }
+  },
+  {
+   "pair_id": "0c1a8bbe-02a8-562b-b637-3eac1c5819e3__e16d62a1-0577-5ad2-a96c-6b34f9e0fc7f",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.969 containment=0.985 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "0c1a8bbe-02a8-562b-b637-3eac1c5819e3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1798270/000110465924056553/ionm-20231231xex10d25.htm",
+    "filing_date": "2024-05-03",
+    "target": "Wood Sage, LLC",
+    "acquirer": "DANAM HEALTH, Inc."
+   },
+   "survivor": {
+    "agreement_uuid": "e16d62a1-0577-5ad2-a96c-6b34f9e0fc7f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1382574/000149315223002126/ex10-1.htm",
+    "filing_date": "2023-01-23",
+    "target": "Alliance Pharma Solutions, LLC",
+    "acquirer": "Wood Sage, LLC"
+   }
+  },
+  {
+   "pair_id": "1003a6f4-ca70-5101-a77c-2824ed79495c__ad9c0b29-0b4f-562d-950b-523ad891040b",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.336 containment=0.975 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "1003a6f4-ca70-5101-a77c-2824ed79495c",
+    "url": "https://www.sec.gov/Archives/edgar/data/1805385/000121390021013856/ea137148ex2-1_newholdinves.htm",
+    "filing_date": "2021-03-08",
+    "target": "Evolv Technologies, Inc.",
+    "acquirer": "NewHold Investment Corp."
+   },
+   "survivor": {
+    "agreement_uuid": "ad9c0b29-0b4f-562d-950b-523ad891040b",
+    "url": "https://www.sec.gov/Archives/edgar/data/1828522/000119312521174376/d157368dex21.htm",
+    "filing_date": "2021-05-27",
+    "target": "EFFECTOR THERAPEUTICS, INC.",
+    "acquirer": "LOCUST WALK ACQUISITION CORP."
+   }
+  },
+  {
+   "pair_id": "12f666e7-351c-5f89-b0ef-eea033fff4a3__3a0cf85f-894c-5c49-9f48-703f051c9cd2",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.898 containment=0.980 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "12f666e7-351c-5f89-b0ef-eea033fff4a3",
+    "url": "https://www.sec.gov/Archives/edgar/data/1364479/000119312525030725/d936893dex21.htm",
+    "filing_date": "2025-02-20",
+    "target": "H&E EQUIPMENT SERVICES, INC.",
+    "acquirer": "HERC HOLDINGS INC."
+   },
+   "survivor": {
+    "agreement_uuid": "3a0cf85f-894c-5c49-9f48-703f051c9cd2",
+    "url": "https://www.sec.gov/Archives/edgar/data/1339605/000119312525005785/d866014dex21.htm",
+    "filing_date": "2025-01-14",
+    "target": "H&E EQUIPMENT SERVICES, INC.",
+    "acquirer": "UNITED RENTALS, INC."
+   }
+  },
+  {
+   "pair_id": "242a1f02-9112-5a37-aac5-3cbfb49272c0__62619457-75ff-5f3d-a454-c3cc512cb482",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.773 containment=0.987 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "242a1f02-9112-5a37-aac5-3cbfb49272c0",
+    "url": "https://www.sec.gov/Archives/edgar/data/1844419/000110465924081236/tm2419754d1_ex2-1.htm",
+    "filing_date": "2024-07-22",
+    "target": "Velocium Inc.",
+    "acquirer": "Maquia Capital Acquisition Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "62619457-75ff-5f3d-a454-c3cc512cb482",
+    "url": "https://www.sec.gov/Archives/edgar/data/1844419/000110465923089661/tm2323399d1_ex2-1.htm",
+    "filing_date": "2023-08-10",
+    "target": "Immersed Inc.",
+    "acquirer": "Maquia Capital Acquisition Corporation"
+   }
+  },
+  {
+   "pair_id": "3c5be027-d2fd-5725-8689-dd4788dc3eef__e5fab5d2-108e-58d6-9049-1e34cca19e5d",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.602 containment=0.975 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "3c5be027-d2fd-5725-8689-dd4788dc3eef",
+    "url": "https://www.sec.gov/Archives/edgar/data/1808665/000110465926074619/tm2617883d1_ex2-1.htm",
+    "filing_date": "2026-06-16",
+    "target": "Assertio Holdings, Inc.",
+    "acquirer": "Zydus Worldwide DMCC"
+   },
+   "survivor": {
+    "agreement_uuid": "e5fab5d2-108e-58d6-9049-1e34cca19e5d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1808665/000110465926041236/tm2611405d1_ex2-1.htm",
+    "filing_date": "2026-04-09",
+    "target": "ASSERTIO HOLDINGS, INC.",
+    "acquirer": "AUDI MERGER SUB, INC."
+   }
+  },
+  {
+   "pair_id": "40b0a310-515f-540c-b8bf-56ef7cc5d8b9__de60f374-7cd3-5f2b-9624-f55ae60f5c01",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.938 containment=0.984 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "40b0a310-515f-540c-b8bf-56ef7cc5d8b9",
+    "url": "https://www.sec.gov/Archives/edgar/data/1918102/000121390025086894/ea025644301ex2-1_deep.htm",
+    "filing_date": "2025-09-11",
+    "target": "DEEP FISSION, INC.",
+    "acquirer": "SURFSIDE ACQUISITION INC."
+   },
+   "survivor": {
+    "agreement_uuid": "de60f374-7cd3-5f2b-9624-f55ae60f5c01",
+    "url": "https://www.sec.gov/Archives/edgar/data/2075109/000121390026062961/ea029221401ex2-1.htm",
+    "filing_date": "2026-05-29",
+    "target": "MATTERNET, INC.",
+    "acquirer": "LOS ALTOS VENTURES CORP."
+   }
+  },
+  {
+   "pair_id": "5b5798c1-db9b-5b0f-9d17-9023a42502b5__70f2d38f-cdf2-5da7-aa24-24d050756e00",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.484 containment=0.972 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "5b5798c1-db9b-5b0f-9d17-9023a42502b5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1819584/000121390021007256/ea134805ex2-1_tortoiseacq2.htm",
+    "filing_date": "2021-02-08",
+    "target": "Volta Industries, Inc.",
+    "acquirer": "Tortoise Acquisition Corp. II"
+   },
+   "survivor": {
+    "agreement_uuid": "70f2d38f-cdf2-5da7-aa24-24d050756e00",
+    "url": "https://www.sec.gov/Archives/edgar/data/1861622/000149315223006133/ex2-1.htm",
+    "filing_date": "2023-02-28",
+    "target": "JET TOKEN, INC.",
+    "acquirer": "OXBRIDGE ACQUISITION CORP."
+   }
+  },
+  {
+   "pair_id": "5c59a0a7-b56c-56e3-812b-ed7cb1567c6f__8dcfe199-276c-5b88-a8d7-f3509970dd85",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.656 containment=0.976 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "5c59a0a7-b56c-56e3-812b-ed7cb1567c6f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1741830/000121390025038076/ea024018201ex2-1_kronos.htm",
+    "filing_date": "2025-05-01",
+    "target": "Kronos Bio, Inc.",
+    "acquirer": "Concentra Biosciences, LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "8dcfe199-276c-5b88-a8d7-f3509970dd85",
+    "url": "https://www.sec.gov/Archives/edgar/data/1564824/000119312525070926/d923788dex21.htm",
+    "filing_date": "2025-04-02",
+    "target": "Allakos Inc.",
+    "acquirer": "Concentra Biosciences, LLC"
+   }
+  },
+  {
+   "pair_id": "5c59a0a7-b56c-56e3-812b-ed7cb1567c6f__935fa280-edeb-5b7b-bfb5-375376e307c7",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.711 containment=0.985 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "5c59a0a7-b56c-56e3-812b-ed7cb1567c6f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1741830/000121390025038076/ea024018201ex2-1_kronos.htm",
+    "filing_date": "2025-05-01",
+    "target": "Kronos Bio, Inc.",
+    "acquirer": "Concentra Biosciences, LLC"
+   },
+   "survivor": {
+    "agreement_uuid": "935fa280-edeb-5b7b-bfb5-375376e307c7",
+    "url": "https://www.sec.gov/Archives/edgar/data/1496323/000119312525153576/d82329dex21.htm",
+    "filing_date": "2025-07-01",
+    "target": "IGM Biosciences, Inc.",
+    "acquirer": "Concentra Biosciences, LLC"
+   }
+  },
+  {
+   "pair_id": "6f3a18a2-0179-5685-80b9-9451159f58f5__b19c8c95-a111-5933-9964-2854b3e1353f",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.938 containment=0.974 reason=dated_as_of_mismatch; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "6f3a18a2-0179-5685-80b9-9451159f58f5",
+    "url": "https://www.sec.gov/Archives/edgar/data/1739410/000119312526249790/d19106dex21.htm",
+    "filing_date": "2026-06-01",
+    "target": "AVENZO THERAPEUTICS, INC.",
+    "acquirer": "RALLYBIO CORPORATION"
+   },
+   "survivor": {
+    "agreement_uuid": "b19c8c95-a111-5933-9964-2854b3e1353f",
+    "url": "https://www.sec.gov/Archives/edgar/data/1739410/000119312526084444/d108429dex21.htm",
+    "filing_date": "2026-03-02",
+    "target": "CANDID THERAPEUTICS, INC.",
+    "acquirer": "RALLYBIO CORPORATION"
+   }
+  },
+  {
+   "pair_id": "da7bf58b-d95b-5549-88ef-5aa19dfb11b4__ebd2b75e-8b5c-5ff0-ab18-1cd97ab7253d",
+   "label": "not_duplicate",
+   "batch": "D",
+   "adjudication": {
+    "method": "review-audit",
+    "date": "2026-08-05",
+    "evidence": "2026-08-05 strong/moderate-similarity review export: jaccard=0.383 containment=1.000 reason=party_metadata_conflict; document-audited as different deals"
+   },
+   "loser": {
+    "agreement_uuid": "da7bf58b-d95b-5549-88ef-5aa19dfb11b4",
+    "url": "https://www.sec.gov/Archives/edgar/data/1864032/000121465924011506/ex2_1.htm",
+    "filing_date": "2024-06-27",
+    "target": "Gresham Worldwide, Inc.",
+    "acquirer": "Ault Disruptive Technologies Corporation"
+   },
+   "survivor": {
+    "agreement_uuid": "ebd2b75e-8b5c-5ff0-ab18-1cd97ab7253d",
+    "url": "https://www.sec.gov/Archives/edgar/data/1799191/000110465921086393/tm2120803d3_ex2-1.htm",
+    "filing_date": "2021-06-29",
+    "target": "TOI Parent, Inc.",
+    "acquirer": "DFP Healthcare Acquisitions Corp."
+   }
+  }
+ ]
+}
