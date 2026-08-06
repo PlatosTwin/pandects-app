@@ -15,6 +15,10 @@ the MCP surface. Machine-readable version:
   - Offline acquirer extraction now disambiguates the SPAC counterparty from the surviving Pubco entity. acquirer name fields on 135 agreements rows were corrected in place; one agreement (Overture) still awaits a re-scrape.
   - Tables: agreements
   - Refs: 0da4871
+- **[api/minor]** Added changelog distribution: dumps/changelog.json is published next to each dump, GET /v1/changelog serves it (filterable by since/dump_sha256), and /v1/dumps entries gain changelog_url
+  - Refs: 1eb2010
+- **[mcp/minor]** get_server_capabilities gains a changelog section (latest release, breaking flag, URLs) and the initialize instructions point agents at it
+  - Refs: 1eb2010
 
 ## 2026-07-19 — released 2026-07-20
 

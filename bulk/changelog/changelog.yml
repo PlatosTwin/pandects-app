@@ -21,6 +21,17 @@
 # minor = additive/cosmetic.
 
 unreleased:
+- type: api
+  severity: minor
+  summary: 'Added changelog distribution: dumps/changelog.json is published next to
+    each dump, GET /v1/changelog serves it (filterable by since/dump_sha256), and
+    /v1/dumps entries gain changelog_url'
+  refs: ['1eb2010']
+- type: mcp
+  severity: minor
+  summary: get_server_capabilities gains a changelog section (latest release, breaking
+    flag, URLs) and the initialize instructions point agents at it
+  refs: ['1eb2010']
 - type: data
   severity: notable
   summary: 'Fixed SPAC acquirer misattribution: 135 agreements had the Pubco recorded
