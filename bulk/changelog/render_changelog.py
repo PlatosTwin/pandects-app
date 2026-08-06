@@ -181,8 +181,19 @@ def validate(data: dict[str, object]) -> None:
 
 def _mdx_escape(text: str) -> str:
     # The docs guide is MDX: a bare `{`, `}`, or `<` in entry prose would be
-    # parsed as an expression/JSX and break the docs build.
-    return text.replace("{", "&#123;").replace("}", "&#125;").replace("<", "&lt;")
+    # parsed as an expression/JSX and break the docs build. Backtick code
+    # spans are already literal in MDX — and entity references inside them
+    # would render verbatim — so only prose outside code spans is escaped.
+    def _escape(segment: str) -> str:
+        return segment.replace("{", "&#123;").replace("}", "&#125;").replace("<", "&lt;")
+
+    parts = text.split("`")
+    if len(parts) % 2 == 1:  # balanced backticks: even-indexed parts are prose
+        return "`".join(
+            _escape(part) if index % 2 == 0 else part for index, part in enumerate(parts)
+        )
+    # Unbalanced backticks: no well-formed code spans, escape everything.
+    return _escape(text)
 
 
 def _render_change_lines(change: dict[str, object], *, mdx: bool = False) -> list[str]:

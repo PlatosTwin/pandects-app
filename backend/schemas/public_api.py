@@ -357,7 +357,8 @@ class ChangelogArgsSchema(Schema):
         metadata={
             "description": (
                 "Only return releases strictly newer than this version (release versions "
-                "are dump dates, e.g. 2026-07-19)."
+                "are dump dates, e.g. 2026-07-19; same-day repushes get a numeric suffix "
+                "such as 2026-07-19.2, which sorts after its base version)."
             ),
             "example": "2026-07-19",
         },

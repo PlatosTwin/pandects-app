@@ -567,45 +567,67 @@ def register_reference_data_routes(
             ):
                 return cast(dict[str, object], cached_payload)
             if now - float(deps._changelog_cache["fail_ts"]) < _CHANGELOG_FAIL_TTL_SECONDS:
-                return None
+                # Serve the stale copy (if any) during the negative-cache
+                # window: a transient R2 blip must never blank the changelog,
+                # because {"releases": []} reads as "no new releases".
+                return cast("dict[str, object] | None", cached_payload)
         client = deps.client
-        if client is None:
-            return None
         payload: dict[str, object] | None = None
-        try:
-            body = client.get_object(
-                Bucket=deps.R2_BUCKET_NAME, Key="dumps/changelog.json"
-            )["Body"].read()
-            parsed = cast(object, json.loads(body))
-            if isinstance(parsed, dict):
-                payload = cast(dict[str, object], parsed)
-        except Exception:
-            payload = None
+        if client is not None:
+            try:
+                body = client.get_object(
+                    Bucket=deps.R2_BUCKET_NAME, Key="dumps/changelog.json"
+                )["Body"].read()
+                parsed = cast(object, json.loads(body))
+                if isinstance(parsed, dict):
+                    payload = cast(dict[str, object], parsed)
+            except Exception:
+                payload = None
         with deps._changelog_cache_lock:
             if payload is not None:
                 deps._changelog_cache["payload"] = payload
                 deps._changelog_cache["ts"] = now
-            else:
-                deps._changelog_cache["fail_ts"] = now
-        return payload
+                return payload
+            # Failed refresh (or no client): arm the negative cache and fall
+            # back to the stale copy if one exists.
+            deps._changelog_cache["fail_ts"] = now
+            return cast("dict[str, object] | None", deps._changelog_cache["payload"])
 
     def _sanitized_changelog_release(release: dict[str, object]) -> dict[str, object]:
         # The payload is external input (an R2 object); anything the response
         # schema would choke on at dump time must be dropped here, never 500.
+        # The 500 class is list-typed fields fed a non-iterable (marshmallow's
+        # List._serialize iterates) and Int fields fed non-numerics.
+        release = dict(release)
+
         stats = release.get("stats")
         if not isinstance(stats, dict):
-            if stats is not None:
-                release = dict(release)
-                release["stats"] = None
-            return release
-        row_counts = cast(dict[str, object], stats).get("row_counts")
-        clean_counts: dict[str, int] = {}
-        if isinstance(row_counts, dict):
-            for table, count in cast(dict[object, object], row_counts).items():
-                if isinstance(table, str) and isinstance(count, int) and not isinstance(count, bool):
-                    clean_counts[table] = count
-        release = dict(release)
-        release["stats"] = {"row_counts": clean_counts}
+            release["stats"] = None
+        else:
+            row_counts = cast(dict[str, object], stats).get("row_counts")
+            clean_counts: dict[str, int] = {}
+            if isinstance(row_counts, dict):
+                for table, count in cast(dict[object, object], row_counts).items():
+                    if (
+                        isinstance(table, str)
+                        and isinstance(count, int)
+                        and not isinstance(count, bool)
+                    ):
+                        clean_counts[table] = count
+            release["stats"] = {"row_counts": clean_counts}
+
+        raw_changes = release.get("changes")
+        clean_changes: list[dict[str, object]] = []
+        if isinstance(raw_changes, list):
+            for change in cast(list[object], raw_changes):
+                if not isinstance(change, dict):
+                    continue
+                change = dict(cast(dict[str, object], change))
+                for list_key in ("tables", "refs"):
+                    if list_key in change and not isinstance(change[list_key], list):
+                        del change[list_key]
+                clean_changes.append(change)
+        release["changes"] = clean_changes
         return release
 
     @changelog_blp.route("")

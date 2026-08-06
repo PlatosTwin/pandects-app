@@ -67,7 +67,8 @@ Failure recovery:
   ```bash
   bulk/.venv/bin/python3 bulk/changelog/render_changelog.py render --json-out /tmp/changelog.json
   # then upload /tmp/changelog.json to dumps/changelog_<ts>.json and copy it
-  # over dumps/changelog.json (both public-read)
+  # over dumps/changelog.json (both public-read). <ts> is the dump timestamp —
+  # it's recorded as "changelog_key" in dumps/latest.json.
   ```
 
 ## Environment variables

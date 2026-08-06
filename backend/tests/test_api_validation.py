@@ -156,6 +156,25 @@ class ApiValidationTests(unittest.TestCase):
                     "stats": "notadict",
                     "changes": [{"type": "docs", "severity": "minor", "summary": "y"}],
                 },
+                {
+                    "version": "2026-07-01",
+                    "released": "2026-07-01T00:00:00Z",
+                    "dump_sha256": "c" * 64,
+                    "dump_key": "dumps/public_2026-07-01.sql.gz",
+                    # Non-iterables in list-typed fields raise in marshmallow's
+                    # List._serialize; the sanitizer must drop them.
+                    "changes": [
+                        {"type": "data", "severity": "minor", "summary": "z", "tables": 7, "refs": 9},
+                        "notadict",
+                    ],
+                },
+                {
+                    "version": "2026-06-01",
+                    "released": "2026-06-01T00:00:00Z",
+                    "dump_sha256": "d" * 64,
+                    "dump_key": "dumps/public_2026-06-01.sql.gz",
+                    "changes": 42,
+                },
             ],
         }
         backend_app._changelog_cache["ts"] = time.time()
@@ -165,9 +184,49 @@ class ApiValidationTests(unittest.TestCase):
             releases = res.get_json()["releases"]
             self.assertEqual(releases[0]["stats"], {"row_counts": {"sections": 5}})
             self.assertIsNone(releases[1]["stats"])
+            self.assertEqual(
+                releases[2]["changes"],
+                [{"type": "data", "severity": "minor", "summary": "z"}],
+            )
+            self.assertEqual(releases[3]["changes"], [])
         finally:
             backend_app._changelog_cache["payload"] = None
             backend_app._changelog_cache["ts"] = 0.0
+
+    def test_changelog_serves_stale_payload_when_refresh_fails(self):
+        # An expired TTL plus a failed refresh (no R2 client in tests) must
+        # serve the stale copy, not an affirmative "no releases" lie — and the
+        # negative-cache window must do the same.
+        payload: dict[str, object] = {
+            "latest_version": "2026-08-01",
+            "latest_released": "2026-08-01T00:00:00Z",
+            "releases": [
+                {
+                    "version": "2026-08-01",
+                    "released": "2026-08-01T00:00:00Z",
+                    "dump_sha256": "b" * 64,
+                    "dump_key": "dumps/public_2026-08-01.sql.gz",
+                    "changes": [{"type": "data", "severity": "minor", "summary": "x"}],
+                }
+            ],
+        }
+        backend_app._changelog_cache["payload"] = payload
+        backend_app._changelog_cache["ts"] = 0.0  # long-expired TTL
+        backend_app._changelog_cache["fail_ts"] = 0.0
+        try:
+            client = self.app.test_client()
+            res = client.get("/v1/changelog")
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.get_json()["latest_version"], "2026-08-01")
+            # The failed refresh armed the negative cache; the stale copy must
+            # still be served inside that window.
+            self.assertGreater(backend_app._changelog_cache["fail_ts"], 0.0)
+            res = client.get("/v1/changelog")
+            self.assertEqual(res.get_json()["latest_version"], "2026-08-01")
+        finally:
+            backend_app._changelog_cache["payload"] = None
+            backend_app._changelog_cache["ts"] = 0.0
+            backend_app._changelog_cache["fail_ts"] = 0.0
 
 
 if __name__ == "__main__":

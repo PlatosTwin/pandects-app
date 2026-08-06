@@ -244,6 +244,29 @@ class ChangelogTests(unittest.TestCase):
             [("sections", newest, 2500)],
         )
 
+    def test_mdx_escape_spares_code_spans(self) -> None:
+        # Prose outside backticks is escaped (bare {, }, < break the MDX
+        # build); code spans stay literal (entities inside them would render
+        # verbatim on the docs site).
+        self.assertEqual(
+            self.renderer._mdx_escape("Renamed the `{old}` field to <new>"),
+            "Renamed the `{old}` field to &lt;new>",
+        )
+        self.assertEqual(
+            self.renderer._mdx_escape("bare {expr} and <tag>"),
+            "bare &#123;expr&#125; and &lt;tag>",
+        )
+        # Unbalanced backticks: no well-formed span, everything is escaped.
+        self.assertEqual(
+            self.renderer._mdx_escape("oops `unclosed {x}"),
+            "oops `unclosed &#123;x&#125;",
+        )
+        lines = self.renderer._render_change_lines(
+            {"type": "api", "severity": "minor", "summary": "Renamed `{old}` to <new>"},
+            mdx=True,
+        )
+        self.assertEqual(lines, ["- **[api/minor]** Renamed `{old}` to &lt;new>"])
+
     def test_rendered_artifacts_are_current(self) -> None:
         """CHANGELOG.md and the docs guide must match changelog.yml (regenerate
         with: bulk/changelog/render_changelog.py render)."""
