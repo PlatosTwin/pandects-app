@@ -134,6 +134,7 @@ def validate(data: dict[str, object]) -> None:
     if not isinstance(releases, list):
         _fail("'releases' must be a list (or empty)")
     seen_sha: set[str] = set()
+    seen_versions: set[str] = set()
     versions: list[str] = []
     for i, release in enumerate(releases):
         where = f"releases[{i}]"
@@ -150,7 +151,13 @@ def validate(data: dict[str, object]) -> None:
         if sha in seen_sha:
             _fail(f"{where}: duplicate dump_sha256 {sha}")
         seen_sha.add(sha)
-        versions.append(str(release["version"]))
+        version = str(release["version"])
+        if version in seen_versions:
+            # Duplicate versions make `?since=<version>` filtering ambiguous:
+            # a consumer who saw the first release would never see the second.
+            _fail(f"{where}: duplicate version {version}")
+        seen_versions.add(version)
+        versions.append(version)
         stats = release.get("stats")
         if stats is not None:
             if not isinstance(stats, dict) or set(stats) - {"row_counts"}:
@@ -172,27 +179,36 @@ def validate(data: dict[str, object]) -> None:
 # ── Rendering ────────────────────────────────────────────────────
 
 
-def _render_change_lines(change: dict[str, object]) -> list[str]:
-    lines = [f"- **[{change['type']}/{change['severity']}]** {str(change['summary']).strip()}"]
+def _mdx_escape(text: str) -> str:
+    # The docs guide is MDX: a bare `{`, `}`, or `<` in entry prose would be
+    # parsed as an expression/JSX and break the docs build.
+    return text.replace("{", "&#123;").replace("}", "&#125;").replace("<", "&lt;")
+
+
+def _render_change_lines(change: dict[str, object], *, mdx: bool = False) -> list[str]:
+    escape = _mdx_escape if mdx else (lambda text: text)
+    lines = [
+        f"- **[{change['type']}/{change['severity']}]** {escape(str(change['summary']).strip())}"
+    ]
     details = change.get("details")
     if isinstance(details, str) and details.strip():
-        lines.append(f"  - {' '.join(details.split())}")
+        lines.append(f"  - {escape(' '.join(details.split()))}")
     tables = change.get("tables")
     if isinstance(tables, list) and tables:
         lines.append(f"  - Tables: {', '.join(str(t) for t in tables)}")
     migration = change.get("migration")
     if isinstance(migration, str) and migration.strip():
-        lines.append(f"  - Migration: {' '.join(migration.split())}")
+        lines.append(f"  - Migration: {escape(' '.join(migration.split()))}")
     refs = change.get("refs")
     if isinstance(refs, list) and refs:
-        lines.append(f"  - Refs: {', '.join(str(r) for r in refs)}")
+        lines.append(f"  - Refs: {escape(', '.join(str(r) for r in refs))}")
     return lines
 
 
 _SEVERITY_ORDER = {name: i for i, name in enumerate(SEVERITIES)}
 
 
-def _render_body(data: dict[str, object], include_unreleased: bool) -> list[str]:
+def _render_body(data: dict[str, object], include_unreleased: bool, *, mdx: bool = False) -> list[str]:
     lines: list[str] = []
     unreleased = data.get("unreleased") or []
     if include_unreleased and isinstance(unreleased, list) and unreleased:
@@ -201,7 +217,7 @@ def _render_body(data: dict[str, object], include_unreleased: bool) -> list[str]
         for change in sorted(
             unreleased, key=lambda c: _SEVERITY_ORDER.get(str(c.get("severity")), 99)
         ):
-            lines.extend(_render_change_lines(change))
+            lines.extend(_render_change_lines(change, mdx=mdx))
         lines.append("")
     releases = data.get("releases") or []
     for release in releases if isinstance(releases, list) else []:
@@ -215,7 +231,7 @@ def _render_body(data: dict[str, object], include_unreleased: bool) -> list[str]
             release.get("changes", []),
             key=lambda c: _SEVERITY_ORDER.get(str(c.get("severity")), 99),
         ):
-            lines.extend(_render_change_lines(change))
+            lines.extend(_render_change_lines(change, mdx=mdx))
         stats = release.get("stats")
         if isinstance(stats, dict) and isinstance(stats.get("row_counts"), dict):
             total = sum(stats["row_counts"].values())
@@ -278,7 +294,7 @@ def render_docs_guide(data: dict[str, object]) -> str:
     ]
     # The docs site documents published releases only; unreleased entries are
     # repo-internal until the next push.
-    lines.extend(_render_body(data, include_unreleased=False))
+    lines.extend(_render_body(data, include_unreleased=False, mdx=True))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -460,6 +476,15 @@ def release(
     releases = [r for r in (data.get("releases") or []) if isinstance(r, dict)]
     if any(str(r.get("dump_sha256")) == dump_sha256 for r in releases):
         _fail(f"a release with dump_sha256 {dump_sha256} already exists.")
+    # Same-day repushes get a .2/.3 suffix: versions must stay unique so that
+    # `?since=<version>` filtering never hides a release, and the suffixed
+    # form still sorts after its base version as a string.
+    existing_versions = {str(r.get("version")) for r in releases}
+    base_version = version
+    suffix = 2
+    while version in existing_versions:
+        version = f"{base_version}.{suffix}"
+        suffix += 1
     changes = list(data.get("unreleased") or [])
     if not changes:
         changes = [

@@ -201,21 +201,6 @@ CHECKSUM_FILE="${SQL_DUMP_FILE}.sha256"
 sha256sum "$SQL_DUMP_FILE" > "$CHECKSUM_FILE"
 echo "✅ Checksum file created: $CHECKSUM_FILE"
 
-# ── 2c. Roll Up Changelog Release ───────────────────────────────
-# Moves `unreleased` entries into a release stamped with this dump's identity,
-# rewrites bulk/changelog/changelog.yml, and renders CHANGELOG.md, the docs
-# guide, and the machine-readable changelog.json uploaded next to the dump.
-echo "📜 [2c/4] Rolling changelog release..."
-DUMP_SHA256="$(cut -d' ' -f1 "$CHECKSUM_FILE")"
-"$PYTHON_BIN" "${SCRIPT_DIR}/changelog/render_changelog.py" release \
-  --version "${TIMESTAMP%%_*}" \
-  --released "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-  --dump-sha256 "$DUMP_SHA256" \
-  --dump-key "dumps/$(basename "$SQL_DUMP_FILE")" \
-  --dbml "${SCRIPT_DIR}/schema_docs/pandects.dbml" \
-  --counts-in "$ROW_COUNTS_FILE" \
-  --json-out "$CHANGELOG_JSON_FILE"
-
 # ── 3. Upload to R2 ─────────────────────────────────────────────
 echo "☁️  [3/4] Uploading artifacts to R2..."
 
@@ -366,10 +351,9 @@ upload_with_progress(dump_path, dump_key, "public-read", "dump")
 
 upload_with_progress(checksum_path, checksum_key, "public-read", "checksum")
 
-# ── Upload Changelog ──────────────────────────────────────────────
-changelog_path = Path("${CHANGELOG_JSON_FILE}")
+# Deterministic key; the changelog itself is rolled up and uploaded in steps
+# 3b/3c, after this upload has succeeded.
 changelog_key = f"dumps/changelog_${TIMESTAMP}.json"
-upload_with_progress(changelog_path, changelog_key, "public-read", "changelog")
 
 logical_sha256 = sha256_file(logical_path)
 dump_sha256 = sha256_file(dump_path)
@@ -425,7 +409,6 @@ for src_key, dst_key in [
     (dump_key,             "dumps/latest.sql.gz"),
     (checksum_key,         "dumps/latest.sql.gz.sha256"),
     (manifest_key,         "dumps/latest.json"),
-    (changelog_key,        "dumps/changelog.json"),
     (logical_key,          "logical_backups/latest.tar.gz"),
     (logical_checksum_key, "logical_backups/latest.tar.gz.sha256"),
     (logical_manifest_key, "logical_backups/latest.json"),
@@ -434,6 +417,58 @@ for src_key, dst_key in [
     update_latest_pointer(src_key, dst_key, acl=acl)
 
 print("✅ All uploads successful.")
+EOF
+
+# ── 3b. Roll Up Changelog Release ───────────────────────────────
+# Runs only after the dump artifacts are safely on R2, so a failed upload
+# never leaves the repo recording a phantom release. Moves `unreleased`
+# entries into a release stamped with this dump's identity, rewrites
+# bulk/changelog/changelog.yml, and renders CHANGELOG.md, the docs guide,
+# and the machine-readable changelog.json.
+echo "📜 [3b/4] Rolling changelog release..."
+DUMP_SHA256="$(cut -d' ' -f1 "$CHECKSUM_FILE")"
+"$PYTHON_BIN" "${SCRIPT_DIR}/changelog/render_changelog.py" release \
+  --version "${TIMESTAMP%%_*}" \
+  --released "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  --dump-sha256 "$DUMP_SHA256" \
+  --dump-key "dumps/$(basename "$SQL_DUMP_FILE")" \
+  --dbml "${SCRIPT_DIR}/schema_docs/pandects.dbml" \
+  --counts-in "$ROW_COUNTS_FILE" \
+  --json-out "$CHANGELOG_JSON_FILE"
+
+# ── 3c. Upload Changelog ────────────────────────────────────────
+# If this step fails after the roll-up, do NOT revert the repo: re-render and
+# upload by hand (see bulk/README.md, "Changelog").
+echo "☁️  [3c/4] Uploading changelog to R2..."
+"$PYTHON_BIN" - <<EOF
+import os
+from botocore.config import Config
+import boto3
+
+session = boto3.session.Session()
+client = session.client(
+    service_name='s3',
+    aws_access_key_id=os.environ['R2_ACCESS_KEY_ID'],
+    aws_secret_access_key=os.environ['R2_SECRET_ACCESS_KEY'],
+    endpoint_url="${R2_ENDPOINT}",
+    config=Config(
+        connect_timeout=30,
+        read_timeout=300,
+        retries={"max_attempts": 10, "mode": "standard"},
+    ),
+)
+bucket = "${R2_BUCKET_NAME}"
+changelog_key = f"dumps/changelog_${TIMESTAMP}.json"
+print(f"📤 Uploading changelog: {changelog_key}")
+client.upload_file("${CHANGELOG_JSON_FILE}", bucket, changelog_key, ExtraArgs={"ACL": "public-read"})
+print(f"   ↪ dumps/changelog.json <= {changelog_key}")
+client.copy_object(
+    Bucket=bucket,
+    CopySource={"Bucket": bucket, "Key": changelog_key},
+    Key="dumps/changelog.json",
+    ACL="public-read",
+)
+print("✅ Changelog uploaded.")
 EOF
 
 # ── Cleanup ─────────────────────────────────────────────────────

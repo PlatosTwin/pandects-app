@@ -112,7 +112,7 @@ New **step 0b**, right after `generate_schema_docs.py` (reusing its fresh `pande
 4. If `unreleased` is empty and the schema is unchanged, do **not** block: auto-generate a
    minimal entry `{type: data, severity: minor, summary: "Routine data refresh"}`. Routine
    monthly pushes must never be blocked on ceremony; the stats block still shows growth.
-5. **Soft data-change check (warn, never abort):** compute per-table row counts (one cheap
+5. **Soft data-change check (warn; hard-fails only when stdin is not a tty):** compute per-table row counts (one
    `SELECT COUNT(*)` per allowlisted table; reused later for the release's `stats` block)
    and compare against the newest release's `stats.row_counts`. If any table's delta is
    anomalous versus that table's *typical* per-release delta (median of the deltas across
@@ -126,25 +126,30 @@ New **step 0b**, right after `generate_schema_docs.py` (reusing its fresh `pande
    don't move row counts and remain covered only by layer 1; full data diffing was
    considered and rejected as too heavy against multi-GB dumps.
 
-After the dump succeeds (so the sha256 is known), before upload:
+After the dump artifacts (dump, checksums, manifests, `latest.*` pointers) have uploaded
+**successfully** — never before, so a failed upload cannot leave the repo recording a
+phantom release:
 
-6. Roll `unreleased` into a new `releases[0]` stamped with `version` (dump date),
-   `released`, `dump_sha256`, `dump_key`, `schema_fingerprint`, and the per-table
-   `row_counts` computed in step 5.
+6. Roll `unreleased` into a new `releases[0]` stamped with `version` (dump date; same-day
+   repushes get a `.2`/`.3` suffix so versions stay unique and `?since=` filtering never
+   hides a release), `released`, `dump_sha256`, `dump_key`, `schema_fingerprint`, and the
+   per-table `row_counts` computed in step 5.
 7. Render `CHANGELOG.md`, `docs/docs/guides/changelog.md`, and `changelog.json`.
 8. Upload `changelog.json` twice: versioned `dumps/changelog_<ts>.json` and the pointer
    `dumps/changelog.json` (public-read, same `latest.*` pattern as dumps).
-9. Add `"changelog_url": "https://bulk.pandects.org/dumps/changelog.json"` and
-   `"changelog_key": "dumps/changelog_<ts>.json"` to both the per-dump manifest and
-   `dumps/latest.json`.
+9. The per-dump manifest and `dumps/latest.json` carry
+   `"changelog_url": "https://bulk.pandects.org/dumps/changelog.json"` and
+   `"changelog_key": "dumps/changelog_<ts>.json"` (the key is deterministic, so the
+   manifest can reference it even though the changelog uploads afterwards).
 10. Extend the existing end-of-run "schema docs changed, commit and push" warning to also
    cover `bulk/changelog/changelog.yml`, `bulk/changelog/CHANGELOG.md`, and
    `docs/docs/guides/changelog.md` — the rolled-up yml must land on main so the next push
    diffs against it.
 
-Ordering note: the roll-up mutates a committed file mid-push. That is already the model for
-`pandects.dbml` (generated, committed, push warns if dirty), so no new workflow is
-introduced.
+Ordering note: the roll-up mutates committed files mid-push (the existing model for
+`pandects.dbml`), but only after the dump is published, so every stamped release describes
+a real artifact. If the changelog upload itself fails after the roll-up, re-render and
+upload by hand rather than reverting the repo (recovery steps in `bulk/README.md`).
 
 ## 6. Distribution
 

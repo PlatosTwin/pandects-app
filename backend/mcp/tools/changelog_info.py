@@ -62,8 +62,12 @@ def changelog_capabilities_section() -> dict[str, object]:
     latest_released: object = None
     breaking: object = None
     if payload is not None:
-        latest_version = payload.get("latest_version")
-        latest_released = payload.get("latest_released")
+        # The payload is external input; anything that isn't the expected type
+        # must degrade to null rather than fail the tool's output validation.
+        raw_version = payload.get("latest_version")
+        latest_version = raw_version if isinstance(raw_version, str) else None
+        raw_released = payload.get("latest_released")
+        latest_released = raw_released if isinstance(raw_released, str) else None
         releases = payload.get("releases")
         if isinstance(releases, list) and releases and isinstance(releases[0], dict):
             changes = cast(dict[str, object], releases[0]).get("changes")

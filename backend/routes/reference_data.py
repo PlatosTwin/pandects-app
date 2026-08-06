@@ -550,6 +550,10 @@ def register_reference_data_routes(
 
             return dump_list
 
+    # Negative-cache window after a failed R2 read, so an absent/unreachable
+    # changelog.json doesn't turn every request into a live R2 GetObject.
+    _CHANGELOG_FAIL_TTL_SECONDS = 60
+
     def _get_changelog_payload() -> dict[str, object] | None:
         # The changelog is served from the published R2 artifact (not the repo
         # file): code deploys continuously while data refreshes ~monthly, so
@@ -562,23 +566,47 @@ def register_reference_data_routes(
                 now - cached_ts < deps._CHANGELOG_CACHE_TTL_SECONDS
             ):
                 return cast(dict[str, object], cached_payload)
+            if now - float(deps._changelog_cache["fail_ts"]) < _CHANGELOG_FAIL_TTL_SECONDS:
+                return None
         client = deps.client
         if client is None:
             return None
+        payload: dict[str, object] | None = None
         try:
             body = client.get_object(
                 Bucket=deps.R2_BUCKET_NAME, Key="dumps/changelog.json"
             )["Body"].read()
             parsed = cast(object, json.loads(body))
+            if isinstance(parsed, dict):
+                payload = cast(dict[str, object], parsed)
         except Exception:
-            return None
-        if not isinstance(parsed, dict):
-            return None
-        payload = cast(dict[str, object], parsed)
+            payload = None
         with deps._changelog_cache_lock:
-            deps._changelog_cache["payload"] = payload
-            deps._changelog_cache["ts"] = now
+            if payload is not None:
+                deps._changelog_cache["payload"] = payload
+                deps._changelog_cache["ts"] = now
+            else:
+                deps._changelog_cache["fail_ts"] = now
         return payload
+
+    def _sanitized_changelog_release(release: dict[str, object]) -> dict[str, object]:
+        # The payload is external input (an R2 object); anything the response
+        # schema would choke on at dump time must be dropped here, never 500.
+        stats = release.get("stats")
+        if not isinstance(stats, dict):
+            if stats is not None:
+                release = dict(release)
+                release["stats"] = None
+            return release
+        row_counts = cast(dict[str, object], stats).get("row_counts")
+        clean_counts: dict[str, int] = {}
+        if isinstance(row_counts, dict):
+            for table, count in cast(dict[object, object], row_counts).items():
+                if isinstance(table, str) and isinstance(count, int) and not isinstance(count, bool):
+                    clean_counts[table] = count
+        release = dict(release)
+        release["stats"] = {"row_counts": clean_counts}
+        return release
 
     @changelog_blp.route("")
     class ChangelogResource(MethodView):
@@ -603,7 +631,7 @@ def register_reference_data_routes(
                 return {"latest_version": None, "latest_released": None, "releases": []}
             raw_releases = payload.get("releases")
             releases = [
-                cast(dict[str, object], release)
+                _sanitized_changelog_release(cast(dict[str, object], release))
                 for release in (raw_releases if isinstance(raw_releases, list) else [])
                 if isinstance(release, dict)
             ]
@@ -612,7 +640,11 @@ def register_reference_data_routes(
                 releases = [r for r in releases if r.get("dump_sha256") == dump_sha256]
             since = args.get("since")
             if isinstance(since, str) and since:
-                releases = [r for r in releases if str(r.get("version", "")) > since]
+                releases = [
+                    r
+                    for r in releases
+                    if isinstance(r.get("version"), str) and cast(str, r["version"]) > since
+                ]
             return {
                 "latest_version": payload.get("latest_version"),
                 "latest_released": payload.get("latest_released"),

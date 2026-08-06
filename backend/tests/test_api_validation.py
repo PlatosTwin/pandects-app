@@ -133,6 +133,42 @@ class ApiValidationTests(unittest.TestCase):
             backend_app._changelog_cache["payload"] = None
             backend_app._changelog_cache["ts"] = 0.0
 
+    def test_changelog_sanitizes_malformed_stats_instead_of_500(self):
+        # The payload comes from an R2 object; a corrupted row_counts value
+        # must be dropped by the route, not crash marshmallow at dump time.
+        backend_app._changelog_cache["payload"] = {
+            "latest_version": "2026-08-01",
+            "latest_released": "2026-08-01T00:00:00Z",
+            "releases": [
+                {
+                    "version": "2026-08-01",
+                    "released": "2026-08-01T00:00:00Z",
+                    "dump_sha256": "b" * 64,
+                    "dump_key": "dumps/public_2026-08-01.sql.gz",
+                    "stats": {"row_counts": {"agreements": "notanint", "sections": 5}},
+                    "changes": [{"type": "data", "severity": "minor", "summary": "x"}],
+                },
+                {
+                    "version": "2026-07-19",
+                    "released": "2026-07-20T06:32:18Z",
+                    "dump_sha256": "a" * 64,
+                    "dump_key": "dumps/public_2026-07-19.sql.gz",
+                    "stats": "notadict",
+                    "changes": [{"type": "docs", "severity": "minor", "summary": "y"}],
+                },
+            ],
+        }
+        backend_app._changelog_cache["ts"] = time.time()
+        try:
+            res = self.app.test_client().get("/v1/changelog")
+            self.assertEqual(res.status_code, 200)
+            releases = res.get_json()["releases"]
+            self.assertEqual(releases[0]["stats"], {"row_counts": {"sections": 5}})
+            self.assertIsNone(releases[1]["stats"])
+        finally:
+            backend_app._changelog_cache["payload"] = None
+            backend_app._changelog_cache["ts"] = 0.0
+
 
 if __name__ == "__main__":
     unittest.main()

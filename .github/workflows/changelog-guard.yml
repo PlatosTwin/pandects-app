@@ -56,6 +56,11 @@ jobs:
           echo "   'unreleased:' describing the change (see bulk/changelog/DESIGN.md)."
           exit 1
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
       - name: Validate changelog.yml
         run: |
           pip install pyyaml >/dev/null

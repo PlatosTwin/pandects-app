@@ -111,6 +111,16 @@ class ChangelogTests(unittest.TestCase):
                 },
             ),
             (
+                "duplicate version",
+                {
+                    "unreleased": [],
+                    "releases": [
+                        dict(base_release, dump_sha256="c" * 64),
+                        base_release,
+                    ],
+                },
+            ),
+            (
                 "release with empty changes",
                 {"unreleased": [], "releases": [dict(base_release, changes=[])]},
             ),
@@ -175,6 +185,22 @@ class ChangelogTests(unittest.TestCase):
                     counts_in=counts_in,
                     json_out=tmp_path / "changelog2.json",
                 )
+            # A same-day repush (new dump, same date version) gets a .2 suffix
+            # so `?since=2026-09-01` still surfaces it.
+            renderer.release(
+                version="2026-09-01",
+                released="2026-09-01T06:00:00Z",
+                dump_sha256="f" * 64,
+                dump_key="dumps/public_2026-09-01_2.sql.gz",
+                dbml_path=dbml,
+                counts_in=counts_in,
+                json_out=tmp_path / "changelog3.json",
+            )
+            rolled = renderer.load_changelog(changelog_copy)
+            renderer.validate(rolled)
+            releases = cast(list[dict[str, object]], rolled["releases"])
+            self.assertEqual(releases[0]["version"], "2026-09-01.2")
+            self.assertGreater(str(releases[0]["version"]), "2026-09-01")
 
     def test_soft_gate_flags_anomalous_row_count_deltas(self) -> None:
         releases = [

@@ -13,6 +13,7 @@ import click
 from flask import Flask, request, abort, Response, g, current_app, has_app_context
 from flask_smorest import Blueprint
 from boto3.session import Session
+from botocore.config import Config as BotoConfig
 from marshmallow import Schema
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import SQLAlchemyError
@@ -252,6 +253,7 @@ class _DumpsCache(TypedDict):
 class _ChangelogCache(TypedDict):
     ts: float
     payload: dict[str, object] | None
+    fail_ts: float
 
 
 class _DumpsManifestCacheEntry(TypedDict):
@@ -324,6 +326,7 @@ class _Boto3SessionLike(Protocol):
         aws_access_key_id: str,
         aws_secret_access_key: str,
         endpoint_url: str,
+        config: object,
     ) -> object:
         ...
 
@@ -383,7 +386,7 @@ _DUMPS_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_CACHE_TTL_SECONDS", "300"))
 _dumps_cache: _DumpsCache = {"ts": 0.0, "payload": None}
 _dumps_cache_lock = Lock()
 _CHANGELOG_CACHE_TTL_SECONDS = int(os.environ.get("CHANGELOG_CACHE_TTL_SECONDS", "300"))
-_changelog_cache: _ChangelogCache = {"ts": 0.0, "payload": None}
+_changelog_cache: _ChangelogCache = {"ts": 0.0, "payload": None, "fail_ts": 0.0}
 _changelog_cache_lock = Lock()
 _DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(
     os.environ.get("DUMPS_MANIFEST_CACHE_TTL_SECONDS", "1800")
@@ -567,6 +570,13 @@ if os.environ.get("R2_ACCESS_KEY_ID") and os.environ.get("R2_SECRET_ACCESS_KEY")
         aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
         endpoint_url=R2_ENDPOINT,
+        # Botocore defaults are 60s connect/read; a slow R2 would pin request
+        # workers on the routes that read it (/v1/dumps, /v1/changelog).
+        config=BotoConfig(
+            connect_timeout=10,
+            read_timeout=30,
+            retries={"max_attempts": 3, "mode": "standard"},
+        ),
     )
     client = cast(_S3Client, raw_client)
 
