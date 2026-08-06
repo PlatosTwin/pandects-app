@@ -39,6 +39,7 @@ const GUIDES = [
   readGuide("guides/getting-started.md"),
   readGuide("guides/request-patterns.md"),
   readGuide("guides/error-model.md"),
+  readGuide("guides/changelog.md"),
   readGuide("mcp/setup.md"),
   readGuide("mcp/using.md"),
   readGuide("mcp/technical-details.md"),

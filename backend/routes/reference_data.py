@@ -10,13 +10,19 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 
 from backend.routes.deps import ReferenceDataDeps
-from backend.schemas.public_api import CounselResponseSchema, DumpEntrySchema, NaicsResponseSchema
+from backend.schemas.public_api import (
+    ChangelogArgsSchema,
+    ChangelogResponseSchema,
+    CounselResponseSchema,
+    DumpEntrySchema,
+    NaicsResponseSchema,
+)
 
 
 def register_reference_data_routes(
     *,
     deps: ReferenceDataDeps,
-) -> tuple[Blueprint, Blueprint, Blueprint, Blueprint, Blueprint]:
+) -> tuple[Blueprint, Blueprint, Blueprint, Blueprint, Blueprint, Blueprint]:
     taxonomy_blp = Blueprint(
         "taxonomy",
         "taxonomy",
@@ -50,6 +56,13 @@ def register_reference_data_routes(
         "tax-clause-taxonomy",
         url_prefix="/v1/taxonomy/tax-clauses",
         description="Access the Pandects tax-clause taxonomy",
+    )
+
+    changelog_blp = Blueprint(
+        "changelog",
+        "changelog",
+        url_prefix="/v1/changelog",
+        description="Dataset, schema, and API change history per bulk release",
     )
 
     def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object) -> dict[str, object]:
@@ -431,6 +444,11 @@ def register_reference_data_routes(
                         continue
                     etag = obj.get("ETag")
                     filename = key.rsplit("/", 1)[-1]
+                    # changelog.json / changelog_<ts>.json live under dumps/
+                    # but are not dump artifacts; without this skip they'd be
+                    # misread as manifests of nonexistent dumps.
+                    if filename == "changelog.json" or filename.startswith("changelog_"):
+                        continue
                     files: dict[str, str] | None = None
 
                     if filename.endswith(".sql.gz.manifest.json"):
@@ -521,6 +539,8 @@ def register_reference_data_routes(
                         entry["size_bytes"] = data["size_bytes"]
                     if "sha256" in data:
                         entry["sha256"] = data["sha256"]
+                    if "changelog_url" in data:
+                        entry["changelog_url"] = data["changelog_url"]
 
                 dump_list.append(entry)
 
@@ -530,4 +550,73 @@ def register_reference_data_routes(
 
             return dump_list
 
-    return taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp
+    def _get_changelog_payload() -> dict[str, object] | None:
+        # The changelog is served from the published R2 artifact (not the repo
+        # file): code deploys continuously while data refreshes ~monthly, so
+        # only the R2 copy is guaranteed to describe published dumps.
+        now = deps.time.time()
+        with deps._changelog_cache_lock:
+            cached_payload = deps._changelog_cache["payload"]
+            cached_ts = deps._changelog_cache["ts"]
+            if cached_payload is not None and (
+                now - cached_ts < deps._CHANGELOG_CACHE_TTL_SECONDS
+            ):
+                return cast(dict[str, object], cached_payload)
+        client = deps.client
+        if client is None:
+            return None
+        try:
+            body = client.get_object(
+                Bucket=deps.R2_BUCKET_NAME, Key="dumps/changelog.json"
+            )["Body"].read()
+            parsed = cast(object, json.loads(body))
+        except Exception:
+            return None
+        if not isinstance(parsed, dict):
+            return None
+        payload = cast(dict[str, object], parsed)
+        with deps._changelog_cache_lock:
+            deps._changelog_cache["payload"] = payload
+            deps._changelog_cache["ts"] = now
+        return payload
+
+    @changelog_blp.route("")
+    class ChangelogResource(MethodView):
+        @changelog_blp.doc(
+            operationId="getChangelog",
+            summary="Dataset and schema change history",
+            description=(
+                "Returns the changelog for the public database dumps, the REST API, and "
+                "the MCP surface, newest release first. Each release corresponds to one "
+                "published bulk dump; match `dump_sha256` against the "
+                "`X-Pandects-Dump-Hash` response header (or the `dump_version.hash` body "
+                "field) to see exactly which changes the data you are querying includes. "
+                "`latest_version`/`latest_released` always describe the newest published "
+                "release, even when `since`/`dump_sha256` filter the `releases` list."
+            ),
+        )
+        @changelog_blp.arguments(ChangelogArgsSchema, location="query")
+        @changelog_blp.response(200, ChangelogResponseSchema)
+        def get(self, args: dict[str, object]) -> dict[str, object]:
+            payload = _get_changelog_payload()
+            if payload is None:
+                return {"latest_version": None, "latest_released": None, "releases": []}
+            raw_releases = payload.get("releases")
+            releases = [
+                cast(dict[str, object], release)
+                for release in (raw_releases if isinstance(raw_releases, list) else [])
+                if isinstance(release, dict)
+            ]
+            dump_sha256 = args.get("dump_sha256")
+            if isinstance(dump_sha256, str) and dump_sha256:
+                releases = [r for r in releases if r.get("dump_sha256") == dump_sha256]
+            since = args.get("since")
+            if isinstance(since, str) and since:
+                releases = [r for r in releases if str(r.get("version", "")) > since]
+            return {
+                "latest_version": payload.get("latest_version"),
+                "latest_released": payload.get("latest_released"),
+                "releases": releases,
+            }
+
+    return taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp, changelog_blp

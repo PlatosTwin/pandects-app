@@ -36,6 +36,7 @@ from backend.mcp.tools.dispatch import (
     McpToolSpec,
     _validate_output_against_schema,
 )
+from backend.mcp.tools.changelog_info import changelog_capabilities_section
 from backend.mcp.tools.shared import _json_compatible_structure
 from backend.mcp.tools.handlers import (
     _get_agreement,
@@ -1133,6 +1134,8 @@ def _server_capabilities_payload(sections: frozenset[str] | None = None) -> dict
             "resources_supported": True,
             "resource_templates_supported": False,
         }
+    if "changelog" in sections:
+        result["changelog"] = changelog_capabilities_section()
     if "auth_help" in sections:
         result["auth_help"] = {
             "login_required": True,

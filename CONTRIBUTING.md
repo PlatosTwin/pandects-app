@@ -86,6 +86,20 @@ Please update docs when behavior, setup, or env vars change. In this repo that u
 
 Do not add contributor-facing documentation under git-ignored paths.
 
+### Dataset changelog
+
+Any change that alters the public dataset or its meaning — `bulk/public_tables.txt`, `bulk/schema_docs/table_docs.yml`, DB migrations or data fixes affecting allowlisted tables, `backend/schemas/public_api.py`, or the `backend/mcp/` tool surface — must append an entry to `unreleased:` in `bulk/changelog/changelog.yml` in the same commit (CI enforces this for the schema-bearing paths). Entry template:
+
+```yaml
+- type: schema        # schema | data | api | mcp | docs | pipeline
+  severity: notable   # breaking | notable | minor
+  summary: "One-line, consumer-facing description."
+  tables: [agreements]   # optional
+  refs: ["<commit or PR>"]
+```
+
+See `bulk/changelog/DESIGN.md` for the full format and release flow.
+
 ## Security issues
 
 Do not open a public issue for a suspected security problem. Follow [SECURITY.md](SECURITY.md).

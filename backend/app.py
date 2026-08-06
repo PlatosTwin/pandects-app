@@ -249,6 +249,11 @@ class _DumpsCache(TypedDict):
     payload: list[dict[str, object]] | None
 
 
+class _ChangelogCache(TypedDict):
+    ts: float
+    payload: dict[str, object] | None
+
+
 class _DumpsManifestCacheEntry(TypedDict):
     etag: str
     payload: dict[str, object]
@@ -377,6 +382,9 @@ _rate_limit_last_prune_at = 0.0
 _DUMPS_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_CACHE_TTL_SECONDS", "300"))
 _dumps_cache: _DumpsCache = {"ts": 0.0, "payload": None}
 _dumps_cache_lock = Lock()
+_CHANGELOG_CACHE_TTL_SECONDS = int(os.environ.get("CHANGELOG_CACHE_TTL_SECONDS", "300"))
+_changelog_cache: _ChangelogCache = {"ts": 0.0, "payload": None}
+_changelog_cache_lock = Lock()
 _DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(
     os.environ.get("DUMPS_MANIFEST_CACHE_TTL_SECONDS", "1800")
 )
@@ -1411,7 +1419,7 @@ def _register_blueprints(target_app: Flask) -> None:
         target_app,
         deps=agreements_deps,
     )
-    taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp = register_reference_data_routes(
+    taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp, changelog_blp = register_reference_data_routes(
         deps=reference_data_deps,
     )
     tax_clauses_blp = register_tax_clauses_routes(deps=tax_clauses_deps)
@@ -1425,6 +1433,7 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext.register_blueprint(naics_blp)
     api_ext.register_blueprint(counsel_blp)
     api_ext.register_blueprint(dumps_blp)
+    api_ext.register_blueprint(changelog_blp)
     target_app.register_blueprint(register_telemetry_routes())
     target_app.register_blueprint(
         register_mcp_routes(
@@ -1532,11 +1541,14 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         TaxonomyL1=TaxonomyL1,
         TaxonomyL2=TaxonomyL2,
         TaxonomyL3=TaxonomyL3,
+        _CHANGELOG_CACHE_TTL_SECONDS=_CHANGELOG_CACHE_TTL_SECONDS,
         _DUMPS_CACHE_TTL_SECONDS=_DUMPS_CACHE_TTL_SECONDS,
         _DUMPS_MANIFEST_CACHE_TTL_SECONDS=_DUMPS_MANIFEST_CACHE_TTL_SECONDS,
         _COUNSEL_TTL_SECONDS=_COUNSEL_TTL_SECONDS,
         _NAICS_TTL_SECONDS=_NAICS_TTL_SECONDS,
         _TAXONOMY_TTL_SECONDS=_TAXONOMY_TTL_SECONDS,
+        _changelog_cache=cast(dict[str, object], cast(object, _changelog_cache)),
+        _changelog_cache_lock=_changelog_cache_lock,
         _counsel_cache=cast(dict[str, object], cast(object, _counsel_cache)),
         _counsel_lock=_counsel_lock,
         _dumps_cache=cast(dict[str, object], cast(object, _dumps_cache)),

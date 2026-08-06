@@ -33,6 +33,28 @@ To run it standalone:
 bulk/.venv/bin/python3 bulk/schema_docs/generate_schema_docs.py
 ```
 
+## Changelog
+
+Dataset, schema, and API changes are documented per dump release (design:
+`changelog/DESIGN.md`):
+
+- `changelog/changelog.yml` — source of truth. Any change that alters the
+  public dataset or its meaning must append an entry under `unreleased:` in
+  the same commit. Only `unreleased:` is hand-edited; `releases:` is stamped
+  by `push_to_r2.sh`.
+- `changelog/render_changelog.py` — validates the yml and regenerates
+  `changelog/CHANGELOG.md` and `docs/docs/guides/changelog.md` (run
+  `... render` standalone; `push_to_r2.sh` runs it at release time).
+
+`push_to_r2.sh` gates every dump: it aborts if the schema fingerprint changed
+since the last release without a `schema` entry (same philosophy as the
+docs-coverage gate), and warns for confirmation when row counts move
+anomalously without a `data` entry. At release time it rolls `unreleased:`
+into a stamped release and publishes `dumps/changelog.json` next to the dump
+(also served by `GET /v1/changelog` and summarized in the MCP
+`get_server_capabilities` changelog section). Commit the rewritten changelog
+files after each push — the next push diffs against the committed state.
+
 ## Environment variables
 
 See:

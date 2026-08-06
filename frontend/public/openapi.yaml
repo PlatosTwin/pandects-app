@@ -40,6 +40,22 @@ paths:
           nullable: true
         required: false
       - in: query
+        name: filed_after
+        schema:
+          type: string
+          default: null
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          nullable: true
+        required: false
+      - in: query
+        name: filed_before
+        schema:
+          type: string
+          default: null
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          nullable: true
+        required: false
+      - in: query
         name: target
         description: Exact target company names to include.
         schema:
@@ -67,14 +83,17 @@ paths:
         style: form
       - in: query
         name: standard_id
-        description: Clause type taxonomy standard IDs (Clause Type in the Search
-          UI). Parent IDs expand to include descendant taxonomy nodes.
+        description: "Clause type taxonomy standard IDs (Clause Type in the Search\
+          \ UI). These are opaque 16-character hex node IDs obtained from get_clause_taxonomy\
+          \ or suggest_clause_families \u2014 not dotted numbers. Parent IDs expand\
+          \ to include descendant taxonomy nodes. Unrecognized IDs are ignored and\
+          \ reported under interpretation.unrecognized_standard_ids."
         schema:
           type: array
           default: []
           example: &id004
-          - '1.1'
-          - 1.2.3
+          - 4207f2e8f6698935
+          - fe2f63338a1eaf30
           items:
             type: string
         required: false
@@ -390,6 +409,426 @@ paths:
       summary: List agreement sections
       description: Searches sections using structured filters and taxonomy IDs. For
         list filters, repeat query keys (for example `year=2023&year=2024`).
+  /v1/agreements:
+    get:
+      parameters:
+      - in: query
+        name: cursor
+        description: Opaque cursor from a previous agreements listing response.
+        schema:
+          type: string
+          default: null
+          nullable: true
+        required: false
+      - in: query
+        name: page_size
+        description: Maximum number of agreements to return.
+        schema:
+          type: integer
+          default: 25
+          example: 25
+        required: false
+      - in: query
+        name: include_xml
+        description: When true, include full agreement XML for each result.
+        schema:
+          type: boolean
+          default: false
+        required: false
+      - in: query
+        name: year
+        schema:
+          type: array
+          default: []
+          items:
+            type: integer
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_price_total
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_price_stock
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_price_cash
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_price_assets
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: transaction_consideration
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target_type
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer_type
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target_counsel
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer_counsel
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target_industry
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer_industry
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: deal_status
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: attitude
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: deal_type
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: purpose
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: target_pe
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: acquirer_pe
+        schema:
+          type: array
+          default: []
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      - in: query
+        name: agreement_uuid
+        schema:
+          type: string
+          default: null
+          nullable: true
+        required: false
+      - in: query
+        name: section_uuid
+        schema:
+          type: string
+          default: null
+          nullable: true
+        required: false
+      - in: query
+        name: include_dump
+        description: When false, omit `dump_version` from the response body. The `X-Pandects-Dump-Hash`
+          response header is always included.
+        schema:
+          type: boolean
+          default: true
+        required: false
+      - in: query
+        name: standard_id
+        description: 'Filter to agreements that contain at least one section tagged
+          with any of these taxonomy standard_ids. Accepts the same ids as search_sections:
+          opaque 16-character hex node IDs from get_clause_taxonomy or suggest_clause_families
+          (not dotted numbers). Unrecognized IDs are ignored and reported under interpretation.unrecognized_standard_ids.'
+        schema:
+          type: array
+          default: []
+          example:
+          - 4207f2e8f6698935
+          items:
+            type: string
+        required: false
+        explode: true
+        style: form
+      responses:
+        '422':
+          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgreementsListResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - agreements
+      operationId: listAgreements
+      summary: List agreements with keyset pagination
+      description: Lists eligible agreements using a base64 cursor. Supports the same
+        agreement-level filters as `/v1/sections` except clause-type taxonomy filtering.
+  /v1/agreements/{agreement_uuid}:
+    get:
+      parameters:
+      - in: query
+        name: focus_section_uuid
+        description: Optional section UUID used when redacting anonymous responses
+          to keep a focused neighborhood visible.
+        schema:
+          type: string
+          example: 5e59453aaa9255c4
+          nullable: true
+        required: false
+      - in: query
+        name: neighbor_sections
+        description: Number of neighboring sections to include around `focus_section_uuid`
+          when response XML is redacted.
+        schema:
+          type: integer
+          default: 1
+          example: 1
+        required: false
+      responses:
+        '422':
+          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgreementResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - agreements
+      operationId: getAgreement
+      summary: Retrieve agreement text by UUID
+      description: Returns agreement metadata and XML content. For anonymous callers,
+        XML can be redacted based on `focus_section_uuid` and `neighbor_sections`.
+    parameters:
+    - in: path
+      name: agreement_uuid
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /v1/agreements/{agreement_uuid}/sections:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgreementSectionIndexResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - agreements
+      operationId: listAgreementSections
+      summary: List ordered agreement sections
+      description: Returns ordered section metadata for one agreement, including section
+        UUIDs and taxonomy IDs, for in-document navigation.
+    parameters:
+    - in: path
+      name: agreement_uuid
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /v1/agreements/{agreement_uuid}/tax-clauses:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxClauseListResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - agreements
+      operationId: getAgreementTaxClauses
+      summary: Retrieve tax clauses for an agreement
+      description: Returns extracted tax-module clauses for the latest verified XML
+        of an agreement.
+    parameters:
+    - in: path
+      name: agreement_uuid
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /v1/sections/{section_uuid}:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - sections
+      operationId: getSection
+      summary: Retrieve section text by UUID
+      description: Returns one section payload including taxonomy IDs and XML content.
+    parameters:
+    - in: path
+      name: section_uuid
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  /v1/sections/{section_uuid}/tax-clauses:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxClauseListResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - sections
+      operationId: getSectionTaxClauses
+      summary: Retrieve tax clauses for a section
+      description: Returns extracted tax-module clauses for a specific latest section.
+    parameters:
+    - in: path
+      name: section_uuid
+      required: true
+      schema:
+        type: string
+        minLength: 1
   /v1/tax-clauses:
     get:
       parameters:
@@ -691,422 +1130,6 @@ paths:
       description: Searches per-clause tax precedents using structured filters and
         taxonomy IDs. Defaults to excluding representations & warranties articles;
         pass `include_rep_warranty=true` to include them.
-  /v1/agreements:
-    get:
-      parameters:
-      - in: query
-        name: cursor
-        description: Opaque cursor from a previous agreements listing response.
-        schema:
-          type: string
-          default: null
-          nullable: true
-        required: false
-      - in: query
-        name: page_size
-        description: Maximum number of agreements to return.
-        schema:
-          type: integer
-          default: 25
-          example: 25
-        required: false
-      - in: query
-        name: include_xml
-        description: When true, include full agreement XML for each result.
-        schema:
-          type: boolean
-          default: false
-        required: false
-      - in: query
-        name: year
-        schema:
-          type: array
-          default: []
-          items:
-            type: integer
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: target
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: acquirer
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: transaction_price_total
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: transaction_price_stock
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: transaction_price_cash
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: transaction_price_assets
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: transaction_consideration
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: target_type
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: acquirer_type
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: target_counsel
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: acquirer_counsel
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: target_industry
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: acquirer_industry
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: deal_status
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: attitude
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: deal_type
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: purpose
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: target_pe
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: acquirer_pe
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      - in: query
-        name: agreement_uuid
-        schema:
-          type: string
-          default: null
-          nullable: true
-        required: false
-      - in: query
-        name: section_uuid
-        schema:
-          type: string
-          default: null
-          nullable: true
-        required: false
-      - in: query
-        name: include_dump
-        description: When false, omit `dump_version` from the response body. The `X-Pandects-Dump-Hash`
-          response header is always included.
-        schema:
-          type: boolean
-          default: true
-        required: false
-      - in: query
-        name: standard_id
-        description: Filter to agreements that contain at least one section tagged
-          with any of these taxonomy standard_ids. Accepts the same ids as search_sections.
-        schema:
-          type: array
-          default: []
-          items:
-            type: string
-        required: false
-        explode: true
-        style: form
-      responses:
-        '422':
-          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AgreementsListResponse'
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-      tags:
-      - agreements
-      operationId: listAgreements
-      summary: List agreements with keyset pagination
-      description: Lists eligible agreements using a base64 cursor. Supports the same
-        agreement-level filters as `/v1/sections` except clause-type taxonomy filtering.
-  /v1/agreements/{agreement_uuid}:
-    get:
-      parameters:
-      - in: query
-        name: focus_section_uuid
-        description: Optional section UUID used when redacting anonymous responses
-          to keep a focused neighborhood visible.
-        schema:
-          type: string
-          example: 5e59453aaa9255c4
-          nullable: true
-        required: false
-      - in: query
-        name: neighbor_sections
-        description: Number of neighboring sections to include around `focus_section_uuid`
-          when response XML is redacted.
-        schema:
-          type: integer
-          default: 1
-          example: 1
-        required: false
-      responses:
-        '422':
-          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AgreementResponse'
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-      tags:
-      - agreements
-      operationId: getAgreement
-      summary: Retrieve agreement text by UUID
-      description: Returns agreement metadata and XML content. For anonymous callers,
-        XML can be redacted based on `focus_section_uuid` and `neighbor_sections`.
-    parameters:
-    - in: path
-      name: agreement_uuid
-      required: true
-      schema:
-        type: string
-        minLength: 1
-  /v1/agreements/{agreement_uuid}/sections:
-    get:
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AgreementSectionIndexResponse'
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-      tags:
-      - agreements
-      operationId: listAgreementSections
-      summary: List ordered agreement sections
-      description: Returns ordered section metadata for one agreement, including section
-        UUIDs and taxonomy IDs, for in-document navigation.
-    parameters:
-    - in: path
-      name: agreement_uuid
-      required: true
-      schema:
-        type: string
-        minLength: 1
-  /v1/agreements/{agreement_uuid}/tax-clauses:
-    get:
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaxClauseListResponse'
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-      tags:
-      - agreements
-      operationId: getAgreementTaxClauses
-      summary: Retrieve tax clauses for an agreement
-      description: Returns extracted tax-module clauses for the latest verified XML
-        of an agreement.
-    parameters:
-    - in: path
-      name: agreement_uuid
-      required: true
-      schema:
-        type: string
-        minLength: 1
-  /v1/sections/{section_uuid}:
-    get:
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SectionResponse'
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-      tags:
-      - sections
-      operationId: getSection
-      summary: Retrieve section text by UUID
-      description: Returns one section payload including taxonomy IDs and XML content.
-    parameters:
-    - in: path
-      name: section_uuid
-      required: true
-      schema:
-        type: string
-        minLength: 1
-  /v1/sections/{section_uuid}/tax-clauses:
-    get:
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaxClauseListResponse'
-        default:
-          $ref: '#/components/responses/DEFAULT_ERROR'
-      tags:
-      - sections
-      operationId: getSectionTaxClauses
-      summary: Retrieve tax clauses for a section
-      description: Returns extracted tax-module clauses for a specific latest section.
-    parameters:
-    - in: path
-      name: section_uuid
-      required: true
-      schema:
-        type: string
-        minLength: 1
   /v1/search/agreements:
     get:
       parameters:
@@ -1141,6 +1164,22 @@ paths:
           nullable: true
         required: false
       - in: query
+        name: filed_after
+        schema:
+          type: string
+          default: null
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          nullable: true
+        required: false
+      - in: query
+        name: filed_before
+        schema:
+          type: string
+          default: null
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          nullable: true
+        required: false
+      - in: query
         name: target
         description: Exact target company names to include.
         schema:
@@ -1166,8 +1205,11 @@ paths:
         style: form
       - in: query
         name: standard_id
-        description: Clause type taxonomy standard IDs (Clause Type in the Search
-          UI). Parent IDs expand to include descendant taxonomy nodes.
+        description: "Clause type taxonomy standard IDs (Clause Type in the Search\
+          \ UI). These are opaque 16-character hex node IDs obtained from get_clause_taxonomy\
+          \ or suggest_clause_families \u2014 not dotted numbers. Parent IDs expand\
+          \ to include descendant taxonomy nodes. Unrecognized IDs are ignored and\
+          \ reported under interpretation.unrecognized_standard_ids."
         schema:
           type: array
           default: []
@@ -1592,6 +1634,52 @@ paths:
       summary: List available bulk dumps
       description: Returns newest-first metadata for publicly available database dump
         artifacts.
+  /v1/changelog:
+    get:
+      parameters:
+      - in: query
+        name: since
+        description: Only return releases strictly newer than this version (release
+          versions are dump dates, e.g. 2026-07-19).
+        schema:
+          type: string
+          default: null
+          example: '2026-07-19'
+          nullable: true
+        required: false
+      - in: query
+        name: dump_sha256
+        description: Only return the release for this dump sha256. Match it against
+          the X-Pandects-Dump-Hash response header (or the dump_version.hash body
+          field) to see exactly which changes the data you are querying includes.
+        schema:
+          type: string
+          default: null
+          example: fd703d72dfadd59a0fdc720399f5ecc27c23a8c6f99b76279c80983bf7fd99a8
+          nullable: true
+        required: false
+      responses:
+        '422':
+          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangelogResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - changelog
+      operationId: getChangelog
+      summary: Dataset and schema change history
+      description: Returns the changelog for the public database dumps, the REST API,
+        and the MCP surface, newest release first. Each release corresponds to one
+        published bulk dump; match `dump_sha256` against the `X-Pandects-Dump-Hash`
+        response header (or the `dump_version.hash` body field) to see exactly which
+        changes the data you are querying includes. `latest_version`/`latest_released`
+        always describe the newest published release, even when `since`/`dump_sha256`
+        filter the `releases` list.
 info:
   title: Pandects API
   version: v1
@@ -1617,6 +1705,8 @@ tags:
   description: Access canonical counsel names
 - name: dumps
   description: Access metadata about bulk data on Cloudflare
+- name: changelog
+  description: Dataset, schema, and API change history per bulk release
 openapi: 3.0.2
 components:
   schemas:
@@ -1820,92 +1910,6 @@ components:
           - type: object
             nullable: true
           - $ref: '#/components/schemas/DumpVersionInfo'
-    TaxClauseItem:
-      type: object
-      properties:
-        id:
-          type: string
-        clause_uuid:
-          type: string
-        agreement_uuid:
-          type: string
-        section_uuid:
-          type: string
-        clause_text:
-          type: string
-        anchor_label:
-          type: string
-          nullable: true
-        context_type:
-          type: string
-        source_method:
-          type: string
-          nullable: true
-        tax_standard_ids:
-          type: array
-          items:
-            type: string
-        year:
-          type: integer
-          nullable: true
-        target:
-          type: string
-          nullable: true
-        acquirer:
-          type: string
-          nullable: true
-        verified:
-          type: boolean
-        transaction_price_total:
-          type: string
-          nullable: true
-        transaction_consideration:
-          type: string
-          nullable: true
-        deal_status:
-          type: string
-          nullable: true
-        deal_type:
-          type: string
-          nullable: true
-        target_counsel:
-          type: string
-          nullable: true
-        acquirer_counsel:
-          type: string
-          nullable: true
-    TaxClausesResponse:
-      type: object
-      properties:
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/TaxClauseItem'
-        access:
-          $ref: '#/components/schemas/AccessInfo'
-        page:
-          type: integer
-        page_size:
-          type: integer
-        total_count:
-          type: integer
-        total_count_is_approximate:
-          type: boolean
-        count_metadata:
-          type: object
-          additionalProperties: {}
-        total_pages:
-          type: integer
-        has_next:
-          type: boolean
-        has_prev:
-          type: boolean
-        next_num:
-          type: integer
-          nullable: true
-        prev_num:
-          type: integer
-          nullable: true
     AgreementListItem:
       type: object
       properties:
@@ -2194,6 +2198,92 @@ components:
           type: string
         section_title:
           type: string
+    TaxClauseItem:
+      type: object
+      properties:
+        id:
+          type: string
+        clause_uuid:
+          type: string
+        agreement_uuid:
+          type: string
+        section_uuid:
+          type: string
+        clause_text:
+          type: string
+        anchor_label:
+          type: string
+          nullable: true
+        context_type:
+          type: string
+        source_method:
+          type: string
+          nullable: true
+        tax_standard_ids:
+          type: array
+          items:
+            type: string
+        year:
+          type: integer
+          nullable: true
+        target:
+          type: string
+          nullable: true
+        acquirer:
+          type: string
+          nullable: true
+        verified:
+          type: boolean
+        transaction_price_total:
+          type: string
+          nullable: true
+        transaction_consideration:
+          type: string
+          nullable: true
+        deal_status:
+          type: string
+          nullable: true
+        deal_type:
+          type: string
+          nullable: true
+        target_counsel:
+          type: string
+          nullable: true
+        acquirer_counsel:
+          type: string
+          nullable: true
+    TaxClausesResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaxClauseItem'
+        access:
+          $ref: '#/components/schemas/AccessInfo'
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_count:
+          type: integer
+        total_count_is_approximate:
+          type: boolean
+        count_metadata:
+          type: object
+          additionalProperties: {}
+        total_pages:
+          type: integer
+        has_next:
+          type: boolean
+        has_prev:
+          type: boolean
+        next_num:
+          type: integer
+          nullable: true
+        prev_num:
+          type: integer
+          nullable: true
     AgreementSearchMatchedSection:
       type: object
       properties:
@@ -2435,11 +2525,107 @@ components:
         size_bytes:
           type: integer
           nullable: true
+        changelog_url:
+          type: string
+          format: url
+          nullable: true
         warning:
           type: string
           nullable: true
       required:
       - timestamp
+    ChangelogStats:
+      type: object
+      properties:
+        row_counts:
+          type: object
+          additionalProperties:
+            type: integer
+          nullable: true
+    ChangelogChange:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - schema
+          - data
+          - api
+          - mcp
+          - docs
+          - pipeline
+        severity:
+          type: string
+          enum:
+          - breaking
+          - notable
+          - minor
+        summary:
+          type: string
+        details:
+          type: string
+          nullable: true
+        tables:
+          type: array
+          items:
+            type: string
+          nullable: true
+        migration:
+          type: string
+          nullable: true
+        refs:
+          type: array
+          items:
+            type: string
+          nullable: true
+      required:
+      - severity
+      - summary
+      - type
+    ChangelogRelease:
+      type: object
+      properties:
+        version:
+          type: string
+        released:
+          type: string
+        dump_sha256:
+          type: string
+        dump_key:
+          type: string
+        schema_fingerprint:
+          type: string
+          nullable: true
+        stats:
+          anyOf:
+          - type: object
+            nullable: true
+          - $ref: '#/components/schemas/ChangelogStats'
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChangelogChange'
+      required:
+      - changes
+      - dump_key
+      - dump_sha256
+      - released
+      - version
+    ChangelogResponse:
+      type: object
+      properties:
+        latest_version:
+          type: string
+          nullable: true
+        latest_released:
+          type: string
+          nullable: true
+        releases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChangelogRelease'
+      required:
+      - releases
   responses:
     UNPROCESSABLE_ENTITY:
       description: Unprocessable Entity
