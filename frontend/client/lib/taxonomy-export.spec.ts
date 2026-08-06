@@ -73,4 +73,25 @@ describe("taxonomyTextFileName", () => {
       "tax_clause_taxonomy_2026-08-06.txt",
     );
   });
+
+  // Pinned timezones on both sides of UTC: a UTC stamp would name these
+  // files after the wrong day for a third of every day.
+  it.each([
+    ["America/Los_Angeles", "2026-08-06T01:00:00Z", "taxonomy_2026-08-05.txt"],
+    ["Pacific/Auckland", "2026-08-05T22:00:00Z", "taxonomy_2026-08-06.txt"],
+  ])("stamps the local day in %s, not the UTC one", (zone, instant, expected) => {
+    const originalZone = process.env.TZ;
+    process.env.TZ = zone;
+    try {
+      expect(taxonomyTextFileName("main", new Date(instant))).toBe(expected);
+    } finally {
+      process.env.TZ = originalZone;
+    }
+  });
+
+  it("zero-pads single-digit months and days", () => {
+    expect(taxonomyTextFileName("main", new Date(2026, 0, 9))).toBe(
+      "taxonomy_2026-01-09.txt",
+    );
+  });
 });

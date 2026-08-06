@@ -14,6 +14,9 @@ const TREE_TEXT = "Corporate [L1-CORP] (1 groups, 0 types)\n└── Group [L2-
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  // Must run even when a test fails mid-body, or the replaced global URL
+  // leaks into the next test and fails it for the wrong reason.
+  vi.unstubAllGlobals();
 });
 
 function setClipboard(writeText: (value: string) => Promise<void>) {
@@ -101,7 +104,10 @@ describe("TaxonomyExportButtons", () => {
     expect(blob.type).toBe("text/plain;charset=utf-8;");
     await expect(blob.text()).resolves.toBe(TREE_TEXT);
 
-    vi.unstubAllGlobals();
+    // The object URL is released once the click has been handled.
+    await waitFor(() =>
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:taxonomy"),
+    );
   });
 
   it("disables both controls when there is nothing to export", () => {

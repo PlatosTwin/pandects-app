@@ -650,6 +650,10 @@ export default function Taxonomy() {
             </h2>
             <div className="flex flex-wrap items-center gap-3 sm:justify-end">
               <TaxonomyExportButtons
+                // Remount on tab change so a "Copied" flash from the previous
+                // taxonomy can't linger over the one now loading, matching how
+                // handleTabChange clears the page's other transient state.
+                key={currentTab}
                 getText={() => formatTaxonomyTreeText(taxonomyEntries)}
                 fileName={taxonomyTextFileName(currentTab)}
                 disabled={isLoading || taxonomyEntries.length === 0}

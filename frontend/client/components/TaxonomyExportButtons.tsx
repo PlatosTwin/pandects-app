@@ -82,7 +82,11 @@ export function TaxonomyExportButtons({
         onClick={() => void handleCopy()}
         disabled={disabled}
         className="h-10 px-3"
-        aria-label="Copy taxonomy tree as text"
+        // Folds the transient state into the name so it never contradicts the
+        // visible label (WCAG 2.5.3).
+        aria-label={
+          copyState === "idle" ? "Copy taxonomy tree as text" : copyLabel
+        }
       >
         {copyState === "copied" ? (
           <Check className="h-4 w-4" aria-hidden="true" />

@@ -9,9 +9,9 @@ const line = (prefix: string, label: string, id: string, counts?: string) =>
   `${prefix}${label} [${id}]${counts ? ` (${counts})` : ""}`;
 
 /**
- * Renders the taxonomy as an indented ASCII tree — the same L1 > L2 > L3
- * shape the tree view draws, in a form that survives a paste into a plain
- * text field. Counts mirror the labels shown on screen.
+ * Renders the taxonomy as an indented box-drawing tree — the same
+ * L1 > L2 > L3 shape the tree view draws, in a form that survives a paste
+ * into a plain text field. Counts mirror the labels shown on screen.
  */
 export const formatTaxonomyTreeText = (entries: TaxonomyLevel1[]): string => {
   const lines: string[] = [];
@@ -54,12 +54,19 @@ export const formatTaxonomyTreeText = (entries: TaxonomyLevel1[]): string => {
   return lines.join("\n");
 };
 
-/** e.g. `taxonomy_2026-08-06.txt` */
+/**
+ * e.g. `taxonomy_2026-08-06.txt`. Stamped with the viewer's local date, not
+ * the UTC one — a download at 6pm in Los Angeles belongs to that day, not to
+ * tomorrow.
+ */
 export const taxonomyTextFileName = (
   kind: "main" | "tax",
   today: Date = new Date(),
 ) => {
-  const stamp = today.toISOString().split("T")[0];
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const stamp = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(
+    today.getDate(),
+  )}`;
   const base = kind === "tax" ? "tax_clause_taxonomy" : "taxonomy";
   return `${base}_${stamp}.txt`;
 };
