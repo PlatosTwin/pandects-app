@@ -88,17 +88,51 @@ Do not add contributor-facing documentation under git-ignored paths.
 
 ### Dataset changelog
 
-Any change that alters the public dataset or its meaning — `bulk/public_tables.txt`, `bulk/schema_docs/table_docs.yml`, DB migrations or data fixes affecting allowlisted tables, `backend/schemas/public_api.py`, or the `backend/mcp/` tool surface — must append an entry to `unreleased:` in `bulk/changelog/changelog.yml` in the same commit (CI enforces this for the schema-bearing paths). Entry template:
+Public dataset, API, and MCP changes are announced to consumers through a per-release changelog (design and rationale: `bulk/changelog/DESIGN.md`).
+
+**When an entry is required.** Your change alters the public dataset or its meaning if it touches any of:
+
+- `bulk/public_tables.txt` (tables entering or leaving the public dump)
+- `bulk/schema_docs/table_docs.yml` or the schema of any allowlisted table
+- data in allowlisted tables (migrations, backfills, value fixes)
+- `backend/schemas/public_api.py` or REST route behavior consumers rely on
+- the `backend/mcp/` tool surface (tools added/removed, arguments, output shapes)
+
+If so, append an entry under `unreleased:` in `bulk/changelog/changelog.yml` **in the same commit**.
+
+**Entry template:**
 
 ```yaml
 - type: schema        # schema | data | api | mcp | docs | pipeline
-  severity: notable   # breaking | notable | minor
+  severity: notable   # see below
   summary: "One-line, consumer-facing description."
-  tables: [agreements]   # optional
+  details: >           # optional longer prose
+  tables: [agreements] # optional; must appear in bulk/public_tables.txt
+  migration: null      # optional guidance/SQL for consumers adapting to the change
   refs: ["<commit or PR>"]
 ```
 
-See `bulk/changelog/DESIGN.md` for the full format and release flow.
+**Severity semantics** (pick the worst that applies):
+
+- `breaking` — a consumer query that worked against the previous dump can return wrong or empty results (column rename/drop, semantic change of values)
+- `notable` — results change but existing queries still run (data corrections, new defaults)
+- `minor` — additive or cosmetic
+
+Write the summary for a data consumer, not a code reviewer: say what changed in the published data or API, not which function was edited.
+
+**Before you commit — checklist:**
+
+1. Append the entry under `unreleased:` (top of `bulk/changelog/changelog.yml`).
+2. Regenerate the rendered files and commit them together with the yml:
+
+   ```bash
+   python3 bulk/changelog/render_changelog.py render
+   ```
+
+   This needs only PyYAML (`pip install pyyaml`), no database access, and rewrites `bulk/changelog/CHANGELOG.md` and `docs/docs/guides/changelog.md`.
+3. Hand-edit **only** `unreleased:`. Never edit `releases:` (stamped by the maintainer's release script), `bulk/changelog/CHANGELOG.md`, or `docs/docs/guides/changelog.md` (both generated).
+
+**How this is enforced.** CI fails the PR if a schema/API-surface path changes without a `bulk/changelog/changelog.yml` edit (`.github/workflows/changelog-guard.yml`), and a backend test (`backend/tests/test_changelog.py`) fails if the rendered files don't match the yml — that failure means you skipped step 2. At the next bulk release the maintainer's push script rolls `unreleased:` into a stamped release and publishes it as `dumps/changelog.json`, `GET /v1/changelog`, and the docs-site changelog page.
 
 ## Security issues
 
