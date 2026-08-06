@@ -31,6 +31,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { TaxonomyExportButtons } from "@/components/TaxonomyExportButtons";
+import {
+  formatTaxonomyTreeText,
+  taxonomyTextFileName,
+} from "@/lib/taxonomy-export";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { scheduleWhenBrowserIdle } from "@/lib/analytics";
 import { logger } from "@/lib/logger";
@@ -100,7 +105,7 @@ export default function Taxonomy() {
   const [openLevel2ByParent, setOpenLevel2ByParent] = useState<
     Record<string, string[]>
   >({});
-  const [viewMode, setViewMode] = useState<TaxonomyViewMode>("tile");
+  const [viewMode, setViewMode] = useState<TaxonomyViewMode>("tree");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [shouldRenderTree, setShouldRenderTree] = useState(false);
   const highlightTimerRef = useRef<number | null>(null);
@@ -643,34 +648,41 @@ export default function Taxonomy() {
             >
               {viewMode === "tree" ? `${treeTitle} View` : treeTitle}
             </h2>
-            <div className="flex items-center gap-3 sm:justify-end">
-              <Label
-                htmlFor="taxonomy-view-mode-tile"
-                className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-              >
-                View
-              </Label>
-              <ToggleGroup
-                type="single"
-                value={viewMode}
-                onValueChange={(value) => {
-                  if (value === "tile" || value === "tree") {
-                    setViewMode(value);
-                  }
-                }}
-                aria-label="Taxonomy view"
-              >
-                <ToggleGroupItem
-                  id="taxonomy-view-mode-tile"
-                  value="tile"
-                  aria-label="Show tile view"
+            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+              <TaxonomyExportButtons
+                getText={() => formatTaxonomyTreeText(taxonomyEntries)}
+                fileName={taxonomyTextFileName(currentTab)}
+                disabled={isLoading || taxonomyEntries.length === 0}
+              />
+              <div className="flex items-center gap-3">
+                <Label
+                  htmlFor="taxonomy-view-mode-tile"
+                  className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                 >
-                  Tile
-                </ToggleGroupItem>
-                <ToggleGroupItem value="tree" aria-label="Show tree view">
-                  Tree
-                </ToggleGroupItem>
-              </ToggleGroup>
+                  View
+                </Label>
+                <ToggleGroup
+                  type="single"
+                  value={viewMode}
+                  onValueChange={(value) => {
+                    if (value === "tile" || value === "tree") {
+                      setViewMode(value);
+                    }
+                  }}
+                  aria-label="Taxonomy view"
+                >
+                  <ToggleGroupItem
+                    id="taxonomy-view-mode-tile"
+                    value="tile"
+                    aria-label="Show tile view"
+                  >
+                    Tile
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="tree" aria-label="Show tree view">
+                    Tree
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
             </div>
           </div>
 
