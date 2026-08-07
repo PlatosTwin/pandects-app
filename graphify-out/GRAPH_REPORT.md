@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2f425ed2`
+- Built from commit: `bea9257e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -614,7 +614,7 @@ Nodes (13): _FakeBatchAPI, _FakeBatchFiles, _FakeBeginContext, _FakeConn, _FakeD
 
 ### Community 70 - "routes/auth/__init__.py"
 Cohesion: 0.14
-Nodes (34): TEMPORARY (July reopen): when enabled, new account creation is blocked and the…, temporary_access_lockdown_enabled(), _clear_signed_cookie(), _clear_zitadel_link_cookie(), _clear_zitadel_pending_cookie(), _clear_zitadel_web_cookie(), _load_oauth_browser_cookie(), _load_signed_cookie() (+26 more)
+Nodes (34): TEMPORARY (September reopen): when enabled, new account creation is blocked and…, temporary_access_lockdown_enabled(), _clear_signed_cookie(), _clear_zitadel_link_cookie(), _clear_zitadel_pending_cookie(), _clear_zitadel_web_cookie(), _load_oauth_browser_cookie(), _load_signed_cookie() (+26 more)
 
 ### Community 71 - "tools/__init__.py"
 Cohesion: 0.09
