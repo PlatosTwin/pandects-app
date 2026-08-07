@@ -12,7 +12,8 @@ sidebar_position: 4
 # Bulk Data Schema
 
 Pandects publishes its full public dataset as a MariaDB dump on Cloudflare R2.
-This page documents every table in that dump.
+This page documents every table in that dump. Schema and data changes between
+dumps are recorded in the [Changelog](./changelog.md).
 
 ## Getting the dump
 
