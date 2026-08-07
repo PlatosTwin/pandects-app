@@ -58,15 +58,24 @@ export const formatTaxonomyTreeText = (entries: TaxonomyLevel1[]): string => {
  * e.g. `taxonomy_2026-08-06.txt`. Stamped with the viewer's local date, not
  * the UTC one — a download at 6pm in Los Angeles belongs to that day, not to
  * tomorrow.
+ *
+ * `timeZone` defaults to the runtime zone, which is what the app wants. Tests
+ * pass it explicitly so they never have to mutate `process.env.TZ`: that
+ * assignment is a silent no-op inside a worker thread, since Node only wires
+ * the timezone-cache invalidation to the setter on the main thread.
  */
 export const taxonomyTextFileName = (
   kind: "main" | "tax",
   today: Date = new Date(),
+  timeZone?: string,
 ) => {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  const stamp = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(
-    today.getDate(),
-  )}`;
+  // en-CA formats as zero-padded YYYY-MM-DD.
+  const stamp = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(today);
   const base = kind === "tax" ? "tax_clause_taxonomy" : "taxonomy";
   return `${base}_${stamp}.txt`;
 };
