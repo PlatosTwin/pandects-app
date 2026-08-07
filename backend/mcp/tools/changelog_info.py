@@ -25,6 +25,9 @@ CHANGELOG_PUBLIC_URL = os.environ.get(
 _FETCH_TIMEOUT_SECONDS = 3
 _TTL_OK_SECONDS = 900
 _TTL_FAIL_SECONDS = 120
+# Cloudflare 403s urllib's default Python-urllib/x.y agent, which silently
+# nulled this section in production; identify the caller explicitly.
+_USER_AGENT = "pandects-mcp/1.0 (+https://pandects.org)"
 
 _cache: dict[str, object] = {"ts": 0.0, "ok": False, "payload": None}
 _cache_lock = Lock()
@@ -41,8 +44,11 @@ def _fetch_changelog_json() -> dict[str, object] | None:
             return cast("dict[str, object] | None", _cache["payload"])
     payload: dict[str, object] | None = None
     try:
+        request = urllib.request.Request(
+            CHANGELOG_PUBLIC_URL, headers={"User-Agent": _USER_AGENT}
+        )
         with urllib.request.urlopen(
-            CHANGELOG_PUBLIC_URL, timeout=_FETCH_TIMEOUT_SECONDS
+            request, timeout=_FETCH_TIMEOUT_SECONDS
         ) as response:
             parsed = cast(object, json.loads(response.read()))
         if isinstance(parsed, dict):

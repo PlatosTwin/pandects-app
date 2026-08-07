@@ -18,6 +18,7 @@ the MCP surface. Machine-readable version:
 - **[api/minor]** Added changelog distribution: dumps/changelog.json is published next to each dump, GET /v1/changelog serves it (filterable by since/dump_sha256), and /v1/dumps entries gain changelog_url
   - Refs: 1eb2010
 - **[mcp/minor]** get_server_capabilities gains a changelog section (latest release, breaking flag, URLs) and the initialize instructions point agents at it
+  - The section reports the newest published release and whether it carries breaking changes. Its latest_version, latest_released, and breaking_changes_in_latest fields are null when the published changelog is unreachable; the url and api_route fields are always populated.
   - Refs: 1eb2010
 
 ## 2026-07-19 — released 2026-07-20
