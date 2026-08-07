@@ -259,11 +259,14 @@ class ReferenceDataDeps:
     TaxonomyL1: Any
     TaxonomyL2: Any
     TaxonomyL3: Any
+    _CHANGELOG_CACHE_TTL_SECONDS: int
     _DUMPS_CACHE_TTL_SECONDS: int
     _DUMPS_MANIFEST_CACHE_TTL_SECONDS: int
     _COUNSEL_TTL_SECONDS: int
     _NAICS_TTL_SECONDS: int
     _TAXONOMY_TTL_SECONDS: int
+    _changelog_cache: dict[str, Any]
+    _changelog_cache_lock: Any
     _counsel_cache: dict[str, Any]
     _counsel_lock: Any
     _dumps_cache: dict[str, Any]

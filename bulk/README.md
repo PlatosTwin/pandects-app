@@ -33,6 +33,44 @@ To run it standalone:
 bulk/.venv/bin/python3 bulk/schema_docs/generate_schema_docs.py
 ```
 
+## Changelog
+
+Dataset, schema, and API changes are documented per dump release (design:
+`changelog/DESIGN.md`):
+
+- `changelog/changelog.yml` — source of truth. Any change that alters the
+  public dataset or its meaning must append an entry under `unreleased:` in
+  the same commit. Only `unreleased:` is hand-edited; `releases:` is stamped
+  by `push_to_r2.sh`.
+- `changelog/render_changelog.py` — validates the yml and regenerates
+  `changelog/CHANGELOG.md` and `docs/docs/guides/changelog.md` (run
+  `... render` standalone; `push_to_r2.sh` runs it at release time).
+
+`push_to_r2.sh` gates every dump: it aborts if the schema fingerprint changed
+since the last release without a `schema` entry (same philosophy as the
+docs-coverage gate), and warns for confirmation when row counts move
+anomalously without a `data` entry. After the dump artifacts upload
+successfully it rolls `unreleased:` into a stamped release and publishes
+`dumps/changelog.json` next to the dump (also served by `GET /v1/changelog`
+and summarized in the MCP `get_server_capabilities` changelog section).
+Commit the rewritten changelog files after each push — the next push diffs
+against the committed state.
+
+Failure recovery:
+
+- Push fails **before** step 3b (dump or upload failed): the repo is
+  untouched; fix the cause and re-run the whole script.
+- Push fails **at step 3c** (roll-up done, changelog upload failed): do not
+  revert the repo — the release is already stamped for a published dump.
+  Re-render and upload by hand:
+
+  ```bash
+  bulk/.venv/bin/python3 bulk/changelog/render_changelog.py render --json-out /tmp/changelog.json
+  # then upload /tmp/changelog.json to dumps/changelog_<ts>.json and copy it
+  # over dumps/changelog.json (both public-read). <ts> is the dump timestamp —
+  # it's recorded as "changelog_key" in dumps/latest.json.
+  ```
+
 ## Environment variables
 
 See:

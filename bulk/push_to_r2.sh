@@ -116,6 +116,19 @@ else
     SCHEMA_DOCS_DIRTY=0
 fi
 
+# ── 0b. Changelog Prechecks (see bulk/changelog/DESIGN.md) ──────
+# Hard gate: schema fingerprint changed since the last release without a
+# `schema` entry under `unreleased` in bulk/changelog/changelog.yml -> abort.
+# Soft gate: anomalous row-count deltas without a `data` entry -> confirm.
+# Row counts are written to the session dir and reused for the release stats.
+echo "📜 [0b/4] Running changelog prechecks..."
+mkdir -p "$SESSION_DIR"
+ROW_COUNTS_FILE="${SESSION_DIR}/row_counts.json"
+CHANGELOG_JSON_FILE="${SESSION_DIR}/changelog.json"
+"$PYTHON_BIN" "${SCRIPT_DIR}/changelog/render_changelog.py" precheck \
+  --dbml "${SCRIPT_DIR}/schema_docs/pandects.dbml" \
+  --counts-out "$ROW_COUNTS_FILE"
+
 LOGICAL_DIR="${SESSION_DIR}/logical"
 LOGICAL_ARCHIVE="${SESSION_DIR}/logical_backup_${TIMESTAMP}.tar.gz"
 LOGICAL_CHECKSUM_FILE="${LOGICAL_ARCHIVE}.sha256"
@@ -338,6 +351,10 @@ upload_with_progress(dump_path, dump_key, "public-read", "dump")
 
 upload_with_progress(checksum_path, checksum_key, "public-read", "checksum")
 
+# Deterministic key; the changelog itself is rolled up and uploaded in steps
+# 3b/3c, after this upload has succeeded.
+changelog_key = f"dumps/changelog_${TIMESTAMP}.json"
+
 logical_sha256 = sha256_file(logical_path)
 dump_sha256 = sha256_file(dump_path)
 
@@ -356,6 +373,8 @@ manifest = {
     "checksum_url":      checksum_url,
     "download_url_dev":  dump_url_dev,
     "checksum_url_dev":  checksum_url_dev,
+    "changelog_key":     changelog_key,
+    "changelog_url":     f"{public_dev_base}/dumps/changelog.json",
 }
 
 manifest_path = dump_path.with_name(dump_path.name + ".manifest.json")
@@ -400,6 +419,58 @@ for src_key, dst_key in [
 print("✅ All uploads successful.")
 EOF
 
+# ── 3b. Roll Up Changelog Release ───────────────────────────────
+# Runs only after the dump artifacts are safely on R2, so a failed upload
+# never leaves the repo recording a phantom release. Moves `unreleased`
+# entries into a release stamped with this dump's identity, rewrites
+# bulk/changelog/changelog.yml, and renders CHANGELOG.md, the docs guide,
+# and the machine-readable changelog.json.
+echo "📜 [3b/4] Rolling changelog release..."
+DUMP_SHA256="$(cut -d' ' -f1 "$CHECKSUM_FILE")"
+"$PYTHON_BIN" "${SCRIPT_DIR}/changelog/render_changelog.py" release \
+  --version "${TIMESTAMP%%_*}" \
+  --released "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  --dump-sha256 "$DUMP_SHA256" \
+  --dump-key "dumps/$(basename "$SQL_DUMP_FILE")" \
+  --dbml "${SCRIPT_DIR}/schema_docs/pandects.dbml" \
+  --counts-in "$ROW_COUNTS_FILE" \
+  --json-out "$CHANGELOG_JSON_FILE"
+
+# ── 3c. Upload Changelog ────────────────────────────────────────
+# If this step fails after the roll-up, do NOT revert the repo: re-render and
+# upload by hand (see bulk/README.md, "Changelog").
+echo "☁️  [3c/4] Uploading changelog to R2..."
+"$PYTHON_BIN" - <<EOF
+import os
+from botocore.config import Config
+import boto3
+
+session = boto3.session.Session()
+client = session.client(
+    service_name='s3',
+    aws_access_key_id=os.environ['R2_ACCESS_KEY_ID'],
+    aws_secret_access_key=os.environ['R2_SECRET_ACCESS_KEY'],
+    endpoint_url="${R2_ENDPOINT}",
+    config=Config(
+        connect_timeout=30,
+        read_timeout=300,
+        retries={"max_attempts": 10, "mode": "standard"},
+    ),
+)
+bucket = "${R2_BUCKET_NAME}"
+changelog_key = f"dumps/changelog_${TIMESTAMP}.json"
+print(f"📤 Uploading changelog: {changelog_key}")
+client.upload_file("${CHANGELOG_JSON_FILE}", bucket, changelog_key, ExtraArgs={"ACL": "public-read"})
+print(f"   ↪ dumps/changelog.json <= {changelog_key}")
+client.copy_object(
+    Bucket=bucket,
+    CopySource={"Bucket": bucket, "Key": changelog_key},
+    Key="dumps/changelog.json",
+    ACL="public-read",
+)
+print("✅ Changelog uploaded.")
+EOF
+
 # ── Cleanup ─────────────────────────────────────────────────────
 echo "🧹 [4/4] Cleaning up local artifacts..."
 rm -rf "$SESSION_DIR"
@@ -408,9 +479,21 @@ echo "🎉 Sync Complete! Artifacts are on R2."
 echo "   - Internal Restore: s3://${R2_BUCKET_NAME}/logical_backups/backup_${TIMESTAMP}.tar.gz"
 echo "   - Public Dump:    s3://${R2_BUCKET_NAME}/dumps/latest.sql.gz"
 
-if [ "$SCHEMA_DOCS_DIRTY" -eq 1 ]; then
+# The changelog roll-up always dirties changelog.yml (and its rendered
+# artifacts); the next push diffs against the committed state, so these must
+# land on main along with any schema-doc changes.
+COMMIT_PATHS=(
+  "${SCHEMA_DOC_PATHS[@]}"
+  "bulk/changelog/changelog.yml"
+  "bulk/changelog/CHANGELOG.md"
+  "docs/docs/guides/changelog.md"
+)
+if [ "$SCHEMA_DOCS_DIRTY" -eq 1 ] \
+   || ! git -C "$REPO_ROOT" diff --quiet -- "${COMMIT_PATHS[@]}" \
+   || [ -n "$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "${COMMIT_PATHS[@]}")" ]; then
     echo ""
-    echo "⚠️  Schema docs changed with this dump. Commit and push to main so the"
-    echo "   docs site and dbdocs.io get updated:"
-    printf '     %s\n' "${SCHEMA_DOC_PATHS[@]}"
+    echo "⚠️  Generated docs/changelog files changed with this dump. Commit and"
+    echo "   push to main so the docs site, dbdocs.io, and the next push's"
+    echo "   changelog baseline get updated:"
+    printf '     %s\n' "${COMMIT_PATHS[@]}"
 fi

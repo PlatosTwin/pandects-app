@@ -73,8 +73,8 @@ _FIELD_REPRESENTATION_VALUES = (
     "derived_from_text",
     "not_represented",
 )
-_CAPABILITIES_SECTIONS_ALL = ("server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools")
-_CAPABILITIES_SECTIONS_DEFAULT = ("server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows")
+_CAPABILITIES_SECTIONS_ALL = ("server", "auth_help", "changelog", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools")
+_CAPABILITIES_SECTIONS_DEFAULT = ("server", "auth_help", "changelog", "field_inventory", "concept_notes", "tool_limitations", "workflows")
 _TRENDS_SECTIONS_ALL = ("ownership", "target_industries", "pairings", "naics_catalog")
 # pairings (every industry x industry cell) and naics_catalog (full hierarchy) are
 # large; exclude them by default so the response stays small enough for an LLM context.

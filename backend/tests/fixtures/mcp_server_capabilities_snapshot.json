@@ -5996,6 +5996,7 @@
               "enum": [
                 "server",
                 "auth_help",
+                "changelog",
                 "field_inventory",
                 "concept_notes",
                 "tool_limitations",
@@ -6003,10 +6004,11 @@
                 "tools"
               ]
             },
-            "description": "Subset of capability sections to return. Valid values: server, auth_help, field_inventory, concept_notes, tool_limitations, workflows, tools. Defaults to all sections except `tools` (which is large). Pass `[\"tools\"]` or include `tools` explicitly if you need full per-tool schemas.",
+            "description": "Subset of capability sections to return. Valid values: server, auth_help, changelog, field_inventory, concept_notes, tool_limitations, workflows, tools. Defaults to all sections except `tools` (which is large). Pass `[\"tools\"]` or include `tools` explicitly if you need full per-tool schemas.",
             "default": [
               "server",
               "auth_help",
+              "changelog",
               "field_inventory",
               "concept_notes",
               "tool_limitations",
@@ -6085,6 +6087,47 @@
               "relogin_hint",
               "fulltext_scope",
               "invalid_or_expired_token_message"
+            ]
+          },
+          "changelog": {
+            "type": "object",
+            "properties": {
+              "latest_version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "latest_released": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "breaking_changes_in_latest": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "url": {
+                "type": "string"
+              },
+              "api_route": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "latest_version",
+              "latest_released",
+              "breaking_changes_in_latest",
+              "url",
+              "api_route",
+              "note"
             ]
           },
           "field_inventory": {

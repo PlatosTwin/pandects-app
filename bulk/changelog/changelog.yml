@@ -1,0 +1,92 @@
+# Pandects dataset changelog — source of truth.
+#
+# RULE (humans and agents): any change that alters the public dataset or its
+# meaning — bulk/public_tables.txt, bulk/schema_docs/table_docs.yml, DB
+# migrations or data fixes affecting allowlisted tables, backend/schemas/
+# public_api.py, or the backend/mcp/ tool surface — must append an entry to
+# `unreleased:` below IN THE SAME COMMIT. See bulk/changelog/DESIGN.md.
+#
+# Entry shape (only `unreleased:` is hand-edited; `releases:` is stamped by
+# bulk/push_to_r2.sh via render_changelog.py — do not hand-edit it):
+#   - type: schema | data | api | mcp | docs | pipeline
+#     severity: breaking | notable | minor
+#     summary: "One-line, consumer-facing description."
+#     details: >            # optional longer prose
+#     tables: [agreements]  # optional; must be subset of bulk/public_tables.txt
+#     migration: null       # optional guidance/SQL for consumers
+#     refs: ["<commit or PR>"]  # optional
+#
+# severity: breaking = consumer queries against the previous dump can return
+# wrong/empty results; notable = results change but queries still run;
+# minor = additive/cosmetic.
+
+unreleased:
+- type: api
+  severity: minor
+  summary: 'Added changelog distribution: dumps/changelog.json is published next to
+    each dump, GET /v1/changelog serves it (filterable by since/dump_sha256), and
+    /v1/dumps entries gain changelog_url'
+  refs: ['1eb2010']
+- type: mcp
+  severity: minor
+  summary: get_server_capabilities gains a changelog section (latest release, breaking
+    flag, URLs) and the initialize instructions point agents at it
+  refs: ['1eb2010']
+- type: data
+  severity: notable
+  summary: 'Fixed SPAC acquirer misattribution: 135 agreements had the Pubco recorded
+    as acquirer'
+  details: >
+    Offline acquirer extraction now disambiguates the SPAC counterparty from the
+    surviving Pubco entity. acquirer name fields on 135 agreements rows were
+    corrected in place; one agreement (Overture) still awaits a re-scrape.
+  tables: [agreements]
+  refs: ['0da4871']
+
+releases:
+- version: '2026-07-19'
+  released: '2026-07-20T06:32:18Z'
+  dump_sha256: fd703d72dfadd59a0fdc720399f5ecc27c23a8c6f99b76279c80983bf7fd99a8
+  dump_key: dumps/public_2026-07-19_22-30-04.sql.gz
+  schema_fingerprint: 8cd7a5a1f15035c733b3dfb72042dd00bdf02b67991bd4250e84eeab99e7b6e4
+  stats:
+    row_counts:
+      agreement_counsel: 18486
+      agreement_buyer_type_matrix_summary: 7
+      agreement_counsel_leaderboard_summary: 7080
+      agreement_deal_type_summary: 130
+      agreement_filter_option_summary: 18596
+      agreement_industry_pairing_summary: 927
+      agreement_overview_summary: 1
+      agreement_ownership_deal_size_summary: 54
+      agreement_ownership_mix_summary: 54
+      agreement_status_summary: 102
+      agreement_target_industry_summary: 1615
+      agreement_metadata_field_coverage_summary: 19
+      agreement_index_summary: 9719
+      agreements: 13980
+      clauses: 29635
+      counsel: 1388
+      latest_sections_search: 947546
+      latest_sections_search_standard_ids: 466971
+      naics_sectors: 24
+      naics_sub_sectors: 93
+      sections: 949554
+      summary_data: 1826
+      tax_clause_assignments: 11432
+      tax_clause_taxonomy_l1: 9
+      tax_clause_taxonomy_l2: 45
+      tax_clause_taxonomy_l3: 96
+      taxonomy_l1: 12
+      taxonomy_l2: 61
+      taxonomy_l3: 99
+      xml: 11279
+  changes:
+  - type: docs
+    severity: minor
+    summary: Retroactive baseline entry for the previously published dump; change
+      history begins with the next release.
+    details: >
+      Fields backfilled from dumps/latest.json and the committed schema docs.
+      Row counts were measured from the source database on 2026-08-05 and may
+      differ slightly from the dump as published on 2026-07-20.
