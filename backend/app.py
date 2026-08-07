@@ -915,18 +915,18 @@ def _current_access_context() -> AccessContext:
     return AccessContext(tier="anonymous")
 
 
-# --- Temporary July access restrictions -------------------------------------
+# --- Temporary September access restrictions ---------------------------------
 # New account creation is disabled and the data API is limited to accounts that
 # already existed before the current day, surfaced in-app as a "check back in
-# July" notice. To reopen access, remove _temporary_access_gate (and its
+# September" notice. To reopen access, remove _temporary_access_gate (and its
 # before_request registration in _register_request_hooks) plus the OAuth
 # register guard in backend/routes/auth/__init__.py.
 _REGISTRATION_DISABLED_MESSAGE = (
-    "New user creation is temporarily disabled. Please check back in July."
+    "New user creation is temporarily disabled. Please check back in September."
 )
 _DATA_API_DISABLED_MESSAGE = (
     "This API is temporarily disabled for non-authenticated users. "
-    "Please check back in July."
+    "Please check back in September."
 )
 
 
@@ -1414,7 +1414,7 @@ def _register_request_hooks(target_app: Flask) -> None:
         populate_dump_version=_populate_dump_version,
         attach_dump_version_header=_attach_dump_version_header,
     )
-    # Temporary July gate; registered after the core guard so g.access_ctx is set.
+    # Temporary September gate; registered after the core guard so g.access_ctx is set.
     _temp_access_gate: object = target_app.before_request(_temporary_access_gate)
 
 # Legacy helper names kept so route dependency wiring and tests can import one app module.
