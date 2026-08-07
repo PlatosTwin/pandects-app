@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,14 +11,19 @@ from typing import Any, cast
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _RENDERER_PATH = _REPO_ROOT / "bulk" / "changelog" / "render_changelog.py"
 _CHANGELOG_PATH = _REPO_ROOT / "bulk" / "changelog" / "changelog.yml"
+_CHANGELOG_INFO_PATH = _REPO_ROOT / "backend" / "mcp" / "tools" / "changelog_info.py"
 
 
-def _load_renderer() -> Any:
-    spec = importlib.util.spec_from_file_location("render_changelog", _RENDERER_PATH)
+def _load_module(name: str, path: Path) -> Any:
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_renderer() -> Any:
+    return _load_module("render_changelog", _RENDERER_PATH)
 
 
 class ChangelogTests(unittest.TestCase):
@@ -275,6 +281,77 @@ class ChangelogTests(unittest.TestCase):
         guide_path = _REPO_ROOT / "docs" / "docs" / "guides" / "changelog.md"
         self.assertEqual(markdown_path.read_text(), self.renderer.render_markdown(data))
         self.assertEqual(guide_path.read_text(), self.renderer.render_docs_guide(data))
+
+
+class ChangelogInfoFetchTests(unittest.TestCase):
+    """The MCP capabilities changelog section fetches the published artifact.
+
+    Loaded by path so the test doesn't pull in the heavy backend.mcp.tools
+    package (changelog_info.py imports only the stdlib).
+    """
+
+    def setUp(self) -> None:
+        self.module = _load_module("changelog_info", _CHANGELOG_INFO_PATH)
+        os.environ.pop("MCP_CHANGELOG_FETCH", None)
+
+    def test_fetch_sends_explicit_user_agent(self) -> None:
+        # Cloudflare 403s urllib's default Python-urllib/x.y agent, which
+        # nulled this section in production until the header was set.
+        seen: dict[str, object] = {}
+
+        class _FakeResponse:
+            def __enter__(self) -> "_FakeResponse":
+                return self
+
+            def __exit__(self, *args: object) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return json.dumps(
+                    {"latest_version": "2026-07-19", "latest_released": "x", "releases": []}
+                ).encode()
+
+        def _fake_urlopen(request: Any, timeout: float | None = None) -> _FakeResponse:
+            seen["headers"] = dict(request.headers)
+            seen["url"] = request.full_url
+            seen["timeout"] = timeout
+            return _FakeResponse()
+
+        self.module.urllib.request.urlopen = _fake_urlopen
+        section = self.module.changelog_capabilities_section()
+
+        headers = cast(dict[str, str], seen["headers"])
+        agent = next(v for k, v in headers.items() if k.lower() == "user-agent")
+        self.assertIn("pandects", agent.lower())
+        self.assertNotIn("python-urllib", agent.lower())
+        self.assertEqual(seen["timeout"], self.module._FETCH_TIMEOUT_SECONDS)
+        self.assertEqual(section["latest_version"], "2026-07-19")
+
+    def test_fetch_failure_degrades_to_nulls(self) -> None:
+        def _boom(request: Any, timeout: float | None = None) -> object:
+            raise OSError("network down")
+
+        self.module.urllib.request.urlopen = _boom
+        section = self.module.changelog_capabilities_section()
+        self.assertIsNone(section["latest_version"])
+        self.assertIsNone(section["breaking_changes_in_latest"])
+        self.assertEqual(section["api_route"], "/v1/changelog")
+
+    def test_fetch_disabled_by_env_makes_no_request(self) -> None:
+        called: list[object] = []
+
+        def _tracker(request: Any, timeout: float | None = None) -> object:
+            called.append(request)
+            raise AssertionError("should not fetch")
+
+        self.module.urllib.request.urlopen = _tracker
+        os.environ["MCP_CHANGELOG_FETCH"] = "0"
+        try:
+            section = self.module.changelog_capabilities_section()
+        finally:
+            os.environ.pop("MCP_CHANGELOG_FETCH", None)
+        self.assertEqual(called, [])
+        self.assertIsNone(section["latest_version"])
 
 
 if __name__ == "__main__":
