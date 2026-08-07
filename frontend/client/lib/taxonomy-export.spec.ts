@@ -66,10 +66,14 @@ describe("formatTaxonomyTreeText", () => {
 });
 
 describe("taxonomyTextFileName", () => {
+  // Every case pins an explicit zone rather than the ambient one, so the
+  // assertions hold whatever TZ the machine or CI runner happens to use.
   it("names the main and tax exports distinctly and stamps the date", () => {
     const day = new Date("2026-08-06T12:00:00Z");
-    expect(taxonomyTextFileName("main", day)).toBe("taxonomy_2026-08-06.txt");
-    expect(taxonomyTextFileName("tax", day)).toBe(
+    expect(taxonomyTextFileName("main", day, "UTC")).toBe(
+      "taxonomy_2026-08-06.txt",
+    );
+    expect(taxonomyTextFileName("tax", day, "UTC")).toBe(
       "tax_clause_taxonomy_2026-08-06.txt",
     );
   });
@@ -80,18 +84,24 @@ describe("taxonomyTextFileName", () => {
     ["America/Los_Angeles", "2026-08-06T01:00:00Z", "taxonomy_2026-08-05.txt"],
     ["Pacific/Auckland", "2026-08-05T22:00:00Z", "taxonomy_2026-08-06.txt"],
   ])("stamps the local day in %s, not the UTC one", (zone, instant, expected) => {
-    const originalZone = process.env.TZ;
-    process.env.TZ = zone;
-    try {
-      expect(taxonomyTextFileName("main", new Date(instant))).toBe(expected);
-    } finally {
-      process.env.TZ = originalZone;
-    }
+    expect(taxonomyTextFileName("main", new Date(instant), zone)).toBe(expected);
+  });
+
+  it("defaults to the ambient zone when none is passed", () => {
+    const instant = new Date("2026-08-06T12:00:00Z");
+    const ambient = new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(instant);
+    expect(taxonomyTextFileName("main", instant)).toBe(
+      `taxonomy_${ambient}.txt`,
+    );
   });
 
   it("zero-pads single-digit months and days", () => {
-    expect(taxonomyTextFileName("main", new Date(2026, 0, 9))).toBe(
-      "taxonomy_2026-01-09.txt",
-    );
+    expect(
+      taxonomyTextFileName("main", new Date("2026-01-09T12:00:00Z"), "UTC"),
+    ).toBe("taxonomy_2026-01-09.txt");
   });
 });
