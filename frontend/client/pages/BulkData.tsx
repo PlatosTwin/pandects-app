@@ -423,7 +423,17 @@ export default function BulkData() {
           >
             dbdocs.io
           </a>
-          .
+          . Schema and data changes between releases are listed in the{" "}
+          <a
+            href={`${docsUrl}/docs/guides/changelog`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Changelog (opens in a new tab)"
+            className="font-medium underline decoration-foreground/60 underline-offset-2"
+          >
+            Changelog
+          </a>
+          , which records the SHA256 of the dump each change shipped in.
         </p>
       </div>
 
