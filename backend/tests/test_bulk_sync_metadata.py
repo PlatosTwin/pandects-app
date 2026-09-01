@@ -56,7 +56,160 @@ class BulkSyncMetadataTests(unittest.TestCase):
         self.assertIn('manifest["logical_sha256"]', script)
         self.assertNotIn("list_objects_v2", script)
 
+    def test_myloader_key_optimization_prefers_enum_flag(self) -> None:
+        help_text = (
+            "  --directory                Directory of the dump to import\n"
+            "  --optimize-keys            Creates the table without the indexes unless "
+            "SKIP is selected. Options: AFTER_IMPORT_PER_TABLE, AFTER_IMPORT_ALL_TABLES and SKIP\n"
+            "  --optimize-keys-batchsize  Limits the amount of indexes per ALTER TABLE\n"
+        )
+        self.assertEqual(
+            _RESTORE_MODULE.myloader_key_optimization_args(help_text),
+            ["--optimize-keys", "AFTER_IMPORT_PER_TABLE"],
+        )
+
+    def test_myloader_key_optimization_falls_back_to_boolean_flag(self) -> None:
+        help_text = (
+            "  --directory                Directory of the dump to import\n"
+            "  --innodb-optimize-keys     Creates the table without the indexes and "
+            "it adds them at the end\n"
+        )
+        self.assertEqual(
+            _RESTORE_MODULE.myloader_key_optimization_args(help_text),
+            ["--innodb-optimize-keys"],
+        )
+
+    def test_myloader_key_optimization_omits_flag_when_unsupported(self) -> None:
+        # Debian bookworm's mydumper 0.10.1 advertises neither spelling.
+        help_text = (
+            "  -d, --directory              Directory of the dump to import\n"
+            "  -q, --queries-per-transaction  Number of queries per transaction\n"
+            "  -o, --overwrite-tables       Drop tables if they already exist\n"
+            "  -B, --database               An alternative database to restore into\n"
+            "  -e, --enable-binlog          Enable binary logging of the restore data\n"
+        )
+        self.assertEqual(_RESTORE_MODULE.myloader_key_optimization_args(help_text), [])
+
+    def test_myloader_key_optimization_ignores_batchsize_only_match(self) -> None:
+        help_text = (
+            "  --directory                Directory of the dump to import\n"
+            "  --optimize-keys-batchsize  Limits the amount of indexes per ALTER TABLE\n"
+        )
+        self.assertEqual(_RESTORE_MODULE.myloader_key_optimization_args(help_text), [])
+
+    def test_probe_myloader_help_fails_closed_when_not_executable(self) -> None:
+        with patch.object(
+            _RESTORE_MODULE.subprocess,
+            "run",
+            side_effect=FileNotFoundError("myloader"),
+        ):
+            with self.assertRaisesRegex(Exception, "myloader is not executable"):
+                _RESTORE_MODULE.probe_myloader_help()
+
+    def test_probe_myloader_help_fails_closed_on_nonzero_exit(self) -> None:
+        class _Result:
+            returncode = 127
+            stdout = ""
+            stderr = "boom"
+
+        with patch.object(_RESTORE_MODULE.subprocess, "run", return_value=_Result()):
+            with self.assertRaisesRegex(Exception, "exited with status 127"):
+                _RESTORE_MODULE.probe_myloader_help()
+
+    def test_probe_myloader_help_fails_closed_on_unrecognized_output(self) -> None:
+        class _Result:
+            returncode = 0
+            stdout = "not myloader\n"
+            stderr = ""
+
+        with patch.object(_RESTORE_MODULE.subprocess, "run", return_value=_Result()):
+            with self.assertRaisesRegex(Exception, "did not advertise --directory"):
+                _RESTORE_MODULE.probe_myloader_help()
+
     def test_restore_backup_uses_manifest_and_verifies_checksum_before_db_reset(self) -> None:
+        help_text = (
+            "  --directory      Directory of the dump to import\n"
+            "  --optimize-keys  Options: AFTER_IMPORT_PER_TABLE, AFTER_IMPORT_ALL_TABLES and SKIP\n"
+        )
+        fake_client, subprocess_calls, extract_root, manifest = self._run_restore_backup(
+            myloader_help=help_text
+        )
+
+        self.assertEqual(
+            fake_client.calls[0],
+            ("get_object", _RESTORE_MODULE.R2_BUCKET_NAME, _RESTORE_MODULE.LOGICAL_LATEST_MANIFEST_KEY),
+        )
+        self.assertEqual(
+            fake_client.calls[1],
+            ("head_object", _RESTORE_MODULE.R2_BUCKET_NAME, manifest["logical_key"]),
+        )
+        self.assertEqual(fake_client.calls[2][0], "download_file")
+        self.assertEqual(fake_client.calls[2][2], manifest["logical_key"])
+        self.assertEqual(len(subprocess_calls), 6)
+        self.assertEqual(subprocess_calls[0], ["myloader", "--help"])
+        self.assertEqual(subprocess_calls[1][0], "mariadb")
+        self.assertIn("DROP DATABASE IF EXISTS `pdx`", subprocess_calls[1][-1])
+        self.assertEqual(subprocess_calls[2][0], "myloader")
+        self.assertIn("--optimize-keys", subprocess_calls[2])
+        optimize_index = subprocess_calls[2].index("--optimize-keys")
+        self.assertEqual(subprocess_calls[2][optimize_index + 1], "AFTER_IMPORT_PER_TABLE")
+        self.assertNotIn("--innodb-optimize-keys", subprocess_calls[2])
+        self.assertEqual(subprocess_calls[3][0], "mariadb")
+        self.assertIn("information_schema.STATISTICS", subprocess_calls[3][-1])
+        self.assertEqual(subprocess_calls[4][0], "mariadb")
+        self.assertIn("SELECT 'section_text_search', COUNT(*)", subprocess_calls[4][-1])
+        self.assertEqual(subprocess_calls[5][0], "mariadb")
+        self.assertIn("source_xml_sha256", subprocess_calls[5][-1])
+        # extract_root existence is asserted inside _run_restore_backup while the
+        # temporary directory is still alive.
+        self.assertIsInstance(extract_root, Path)
+
+    def test_restore_backup_uses_boolean_flag_when_only_that_is_advertised(self) -> None:
+        help_text = (
+            "  --directory             Directory of the dump to import\n"
+            "  --innodb-optimize-keys  Creates the table without the indexes\n"
+        )
+        _, subprocess_calls, _, _ = self._run_restore_backup(myloader_help=help_text)
+
+        myloader_call = subprocess_calls[2]
+        self.assertEqual(myloader_call[0], "myloader")
+        self.assertIn("--innodb-optimize-keys", myloader_call)
+        self.assertNotIn("--optimize-keys", myloader_call)
+        self.assertNotIn("AFTER_IMPORT_PER_TABLE", myloader_call)
+
+    def test_restore_backup_omits_key_flag_for_mydumper_0_10(self) -> None:
+        help_text = (
+            "  -d, --directory          Directory of the dump to import\n"
+            "  -o, --overwrite-tables   Drop tables if they already exist\n"
+        )
+        _, subprocess_calls, _, _ = self._run_restore_backup(myloader_help=help_text)
+
+        myloader_call = subprocess_calls[2]
+        self.assertEqual(myloader_call[0], "myloader")
+        self.assertNotIn("--optimize-keys", myloader_call)
+        self.assertNotIn("--innodb-optimize-keys", myloader_call)
+        self.assertNotIn("AFTER_IMPORT_PER_TABLE", myloader_call)
+        self.assertEqual(myloader_call[-2:], ["--verbose", "3"])
+
+    def test_restore_backup_aborts_before_drop_when_myloader_missing(self) -> None:
+        with self.assertRaisesRegex(Exception, "myloader is not executable"):
+            self._run_restore_backup(myloader_help=None)
+
+        subprocess_calls = self._last_subprocess_calls
+        self.assertEqual(subprocess_calls, [["myloader", "--help"]])
+        self.assertFalse(
+            any("DROP DATABASE" in " ".join(call) for call in subprocess_calls)
+        )
+
+    def _run_restore_backup(self, *, myloader_help: str | None):  # type: ignore[no-untyped-def]
+        """Drive restore_backup() against fakes.
+
+        ``myloader_help`` is what ``myloader --help`` prints; ``None`` makes the
+        probe raise FileNotFoundError as if the binary were absent. Returns
+        (fake_client, subprocess_calls, extract_root, manifest). The extract
+        directory is torn down when the call returns, so path assertions must
+        happen inside the ``with`` block; that is why existence checks run here.
+        """
         with TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             archive_source = tmp_path / "logical_backup.tar.gz"
@@ -132,12 +285,21 @@ class BulkSyncMetadataTests(unittest.TestCase):
             subprocess_calls: list[list[str]] = []
 
             class _FakeCompletedProcess:
-                def __init__(self, stdout: str = "1\n") -> None:
+                def __init__(self, stdout: str = "1\n", returncode: int = 0) -> None:
                     self.stdout = stdout
+                    self.stderr = ""
+                    self.returncode = returncode
+
+            self._last_subprocess_calls = subprocess_calls
 
             def _fake_subprocess_run(args: list[str], check: bool, **kwargs):  # type: ignore[no-untyped-def]
-                self.assertTrue(check)
                 subprocess_calls.append(args)
+                if args == ["myloader", "--help"]:
+                    self.assertFalse(check)
+                    if myloader_help is None:
+                        raise FileNotFoundError("myloader")
+                    return _FakeCompletedProcess(myloader_help)
+                self.assertTrue(check)
                 command = args[-1] if args and args[0] == "mariadb" else ""
                 if " UNION ALL " in command:
                     return _FakeCompletedProcess(
@@ -173,31 +335,9 @@ class BulkSyncMetadataTests(unittest.TestCase):
             ):
                 _RESTORE_MODULE.restore_backup()
 
-            self.assertEqual(
-                fake_client.calls[0],
-                ("get_object", _RESTORE_MODULE.R2_BUCKET_NAME, _RESTORE_MODULE.LOGICAL_LATEST_MANIFEST_KEY),
-            )
-            self.assertEqual(
-                fake_client.calls[1],
-                ("head_object", _RESTORE_MODULE.R2_BUCKET_NAME, manifest["logical_key"]),
-            )
-            self.assertEqual(fake_client.calls[2][0], "download_file")
-            self.assertEqual(fake_client.calls[2][2], manifest["logical_key"])
-            self.assertEqual(len(subprocess_calls), 5)
-            self.assertEqual(subprocess_calls[0][0], "mariadb")
-            self.assertIn("DROP DATABASE IF EXISTS `pdx`", subprocess_calls[0][-1])
-            self.assertEqual(subprocess_calls[1][0], "myloader")
-            self.assertIn("--optimize-keys", subprocess_calls[1])
-            optimize_index = subprocess_calls[1].index("--optimize-keys")
-            self.assertEqual(subprocess_calls[1][optimize_index + 1], "AFTER_IMPORT_PER_TABLE")
-            self.assertEqual(subprocess_calls[2][0], "mariadb")
-            self.assertIn("information_schema.STATISTICS", subprocess_calls[2][-1])
-            self.assertEqual(subprocess_calls[3][0], "mariadb")
-            self.assertIn("SELECT 'section_text_search', COUNT(*)", subprocess_calls[3][-1])
-            self.assertEqual(subprocess_calls[4][0], "mariadb")
-            self.assertIn("source_xml_sha256", subprocess_calls[4][-1])
             self.assertTrue((extract_root / "metadata").exists())
             self.assertTrue((extract_root / "pdx.agreements-schema.sql").exists())
+            return fake_client, subprocess_calls, extract_root, manifest
 
     def test_restore_manifest_rejects_missing_private_table(self) -> None:
         public_tables = _RESTORE_MODULE.read_table_allowlist(

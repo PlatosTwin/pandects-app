@@ -288,6 +288,43 @@ def strip_definers_in_sql_files(sql_files: list[Path]) -> int:
     return rewritten_files
 
 
+def myloader_key_optimization_args(help_text: str) -> list[str]:
+    """Pick the key-optimization flag this myloader build advertises, if any.
+
+    Upstream renamed the boolean ``--innodb-optimize-keys`` to the enum-valued
+    ``--optimize-keys`` in later releases, and older builds (e.g. Debian
+    bookworm's 0.10.1) have neither. Passing an unknown option makes myloader
+    exit nonzero, so only emit a spelling that ``myloader --help`` lists.
+    ``--optimize-keys-batchsize`` must not count as ``--optimize-keys``.
+    """
+    if re.search(r"(?<![\w-])--optimize-keys(?![\w-])", help_text):
+        return ["--optimize-keys", "AFTER_IMPORT_PER_TABLE"]
+    if re.search(r"(?<![\w-])--innodb-optimize-keys(?![\w-])", help_text):
+        return ["--innodb-optimize-keys"]
+    return []
+
+
+def probe_myloader_help() -> str:
+    """Return ``myloader --help`` output, failing closed if myloader cannot run."""
+    try:
+        result = subprocess.run(
+            ["myloader", "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        raise Exception(f"myloader is not executable: {exc}") from exc
+    help_text = (result.stdout or "") + (result.stderr or "")
+    if result.returncode != 0:
+        raise Exception(
+            f"myloader --help exited with status {result.returncode}: {help_text.strip()}"
+        )
+    if "--directory" not in help_text:
+        raise Exception("myloader --help did not advertise --directory; refusing to restore.")
+    return help_text
+
+
 def restore_backup():
     if not R2_ACCESS_KEY_ID or not R2_SECRET_ACCESS_KEY:
         raise Exception("Missing R2 credentials: R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY must be set")
@@ -312,6 +349,15 @@ def restore_backup():
         raise Exception("Missing MARIADB_DATABASE")
 
     print("✅ R2 credentials found", flush=True)
+
+    # Probe the installed myloader before anything destructive: an unknown
+    # option would only surface after DROP DATABASE and leave production empty.
+    key_optimization_args = myloader_key_optimization_args(probe_myloader_help())
+    print(
+        "🔎 myloader key optimization: "
+        + (" ".join(key_optimization_args) or "not supported by this build"),
+        flush=True,
+    )
 
     session = Boto3Session()
     client = session.client(
@@ -429,8 +475,7 @@ def restore_backup():
             db_name,
             "--threads",
             str(myloader_threads),
-            "--optimize-keys",
-            "AFTER_IMPORT_PER_TABLE",
+            *key_optimization_args,
             "--verbose",
             "3",
         ],

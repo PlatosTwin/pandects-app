@@ -41,8 +41,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     _ = parser.add_argument(
         "--env-file",
         type=Path,
-        default=Path("backend/.env"),
-        help="MariaDB environment file (default: backend/.env).",
+        default=Path("etl/.env"),
+        help="MariaDB environment file (default: etl/.env).",
     )
     _ = parser.add_argument("--agreement-batch-size", type=int, default=100)
     _ = parser.add_argument("--write-batch-size", type=int, default=1000)

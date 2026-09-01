@@ -50,6 +50,23 @@ snapshot in the first place.
 memory-constrained production VM. Override it only after benchmarking the
 restore on the target machine.
 
+`restore_prod.sh` is the one-shot production restore: it records the
+`pandects-db` machine size, scales it to `performance-2x` / 4GB, runs
+`restore_from_r2.py` on a temporary `pandects-bulk` machine (with
+`MYLOADER_THREADS=4` for the larger VM), verifies row counts, the FULLTEXT
+index, and a boolean-mode smoke query against the live database, and scales
+`pandects-db` back to its recorded size on exit — on failure too. If the
+restore is still running when the script is interrupted or times out, it
+leaves the restore machine and the scaled-up DB alone and prints how to finish
+by hand. Deploy the restore image first whenever the restore script changed:
+
+```bash
+cd bulk && fly deploy --app pandects-bulk
+MARIADB_PASSWORD=... bash bulk/restore_prod.sh
+```
+
+Before resetting production, `restore_from_r2.py` probes `myloader --help` and passes `--optimize-keys AFTER_IMPORT_PER_TABLE`, `--innodb-optimize-keys`, or no key-optimization flag depending on what the installed build advertises; it aborts before the drop if myloader cannot run.
+
 To run it standalone:
 
 ```bash
