@@ -80,7 +80,7 @@ class PairScore:
     new_jaccard: float
     new_containment: float
     lsh_retrievable: bool
-    dated_as_of_match: bool | None  # None when either side lacks a date
+    dated_as_of_match: bool | None
     decision_action: str
     decision_reason: str
 

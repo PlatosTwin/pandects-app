@@ -64,36 +64,33 @@ class TestLoadLabelsValidation(unittest.TestCase):
     def test_flipped_duplicate_pair_rejected(self) -> None:
         pairs = [_entry("uuid-a", "uuid-b"), _entry("uuid-b", "uuid-a")]
         path = _write_labels(pairs, {"positive": 2, "negative": 0})
-        with self.assertRaisesRegex(ValueError, "Duplicate pair"):
-            _ = load_labels(path)
+        self.assertRaisesRegex(ValueError, "Duplicate pair", load_labels, path)
 
     def test_pair_id_must_match_sides(self) -> None:
         entry = _entry("uuid-a", "uuid-b")
         entry["pair_id"] = "uuid-a__uuid-c"
         path = _write_labels([entry], {"positive": 1, "negative": 0})
-        with self.assertRaisesRegex(ValueError, "does not match its sides"):
-            _ = load_labels(path)
+        self.assertRaisesRegex(
+            ValueError, "does not match its sides", load_labels, path
+        )
 
     def test_count_header_drift_rejected(self) -> None:
         path = _write_labels(
             [_entry("uuid-a", "uuid-b")], {"positive": 2, "negative": 0}
         )
-        with self.assertRaisesRegex(ValueError, "counts drifted"):
-            _ = load_labels(path)
+        self.assertRaisesRegex(ValueError, "counts drifted", load_labels, path)
 
     def test_unknown_label_rejected(self) -> None:
         path = _write_labels(
             [_entry("uuid-a", "uuid-b", label="maybe")],
             {"positive": 0, "negative": 1},
         )
-        with self.assertRaisesRegex(ValueError, "Unknown label"):
-            _ = load_labels(path)
+        self.assertRaisesRegex(ValueError, "Unknown label", load_labels, path)
 
     def test_identical_sides_rejected(self) -> None:
         entry = _entry("uuid-a", "uuid-a")
         path = _write_labels([entry], {"positive": 1, "negative": 0})
-        with self.assertRaisesRegex(ValueError, "identical sides"):
-            _ = load_labels(path)
+        self.assertRaisesRegex(ValueError, "identical sides", load_labels, path)
 
     def test_valid_file_parses(self) -> None:
         path = _write_labels(
@@ -200,7 +197,3 @@ class TestCommittedDataset(unittest.TestCase):
     def test_artifact_files_are_committed(self) -> None:
         self.assertTrue(LABELS_PATH.exists())
         self.assertTrue(CORPUS_MANIFEST_PATH.exists())
-
-
-if __name__ == "__main__":
-    _ = unittest.main()
