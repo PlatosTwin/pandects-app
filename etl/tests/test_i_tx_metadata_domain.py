@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import cast
 
 from etl.domain.i_tx_metadata import (
+    build_offline_tx_metadata_request_body,
     build_tx_metadata_request_body_web_search_only,
     build_web_search_retry_context,
     build_tx_metadata_update_params_web_search_only,
@@ -273,6 +274,21 @@ class TxMetadataDomainTests(unittest.TestCase):
         self.assertIn("acquirer: Acquirer A", input_text)
         self.assertIn("sec_filing_date: 2024-01-01", input_text)
         self.assertNotIn("target:", input_text)
+
+    def test_build_offline_tx_metadata_request_body_includes_spac_acquirer_disambiguation(self) -> None:
+        request_body = build_offline_tx_metadata_request_body(
+            agreement_uuid="agreement-1",
+            concatenated_page_text="Sample agreement text",
+            model="gpt-5.4",
+        )
+
+        body = cast(dict[str, object], request_body["body"])
+        instructions = body.get("instructions")
+        self.assertIsInstance(instructions, str)
+        assert isinstance(instructions, str)
+        self.assertIn("For SPAC / de-SPAC business combination agreements with multiple parties", instructions)
+        self.assertIn("the acquirer is the SPAC itself", instructions)
+        self.assertIn("NOT the new holding company that survives the combination", instructions)
 
     def test_build_web_search_retry_context_targets_close_date_and_deal_status(self) -> None:
         retry_context = build_web_search_retry_context(self._requeue_agreement_row())
@@ -810,7 +826,3 @@ class TxMetadataDomainTests(unittest.TestCase):
                 response_usage=self._usage(),
                 search_count=-1,
             )
-
-
-if __name__ == "__main__":
-    _ = unittest.main()
