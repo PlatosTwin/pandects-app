@@ -2491,6 +2491,18 @@ def _get_agreement_trends(
 
 _FEEDBACK_RATE_LIMIT_PER_HOUR = 20
 _FEEDBACK_CONTEXT_MAX_CHARS = 2000
+_FEEDBACK_XML_RE = re.compile(r"<\s*/?\s*(document|article|section)\b", re.IGNORECASE)
+
+
+def _feedback_contains_document_text(value: object) -> bool:
+    """Return whether a feedback payload appears to embed agreement XML/document bodies."""
+    if isinstance(value, str):
+        return bool(_FEEDBACK_XML_RE.search(value))
+    if isinstance(value, dict):
+        return any(_feedback_contains_document_text(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_feedback_contains_document_text(item) for item in value)
+    return False
 
 
 def _submit_feedback(
@@ -2523,6 +2535,12 @@ def _submit_feedback(
         if len(serialized_context) > _FEEDBACK_CONTEXT_MAX_CHARS:
             _abort_invalid_argument(
                 f"context exceeds {_FEEDBACK_CONTEXT_MAX_CHARS} characters when serialized; trim it to the arguments that reproduce the issue."
+            )
+    for candidate in (summary, detail, parsed_args.get("suggestions"), context):
+        if _feedback_contains_document_text(candidate):
+            _abort_invalid_argument(
+                "Feedback must not include agreement XML or document body text. "
+                "Describe the issue briefly and reference the tool, arguments, and UUIDs instead."
             )
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)

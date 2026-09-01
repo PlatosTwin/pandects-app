@@ -2865,6 +2865,54 @@ class McpTests(unittest.TestCase):
         self.assertEqual(big_context_error["code"], -32602)
         self.assertIn("context exceeds 2000 characters", big_context_error["message"])
 
+    def test_submit_feedback_rejects_document_xml_in_detail_or_context(self):
+        detail_xml = self._call_tool(
+            "submit_feedback",
+            {
+                "summary": "s",
+                "detail": "<document><article><section>secret</section></article></document>",
+            },
+        )
+        detail_error = detail_xml.get_json()["error"]
+        self.assertEqual(detail_error["code"], -32602)
+        self.assertIn("must not include agreement XML", detail_error["message"])
+
+        context_xml = self._call_tool(
+            "submit_feedback",
+            {
+                "summary": "s",
+                "detail": "brief issue report",
+                "context": {"excerpt": "<section>secret</section>"},
+            },
+        )
+        context_error = context_xml.get_json()["error"]
+        self.assertEqual(context_error["code"], -32602)
+        self.assertIn("must not include agreement XML", context_error["message"])
+
+    def test_submit_feedback_rejects_document_xml_in_summary_or_suggestions(self):
+        summary_xml = self._call_tool(
+            "submit_feedback",
+            {
+                "summary": "<article>secret</article>",
+                "detail": "brief issue report",
+            },
+        )
+        summary_error = summary_xml.get_json()["error"]
+        self.assertEqual(summary_error["code"], -32602)
+        self.assertIn("must not include agreement XML", summary_error["message"])
+
+        suggestions_xml = self._call_tool(
+            "submit_feedback",
+            {
+                "summary": "s",
+                "detail": "brief issue report",
+                "suggestions": "Replace with <section>secret</section>",
+            },
+        )
+        suggestions_error = suggestions_xml.get_json()["error"]
+        self.assertEqual(suggestions_error["code"], -32602)
+        self.assertIn("must not include agreement XML", suggestions_error["message"])
+
     def test_submit_feedback_rate_limit(self):
         from backend.mcp.tools.handlers import _FEEDBACK_RATE_LIMIT_PER_HOUR
         from backend.models import McpFeedback
@@ -3425,7 +3473,3 @@ class McpTests(unittest.TestCase):
                     for uuid in extra_uuids:
                         conn.execute(text("DELETE FROM xml WHERE agreement_uuid = :uuid"), {"uuid": uuid})
                         conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = :uuid"), {"uuid": uuid})
-
-
-if __name__ == "__main__":
-    unittest.main()

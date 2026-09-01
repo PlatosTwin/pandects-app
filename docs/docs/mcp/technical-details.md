@@ -123,6 +123,7 @@ The current MCP tools are:
 ## Design Notes
 
 - Every corpus tool is read-only; `submit_feedback` is the only tool that writes, and it writes exclusively to the feedback store
+- `submit_feedback` rejects agreement XML/document-body content server-side; feedback should cite tool names, arguments, and UUIDs rather than pasting source text
 - Clients should typically choose the right tools automatically
 - `search_agreements` is the discovery-oriented agreement search; accepts a `standard_id` list to filter to agreements that contain at least one section tagged with any of the given taxonomy ids
 - `list_agreements` is the exact-filter, cursor-based agreement listing surface; also accepts `standard_id` for taxonomy-based agreement filtering, and reports dropped ids under `interpretation.unrecognized_standard_ids`. Unlike `search_agreements`, which always emits a four-key `interpretation` block, `list_agreements` emits `interpretation` **only when ids were dropped**, and it carries exactly `unrecognized_standard_ids` and `notes` (`additionalProperties: false`) — so read it defensively and do not expect `taxonomy_filters` there
