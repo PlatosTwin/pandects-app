@@ -159,7 +159,7 @@ export function TableOfContents({
             )}
           </div>
           <span
-            className="truncate leading-relaxed"
+            className="min-w-0 flex-1 break-words leading-relaxed sm:truncate"
             title={item.title}
           >
             {item.title}

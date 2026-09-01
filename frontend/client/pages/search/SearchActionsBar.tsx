@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Search as SearchIcon, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -42,7 +43,9 @@ export function SearchActionsBar({
   onToggleFilterValue,
   onTextFilterChange,
 }: SearchActionsBarProps) {
+  const downloadHintBaseId = useId();
   const downloadDisabled = resultsLength === 0 && selectedSize === 0;
+  const downloadHintId = downloadDisabled ? `${downloadHintBaseId}-search-download-hint` : undefined;
 
   const compareDisabled =
     taxSelectedCount < TAX_COMPARE_MIN || taxSelectedCount > TAX_COMPARE_MAX;
@@ -75,13 +78,14 @@ export function SearchActionsBar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="hidden sm:inline-block">
+            <span className="flex-1 sm:flex-none">
               <Button
                 onClick={onDownloadCSV}
                 disabled={downloadDisabled}
                 variant="outline"
                 size="sm"
                 className="h-11 w-full gap-2 text-muted-foreground hover:text-foreground sm:h-9 sm:w-auto"
+                aria-describedby={downloadHintId}
                 aria-label={
                   downloadDisabled
                     ? "Download CSV (disabled: no results to download. Run a search first.)"
@@ -89,11 +93,17 @@ export function SearchActionsBar({
                 }
               >
                 <Download className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:inline">
-                  Download CSV
+                <span>
+                  <span className="sm:hidden">Download</span>
+                  <span className="hidden sm:inline">Download CSV</span>
                   {selectedSize > 0 && ` (${selectedSize})`}
                 </span>
               </Button>
+              {downloadDisabled && (
+                <span id={downloadHintId} className="sr-only">
+                  No results to download. Run a search first.
+                </span>
+              )}
             </span>
           </TooltipTrigger>
           {downloadDisabled && (
