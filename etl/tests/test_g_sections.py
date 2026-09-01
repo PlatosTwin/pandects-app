@@ -1,10 +1,45 @@
 import unittest
 from typing import cast
 
-from etl.domain.g_sections import extract_sections_from_xml
+from etl.domain.g_sections import (
+    build_section_search_text,
+    extract_sections_from_xml,
+    normalize_section_search_text,
+    section_plain_text_from_xml,
+)
 
 
 class ExtractSectionsFromXmlTests(unittest.TestCase):
+    def test_section_plain_text_decodes_entities_and_omits_page_metadata(self) -> None:
+        fragment = (
+            "<text>Buyer &amp; Seller shall use</text>"
+            "<page>42</page><pageUUID>internal-page-id</pageUUID>"
+            "<text>reasonable best efforts.</text>"
+        )
+
+        self.assertEqual(
+            section_plain_text_from_xml(fragment),
+            "Buyer & Seller shall use reasonable best efforts.",
+        )
+
+    def test_section_plain_text_collapses_nested_markup_and_unicode_whitespace(self) -> None:
+        fragment = "<text>  Cafe\u0301\u00a0<em>Agreement</em>\n shall apply. </text>"
+
+        plain_text, normalized_text = build_section_search_text(fragment)
+
+        self.assertEqual(plain_text, "Café Agreement shall apply.")
+        self.assertEqual(normalized_text, "café agreement shall apply.")
+
+    def test_normalized_section_text_uses_nfkc_and_casefold(self) -> None:
+        self.assertEqual(
+            normalize_section_search_text("Kelvin  Straße\tTerms"),
+            "kelvin strasse terms",
+        )
+
+    def test_section_plain_text_rejects_malformed_xml(self) -> None:
+        with self.assertRaisesRegex(ValueError, "not well-formed"):
+            _ = section_plain_text_from_xml("<text>unclosed")
+
     def test_extract_sections_from_xml_returns_nested_sections(self) -> None:
         xml = """
         <document uuid="agreement-1">

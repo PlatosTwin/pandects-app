@@ -86,6 +86,7 @@ from backend.schemas.public_api import (
 from backend.schemas.sections import SectionsArgsPayload
 from backend.schemas.tax_clauses import TaxClausesArgsPayload, TaxClausesArgsSchema
 from backend.services.sections_service import run_sections
+from backend.text_search import text_query_focus_terms
 from backend.services.tax_clauses_service import TaxClausesServiceDeps, run_tax_clauses
 
 
@@ -1753,12 +1754,21 @@ def _search_sections(
     snippet_focus_terms = [
         term for term in cast("list[str]", validated["snippet_focus_terms"]) if term.strip()
     ]
+    if include_snippet and not snippet_focus_terms:
+        text_query = cast(str | None, validated.get("text_query"))
+        if text_query:
+            text_match_mode = cast(str, validated.get("text_match_mode", "phrase"))
+            snippet_focus_terms = text_query_focus_terms(text_query, text_match_mode)
     snippet_max_chars = cast(int, validated["snippet_max_chars"])
-    response = run_sections(deps, ctx=principal.access_context, parsed_args=parsed_args)
+    response = run_sections(
+        deps,
+        ctx=principal.access_context,
+        parsed_args=parsed_args,
+        hydrate_xml=include_xml or include_snippet,
+    )
     results = cast(list[dict[str, object]], response.get("results", []))
 
-    # The service always hydrates xml_content, so an excerpt is free here; derive it
-    # before the xml is dropped from the payload.
+    # Snippets require source XML; derive them before optional XML is dropped.
     if include_snippet:
         for item in results:
             xml_text = _extract_text_from_xml(item.get("xml"))

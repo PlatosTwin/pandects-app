@@ -40,29 +40,67 @@ SESSION_DIR="${BACKUP_ROOT}/${TIMESTAMP}"
 SQL_DUMP_FILE="${SESSION_DIR}/public_${TIMESTAMP}.sql.gz"
 TARGET_DB="${MARIADB_DATABASE:-pdx}"
 
-# API-facing table allowlist (all and only what backend API currently requires).
-# Shared with bulk/schema_docs/generate_schema_docs.py so the public schema
-# docs always cover exactly the dumped tables.
+# Public product tables. Shared with bulk/schema_docs/generate_schema_docs.py so
+# the public schema docs always cover exactly the downloadable SQL dump.
 PUBLIC_TABLES_FILE="${SCRIPT_DIR}/public_tables.txt"
-API_TABLES=()
-while IFS= read -r table; do
-  table="${table%%#*}"
-  table="$(printf '%s' "$table" | tr -d '[:space:]')"
-  [ -n "$table" ] && API_TABLES+=("$table")
-done < "$PUBLIC_TABLES_FILE"
+PRIVATE_RESTORE_TABLES_FILE="${SCRIPT_DIR}/private_restore_tables.txt"
 
-if [ "${#API_TABLES[@]}" -eq 0 ]; then
+for table_file in "$PUBLIC_TABLES_FILE" "$PRIVATE_RESTORE_TABLES_FILE"; do
+  if [ ! -f "$table_file" ]; then
+    echo "❌ Error: table allowlist not found: ${table_file}."
+    exit 1
+  fi
+done
+
+read_table_file() {
+  local table_file="$1"
+  while IFS= read -r table; do
+    table="${table%%#*}"
+    table="$(printf '%s' "$table" | tr -d '[:space:]')"
+    [ -n "$table" ] && printf '%s\n' "$table"
+  done < "$table_file"
+}
+
+PUBLIC_TABLES=()
+PRIVATE_RESTORE_TABLES=()
+while IFS= read -r table; do
+  PUBLIC_TABLES+=("$table")
+done < <(read_table_file "$PUBLIC_TABLES_FILE")
+while IFS= read -r table; do
+  PRIVATE_RESTORE_TABLES+=("$table")
+done < <(read_table_file "$PRIVATE_RESTORE_TABLES_FILE")
+
+if [ "${#PUBLIC_TABLES[@]}" -eq 0 ]; then
     echo "❌ Error: no tables found in ${PUBLIC_TABLES_FILE}."
     exit 1
 fi
 
-TABLES_LIST=""
-for table in "${API_TABLES[@]}"; do
-  if [ -n "$TABLES_LIST" ]; then
-    TABLES_LIST+=","
-  fi
-  TABLES_LIST+="${TARGET_DB}.${table}"
-done
+RESTORE_TABLES=("${PUBLIC_TABLES[@]}")
+if [ "${#PRIVATE_RESTORE_TABLES[@]}" -gt 0 ]; then
+  RESTORE_TABLES+=("${PRIVATE_RESTORE_TABLES[@]}")
+fi
+if [ "$(printf '%s\n' "${RESTORE_TABLES[@]}" | sort -u | wc -l | tr -d ' ')" -ne "${#RESTORE_TABLES[@]}" ]; then
+    echo "❌ Error: duplicate table across public and private restore allowlists."
+    exit 1
+fi
+
+qualified_tables_csv() {
+  local csv=""
+  for table in "$@"; do
+    if [ -n "$csv" ]; then
+      csv+=","
+    fi
+    csv+="${TARGET_DB}.${table}"
+  done
+  printf '%s' "$csv"
+}
+
+RESTORE_TABLES_LIST="$(qualified_tables_csv "${RESTORE_TABLES[@]}")"
+PUBLIC_TABLES_LIST="$(qualified_tables_csv "${PUBLIC_TABLES[@]}")"
+PRIVATE_RESTORE_TABLES_LIST=""
+if [ "${#PRIVATE_RESTORE_TABLES[@]}" -gt 0 ]; then
+  PRIVATE_RESTORE_TABLES_LIST="$(qualified_tables_csv "${PRIVATE_RESTORE_TABLES[@]}")"
+fi
 
 # ── Checks ──────────────────────────────────────────────────────
 if ! command -v mydumper &> /dev/null; then
@@ -92,7 +130,12 @@ if [ ! -x "$PYTHON_BIN" ]; then
 fi
 
 echo "🚀 Starting Full Sync: Local -> R2 (Logical + SQL)"
-echo "📚 Export table allowlist (${#API_TABLES[@]} tables): ${API_TABLES[*]}"
+echo "📚 Public dump tables (${#PUBLIC_TABLES[@]}): ${PUBLIC_TABLES[*]}"
+if [ "${#PRIVATE_RESTORE_TABLES[@]}" -gt 0 ]; then
+  echo "🔒 Private restore-only tables (${#PRIVATE_RESTORE_TABLES[@]}): ${PRIVATE_RESTORE_TABLES[*]}"
+else
+  echo "🔒 Private restore-only tables (0): none"
+fi
 
 # ── 0. Regenerate Public Schema Docs ────────────────────────────
 # Keeps bulk/schema_docs/pandects.dbml and the docs-site schema page in sync
@@ -119,8 +162,184 @@ fi
 LOGICAL_DIR="${SESSION_DIR}/logical"
 LOGICAL_ARCHIVE="${SESSION_DIR}/logical_backup_${TIMESTAMP}.tar.gz"
 LOGICAL_CHECKSUM_FILE="${LOGICAL_ARCHIVE}.sha256"
+PRIVATE_TABLE_ROW_COUNTS_FILE="${SESSION_DIR}/private_table_row_counts.json"
+RESTORE_TABLE_ROW_COUNTS_FILE="${SESSION_DIR}/restore_table_row_counts.json"
 
 mkdir -p "$LOGICAL_DIR"
+
+# A private serving table is useful in production only when it is complete and
+# indexed. Gate publication here so a stale or partially built shadow table can
+# never become the promoted restore snapshot.
+echo "🔎 [0b/4] Validating private restore tables..."
+export PRIVATE_RESTORE_TABLES_FILE PRIVATE_TABLE_ROW_COUNTS_FILE
+export RESTORE_TABLES_LIST RESTORE_TABLE_ROW_COUNTS_FILE
+"$PYTHON_BIN" - <<'PY'
+import json
+import os
+from pathlib import Path
+
+import pymysql
+
+
+def read_table_file(path: Path) -> list[str]:
+    tables: list[str] = []
+    for raw_line in path.read_text().splitlines():
+        table = raw_line.split("#", 1)[0].strip()
+        if table:
+            tables.append(table)
+    return tables
+
+
+def quote_identifier(identifier: str) -> str:
+    if not identifier.replace("_", "").isalnum():
+        raise RuntimeError(f"Unsafe table identifier: {identifier!r}")
+    return f"`{identifier}`"
+
+
+private_tables = read_table_file(Path(os.environ["PRIVATE_RESTORE_TABLES_FILE"]))
+restore_tables = [
+    entry.rsplit(".", 1)[-1]
+    for entry in os.environ["RESTORE_TABLES_LIST"].split(",")
+    if entry
+]
+connection = pymysql.connect(
+    host=os.environ["MARIADB_HOST"],
+    port=int(os.environ.get("MARIADB_PORT", "3306")),
+    user=os.environ["MARIADB_USER"],
+    password=os.environ["MARIADB_PASSWORD"],
+    database=os.environ["MARIADB_DATABASE"],
+    charset="utf8mb4",
+    cursorclass=pymysql.cursors.DictCursor,
+    read_timeout=300,
+)
+try:
+    with connection.cursor() as cursor:
+        restore_row_counts: dict[str, int] = {}
+        for table in restore_tables:
+            cursor.execute(f"SELECT COUNT(*) AS row_count FROM {quote_identifier(table)}")
+            row = cursor.fetchone()
+            if row is None:
+                raise RuntimeError(f"Could not count restore table: {table}")
+            restore_row_counts[table] = int(row["row_count"])
+
+        row_counts = {
+            table: restore_row_counts[table]
+            for table in private_tables
+        }
+
+        if "section_text_search" in private_tables:
+            cursor.execute(
+                """
+                SELECT
+                    @@innodb_ft_min_token_size AS min_token_size,
+                    @@innodb_ft_enable_stopword AS enable_stopword,
+                    COALESCE(@@innodb_ft_server_stopword_table, '') AS stopword_table
+                """
+            )
+            fulltext_settings = cursor.fetchone()
+            if (
+                fulltext_settings is None
+                or int(fulltext_settings["min_token_size"]) != 3
+                or int(fulltext_settings["enable_stopword"]) != 1
+                or str(fulltext_settings["stopword_table"]) != ""
+            ):
+                raise RuntimeError(
+                    "section_text_search requires MariaDB's default InnoDB FULLTEXT "
+                    "minimum token size and stopword configuration."
+                )
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS index_column_count
+                FROM information_schema.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'section_text_search'
+                  AND INDEX_TYPE = 'FULLTEXT'
+                  AND COLUMN_NAME = 'normalized_text'
+                """
+            )
+            index_row = cursor.fetchone()
+            if index_row is None or int(index_row["index_column_count"]) < 1:
+                raise RuntimeError(
+                    "section_text_search must have a FULLTEXT index containing normalized_text."
+                )
+
+            cursor.execute(
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM latest_sections_search) AS source_count,
+                    (SELECT COUNT(*) FROM section_text_search) AS target_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM latest_sections_search source
+                        LEFT JOIN section_text_search target
+                          ON target.section_uuid = source.section_uuid
+                        WHERE target.section_uuid IS NULL
+                    ) AS missing_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM section_text_search target
+                        LEFT JOIN latest_sections_search source
+                          ON source.section_uuid = target.section_uuid
+                        WHERE source.section_uuid IS NULL
+                    ) AS extra_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM latest_sections_search source
+                        JOIN sections source_section
+                          ON source_section.section_uuid = source.section_uuid
+                        JOIN section_text_search target
+                          ON target.section_uuid = source.section_uuid
+                        WHERE NOT (target.agreement_uuid <=> source.agreement_uuid)
+                           OR NOT (target.xml_version <=> source_section.xml_version)
+                    ) AS version_mismatch_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM latest_sections_search source
+                        JOIN sections source_section
+                          ON source_section.section_uuid = source.section_uuid
+                        JOIN section_text_search target
+                          ON target.section_uuid = source.section_uuid
+                        WHERE target.source_xml_sha256 IS NULL
+                           OR target.source_xml_sha256 <>
+                              UNHEX(SHA2(source_section.xml_content, 256))
+                    ) AS source_hash_mismatch_count
+                """
+            )
+            coverage = cursor.fetchone()
+            if coverage is None:
+                raise RuntimeError("Could not validate section_text_search coverage.")
+            failures = {
+                key: int(coverage[key])
+                for key in (
+                    "missing_count",
+                    "extra_count",
+                    "version_mismatch_count",
+                    "source_hash_mismatch_count",
+                )
+                if int(coverage[key]) != 0
+            }
+            if int(coverage["source_count"]) != int(coverage["target_count"]):
+                failures["row_count_delta"] = (
+                    int(coverage["target_count"]) - int(coverage["source_count"])
+                )
+            if failures:
+                raise RuntimeError(
+                    "section_text_search does not exactly cover latest_sections_search: "
+                    + json.dumps(failures, sort_keys=True)
+                )
+            row_counts["section_text_search"] = int(coverage["target_count"])
+            restore_row_counts["section_text_search"] = int(coverage["target_count"])
+
+    Path(os.environ["PRIVATE_TABLE_ROW_COUNTS_FILE"]).write_text(
+        json.dumps(row_counts, sort_keys=True) + "\n"
+    )
+    Path(os.environ["RESTORE_TABLE_ROW_COUNTS_FILE"]).write_text(
+        json.dumps(restore_row_counts, sort_keys=True) + "\n"
+    )
+finally:
+    connection.close()
+PY
+echo "✅ Private restore table integrity checks passed"
 
 # ── 1. Create Logical Backup (For Fly Restore) ──────────────────
 echo "📦 [1/4] Taking Logical Backup (mydumper)..."
@@ -130,7 +349,7 @@ mydumper \
   --user="${MARIADB_USER}" \
   --password="${MARIADB_PASSWORD}" \
   --database="${TARGET_DB}" \
-  --tables-list="${TABLES_LIST}" \
+  --tables-list="${RESTORE_TABLES_LIST}" \
   --outputdir="$LOGICAL_DIR" \
   --threads="${MYDUMPER_THREADS:-6}" \
   --rows="${MYDUMPER_ROWS:-100000}" \
@@ -177,7 +396,7 @@ mysqldump \
   --lock-tables=false \
   --routines \
   "${TARGET_DB}" \
-  "${API_TABLES[@]}" \
+  "${PUBLIC_TABLES[@]}" \
   | gzip > "$SQL_DUMP_FILE"
 
 echo "✅ SQL Dump Ready: $(du -h "$SQL_DUMP_FILE" | cut -f1)"
@@ -211,7 +430,15 @@ from pathlib import Path
 endpoint        = "${R2_ENDPOINT}"
 public_dev_base = "${PUBLIC_DEV_BASE}"
 bucket          = "${R2_BUCKET_NAME}"
-tables_csv      = "${TABLES_LIST}"
+public_tables_csv = "${PUBLIC_TABLES_LIST}"
+private_restore_tables_csv = "${PRIVATE_RESTORE_TABLES_LIST}"
+restore_tables_csv = "${RESTORE_TABLES_LIST}"
+private_table_row_counts = json.loads(
+    Path("${PRIVATE_TABLE_ROW_COUNTS_FILE}").read_text()
+)
+restore_table_row_counts = json.loads(
+    Path("${RESTORE_TABLE_ROW_COUNTS_FILE}").read_text()
+)
 
 session = boto3.session.Session()
 client  = session.client(
@@ -366,6 +593,7 @@ manifest_key = f"dumps/{manifest_path.name}"
 upload_with_progress(manifest_path, manifest_key, "public-read", "manifest")
 
 logical_manifest = {
+    "manifest_version": 2,
     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     "logical_key": logical_key,
     "logical_sha256": logical_sha256,
@@ -374,7 +602,16 @@ logical_manifest = {
     "public_dump_key": dump_key,
     "public_dump_sha256": dump_sha256,
     "public_dump_size_bytes": dump_path.stat().st_size,
-    "tables": tables_csv.split(","),
+    "tables": restore_tables_csv.split(","),
+    "restore_tables": [entry.rsplit(".", 1)[-1] for entry in restore_tables_csv.split(",")],
+    "public_tables": [entry.rsplit(".", 1)[-1] for entry in public_tables_csv.split(",")],
+    "private_restore_tables": (
+        [entry.rsplit(".", 1)[-1] for entry in private_restore_tables_csv.split(",")]
+        if private_restore_tables_csv
+        else []
+    ),
+    "private_table_row_counts": private_table_row_counts,
+    "restore_table_row_counts": restore_table_row_counts,
 }
 
 logical_manifest_path = logical_path.with_suffix(logical_path.suffix + ".manifest.json")

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
-from sqlalchemy import text, and_, or_, asc, desc
+from sqlalchemy import and_, asc, desc, distinct, func, or_, text
+from sqlalchemy.dialects.mysql import match as mysql_match
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import ColumnElement
 
 from backend.filtering import (
     build_canonical_counsel_agreement_uuid_subquery,
@@ -12,6 +14,100 @@ from backend.filtering import (
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
 from backend.search_counts import build_search_count_cache_key
 from backend.schemas.sections import SectionsArgsPayload
+from backend.text_search import compile_boolean_text_query, compile_phrase_text_pattern
+
+
+def build_section_text_match_expression(
+    normalized_text_column: object,
+    *,
+    text_query: str,
+    match_mode: str,
+) -> ColumnElement[bool]:
+    """Build a parameterized MariaDB FULLTEXT predicate for normalized section text."""
+    compiled_query = compile_boolean_text_query(text_query, match_mode)
+    candidate_match = cast(
+        ColumnElement[bool],
+        mysql_match(
+            cast(Any, normalized_text_column),
+            against=compiled_query,
+            in_boolean_mode=True,
+        ),
+    )
+    if match_mode != "phrase":
+        return candidate_match
+    phrase_pattern = compile_phrase_text_pattern(text_query)
+    phrase_match = cast(
+        ColumnElement[bool],
+        cast(Any, normalized_text_column).op("REGEXP")(phrase_pattern),
+    )
+    return and_(candidate_match, phrase_match)
+
+
+def build_section_text_candidate_expression(
+    normalized_text_column: object,
+    *,
+    text_query: str,
+    match_mode: str,
+) -> ColumnElement[bool]:
+    """Build the indexed candidate predicate used for result and count planning."""
+    return cast(
+        ColumnElement[bool],
+        mysql_match(
+            cast(Any, normalized_text_column),
+            against=compile_boolean_text_query(text_query, match_mode),
+            in_boolean_mode=True,
+        ),
+    )
+
+
+def apply_section_text_search(
+    query: Any,
+    *,
+    latest: Any,
+    section_text_search: Any,
+    text_query: str | None,
+    match_mode: str,
+) -> Any:
+    """Join the private text index only for text searches."""
+    if text_query is None:
+        return query
+    if not text_query.strip():
+        raise ValueError("text_query must contain searchable text.")
+    return query.join(
+        section_text_search,
+        section_text_search.section_uuid == latest.section_uuid,
+    ).filter(
+        build_section_text_match_expression(
+            section_text_search.normalized_text,
+            text_query=text_query,
+            match_mode=match_mode,
+        )
+    )
+
+
+def apply_section_text_candidate_search(
+    query: Any,
+    *,
+    latest: Any,
+    section_text_search: Any,
+    text_query: str | None,
+    match_mode: str,
+) -> Any:
+    """Join and apply only the indexed candidate predicate."""
+    if text_query is None:
+        return query
+    if not text_query.strip():
+        raise ValueError("text_query must contain searchable text.")
+    return query.join(
+        section_text_search,
+        section_text_search.section_uuid == latest.section_uuid,
+    ).filter(
+        build_section_text_candidate_expression(
+            section_text_search.normalized_text,
+            text_query=text_query,
+            match_mode=match_mode,
+        )
+    )
 
 
 class _CompilableStatement(Protocol):
@@ -107,17 +203,19 @@ def sections_total_count_metadata(
     has_filters: bool,
     count_mode: str,
     count_cache_key: str | None = None,
+    prefer_estimate: bool = False,
 ) -> tuple[int, bool, str]:
     """Return `(total_count, is_approximate, method)` without forcing exact counts unless requested.
 
-    Filtered searches prefer conservative lower bounds once the user paginates past the
-    first page. Unfiltered searches can fall back to the table-level estimate because the
-    endpoint already reads from a denormalized latest-sections table.
+    Filtered searches may use a database-planner estimate when it remains consistent
+    with the rows already observed. Unfiltered searches can fall back to the table-level
+    estimate because the endpoint already reads from a denormalized latest-sections table.
 
-    Exact counts (explicit `count_mode=exact`, the filtered first page, and the
-    unfiltered fallback) are memoized per filter signature via `count_cache_key`
-    so paging one search re-counts once instead of once per page; the returned
-    value and `method` are unchanged. `count_cache_key=None` always counts fresh.
+    Exact counts (explicit `count_mode=exact`, ordinary filtered first pages, and
+    estimate fallbacks) are memoized per filter signature via `count_cache_key` so
+    paging one search re-counts once instead of once per page. Text search can set
+    `prefer_estimate` to avoid a first-page count scan. `count_cache_key=None`
+    always counts fresh.
     """
     estimated_query_row_count_fn = deps._estimated_query_row_count
     estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
@@ -127,21 +225,21 @@ def sections_total_count_metadata(
         return exact_total, False, "query_count"
 
     if has_filters:
-        if page <= 1:
+        if page <= 1 and not prefer_estimate:
             exact_total = deps._cached_exact_query_count(query, cache_key=count_cache_key)
             return exact_total, False, "query_count"
 
-        exact_total = ((page - 1) * page_size) + item_count
-        if not has_next:
-            return exact_total, False, "query_count"
-
-        minimum_total = exact_total + 1
+        observed_total = ((page - 1) * page_size) + item_count
+        minimum_total = observed_total + (1 if has_next else 0)
         estimate = estimated_query_row_count_fn(query)
-        if estimate is not None:
-            adjusted_estimate = max(minimum_total, estimate)
-            return adjusted_estimate, True, "table_estimate"
+        if estimate is not None and estimate >= minimum_total:
+            return estimate, True, "table_estimate"
 
-        return minimum_total, True, "filtered_lower_bound"
+        # Never present a page-derived lower bound as an approximate corpus total.
+        # If the optimizer cannot supply a credible estimate, use the memoized exact
+        # count instead.
+        exact_total = deps._cached_exact_query_count(query, cache_key=count_cache_key)
+        return exact_total, False, "query_count"
 
     table_rows = estimated_table_rows_fn()
     if table_rows is None:
@@ -160,7 +258,11 @@ def _sections_count_metadata_payload(
 ) -> dict[str, object]:
     planning_reliability = "high"
     if total_count_is_approximate:
-        planning_reliability = "medium" if count_method == "table_estimate" else "low"
+        planning_reliability = (
+            "medium"
+            if count_method in {"table_estimate", "fulltext_candidate_count"}
+            else "low"
+        )
     return {
         "mode": "estimated" if total_count_is_approximate else "exact",
         "method": count_method,
@@ -236,10 +338,28 @@ def _sections_interpretation_payload(
     ]
 
     notes: list[str] = []
+    text_query = parsed_args["text_query"]
+    if text_query is not None and text_query.strip():
+        applied_filters.append(
+            {
+                "field": "text_query",
+                "representation": "derived_from_text",
+                "match_kind": f'{parsed_args["text_match_mode"]}_full_text',
+            }
+        )
+        notes.append(
+            "Text search is case-insensitive and literal; a trailing `*` performs word-prefix matching."
+        )
     if taxonomy_filters:
         notes.append("Taxonomy filters reflect clause-family assignments and may act as proxies for broader legal concepts.")
     if total_count_is_approximate:
-        notes.append("Counts are approximate under the current mode; use count_mode=exact when pagination certainty matters.")
+        if count_method == "fulltext_candidate_count":
+            notes.append(
+                "The text count is a stable upper bound from indexed all-term candidates; "
+                "use count_mode=exact when phrase-filtered pagination certainty matters."
+            )
+        else:
+            notes.append("Counts are approximate under the current mode; use count_mode=exact when pagination certainty matters.")
     elif count_method == "query_count":
         notes.append("Counts were computed exactly from the current filtered query.")
 
@@ -256,11 +376,13 @@ def run_sections(
     *,
     ctx: AccessContextProtocol,
     parsed_args: SectionsArgsPayload,
+    hydrate_xml: bool = True,
 ) -> dict[str, object]:
     db = deps.db
     agreement_counsel = deps.AgreementCounsel
     counsel = deps.Counsel
     latest = deps.LatestSectionsSearch
+    section_text_search = deps.SectionTextSearch
     sections = deps.Sections
     row_mapping_as_dict = deps._row_mapping_as_dict
     pagination_metadata = deps._pagination_metadata
@@ -298,12 +420,14 @@ def run_sections(
     requested_metadata_fields = dedupe_preserve_order(parsed_args["metadata"])
     agreement_uuid = parsed_args["agreement_uuid"]
     section_uuid = parsed_args["section_uuid"]
+    text_query = parsed_args["text_query"]
+    text_match_mode = parsed_args["text_match_mode"]
     count_mode = parsed_args["count_mode"]
     sort_by = parsed_args["sort_by"]
     sort_direction = parsed_args["sort_direction"]
     page = parsed_args["page"]
     page_size = parsed_args["page_size"]
-    include_xml = True
+    include_xml = hydrate_xml
 
     if page < 1:
         page = 1
@@ -314,6 +438,13 @@ def run_sections(
     # Build the ID-only query first so filters, sort order, and count estimation all share
     # the same search surface before we hydrate the selected rows.
     q = db.session.query(latest.section_uuid.label("section_uuid"))
+    q = apply_section_text_candidate_search(
+        q,
+        latest=latest,
+        section_text_search=section_text_search,
+        text_query=text_query,
+        match_mode=text_match_mode,
+    )
 
     if years:
         year_filters = tuple(
@@ -432,6 +563,14 @@ def run_sections(
     if section_uuid and section_uuid.strip():
         q = q.filter(latest.section_uuid == section_uuid.strip())
 
+    text_count_query = q
+    if text_query is not None and text_query.strip() and text_match_mode == "phrase":
+        q = q.filter(
+            cast(Any, section_text_search.normalized_text).op("REGEXP")(
+                compile_phrase_text_pattern(text_query)
+            )
+        )
+
     descending = sort_direction == "desc"
     if sort_by == "year":
         primary_sort = latest.filing_date
@@ -478,6 +617,7 @@ def run_sections(
             acquirer_pes,
             agreement_uuid and agreement_uuid.strip(),
             section_uuid and section_uuid.strip(),
+            text_query and text_query.strip(),
         )
     )
     count_cache_key = (
@@ -485,17 +625,52 @@ def run_sections(
         if count_mode == "exact"
         else build_search_count_cache_key("sections", parsed_args)
     )
-    total_count, total_count_is_approximate, count_method = sections_total_count_metadata(
-        deps,
-        query=q,
-        page=page,
-        page_size=page_size,
-        item_count=item_count,
-        has_next=has_next,
-        has_filters=has_filters,
-        count_mode=count_mode,
-        count_cache_key=count_cache_key,
-    )
+    total_agreement_count: int | None = None
+    if count_mode == "exact":
+        exact_count_row = q.order_by(None).with_entities(
+            func.count(latest.section_uuid).label("section_count"),
+            func.count(distinct(latest.agreement_uuid)).label("agreement_count"),
+        ).one()
+        exact_count_map = row_mapping_as_dict(exact_count_row)
+        total_count = deps._to_int(exact_count_map.get("section_count"))
+        total_agreement_count = deps._to_int(
+            exact_count_map.get("agreement_count")
+        )
+        total_count_is_approximate = False
+        count_method = "query_count"
+    elif text_query is not None and text_query.strip():
+        if not has_next and (page == 1 or item_count > 0):
+            total_count = ((page - 1) * page_size) + item_count
+            total_count_is_approximate = False
+            count_method = "query_count"
+        else:
+            candidate_cache_key = (
+                f"{count_cache_key}:fulltext-candidates"
+                if count_cache_key is not None
+                else None
+            )
+            total_count = deps._cached_exact_query_count(
+                text_count_query,
+                cache_key=candidate_cache_key,
+            )
+            total_count_is_approximate = text_match_mode == "phrase"
+            count_method = (
+                "fulltext_candidate_count"
+                if total_count_is_approximate
+                else "query_count"
+            )
+    else:
+        total_count, total_count_is_approximate, count_method = sections_total_count_metadata(
+            deps,
+            query=q,
+            page=page,
+            page_size=page_size,
+            item_count=item_count,
+            has_next=has_next,
+            has_filters=has_filters,
+            count_mode=count_mode,
+            count_cache_key=count_cache_key,
+        )
 
     section_uuids = [
         section_id
@@ -617,7 +792,7 @@ def run_sections(
         for r in results
         if r.get("agreement_uuid") is not None
     })
-    return {
+    response: dict[str, object] = {
         "results": results,
         "unique_agreement_count": unique_agreement_count,
         "access": {
@@ -639,9 +814,16 @@ def run_sections(
         ),
         **meta,
     }
+    if total_agreement_count is not None:
+        response["total_agreement_count"] = total_agreement_count
+    return response
 
 
 __all__ = [
+    "apply_section_text_candidate_search",
+    "apply_section_text_search",
+    "build_section_text_candidate_expression",
+    "build_section_text_match_expression",
     "estimated_latest_sections_search_table_rows",
     "estimated_query_row_count",
     "run_sections",

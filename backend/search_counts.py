@@ -31,7 +31,19 @@ class _StatementQuery(Protocol):
 # the key is the only mistake that can return a wrong count; excluding a true
 # non-filter can at worst cost a redundant cache miss.
 _NON_FILTER_ARG_KEYS = frozenset(
-    {"page", "page_size", "sort_by", "sort_direction", "count_mode", "include_dump"}
+    {
+        "page",
+        "page_size",
+        "sort_by",
+        "sort_direction",
+        "count_mode",
+        "include_dump",
+        "include_xml",
+        "include_snippet",
+        "snippet_focus_terms",
+        "snippet_max_chars",
+        "metadata",
+    }
 )
 
 

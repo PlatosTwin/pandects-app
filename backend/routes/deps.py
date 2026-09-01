@@ -176,6 +176,7 @@ class SectionsServiceDeps:
     AgreementCounsel: Any
     Counsel: Any
     LatestSectionsSearch: Any
+    SectionTextSearch: Any
     Sections: Any
     _SEARCH_EXPLAIN_ESTIMATE_ENABLED: bool
     _to_int: ToIntProtocol

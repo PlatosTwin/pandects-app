@@ -128,7 +128,12 @@ _SEARCH_AGREEMENTS_ROW_FIELDS = (
 )
 _LIST_AGREEMENTS_SORT_FIELDS = ("agreement_uuid", "year", "target", "acquirer", "filing_date")
 _COUNT_MODE_VALUES = ("auto", "exact")
-_COUNT_METHOD_VALUES = ("query_count", "table_estimate", "filtered_lower_bound")
+_COUNT_METHOD_VALUES = (
+    "query_count",
+    "table_estimate",
+    "filtered_lower_bound",
+    "fulltext_candidate_count",
+)
 _COUNT_RELIABILITY_VALUES = ("high", "medium", "low")
 _TAXONOMY_MATCH_MODE_VALUES = ("exact_node", "expanded_descendants")
 _CLAUSE_FIT_VALUES = ("canonical", "proxy", "broad_match")

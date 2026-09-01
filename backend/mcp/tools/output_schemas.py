@@ -252,7 +252,17 @@ def _search_sections_output_schema() -> dict[str, object]:
     properties.update(
         {
             "results": _array_of(_section_result_schema()),
-            "page_unique_agreement_count": {"type": "integer"},
+            "page_unique_agreement_count": {
+                "type": "integer",
+                "description": "Distinct agreements represented on this result page only.",
+            },
+            "total_agreement_count": {
+                "type": "integer",
+                "description": (
+                    "Exact distinct agreements across the complete filtered result set. "
+                    "Present only when count_mode=exact."
+                ),
+            },
             # Emitted on every response that returned taxonomy-tagged sections, but
             # previously undeclared, so a schema-driven client could not see that the
             # labels are already here and re-fetched get_clause_taxonomy to get them.
@@ -1249,7 +1259,6 @@ _ANY_COUNSEL_OVERRIDE: dict[str, object] = {
     "items": {"type": "string"},
     "description": "Filter to agreements where the firm appears on either side (target or acquirer). Use instead of target_counsel + acquirer_counsel when side is unknown.",
 }
-
 _YEAR_RANGE_OVERRIDES: dict[str, dict[str, object]] = {
     "year_min": {
         "type": ["integer", "null"],
@@ -1270,5 +1279,3 @@ _YEAR_RANGE_OVERRIDES: dict[str, dict[str, object]] = {
         "examples": ["2024-01-01"],
     },
 }
-
-

@@ -1253,10 +1253,14 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(total_count, 37)
         self.assertFalse(is_approximate)
 
-    def test_search_total_count_metadata_preserves_filtered_lower_bound_when_estimate_is_too_small(self):
+    def test_search_total_count_metadata_uses_exact_count_when_estimate_is_too_small(self):
+        query = MagicMock()
+        ordered_query = MagicMock()
+        query.order_by.return_value = ordered_query
+        ordered_query.count.return_value = 163
         with patch.object(self.app_module, "_estimated_query_row_count", return_value=120):
             total_count, is_approximate = self.app_module._search_total_count_metadata(
-                query=object(),
+                query=query,
                 page=6,
                 page_size=25,
                 item_count=25,
@@ -1264,8 +1268,8 @@ class MainRoutesTests(unittest.TestCase):
                 has_filters=True,
             )
 
-        self.assertEqual(total_count, 151)
-        self.assertTrue(is_approximate)
+        self.assertEqual(total_count, 163)
+        self.assertFalse(is_approximate)
 
     def test_search_excludes_stale_section_versions(self):
         client = self.app.test_client()

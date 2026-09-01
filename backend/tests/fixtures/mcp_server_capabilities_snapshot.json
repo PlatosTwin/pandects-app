@@ -294,6 +294,14 @@
         ],
         "source_table_or_surface": "sections/latest_sections_search",
         "representation": "first_class_section_field"
+      },
+      {
+        "applies_to_tools": [
+          "search_sections"
+        ],
+        "name": "text_query",
+        "representation": "derived_from_text",
+        "source_table_or_surface": "section_text_search"
       }
     ],
     "taxonomy_assignment_fields": [
@@ -415,28 +423,33 @@
     },
     {
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call.",
+      "use_when": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
       "do_not_use_for": "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections."
     },
     {
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call.",
+      "use_when": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
       "do_not_use_for": "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first."
     },
     {
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call.",
-      "do_not_use_for": "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it. No corpus-wide keyword index exists to fall back on, so there is no way to search clause text by phrase; if a concept has no taxonomy node, say so rather than substituting an adjacent node."
+      "use_when": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
+      "do_not_use_for": "Do not treat literal text search as semantic search: use suggest_clause_families for concepts and text_query for words or phrases that should actually appear in the clause."
     },
     {
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call.",
+      "use_when": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
+      "do_not_use_for": "Do not pass raw boolean-search operators, leading wildcards, or infix wildcards. Choose text_match_mode and use only a trailing * for word-prefix matching."
+    },
+    {
+      "tool": "search_sections",
+      "use_when": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
       "do_not_use_for": "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip."
     },
     {
       "tool": "search_sections",
-      "use_when": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call.",
-      "do_not_use_for": "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page only, unlike total_count."
+      "use_when": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
+      "do_not_use_for": "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page. Request count_mode=exact for corpus-wide total_agreement_count alongside the exact matching-section total_count."
     },
     {
       "tool": "search_tax_clauses",
@@ -599,9 +612,9 @@
       "do_not_use_for": "Do not include user personal data, credentials, or full document texts in feedback; tool names, arguments, and short excerpts are enough."
     },
     {
+      "do_not_use_for": "Do not file one submission per minor variation of the same issue; consolidate related observations into a single report.",
       "tool": "submit_feedback",
-      "use_when": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
-      "do_not_use_for": "Do not file one submission per minor variation of the same issue; consolidate related observations into a single report."
+      "use_when": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping."
     }
   ],
   "tools": [
@@ -1131,7 +1144,8 @@
                 "enum": [
                   "query_count",
                   "table_estimate",
-                  "filtered_lower_bound"
+                  "filtered_lower_bound",
+                  "fulltext_candidate_count"
                 ]
               },
               "planning_reliability": {
@@ -1260,13 +1274,14 @@
         "sections:search"
       ],
       "pagination": "page",
-      "selection_hint": "Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call.",
+      "selection_hint": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
       "negative_guidance": [
         "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
         "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
-        "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it. No corpus-wide keyword index exists to fall back on, so there is no way to search clause text by phrase; if a concept has no taxonomy node, say so rather than substituting an adjacent node.",
+        "Do not treat literal text search as semantic search: use suggest_clause_families for concepts and text_query for words or phrases that should actually appear in the clause.",
+        "Do not pass raw boolean-search operators, leading wildcards, or infix wildcards. Choose text_match_mode and use only a trailing * for word-prefix matching.",
         "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
-        "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page only, unlike total_count."
+        "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page. Request count_mode=exact for corpus-wide total_agreement_count alongside the exact matching-section total_count."
       ],
       "response_examples": [
         {
@@ -1701,6 +1716,29 @@
             "minimum": 120,
             "maximum": 1200,
             "description": "Maximum characters per snippet (120-1200). Only applies when include_snippet is true. Defaults to 400 to keep result pages compact."
+          },
+          "text_match_mode": {
+            "description": "Text matching behavior. `phrase` preserves term order; `all_terms` requires every term; `any_terms` requires at least one term.",
+            "enum": [
+              "phrase",
+              "all_terms",
+              "any_terms"
+            ],
+            "example": "phrase",
+            "type": "string"
+          },
+          "text_query": {
+            "description": "Case-insensitive literal section-text query (maximum 256 characters and 24 terms). Append `*` only to the end of a word for prefix matching; at most four prefix terms are allowed and each prefix stem must contain at least three characters. Boolean punctuation is treated as a separator.",
+            "example": "material adverse effect",
+            "examples": [
+              "reasonable best efforts",
+              "sandbag*"
+            ],
+            "maxLength": 256,
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": false
@@ -1847,7 +1885,8 @@
             }
           },
           "page_unique_agreement_count": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Distinct agreements represented on this result page only."
           },
           "standard_id_labels": {
             "type": "object",
@@ -1889,7 +1928,8 @@
                 "enum": [
                   "query_count",
                   "table_estimate",
-                  "filtered_lower_bound"
+                  "filtered_lower_bound",
+                  "fulltext_candidate_count"
                 ]
               },
               "planning_reliability": {
@@ -1994,6 +2034,10 @@
               "heuristics_used",
               "notes"
             ]
+          },
+          "total_agreement_count": {
+            "description": "Exact distinct agreements across the complete filtered result set. Present only when count_mode=exact.",
+            "type": "integer"
           }
         },
         "additionalProperties": true,
@@ -2535,7 +2579,8 @@
                 "enum": [
                   "query_count",
                   "table_estimate",
-                  "filtered_lower_bound"
+                  "filtered_lower_bound",
+                  "fulltext_candidate_count"
                 ]
               },
               "planning_reliability": {

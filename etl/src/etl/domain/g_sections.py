@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any, Dict, List
 import xml.etree.ElementTree as ET
 
@@ -30,6 +31,58 @@ _NUM_WORDS: List[str] = [
     "twenty",
 ]
 _NUM_PATTERN = "|".join(_NUM_WORDS)
+_WHITESPACE_RE = re.compile(r"\s+")
+_NON_CONTENT_TAGS = frozenset({"page", "pageuuid"})
+
+
+def _local_tag_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1].casefold()
+
+
+def _visible_text_chunks(element: ET.Element) -> List[str]:
+    if _local_tag_name(element.tag) in _NON_CONTENT_TAGS:
+        return []
+
+    chunks: List[str] = []
+    if element.text:
+        chunks.append(element.text)
+    for child in element:
+        chunks.extend(_visible_text_chunks(child))
+        if child.tail:
+            chunks.append(child.tail)
+    return chunks
+
+
+def section_plain_text_from_xml(xml_fragment: str) -> str:
+    """Convert a stored section XML fragment to canonical searchable text.
+
+    Section fragments commonly contain several adjacent ``<text>`` elements,
+    so chunks are separated before whitespace is collapsed. Page numbers and
+    internal page UUID markers are structural metadata rather than agreement
+    language and are deliberately omitted.
+    """
+    if not xml_fragment:
+        return ""
+
+    try:
+        root = ET.fromstring(f"<section-search-root>{xml_fragment}</section-search-root>")
+    except ET.ParseError as exc:
+        raise ValueError("Stored section XML is not well-formed.") from exc
+
+    chunks = [chunk for chunk in _visible_text_chunks(root) if chunk.strip()]
+    plain_text = " ".join(chunks)
+    return _WHITESPACE_RE.sub(" ", unicodedata.normalize("NFC", plain_text)).strip()
+
+
+def normalize_section_search_text(plain_text: str) -> str:
+    """Return the stable case-insensitive representation used for indexing."""
+    normalized = unicodedata.normalize("NFKC", plain_text).casefold()
+    return _WHITESPACE_RE.sub(" ", normalized).strip()
+
+
+def build_section_search_text(xml_fragment: str) -> tuple[str, str]:
+    plain_text = section_plain_text_from_xml(xml_fragment)
+    return plain_text, normalize_section_search_text(plain_text)
 
 
 def clean_article_title(title: str) -> str:

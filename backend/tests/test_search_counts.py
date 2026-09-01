@@ -57,6 +57,21 @@ class BuildSearchCountCacheKeyTests(unittest.TestCase):
             build_search_count_cache_key("sections", {"target": ["Other"]}),
         )
 
+    def test_result_presentation_options_do_not_change_key(self):
+        base = {"text_query": "material adverse effect", "target": ["Acme"]}
+        presented = {
+            **base,
+            "include_xml": True,
+            "include_snippet": True,
+            "snippet_focus_terms": ["adverse effect"],
+            "snippet_max_chars": 800,
+            "metadata": ["deal_type"],
+        }
+        self.assertEqual(
+            build_search_count_cache_key("sections", base),
+            build_search_count_cache_key("sections", presented),
+        )
+
     def test_list_filter_order_does_not_change_key(self):
         self.assertEqual(
             build_search_count_cache_key("sections", {"target": ["A", "B"]}),

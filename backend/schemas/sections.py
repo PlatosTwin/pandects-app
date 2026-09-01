@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import TypedDict, cast
 
-from marshmallow import Schema, fields, post_dump, validate
+from marshmallow import Schema, ValidationError, fields, post_dump, validate, validates_schema
+
+from backend.text_search import compile_boolean_text_query, validate_text_query_syntax
 
 
 SECTIONS_RESULT_METADATA_FIELDS = (
@@ -31,6 +33,14 @@ SECTIONS_RESULT_METADATA_FIELDS = (
     "acquirer_pe",
     "url",
 )
+MAX_TEXT_SEARCH_PAGE = 100
+
+
+def _validate_nonblank_text_query(value: str) -> None:
+    try:
+        validate_text_query_syntax(value)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
 
 
 class SectionsArgsPayload(TypedDict):
@@ -62,6 +72,8 @@ class SectionsArgsPayload(TypedDict):
     filed_before: str | None
     agreement_uuid: str | None
     section_uuid: str | None
+    text_query: str | None
+    text_match_mode: str
     include_dump: bool
     include_xml: bool
     count_mode: str
@@ -156,6 +168,58 @@ class SectionsArgsSchema(Schema):
             "example": "5e59453aaa9255c4",
         },
     )
+    text_query = fields.Str(
+        load_default=None,
+        allow_none=True,
+        validate=validate.And(
+            validate.Length(max=256),
+            _validate_nonblank_text_query,
+        ),
+        metadata={
+            "description": (
+                "Case-insensitive literal section-text query. A single trailing `*` "
+                "on a word enables prefix matching. Boolean-looking punctuation is "
+                "tokenized as literal separators rather than interpreted as operators."
+            ),
+            "example": "material adverse effect",
+        },
+    )
+    text_match_mode = fields.Str(
+        load_default="phrase",
+        validate=validate.OneOf(["phrase", "all_terms", "any_terms"]),
+        metadata={
+            "description": (
+                "Text matching behavior. `phrase` preserves term order; `all_terms` "
+                "requires every term; `any_terms` requires at least one term."
+            ),
+            "example": "phrase",
+        },
+    )
+
+    @validates_schema
+    def validate_text_search_mode(
+        self,
+        data: dict[str, object],
+        **_: object,
+    ) -> None:
+        text_query = data.get("text_query")
+        if not isinstance(text_query, str) or not text_query.strip():
+            return
+        match_mode = data.get("text_match_mode", "phrase")
+        page = data.get("page", 1)
+        if isinstance(page, int) and page > MAX_TEXT_SEARCH_PAGE:
+            raise ValidationError(
+                {
+                    "page": [
+                        f"Text search supports pages up to {MAX_TEXT_SEARCH_PAGE}; "
+                        "add filters to narrow the result set."
+                    ]
+                }
+            )
+        try:
+            compile_boolean_text_query(text_query, str(match_mode))
+        except ValueError as exc:
+            raise ValidationError({"text_query": [str(exc)]}) from exc
     count_mode = fields.Str(
         load_default="auto",
         validate=validate.OneOf(["auto", "exact"]),
@@ -281,6 +345,7 @@ class SectionsResponseSchema(Schema):
     page = fields.Int()
     page_size = fields.Int()
     total_count = fields.Int()
+    total_agreement_count = fields.Int(required=False)
     total_count_is_approximate = fields.Bool()
     count_metadata = fields.Dict()
     interpretation = fields.Dict()

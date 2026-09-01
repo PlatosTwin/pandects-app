@@ -7,6 +7,8 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _PUBLIC_TABLES_PATH = _REPO_ROOT / "bulk" / "public_tables.txt"
+_PRIVATE_RESTORE_TABLES_PATH = _REPO_ROOT / "bulk" / "private_restore_tables.txt"
+_EXPECTED_PRIVATE_API_TABLES = {"section_text_search"}
 _MAIN_DB_MODELS_PATH = _REPO_ROOT / "backend" / "models" / "main_db.py"
 _PUBLIC_API_SOURCE_PATHS = (
     _REPO_ROOT / "backend" / "routes" / "agreements" / "__init__.py",
@@ -23,6 +25,7 @@ _ORM_DEP_TO_TABLE = {
     "NaicsSector": "naics_sectors",
     "NaicsSubSector": "naics_sub_sectors",
     "Sections": "sections",
+    "SectionTextSearch": "section_text_search",
     "TaxClauseAssignment": "tax_clause_assignments",
     "TaxClauseTaxonomyL1": "tax_clause_taxonomy_l1",
     "TaxClauseTaxonomyL2": "tax_clause_taxonomy_l2",
@@ -42,21 +45,16 @@ _SQL_TABLE_PATTERNS = (
 )
 
 
-def _parse_api_tables() -> list[str]:
-    # bulk/public_tables.txt is the single source of truth for the dump
-    # allowlist (read by push_to_r2.sh and generate_schema_docs.py); mirror
-    # its comment/whitespace handling.
+def _parse_table_file(path: Path) -> list[str]:
     tables: list[str] = []
-    for raw_line in _PUBLIC_TABLES_PATH.read_text().splitlines():
+    for raw_line in path.read_text().splitlines():
         entry = raw_line.split("#", 1)[0].strip()
         if entry:
             tables.append(entry)
-    if not tables:
-        raise AssertionError("bulk/public_tables.txt lists no tables.")
     return tables
 
 
-def _derive_expected_public_api_tables() -> set[str]:
+def _derive_expected_api_tables() -> set[str]:
     tables: set[str] = set()
     sources = {path: path.read_text() for path in _PUBLIC_API_SOURCE_PATHS}
     for path, source in sources.items():
@@ -76,13 +74,36 @@ def _derive_expected_public_api_tables() -> set[str]:
 
 
 class R2AllowlistTests(unittest.TestCase):
-    def test_push_to_r2_allowlist_matches_public_api_route_table_set(self) -> None:
-        api_tables = _parse_api_tables()
-        self.assertEqual(set(api_tables), _derive_expected_public_api_tables())
+    def test_section_text_search_canonical_ddl_is_lean_and_indexed(self) -> None:
+        ddl = (_REPO_ROOT / "db" / "section_text_search.sql").read_text()
+        self.assertIn("source_xml_sha256 BINARY(32) NOT NULL", ddl)
+        self.assertIn(
+            "FULLTEXT KEY ft_section_text_search_normalized_text (normalized_text)",
+            ddl,
+        )
+        self.assertNotIn("plain_text", ddl)
 
-    def test_push_to_r2_allowlist_has_no_duplicates(self) -> None:
-        api_tables = _parse_api_tables()
-        self.assertEqual(len(api_tables), len(set(api_tables)))
+    def test_restore_allowlist_matches_api_route_table_set(self) -> None:
+        public_tables = _parse_table_file(_PUBLIC_TABLES_PATH)
+        private_restore_tables = _parse_table_file(_PRIVATE_RESTORE_TABLES_PATH)
+        self.assertTrue(public_tables)
+        expected_api_tables = _derive_expected_api_tables()
+        self.assertEqual(set(private_restore_tables), _EXPECTED_PRIVATE_API_TABLES)
+        self.assertEqual(
+            set(public_tables),
+            expected_api_tables - _EXPECTED_PRIVATE_API_TABLES,
+        )
+
+    def test_private_serving_tables_are_not_in_public_dump(self) -> None:
+        public_tables = set(_parse_table_file(_PUBLIC_TABLES_PATH))
+        private_restore_tables = set(_parse_table_file(_PRIVATE_RESTORE_TABLES_PATH))
+        self.assertTrue(private_restore_tables)
+        self.assertTrue(public_tables.isdisjoint(private_restore_tables))
+
+    def test_push_to_r2_allowlists_have_no_duplicates(self) -> None:
+        for path in (_PUBLIC_TABLES_PATH, _PRIVATE_RESTORE_TABLES_PATH):
+            tables = _parse_table_file(path)
+            self.assertEqual(len(tables), len(set(tables)), path)
 
 
 if __name__ == "__main__":

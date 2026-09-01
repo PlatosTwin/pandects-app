@@ -197,6 +197,16 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
     sections_search_overrides: dict[str, dict[str, object]] = {
         **structured_filter_overrides,
         **_YEAR_RANGE_OVERRIDES,
+        "text_query": {
+            "maxLength": 256,
+            "description": (
+                "Case-insensitive literal section-text query (maximum 256 characters and "
+                "24 terms). Append `*` only to the end of a word for prefix matching; "
+                "at most four prefix terms are allowed and each prefix stem must contain "
+                "at least three characters. Boolean punctuation is treated as a separator."
+            ),
+            "examples": ["reasonable best efforts", "sandbag*"],
+        },
         "count_mode": {
             "type": "string",
             "enum": list(_COUNT_MODE_VALUES),
@@ -273,26 +283,29 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
         ),
         McpToolSpec(
             name="search_sections",
-            description="Search individual sections (clause-level text) across the corpus by clause-family taxonomy node (standard_id) and the same structured M&A filters as search_agreements. There is no free-text/keyword parameter: to go from a plain-English concept to the right standard_id, call suggest_clause_families (or browse get_clause_taxonomy) first, then pass the resulting standard_id here. Returns clause language and the agreement context, not extracted document-level facts.",
+            description="Search individual sections (clause-level text) across the corpus by literal text, clause-family taxonomy node (standard_id), and the same structured M&A filters as search_agreements. `text_query` supports phrase, all-terms, and any-terms matching; append `*` only to the end of a word for prefix matching. Combine text and taxonomy filters to narrow a concept to specific drafting language. Returns clause language and agreement context, not extracted document-level facts.",
             input_schema=_schema_input_schema(McpSectionsArgsSchema(), field_overrides=sections_search_overrides),
             output_schema=_search_sections_output_schema(),
             examples=(
                 {"description": "Find sections by taxonomy id.", "arguments": {"standard_id": ["5e59453aaa9255c4"], "page_size": 10}},
+                {"description": "Search for a literal phrase across section text.", "arguments": {"text_query": "reasonable best efforts", "text_match_mode": "phrase", "include_snippet": True, "page_size": 10}},
+                {"description": "Combine a word-prefix query with taxonomy and deal filters.", "arguments": {"text_query": "sandbag*", "text_match_mode": "all_terms", "standard_id": ["5e59453aaa9255c4"], "year_min": 2020, "include_snippet": True}},
                 {"description": "Map a concept to taxonomy first, then search by the returned standard_id.", "arguments": {"standard_id": ["1a7aeab47932d0d4"], "metadata": ["deal_type"]}},
                 {"description": "Read clause language directly from the search result, with no follow-up snippet call.", "arguments": {"standard_id": ["4207f2e8f6698935"], "include_snippet": True, "snippet_focus_terms": ["termination fee"], "page_size": 10}},
-                {"description": "Get an exact total count for pagination planning.", "arguments": {"standard_id": ["4207f2e8f6698935"], "count_mode": "exact", "page_size": 10}},
+                {"description": "Get exact matching-section and distinct-agreement totals.", "arguments": {"text_query": "termination fee", "text_match_mode": "phrase", "count_mode": "exact", "page_size": 10}},
             ),
             response_examples=(
                 {"description": "Section search result page.", "content": {"results": [{"section_uuid": "00000000-0000-0000-0000-000000000001", "agreement_uuid": "a1", "standard_id": ["5e59453aaa9255c4"]}], "access": {"tier": "mcp"}}},
             ),
             scopes=("sections:search",),
-            selection_hint="Use for clause-language retrieval by taxonomy node, and agreement-section sampling. Pass include_snippet=true to read the clause text directly from the result page instead of making a second snippet call.",
+            selection_hint="Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
             negative_guidance=(
                 "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
                 "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
-                "Do not pass a free-text/keyword query: this tool has no query parameter and rejects unknown arguments. Use suggest_clause_families to translate a concept into a standard_id, then filter by it. No corpus-wide keyword index exists to fall back on, so there is no way to search clause text by phrase; if a concept has no taxonomy node, say so rather than substituting an adjacent node.",
+                "Do not treat literal text search as semantic search: use suggest_clause_families for concepts and text_query for words or phrases that should actually appear in the clause.",
+                "Do not pass raw boolean-search operators, leading wildcards, or infix wildcards. Choose text_match_mode and use only a trailing * for word-prefix matching.",
                 "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
-                "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page only, unlike total_count.",
+                "Do not read page_unique_agreement_count as a corpus-wide figure; it counts distinct agreements on the current page. Request count_mode=exact for corpus-wide total_agreement_count alongside the exact matching-section total_count.",
             ),
             pagination="page",
             access_behavior="strict_scope_required",
@@ -891,12 +904,12 @@ def _tool_specs() -> tuple[McpToolSpec, ...]:
                 {
                     "description": "Report friction with a specific tool, including the triggering arguments.",
                     "arguments": {
-                        "summary": "search_sections has no free-text fallback for uncovered concepts",
-                        "detail": "Tried to find 'ticking fee' language. suggest_clause_families reported coverage 'none' and search_sections accepts no keyword query, so the concept was unreachable. Expected some way to confirm absence from clause text.",
-                        "category": "missing_capability",
+                        "summary": "search_sections text query timed out with a common phrase",
+                        "detail": "Tried text_query='reasonable efforts' with a year filter and received a timeout. The same filter without text_query completed normally.",
+                        "category": "bug",
                         "tool_name": "search_sections",
                         "severity": "medium",
-                        "context": {"concept": "ticking fee", "coverage": "none"},
+                        "context": {"text_query": "reasonable efforts", "year": [2024]},
                     },
                 },
                 {
@@ -1000,6 +1013,14 @@ def _field_inventory_payload() -> dict[str, object]:
                 "section_title",
                 "xml",
             )
+        ]
+        + [
+            {
+                "name": "text_query",
+                "applies_to_tools": ["search_sections"],
+                "source_table_or_surface": "section_text_search",
+                "representation": "derived_from_text",
+            }
         ],
         "taxonomy_assignment_fields": [
             {

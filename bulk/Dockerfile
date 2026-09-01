@@ -22,6 +22,7 @@ RUN pip install --no-cache-dir boto3
 
 # Copy the restore script
 COPY restore_from_r2.py /app/restore_from_r2.py
+COPY public_tables.txt private_restore_tables.txt /app/
 
 # Verify
 CMD ["bash", "-lc", "echo bulk image ready"]

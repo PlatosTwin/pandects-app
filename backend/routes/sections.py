@@ -16,17 +16,18 @@ def register_sections_routes(*, deps: SectionsDeps) -> Blueprint:
         "sections_list",
         "sections_list",
         url_prefix="/v1/sections",
-        description="List merger agreement sections",
+        description="Search merger agreement sections",
     )
 
     @sections_blp.route("")
     class SectionsResource(MethodView):
         @sections_blp.doc(
             operationId="listSections",
-            summary="List agreement sections",
+            summary="Search agreement sections",
             tags=["sections"],
             description=(
-                "Searches sections using structured filters and taxonomy IDs. For list filters, "
+                "Searches section text with phrase, all-term, or any-term matching and composes "
+                "it with structured filters and taxonomy IDs. For list filters, "
                 "repeat query keys (for example `year=2023&year=2024`)."
             ),
         )

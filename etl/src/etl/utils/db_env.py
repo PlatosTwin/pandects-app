@@ -57,7 +57,7 @@ def build_engine_from_env() -> RuntimeDb:
     user = _require_env("MARIADB_USER")
     password = _require_env("MARIADB_PASSWORD")
     host = _require_env("MARIADB_HOST")
-    port = _require_env("MARIADB_PORT")
+    port = os.getenv("MARIADB_PORT", "3306")
     database = _require_env("MARIADB_DATABASE")
     engine = create_engine(
         f"mariadb+mysqldb://{user}:{password}@{host}:{port}/{database}"

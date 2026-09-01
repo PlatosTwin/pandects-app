@@ -7,6 +7,7 @@ from functools import lru_cache
 from typing import Any, ClassVar, cast
 
 from sqlalchemy import (
+    BINARY,
     CHAR,
     Float,
     TEXT,
@@ -162,6 +163,12 @@ if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
     )
     latest_sections_search_table = Table(
         "latest_sections_search",
+        metadata,
+        schema=_MAIN_SCHEMA_TOKEN,
+        autoload_with=engine,
+    )
+    section_text_search_table = Table(
+        "section_text_search",
         metadata,
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
@@ -364,6 +371,17 @@ else:
         Column("section_title", TEXT, nullable=True),
         schema=_MAIN_SCHEMA_TOKEN,
     )
+    section_text_search_table = Table(
+        "section_text_search",
+        metadata,
+        Column("section_uuid", CHAR(36), primary_key=True),
+        Column("agreement_uuid", CHAR(36), nullable=False),
+        Column("xml_version", Integer, nullable=True),
+        Column("source_xml_sha256", BINARY(32), nullable=True),
+        Column("normalized_text", TEXT, nullable=False),
+        Column("updated_at", TEXT, nullable=False),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
     latest_sections_search_standard_ids_table = Table(
         "latest_sections_search_standard_ids",
         metadata,
@@ -533,6 +551,16 @@ class LatestSectionsSearch(db.Model):
     section_standard_ids: ClassVar[Mapped[str | None]]
     article_title: ClassVar[Mapped[str | None]]
     section_title: ClassVar[Mapped[str | None]]
+
+
+class SectionTextSearch(db.Model):
+    __table__ = section_text_search_table
+    section_uuid: ClassVar[Mapped[str]]
+    agreement_uuid: ClassVar[Mapped[str]]
+    xml_version: ClassVar[Mapped[int | None]]
+    source_xml_sha256: ClassVar[Mapped[bytes | None]]
+    normalized_text: ClassVar[Mapped[str]]
+    updated_at: ClassVar[Mapped[str]]
 
 
 class LatestSectionsSearchStandardId(db.Model):
@@ -927,6 +955,7 @@ __all__ = [
     "NaicsSector",
     "NaicsSubSector",
     "Sections",
+    "SectionTextSearch",
     "TaxClauseAssignment",
     "TaxClauseTaxonomyL1",
     "TaxClauseTaxonomyL2",

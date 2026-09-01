@@ -53,6 +53,7 @@ backend/build/
 .dagster_home
 *.sqlite
 *.sql
+!db/section_text_search.sql
 etl/sql/*
 !etl/sql/migrations/
 etl/sql/migrations/*

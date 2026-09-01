@@ -31,6 +31,7 @@ from etl.utils.post_asset_refresh import run_post_asset_refresh
 from etl.utils.latest_sections_search import refresh_latest_sections_search
 from etl.utils.pipeline_state_sql import canonical_fresh_sections_queue_sql
 from etl.utils.run_config import runs_single_batch
+from etl.utils.section_text_search import refresh_section_text_search
 
 
 def _select_sections_cleanup_scope(
@@ -177,11 +178,18 @@ def _run_sections_for_agreements(
                 )
             if rows:
                 refreshed = refresh_latest_sections_search(conn, db.database, agreement_uuids)
+                text_refreshed = refresh_section_text_search(
+                    conn,
+                    db.database,
+                    [str(agreement_uuid) for agreement_uuid in agreement_uuids],
+                )
                 context.log.info(
-                    "%s: refreshed latest_sections_search for %s agreements (%s rows).",
+                    "%s: refreshed latest_sections_search for %s agreements "
+                    + "(%s metadata rows, %s text rows).",
                     log_prefix,
                     len(agreement_uuids),
                     refreshed,
+                    text_refreshed,
                 )
 
             if use_scope:

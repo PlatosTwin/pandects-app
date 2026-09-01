@@ -1,0 +1,4 @@
+# Private serving tables added to the public table set for the production
+# logical backup. These tables are implementation details and are deliberately
+# excluded from the public SQL dump and public schema documentation.
+section_text_search

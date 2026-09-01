@@ -27,6 +27,7 @@ The Pandects MCP is designed for humans using LLM clients. That means:
 The Pandects MCP is most useful when you want your client to:
 
 - Find the right agreement when you know a company name but not the document you need
+- Search section text for a literal phrase or word prefix, optionally combined with deal and clause-taxonomy filters
 - Compare clause language across many agreements
 - Open one section or one agreement for closer reading
 - Pull tax-related language from an agreement
@@ -40,6 +41,8 @@ Examples:
 
 - “Find the merger agreement for Target A and show me the termination and fiduciary-out sections.”
 - “Compare change-of-recommendation language across 2023 public-target deals.”
+- “Find sections containing the phrase ‘reasonable best efforts’ in 2024 deals.”
+- “Search for `sandbag*` language in representations and warranties, and count both matching sections and distinct agreements.”
 - “Find agreements where Skadden represented the acquirer.”
 - “Pull the tax clauses from this agreement and summarize who bears transfer taxes.”
 - “Show me the section text for this section UUID and explain how it fits into the agreement.”

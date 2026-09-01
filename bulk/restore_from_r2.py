@@ -7,8 +7,9 @@ import tarfile
 import threading
 import re
 from pathlib import Path
+from typing import cast
 
-import boto3
+from boto3.session import Session as Boto3Session
 
 # Configuration
 R2_BUCKET_NAME = "pandects-bulk"
@@ -21,6 +22,9 @@ BACKUP_ARCHIVE = Path("/tmp/logical_backup.tar.gz")
 BACKUP_DIR = Path("/tmp/logical_backup")
 
 LOGICAL_LATEST_MANIFEST_KEY = "logical_backups/latest.json"
+MANIFEST_VERSION = 2
+PUBLIC_TABLES_PATH = Path(__file__).with_name("public_tables.txt")
+PRIVATE_RESTORE_TABLES_PATH = Path(__file__).with_name("private_restore_tables.txt")
 
 
 class ProgressPrinter:
@@ -91,16 +95,167 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def get_restore_target_manifest(client, bucket):
-    print("🔍 Fetching promoted logical backup manifest from R2...", flush=True)
-    response = client.get_object(Bucket=bucket, Key=LOGICAL_LATEST_MANIFEST_KEY)
-    manifest = json.loads(response["Body"].read())
-    required_fields = {"logical_key", "logical_sha256"}
+def read_table_allowlist(path: Path) -> list[str]:
+    tables: list[str] = []
+    for raw_line in path.read_text().splitlines():
+        table = raw_line.split("#", 1)[0].strip()
+        if table:
+            tables.append(table)
+    if not tables:
+        raise Exception(f"Table allowlist is empty: {path}")
+    if len(tables) != len(set(tables)):
+        raise Exception(f"Table allowlist contains duplicates: {path}")
+    return tables
+
+
+def validate_restore_manifest(manifest: dict[str, object]) -> None:
+    required_fields = {
+        "manifest_version",
+        "logical_key",
+        "logical_sha256",
+        "restore_tables",
+        "public_tables",
+        "private_restore_tables",
+        "private_table_row_counts",
+        "restore_table_row_counts",
+    }
     missing_fields = required_fields - manifest.keys()
     if missing_fields:
         missing_csv = ", ".join(sorted(missing_fields))
         raise Exception(f"Logical backup manifest missing required fields: {missing_csv}")
+
+    if manifest["manifest_version"] != MANIFEST_VERSION:
+        raise Exception(
+            "Unsupported logical backup manifest version: "
+            + f"{manifest['manifest_version']!r}"
+        )
+    expected_public = set(read_table_allowlist(PUBLIC_TABLES_PATH))
+    expected_private = set(read_table_allowlist(PRIVATE_RESTORE_TABLES_PATH))
+    expected_restore = expected_public | expected_private
+    manifest_public = manifest["public_tables"]
+    manifest_private = manifest["private_restore_tables"]
+    manifest_restore = manifest["restore_tables"]
+    if not all(
+        isinstance(table_list, list)
+        and all(isinstance(table, str) for table in table_list)
+        and len(table_list) == len(set(table_list))
+        for table_list in (manifest_public, manifest_private, manifest_restore)
+    ):
+        raise Exception(
+            "Logical backup manifest table fields must be duplicate-free string lists."
+        )
+    public_tables = cast(list[str], manifest_public)
+    private_tables = cast(list[str], manifest_private)
+    restore_tables = cast(list[str], manifest_restore)
+    if set(public_tables) != expected_public:
+        raise Exception("Logical backup manifest public table set does not match this release.")
+    if set(private_tables) != expected_private:
+        raise Exception("Logical backup manifest private table set does not match this release.")
+    if set(restore_tables) != expected_restore:
+        raise Exception("Logical backup manifest restore table set does not match this release.")
+    private_row_counts = manifest["private_table_row_counts"]
+    if not isinstance(private_row_counts, dict):
+        raise Exception("Logical backup manifest private_table_row_counts must be an object.")
+    if set(private_row_counts) != expected_private or not all(
+        isinstance(table, str)
+        and isinstance(row_count, int)
+        and not isinstance(row_count, bool)
+        and row_count >= 0
+        for table, row_count in private_row_counts.items()
+    ):
+        raise Exception(
+            "Logical backup manifest private table row counts do not match this release."
+        )
+    restore_row_counts = manifest["restore_table_row_counts"]
+    if not isinstance(restore_row_counts, dict):
+        raise Exception("Logical backup manifest restore_table_row_counts must be an object.")
+    if set(restore_row_counts) != expected_restore or not all(
+        isinstance(table, str)
+        and isinstance(row_count, int)
+        and not isinstance(row_count, bool)
+        and row_count >= 0
+        for table, row_count in restore_row_counts.items()
+    ):
+        raise Exception(
+            "Logical backup manifest restore table row counts do not match this release."
+        )
+    if any(
+        restore_row_counts[table] != row_count
+        for table, row_count in private_row_counts.items()
+    ):
+        raise Exception(
+            "Logical backup manifest private row counts disagree with restore row counts."
+        )
+
+
+def get_restore_target_manifest(client, bucket):
+    print("🔍 Fetching promoted logical backup manifest from R2...", flush=True)
+    response = client.get_object(Bucket=bucket, Key=LOGICAL_LATEST_MANIFEST_KEY)
+    manifest = json.loads(response["Body"].read())
+    if not isinstance(manifest, dict):
+        raise Exception("Logical backup manifest must be a JSON object.")
+    validate_restore_manifest(manifest)
     return manifest
+
+
+def validate_private_table_ddl(
+    sql_files: list[Path],
+    *,
+    db_name: str,
+    private_tables: list[str],
+) -> None:
+    for table in private_tables:
+        ddl_files = [
+            path
+            for path in sql_files
+            if path.name.startswith(f"{db_name}.{table}-schema")
+            or path.name.startswith(f"{table}-schema")
+        ]
+        if not ddl_files:
+            raise Exception(f"Logical backup missing schema DDL for private table: {table}")
+
+        if table == "section_text_search":
+            ddl = "\n".join(path.read_text() for path in ddl_files)
+            fulltext_normalized_text = re.search(
+                r"FULLTEXT(?:\s+(?:KEY|INDEX))?(?:\s+`?[^`\s(]+`?)?\s*"
+                r"\([^)]*`?normalized_text`?[^)]*\)",
+                ddl,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            if (
+                "source_xml_sha256" not in ddl
+                or fulltext_normalized_text is None
+            ):
+                raise Exception(
+                    "section_text_search backup DDL is missing source_xml_sha256 or a "
+                    "FULLTEXT index containing normalized_text."
+                )
+
+
+def validate_restore_archive(
+    sql_files: list[Path],
+    *,
+    db_name: str,
+    restore_table_row_counts: dict[str, int],
+) -> None:
+    """Require a restorable schema and, for non-empty tables, dumped row data."""
+    file_names = {path.name for path in sql_files}
+    for table, expected_count in restore_table_row_counts.items():
+        prefixes = (f"{db_name}.{table}", table)
+        has_schema = any(
+            f"{prefix}-schema.sql" in file_names
+            for prefix in prefixes
+        )
+        if not has_schema:
+            raise Exception(f"Logical backup missing schema DDL for restore table: {table}")
+
+        if expected_count == 0:
+            continue
+        data_pattern = re.compile(
+            rf"^(?:{re.escape(db_name)}\.)?{re.escape(table)}(?:\.\d+)?\.sql$"
+        )
+        if not any(data_pattern.fullmatch(file_name) for file_name in file_names):
+            raise Exception(f"Logical backup missing row data for restore table: {table}")
 
 
 def strip_definers_in_sql_files(sql_files: list[Path]) -> int:
@@ -142,7 +297,10 @@ def restore_backup():
     db_user = os.environ.get("MARIADB_USER")
     db_pass = os.environ.get("MARIADB_PASSWORD")
     db_name = os.environ.get("MARIADB_DATABASE")
-    myloader_threads = os.environ.get("MYLOADER_THREADS", "6")
+    # Production currently runs on a single shared CPU with a tight memory
+    # budget. Two workers retain MyLoader's minimum useful concurrency without
+    # multiplying the peak memory of concurrent table/index work.
+    myloader_threads = os.environ.get("MYLOADER_THREADS", "2")
 
     if not db_host:
         raise Exception("Missing MARIADB_HOST (e.g., pandects-db.internal)")
@@ -155,7 +313,7 @@ def restore_backup():
 
     print("✅ R2 credentials found", flush=True)
 
-    session = boto3.session.Session()
+    session = Boto3Session()
     client = session.client(
         service_name="s3",
         aws_access_key_id=R2_ACCESS_KEY_ID,
@@ -209,6 +367,20 @@ def restore_backup():
     if not sql_files:
         raise Exception("Logical backup contains no .sql files; cannot restore.")
 
+    restore_table_row_counts = cast(
+        dict[str, int], manifest["restore_table_row_counts"]
+    )
+    validate_restore_archive(
+        sql_files,
+        db_name=db_name,
+        restore_table_row_counts=restore_table_row_counts,
+    )
+    validate_private_table_ddl(
+        sql_files,
+        db_name=db_name,
+        private_tables=list(manifest["private_restore_tables"]),
+    )
+
     print(
         f"✅ Extracted logical backup to {BACKUP_DIR} "
         f"with {len(sql_files)} SQL files",
@@ -257,11 +429,198 @@ def restore_backup():
             db_name,
             "--threads",
             str(myloader_threads),
+            "--optimize-keys",
+            "AFTER_IMPORT_PER_TABLE",
             "--verbose",
             "3",
         ],
         check=True,
     )
+
+    readiness_sql = """
+        SELECT CASE WHEN
+            EXISTS (
+                SELECT 1 FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'section_text_search'
+            )
+            AND EXISTS (
+                SELECT 1 FROM information_schema.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'section_text_search'
+                  AND COLUMN_NAME = 'normalized_text'
+                  AND INDEX_TYPE = 'FULLTEXT'
+            )
+            AND EXISTS (
+                SELECT 1 FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'section_text_search'
+                  AND COLUMN_NAME = 'source_xml_sha256'
+            )
+            AND @@innodb_ft_min_token_size = 3
+            AND @@innodb_ft_enable_stopword = 1
+            AND COALESCE(@@innodb_ft_server_stopword_table, '') = ''
+        THEN 1 ELSE 0 END
+    """
+    readiness = subprocess.run(
+        [
+            "mariadb",
+            "--protocol=TCP",
+            "--host",
+            db_host,
+            "--port",
+            db_port,
+            "--user",
+            db_user,
+            f"--password={db_pass}",
+            "--database",
+            db_name,
+            "--batch",
+            "--skip-column-names",
+            "--execute",
+            readiness_sql,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    if readiness.stdout.strip() != "1":
+        raise Exception(
+            "Restore completed, but section_text_search, its FULLTEXT index, or the "
+            "required default InnoDB FULLTEXT settings are not ready."
+        )
+
+    for table in restore_table_row_counts:
+        if not isinstance(table, str) or not table.replace("_", "").isalnum():
+            raise Exception(f"Unsafe restore table name in manifest: {table!r}")
+    count_sql = " UNION ALL ".join(
+        f"SELECT '{table}', COUNT(*) FROM `{table}`"
+        for table in restore_table_row_counts
+    )
+    actual_counts_result = subprocess.run(
+        [
+            "mariadb",
+            "--protocol=TCP",
+            "--host",
+            db_host,
+            "--port",
+            db_port,
+            "--user",
+            db_user,
+            f"--password={db_pass}",
+            "--database",
+            db_name,
+            "--batch",
+            "--skip-column-names",
+            "--execute",
+            count_sql,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    actual_counts = {
+        table: int(row_count)
+        for line in actual_counts_result.stdout.splitlines()
+        for table, row_count in [line.split("\t", 1)]
+    }
+    for table, expected_count in restore_table_row_counts.items():
+        actual_count = actual_counts.get(table)
+        if actual_count != expected_count:
+            raise Exception(
+                f"Restored table {table} row count mismatch: "
+                f"expected {expected_count}, got {actual_count}."
+            )
+
+    if "section_text_search" in cast(list[str], manifest["private_restore_tables"]):
+        integrity_sql = """
+            SELECT
+                (SELECT COUNT(*) FROM latest_sections_search),
+                (SELECT COUNT(*) FROM section_text_search),
+                (
+                    SELECT COUNT(*)
+                    FROM latest_sections_search source
+                    LEFT JOIN section_text_search target
+                      ON target.section_uuid = source.section_uuid
+                    WHERE target.section_uuid IS NULL
+                ),
+                (
+                    SELECT COUNT(*)
+                    FROM section_text_search target
+                    LEFT JOIN latest_sections_search source
+                      ON source.section_uuid = target.section_uuid
+                    WHERE source.section_uuid IS NULL
+                ),
+                (
+                    SELECT COUNT(*)
+                    FROM latest_sections_search source
+                    JOIN sections source_section
+                      ON source_section.section_uuid = source.section_uuid
+                    JOIN section_text_search target
+                      ON target.section_uuid = source.section_uuid
+                    WHERE NOT (target.agreement_uuid <=> source.agreement_uuid)
+                       OR NOT (target.xml_version <=> source_section.xml_version)
+                ),
+                (
+                    SELECT COUNT(*)
+                    FROM latest_sections_search source
+                    JOIN sections source_section
+                      ON source_section.section_uuid = source.section_uuid
+                    JOIN section_text_search target
+                      ON target.section_uuid = source.section_uuid
+                    WHERE NOT (
+                        target.source_xml_sha256
+                        <=> UNHEX(SHA2(source_section.xml_content, 256))
+                    )
+                )
+        """
+        integrity_result = subprocess.run(
+            [
+                "mariadb",
+                "--protocol=TCP",
+                "--host",
+                db_host,
+                "--port",
+                db_port,
+                "--user",
+                db_user,
+                f"--password={db_pass}",
+                "--database",
+                db_name,
+                "--batch",
+                "--skip-column-names",
+                "--execute",
+                integrity_sql,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        integrity_values = [
+            int(value) for value in integrity_result.stdout.split()
+        ]
+        if len(integrity_values) != 6:
+            raise Exception("Could not parse restored section_text_search integrity result.")
+        source_count, target_count, missing, extra, version_mismatch, hash_mismatch = (
+            integrity_values
+        )
+        if source_count != target_count or any(
+            (missing, extra, version_mismatch, hash_mismatch)
+        ):
+            raise Exception(
+                "Restored section_text_search failed source integrity validation: "
+                + json.dumps(
+                    {
+                        "source_count": source_count,
+                        "target_count": target_count,
+                        "missing_count": missing,
+                        "extra_count": extra,
+                        "version_mismatch_count": version_mismatch,
+                        "source_hash_mismatch_count": hash_mismatch,
+                    },
+                    sort_keys=True,
+                )
+            )
 
     print("✅ Restore Complete. The database is ready.")
 

@@ -17,6 +17,20 @@ Outside contributors should not expect to run or administer this service locally
 
 This directory is maintainer-only for actual execution and deployment.
 
+## Section text search migration
+
+`section_text_search.sql` is the canonical serving-table definition. Build a
+monthly replacement as an unindexed shadow first (omit the FULLTEXT key while
+loading), run `etl.utils.section_text_search_backfill` with the shadow table name,
+add the FULLTEXT key, and run the hash-aware `--drift-only` catch-up from the
+beginning until a complete pass reports zero batches. Validate exact row,
+agreement, version, and `source_xml_sha256` coverage before an atomic
+`RENAME TABLE` swap. Keep the previous table temporarily for rollback.
+
+After the local swap, publish a manifest-v2 R2 snapshot and follow the release
+ordering documented in `bulk/README.md`. The production-only Postgres database
+is not involved; section search is part of the main MariaDB serving snapshot.
+
 ## Environment variables
 
 See:
