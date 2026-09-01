@@ -2515,8 +2515,8 @@
     "semantic_hash": "c2715cdbf9e83d64f5dc5f6942c1c693"
   },
   "frontend/client/pages/search/SearchActionsBar.tsx": {
-    "mtime": 1787941266.2897484,
-    "ast_hash": "97265077f440109aba75e4d2b67221e9",
+    "mtime": 1788276120.2081625,
+    "ast_hash": "af8a7722a8bd3d8dea5e0118aba17ab6",
     "semantic_hash": ""
   },
   "frontend/client/pages/search/SearchActiveFilters.tsx": {
@@ -3312,11 +3312,6 @@
   "etl/tests/test_dedupe_eval_dataset.py": {
     "mtime": 1786564145.323024,
     "ast_hash": "18c44e13d58c26bb760bd90d630df2c5",
-    "semantic_hash": ""
-  },
-  "frontend/client/pages/search/SearchActionsBar.spec.tsx": {
-    "mtime": 1787941273.3217497,
-    "ast_hash": "c4e96dac4510cf5e09ba2d82366a1a46",
     "semantic_hash": ""
   }
 }
