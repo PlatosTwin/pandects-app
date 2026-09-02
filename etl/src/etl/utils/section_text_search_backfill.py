@@ -16,11 +16,13 @@ from pathlib import Path
 import re
 
 from dotenv import load_dotenv
+from sqlalchemy.engine import Engine
 
 from etl.utils.db_env import build_engine_from_env, validate_schema_name
 from etl.utils.section_text_search import (
     refresh_section_text_search,
     select_section_text_backfill_agreements,
+    select_section_text_drift_details,
     select_section_text_drifted_agreements,
 )
 
@@ -77,15 +79,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def main(argv: list[str] | None = None) -> None:
-    args = parse_args(argv)
-    _ = load_dotenv(args.env_file, override=False)
-    db = build_engine_from_env()
-    engine = db.get_engine()
+def run_backfill(engine: Engine, args: argparse.Namespace) -> None:
     cursor = str(args.after_agreement_uuid)
     batches = 0
     agreements_processed = 0
     sections_refreshed = 0
+    unresolved: list[dict[str, str]] = []
 
     while args.max_batches is None or batches < args.max_batches:
         with engine.begin() as conn:
@@ -113,14 +112,32 @@ def main(argv: list[str] | None = None) -> None:
                 table_name=args.target_table,
                 write_batch_size=args.write_batch_size,
             )
+            still_drifted: list[dict[str, str]] = []
+            if args.drift_only:
+                still_drifted = select_section_text_drift_details(
+                    conn,
+                    args.schema,
+                    table_name=args.target_table,
+                    agreement_uuids=agreement_uuids,
+                )
 
         cursor = agreement_uuids[-1]
         batches += 1
-        agreements_processed += len(agreement_uuids)
+        unresolved_agreements = {row["agreement_uuid"] for row in still_drifted}
+        agreements_processed += len(agreement_uuids) - len(unresolved_agreements)
         sections_refreshed += refreshed
+        unresolved.extend(still_drifted)
+        for row in still_drifted:
+            print(
+                "Unresolved drift: "
+                + f"agreement={row['agreement_uuid']} section={row['section_uuid']} "
+                + f"reason={row['reason']}",
+                flush=True,
+            )
         print(
             "Committed batch "
-            + f"{batches}: agreements={len(agreement_uuids)}, sections={refreshed}, "
+            + f"{batches}: agreements={len(agreement_uuids) - len(unresolved_agreements)}, "
+            + f"sections={refreshed}, unresolved_agreements={len(unresolved_agreements)}, "
             + f"resume_after={cursor}",
             flush=True,
         )
@@ -131,6 +148,22 @@ def main(argv: list[str] | None = None) -> None:
         + f"sections={sections_refreshed}, resume_after={cursor}",
         flush=True,
     )
+    if unresolved:
+        unresolved_agreement_count = len({row["agreement_uuid"] for row in unresolved})
+        raise SystemExit(
+            f"{len(unresolved)} section(s) across {unresolved_agreement_count} "
+            + "agreement(s) stay drifted after refresh because latest_sections_search "
+            + "disagrees with sections/xml about which section versions are current. "
+            + "Refresh latest_sections_search for the agreements listed above, then "
+            + "rerun --drift-only."
+        )
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    _ = load_dotenv(args.env_file, override=False)
+    db = build_engine_from_env()
+    run_backfill(db.get_engine(), args)
 
 
 if __name__ == "__main__":

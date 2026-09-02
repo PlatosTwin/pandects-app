@@ -332,6 +332,61 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
         ).fetchone()
         self.assertEqual(remaining_standard_ids, (0,))
 
+    def test_refresh_prunes_section_text_rows_that_left_latest_sections_search(self) -> None:
+        assert self.conn is not None
+        _ = self.conn.execute(
+            text(
+                """
+            CREATE TABLE section_text_search (
+                section_uuid TEXT PRIMARY KEY,
+                agreement_uuid TEXT NOT NULL,
+                xml_version INTEGER,
+                source_xml_sha256 BLOB,
+                normalized_text TEXT NOT NULL
+            )
+            """
+            )
+        )
+        _ = self.conn.execute(
+            text("INSERT INTO xml (agreement_uuid, version, status, latest) VALUES (:agreement_uuid, :version, :status, :latest)"),
+            [
+                {"agreement_uuid": "a1", "version": 1, "status": "verified", "latest": 0},
+                {"agreement_uuid": "a1", "version": 2, "status": "verified", "latest": 1},
+            ],
+        )
+        _ = self.conn.execute(
+            text(
+                """
+            INSERT INTO sections (
+                section_uuid, agreement_uuid, article_title, section_title,
+                section_standard_id, section_standard_id_gold_label, xml_version
+            ) VALUES
+                ('stale-section', 'a1', 'ARTICLE I', 'Old', NULL, NULL, 1),
+                ('fresh-section', 'a1', 'ARTICLE I', 'New', NULL, NULL, 2)
+            """
+            )
+        )
+        _ = self.conn.execute(
+            text(
+                """
+            INSERT INTO section_text_search (
+                section_uuid, agreement_uuid, xml_version, normalized_text
+            ) VALUES
+                ('stale-section', 'a1', 1, 'old'),
+                ('fresh-section', 'a1', 2, 'new'),
+                ('other-section', 'a2', 1, 'other agreement')
+            """
+            )
+        )
+
+        inserted = refresh_latest_sections_search(self.conn, "", ["a1"])
+
+        self.assertEqual(inserted, 1)
+        rows = self.conn.execute(
+            text("SELECT section_uuid FROM section_text_search ORDER BY section_uuid")
+        ).scalars().all()
+        self.assertEqual(rows, ["fresh-section", "other-section"])
+
     def test_refresh_fails_fast_when_projection_schema_is_missing_required_columns(self) -> None:
         assert self.conn is not None
         _ = self.conn.execute(text("DROP TABLE latest_sections_search"))

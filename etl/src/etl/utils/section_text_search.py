@@ -256,6 +256,57 @@ def select_section_text_backfill_agreements(
     ]
 
 
+def _drifted_agreements_sql(
+    dialect_name: str,
+    *,
+    latest_table: str,
+    sections_table: str,
+    target_table: str,
+) -> str:
+    version_diff = _version_diff_expression(dialect_name)
+    source_hash_diff = _source_hash_diff_expression(dialect_name)
+    return f"""
+        SELECT drift.agreement_uuid
+        FROM (
+            SELECT missing_or_stale.agreement_uuid
+            FROM (
+                SELECT l.agreement_uuid
+                FROM {latest_table} l
+                JOIN {sections_table} s
+                  ON s.section_uuid = l.section_uuid
+                LEFT JOIN {target_table} t
+                  ON t.section_uuid = l.section_uuid
+                WHERE l.agreement_uuid > :after_agreement_uuid
+                  AND (
+                      t.section_uuid IS NULL
+                      OR {version_diff}
+                      OR {source_hash_diff}
+                  )
+                GROUP BY l.agreement_uuid
+                ORDER BY l.agreement_uuid
+                LIMIT :limit
+            ) missing_or_stale
+
+            UNION
+
+            SELECT orphaned.agreement_uuid
+            FROM (
+                SELECT t.agreement_uuid
+                FROM {target_table} t
+                LEFT JOIN {latest_table} l
+                  ON l.section_uuid = t.section_uuid
+                WHERE t.agreement_uuid > :after_agreement_uuid
+                  AND l.section_uuid IS NULL
+                GROUP BY t.agreement_uuid
+                ORDER BY t.agreement_uuid
+                LIMIT :limit
+            ) orphaned
+        ) drift
+        ORDER BY drift.agreement_uuid
+        LIMIT :limit
+    """
+
+
 def select_section_text_drifted_agreements(
     conn: Connection,
     schema: str,
@@ -268,53 +319,126 @@ def select_section_text_drifted_agreements(
     if limit <= 0:
         raise ValueError("limit must be positive.")
 
-    latest_table = _qualified_table(schema, "latest_sections_search")
-    sections_table = _qualified_table(schema, "sections")
-    target_table = _qualified_table(schema, table_name)
-    version_diff = (
-        "t.xml_version IS NOT s.xml_version"
-        if conn.dialect.name == "sqlite"
-        else "NOT (t.xml_version <=> s.xml_version)"
+    sql = _drifted_agreements_sql(
+        conn.dialect.name,
+        latest_table=_qualified_table(schema, "latest_sections_search"),
+        sections_table=_qualified_table(schema, "sections"),
+        target_table=_qualified_table(schema, table_name),
     )
-    source_hash_diff = _source_hash_diff_expression(conn.dialect.name)
     return [
         str(agreement_uuid)
         for agreement_uuid in conn.execute(
-            text(
-                f"""
-                SELECT drift.agreement_uuid
-                FROM (
-                    SELECT l.agreement_uuid
-                    FROM {latest_table} l
-                    JOIN {sections_table} s
-                      ON s.section_uuid = l.section_uuid
-                    LEFT JOIN {target_table} t
-                      ON t.section_uuid = l.section_uuid
-                    WHERE l.agreement_uuid > :after_agreement_uuid
-                      AND (
-                          t.section_uuid IS NULL
-                          OR {version_diff}
-                          OR {source_hash_diff}
-                      )
-                    GROUP BY l.agreement_uuid
-
-                    UNION
-
-                    SELECT t.agreement_uuid
-                    FROM {target_table} t
-                    LEFT JOIN {latest_table} l
-                      ON l.section_uuid = t.section_uuid
-                    WHERE t.agreement_uuid > :after_agreement_uuid
-                      AND l.section_uuid IS NULL
-                    GROUP BY t.agreement_uuid
-                ) drift
-                ORDER BY drift.agreement_uuid
-                LIMIT :limit
-                """
-            ),
+            text(sql),
             {"after_agreement_uuid": after_agreement_uuid, "limit": limit},
         ).scalars()
     ]
+
+
+def select_section_text_drift_details(
+    conn: Connection,
+    schema: str,
+    *,
+    table_name: str,
+    agreement_uuids: Sequence[str],
+) -> list[dict[str, str]]:
+    """Return every drifted section for the given agreements with its reason."""
+    target_uuids = tuple(sorted({uuid for uuid in agreement_uuids if uuid}))
+    if not target_uuids:
+        return []
+
+    latest_table = _qualified_table(schema, "latest_sections_search")
+    sections_table = _qualified_table(schema, "sections")
+    target_table = _qualified_table(schema, table_name)
+    version_diff = _version_diff_expression(conn.dialect.name)
+    source_hash_diff = _source_hash_diff_expression(conn.dialect.name)
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT
+                l.section_uuid,
+                l.agreement_uuid,
+                CASE
+                    WHEN t.section_uuid IS NULL THEN 'missing text row'
+                    WHEN {version_diff} THEN 'xml_version differs from sections'
+                    ELSE 'source_xml_sha256 differs from sections.xml_content'
+                END AS reason
+            FROM {latest_table} l
+            JOIN {sections_table} s
+              ON s.section_uuid = l.section_uuid
+            LEFT JOIN {target_table} t
+              ON t.section_uuid = l.section_uuid
+            WHERE l.agreement_uuid IN :agreement_uuids
+              AND (
+                  t.section_uuid IS NULL
+                  OR {version_diff}
+                  OR {source_hash_diff}
+              )
+
+            UNION ALL
+
+            SELECT
+                t.section_uuid,
+                t.agreement_uuid,
+                'text row has no latest_sections_search row' AS reason
+            FROM {target_table} t
+            LEFT JOIN {latest_table} l
+              ON l.section_uuid = t.section_uuid
+            WHERE t.agreement_uuid IN :agreement_uuids
+              AND l.section_uuid IS NULL
+            """
+        ).bindparams(bindparam("agreement_uuids", expanding=True)),
+        {"agreement_uuids": target_uuids},
+    ).mappings()
+    return sorted(
+        (
+            {
+                "section_uuid": str(row["section_uuid"]),
+                "agreement_uuid": str(row["agreement_uuid"]),
+                "reason": str(row["reason"]),
+            }
+            for row in rows
+        ),
+        key=lambda row: (row["agreement_uuid"], row["section_uuid"]),
+    )
+
+
+def prune_section_text_search(
+    conn: Connection,
+    schema: str,
+    agreement_uuids: Sequence[str],
+    *,
+    table_name: str = "section_text_search",
+) -> int:
+    """Delete text rows for the given agreements whose section left latest_sections_search."""
+    target_uuids = tuple(sorted({uuid for uuid in agreement_uuids if uuid}))
+    if not target_uuids:
+        return 0
+    if not inspect(conn).has_table(table_name, schema=schema or None):
+        return 0
+
+    section_text_table = _qualified_table(schema, table_name)
+    latest_table = _qualified_table(schema, "latest_sections_search")
+    result = conn.execute(
+        text(
+            f"""
+            DELETE FROM {section_text_table}
+            WHERE agreement_uuid IN :agreement_uuids
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM {latest_table} l
+                  WHERE l.section_uuid = {section_text_table}.section_uuid
+              )
+            """
+        ).bindparams(bindparam("agreement_uuids", expanding=True)),
+        {"agreement_uuids": target_uuids},
+    )
+    return int(result.rowcount or 0)
+
+
+def _version_diff_expression(dialect_name: str) -> str:
+    if dialect_name == "sqlite":
+        return "t.xml_version IS NOT s.xml_version"
+    return "NOT (t.xml_version <=> s.xml_version)"
 
 
 def _source_hash_diff_expression(dialect_name: str) -> str:
