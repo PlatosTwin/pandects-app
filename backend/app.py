@@ -761,6 +761,7 @@ def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
     item_count: int,
     has_next: bool,
     has_filters: bool,
+    count_cache_key: str | None = None,
 ) -> tuple[int, bool]:
     total_count, is_approximate, _ = _svc_sections_total_count_metadata(
         _build_sections_service_deps(),
@@ -771,6 +772,7 @@ def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
         has_next=has_next,
         has_filters=has_filters,
         count_mode="auto",
+        count_cache_key=count_cache_key,
     )
     return total_count, is_approximate
 

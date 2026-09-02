@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import date, datetime
 from functools import lru_cache
@@ -18,10 +19,13 @@ from sqlalchemy import (
     and_,
     create_engine,
     func,
+    literal_column,
     or_,
+    select,
     cast as sql_cast,
 )
 from sqlalchemy.dialects import mysql as mysql_dialect
+from sqlalchemy.exc import NoSuchTableError, SQLAlchemyError
 from sqlalchemy.orm import Mapped
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.types import NullType
@@ -81,6 +85,7 @@ SKIP_MAIN_DB_REFLECTION = _SKIP_MAIN_DB_REFLECTION
 ENABLE_MAIN_DB_REFLECTION = _ENABLE_MAIN_DB_REFLECTION
 MAIN_SCHEMA_TOKEN = _MAIN_SCHEMA_TOKEN
 metadata = MetaData()
+_logger = logging.getLogger(__name__)
 
 
 class _MySQLVector(NullType):
@@ -167,12 +172,15 @@ if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
-    section_text_search_table = Table(
-        "section_text_search",
-        metadata,
-        schema=_MAIN_SCHEMA_TOKEN,
-        autoload_with=engine,
-    )
+    try:
+        section_text_search_table: Table | None = Table(
+            "section_text_search",
+            metadata,
+            schema=_MAIN_SCHEMA_TOKEN,
+            autoload_with=engine,
+        )
+    except NoSuchTableError:
+        section_text_search_table = None
     latest_sections_search_standard_ids_table = Table(
         "latest_sections_search_standard_ids",
         metadata,
@@ -221,6 +229,28 @@ if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
         schema=_MAIN_SCHEMA_TOKEN,
         autoload_with=engine,
     )
+
+    if section_text_search_table is None:
+        _logger.warning(
+            "section_text_search table is missing; text_query searches are unavailable until it is restored."
+        )
+    else:
+        try:
+            with engine.connect() as probe_connection:
+                _has_text_search_rows = (
+                    probe_connection.execute(
+                        select(literal_column("1"))
+                        .select_from(section_text_search_table)
+                        .limit(1)
+                    ).first()
+                    is not None
+                )
+        except SQLAlchemyError:
+            _has_text_search_rows = True
+        if not _has_text_search_rows:
+            _logger.warning(
+                "section_text_search table is empty; text_query searches return no results until it is populated."
+            )
 else:
     # Test mode: avoid connecting to the main DB at import time.
     engine = None
@@ -459,6 +489,8 @@ else:
         schema=_MAIN_SCHEMA_TOKEN,
     )
 
+SECTION_TEXT_SEARCH_AVAILABLE = section_text_search_table is not None
+
 
 class Sections(db.Model):
     __table__ = sections_table
@@ -553,14 +585,19 @@ class LatestSectionsSearch(db.Model):
     section_title: ClassVar[Mapped[str | None]]
 
 
-class SectionTextSearch(db.Model):
-    __table__ = section_text_search_table
-    section_uuid: ClassVar[Mapped[str]]
-    agreement_uuid: ClassVar[Mapped[str]]
-    xml_version: ClassVar[Mapped[int | None]]
-    source_xml_sha256: ClassVar[Mapped[bytes | None]]
-    normalized_text: ClassVar[Mapped[str]]
-    updated_at: ClassVar[Mapped[str]]
+SectionTextSearch: type[Any] | None = None
+if section_text_search_table is not None:
+
+    class _SectionTextSearchModel(db.Model):
+        __table__ = section_text_search_table
+        section_uuid: ClassVar[Mapped[str]]
+        agreement_uuid: ClassVar[Mapped[str]]
+        xml_version: ClassVar[Mapped[int | None]]
+        source_xml_sha256: ClassVar[Mapped[bytes | None]]
+        normalized_text: ClassVar[Mapped[str]]
+        updated_at: ClassVar[Mapped[str]]
+
+    SectionTextSearch = _SectionTextSearchModel
 
 
 class LatestSectionsSearchStandardId(db.Model):
@@ -944,6 +981,7 @@ def standard_id_agreement_filter_expr(
 __all__ = [
     "MAIN_SCHEMA_TOKEN",
     "ENABLE_MAIN_DB_REFLECTION",
+    "SECTION_TEXT_SEARCH_AVAILABLE",
     "SKIP_MAIN_DB_REFLECTION",
     "_MAIN_SCHEMA_TOKEN",
     "_ENABLE_MAIN_DB_REFLECTION",

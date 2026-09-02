@@ -2080,6 +2080,30 @@ class McpTests(unittest.TestCase):
         self.assertEqual(parsed_args["text_query"], "reasonable best efforts")
         self.assertEqual(parsed_args["text_match_mode"], "phrase")
 
+    def test_search_sections_surfaces_text_search_service_errors_as_invalid_params(self):
+        from marshmallow import ValidationError
+
+        from backend.services.sections_service import (
+            SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE,
+            TEXT_QUERY_TOO_EXPENSIVE_MESSAGE,
+        )
+
+        for message in (SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE, TEXT_QUERY_TOO_EXPENSIVE_MESSAGE):
+            with self.subTest(message=message), patch(
+                "backend.mcp.tools.handlers.run_sections",
+                side_effect=ValidationError({"text_query": [message]}),
+            ):
+                res = self._call_tool(
+                    "search_sections",
+                    {"text_query": "material adverse effect", "page_size": 5},
+                )
+
+            self.assertEqual(res.status_code, 200)
+            body = res.get_json()
+            self.assertEqual(body["error"]["code"], -32602)
+            self.assertIn(message, body["error"]["message"])
+            self.assertEqual(body["error"]["data"], {"text_query": [message]})
+
     def test_search_sections_omits_snippet_fields_by_default(self):
         res = self._call_tool("search_sections", {"page_size": 5})
         self.assertEqual(res.status_code, 200)

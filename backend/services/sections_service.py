@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Protocol, cast
 
-from sqlalchemy import and_, asc, desc, distinct, func, or_, text
+from marshmallow import ValidationError
+from sqlalchemy import and_, asc, desc, distinct, or_, text
 from sqlalchemy.dialects.mysql import match as mysql_match
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
 from backend.filtering import (
@@ -14,7 +15,43 @@ from backend.filtering import (
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
 from backend.search_counts import build_search_count_cache_key
 from backend.schemas.sections import SectionsArgsPayload
-from backend.text_search import compile_boolean_text_query, compile_phrase_text_pattern
+from backend.text_search import (
+    TEXT_SEARCH_MAX_STATEMENT_SECONDS,
+    compile_boolean_text_query,
+    compile_phrase_text_pattern,
+)
+
+
+SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE = "Section text search is not available on this server yet."
+TEXT_QUERY_TOO_EXPENSIVE_MESSAGE = (
+    "text_query is too expensive to run; narrow it with filters or more specific terms."
+)
+_STATEMENT_TIMEOUT_ERROR_CODE = 1969
+
+
+def is_statement_timeout_error(exc: SQLAlchemyError) -> bool:
+    """True when MariaDB aborted the statement for exceeding max_statement_time."""
+    orig_args = cast(tuple[object, ...], getattr(getattr(exc, "orig", None), "args", ()))
+    return bool(orig_args) and orig_args[0] == _STATEMENT_TIMEOUT_ERROR_CODE
+
+
+def _join_section_text_search(
+    query: Any,
+    *,
+    latest: Any,
+    section_text_search: Any,
+    text_query: str,
+) -> Any:
+    if not text_query.strip():
+        raise ValueError("text_query must contain searchable text.")
+    if section_text_search is None:
+        raise ValidationError({"text_query": [SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE]})
+    return query.execution_options(
+        max_statement_time=TEXT_SEARCH_MAX_STATEMENT_SECONDS
+    ).join(
+        section_text_search,
+        section_text_search.section_uuid == latest.section_uuid,
+    )
 
 
 def build_section_text_match_expression(
@@ -71,11 +108,11 @@ def apply_section_text_search(
     """Join the private text index only for text searches."""
     if text_query is None:
         return query
-    if not text_query.strip():
-        raise ValueError("text_query must contain searchable text.")
-    return query.join(
-        section_text_search,
-        section_text_search.section_uuid == latest.section_uuid,
+    return _join_section_text_search(
+        query,
+        latest=latest,
+        section_text_search=section_text_search,
+        text_query=text_query,
     ).filter(
         build_section_text_match_expression(
             section_text_search.normalized_text,
@@ -96,11 +133,11 @@ def apply_section_text_candidate_search(
     """Join and apply only the indexed candidate predicate."""
     if text_query is None:
         return query
-    if not text_query.strip():
-        raise ValueError("text_query must contain searchable text.")
-    return query.join(
-        section_text_search,
-        section_text_search.section_uuid == latest.section_uuid,
+    return _join_section_text_search(
+        query,
+        latest=latest,
+        section_text_search=section_text_search,
+        text_query=text_query,
     ).filter(
         build_section_text_candidate_expression(
             section_text_search.normalized_text,
@@ -220,8 +257,7 @@ def sections_total_count_metadata(
     estimated_query_row_count_fn = deps._estimated_query_row_count
     estimated_table_rows_fn = deps._estimated_latest_sections_search_table_rows
     if count_mode == "exact":
-        # Explicit exactness request: always authoritative, never cached.
-        exact_total = deps._cached_exact_query_count(query, cache_key=None)
+        exact_total = deps._cached_exact_query_count(query, cache_key=count_cache_key)
         return exact_total, False, "query_count"
 
     if has_filters:
@@ -377,6 +413,23 @@ def run_sections(
     ctx: AccessContextProtocol,
     parsed_args: SectionsArgsPayload,
     hydrate_xml: bool = True,
+) -> dict[str, object]:
+    try:
+        return _run_sections(deps, ctx=ctx, parsed_args=parsed_args, hydrate_xml=hydrate_xml)
+    except OperationalError as exc:
+        text_query = parsed_args["text_query"]
+        if not (text_query and text_query.strip() and is_statement_timeout_error(exc)):
+            raise
+        deps.db.session.rollback()
+        raise ValidationError({"text_query": [TEXT_QUERY_TOO_EXPENSIVE_MESSAGE]}) from exc
+
+
+def _run_sections(
+    deps: SectionsServiceDeps,
+    *,
+    ctx: AccessContextProtocol,
+    parsed_args: SectionsArgsPayload,
+    hydrate_xml: bool,
 ) -> dict[str, object]:
     db = deps.db
     agreement_counsel = deps.AgreementCounsel
@@ -620,21 +673,13 @@ def run_sections(
             text_query and text_query.strip(),
         )
     )
-    count_cache_key = (
-        None
-        if count_mode == "exact"
-        else build_search_count_cache_key("sections", parsed_args)
-    )
+    count_cache_key = build_search_count_cache_key("sections", parsed_args)
     total_agreement_count: int | None = None
     if count_mode == "exact":
-        exact_count_row = q.order_by(None).with_entities(
-            func.count(latest.section_uuid).label("section_count"),
-            func.count(distinct(latest.agreement_uuid)).label("agreement_count"),
-        ).one()
-        exact_count_map = row_mapping_as_dict(exact_count_row)
-        total_count = deps._to_int(exact_count_map.get("section_count"))
-        total_agreement_count = deps._to_int(
-            exact_count_map.get("agreement_count")
+        total_count = deps._cached_exact_query_count(q, cache_key=count_cache_key)
+        total_agreement_count = deps._cached_exact_query_count(
+            q.order_by(None).with_entities(distinct(latest.agreement_uuid)),
+            cache_key=f"{count_cache_key}:agreements",
         )
         total_count_is_approximate = False
         count_method = "query_count"
@@ -644,14 +689,9 @@ def run_sections(
             total_count_is_approximate = False
             count_method = "query_count"
         else:
-            candidate_cache_key = (
-                f"{count_cache_key}:fulltext-candidates"
-                if count_cache_key is not None
-                else None
-            )
             total_count = deps._cached_exact_query_count(
                 text_count_query,
-                cache_key=candidate_cache_key,
+                cache_key=f"{count_cache_key}:fulltext-candidates",
             )
             total_count_is_approximate = text_match_mode == "phrase"
             count_method = (
@@ -820,12 +860,15 @@ def run_sections(
 
 
 __all__ = [
+    "SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE",
+    "TEXT_QUERY_TOO_EXPENSIVE_MESSAGE",
     "apply_section_text_candidate_search",
     "apply_section_text_search",
     "build_section_text_candidate_expression",
     "build_section_text_match_expression",
     "estimated_latest_sections_search_table_rows",
     "estimated_query_row_count",
+    "is_statement_timeout_error",
     "run_sections",
     "sections_total_count_metadata",
 ]

@@ -1302,6 +1302,33 @@ class MainRoutesTests(unittest.TestCase):
         res = client.get("/v1/sections?metadata=not_a_field&page=1&page_size=10")
         self.assertEqual(res.status_code, 422)
 
+    def test_sections_search_boots_and_serves_non_text_queries_without_text_index_table(self):
+        with patch.object(self.app_module, "SectionTextSearch", None):
+            app = self.app_module.create_test_app(
+                config_overrides={
+                    "MAIN_DB_SCHEMA": "",
+                    "SQLALCHEMY_DATABASE_URI": self.app.config["SQLALCHEMY_DATABASE_URI"],
+                    "SQLALCHEMY_BINDS": {
+                        "auth": self.app.config["SQLALCHEMY_BINDS"]["auth"]["url"]
+                    },
+                }
+            )
+        client = app.test_client()
+
+        res = client.get("/v1/sections?year=2020&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        self.assertGreater(len(res.get_json()["results"]), 0)
+
+        res = client.get("/v1/sections?text_query=material+adverse+effect&page=1&page_size=10")
+        self.assertEqual(res.status_code, 422)
+        self.assertEqual(
+            res.get_json(),
+            {
+                "error": "Unprocessable Entity",
+                "message": "Section text search is not available on this server yet.",
+            },
+        )
+
     def test_agreements_index_year_query_matches_timestamp_like_filing_date(self):
         try:
             with self.app.app_context():

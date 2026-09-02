@@ -6,6 +6,7 @@ from typing import Protocol, cast
 
 from flask import Flask
 from flask_cors import CORS
+from sqlalchemy import event
 
 from backend.extensions import api, db
 from backend.models.main_db import (
@@ -45,6 +46,36 @@ _DEV_CORS_ORIGINS = (
 
 _DEFAULT_CORS_ORIGINS = _ALWAYS_CORS_ORIGINS + _DEV_CORS_ORIGINS
 _DB_POOL_RECYCLE_SECONDS = 240
+_DB_MAX_STATEMENT_SECONDS = 55
+_MYSQL_DIALECT_NAMES = frozenset({"mysql", "mariadb"})
+STATEMENT_TIMEOUT_OPTION = "max_statement_time"
+
+
+def _is_mysql_uri(database_uri: object) -> bool:
+    if not isinstance(database_uri, str):
+        return False
+    dialect_name = database_uri.split(":", 1)[0].split("+", 1)[0].lower()
+    return dialect_name in _MYSQL_DIALECT_NAMES
+
+
+def bounded_statement(
+    conn: object,
+    cursor: object,
+    statement: str,
+    parameters: object,
+    context: object,
+    executemany: bool,
+) -> tuple[str, object]:
+    """Wrap statements that carry a `max_statement_time` execution option in a MariaDB
+    statement-scoped timeout; other dialects and unbounded statements pass through."""
+    execution_options = cast(
+        dict[str, object], getattr(context, "execution_options", None) or {}
+    )
+    seconds = execution_options.get(STATEMENT_TIMEOUT_OPTION)
+    dialect_name = cast(str, getattr(getattr(conn, "dialect", None), "name", ""))
+    if not isinstance(seconds, (int, float)) or dialect_name not in _MYSQL_DIALECT_NAMES:
+        return statement, parameters
+    return f"SET STATEMENT max_statement_time={seconds:g} FOR {statement}", parameters
 
 
 def app_config_map(app: Flask) -> dict[str, object]:
@@ -224,6 +255,18 @@ def configure_main_db(target_app: Flask) -> None:
         else {}
     )
     engine_options = _resilient_engine_options(engine_options)
+    if _is_mysql_uri(config["SQLALCHEMY_DATABASE_URI"]):
+        raw_connect_args = engine_options.get("connect_args", {})
+        connect_args = (
+            dict(cast(dict[str, object], raw_connect_args))
+            if isinstance(raw_connect_args, dict)
+            else {}
+        )
+        _ = connect_args.setdefault(
+            "init_command",
+            f"SET SESSION max_statement_time={_DB_MAX_STATEMENT_SECONDS}",
+        )
+        engine_options["connect_args"] = connect_args
     raw_execution_options = engine_options.get("execution_options", {})
     execution_options = (
         dict(cast(dict[str, object], raw_execution_options))
@@ -242,6 +285,8 @@ def configure_main_db(target_app: Flask) -> None:
 def configure_extensions(target_app: Flask) -> None:
     _ = cast(_FlaskExtension, cast(object, api)).init_app(target_app)
     _ = cast(_FlaskExtension, cast(object, db)).init_app(target_app)
+    with target_app.app_context():
+        event.listen(db.engine, "before_cursor_execute", bounded_statement, retval=True)
 
 
 def configure_cors(target_app: Flask) -> None:

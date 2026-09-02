@@ -3,10 +3,35 @@ from __future__ import annotations
 from typing import cast
 
 from flask import Flask, Response, current_app, jsonify, make_response, request
+from marshmallow import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException, InternalServerError
 
 from backend.extensions import db
+
+
+def _flatten_validation_messages(messages: object) -> str:
+    if isinstance(messages, dict):
+        return " ".join(
+            _flatten_validation_messages(value)
+            for value in cast(dict[object, object], messages).values()
+        )
+    if isinstance(messages, (list, tuple)):
+        return " ".join(str(item) for item in cast(list[object], messages))
+    return str(messages)
+
+
+def handle_validation_error(err: ValidationError):
+    if request.path.startswith("/v1/"):
+        resp = jsonify(
+            {
+                "error": "Unprocessable Entity",
+                "message": _flatten_validation_messages(err.messages),
+            }
+        )
+        resp.status_code = 422
+        return resp
+    raise err
 
 
 def handle_http_exception(err: HTTPException):
@@ -65,6 +90,7 @@ def register_error_handlers(target_app: Flask) -> None:
     target_app.register_error_handler(HTTPException, handle_http_exception)
     target_app.register_error_handler(InternalServerError, handle_internal_server_error)
     target_app.register_error_handler(SQLAlchemyError, handle_sqlalchemy_error)
+    target_app.register_error_handler(ValidationError, handle_validation_error)
 
 
 def json_error(
