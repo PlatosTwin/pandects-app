@@ -10,13 +10,19 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 
 from backend.routes.deps import ReferenceDataDeps
-from backend.schemas.public_api import CounselResponseSchema, DumpEntrySchema, NaicsResponseSchema
+from backend.schemas.public_api import (
+    ChangelogArgsSchema,
+    ChangelogResponseSchema,
+    CounselResponseSchema,
+    DumpEntrySchema,
+    NaicsResponseSchema,
+)
 
 
 def register_reference_data_routes(
     *,
     deps: ReferenceDataDeps,
-) -> tuple[Blueprint, Blueprint, Blueprint, Blueprint, Blueprint]:
+) -> tuple[Blueprint, Blueprint, Blueprint, Blueprint, Blueprint, Blueprint]:
     taxonomy_blp = Blueprint(
         "taxonomy",
         "taxonomy",
@@ -50,6 +56,13 @@ def register_reference_data_routes(
         "tax-clause-taxonomy",
         url_prefix="/v1/taxonomy/tax-clauses",
         description="Access the Pandects tax-clause taxonomy",
+    )
+
+    changelog_blp = Blueprint(
+        "changelog",
+        "changelog",
+        url_prefix="/v1/changelog",
+        description="Dataset, schema, and API change history per bulk release",
     )
 
     def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object) -> dict[str, object]:
@@ -431,6 +444,11 @@ def register_reference_data_routes(
                         continue
                     etag = obj.get("ETag")
                     filename = key.rsplit("/", 1)[-1]
+                    # changelog.json / changelog_<ts>.json live under dumps/
+                    # but are not dump artifacts; without this skip they'd be
+                    # misread as manifests of nonexistent dumps.
+                    if filename == "changelog.json" or filename.startswith("changelog_"):
+                        continue
                     files: dict[str, str] | None = None
 
                     if filename.endswith(".sql.gz.manifest.json"):
@@ -521,6 +539,8 @@ def register_reference_data_routes(
                         entry["size_bytes"] = data["size_bytes"]
                     if "sha256" in data:
                         entry["sha256"] = data["sha256"]
+                    if "changelog_url" in data:
+                        entry["changelog_url"] = data["changelog_url"]
 
                 dump_list.append(entry)
 
@@ -530,4 +550,127 @@ def register_reference_data_routes(
 
             return dump_list
 
-    return taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp
+    # Negative-cache window after a failed R2 read, so an absent/unreachable
+    # changelog.json doesn't turn every request into a live R2 GetObject.
+    _CHANGELOG_FAIL_TTL_SECONDS = 60
+
+    def _get_changelog_payload() -> dict[str, object] | None:
+        # The changelog is served from the published R2 artifact (not the repo
+        # file): code deploys continuously while data refreshes ~monthly, so
+        # only the R2 copy is guaranteed to describe published dumps.
+        now = deps.time.time()
+        with deps._changelog_cache_lock:
+            cached_payload = deps._changelog_cache["payload"]
+            cached_ts = deps._changelog_cache["ts"]
+            if cached_payload is not None and (
+                now - cached_ts < deps._CHANGELOG_CACHE_TTL_SECONDS
+            ):
+                return cast(dict[str, object], cached_payload)
+            if now - float(deps._changelog_cache["fail_ts"]) < _CHANGELOG_FAIL_TTL_SECONDS:
+                # Serve the stale copy (if any) during the negative-cache
+                # window: a transient R2 blip must never blank the changelog,
+                # because {"releases": []} reads as "no new releases".
+                return cast("dict[str, object] | None", cached_payload)
+        client = deps.client
+        payload: dict[str, object] | None = None
+        if client is not None:
+            try:
+                body = client.get_object(
+                    Bucket=deps.R2_BUCKET_NAME, Key="dumps/changelog.json"
+                )["Body"].read()
+                parsed = cast(object, json.loads(body))
+                if isinstance(parsed, dict):
+                    payload = cast(dict[str, object], parsed)
+            except Exception:
+                payload = None
+        with deps._changelog_cache_lock:
+            if payload is not None:
+                deps._changelog_cache["payload"] = payload
+                deps._changelog_cache["ts"] = now
+                return payload
+            # Failed refresh (or no client): arm the negative cache and fall
+            # back to the stale copy if one exists.
+            deps._changelog_cache["fail_ts"] = now
+            return cast("dict[str, object] | None", deps._changelog_cache["payload"])
+
+    def _sanitized_changelog_release(release: dict[str, object]) -> dict[str, object]:
+        # The payload is external input (an R2 object); anything the response
+        # schema would choke on at dump time must be dropped here, never 500.
+        # The 500 class is list-typed fields fed a non-iterable (marshmallow's
+        # List._serialize iterates) and Int fields fed non-numerics.
+        release = dict(release)
+
+        stats = release.get("stats")
+        if not isinstance(stats, dict):
+            release["stats"] = None
+        else:
+            row_counts = cast(dict[str, object], stats).get("row_counts")
+            clean_counts: dict[str, int] = {}
+            if isinstance(row_counts, dict):
+                for table, count in cast(dict[object, object], row_counts).items():
+                    if (
+                        isinstance(table, str)
+                        and isinstance(count, int)
+                        and not isinstance(count, bool)
+                    ):
+                        clean_counts[table] = count
+            release["stats"] = {"row_counts": clean_counts}
+
+        raw_changes = release.get("changes")
+        clean_changes: list[dict[str, object]] = []
+        if isinstance(raw_changes, list):
+            for change in cast(list[object], raw_changes):
+                if not isinstance(change, dict):
+                    continue
+                change = dict(cast(dict[str, object], change))
+                for list_key in ("tables", "refs"):
+                    if list_key in change and not isinstance(change[list_key], list):
+                        del change[list_key]
+                clean_changes.append(change)
+        release["changes"] = clean_changes
+        return release
+
+    @changelog_blp.route("")
+    class ChangelogResource(MethodView):
+        @changelog_blp.doc(
+            operationId="getChangelog",
+            summary="Dataset and schema change history",
+            description=(
+                "Returns the changelog for the public database dumps, the REST API, and "
+                "the MCP surface, newest release first. Each release corresponds to one "
+                "published bulk dump; match `dump_sha256` against the "
+                "`X-Pandects-Dump-Hash` response header (or the `dump_version.hash` body "
+                "field) to see exactly which changes the data you are querying includes. "
+                "`latest_version`/`latest_released` always describe the newest published "
+                "release, even when `since`/`dump_sha256` filter the `releases` list."
+            ),
+        )
+        @changelog_blp.arguments(ChangelogArgsSchema, location="query")
+        @changelog_blp.response(200, ChangelogResponseSchema)
+        def get(self, args: dict[str, object]) -> dict[str, object]:
+            payload = _get_changelog_payload()
+            if payload is None:
+                return {"latest_version": None, "latest_released": None, "releases": []}
+            raw_releases = payload.get("releases")
+            releases = [
+                _sanitized_changelog_release(cast(dict[str, object], release))
+                for release in (raw_releases if isinstance(raw_releases, list) else [])
+                if isinstance(release, dict)
+            ]
+            dump_sha256 = args.get("dump_sha256")
+            if isinstance(dump_sha256, str) and dump_sha256:
+                releases = [r for r in releases if r.get("dump_sha256") == dump_sha256]
+            since = args.get("since")
+            if isinstance(since, str) and since:
+                releases = [
+                    r
+                    for r in releases
+                    if isinstance(r.get("version"), str) and cast(str, r["version"]) > since
+                ]
+            return {
+                "latest_version": payload.get("latest_version"),
+                "latest_released": payload.get("latest_released"),
+                "releases": releases,
+            }
+
+    return taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp, changelog_blp

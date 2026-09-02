@@ -169,6 +169,15 @@ These systems are part of the production or private-maintainer setup and are not
 
 The documentation should label these clearly instead of treating them as default onboarding steps.
 
+## Changelog
+
+Changes to the public dataset, API, and MCP surface are recorded per bulk release:
+
+- published: the [Changelog](https://docs.pandects.org/docs/guides/changelog) on the docs site, and [`dumps/changelog.json`](https://bulk.pandects.org/dumps/changelog.json) next to the dumps
+- source of truth: `bulk/changelog/changelog.yml`
+
+If a change alters the public dataset or its meaning, it needs an entry in the same commit. See [CONTRIBUTING.md](CONTRIBUTING.md#dataset-changelog) for the rule, the entry template, and the regeneration step.
+
 ## Contributing
 
 Start with:

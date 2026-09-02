@@ -1,0 +1,67 @@
+name: Changelog Guard
+
+# Fails when a change to the public dataset/API/MCP surface lands without a
+# matching entry in bulk/changelog/changelog.yml (see bulk/changelog/DESIGN.md).
+# Advisory (no branch protection), but keeps the push-until-green loop honest.
+# Out-of-band data fixes applied via SQL are covered separately by the
+# push-time gates in bulk/push_to_r2.sh.
+
+on:
+  pull_request:
+    paths:
+      - "bulk/public_tables.txt"
+      - "bulk/schema_docs/table_docs.yml"
+      - "backend/schemas/public_api.py"
+      - "backend/mcp/**"
+  push:
+    branches: [ main ]
+    paths:
+      - "bulk/public_tables.txt"
+      - "bulk/schema_docs/table_docs.yml"
+      - "backend/schemas/public_api.py"
+      - "backend/mcp/**"
+
+permissions:
+  contents: read
+
+jobs:
+  changelog-entry-present:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check for changelog entry
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "No usable base commit (new branch or force push); skipping."
+            exit 0
+          fi
+          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          echo "Changed files:"
+          echo "$changed"
+          if echo "$changed" | grep -qx "bulk/changelog/changelog.yml"; then
+            echo "✅ bulk/changelog/changelog.yml was updated."
+            exit 0
+          fi
+          echo "❌ This change touches the public dataset/API/MCP surface but does not"
+          echo "   update bulk/changelog/changelog.yml. Append an entry under"
+          echo "   'unreleased:' describing the change (see bulk/changelog/DESIGN.md)."
+          exit 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Validate changelog.yml
+        run: |
+          pip install pyyaml >/dev/null
+          python3 bulk/changelog/render_changelog.py validate

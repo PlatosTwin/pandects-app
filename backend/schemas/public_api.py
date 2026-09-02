@@ -346,7 +346,73 @@ class DumpEntrySchema(Schema):
     sha256_url = fields.Url(required=False, allow_none=True)
     manifest = fields.Url(required=False, allow_none=True)
     size_bytes = fields.Int(required=False, allow_none=True)
+    changelog_url = fields.Url(required=False, allow_none=True)
     warning = fields.Str(required=False, allow_none=True)
+
+
+class ChangelogArgsSchema(Schema):
+    since = fields.Str(
+        required=False,
+        load_default=None,
+        metadata={
+            "description": (
+                "Only return releases strictly newer than this version (release versions "
+                "are dump dates, e.g. 2026-07-19; same-day repushes get a numeric suffix "
+                "such as 2026-07-19.2, which sorts after its base version)."
+            ),
+            "example": "2026-07-19",
+        },
+    )
+    dump_sha256 = fields.Str(
+        required=False,
+        load_default=None,
+        metadata={
+            "description": (
+                "Only return the release for this dump sha256. Match it against the "
+                "X-Pandects-Dump-Hash response header (or the dump_version.hash body "
+                "field) to see exactly which changes the data you are querying includes."
+            ),
+            "example": "fd703d72dfadd59a0fdc720399f5ecc27c23a8c6f99b76279c80983bf7fd99a8",
+        },
+    )
+
+
+class ChangelogChangeSchema(Schema):
+    type = fields.Str(
+        required=True,
+        validate=validate.OneOf(["schema", "data", "api", "mcp", "docs", "pipeline"]),
+    )
+    severity = fields.Str(
+        required=True,
+        validate=validate.OneOf(["breaking", "notable", "minor"]),
+    )
+    summary = fields.Str(required=True)
+    details = fields.Str(required=False, allow_none=True)
+    tables = fields.List(fields.Str(), required=False, allow_none=True)
+    migration = fields.Str(required=False, allow_none=True)
+    refs = fields.List(fields.Str(), required=False, allow_none=True)
+
+
+class ChangelogStatsSchema(Schema):
+    row_counts = fields.Dict(
+        keys=fields.Str(), values=fields.Int(), required=False, allow_none=True
+    )
+
+
+class ChangelogReleaseSchema(Schema):
+    version = fields.Str(required=True)
+    released = fields.Str(required=True)
+    dump_sha256 = fields.Str(required=True)
+    dump_key = fields.Str(required=True)
+    schema_fingerprint = fields.Str(required=False, allow_none=True)
+    stats = fields.Nested(ChangelogStatsSchema, required=False, allow_none=True)
+    changes = fields.List(fields.Nested(ChangelogChangeSchema), required=True)
+
+
+class ChangelogResponseSchema(Schema):
+    latest_version = fields.Str(required=False, allow_none=True)
+    latest_released = fields.Str(required=False, allow_none=True)
+    releases = fields.List(fields.Nested(ChangelogReleaseSchema), required=True)
 
 
 class NaicsSubSectorSchema(Schema):

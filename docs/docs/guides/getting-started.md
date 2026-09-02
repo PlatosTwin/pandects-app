@@ -55,6 +55,8 @@ X-Pandects-Dump-Hash: 3a7f9b2c...
 
 To omit `dump_version` from the JSON body, pass `?include_dump=false`. The header is always set regardless.
 
+Dataset, schema, and API changes are documented per dump release in the [Changelog](./changelog.md). Match the dump hash from the header against a release's `dump_sha256` (`GET /v1/changelog?dump_sha256=<hash>`) to see exactly which changes the data you are querying includes.
+
 ## For LLMs and agents
 
 Plaintext, machine-readable mirrors of these docs are published for use by coding assistants and agents:

@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-// TEMPORARY (July reopen): rendered in place of data-driven pages while the API
+// TEMPORARY (September reopen): rendered in place of data-driven pages while the API
 // is locked down to existing accounts. See lib/lockdown.ts for the gated paths.
 export function LockdownNotice() {
   const location = useLocation();
@@ -16,7 +16,7 @@ export function LockdownNotice() {
           <AlertTitle>This page is temporarily unavailable</AlertTitle>
           <AlertDescription>
             Access is temporarily limited to existing accounts, and new user creation is
-            paused. Please check back in July.
+            paused. Please check back in September.
           </AlertDescription>
         </Alert>
         <div className="mt-6 text-center text-sm text-muted-foreground">

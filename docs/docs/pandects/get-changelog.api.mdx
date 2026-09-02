@@ -1,0 +1,69 @@
+---
+id: get-changelog
+title: "Dataset and schema change history"
+description: "Returns the changelog for the public database dumps, the REST API, and the MCP surface, newest release first. Each release corresponds to one published bulk dump; match `dump_sha256` against the `X-Pandects-Dump-Hash` response header (or the `dump_version.hash` body field) to see exactly which changes the data you are querying includes. `latest_version`/`latest_released` always describe the newest published release, even when `since`/`dump_sha256` filter the `releases` list."
+sidebar_label: "Dataset and schema change history"
+hide_title: true
+hide_table_of_contents: true
+api: eJztWG1v2zgM/iuCPm2AmqTptWl8n4atuBvuhhV7AQ4oilqRaFubLHkSnTYI/N8Pkp24SdwX7Ib7MOxTG4mkyId8KMprWnHHS0BwniZXa6oMTei3GtyKMmp4CTShXhkBlFEJXjhVobJB6L3RK+IAa2eIAw3cgycenRKoV8TALTiCBTcEC+XJEpxX1pAXnehmwRPugMi6rIjkCJ4RGOUjMp1Mz44ms6Pj+csRZdSLAkpOkzXFVRVdQqdMHn3KeK2RJqbWmlG442Wlg0RvIQRSa80XYR1dDQ2jDr7VyoGkSca1h4YNRx78uvEFn56ePRo/FrDBgGTWtSHHoFrlEXnHURREIeE5V8ZjVPnn6JIbCQL90Zu6rI7+5L4gDnxljQdSAJfgyItor8XopkNtVATJhZUrkinQ8iVBSzwAgTse4b8tlCiIKLjJwbfqHDlZ2TriHcNUJifKCF1L8N8JciZnkxM5m8qMS3k655NMitl0cjKfZ6cgxHQmpif8XJxl8/lidjadzcX5ZH5+sshmmZzP+flzUnMdllpIfHBuOpmEP3vJ+IsyKqxBMBh2eVVpJXjYHX/xQWR9GJ9dfAGBlNHK2QocqvYAHeoQN1AP4XHgc6fSlYB8ls6GM/eEuXM8VJ9CKP3Tjj7oYW99wJWG7ZT1g/tfYTW42cJ4kymTg6ucagF/MlyPHKPX3KzeZ7HX7Ee3r/NU/M7e3ghbGxzEikupQv65vtzR6uSUQcjBhYj2zm0YRYWxvl9HAmmbf4zeN9cNox2pvj9t7e4hZGDqkiZXmzplNFA2BFIpymgpqrBkhQ8GVQVaGaDBIQ9LcAoHstXbXDjgX7vMWIzBMloqY11roi5L7obzLQG50v5ZSY6WnwNNb/7ARqlyx/G5zHOQ/afzdhrOVY9ljwlrbVwPVEX7D232rWxK5B6T2N5dsuUn29J46IQPrdjhEdvuMazV9sug1jD623R62DE/m8pZAd4HMMiFwTbqH9RDhZUwQLb9O/TCOetIFO5aRD1YaENa8YoO9RJiyAcZNaS2EW8YhbAwSNgBRf9wS2nut4wo3AG/vTf3wX/TbpDowfbG/wX/j4Q/tqPc93zUNg9sCZoR1beSJjQH3NLm4OQPcbpr56etjW7AA1LVC61EHKwWYfALBPcsbn24+PiJvLp8ywg3Mq68e31JfO0yLoDF4dhjPzEq53FELrgotmvCurYspA+znTXdeb4ASRa1/hqP+52Uca5M7zWXdGfETIdmzPTBITM9mDLTHzpmknR3ukrH6d7slBKub/nKkzYVC4hmO8R6CDpxRmAJhtwWYEga3ynpeBeMTGmELrhN00yJVh7DzFsCFrarg8AijgVN6Hh5PBb3qsKDW24eSLXTNKEFYuWT8ZhXalR1+I6sOyyhS2dlLcKPUA80DDW9hWQ81lZwXViPyenx8cmB+t9hm0hYgrZVCQZbK9eMKpPZyJ2u8DdZjgL9pZLQ5XEgW2U9ljw2ke5t84Yj94CxQtu+0iWSFMqjjTffjjPrvjv9YsZPz4yuJyPc4bjSXJlQRbF01x1NrkJpsd3mGio57KzXIfGfnW6asNw+qwN9pIoDx+Z190iJ/Z/fFwaDjQ+g7cePJdd1kIkU/r4ofoqvBI9AtTvh9oBdhx9OtVP3VXhvtE7HgmhVXwkBFd7TOph+gpVtt/7j4hNtmn8BNjWKCw==
+sidebar_class_name: "get api-method"
+info_path: docs/pandects/pandects-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Dataset and schema change history"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/v1/changelog"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Returns the changelog for the public database dumps, the REST API, and the MCP surface, newest release first. Each release corresponds to one published bulk dump; match `dump_sha256` against the `X-Pandects-Dump-Hash` response header (or the `dump_version.hash` body field) to see exactly which changes the data you are querying includes. `latest_version`/`latest_released` always describe the newest published release, even when `since`/`dump_sha256` filter the `releases` list.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./get-changelog.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-changelog.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-changelog.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

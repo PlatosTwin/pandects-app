@@ -36,13 +36,19 @@ export function formatDate(value: string | null): string {
 /**
  * Formats a date string to a short date format (e.g., "Jan 15, 2024")
  * @param value - Date string or null
+ * @param timeZone - Zone to render in; defaults to the viewer's. Tests pass it
+ *   so a datetime input renders the same day regardless of the runner's zone.
  * @returns Formatted date string or "—" if invalid/null
  */
-export function formatDateValue(value?: string | null): string {
+export function formatDateValue(
+  value?: string | null,
+  timeZone?: string,
+): string {
   if (!value) return "—";
   const dt = parseDateValue(value);
   if (!dt) return "—";
   return new Intl.DateTimeFormat("en-US", {
+    timeZone,
     year: "numeric",
     month: "short",
     day: "2-digit",

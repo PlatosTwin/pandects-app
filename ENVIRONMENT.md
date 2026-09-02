@@ -21,6 +21,9 @@ This file explains the environment variables used across the repository and how 
 - `FILTER_OPTIONS_TTL_SECONDS`
 - `DUMPS_CACHE_TTL_SECONDS`
 - `DUMPS_MANIFEST_CACHE_TTL_SECONDS`
+- `CHANGELOG_CACHE_TTL_SECONDS` (default `300`; TTL for the `/v1/changelog` R2 read)
+- `CHANGELOG_JSON_URL` (default `https://bulk.pandects.org/dumps/changelog.json`; source for the MCP capabilities changelog section)
+- `MCP_CHANGELOG_FETCH` (set to `0` to disable that fetch; tests do)
 - `SEARCH_EXPLAIN_ESTIMATE_ENABLED`
 - `RATE_LIMIT_MAX_KEYS`
 - `RATE_LIMIT_PRUNE_INTERVAL_SECONDS`

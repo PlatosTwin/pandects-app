@@ -13,6 +13,7 @@ import click
 from flask import Flask, request, abort, Response, g, current_app, has_app_context
 from flask_smorest import Blueprint
 from boto3.session import Session
+from botocore.config import Config as BotoConfig
 from marshmallow import Schema
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import SQLAlchemyError
@@ -250,6 +251,12 @@ class _DumpsCache(TypedDict):
     payload: list[dict[str, object]] | None
 
 
+class _ChangelogCache(TypedDict):
+    ts: float
+    payload: dict[str, object] | None
+    fail_ts: float
+
+
 class _DumpsManifestCacheEntry(TypedDict):
     etag: str
     payload: dict[str, object]
@@ -320,6 +327,7 @@ class _Boto3SessionLike(Protocol):
         aws_access_key_id: str,
         aws_secret_access_key: str,
         endpoint_url: str,
+        config: object,
     ) -> object:
         ...
 
@@ -378,6 +386,9 @@ _rate_limit_last_prune_at = 0.0
 _DUMPS_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_CACHE_TTL_SECONDS", "300"))
 _dumps_cache: _DumpsCache = {"ts": 0.0, "payload": None}
 _dumps_cache_lock = Lock()
+_CHANGELOG_CACHE_TTL_SECONDS = int(os.environ.get("CHANGELOG_CACHE_TTL_SECONDS", "300"))
+_changelog_cache: _ChangelogCache = {"ts": 0.0, "payload": None, "fail_ts": 0.0}
+_changelog_cache_lock = Lock()
 _DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(
     os.environ.get("DUMPS_MANIFEST_CACHE_TTL_SECONDS", "1800")
 )
@@ -560,6 +571,13 @@ if os.environ.get("R2_ACCESS_KEY_ID") and os.environ.get("R2_SECRET_ACCESS_KEY")
         aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
         endpoint_url=R2_ENDPOINT,
+        # Botocore defaults are 60s connect/read; a slow R2 would pin request
+        # workers on the routes that read it (/v1/dumps, /v1/changelog).
+        config=BotoConfig(
+            connect_timeout=10,
+            read_timeout=30,
+            retries={"max_attempts": 3, "mode": "standard"},
+        ),
     )
     client = cast(_S3Client, raw_client)
 
@@ -901,18 +919,18 @@ def _current_access_context() -> AccessContext:
     return AccessContext(tier="anonymous")
 
 
-# --- Temporary July access restrictions -------------------------------------
+# --- Temporary September access restrictions ---------------------------------
 # New account creation is disabled and the data API is limited to accounts that
 # already existed before the current day, surfaced in-app as a "check back in
-# July" notice. To reopen access, remove _temporary_access_gate (and its
+# September" notice. To reopen access, remove _temporary_access_gate (and its
 # before_request registration in _register_request_hooks) plus the OAuth
 # register guard in backend/routes/auth/__init__.py.
 _REGISTRATION_DISABLED_MESSAGE = (
-    "New user creation is temporarily disabled. Please check back in July."
+    "New user creation is temporarily disabled. Please check back in September."
 )
 _DATA_API_DISABLED_MESSAGE = (
     "This API is temporarily disabled for non-authenticated users. "
-    "Please check back in July."
+    "Please check back in September."
 )
 
 
@@ -1400,7 +1418,7 @@ def _register_request_hooks(target_app: Flask) -> None:
         populate_dump_version=_populate_dump_version,
         attach_dump_version_header=_attach_dump_version_header,
     )
-    # Temporary July gate; registered after the core guard so g.access_ctx is set.
+    # Temporary September gate; registered after the core guard so g.access_ctx is set.
     _temp_access_gate: object = target_app.before_request(_temporary_access_gate)
 
 # Legacy helper names kept so route dependency wiring and tests can import one app module.
@@ -1415,7 +1433,7 @@ def _register_blueprints(target_app: Flask) -> None:
         target_app,
         deps=agreements_deps,
     )
-    taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp = register_reference_data_routes(
+    taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp, changelog_blp = register_reference_data_routes(
         deps=reference_data_deps,
     )
     tax_clauses_blp = register_tax_clauses_routes(deps=tax_clauses_deps)
@@ -1429,6 +1447,7 @@ def _register_blueprints(target_app: Flask) -> None:
     api_ext.register_blueprint(naics_blp)
     api_ext.register_blueprint(counsel_blp)
     api_ext.register_blueprint(dumps_blp)
+    api_ext.register_blueprint(changelog_blp)
     target_app.register_blueprint(register_telemetry_routes())
     target_app.register_blueprint(
         register_mcp_routes(
@@ -1536,11 +1555,14 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         TaxonomyL1=TaxonomyL1,
         TaxonomyL2=TaxonomyL2,
         TaxonomyL3=TaxonomyL3,
+        _CHANGELOG_CACHE_TTL_SECONDS=_CHANGELOG_CACHE_TTL_SECONDS,
         _DUMPS_CACHE_TTL_SECONDS=_DUMPS_CACHE_TTL_SECONDS,
         _DUMPS_MANIFEST_CACHE_TTL_SECONDS=_DUMPS_MANIFEST_CACHE_TTL_SECONDS,
         _COUNSEL_TTL_SECONDS=_COUNSEL_TTL_SECONDS,
         _NAICS_TTL_SECONDS=_NAICS_TTL_SECONDS,
         _TAXONOMY_TTL_SECONDS=_TAXONOMY_TTL_SECONDS,
+        _changelog_cache=cast(dict[str, object], cast(object, _changelog_cache)),
+        _changelog_cache_lock=_changelog_cache_lock,
         _counsel_cache=cast(dict[str, object], cast(object, _counsel_cache)),
         _counsel_lock=_counsel_lock,
         _dumps_cache=cast(dict[str, object], cast(object, _dumps_cache)),

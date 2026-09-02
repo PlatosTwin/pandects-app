@@ -180,6 +180,22 @@ const sidebar: SidebarsConfig = {
         },
       ],
     },
+    {
+      type: "category",
+      label: "changelog",
+      link: {
+        type: "doc",
+        id: "pandects/changelog",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "pandects/get-changelog",
+          label: "/v1/changelog",
+          className: "api-method get",
+        },
+      ],
+    },
   ],
 };
 

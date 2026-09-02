@@ -305,13 +305,13 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
     ):
         action, user = _resolve_user_from_external_identity(external_identity=external_identity)
         if action == "register" and temporary_access_lockdown_enabled():
-            # TEMPORARY (July reopen): new account creation is disabled, so
+            # TEMPORARY (September reopen): new account creation is disabled, so
             # discard the just-created user/link instead of provisioning it.
             deps.db.session.rollback()
             abort(
                 403,
                 description=(
-                    "New user creation is temporarily disabled. Please check back in July."
+                    "New user creation is temporarily disabled. Please check back in September."
                 ),
             )
         claims = getattr(external_identity, "claims", None)
