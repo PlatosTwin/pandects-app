@@ -664,6 +664,9 @@ class McpTests(unittest.TestCase):
         self.app_module._account_login_failure_state.clear()
         self.app_module._api_key_last_used_touch_state.clear()
         self.app_module._search_count_cache.clear()
+        from backend.mcp.tools import handlers as mcp_handlers
+
+        mcp_handlers._search_rate_limit_state.clear()
 
     def _bearer(self, scope: str = "sections:search agreements:search agreements:read") -> str:
         return self._bearer_for_subject(subject="sub-123", scope=scope)
@@ -2020,8 +2023,9 @@ class McpTests(unittest.TestCase):
             # The excerpt must not drag the full XML along with it.
             self.assertNotIn("xml", result)
 
-    def test_search_sections_text_query_focuses_snippet_and_preserves_exact_agreement_count(self):
-        service_response = {
+    @staticmethod
+    def _text_search_service_response() -> dict[str, object]:
+        return {
             "results": [
                 {
                     "id": "00000000-0000-0000-0000-000000000005",
@@ -2060,6 +2064,9 @@ class McpTests(unittest.TestCase):
                 "notes": [],
             },
         }
+
+    def test_search_sections_text_query_focuses_snippet_and_preserves_exact_agreement_count(self):
+        service_response = self._text_search_service_response()
         with patch("backend.mcp.tools.handlers.run_sections", return_value=service_response) as run_search:
             res = self._call_tool(
                 "search_sections",
@@ -2105,6 +2112,79 @@ class McpTests(unittest.TestCase):
             self.assertEqual(body["error"]["code"], -32602)
             self.assertIn(message, body["error"]["message"])
             self.assertEqual(body["error"]["data"], {"text_query": [message]})
+
+    def test_search_sections_text_query_rate_limit_is_enforced_and_resets(self):
+        from backend.mcp.tools.handlers import _TEXT_QUERY_RATE_LIMIT_PER_MINUTE
+
+        clock = {"now": 1000.0}
+        text_search_args = {"text_query": "reasonable best efforts", "page_size": 5}
+        with patch(
+            "backend.mcp.tools.handlers.run_sections",
+            side_effect=lambda *_args, **_kwargs: self._text_search_service_response(),
+        ), patch("backend.mcp.tools.handlers._search_rate_limit_now", side_effect=lambda: clock["now"]):
+            for _ in range(_TEXT_QUERY_RATE_LIMIT_PER_MINUTE):
+                res = self._call_tool("search_sections", text_search_args)
+                self.assertEqual(res.status_code, 200)
+                self.assertNotIn("error", res.get_json())
+
+            clock["now"] += 30.0
+            res = self._call_tool("search_sections", text_search_args)
+            self.assertEqual(res.status_code, 200)
+            error = res.get_json()["error"]
+            self.assertEqual(error["code"], -32602)
+            self.assertIn(
+                f"Search rate limit reached ({_TEXT_QUERY_RATE_LIMIT_PER_MINUTE} search_sections calls with text_query",
+                error["message"],
+            )
+            self.assertIn("Retry in 30 seconds", error["message"])
+
+            clock["now"] += 30.0
+            res = self._call_tool("search_sections", text_search_args)
+            self.assertEqual(res.status_code, 200)
+            self.assertNotIn("error", res.get_json())
+
+    def test_search_sections_without_text_query_does_not_consume_the_text_query_budget(self):
+        from backend.mcp.tools.handlers import _TEXT_QUERY_RATE_LIMIT_PER_MINUTE
+
+        with patch(
+            "backend.mcp.tools.handlers.run_sections",
+            side_effect=lambda *_args, **_kwargs: self._text_search_service_response(),
+        ):
+            for _ in range(_TEXT_QUERY_RATE_LIMIT_PER_MINUTE):
+                res = self._call_tool("search_sections", {"page_size": 5})
+                self.assertEqual(res.status_code, 200)
+                self.assertNotIn("error", res.get_json())
+
+            res = self._call_tool("search_sections", {"text_query": "reasonable best efforts", "page_size": 5})
+            self.assertEqual(res.status_code, 200)
+            self.assertNotIn("error", res.get_json())
+
+    def test_search_tools_share_a_per_account_rate_limit(self):
+        from backend.mcp.tools.handlers import _SEARCH_RATE_LIMIT_PER_MINUTE
+
+        with patch(
+            "backend.mcp.tools.handlers.run_sections",
+            side_effect=lambda *_args, **_kwargs: self._text_search_service_response(),
+        ), patch("backend.mcp.tools.handlers._search_rate_limit_now", return_value=1000.0):
+            for index in range(_SEARCH_RATE_LIMIT_PER_MINUTE):
+                if index % 3 == 0:
+                    res = self._call_tool("search_sections", {"page_size": 5})
+                elif index % 3 == 1:
+                    res = self._call_tool("search_agreements", {"query": "Target"})
+                else:
+                    res = self._call_tool("search_tax_clauses", {})
+                self.assertEqual(res.status_code, 200)
+                self.assertNotIn("error", res.get_json())
+
+            res = self._call_tool("search_agreements", {"query": "Target"})
+            self.assertEqual(res.status_code, 200)
+            error = res.get_json()["error"]
+            self.assertEqual(error["code"], -32602)
+            self.assertIn(
+                f"Search rate limit reached ({_SEARCH_RATE_LIMIT_PER_MINUTE} search_* calls per minute",
+                error["message"],
+            )
+            self.assertIn("Retry in 60 seconds", error["message"])
 
     def test_search_sections_omits_snippet_fields_by_default(self):
         res = self._call_tool("search_sections", {"page_size": 5})
