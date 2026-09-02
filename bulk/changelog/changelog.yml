@@ -47,6 +47,18 @@ unreleased:
     corrected in place; one agreement (Overture) still awaits a re-scrape.
   tables: [agreements]
   refs: ['0da4871']
+- type: mcp
+  severity: notable
+  summary: search_sections gains lexical full-text search over current section text
+    via text_query and text_match_mode (phrase, all_terms, any_terms)
+  details: >
+    Text search composes with standard_id and every structured filter. It is
+    served from a private section_text_search table that is part of the
+    production restore snapshot but not the public dump. Queries are capped at
+    256 characters and 24 terms, and each text-search statement runs under a
+    20-second database bound; a query that exceeds it returns a validation
+    error asking for a narrower query.
+  refs: ['2d4c315', '7200bdb']
 
 releases:
 - version: '2026-07-19'
