@@ -23,7 +23,10 @@ This directory is maintainer-only for actual execution and deployment.
 monthly replacement as an unindexed shadow first (omit the FULLTEXT key while
 loading), run `etl.utils.section_text_search_backfill` with the shadow table name,
 add the FULLTEXT key, and run the hash-aware `--drift-only` catch-up from the
-beginning until a complete pass reports zero batches. Pause the Dagster
+beginning until a complete pass reports zero batches. A drift pass exits
+nonzero when it lists sections that stay drifted after refresh; that means
+`latest_sections_search` disagrees with `sections`/`xml` for those agreements,
+so refresh their `latest_sections_search` rows before rerunning. Pause the Dagster
 pipeline before the final drift pass: the `g_sections` asset writes to the live
 `section_text_search` name, and rows it writes after that pass are lost at the
 swap. Validate exact row, agreement, version, and `source_xml_sha256` coverage,

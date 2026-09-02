@@ -8,6 +8,8 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 from sqlalchemy import inspect
 
+from etl.utils.section_text_search import prune_section_text_search
+
 
 def _qualified_table(schema: str, table_name: str) -> str:
     if not schema:
@@ -260,4 +262,5 @@ def refresh_latest_sections_search(
             ),
             standard_id_rows,
         )
+    _ = prune_section_text_search(conn, schema, target_uuids)
     return int(result.rowcount or 0)
