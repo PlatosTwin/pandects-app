@@ -65,7 +65,7 @@ db_sql() {
   db_exec "sh -c \"mariadb -upanda -p\\\"\\\$MARIADB_PASSWORD\\\" -N -e \\\"$1\\\" pdx\""
 }
 
-# Prints "<id> <size-name> <memory_mb>" for the single DB machine.
+# Prints "<id> <size-name> <memory_mb> <region>" for the single DB machine.
 db_machine_info() {
   fly machine list --app "$DB_APP" --json | python3 -c '
 import json, sys
@@ -75,7 +75,7 @@ if len(machines) != 1:
 m = machines[0]
 guest = m["config"]["guest"]
 kind = "shared-cpu" if guest["cpu_kind"] == "shared" else guest["cpu_kind"]
-print(m["id"], "{}-{}x".format(kind, guest["cpus"]), guest["memory_mb"])
+print(m["id"], "{}-{}x".format(kind, guest["cpus"]), guest["memory_mb"], m["region"])
 '
 }
 
@@ -116,9 +116,9 @@ if [[ -z "${MARIADB_PASSWORD:-}" ]]; then
 fi
 
 DB_INFO=$(db_machine_info)
-read -r DB_MACHINE ORIG_VM_SIZE ORIG_VM_MEMORY <<< "$DB_INFO"
-[[ -n "${ORIG_VM_MEMORY:-}" ]] || die "could not read the DB machine size"
-log "DB machine $DB_MACHINE is currently $ORIG_VM_SIZE / ${ORIG_VM_MEMORY}MB"
+read -r DB_MACHINE ORIG_VM_SIZE ORIG_VM_MEMORY DB_REGION <<< "$DB_INFO"
+[[ -n "${DB_REGION:-}" ]] || die "could not read the DB machine size and region"
+log "DB machine $DB_MACHINE ($DB_REGION) is currently $ORIG_VM_SIZE / ${ORIG_VM_MEMORY}MB"
 
 BULK_IMAGE=$(fly releases --app "$BULK_APP" --json | python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["ImageRef"])')
 [[ -n "$BULK_IMAGE" ]] || die "could not resolve the latest $BULK_APP image"
@@ -192,6 +192,7 @@ log "Launching restore machine $RESTORE_NAME ($BULK_VM_SIZE, MYLOADER_THREADS=$M
 fly machine run "$BULK_IMAGE" \
   --app "$BULK_APP" \
   --name "$RESTORE_NAME" \
+  --region "$DB_REGION" \
   --detach \
   --restart no \
   --vm-size "$BULK_VM_SIZE" \
