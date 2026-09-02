@@ -15,6 +15,9 @@ the MCP surface. Machine-readable version:
   - Offline acquirer extraction now disambiguates the SPAC counterparty from the surviving Pubco entity. acquirer name fields on 135 agreements rows were corrected in place; one agreement (Overture) still awaits a re-scrape.
   - Tables: agreements
   - Refs: 0da4871
+- **[mcp/notable]** search_sections gains lexical full-text search over current section text via text_query and text_match_mode (phrase, all_terms, any_terms)
+  - Text search composes with standard_id and every structured filter. It is served from a private section_text_search table that is part of the production restore snapshot but not the public dump. Queries are capped at 256 characters and 24 terms, and each text-search statement runs under a 20-second database bound; a query that exceeds it returns a validation error asking for a narrower query.
+  - Refs: 2d4c315, 7200bdb
 - **[api/minor]** Added changelog distribution: dumps/changelog.json is published next to each dump, GET /v1/changelog serves it (filterable by since/dump_sha256), and /v1/dumps entries gain changelog_url
   - Refs: 1eb2010
 - **[mcp/minor]** get_server_capabilities gains a changelog section (latest release, breaking flag, URLs) and the initialize instructions point agents at it
