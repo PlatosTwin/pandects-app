@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import date, datetime, timedelta, timezone
+from threading import Lock
 from typing import Any, cast
 
 from flask import abort
@@ -536,6 +538,53 @@ def _list_agreements(
     )
 
 
+_SEARCH_RATE_LIMIT_WINDOW_SECONDS = 60.0
+_SEARCH_RATE_LIMIT_PER_MINUTE = 120
+_TEXT_QUERY_RATE_LIMIT_PER_MINUTE = 30
+_SEARCH_RATE_LIMIT_MAX_KEYS = 10000
+_search_rate_limit_lock = Lock()
+_search_rate_limit_state: dict[str, dict[str, float | int]] = {}
+
+
+def _search_rate_limit_now() -> float:
+    return time.monotonic()
+
+
+def _prune_search_rate_limit_state(now: float) -> None:
+    if len(_search_rate_limit_state) < _SEARCH_RATE_LIMIT_MAX_KEYS:
+        return
+    cutoff = now - _SEARCH_RATE_LIMIT_WINDOW_SECONDS
+    expired = [key for key, state in _search_rate_limit_state.items() if float(state["ts"]) < cutoff]
+    for key in expired:
+        del _search_rate_limit_state[key]
+
+
+def _check_search_rate_limit(principal: McpPrincipal, *, text_query: bool = False) -> None:
+    buckets: list[tuple[str, int, str]] = []
+    if text_query:
+        buckets.append(("text_query", _TEXT_QUERY_RATE_LIMIT_PER_MINUTE, "search_sections calls with text_query"))
+    buckets.append(("search", _SEARCH_RATE_LIMIT_PER_MINUTE, "search_* calls"))
+    now = _search_rate_limit_now()
+    window = _SEARCH_RATE_LIMIT_WINDOW_SECONDS
+    with _search_rate_limit_lock:
+        _prune_search_rate_limit_state(now)
+        for bucket, per_minute, label in buckets:
+            key = f"{bucket}:{principal.user_id}"
+            state = _search_rate_limit_state.get(key)
+            if state is None or (now - float(state["ts"])) >= window:
+                _search_rate_limit_state[key] = {"ts": now, "count": 1}
+                continue
+            count = int(state["count"]) + 1
+            state["count"] = count
+            if count <= per_minute:
+                continue
+            retry_after = max(1, int(window - (now - float(state["ts"]))))
+            _abort_invalid_argument(
+                f"Search rate limit reached ({per_minute} {label} per minute per account). "
+                f"Retry in {retry_after} seconds."
+            )
+
+
 def _search_agreements(
     deps: AgreementsDeps,
     *,
@@ -552,6 +601,7 @@ def _search_agreements(
         ),
         payload,
     )
+    _check_search_rate_limit(principal)
     page = _normalized_page(cast(int, parsed_args["page"]))
     page_size = _normalized_page_size(cast(int, parsed_args["page_size"]))
     sort_by = cast(str, parsed_args["sort_by"])
@@ -1748,17 +1798,17 @@ def _search_sections(
         "dict[str, object]", cast(object, _validate_payload(McpSectionsArgsSchema(), payload))
     )
     parsed_args = cast(SectionsArgsPayload, cast(object, validated))
+    text_query = cast("str | None", validated.get("text_query"))
+    _check_search_rate_limit(principal, text_query=bool(text_query and text_query.strip()))
     include_xml = parsed_args["include_xml"]
     # These three always load: the schema declares a load_default for each.
     include_snippet = cast(bool, validated["include_snippet"])
     snippet_focus_terms = [
         term for term in cast("list[str]", validated["snippet_focus_terms"]) if term.strip()
     ]
-    if include_snippet and not snippet_focus_terms:
-        text_query = cast(str | None, validated.get("text_query"))
-        if text_query:
-            text_match_mode = cast(str, validated.get("text_match_mode", "phrase"))
-            snippet_focus_terms = text_query_focus_terms(text_query, text_match_mode)
+    if include_snippet and not snippet_focus_terms and text_query:
+        text_match_mode = cast(str, validated.get("text_match_mode", "phrase"))
+        snippet_focus_terms = text_query_focus_terms(text_query, text_match_mode)
     snippet_max_chars = cast(int, validated["snippet_max_chars"])
     response = run_sections(
         deps,
@@ -1888,6 +1938,7 @@ def _search_tax_clauses(
         TaxClausesArgsPayload,
         cast(object, _validate_payload(TaxClausesArgsSchema(), payload)),
     )
+    _check_search_rate_limit(principal)
     response = run_tax_clauses(deps, ctx=principal.access_context, parsed_args=parsed_args)
     results = cast(list[dict[str, object]], response.get("results", []))
     _, unrecognized_tax_standard_ids = _partition_known_tax_standard_ids(
