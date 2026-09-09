@@ -9,7 +9,10 @@ Change history for the public Pandects database dumps, the REST API, and
 the MCP surface. Machine-readable version:
 <https://bulk.pandects.org/dumps/changelog.json>.
 
-## Unreleased
+## 2026-09-09 — released 2026-09-09
+
+- Dump: `dumps/public_2026-09-09_16-08-00.sql.gz`
+- SHA-256: `183757f178fb2abc2a50ff76cd42288f21d799a255340567a479bbdf6c3793a9`
 
 - **[data/notable]** Fixed SPAC acquirer misattribution: 135 agreements had the Pubco recorded as acquirer
   - Offline acquirer extraction now disambiguates the SPAC counterparty from the surviving Pubco entity. acquirer name fields on 135 agreements rows were corrected in place; one agreement (Overture) still awaits a re-scrape.
@@ -26,6 +29,7 @@ the MCP surface. Machine-readable version:
 - **[mcp/minor]** get_server_capabilities gains a changelog section (latest release, breaking flag, URLs) and the initialize instructions point agents at it
   - The section reports the newest published release and whether it carries breaking changes. Its latest_version, latest_released, and breaking_changes_in_latest fields are null when the published changelog is unreachable; the url and api_route fields are always populated.
   - Refs: 1eb2010
+- Stats: 30 tables, 2,511,170 total rows (per-table counts in the machine-readable changelog)
 
 ## 2026-07-19 — released 2026-07-20
 
