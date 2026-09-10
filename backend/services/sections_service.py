@@ -31,6 +31,11 @@ TEXT_QUERY_TOO_EXPENSIVE_MESSAGE = (
     "Metadata filters do not help here — the full-text scan runs before them."
 )
 _STATEMENT_TIMEOUT_ERROR_CODE = 1969
+# HA_ERR_OUT_OF_MEM. InnoDB raises it when a FULLTEXT query's result cache
+# exceeds innodb_ft_result_cache_limit -- the bound that stops a dense phrase
+# from exhausting the server's memory. Verified against MariaDB 11.8.2:
+# "ERROR 128 (HY000): Table handler out of memory".
+_FTS_RESULT_CACHE_ERROR_CODE = 128
 
 # Phrase search has two viable plans with opposite failure modes. The FULLTEXT
 # plan narrows by the candidate index first, so its cost scales with how many
@@ -128,10 +133,29 @@ def _remember_count_unaffordable(cache_key: str | None) -> None:
         _text_count_unaffordable[cache_key] = now
 
 
+def _error_code(exc: SQLAlchemyError) -> object | None:
+    orig_args = cast(tuple[object, ...], getattr(getattr(exc, "orig", None), "args", ()))
+    return orig_args[0] if orig_args else None
+
+
 def is_statement_timeout_error(exc: SQLAlchemyError) -> bool:
     """True when MariaDB aborted the statement for exceeding max_statement_time."""
-    orig_args = cast(tuple[object, ...], getattr(getattr(exc, "orig", None), "args", ()))
-    return bool(orig_args) and orig_args[0] == _STATEMENT_TIMEOUT_ERROR_CODE
+    return _error_code(exc) == _STATEMENT_TIMEOUT_ERROR_CODE
+
+
+def is_fts_result_cache_error(exc: SQLAlchemyError) -> bool:
+    """True when a FULLTEXT query outgrew innodb_ft_result_cache_limit."""
+    return _error_code(exc) == _FTS_RESULT_CACHE_ERROR_CODE
+
+
+def is_text_plan_exhausted_error(exc: SQLAlchemyError) -> bool:
+    """True when a text query failed in a way another plan or a bound can absorb.
+
+    Both outcomes mean "this plan cannot serve this phrase here": one ran out of
+    time, the other out of memory. Neither is a fault the caller can act on, so
+    both fall through to the other plan and then to a degraded count.
+    """
+    return is_statement_timeout_error(exc) or is_fts_result_cache_error(exc)
 
 
 def _join_section_text_search(
@@ -498,7 +522,7 @@ def _count_with_timeout_fallback(
         )
         return deps._cached_exact_query_count(budgeted, cache_key=cache_key), True
     except OperationalError as exc:
-        if not is_statement_timeout_error(exc):
+        if not is_text_plan_exhausted_error(exc):
             raise
         deps.db.session.rollback()
     _remember_count_unaffordable(cache_key)
@@ -540,7 +564,7 @@ def _fetch_phrase_page(
         )
         rows = cast(list[object], budgeted.offset(offset).limit(limit).all())
     except OperationalError as exc:
-        if not is_statement_timeout_error(exc):
+        if not is_text_plan_exhausted_error(exc):
             raise
         # The abort leaves the session unusable; the fallback needs a clean one.
         deps.db.session.rollback()
@@ -564,7 +588,7 @@ def run_sections(
         return _run_sections(deps, ctx=ctx, parsed_args=parsed_args, hydrate_xml=hydrate_xml)
     except OperationalError as exc:
         text_query = parsed_args["text_query"]
-        if not (text_query and text_query.strip() and is_statement_timeout_error(exc)):
+        if not (text_query and text_query.strip() and is_text_plan_exhausted_error(exc)):
             raise
         deps.db.session.rollback()
         raise ValidationError({"text_query": [TEXT_QUERY_TOO_EXPENSIVE_MESSAGE]}) from exc

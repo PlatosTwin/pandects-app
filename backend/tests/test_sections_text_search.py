@@ -25,6 +25,8 @@ from backend.services.sections_service import (
     TEXT_QUERY_TOO_EXPENSIVE_MESSAGE,
     _remember_text_plan,
     apply_section_text_join,
+    is_fts_result_cache_error,
+    is_text_plan_exhausted_error,
     build_section_text_match_expression,
     is_statement_timeout_error,
     reset_text_plan_cache,
@@ -79,6 +81,11 @@ def _statement_timeout(statement: str = "SELECT 1") -> OperationalError:
         {},
         Exception(1969, "Query execution was interrupted (max_statement_time exceeded)"),
     )
+
+
+def _fts_out_of_memory(statement: str = "SELECT 1") -> OperationalError:
+    """MariaDB 11.8.2 raises this when innodb_ft_result_cache_limit is exceeded."""
+    return OperationalError(statement, {}, Exception(128, "Table handler out of memory"))
 
 
 class CompileBooleanTextQueryTests(unittest.TestCase):
@@ -622,3 +629,79 @@ class PhrasePlanRaceTests(unittest.TestCase):
 
         self.assertEqual(second_query.all.call_count, 1)
         second_deps.db.session.rollback.assert_not_called()
+
+
+class FtsResultCacheLimitTests(unittest.TestCase):
+    """innodb_ft_result_cache_limit converts an OOM risk into a catchable error.
+
+    Bounding the FULLTEXT result cache is what stops a dense phrase from
+    exhausting the server, but it surfaces as error 128 rather than a timeout,
+    so every path that already tolerates a timeout has to tolerate this too.
+    """
+
+    def setUp(self) -> None:
+        reset_text_plan_cache()
+
+    def tearDown(self) -> None:
+        reset_text_plan_cache()
+
+    def test_error_128_is_recognised_and_grouped_with_timeouts(self) -> None:
+        self.assertTrue(is_fts_result_cache_error(_fts_out_of_memory()))
+        self.assertFalse(is_fts_result_cache_error(_statement_timeout()))
+        for exc in (_fts_out_of_memory(), _statement_timeout()):
+            self.assertTrue(is_text_plan_exhausted_error(exc))
+        self.assertFalse(
+            is_text_plan_exhausted_error(
+                OperationalError("SELECT 1", {}, Exception(2013, "gone"))
+            )
+        )
+
+    def test_result_cache_overflow_falls_back_to_the_other_plan(self) -> None:
+        query = _chained_query()
+        query.all.side_effect = [_fts_out_of_memory(), []]
+        deps = _service_deps(query)
+
+        result = run_sections(
+            deps,
+            ctx=cast(Any, _CTX),
+            parsed_args=_parsed_args(
+                text_query="material adverse effect", text_match_mode="phrase"
+            ),
+        )
+
+        self.assertEqual(cast(dict[str, object], result)["results"], [])
+        self.assertEqual(query.all.call_count, 2)
+
+    def test_result_cache_overflow_on_both_plans_is_a_client_error(self) -> None:
+        query = _chained_query()
+        query.all.side_effect = _fts_out_of_memory()
+        deps = _service_deps(query)
+
+        with self.assertRaises(ValidationError) as caught:
+            _ = run_sections(
+                deps,
+                ctx=cast(Any, _CTX),
+                parsed_args=_parsed_args(
+                    text_query="material adverse effect", text_match_mode="phrase"
+                ),
+            )
+
+        # Never a 500: the caller gets the same actionable message as a timeout.
+        self.assertEqual(
+            caught.exception.messages,
+            {"text_query": [TEXT_QUERY_TOO_EXPENSIVE_MESSAGE]},
+        )
+
+    def test_unrelated_operational_errors_still_propagate(self) -> None:
+        query = _chained_query()
+        query.all.side_effect = OperationalError("SELECT 1", {}, Exception(2013, "gone"))
+        deps = _service_deps(query)
+
+        with self.assertRaises(OperationalError):
+            _ = run_sections(
+                deps,
+                ctx=cast(Any, _CTX),
+                parsed_args=_parsed_args(
+                    text_query="material adverse effect", text_match_mode="phrase"
+                ),
+            )
