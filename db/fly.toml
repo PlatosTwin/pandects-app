@@ -14,7 +14,13 @@ primary_region = 'iad'
   MARIADB_USER = 'panda'
 
 [processes]
-  app = '--datadir /data/mysql'
+  # Stock MariaDB defaults assume a machine several times this size: they reserve
+  # a 128M MyISAM key cache this InnoDB-only workload never reads, and let a
+  # single FULLTEXT query grow its result cache to 2G on a 768M machine, which is
+  # how the server gets OOM-killed. Bound the FTS caches, reclaim the key buffer
+  # into the pool that actually serves reads, and keep connection-scoped memory
+  # small enough that the ceiling is reachable only by real work.
+  app = '--datadir /data/mysql --key-buffer-size=8M --innodb-ft-result-cache-limit=32M --innodb-ft-total-cache-size=64M --innodb-buffer-pool-size=192M --max-connections=60 --table-open-cache=400'
 
 [[mounts]]
   source = 'pdex_data'
