@@ -58,12 +58,14 @@ TEXT_PLAN_DATE_SCAN = "date_ordered_scan"
 # budget therefore cuts a wrong guess short, while the FULLTEXT fallback still
 # gets the room it needs for the rare phrases it is good at.
 _TEXT_PLAN_FIRST_ATTEMPT_SECONDS = 2
-# Kept well under TEXT_SEARCH_MAX_STATEMENT_SECONDS but generous, because time
-# is no longer what protects the server: innodb_ft_result_cache_limit stops a
-# dense phrase in milliseconds via error 128, so this budget only decides how
-# long a genuinely countable phrase may take. At 6s it was cutting off counts
-# that production used to complete, degrading them to a bare lower bound.
-_TEXT_COUNT_BUDGET_SECONDS = 15
+# What this budget really buys is latency, not safety: innodb_ft_result_cache_limit
+# already stops the phrases that threaten the server. Production measured 16.5s
+# average on search_sections at 15s -- the count spending the whole budget only to
+# fall back to a bound, on a shared vCPU too slow to finish it. A caller is far
+# better served by a fast page with an approximate total than by a precise one it
+# waits 17s for, so fail over quickly; phrases the host can still count in time
+# keep their exact total, and the count cache means it is paid once.
+_TEXT_COUNT_BUDGET_SECONDS = 4
 _TEXT_PLAN_CACHE_TTL_SECONDS = 900.0
 _TEXT_PLAN_CACHE_MAX_KEYS = 512
 _text_plan_cache: dict[str, tuple[float, str]] = {}
