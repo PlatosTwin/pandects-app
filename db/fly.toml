@@ -19,8 +19,12 @@ primary_region = 'iad'
   # single FULLTEXT query grow its result cache to 2G on a 768M machine, which is
   # how the server gets OOM-killed. Bound the FTS caches, reclaim the key buffer
   # into the pool that actually serves reads, and keep connection-scoped memory
-  # small enough that the ceiling is reachable only by real work.
-  app = '--datadir /data/mysql --key-buffer-size=8M --innodb-ft-result-cache-limit=32M --innodb-ft-total-cache-size=64M --innodb-buffer-pool-size=192M --max-connections=60 --table-open-cache=400'
+  # small enough that the ceiling is reachable only by real work. The result-cache
+  # bound is sized against the joined query the API actually issues, which needs
+  # more room than a bare COUNT over the same matches: at 32M it was cutting off
+  # ordinary counts around 8k matches, while still leaving the truly dense
+  # phrases -- the ones that threaten the server -- well outside it.
+  app = '--datadir /data/mysql --key-buffer-size=8M --innodb-ft-result-cache-limit=128M --innodb-ft-total-cache-size=64M --innodb-buffer-pool-size=192M --max-connections=60 --table-open-cache=400'
 
 [[mounts]]
   source = 'pdex_data'
