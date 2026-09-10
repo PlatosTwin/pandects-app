@@ -9,6 +9,11 @@ Change history for the public Pandects database dumps, the REST API, and
 the MCP surface. Machine-readable version:
 <https://bulk.pandects.org/dumps/changelog.json>.
 
+## Unreleased
+
+- **[mcp/notable]** search_sections phrase queries for common language now return results instead of an error.
+  - A phrase common enough to match a large share of the corpus -- "material adverse effect", "reasonable best efforts", "governing law" -- previously exceeded the database time bound and came back as a validation error telling the caller to add filters, which could not help. Phrase mode now picks between two query plans per search, so these queries return normally. Two consumer-visible consequences: the error text for a phrase that still cannot be served now asks for a longer or more distinctive phrase rather than filters, and for the most common phrases total_count is reported as a lower bound with method `filtered_lower_bound` and planning_reliability `low`, because an exact count of those matches is not affordable. Read total_count together with has_next on those searches; count_mode=exact degrades the same way rather than failing. Result rows and their order are unchanged.
+
 ## 2026-09-09 — released 2026-09-09
 
 - Dump: `dumps/public_2026-09-09_16-08-00.sql.gz`

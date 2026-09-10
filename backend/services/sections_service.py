@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time
 from typing import Any, Protocol, cast
 
 from marshmallow import ValidationError
@@ -24,9 +26,106 @@ from backend.text_search import (
 
 SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE = "Section text search is not available on this server yet."
 TEXT_QUERY_TOO_EXPENSIVE_MESSAGE = (
-    "text_query is too expensive to run; narrow it with filters or more specific terms."
+    "text_query matched too many sections to rank within the time limit. "
+    "Use a longer or more distinctive phrase; extra words shrink the candidate set. "
+    "Metadata filters do not help here — the full-text scan runs before them."
 )
 _STATEMENT_TIMEOUT_ERROR_CODE = 1969
+
+# Phrase search has two viable plans with opposite failure modes. The FULLTEXT
+# plan narrows by the candidate index first, so its cost scales with how many
+# sections contain the phrase's words -- fast for rare phrases, unusable for
+# common ones ("material adverse effect" matches ~16% of the corpus). The
+# date-ordered plan walks latest_sections_search in sort order and applies the
+# phrase REGEXP per row, so it stops early exactly when the phrase is common and
+# degrades when it is rare. Neither wins everywhere and the candidate count that
+# would let us choose up front costs more than the query it optimizes, so the
+# first request for a filter signature races them: try one under a short budget,
+# fall back to the other, then remember the winner for subsequent pages.
+TEXT_PLAN_FULLTEXT = "fulltext_candidates"
+TEXT_PLAN_DATE_SCAN = "date_ordered_scan"
+# The date-ordered plan wins fast and loses slowly: when it suits the phrase it
+# answers in well under a second, and when it does not it grinds. A tight first
+# budget therefore cuts a wrong guess short, while the FULLTEXT fallback still
+# gets the room it needs for the rare phrases it is good at.
+_TEXT_PLAN_FIRST_ATTEMPT_SECONDS = 2
+_TEXT_COUNT_BUDGET_SECONDS = 6
+_TEXT_PLAN_CACHE_TTL_SECONDS = 900.0
+_TEXT_PLAN_CACHE_MAX_KEYS = 512
+_text_plan_cache: dict[str, tuple[float, str]] = {}
+_text_plan_cache_lock = threading.Lock()
+# Counts that already blew the budget once. Re-running them on every page of the
+# same search burns the budget again to reach the same verdict.
+_text_count_unaffordable: dict[str, float] = {}
+
+
+def _remembered_text_plan(cache_key: str | None) -> str | None:
+    if cache_key is None:
+        return None
+    now = time.time()
+    with _text_plan_cache_lock:
+        entry = _text_plan_cache.get(cache_key)
+        if entry is None or (now - entry[0]) >= _TEXT_PLAN_CACHE_TTL_SECONDS:
+            return None
+        return entry[1]
+
+
+def _remember_text_plan(cache_key: str | None, plan: str) -> None:
+    if cache_key is None:
+        return
+    now = time.time()
+    with _text_plan_cache_lock:
+        expired = [
+            key
+            for key, (stamp, _plan) in _text_plan_cache.items()
+            if (now - stamp) >= _TEXT_PLAN_CACHE_TTL_SECONDS
+        ]
+        for key in expired:
+            del _text_plan_cache[key]
+        overflow = len(_text_plan_cache) - _TEXT_PLAN_CACHE_MAX_KEYS
+        if overflow > 0:
+            oldest = sorted(_text_plan_cache.items(), key=lambda item: item[1][0])
+            for key, _entry in oldest[:overflow]:
+                del _text_plan_cache[key]
+        _text_plan_cache[cache_key] = (now, plan)
+
+
+def reset_text_plan_cache() -> None:
+    """Drop every remembered plan choice. Test seam; not used at runtime."""
+    with _text_plan_cache_lock:
+        _text_plan_cache.clear()
+        _text_count_unaffordable.clear()
+
+
+def _count_known_unaffordable(cache_key: str | None) -> bool:
+    if cache_key is None:
+        return False
+    now = time.time()
+    with _text_plan_cache_lock:
+        stamp = _text_count_unaffordable.get(cache_key)
+        if stamp is None or (now - stamp) >= _TEXT_PLAN_CACHE_TTL_SECONDS:
+            return False
+        return True
+
+
+def _remember_count_unaffordable(cache_key: str | None) -> None:
+    if cache_key is None:
+        return
+    now = time.time()
+    with _text_plan_cache_lock:
+        expired = [
+            key
+            for key, stamp in _text_count_unaffordable.items()
+            if (now - stamp) >= _TEXT_PLAN_CACHE_TTL_SECONDS
+        ]
+        for key in expired:
+            del _text_count_unaffordable[key]
+        overflow = len(_text_count_unaffordable) - _TEXT_PLAN_CACHE_MAX_KEYS
+        if overflow > 0:
+            oldest = sorted(_text_count_unaffordable.items(), key=lambda item: item[1])
+            for key, _stamp in oldest[:overflow]:
+                del _text_count_unaffordable[key]
+        _text_count_unaffordable[cache_key] = now
 
 
 def is_statement_timeout_error(exc: SQLAlchemyError) -> bool:
@@ -97,15 +196,18 @@ def build_section_text_candidate_expression(
     )
 
 
-def apply_section_text_search(
+def apply_section_text_join(
     query: Any,
     *,
     latest: Any,
     section_text_search: Any,
     text_query: str | None,
-    match_mode: str,
 ) -> Any:
-    """Join the private text index only for text searches."""
+    """Join the private text index without applying any text predicate.
+
+    Both phrase plans need the join (the REGEXP reads normalized_text); they
+    differ only in whether the FULLTEXT candidate predicate is also applied.
+    """
     if text_query is None:
         return query
     return _join_section_text_search(
@@ -113,37 +215,6 @@ def apply_section_text_search(
         latest=latest,
         section_text_search=section_text_search,
         text_query=text_query,
-    ).filter(
-        build_section_text_match_expression(
-            section_text_search.normalized_text,
-            text_query=text_query,
-            match_mode=match_mode,
-        )
-    )
-
-
-def apply_section_text_candidate_search(
-    query: Any,
-    *,
-    latest: Any,
-    section_text_search: Any,
-    text_query: str | None,
-    match_mode: str,
-) -> Any:
-    """Join and apply only the indexed candidate predicate."""
-    if text_query is None:
-        return query
-    return _join_section_text_search(
-        query,
-        latest=latest,
-        section_text_search=section_text_search,
-        text_query=text_query,
-    ).filter(
-        build_section_text_candidate_expression(
-            section_text_search.normalized_text,
-            text_query=text_query,
-            match_mode=match_mode,
-        )
     )
 
 
@@ -407,6 +478,81 @@ def _sections_interpretation_payload(
     }
 
 
+def _count_with_timeout_fallback(
+    deps: SectionsServiceDeps,
+    *,
+    query: Any,
+    cache_key: str | None,
+) -> tuple[int | None, bool]:
+    """Exact COUNT(*) when it fits the budget, otherwise an optimizer estimate.
+
+    A common phrase can match a sixth of the corpus, where an exact count costs
+    far more than the page it accompanies. Returns (count, is_exact); the count
+    is None only when the estimate is also unavailable.
+    """
+    if _count_known_unaffordable(cache_key):
+        return None, False
+    try:
+        budgeted = query.execution_options(
+            max_statement_time=_TEXT_COUNT_BUDGET_SECONDS
+        )
+        return deps._cached_exact_query_count(budgeted, cache_key=cache_key), True
+    except OperationalError as exc:
+        if not is_statement_timeout_error(exc):
+            raise
+        deps.db.session.rollback()
+    _remember_count_unaffordable(cache_key)
+    # EXPLAIN reports rows=1 for a FULLTEXT plan, so this is None for exactly the
+    # phrases that need it most; callers fall back to a page-derived lower bound.
+    return estimated_query_row_count(deps, query), False
+
+
+def _fetch_phrase_page(
+    deps: SectionsServiceDeps,
+    *,
+    fulltext_query: Any,
+    date_scan_query: Any,
+    cache_key: str | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[object], Any]:
+    """Serve a phrase page under whichever plan can actually run it.
+
+    Returns the rows and the query that produced them, so the count path runs
+    against the same shape the page came from.
+    """
+    remembered = _remembered_text_plan(cache_key)
+    ordered_plans: list[tuple[str, Any]] = [
+        (TEXT_PLAN_DATE_SCAN, date_scan_query),
+        (TEXT_PLAN_FULLTEXT, fulltext_query),
+    ]
+    if remembered == TEXT_PLAN_FULLTEXT:
+        ordered_plans.reverse()
+    (first_plan, first_query), (second_plan, second_query) = ordered_plans
+
+    if remembered is not None:
+        rows = cast(list[object], first_query.offset(offset).limit(limit).all())
+        return rows, first_query
+
+    try:
+        budgeted = first_query.execution_options(
+            max_statement_time=_TEXT_PLAN_FIRST_ATTEMPT_SECONDS
+        )
+        rows = cast(list[object], budgeted.offset(offset).limit(limit).all())
+    except OperationalError as exc:
+        if not is_statement_timeout_error(exc):
+            raise
+        # The abort leaves the session unusable; the fallback needs a clean one.
+        deps.db.session.rollback()
+    else:
+        _remember_text_plan(cache_key, first_plan)
+        return rows, first_query
+
+    rows = cast(list[object], second_query.offset(offset).limit(limit).all())
+    _remember_text_plan(cache_key, second_plan)
+    return rows, second_query
+
+
 def run_sections(
     deps: SectionsServiceDeps,
     *,
@@ -491,12 +637,11 @@ def _run_sections(
     # Build the ID-only query first so filters, sort order, and count estimation all share
     # the same search surface before we hydrate the selected rows.
     q = db.session.query(latest.section_uuid.label("section_uuid"))
-    q = apply_section_text_candidate_search(
+    q = apply_section_text_join(
         q,
         latest=latest,
         section_text_search=section_text_search,
         text_query=text_query,
-        match_mode=text_match_mode,
     )
 
     if years:
@@ -616,13 +761,35 @@ def _run_sections(
     if section_uuid and section_uuid.strip():
         q = q.filter(latest.section_uuid == section_uuid.strip())
 
-    text_count_query = q
-    if text_query is not None and text_query.strip() and text_match_mode == "phrase":
-        q = q.filter(
-            cast(Any, section_text_search.normalized_text).op("REGEXP")(
-                compile_phrase_text_pattern(text_query)
+    text_active = bool(text_query is not None and text_query.strip())
+    phrase_mode = text_active and text_match_mode == "phrase"
+
+    # Filters are applied; branch the two phrase plans off this shared base.
+    base_query = q
+    if text_active:
+        candidate_query = base_query.filter(
+            build_section_text_candidate_expression(
+                section_text_search.normalized_text,
+                text_query=cast(str, text_query),
+                match_mode=text_match_mode,
             )
         )
+    else:
+        candidate_query = base_query
+    text_count_query = candidate_query
+
+    date_scan_query: Any = None
+    if phrase_mode:
+        phrase_expression = cast(Any, section_text_search.normalized_text).op("REGEXP")(
+            compile_phrase_text_pattern(cast(str, text_query))
+        )
+        # Both plans select the same rows: the REGEXP is the authoritative phrase
+        # filter, and the FULLTEXT predicate only narrows candidates ahead of it.
+        # Dropping it lets the optimizer drive from the sort index instead.
+        q = candidate_query.filter(phrase_expression)
+        date_scan_query = base_query.filter(phrase_expression)
+    else:
+        q = candidate_query
 
     descending = sort_direction == "desc"
     if sort_by == "year":
@@ -631,13 +798,27 @@ def _run_sections(
         primary_sort = latest.target
     else:
         primary_sort = latest.acquirer
-    if descending:
-        q = q.order_by(desc(primary_sort), desc(latest.section_uuid))
-    else:
-        q = q.order_by(asc(primary_sort), asc(latest.section_uuid))
 
+    def apply_sort(query: Any) -> Any:
+        if descending:
+            return query.order_by(desc(primary_sort), desc(latest.section_uuid))
+        return query.order_by(asc(primary_sort), asc(latest.section_uuid))
+
+    q = apply_sort(q)
+
+    count_cache_key = build_search_count_cache_key("sections", parsed_args)
     offset = (page - 1) * page_size
-    page_rows = cast(list[object], q.offset(offset).limit(page_size + 1).all())
+    if phrase_mode and date_scan_query is not None:
+        page_rows, q = _fetch_phrase_page(
+            deps,
+            fulltext_query=q,
+            date_scan_query=apply_sort(date_scan_query),
+            cache_key=count_cache_key,
+            offset=offset,
+            limit=page_size + 1,
+        )
+    else:
+        page_rows = cast(list[object], q.offset(offset).limit(page_size + 1).all())
     has_next = len(page_rows) > page_size
     item_rows = page_rows[:page_size]
     item_count = len(item_rows)
@@ -673,32 +854,55 @@ def _run_sections(
             text_query and text_query.strip(),
         )
     )
-    count_cache_key = build_search_count_cache_key("sections", parsed_args)
     total_agreement_count: int | None = None
+    page_lower_bound = ((page - 1) * page_size) + item_count
+    # With only a lower bound, still report more rows than this page when another
+    # page exists, so total_pages cannot contradict has_next.
+    unknown_total_floor = page_lower_bound + 1 if has_next else page_lower_bound
     if count_mode == "exact":
-        total_count = deps._cached_exact_query_count(q, cache_key=count_cache_key)
-        total_agreement_count = deps._cached_exact_query_count(
-            q.order_by(None).with_entities(distinct(latest.agreement_uuid)),
-            cache_key=f"{count_cache_key}:agreements",
+        counted, counted_exactly = _count_with_timeout_fallback(
+            deps, query=q, cache_key=count_cache_key
         )
-        total_count_is_approximate = False
-        count_method = "query_count"
-    elif text_query is not None and text_query.strip():
-        if not has_next and (page == 1 or item_count > 0):
-            total_count = ((page - 1) * page_size) + item_count
+        if counted_exactly:
+            total_count = cast(int, counted)
+            total_agreement_count = deps._cached_exact_query_count(
+                q.order_by(None).with_entities(distinct(latest.agreement_uuid)),
+                cache_key=f"{count_cache_key}:agreements",
+            )
             total_count_is_approximate = False
             count_method = "query_count"
         else:
-            total_count = deps._cached_exact_query_count(
-                text_count_query,
+            # An exact total was requested but is not affordable for this phrase.
+            # Report the estimate honestly rather than failing the whole search.
+            total_count = counted if counted is not None else unknown_total_floor
+            total_count_is_approximate = True
+            count_method = "table_estimate" if counted is not None else "filtered_lower_bound"
+    elif text_query is not None and text_query.strip():
+        if not has_next and (page == 1 or item_count > 0):
+            total_count = page_lower_bound
+            total_count_is_approximate = False
+            count_method = "query_count"
+        else:
+            counted, counted_exactly = _count_with_timeout_fallback(
+                deps,
+                query=text_count_query,
                 cache_key=f"{count_cache_key}:fulltext-candidates",
             )
-            total_count_is_approximate = text_match_mode == "phrase"
-            count_method = (
-                "fulltext_candidate_count"
-                if total_count_is_approximate
-                else "query_count"
-            )
+            if counted is None:
+                total_count = unknown_total_floor
+                total_count_is_approximate = True
+                count_method = "filtered_lower_bound"
+            else:
+                total_count = counted
+                total_count_is_approximate = (
+                    text_match_mode == "phrase" or not counted_exactly
+                )
+                if not counted_exactly:
+                    count_method = "table_estimate"
+                elif total_count_is_approximate:
+                    count_method = "fulltext_candidate_count"
+                else:
+                    count_method = "query_count"
     else:
         total_count, total_count_is_approximate, count_method = sections_total_count_metadata(
             deps,
@@ -861,14 +1065,16 @@ def _run_sections(
 
 __all__ = [
     "SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE",
+    "TEXT_PLAN_DATE_SCAN",
+    "TEXT_PLAN_FULLTEXT",
     "TEXT_QUERY_TOO_EXPENSIVE_MESSAGE",
-    "apply_section_text_candidate_search",
-    "apply_section_text_search",
+    "apply_section_text_join",
     "build_section_text_candidate_expression",
     "build_section_text_match_expression",
     "estimated_latest_sections_search_table_rows",
     "estimated_query_row_count",
     "is_statement_timeout_error",
+    "reset_text_plan_cache",
     "run_sections",
     "sections_total_count_metadata",
 ]

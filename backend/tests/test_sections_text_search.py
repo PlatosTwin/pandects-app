@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import unittest
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
@@ -20,11 +20,14 @@ from backend.models.main_db import LatestSectionsSearch, SectionTextSearch
 from backend.search_counts import build_search_count_cache_key
 from backend.services.sections_service import (
     SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE,
+    TEXT_PLAN_DATE_SCAN,
+    TEXT_PLAN_FULLTEXT,
     TEXT_QUERY_TOO_EXPENSIVE_MESSAGE,
-    apply_section_text_candidate_search,
-    apply_section_text_search,
+    _remember_text_plan,
+    apply_section_text_join,
     build_section_text_match_expression,
     is_statement_timeout_error,
+    reset_text_plan_cache,
     run_sections,
     sections_total_count_metadata,
 )
@@ -249,12 +252,11 @@ class SectionTextMatchExpressionTests(unittest.TestCase):
 
     def test_does_not_join_text_table_without_a_query(self) -> None:
         query = MagicMock()
-        result = apply_section_text_search(
+        result = apply_section_text_join(
             query,
             latest=MagicMock(),
             section_text_search=MagicMock(),
             text_query=None,
-            match_mode="phrase",
         )
         self.assertIs(result, query)
         query.join.assert_not_called()
@@ -263,12 +265,11 @@ class SectionTextMatchExpressionTests(unittest.TestCase):
     def test_rejects_blank_query_before_joining(self) -> None:
         query = MagicMock()
         with self.assertRaises(ValueError):
-            apply_section_text_search(
+            apply_section_text_join(
                 query,
                 latest=MagicMock(),
                 section_text_search=MagicMock(),
                 text_query="   ",
-                match_mode="phrase",
             )
         query.join.assert_not_called()
 
@@ -347,12 +348,11 @@ class SectionTextSearchAvailabilityTests(unittest.TestCase):
     def test_candidate_search_rejects_unavailable_index_before_joining(self) -> None:
         query = MagicMock()
         with self.assertRaisesRegex(ValidationError, "not available"):
-            _ = apply_section_text_candidate_search(
+            _ = apply_section_text_join(
                 query,
                 latest=MagicMock(),
                 section_text_search=None,
                 text_query="material adverse effect",
-                match_mode="phrase",
             )
         query.join.assert_not_called()
 
@@ -360,12 +360,11 @@ class SectionTextSearchAvailabilityTests(unittest.TestCase):
 class StatementTimeoutTests(unittest.TestCase):
     def test_text_search_queries_carry_the_statement_timeout_option(self) -> None:
         session = Session(create_engine("sqlite://"))
-        query = apply_section_text_candidate_search(
+        query = apply_section_text_join(
             session.query(LatestSectionsSearch.section_uuid),
             latest=LatestSectionsSearch,
             section_text_search=SectionTextSearch,
             text_query="material adverse effect",
-            match_mode="all_terms",
         )
 
         self.assertEqual(
@@ -374,7 +373,6 @@ class StatementTimeoutTests(unittest.TestCase):
         )
         compiled_sql = str(query.statement.compile(dialect=mysql.dialect()))
         self.assertIn("INNER JOIN __main_schema__.section_text_search", compiled_sql)
-        self.assertIn("AGAINST (%s IN BOOLEAN MODE)", compiled_sql)
 
     def test_bounded_statement_wraps_mysql_statements_that_opt_in(self) -> None:
         mysql_connection = SimpleNamespace(dialect=SimpleNamespace(name="mysql"))
@@ -464,7 +462,9 @@ class StatementTimeoutTests(unittest.TestCase):
             caught.exception.messages,
             {"text_query": [TEXT_QUERY_TOO_EXPENSIVE_MESSAGE]},
         )
-        deps.db.session.rollback.assert_called_once()
+        # A phrase search races both plans, so a query that times out under each
+        # one rolls back per aborted attempt before the error surfaces.
+        deps.db.session.rollback.assert_called()
 
     def test_other_operational_errors_and_non_text_timeouts_propagate(self) -> None:
         for parsed_args, error in (
@@ -541,3 +541,84 @@ class SectionTextSchemaTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PhrasePlanRaceTests(unittest.TestCase):
+    """A phrase search must survive either plan timing out on its own."""
+
+    def setUp(self) -> None:
+        reset_text_plan_cache()
+
+    def tearDown(self) -> None:
+        reset_text_plan_cache()
+
+    def test_first_plan_timeout_falls_back_to_the_other_plan(self) -> None:
+        query = _chained_query()
+        query.all.side_effect = [_statement_timeout(), []]
+        deps = _service_deps(query)
+
+        result = run_sections(
+            deps,
+            ctx=cast(Any, _CTX),
+            parsed_args=_parsed_args(
+                text_query="material adverse effect", text_match_mode="phrase"
+            ),
+        )
+
+        self.assertEqual(cast(dict[str, object], result)["results"], [])
+        self.assertEqual(query.all.call_count, 2, "both plans should be attempted")
+        deps.db.session.rollback.assert_called_once()
+
+    def test_remembered_plan_skips_the_race_on_later_pages(self) -> None:
+        parsed_args = _parsed_args(
+            text_query="material adverse effect", text_match_mode="phrase"
+        )
+        _remember_text_plan(
+            build_search_count_cache_key("sections", parsed_args), TEXT_PLAN_DATE_SCAN
+        )
+        query = _chained_query()
+        deps = _service_deps(query)
+
+        _ = run_sections(deps, ctx=cast(Any, _CTX), parsed_args=parsed_args)
+
+        self.assertEqual(
+            query.all.call_count, 1, "a remembered plan should run without racing"
+        )
+        deps.db.session.rollback.assert_not_called()
+
+    def test_non_phrase_modes_do_not_race(self) -> None:
+        for mode in ("all_terms", "any_terms"):
+            with self.subTest(mode=mode):
+                reset_text_plan_cache()
+                query = _chained_query()
+                query.all.side_effect = [_statement_timeout(), []]
+                deps = _service_deps(query)
+
+                # Only phrase mode has a second plan: without the REGEXP filter the
+                # FULLTEXT predicate is the whole search, so a timeout must surface.
+                with self.assertRaises(ValidationError):
+                    _ = run_sections(
+                        deps,
+                        ctx=cast(Any, _CTX),
+                        parsed_args=_parsed_args(
+                            text_query="material adverse effect", text_match_mode=mode
+                        ),
+                    )
+                self.assertEqual(query.all.call_count, 1)
+
+    def test_plan_choice_is_remembered_after_a_fallback(self) -> None:
+        parsed_args = _parsed_args(
+            text_query="material adverse effect", text_match_mode="phrase"
+        )
+        query = _chained_query()
+        query.all.side_effect = [_statement_timeout(), []]
+        deps = _service_deps(query)
+        _ = run_sections(deps, ctx=cast(Any, _CTX), parsed_args=parsed_args)
+
+        # Second request for the same signature reuses the winner, no second attempt.
+        second_query = _chained_query()
+        second_deps = _service_deps(second_query)
+        _ = run_sections(second_deps, ctx=cast(Any, _CTX), parsed_args=parsed_args)
+
+        self.assertEqual(second_query.all.call_count, 1)
+        second_deps.db.session.rollback.assert_not_called()
