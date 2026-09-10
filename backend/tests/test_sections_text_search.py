@@ -12,7 +12,7 @@ from flask import Flask
 from marshmallow import ValidationError
 from sqlalchemy import Column, MetaData, Table, Text, create_engine, event, select
 from sqlalchemy.dialects import mysql
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import InternalError, OperationalError
 from sqlalchemy.orm import Session
 
 from backend.core.config import bounded_statement, configure_auth_bind, configure_main_db
@@ -83,9 +83,15 @@ def _statement_timeout(statement: str = "SELECT 1") -> OperationalError:
     )
 
 
-def _fts_out_of_memory(statement: str = "SELECT 1") -> OperationalError:
-    """MariaDB 11.8.2 raises this when innodb_ft_result_cache_limit is exceeded."""
-    return OperationalError(statement, {}, Exception(128, "Table handler out of memory"))
+def _fts_out_of_memory(statement: str = "SELECT 1") -> InternalError:
+    """What the driver really raises when innodb_ft_result_cache_limit is exceeded.
+
+    Observed in production: pymysql surfaces error 128 as InternalError, which
+    SQLAlchemy maps to InternalError -- a sibling of OperationalError, not a
+    subclass. Building this as an OperationalError made the handler look correct
+    in tests while a real overflow escaped as a 500.
+    """
+    return InternalError(statement, {}, Exception(128, "Table handler out of memory"))
 
 
 class CompileBooleanTextQueryTests(unittest.TestCase):
@@ -692,12 +698,12 @@ class FtsResultCacheLimitTests(unittest.TestCase):
             {"text_query": [TEXT_QUERY_TOO_EXPENSIVE_MESSAGE]},
         )
 
-    def test_unrelated_operational_errors_still_propagate(self) -> None:
+    def test_unrelated_database_errors_still_propagate(self) -> None:
         query = _chained_query()
-        query.all.side_effect = OperationalError("SELECT 1", {}, Exception(2013, "gone"))
+        query.all.side_effect = InternalError("SELECT 1", {}, Exception(1105, "unknown"))
         deps = _service_deps(query)
 
-        with self.assertRaises(OperationalError):
+        with self.assertRaises(InternalError):
             _ = run_sections(
                 deps,
                 ctx=cast(Any, _CTX),

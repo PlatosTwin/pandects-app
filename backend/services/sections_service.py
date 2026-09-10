@@ -7,7 +7,7 @@ from typing import Any, Protocol, cast
 from marshmallow import ValidationError
 from sqlalchemy import and_, asc, desc, distinct, or_, text
 from sqlalchemy.dialects.mysql import match as mysql_match
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from sqlalchemy.exc import DatabaseError, SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
 from backend.filtering import (
@@ -35,6 +35,10 @@ _STATEMENT_TIMEOUT_ERROR_CODE = 1969
 # exceeds innodb_ft_result_cache_limit -- the bound that stops a dense phrase
 # from exhausting the server's memory. Verified against MariaDB 11.8.2:
 # "ERROR 128 (HY000): Table handler out of memory".
+# The driver reports it as pymysql InternalError, which SQLAlchemy maps to
+# InternalError -- a sibling of OperationalError, not a subclass. Catch the
+# shared DatabaseError parent and discriminate on the code, or a bounded query
+# escapes as a 500 on exactly the phrases the bound exists to protect.
 _FTS_RESULT_CACHE_ERROR_CODE = 128
 
 # Phrase search has two viable plans with opposite failure modes. The FULLTEXT
@@ -521,7 +525,7 @@ def _count_with_timeout_fallback(
             max_statement_time=_TEXT_COUNT_BUDGET_SECONDS
         )
         return deps._cached_exact_query_count(budgeted, cache_key=cache_key), True
-    except OperationalError as exc:
+    except DatabaseError as exc:
         if not is_text_plan_exhausted_error(exc):
             raise
         deps.db.session.rollback()
@@ -563,7 +567,7 @@ def _fetch_phrase_page(
             max_statement_time=_TEXT_PLAN_FIRST_ATTEMPT_SECONDS
         )
         rows = cast(list[object], budgeted.offset(offset).limit(limit).all())
-    except OperationalError as exc:
+    except DatabaseError as exc:
         if not is_text_plan_exhausted_error(exc):
             raise
         # The abort leaves the session unusable; the fallback needs a clean one.
@@ -586,7 +590,7 @@ def run_sections(
 ) -> dict[str, object]:
     try:
         return _run_sections(deps, ctx=ctx, parsed_args=parsed_args, hydrate_xml=hydrate_xml)
-    except OperationalError as exc:
+    except DatabaseError as exc:
         text_query = parsed_args["text_query"]
         if not (text_query and text_query.strip() and is_text_plan_exhausted_error(exc)):
             raise
