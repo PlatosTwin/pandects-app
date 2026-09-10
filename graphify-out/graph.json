@@ -5487,7 +5487,7 @@
       "file_type": "code",
       "norm_label": "_compilablestatement",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L249"
+      "source_location": "L254"
     },
     {
       "id": "backend_services_sections_service_statementquery",
@@ -5500,7 +5500,7 @@
       "file_type": "code",
       "norm_label": "_statementquery",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L259"
+      "source_location": "L264"
     },
     {
       "id": "backend_services_tax_clauses_service_query",
@@ -12861,7 +12861,7 @@
       "file_type": "code",
       "norm_label": "estimated_query_row_count()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L271"
+      "source_location": "L276"
     },
     {
       "id": "backend_tests_test_search_counts_cachedexactquerycounttests_call",
@@ -14445,7 +14445,7 @@
       "file_type": "code",
       "norm_label": "apply_section_text_join()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L227"
+      "source_location": "L232"
     },
     {
       "id": "backend_services_sections_service_count_known_unaffordable",
@@ -14457,7 +14457,7 @@
       "file_type": "code",
       "norm_label": "_count_known_unaffordable()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L109"
+      "source_location": "L114"
     },
     {
       "id": "backend_services_sections_service_count_with_timeout_fallback",
@@ -14469,7 +14469,7 @@
       "file_type": "code",
       "norm_label": "_count_with_timeout_fallback()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L509"
+      "source_location": "L514"
     },
     {
       "id": "backend_services_sections_service_error_code",
@@ -14481,7 +14481,7 @@
       "file_type": "code",
       "norm_label": "_error_code()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L140"
+      "source_location": "L145"
     },
     {
       "id": "backend_services_sections_service_fetch_phrase_page",
@@ -14493,7 +14493,7 @@
       "file_type": "code",
       "norm_label": "_fetch_phrase_page()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L538"
+      "source_location": "L543"
     },
     {
       "id": "backend_services_sections_service_is_fts_result_cache_error",
@@ -14505,7 +14505,7 @@
       "file_type": "code",
       "norm_label": "is_fts_result_cache_error()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L150"
+      "source_location": "L155"
     },
     {
       "id": "backend_services_sections_service_is_statement_timeout_error",
@@ -14517,7 +14517,7 @@
       "file_type": "code",
       "norm_label": "is_statement_timeout_error()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L145"
+      "source_location": "L150"
     },
     {
       "id": "backend_services_sections_service_is_text_plan_exhausted_error",
@@ -14529,7 +14529,7 @@
       "file_type": "code",
       "norm_label": "is_text_plan_exhausted_error()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L155"
+      "source_location": "L160"
     },
     {
       "id": "backend_services_sections_service_join_section_text_search",
@@ -14541,7 +14541,7 @@
       "file_type": "code",
       "norm_label": "_join_section_text_search()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L165"
+      "source_location": "L170"
     },
     {
       "id": "backend_services_sections_service_remember_count_unaffordable",
@@ -14553,7 +14553,7 @@
       "file_type": "code",
       "norm_label": "_remember_count_unaffordable()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L120"
+      "source_location": "L125"
     },
     {
       "id": "backend_services_sections_service_remember_text_plan",
@@ -14565,7 +14565,7 @@
       "file_type": "code",
       "norm_label": "_remember_text_plan()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L82"
+      "source_location": "L87"
     },
     {
       "id": "backend_services_sections_service_remembered_text_plan",
@@ -14577,7 +14577,7 @@
       "file_type": "code",
       "norm_label": "_remembered_text_plan()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L71"
+      "source_location": "L76"
     },
     {
       "id": "backend_services_sections_service_reset_text_plan_cache",
@@ -14589,7 +14589,7 @@
       "file_type": "code",
       "norm_label": "reset_text_plan_cache()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L102"
+      "source_location": "L107"
     },
     {
       "id": "backend_services_sections_service_run_sections",
@@ -14601,7 +14601,7 @@
       "file_type": "code",
       "norm_label": "run_sections()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L584"
+      "source_location": "L589"
     },
     {
       "id": "backend_services_sections_service_run_sections_8bbee0",
@@ -14613,7 +14613,7 @@
       "file_type": "code",
       "norm_label": "_run_sections()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L601"
+      "source_location": "L606"
     },
     {
       "id": "backend_services_sections_service_sections_count_metadata_payload",
@@ -14625,7 +14625,7 @@
       "file_type": "code",
       "norm_label": "_sections_count_metadata_payload()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L388"
+      "source_location": "L393"
     },
     {
       "id": "backend_services_sections_service_sections_interpretation_payload",
@@ -14637,7 +14637,7 @@
       "file_type": "code",
       "norm_label": "_sections_interpretation_payload()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L409"
+      "source_location": "L414"
     },
     {
       "id": "backend_services_sections_service_sections_total_count_metadata",
@@ -14649,7 +14649,7 @@
       "file_type": "code",
       "norm_label": "sections_total_count_metadata()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L331"
+      "source_location": "L336"
     },
     {
       "id": "backend_tests_test_search_counts_buildsearchcountcachekeytests_test_changing_a_filter_changes_the_key",
@@ -15153,7 +15153,7 @@
       "file_type": "code",
       "norm_label": "build_section_text_match_expression()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L184"
+      "source_location": "L189"
     },
     {
       "id": "backend_tests_test_sections_text_search_sectiontextmatchexpressiontests_test_does_not_join_text_table_without_a_query",
@@ -20241,7 +20241,7 @@
       "file_type": "code",
       "norm_label": "build_section_text_candidate_expression()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L210"
+      "source_location": "L215"
     },
     {
       "id": "backend_tests_test_sections_text_search_compilebooleantextquerytests_test_compiles_each_supported_match_mode",
@@ -27369,7 +27369,7 @@
       "file_type": "code",
       "norm_label": "estimated_latest_sections_search_table_rows()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L303"
+      "source_location": "L308"
     },
     {
       "id": "backend_tests_test_auth_dependencies_authdependencytests_test_auth_dep_wrappers_follow_runtime_monkeypatches",
@@ -33813,7 +33813,7 @@
       "file_type": "code",
       "norm_label": ".compile()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L250"
+      "source_location": "L255"
     },
     {
       "id": "backend_services_sections_service_statementquery_count",
@@ -33825,7 +33825,7 @@
       "file_type": "code",
       "norm_label": ".count()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L263"
+      "source_location": "L268"
     },
     {
       "id": "backend_services_sections_service_statementquery_order_by",
@@ -33837,7 +33837,7 @@
       "file_type": "code",
       "norm_label": ".order_by()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L260"
+      "source_location": "L265"
     },
     {
       "id": "backend_services_sections_service_statementquery_statement",
@@ -33849,7 +33849,7 @@
       "file_type": "code",
       "norm_label": ".statement()",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L267"
+      "source_location": "L272"
     },
     {
       "id": "backend_services_tax_clauses_service_query_all",
@@ -62540,7 +62540,7 @@
       "source_location": "L85"
     },
     {
-      "id": "backend_services_sections_service_rationale_272",
+      "id": "backend_services_sections_service_rationale_277",
       "label": "Ask the database for an approximate row count when exact counts are too\u2026",
       "_origin": "ast",
       "community": 102,
@@ -62548,7 +62548,7 @@
       "file_type": "rationale",
       "norm_label": "ask the database for an approximate row count when exact counts are too...",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L272"
+      "source_location": "L277"
     },
     {
       "id": "etl_src_etl_models_taxonomy_deepseek_generate_batches",
@@ -63640,7 +63640,7 @@
       "source_location": "L56"
     },
     {
-      "id": "backend_services_sections_service_rationale_103",
+      "id": "backend_services_sections_service_rationale_108",
       "label": "Drop every remembered plan choice. Test seam; not used at runtime.",
       "_origin": "ast",
       "community": 112,
@@ -63648,10 +63648,10 @@
       "file_type": "rationale",
       "norm_label": "drop every remembered plan choice. test seam; not used at runtime.",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L103"
+      "source_location": "L108"
     },
     {
-      "id": "backend_services_sections_service_rationale_146",
+      "id": "backend_services_sections_service_rationale_151",
       "label": "True when MariaDB aborted the statement for exceeding max_statement_time.",
       "_origin": "ast",
       "community": 112,
@@ -63659,10 +63659,10 @@
       "file_type": "rationale",
       "norm_label": "true when mariadb aborted the statement for exceeding max_statement_time.",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L146"
+      "source_location": "L151"
     },
     {
-      "id": "backend_services_sections_service_rationale_151",
+      "id": "backend_services_sections_service_rationale_156",
       "label": "True when a FULLTEXT query outgrew innodb_ft_result_cache_limit.",
       "_origin": "ast",
       "community": 112,
@@ -63670,10 +63670,10 @@
       "file_type": "rationale",
       "norm_label": "true when a fulltext query outgrew innodb_ft_result_cache_limit.",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L151"
+      "source_location": "L156"
     },
     {
-      "id": "backend_services_sections_service_rationale_156",
+      "id": "backend_services_sections_service_rationale_161",
       "label": "True when a text query failed in a way another plan or a bound can absorb. Both\u2026",
       "_origin": "ast",
       "community": 112,
@@ -63681,10 +63681,10 @@
       "file_type": "rationale",
       "norm_label": "true when a text query failed in a way another plan or a bound can absorb. both...",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L156"
+      "source_location": "L161"
     },
     {
-      "id": "backend_services_sections_service_rationale_234",
+      "id": "backend_services_sections_service_rationale_239",
       "label": "Join the private text index without applying any text predicate. Both phrase\u2026",
       "_origin": "ast",
       "community": 112,
@@ -63692,10 +63692,10 @@
       "file_type": "rationale",
       "norm_label": "join the private text index without applying any text predicate. both phrase...",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L234"
+      "source_location": "L239"
     },
     {
-      "id": "backend_services_sections_service_rationale_344",
+      "id": "backend_services_sections_service_rationale_349",
       "label": "Return `(total_count, is_approximate, method)` without forcing exact counts\u2026",
       "_origin": "ast",
       "community": 112,
@@ -63703,10 +63703,10 @@
       "file_type": "rationale",
       "norm_label": "return `(total_count, is_approximate, method)` without forcing exact counts...",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L344"
+      "source_location": "L349"
     },
     {
-      "id": "backend_services_sections_service_rationale_515",
+      "id": "backend_services_sections_service_rationale_520",
       "label": "Exact COUNT(*) when it fits the budget, otherwise an optimizer estimate. A\u2026",
       "_origin": "ast",
       "community": 112,
@@ -63714,10 +63714,10 @@
       "file_type": "rationale",
       "norm_label": "exact count(*) when it fits the budget, otherwise an optimizer estimate. a...",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L515"
+      "source_location": "L520"
     },
     {
-      "id": "backend_services_sections_service_rationale_547",
+      "id": "backend_services_sections_service_rationale_552",
       "label": "Serve a phrase page under whichever plan can actually run it. Returns the rows\u2026",
       "_origin": "ast",
       "community": 112,
@@ -63725,7 +63725,7 @@
       "file_type": "rationale",
       "norm_label": "serve a phrase page under whichever plan can actually run it. returns the rows...",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L547"
+      "source_location": "L552"
     },
     {
       "id": "backend_tests_test_sections_text_search_rationale_560",
@@ -63915,7 +63915,7 @@
       "source_location": ""
     },
     {
-      "id": "backend_services_sections_service_rationale_190",
+      "id": "backend_services_sections_service_rationale_195",
       "label": "Build a parameterized MariaDB FULLTEXT predicate for normalized section text.",
       "_origin": "ast",
       "community": 115,
@@ -63923,7 +63923,7 @@
       "file_type": "rationale",
       "norm_label": "build a parameterized mariadb fulltext predicate for normalized section text.",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L190"
+      "source_location": "L195"
     },
     {
       "id": "bulk_changelog_render_changelog_rationale_2",
@@ -68058,7 +68058,7 @@
       "source_location": "L1"
     },
     {
-      "id": "backend_services_sections_service_rationale_216",
+      "id": "backend_services_sections_service_rationale_221",
       "label": "Build the indexed candidate predicate used for result and count planning.",
       "_origin": "ast",
       "community": 147,
@@ -68066,7 +68066,7 @@
       "file_type": "rationale",
       "norm_label": "build the indexed candidate predicate used for result and count planning.",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L216"
+      "source_location": "L221"
     },
     {
       "id": "backend_text_search_rationale_110",
@@ -72721,7 +72721,7 @@
       "source_location": "L1"
     },
     {
-      "id": "backend_services_sections_service_rationale_304",
+      "id": "backend_services_sections_service_rationale_309",
       "label": "Read MariaDB's table estimate for the unfiltered search corpus.",
       "_origin": "ast",
       "community": 2,
@@ -72729,7 +72729,7 @@
       "file_type": "rationale",
       "norm_label": "read mariadb's table estimate for the unfiltered search corpus.",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L304"
+      "source_location": "L309"
     },
     {
       "id": "etl_src_etl_utils_logical_job_runs",
@@ -101705,7 +101705,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L241",
+      "source_location": "L246",
       "weight": 1.0
     },
     {
@@ -101717,7 +101717,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L221",
+      "source_location": "L226",
       "weight": 1.0
     },
     {
@@ -101729,7 +101729,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L191",
+      "source_location": "L196",
       "weight": 1.0
     },
     {
@@ -101741,7 +101741,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L202",
+      "source_location": "L207",
       "weight": 1.0
     },
     {
@@ -101753,7 +101753,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L521",
+      "source_location": "L526",
       "weight": 1.0
     },
     {
@@ -101765,7 +101765,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L529",
+      "source_location": "L534",
       "weight": 1.0
     },
     {
@@ -101777,7 +101777,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L532",
+      "source_location": "L537",
       "weight": 1.0
     },
     {
@@ -101789,7 +101789,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L535",
+      "source_location": "L540",
       "weight": 1.0
     },
     {
@@ -101801,7 +101801,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L552",
+      "source_location": "L557",
       "weight": 1.0
     },
     {
@@ -101813,7 +101813,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L571",
+      "source_location": "L576",
       "weight": 1.0
     },
     {
@@ -101825,7 +101825,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L576",
+      "source_location": "L581",
       "weight": 1.0
     },
     {
@@ -101837,7 +101837,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L152",
+      "source_location": "L157",
       "weight": 1.0
     },
     {
@@ -101849,7 +101849,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L147",
+      "source_location": "L152",
       "weight": 1.0
     },
     {
@@ -101861,7 +101861,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L162",
+      "source_location": "L167",
       "weight": 1.0
     },
     {
@@ -101873,7 +101873,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L162",
+      "source_location": "L167",
       "weight": 1.0
     },
     {
@@ -101885,7 +101885,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L592",
+      "source_location": "L597",
       "weight": 1.0
     },
     {
@@ -101897,7 +101897,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L595",
+      "source_location": "L600",
       "weight": 1.0
     },
     {
@@ -101909,7 +101909,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L698",
+      "source_location": "L703",
       "weight": 1.0
     },
     {
@@ -101921,7 +101921,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L737",
+      "source_location": "L742",
       "weight": 1.0
     },
     {
@@ -101933,7 +101933,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L812",
+      "source_location": "L817",
       "weight": 1.0
     },
     {
@@ -101945,7 +101945,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L837",
+      "source_location": "L842",
       "weight": 1.0
     },
     {
@@ -101957,7 +101957,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L1076",
+      "source_location": "L1081",
       "weight": 1.0
     },
     {
@@ -101969,7 +101969,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L1081",
+      "source_location": "L1086",
       "weight": 1.0
     },
     {
@@ -101981,7 +101981,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L668",
+      "source_location": "L673",
       "weight": 1.0
     },
     {
@@ -101993,7 +101993,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L698",
+      "source_location": "L703",
       "weight": 1.0
     },
     {
@@ -102005,7 +102005,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L737",
+      "source_location": "L742",
       "weight": 1.0
     },
     {
@@ -102017,7 +102017,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L799",
+      "source_location": "L804",
       "weight": 1.0
     },
     {
@@ -102029,7 +102029,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L812",
+      "source_location": "L817",
       "weight": 1.0
     },
     {
@@ -102041,7 +102041,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L837",
+      "source_location": "L842",
       "weight": 1.0
     },
     {
@@ -102053,7 +102053,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L840",
+      "source_location": "L845",
       "weight": 1.0
     },
     {
@@ -102065,7 +102065,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L891",
+      "source_location": "L896",
       "weight": 1.0
     },
     {
@@ -102077,7 +102077,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L935",
+      "source_location": "L940",
       "weight": 1.0
     },
     {
@@ -155093,7 +155093,7 @@
       "confidence_score": 1.0,
       "context": "generic_arg",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L538",
+      "source_location": "L543",
       "weight": 1.0
     },
     {
@@ -206692,7 +206692,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L509",
+      "source_location": "L514",
       "weight": 1.0
     },
     {
@@ -206704,7 +206704,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L140",
+      "source_location": "L145",
       "weight": 1.0
     },
     {
@@ -206716,7 +206716,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L150",
+      "source_location": "L155",
       "weight": 1.0
     },
     {
@@ -206728,7 +206728,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L145",
+      "source_location": "L150",
       "weight": 1.0
     },
     {
@@ -206740,7 +206740,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L155",
+      "source_location": "L160",
       "weight": 1.0
     },
     {
@@ -215128,7 +215128,7 @@
       "confidence_score": 1.0,
       "context": "return_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L227",
+      "source_location": "L232",
       "weight": 1.0
     },
     {
@@ -215140,7 +215140,7 @@
       "confidence_score": 1.0,
       "context": "return_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L210",
+      "source_location": "L215",
       "weight": 1.0
     },
     {
@@ -215152,7 +215152,7 @@
       "confidence_score": 1.0,
       "context": "return_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L184",
+      "source_location": "L189",
       "weight": 1.0
     },
     {
@@ -215164,7 +215164,7 @@
       "confidence_score": 1.0,
       "context": "return_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L165",
+      "source_location": "L170",
       "weight": 1.0
     },
     {
@@ -215176,7 +215176,7 @@
       "confidence_score": 1.0,
       "context": "return_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L267",
+      "source_location": "L272",
       "weight": 1.0
     },
     {
@@ -225329,7 +225329,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L102",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -225340,7 +225340,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L109",
+      "source_location": "L114",
       "weight": 1.0
     },
     {
@@ -225351,7 +225351,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L120",
+      "source_location": "L125",
       "weight": 1.0
     },
     {
@@ -225362,7 +225362,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L140",
+      "source_location": "L145",
       "weight": 1.0
     },
     {
@@ -225373,7 +225373,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L145",
+      "source_location": "L150",
       "weight": 1.0
     },
     {
@@ -225384,7 +225384,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L150",
+      "source_location": "L155",
       "weight": 1.0
     },
     {
@@ -225395,7 +225395,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L155",
+      "source_location": "L160",
       "weight": 1.0
     },
     {
@@ -225406,7 +225406,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L165",
+      "source_location": "L170",
       "weight": 1.0
     },
     {
@@ -225417,7 +225417,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L184",
+      "source_location": "L189",
       "weight": 1.0
     },
     {
@@ -225428,7 +225428,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L210",
+      "source_location": "L215",
       "weight": 1.0
     },
     {
@@ -225439,7 +225439,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L227",
+      "source_location": "L232",
       "weight": 1.0
     },
     {
@@ -225450,7 +225450,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L249",
+      "source_location": "L254",
       "weight": 1.0
     },
     {
@@ -225461,7 +225461,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L259",
+      "source_location": "L264",
       "weight": 1.0
     },
     {
@@ -225472,7 +225472,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L271",
+      "source_location": "L276",
       "weight": 1.0
     },
     {
@@ -225483,7 +225483,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L303",
+      "source_location": "L308",
       "weight": 1.0
     },
     {
@@ -225494,7 +225494,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L331",
+      "source_location": "L336",
       "weight": 1.0
     },
     {
@@ -225505,7 +225505,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L388",
+      "source_location": "L393",
       "weight": 1.0
     },
     {
@@ -225516,7 +225516,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L409",
+      "source_location": "L414",
       "weight": 1.0
     },
     {
@@ -225527,7 +225527,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L509",
+      "source_location": "L514",
       "weight": 1.0
     },
     {
@@ -225538,7 +225538,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L538",
+      "source_location": "L543",
       "weight": 1.0
     },
     {
@@ -225549,7 +225549,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L584",
+      "source_location": "L589",
       "weight": 1.0
     },
     {
@@ -225560,7 +225560,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L601",
+      "source_location": "L606",
       "weight": 1.0
     },
     {
@@ -225571,7 +225571,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L71",
+      "source_location": "L76",
       "weight": 1.0
     },
     {
@@ -225582,7 +225582,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L82",
+      "source_location": "L87",
       "weight": 1.0
     },
     {
@@ -262847,7 +262847,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L249",
+      "source_location": "L254",
       "weight": 1.0
     },
     {
@@ -262858,7 +262858,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L259",
+      "source_location": "L264",
       "weight": 1.0
     },
     {
@@ -264739,7 +264739,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L250",
+      "source_location": "L255",
       "weight": 1.0
     },
     {
@@ -264750,7 +264750,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L260",
+      "source_location": "L265",
       "weight": 1.0
     },
     {
@@ -264761,7 +264761,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L263",
+      "source_location": "L268",
       "weight": 1.0
     },
     {
@@ -264772,7 +264772,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L267",
+      "source_location": "L272",
       "weight": 1.0
     },
     {
@@ -283883,30 +283883,19 @@
       "weight": 1.0
     },
     {
-      "source": "backend_services_sections_service_rationale_103",
+      "source": "backend_services_sections_service_rationale_108",
       "target": "backend_services_sections_service_reset_text_plan_cache",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L103",
-      "weight": 1.0
-    },
-    {
-      "source": "backend_services_sections_service_rationale_146",
-      "target": "backend_services_sections_service_is_statement_timeout_error",
-      "relation": "rationale_for",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "backend/services/sections_service.py",
-      "source_location": "L146",
+      "source_location": "L108",
       "weight": 1.0
     },
     {
       "source": "backend_services_sections_service_rationale_151",
-      "target": "backend_services_sections_service_is_fts_result_cache_error",
+      "target": "backend_services_sections_service_is_statement_timeout_error",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -283917,7 +283906,7 @@
     },
     {
       "source": "backend_services_sections_service_rationale_156",
-      "target": "backend_services_sections_service_is_text_plan_exhausted_error",
+      "target": "backend_services_sections_service_is_fts_result_cache_error",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -283927,91 +283916,102 @@
       "weight": 1.0
     },
     {
-      "source": "backend_services_sections_service_rationale_190",
+      "source": "backend_services_sections_service_rationale_161",
+      "target": "backend_services_sections_service_is_text_plan_exhausted_error",
+      "relation": "rationale_for",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/services/sections_service.py",
+      "source_location": "L161",
+      "weight": 1.0
+    },
+    {
+      "source": "backend_services_sections_service_rationale_195",
       "target": "backend_services_sections_service_build_section_text_match_expression",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L190",
+      "source_location": "L195",
       "weight": 1.0
     },
     {
-      "source": "backend_services_sections_service_rationale_216",
+      "source": "backend_services_sections_service_rationale_221",
       "target": "backend_services_sections_service_build_section_text_candidate_expression",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L216",
+      "source_location": "L221",
       "weight": 1.0
     },
     {
-      "source": "backend_services_sections_service_rationale_234",
+      "source": "backend_services_sections_service_rationale_239",
       "target": "backend_services_sections_service_apply_section_text_join",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L234",
+      "source_location": "L239",
       "weight": 1.0
     },
     {
-      "source": "backend_services_sections_service_rationale_272",
+      "source": "backend_services_sections_service_rationale_277",
       "target": "backend_services_sections_service_estimated_query_row_count",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L272",
+      "source_location": "L277",
       "weight": 1.0
     },
     {
-      "source": "backend_services_sections_service_rationale_304",
+      "source": "backend_services_sections_service_rationale_309",
       "target": "backend_services_sections_service_estimated_latest_sections_search_table_rows",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L304",
+      "source_location": "L309",
       "weight": 1.0
     },
     {
-      "source": "backend_services_sections_service_rationale_344",
+      "source": "backend_services_sections_service_rationale_349",
       "target": "backend_services_sections_service_sections_total_count_metadata",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L344",
+      "source_location": "L349",
       "weight": 1.0
     },
     {
-      "source": "backend_services_sections_service_rationale_515",
+      "source": "backend_services_sections_service_rationale_520",
       "target": "backend_services_sections_service_count_with_timeout_fallback",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L515",
+      "source_location": "L520",
       "weight": 1.0
     },
     {
-      "source": "backend_services_sections_service_rationale_547",
+      "source": "backend_services_sections_service_rationale_552",
       "target": "backend_services_sections_service_fetch_phrase_page",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L547",
+      "source_location": "L552",
       "weight": 1.0
     },
     {
@@ -291585,7 +291585,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L297",
+      "source_location": "L302",
       "weight": 1.0
     },
     {
@@ -291597,7 +291597,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L173",
+      "source_location": "L178",
       "weight": 1.0
     },
     {
@@ -291609,7 +291609,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L175",
+      "source_location": "L180",
       "weight": 1.0
     },
     {
@@ -291621,7 +291621,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L598",
+      "source_location": "L603",
       "weight": 1.0
     },
     {
@@ -291633,7 +291633,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L1018",
+      "source_location": "L1023",
       "weight": 1.0
     },
     {
@@ -291645,7 +291645,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L1037",
+      "source_location": "L1042",
       "weight": 1.0
     },
     {
@@ -291657,7 +291657,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L647",
+      "source_location": "L652",
       "weight": 1.0
     },
     {
@@ -291669,7 +291669,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L729",
+      "source_location": "L734",
       "weight": 1.0
     },
     {
@@ -291681,7 +291681,7 @@
       "confidence_score": 0.85,
       "context": "call",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L950",
+      "source_location": "L955",
       "weight": 1.0
     },
     {
@@ -304448,7 +304448,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L510",
+      "source_location": "L515",
       "weight": 0.8
     },
     {
@@ -304460,7 +304460,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L303",
+      "source_location": "L308",
       "weight": 0.8
     },
     {
@@ -304472,7 +304472,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L271",
+      "source_location": "L276",
       "weight": 0.8
     },
     {
@@ -304484,7 +304484,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L539",
+      "source_location": "L544",
       "weight": 0.8
     },
     {
@@ -304496,7 +304496,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L585",
+      "source_location": "L590",
       "weight": 0.8
     },
     {
@@ -304508,7 +304508,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L587",
+      "source_location": "L592",
       "weight": 0.8
     },
     {
@@ -304520,7 +304520,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L588",
+      "source_location": "L593",
       "weight": 0.8
     },
     {
@@ -304532,7 +304532,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L602",
+      "source_location": "L607",
       "weight": 0.8
     },
     {
@@ -304544,7 +304544,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L604",
+      "source_location": "L609",
       "weight": 0.8
     },
     {
@@ -304556,7 +304556,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L605",
+      "source_location": "L610",
       "weight": 0.8
     },
     {
@@ -304568,7 +304568,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L411",
+      "source_location": "L416",
       "weight": 0.8
     },
     {
@@ -304580,7 +304580,7 @@
       "confidence_score": 0.95,
       "context": "parameter_type",
       "source_file": "backend/services/sections_service.py",
-      "source_location": "L332",
+      "source_location": "L337",
       "weight": 0.8
     },
     {
@@ -313236,5 +313236,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "c59838f492751abe66be683b79ea309f24fa021e"
+  "built_at_commit": "bd2415131995ce52397177d2f537fbe5a02e869c"
 }
