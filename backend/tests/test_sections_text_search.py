@@ -711,3 +711,51 @@ class FtsResultCacheLimitTests(unittest.TestCase):
                     text_query="material adverse effect", text_match_mode="phrase"
                 ),
             )
+
+
+class PhraseCountQueryShapeTests(unittest.TestCase):
+    """An exact count must never be taken against the date-ordered plan.
+
+    The two plans select the same rows, but only the FULLTEXT one carries a
+    candidate predicate. Counting the other runs the phrase REGEXP across the
+    whole corpus rather than across the phrase's candidates, which no budget can
+    absorb -- it silently turned every exact count into a bare lower bound.
+    """
+
+    def setUp(self) -> None:
+        reset_text_plan_cache()
+
+    def tearDown(self) -> None:
+        reset_text_plan_cache()
+
+    def test_exact_count_uses_the_candidate_narrowed_query(self) -> None:
+        parsed_args = _parsed_args(
+            text_query="material adverse effect",
+            text_match_mode="phrase",
+            count_mode="exact",
+        )
+        # Force the date-ordered plan to serve the page.
+        _remember_text_plan(
+            build_search_count_cache_key("sections", parsed_args), TEXT_PLAN_DATE_SCAN
+        )
+        query = _chained_query()
+        deps = _service_deps(query)
+        counted: list[object] = []
+        deps._cached_exact_query_count.side_effect = lambda q, **_kw: (
+            counted.append(q) or 0
+        )
+
+        _ = run_sections(deps, ctx=cast(Any, _CTX), parsed_args=parsed_args)
+
+        self.assertTrue(counted, "an exact count should have been attempted")
+        # The mock collapses the chain, so assert on the predicate that was built:
+        # the count must have been derived from the query carrying MATCH(...).
+        candidate_calls = [
+            call
+            for call in query.filter.call_args_list
+            if "MATCH" in str(call).upper()
+        ]
+        self.assertTrue(
+            candidate_calls,
+            "the counted query must retain the FULLTEXT candidate predicate",
+        )

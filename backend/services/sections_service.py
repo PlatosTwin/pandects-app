@@ -841,8 +841,13 @@ def _run_sections(
 
     count_cache_key = build_search_count_cache_key("sections", parsed_args)
     offset = (page - 1) * page_size
+    # Counting always uses the FULLTEXT-narrowed shape, whichever plan served the
+    # page. The two select the same rows, but the date-ordered one carries no
+    # candidate predicate: counting it means running the phrase REGEXP across the
+    # whole corpus instead of across the phrase's candidates.
+    count_query = q
     if phrase_mode and date_scan_query is not None:
-        page_rows, q = _fetch_phrase_page(
+        page_rows, _page_query = _fetch_phrase_page(
             deps,
             fulltext_query=q,
             date_scan_query=apply_sort(date_scan_query),
@@ -894,12 +899,14 @@ def _run_sections(
     unknown_total_floor = page_lower_bound + 1 if has_next else page_lower_bound
     if count_mode == "exact":
         counted, counted_exactly = _count_with_timeout_fallback(
-            deps, query=q, cache_key=count_cache_key
+            deps, query=count_query, cache_key=count_cache_key
         )
         if counted_exactly:
             total_count = cast(int, counted)
             total_agreement_count = deps._cached_exact_query_count(
-                q.order_by(None).with_entities(distinct(latest.agreement_uuid)),
+                count_query.order_by(None).with_entities(
+                    distinct(latest.agreement_uuid)
+                ),
                 cache_key=f"{count_cache_key}:agreements",
             )
             total_count_is_approximate = False
@@ -939,7 +946,7 @@ def _run_sections(
     else:
         total_count, total_count_is_approximate, count_method = sections_total_count_metadata(
             deps,
-            query=q,
+            query=count_query,
             page=page,
             page_size=page_size,
             item_count=item_count,
