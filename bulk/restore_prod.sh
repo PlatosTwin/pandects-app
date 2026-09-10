@@ -21,7 +21,9 @@ RESTORE_VM_SIZE=${RESTORE_VM_SIZE:-performance-2x}
 RESTORE_VM_MEMORY=${RESTORE_VM_MEMORY:-4096}
 BULK_VM_SIZE=${BULK_VM_SIZE:-performance-2x}
 MYLOADER_THREADS=${MYLOADER_THREADS:-4}
-RESTORE_TIMEOUT_SECS=${RESTORE_TIMEOUT_SECS:-10800}
+# The 2026-09 restore took 4h13m: mydumper 0.10.0 has no deferred key
+# creation, so the section_text_search FULLTEXT index builds during load.
+RESTORE_TIMEOUT_SECS=${RESTORE_TIMEOUT_SECS:-28800}
 DB_READY_TIMEOUT_SECS=${DB_READY_TIMEOUT_SECS:-600}
 POLL_SECS=15
 
@@ -218,10 +220,12 @@ log "Restore machine id: $RESTORE_MACHINE — streaming its logs"
 fly logs --app "$BULK_APP" --machine "$RESTORE_MACHINE" &
 LOGS_PID=$!
 
-waited=0
+# Wall clock, not a sleep counter: each poll also spends seconds inside the Fly
+# API, so counting sleeps undercounts a long restore by more than an hour.
+RESTORE_DEADLINE=$(( $(date +%s) + RESTORE_TIMEOUT_SECS ))
 STATE=""
 EXIT_CODE="-"
-while (( waited < RESTORE_TIMEOUT_SECS )); do
+while (( $(date +%s) < RESTORE_DEADLINE )); do
   STATUS=$(restore_machine_status)
   STATE=${STATUS%% *}
   EXIT_CODE=${STATUS#* }
@@ -229,15 +233,28 @@ while (( waited < RESTORE_TIMEOUT_SECS )); do
     stopped|destroyed|failed|missing) break ;;
   esac
   sleep "$POLL_SECS"
-  waited=$((waited + POLL_SECS))
 done
 kill "$LOGS_PID" 2>/dev/null || true
 LOGS_PID=""
 
-(( waited < RESTORE_TIMEOUT_SECS )) || die "restore still running after ${RESTORE_TIMEOUT_SECS}s"
+(( $(date +%s) < RESTORE_DEADLINE )) || die "restore still running after ${RESTORE_TIMEOUT_SECS}s"
+
+# Fly publishes the exit event a few seconds after the machine reports
+# `stopped`; poll for it instead of reading the gap as a failure.
+for _ in 1 2 3 4 5 6; do
+  [[ "$EXIT_CODE" == "-" ]] || break
+  sleep 5
+  STATUS=$(restore_machine_status)
+  STATE=${STATUS%% *}
+  EXIT_CODE=${STATUS#* }
+done
+
 RESTORE_RUNNING=0
-[[ "$EXIT_CODE" == "0" ]] || die "restore machine exited with code $EXIT_CODE (state $STATE)"
-log "restore_from_r2.py exited 0"
+case "$EXIT_CODE" in
+  0) log "restore_from_r2.py exited 0" ;;
+  -) log "⚠️  Fly reported no exit code (state $STATE); the checks below decide." ;;
+  *) die "restore machine exited with code $EXIT_CODE (state $STATE)" ;;
+esac
 
 # ---------------------------------------------------------------------------
 # 3. Verify against the live database
@@ -245,15 +262,22 @@ log "restore_from_r2.py exited 0"
 log "Verifying"
 wait_for_db || die "MariaDB is not answering after the restore"
 
-echo "Row counts:"
-db_sql "SELECT 'agreements', COUNT(*) FROM agreements UNION ALL SELECT 'sections', COUNT(*) FROM sections UNION ALL SELECT 'latest_sections_search', COUNT(*) FROM latest_sections_search UNION ALL SELECT 'section_text_search', COUNT(*) FROM section_text_search"
+# Every query here has to finish inside the `fly machine exec` deadline, so the
+# corpus-wide tables are read as InnoDB estimates. restore_from_r2.py has
+# already checked their exact counts against the manifest and exited nonzero if
+# any table disagreed.
+echo "Exact row count:"
+db_sql "SELECT 'agreements', COUNT(*) FROM agreements"
+echo "Large-table estimates (approximate):"
+db_sql "SELECT TABLE_NAME, TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA='pdx' AND TABLE_NAME IN ('sections','latest_sections_search','section_text_search')"
 
 FT_INDEX=$(db_sql "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='pdx' AND TABLE_NAME='section_text_search' AND INDEX_TYPE='FULLTEXT'" | tr -d '[:space:]')
 [[ "$FT_INDEX" == "1" ]] || die "section_text_search has no FULLTEXT index (got '$FT_INDEX')"
 echo "FULLTEXT index on section_text_search: present"
 
-echo "Text search smoke query (sections matching 'material adverse effect'):"
-db_sql "SELECT COUNT(*) FROM section_text_search WHERE MATCH(normalized_text) AGAINST('+material +adverse +effect' IN BOOLEAN MODE)"
+SMOKE=$(db_sql "SELECT COUNT(*) FROM (SELECT 1 FROM section_text_search WHERE MATCH(normalized_text) AGAINST('+material +adverse +effect' IN BOOLEAN MODE) LIMIT 5) probe" | tr -d '[:space:]')
+[[ "$SMOKE" == "5" ]] || die "FULLTEXT smoke query matched '$SMOKE' rows for 'material adverse effect' (expected 5)"
+echo "FULLTEXT smoke query: matches found for 'material adverse effect'"
 
 echo "Recent MariaDB log lines:"
 fly logs --app "$DB_APP" --no-tail 2>/dev/null | tail -n 15 || true

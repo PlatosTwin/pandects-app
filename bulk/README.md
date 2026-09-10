@@ -58,7 +58,10 @@ index, and a boolean-mode smoke query against the live database, and scales
 `pandects-db` back to its recorded size on exit — on failure too. If the
 restore is still running when the script is interrupted or times out, it
 leaves the restore machine and the scaled-up DB alone and prints how to finish
-by hand. Deploy the restore image first whenever the restore script changed:
+by hand. Expect it to run for hours: the 2026-09 restore took 4h13m, most
+of it building the `section_text_search` FULLTEXT index during load,
+because the image's mydumper 0.10.0 cannot defer key creation. Deploy the
+restore image first whenever the restore script changed:
 
 ```bash
 cd bulk && fly deploy --app pandects-bulk
