@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -150,11 +151,19 @@ class ChangelogTests(unittest.TestCase):
             renderer.MARKDOWN_OUT_PATH = tmp_path / "CHANGELOG.md"
             renderer.DOCS_GUIDE_OUT_PATH = tmp_path / "changelog-guide.md"
 
+            # Derived, not hardcoded: releases must stay sorted newest-first, so
+            # a fixed version starts failing as soon as a later release is
+            # stamped into the committed changelog.
+            committed = renderer.load_changelog(changelog_copy)
+            newest = cast(list[dict[str, object]], committed["releases"])[0]["version"]
+            version = (date.fromisoformat(str(newest)) + timedelta(days=1)).isoformat()
+            next_version = (date.fromisoformat(version) + timedelta(days=1)).isoformat()
+
             renderer.release(
-                version="2026-09-01",
-                released="2026-09-01T00:00:00Z",
+                version=version,
+                released=f"{version}T00:00:00Z",
                 dump_sha256="e" * 64,
-                dump_key="dumps/public_2026-09-01.sql.gz",
+                dump_key=f"dumps/public_{version}.sql.gz",
                 dbml_path=dbml,
                 counts_in=counts_in,
                 json_out=tmp_path / "changelog.json",
@@ -164,7 +173,7 @@ class ChangelogTests(unittest.TestCase):
             renderer.validate(rolled)
             self.assertEqual(rolled["unreleased"], [])
             releases = cast(list[dict[str, object]], rolled["releases"])
-            self.assertEqual(releases[0]["version"], "2026-09-01")
+            self.assertEqual(releases[0]["version"], version)
             self.assertEqual(releases[0]["dump_sha256"], "e" * 64)
             stats = cast(dict[str, Any], releases[0]["stats"])
             self.assertEqual(stats["row_counts"], {"agreements": 14100})
@@ -175,7 +184,7 @@ class ChangelogTests(unittest.TestCase):
             self.assertTrue(changelog_copy.read_text().startswith("# Pandects dataset changelog"))
 
             payload = json.loads((tmp_path / "changelog.json").read_text())
-            self.assertEqual(payload["latest_version"], "2026-09-01")
+            self.assertEqual(payload["latest_version"], version)
             self.assertEqual(
                 [r["version"] for r in payload["releases"]],
                 [r["version"] for r in releases],
@@ -183,21 +192,21 @@ class ChangelogTests(unittest.TestCase):
             # A second release with the same dump is rejected.
             with self.assertRaises(SystemExit):
                 renderer.release(
-                    version="2026-09-02",
-                    released="2026-09-02T00:00:00Z",
+                    version=next_version,
+                    released=f"{next_version}T00:00:00Z",
                     dump_sha256="e" * 64,
-                    dump_key="dumps/public_2026-09-02.sql.gz",
+                    dump_key=f"dumps/public_{next_version}.sql.gz",
                     dbml_path=dbml,
                     counts_in=counts_in,
                     json_out=tmp_path / "changelog2.json",
                 )
             # A same-day repush (new dump, same date version) gets a .2 suffix
-            # so `?since=2026-09-01` still surfaces it.
+            # so `?since=<that date>` still surfaces it.
             renderer.release(
-                version="2026-09-01",
-                released="2026-09-01T06:00:00Z",
+                version=version,
+                released=f"{version}T06:00:00Z",
                 dump_sha256="f" * 64,
-                dump_key="dumps/public_2026-09-01_2.sql.gz",
+                dump_key=f"dumps/public_{version}_2.sql.gz",
                 dbml_path=dbml,
                 counts_in=counts_in,
                 json_out=tmp_path / "changelog3.json",
@@ -205,8 +214,8 @@ class ChangelogTests(unittest.TestCase):
             rolled = renderer.load_changelog(changelog_copy)
             renderer.validate(rolled)
             releases = cast(list[dict[str, object]], rolled["releases"])
-            self.assertEqual(releases[0]["version"], "2026-09-01.2")
-            self.assertGreater(str(releases[0]["version"]), "2026-09-01")
+            self.assertEqual(releases[0]["version"], f"{version}.2")
+            self.assertGreater(str(releases[0]["version"]), version)
 
     def test_soft_gate_flags_anomalous_row_count_deltas(self) -> None:
         releases = [

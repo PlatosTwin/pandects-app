@@ -108,10 +108,10 @@ releases:
     - 7200bdb
   - type: data
     severity: notable
-    summary: 'Monthly load: 146 agreements added (filings through 2026-08-14) with 3,430 new
+    summary: 'Monthly load: 146 agreements added (filings through 2026-08-14) with 6,937 new
       searchable sections'
     details: 'Covers filings from late July through 14 August 2026. agreements 13,980 -> 14,126;
-      latest_sections_search 947,546 -> 950,976. The section text search index tracks latest_sections_search
+      latest_sections_search 947,546 -> 954,483. The section text search index tracks latest_sections_search
       row for row.
 
       '

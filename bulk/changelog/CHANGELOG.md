@@ -21,8 +21,8 @@ the MCP surface. Machine-readable version:
 - **[mcp/notable]** search_sections gains lexical full-text search over current section text via text_query and text_match_mode (phrase, all_terms, any_terms)
   - Text search composes with standard_id and every structured filter. It is served from a private section_text_search table that is part of the production restore snapshot but not the public dump. Queries are capped at 256 characters and 24 terms, and each text-search statement runs under a 20-second database bound; a query that exceeds it returns a validation error asking for a narrower query.
   - Refs: 2d4c315, 7200bdb
-- **[data/notable]** Monthly load: 146 agreements added (filings through 2026-08-14) with 3,430 new searchable sections
-  - Covers filings from late July through 14 August 2026. agreements 13,980 -> 14,126; latest_sections_search 947,546 -> 950,976. The section text search index tracks latest_sections_search row for row.
+- **[data/notable]** Monthly load: 146 agreements added (filings through 2026-08-14) with 6,937 new searchable sections
+  - Covers filings from late July through 14 August 2026. agreements 13,980 -> 14,126; latest_sections_search 947,546 -> 954,483. The section text search index tracks latest_sections_search row for row.
   - Tables: agreements, sections, latest_sections_search
 - **[api/minor]** Added changelog distribution: dumps/changelog.json is published next to each dump, GET /v1/changelog serves it (filterable by since/dump_sha256), and /v1/dumps entries gain changelog_url
   - Refs: 1eb2010
