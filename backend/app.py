@@ -198,7 +198,6 @@ from backend.services.async_tasks import AsyncTaskRunner
 from backend.services.sections_service import (
     estimated_latest_sections_search_table_rows as _svc_estimated_latest_sections_search_table_rows,
     estimated_query_row_count as _svc_estimated_query_row_count,
-    sections_total_count_metadata as _svc_sections_total_count_metadata,
 )
 from backend.services.usage import LATENCY_BUCKET_BOUNDS_MS, UsageBuffer
 from backend.services.usage import record_api_key_usage as _record_api_key_usage_service
@@ -707,6 +706,7 @@ def _build_sections_service_deps() -> SectionsServiceDeps:
     return SectionsServiceDeps(
         db=db,
         AgreementCounsel=AgreementCounsel,
+        Agreements=Agreements,
         Counsel=Counsel,
         LatestSectionsSearch=LatestSectionsSearch,
         SectionTextSearch=SectionTextSearch,
@@ -769,30 +769,6 @@ def _cached_exact_query_count(query: object, *, cache_key: str | None) -> int:
 
 def _estimated_latest_sections_search_table_rows() -> int | None:
     return _svc_estimated_latest_sections_search_table_rows(_build_sections_service_deps())
-
-
-def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
-    *,
-    query: object,
-    page: int,
-    page_size: int,
-    item_count: int,
-    has_next: bool,
-    has_filters: bool,
-    count_cache_key: str | None = None,
-) -> tuple[int, bool]:
-    total_count, is_approximate, _ = _svc_sections_total_count_metadata(
-        _build_sections_service_deps(),
-        query=query,
-        page=page,
-        page_size=page_size,
-        item_count=item_count,
-        has_next=has_next,
-        has_filters=has_filters,
-        count_mode="auto",
-        count_cache_key=count_cache_key,
-    )
-    return total_count, is_approximate
 
 
 def _auth_enumeration_delay() -> None:
@@ -1500,6 +1476,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         Clauses=Clauses,
         Counsel=Counsel,
         LatestSectionsSearch=LatestSectionsSearch,
+        SectionTextSearch=SectionTextSearch,
         Sections=Sections,
         TaxonomyL1=TaxonomyL1,
         TaxonomyL2=TaxonomyL2,

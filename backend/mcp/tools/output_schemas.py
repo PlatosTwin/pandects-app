@@ -483,6 +483,7 @@ def _batch_agreements_output_schema() -> dict[str, object]:
 def _get_agreement_output_schema() -> dict[str, object]:
     return _object_schema(
         {
+            "agreement_uuid": {"type": "string"},
             "year": {"type": ["integer", "null"]},
             "target": {"type": ["string", "null"]},
             "acquirer": {"type": ["string", "null"]},
@@ -519,7 +520,7 @@ def _get_agreement_output_schema() -> dict[str, object]:
         # get_agreement has no field projection, so every metadata key -- including the
         # two industry labels -- is always present, null when the underlying code is
         # absent or undecodable.
-        required=["xml_included", "target_industry_label", "acquirer_industry_label"],
+        required=["agreement_uuid", "xml_included", "target_industry_label", "acquirer_industry_label"],
     )
 
 

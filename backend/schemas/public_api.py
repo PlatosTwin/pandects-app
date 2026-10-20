@@ -46,6 +46,30 @@ class AgreementsBulkArgsSchema(Schema):
         metadata={"description": "When true, include full agreement XML for each result."},
     )
     year = fields.List(fields.Int(), load_default=[])
+    year_min = fields.Int(
+        load_default=None,
+        allow_none=True,
+        validate=validate.Range(min=1900, max=2100),
+        metadata={"description": "Earliest filing year to include (inclusive)."},
+    )
+    year_max = fields.Int(
+        load_default=None,
+        allow_none=True,
+        validate=validate.Range(min=1900, max=2100),
+        metadata={"description": "Latest filing year to include (inclusive)."},
+    )
+    filed_after = fields.Str(
+        load_default=None,
+        allow_none=True,
+        validate=validate.Regexp(r"^\d{4}-\d{2}-\d{2}$"),
+        metadata={"description": "Only agreements filed on or after this date (YYYY-MM-DD)."},
+    )
+    filed_before = fields.Str(
+        load_default=None,
+        allow_none=True,
+        validate=validate.Regexp(r"^\d{4}-\d{2}-\d{2}$"),
+        metadata={"description": "Only agreements filed before this date (YYYY-MM-DD, exclusive)."},
+    )
     target = fields.List(fields.Str(), load_default=[])
     acquirer = fields.List(fields.Str(), load_default=[])
     transaction_price_total = fields.List(fields.Str(), load_default=[])
@@ -111,6 +135,30 @@ class AgreementsIndexArgsSchema(Schema):
     )
 
 
+class AgreementsIndexQueryArgsSchema(AgreementsIndexArgsSchema):
+    """`/v1/agreements-index` arguments.
+
+    Accepts `sort_direction` like every other paginated endpoint; `sort_dir`, the name
+    this endpoint originally required, remains a deprecated alias. The base schema keeps
+    `sort_dir` for the MCP tools that merge it.
+    """
+
+    sort_direction = fields.Str(
+        load_default=None,
+        allow_none=True,
+        validate=validate.OneOf(["asc", "desc"]),
+        metadata={"description": "Sort direction. One of: `asc`, `desc`. Defaults to `desc`."},
+    )
+    sort_dir = fields.Str(
+        load_default=None,
+        allow_none=True,
+        validate=validate.OneOf(["asc", "desc"]),
+        metadata={
+            "description": "Deprecated alias of `sort_direction`, used only when `sort_direction` is absent."
+        },
+    )
+
+
 class AgreementArgsPayload(TypedDict):
     focus_section_uuid: str | None
     neighbor_sections: int
@@ -121,6 +169,10 @@ class AgreementsBulkArgsPayload(TypedDict):
     page_size: int
     include_xml: bool
     year: list[int]
+    year_min: int | None
+    year_max: int | None
+    filed_after: str | None
+    filed_before: str | None
     target: list[str]
     acquirer: list[str]
     transaction_price_total: list[str]
@@ -147,6 +199,7 @@ class AgreementsBulkArgsPayload(TypedDict):
 
 
 class AgreementResponseSchema(Schema):
+    agreement_uuid = fields.Str()
     year = fields.Int()
     target = fields.Str()
     acquirer = fields.Str()
@@ -231,6 +284,16 @@ class AgreementSearchMatchedSectionSchema(Schema):
     section_title = fields.Str(allow_none=True)
     standard_id = fields.List(fields.Str(), required=True)
     snippet = fields.Str(allow_none=True)
+    matched_terms = fields.List(
+        fields.Str(),
+        required=False,
+        metadata={
+            "description": (
+                "Present when `text_query` is set: the matched text spans as they appear in "
+                "the section, for highlighting. `snippet` is centered on the first match."
+            ),
+        },
+    )
 
 
 class AgreementSearchResultSchema(Schema):
@@ -286,13 +349,28 @@ class AgreementSearchResponseSchema(Schema):
     has_prev = fields.Bool(required=True)
     next_num = fields.Int(allow_none=True)
     prev_num = fields.Int(allow_none=True)
+    count_metadata = fields.Dict(
+        required=False,
+        metadata={
+            "description": (
+                "How total_count was computed: `mode` (exact/estimated), `method`, "
+                "`planning_reliability`, `exact_count_requested`. With `text_query`, a total "
+                "too expensive to count in time is reported as a lower bound "
+                "(`method: filtered_lower_bound`, `total_count_is_approximate: true`)."
+            ),
+        },
+    )
     dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 
 class SectionResponseSchema(Schema):
     agreement_uuid = fields.Str()
     section_uuid = fields.Str()
-    section_standard_id = fields.List(fields.Str())
+    standard_id = fields.List(fields.Str())
+    section_standard_id = fields.List(
+        fields.Str(),
+        metadata={"description": "Deprecated alias of `standard_id`."},
+    )
     xml = fields.Str()
     article_title = fields.Str()
     section_title = fields.Str()
@@ -467,6 +545,7 @@ __all__ = [
     "AgreementsBulkArgsPayload",
     "AgreementsBulkArgsSchema",
     "AgreementsIndexArgsSchema",
+    "AgreementsIndexQueryArgsSchema",
     "AgreementsListResponseSchema",
     "CounselEntrySchema",
     "CounselResponseSchema",

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useHydrated } from "@/components/landing/use-hydrated";
 import { ArrowRight } from "lucide-react";
 import { useRecentAgreements } from "@/hooks/use-recent-agreements";
 import { Skeleton } from "@/components/ui/skeleton";
+import { eyebrowClassName } from "@/components/ui/eyebrow";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
@@ -11,84 +12,76 @@ interface FeaturedAgreementsProps {
   className?: string;
 }
 
-const FILING_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  year: "numeric",
-  month: "short",
-});
+type RecentAgreement = ReturnType<
+  typeof useRecentAgreements
+>["results"][number];
 
-function formatFilingDate(value: string | null): string | null {
-  if (!value) return null;
-  const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) return null;
-  return FILING_DATE_FORMATTER.format(dt);
-}
+const ALL_DEALS_PATH = "/search?mode=transactions";
+
+const ROW = "flex min-h-[3.75rem] items-center gap-3 px-4 py-2.5";
 
 /**
- * Compact rail of the most-recently-filed agreements, each clickable through
- * to its detail page. Rendered on the landing page so first-time visitors see
- * real, current data — not just a marketing card.
+ * The most recently filed agreements as a short list of rows (target,
+ * acquirer, year), each opening the agreement. Shown on the landing page so
+ * first-time visitors see real, current data.
  *
- * SSR-safe: returns an empty placeholder during prerender (useRecentAgreements
- * is gated on IS_SERVER_RENDER) and a skeleton while loading on hydration. If
- * the fetch fails we render nothing rather than an error UI; the landing page
- * still works without this section.
+ * SSR-safe: the query is disabled during prerender, so the server and the
+ * first client paint both render the skeleton rows; after hydration the rows
+ * fill in. If the fetch fails (for example while the API is locked) the
+ * section renders nothing; the landing page works without it.
  */
 export function FeaturedAgreements({
-  limit = 4,
+  limit = 3,
   className,
 }: FeaturedAgreementsProps) {
-  // Defer rendering until after hydration. Prerender returns null (the query
-  // is gated on IS_SERVER_RENDER), so anything we render on the very first
-  // client paint would diverge from the SSR DOM and trigger a hydration
-  // mismatch warning. One-shot effect flips us into the live state.
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useHydrated();
 
   const { results, isLoading, error } = useRecentAgreements(limit);
+  const loading = !hydrated || isLoading;
 
-  if (!hydrated) return null;
-  if (error || (!isLoading && results.length === 0)) {
+  if (!loading && (error || results.length === 0)) {
     return null;
   }
 
   return (
     <section
       aria-labelledby="featured-agreements-heading"
-      className={cn("w-full", className)}
+      className={cn("min-w-0", className)}
     >
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2
-          id="featured-agreements-heading"
-          className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
-        >
+      <div className="mb-2 flex h-6 items-center justify-between gap-3">
+        <h2 id="featured-agreements-heading" className={eyebrowClassName}>
           Latest agreements
         </h2>
         <Link
-          to="/agreement-index"
-          className="-mx-2 inline-flex min-h-11 items-center rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:mx-0 sm:min-h-0 sm:px-0"
+          to={ALL_DEALS_PATH}
+          className="inline-flex min-h-11 items-center rounded-md text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0"
           onClick={() =>
             trackEvent("landing_featured_agreements_view_all", {
-              to_path: "/agreement-index",
+              to_path: ALL_DEALS_PATH,
             })
           }
         >
-          View all →
+          Browse all deals
         </Link>
       </div>
 
       <ul
-        className="grid grid-cols-1 gap-2 sm:grid-cols-2"
-        aria-busy={isLoading || undefined}
+        className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card"
+        aria-busy={loading || undefined}
       >
-        {isLoading
+        {loading
           ? Array.from({ length: limit }).map((_, index) => (
-              <li key={`skeleton-${index}`}>
-                <FeaturedAgreementSkeleton />
+              <li key={`skeleton-${index}`} aria-hidden="true" className={ROW}>
+                <div className="min-w-0 flex-1">
+                  <Skeleton className="h-4 w-3/5" />
+                  <Skeleton className="mt-2 h-3 w-2/5" />
+                </div>
+                <Skeleton className="h-3 w-10" />
               </li>
             ))
           : results.map((result, position) => (
               <li key={result.agreement_uuid}>
-                <FeaturedAgreementCard result={result} position={position} />
+                <FeaturedAgreementRow result={result} position={position} />
               </li>
             ))}
       </ul>
@@ -96,24 +89,13 @@ export function FeaturedAgreements({
   );
 }
 
-function FeaturedAgreementSkeleton() {
-  return (
-    <div className="rounded-lg border border-border bg-background/60 p-3">
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="mt-2 h-3 w-2/3" />
-      <Skeleton className="mt-3 h-3 w-24" />
-    </div>
-  );
-}
-
-function FeaturedAgreementCard({
+function FeaturedAgreementRow({
   result,
   position,
 }: {
-  result: NonNullable<ReturnType<typeof useRecentAgreements>["results"]>[number];
+  result: RecentAgreement;
   position: number;
 }) {
-  const filed = formatFilingDate(result.filing_date);
   const target = result.target?.trim() || "Unknown target";
   const acquirer = result.acquirer?.trim() || "Unknown acquirer";
 
@@ -127,27 +109,26 @@ function FeaturedAgreementCard({
           agreement_uuid: result.agreement_uuid,
         })
       }
-      className="group block h-full rounded-lg border border-border bg-background/70 p-3 text-left transition-colors hover:border-border hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className={cn(
+        ROW,
+        "group transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+      )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">
-            {target}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            acquired by {acquirer}
-          </p>
-        </div>
-        <ArrowRight
-          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground"
-          aria-hidden="true"
-        />
-      </div>
-      {filed ? (
-        <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          Filed {filed}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">{target}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          acquired by {acquirer}
         </p>
+      </div>
+      {result.year ? (
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {result.year}
+        </span>
       ) : null}
+      <ArrowRight
+        className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+        aria-hidden="true"
+      />
     </Link>
   );
 }
