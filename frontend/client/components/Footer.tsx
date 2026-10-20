@@ -1,52 +1,67 @@
 import { Github } from "lucide-react";
 import { Link } from "react-router-dom";
 import { memo } from "react";
+import {
+  FOOTER_COLUMNS,
+  GITHUB_URL,
+  LEGAL_LINKS,
+  linkKey,
+} from "@/components/navigation-links";
+import { NavItemLink } from "@/components/NavLinkParts";
+
+const focusRing =
+  "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function FooterComponent() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t border-border bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs leading-relaxed text-muted-foreground sm:justify-start sm:text-left">
-            <span>© {currentYear} Nikita Bogdanov</span>
-            <span aria-hidden="true" className="opacity-60">
-              •
-            </span>
-            <nav aria-label="Legal" className="flex items-center gap-x-3 whitespace-nowrap">
-              <Link
-                to="/license"
-                className="underline underline-offset-4 decoration-muted-foreground/50 hover:text-foreground hover:decoration-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
-              >
-                License
-              </Link>
-              <span aria-hidden="true" className="opacity-60">
-                •
-              </span>
-              <Link
-                to="/privacy-policy"
-                className="underline underline-offset-4 decoration-muted-foreground/50 hover:text-foreground hover:decoration-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
-              >
-                Privacy Policy
-              </Link>
-              <span aria-hidden="true" className="opacity-60">
-                •
-              </span>
-              <Link
-                to="/terms"
-                className="underline underline-offset-4 decoration-muted-foreground/50 hover:text-foreground hover:decoration-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
-              >
-                Terms
-              </Link>
-            </nav>
-          </div>
+    <footer className="mt-auto border-t border-border bg-background">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <nav
+          aria-label="Footer"
+          className="grid grid-cols-2 gap-x-6 gap-y-6 py-6 sm:grid-cols-4"
+        >
+          {FOOTER_COLUMNS.map((column) => (
+            <div key={column.heading}>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                {column.heading}
+              </h2>
+              <ul role="list" className="mt-3 space-y-2">
+                {column.links.map((link) => (
+                  <li key={linkKey(link)}>
+                    <NavItemLink
+                      link={link}
+                      className={`inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground ${focusRing}`}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
 
+        <div className="flex flex-col gap-3 border-t border-border py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span>© {currentYear} Nikita Bogdanov</span>
+            <ul role="list" aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              {LEGAL_LINKS.map((link) => (
+                <li key={link.to}>
+                  <Link
+                    to={link.to}
+                    className={`transition-colors hover:text-foreground ${focusRing}`}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
           <a
-            href="https://github.com/PlatosTwin/pandects-app"
+            href={GITHUB_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className={`inline-flex self-start text-muted-foreground transition-colors hover:text-foreground sm:self-auto ${focusRing}`}
             title="View source code on GitHub"
             aria-label="View source code on GitHub"
           >

@@ -16,26 +16,29 @@ import {
   recordFirstPartyPageView,
 } from "@/lib/first-party-telemetry";
 
+// Neutral route-level placeholder. It uses the header's frame (max-w-7xl and
+// the same gutters) so the title block lines up with the logo, and plain
+// blocks with no card chrome or blur so no page appears to "jump" when it
+// replaces the fallback.
 function RouteFallback() {
   return (
     <div
-      className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8"
+      className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
       role="status"
       aria-live="polite"
     >
       <span className="sr-only">Loading page</span>
-      <div className="space-y-6" aria-hidden="true">
+      <div aria-hidden="true">
         <div className="space-y-3">
-          <div className="h-10 w-56 animate-pulse rounded bg-muted" />
-          <div className="h-4 w-full animate-pulse rounded bg-muted" />
-          <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+          <div className="h-8 w-48 animate-pulse rounded-md bg-muted sm:h-9" />
+          <div className="h-4 w-full max-w-xl animate-pulse rounded bg-muted/70" />
         </div>
-        <div className="rounded-xl border border-border bg-background/70 p-6 backdrop-blur">
-          <div className="h-4 w-36 animate-pulse rounded bg-muted" />
-          <div className="mt-4 h-3 w-full animate-pulse rounded bg-muted" />
-          <div className="mt-2 h-3 w-5/6 animate-pulse rounded bg-muted" />
-          <div className="mt-6 h-48 animate-pulse rounded-lg bg-muted/70 sm:h-64" />
+        <div className="mt-8 space-y-3">
+          <div className="h-4 w-full animate-pulse rounded bg-muted/70" />
+          <div className="h-4 w-11/12 animate-pulse rounded bg-muted/70" />
+          <div className="h-4 w-4/5 animate-pulse rounded bg-muted/70" />
         </div>
+        <div className="mt-8 h-64 animate-pulse rounded-lg bg-muted/50" />
       </div>
     </div>
   );

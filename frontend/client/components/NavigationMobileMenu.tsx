@@ -1,16 +1,28 @@
 import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
-import { Suspense, lazy, memo, useMemo, useState } from "react";
-import logo128Webp from "../../assets/logo-128.webp";
-import logo256Webp from "../../assets/logo-256.webp";
-import logo128Png from "../../assets/logo-128.png";
-import logo256Png from "../../assets/logo-256.png";
+import { memo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
-import { getDocsUrl } from "@/lib/docs-url";
-import { ABOUT_LINKS, DATA_LINKS } from "@/components/navigation-links";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  DOCS_LINK,
+  LEGAL_LINKS,
+  NAV_GROUPS,
+  PROJECT_LINKS,
+  SEARCH_LINK,
+  linkKey,
+  type InternalNavLink,
+  type NavLinkItem,
+} from "@/components/navigation-links";
+import {
+  AvatarInitial,
+  NavItemLink,
+  useNavAuth,
+  useShowLock,
+} from "@/components/NavLinkParts";
+import { NavBetaBadge } from "@/components/NavBetaBadge";
+import { NavLogo } from "@/components/NavLogo";
+import { ThemeToggleInline } from "@/components/ThemeToggle";
 import {
   Sheet,
   SheetClose,
@@ -21,43 +33,58 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-const AuthMenu = lazy(() =>
-  import("@/components/AuthMenu").then((mod) => ({ default: mod.AuthMenu })),
-);
+// Every sheet item carries the same 2px left border so labels line up; the
+// active item colors it.
+const itemBase =
+  "flex items-center gap-2 rounded-md border-l-2 px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const itemActive = "border-primary bg-primary/10 text-primary";
+const itemIdle =
+  "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground";
 
-function AuthMenuFallback() {
+function SheetSection({ heading, children }: { heading: string; children: ReactNode }) {
   return (
-    <div className="h-9 w-20 animate-pulse rounded-md bg-muted/70" aria-hidden="true" />
+    <div className="mt-4">
+      <div className="pb-1 pl-[calc(0.75rem+2px)] pr-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {heading}
+      </div>
+      <div className="grid gap-0.5">{children}</div>
+    </div>
   );
 }
 
 function NavigationMobileMenuComponent() {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const docsHomeUrl = `${getDocsUrl()}/docs/guides/getting-started`;
-  const isActive = (path: string) => location.pathname === path;
-  const navLinkBase =
-    "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-  const dataSeparatorClass = "bg-border";
+  const { status, user, logout } = useNavAuth();
+  const showLock = useShowLock();
+  const isActive = (link: NavLinkItem) =>
+    link.kind === "internal" && location.pathname === link.to;
 
-  const primaryLinks = useMemo(
-    () => [
-      { to: "/search", label: "Search" },
-      { to: docsHomeUrl, label: "Docs", external: true },
-    ],
-    [docsHomeUrl],
+  const renderItem = (link: NavLinkItem, event = "nav_primary_click") => (
+    <SheetClose asChild key={linkKey(link)}>
+      <NavItemLink
+        link={link}
+        active={isActive(link)}
+        locked={showLock(link)}
+        onClick={() =>
+          trackEvent(event, {
+            nav_item: link.label,
+            from_path: location.pathname,
+            to_path: linkKey(link),
+          })
+        }
+        className={cn(itemBase, isActive(link) ? itemActive : itemIdle)}
+      />
+    </SheetClose>
   );
+
+  const accountLinks: InternalNavLink[] = [
+    { kind: "internal", to: "/account", label: "Account" },
+    { kind: "internal", to: "/favorites", label: "Favorites" },
+  ];
 
   return (
     <div className="flex items-center md:hidden">
-      <div className="mr-1">
-        <ThemeToggle />
-      </div>
-      <div className="mr-2">
-        <Suspense fallback={<AuthMenuFallback />}>
-          <AuthMenu />
-        </Suspense>
-      </div>
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Open menu">
@@ -67,150 +94,101 @@ function NavigationMobileMenuComponent() {
         <SheetContent side="right" className="w-[min(320px,100vw)] max-w-full p-0">
           <div className="flex h-full flex-col">
             <SheetHeader className="border-b p-4 text-left">
-              <SheetTitle className="flex items-center gap-3">
-                <picture>
-                  <source
-                    srcSet={`${logo128Webp} 128w, ${logo256Webp} 256w`}
-                    sizes="36px"
-                    type="image/webp"
-                  />
-                  <img
-                    src={logo128Png}
-                    alt="Pandects Logo"
-                    width={36}
-                    height={36}
-                    srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
-                    sizes="36px"
-                    decoding="async"
-                    className="h-9 w-9 rounded-md object-cover ring-1 ring-border"
-                  />
-                </picture>
-                <span className="text-base font-semibold tracking-tight">Pandects</span>
-              </SheetTitle>
+              <div className="flex items-center gap-3">
+                <SheetTitle className="flex items-center gap-3">
+                  <NavLogo />
+                  <span className="text-base font-semibold tracking-tight">Pandects</span>
+                </SheetTitle>
+                <NavBetaBadge />
+              </div>
               <SheetDescription className="sr-only">
                 Primary navigation links and account access.
               </SheetDescription>
             </SheetHeader>
 
-            <div className="flex-1 overflow-auto p-2">
-              <div className="grid gap-1">
-                {primaryLinks.map((link) => (
-                  <SheetClose asChild key={link.to}>
-                    {link.external ? (
-                      <a
-                        href={link.to}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() =>
-                          trackEvent("nav_primary_click", {
-                            nav_item: link.label,
-                            from_path: location.pathname,
-                            to_path: link.to,
-                          })
-                        }
-                        className={cn(
-                          navLinkBase,
-                          "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                        )}
+            <nav aria-label="Mobile" className="flex-1 overflow-auto px-2 py-3">
+              <div className="grid gap-0.5">{renderItem(SEARCH_LINK)}</div>
+
+              {NAV_GROUPS.map((group) => (
+                <SheetSection key={group.id} heading={group.label}>
+                  {group.links.map((link) => renderItem(link, "nav_data_click"))}
+                </SheetSection>
+              ))}
+
+              <div className="mt-4 grid gap-0.5">{renderItem(DOCS_LINK)}</div>
+
+              <SheetSection heading="Account">
+                {user ? (
+                  <>
+                    <div className="flex items-center gap-3 py-2 pl-[calc(0.75rem+2px)] pr-3">
+                      <AvatarInitial email={user.email} />
+                      <span className="min-w-0 truncate text-sm text-foreground">
+                        {user.email}
+                      </span>
+                    </div>
+                    {accountLinks.map((link) => renderItem(link, "nav_secondary_click"))}
+                    <SheetClose asChild>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logout?.();
+                          trackEvent("auth_logout", { from_path: location.pathname });
+                        }}
+                        className={cn(itemBase, itemIdle, "w-full text-left")}
                       >
-                        {link.label}
-                      </a>
-                    ) : (
-                      <Link
-                        to={link.to}
-                        onClick={() =>
-                          trackEvent("nav_primary_click", {
-                            nav_item: link.label,
-                            from_path: location.pathname,
-                            to_path: link.to,
-                          })
-                        }
-                        aria-current={isActive(link.to) ? "page" : undefined}
-                        className={cn(
-                          navLinkBase,
-                          isActive(link.to)
-                            ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                            : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                        )}
-                      >
-                        {link.label}
-                      </Link>
-                    )}
+                        Sign out
+                      </button>
+                    </SheetClose>
+                  </>
+                ) : status === "loading" ? (
+                  <div className="ml-[calc(0.75rem+2px)] mr-3 h-9 animate-pulse rounded-md bg-muted/70" aria-hidden="true" />
+                ) : (
+                  <SheetClose asChild>
+                    <Link
+                      to="/account"
+                      onClick={() => {
+                        trackEvent("nav_signin_click", {
+                          from_path: location.pathname,
+                          to_path: "/account",
+                        });
+                        trackEvent("auth_open", { from_path: location.pathname, kind: "link" });
+                      }}
+                      className={cn(itemBase, itemIdle)}
+                    >
+                      Sign in
+                    </Link>
                   </SheetClose>
-                ))}
-              </div>
+                )}
+              </SheetSection>
 
-              <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2">
-                <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Data
-                </div>
-                <div className="grid gap-1">
-                  {DATA_LINKS.map((item) =>
-                    item.type === "separator" ? (
-                      <div
-                        key={item.key}
-                        aria-hidden="true"
-                        className={cn("mx-2 my-1 h-px", dataSeparatorClass)}
-                      />
-                    ) : (
-                      <SheetClose asChild key={item.to}>
-                        <Link
-                          to={item.to}
-                          onClick={() =>
-                            trackEvent("nav_data_click", {
-                              nav_item: item.label,
-                              from_path: location.pathname,
-                              to_path: item.to,
-                            })
-                          }
-                          aria-current={isActive(item.to) ? "page" : undefined}
-                          className={cn(
-                            navLinkBase,
-                            "pl-4",
-                            isActive(item.to)
-                              ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                              : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                          )}
-                        >
-                          {item.label}
-                        </Link>
-                      </SheetClose>
-                    ),
-                  )}
-                </div>
-              </div>
+              <SheetSection heading="Project">
+                {PROJECT_LINKS.map((link) => renderItem(link, "nav_secondary_click"))}
+              </SheetSection>
+            </nav>
 
-              <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2">
-                <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Project
-                </div>
-                <div className="grid gap-1">
-                  {ABOUT_LINKS.map((link) => (
-                    <SheetClose asChild key={link.to}>
+            <div className="border-t border-border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-muted-foreground">Theme</span>
+                <ThemeToggleInline />
+              </div>
+              <ul
+                role="list"
+                aria-label="Legal"
+                className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"
+              >
+                {LEGAL_LINKS.map((link) => (
+                  <li key={link.to}>
+                    <SheetClose asChild>
                       <Link
                         to={link.to}
-                        onClick={() =>
-                          trackEvent("nav_secondary_click", {
-                            nav_item: link.label,
-                            from_path: location.pathname,
-                            to_path: link.to,
-                          })
-                        }
-                        aria-current={isActive(link.to) ? "page" : undefined}
-                        className={cn(
-                          navLinkBase,
-                          "pl-4",
-                          isActive(link.to)
-                            ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                            : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                        )}
+                        className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {link.label}
                       </Link>
                     </SheetClose>
-                  ))}
-                </div>
-              </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </SheetContent>
