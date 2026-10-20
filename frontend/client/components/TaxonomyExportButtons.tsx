@@ -1,10 +1,7 @@
-import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { logger } from "@/lib/logger";
-
-type CopyState = "idle" | "copied" | "failed";
+import { useCopyToClipboard } from "@/components/ui/copy-button";
 
 export interface TaxonomyExportButtonsProps {
   /** Built lazily so the tree text is only rendered when a button is used. */
@@ -23,37 +20,9 @@ export function TaxonomyExportButtons({
   fileName,
   disabled = false,
 }: TaxonomyExportButtonsProps) {
-  const [copyState, setCopyState] = useState<CopyState>("idle");
-  const resetTimerRef = useRef<number | null>(null);
+  const { state: copyState, copy } = useCopyToClipboard();
 
-  useEffect(() => {
-    return () => {
-      if (resetTimerRef.current) {
-        window.clearTimeout(resetTimerRef.current);
-      }
-    };
-  }, []);
-
-  const flashCopyState = (state: CopyState) => {
-    setCopyState(state);
-    if (resetTimerRef.current) {
-      window.clearTimeout(resetTimerRef.current);
-    }
-    resetTimerRef.current = window.setTimeout(() => {
-      setCopyState("idle");
-      resetTimerRef.current = null;
-    }, 2000);
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(getText());
-      flashCopyState("copied");
-    } catch {
-      logger.warn("Taxonomy clipboard write failed.");
-      flashCopyState("failed");
-    }
-  };
+  const handleCopy = () => copy(getText());
 
   const handleDownload = () => {
     const blob = new Blob([getText()], { type: "text/plain;charset=utf-8;" });

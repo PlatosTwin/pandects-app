@@ -97,7 +97,7 @@ export function CounselLeaderboardChart({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-muted/20 p-3",
+        "min-w-0",
         className,
       )}
     >

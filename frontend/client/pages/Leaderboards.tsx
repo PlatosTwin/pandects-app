@@ -2,8 +2,11 @@ import { useEffect, useId, useMemo, useState } from "react";
 
 import { CounselLeaderboardChart } from "@/components/CounselLeaderboardChart";
 import { PageShell } from "@/components/PageShell";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ChartPanel } from "@/components/ChartPanel";
+import { EmptyState, ErrorState } from "@/components/StateMessage";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -13,7 +16,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
@@ -139,154 +141,123 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
   }, [chartRows, metric]);
   const activeView: LeaderboardView = isMobile ? "table" : view;
 
+  const metricOptions = [
+    { value: "deal_count", label: "Deal count" },
+    { value: "total_transaction_value", label: "Value" },
+  ] as const;
+  const viewOptions = [
+    { value: "table", label: "Table" },
+    { value: "chart", label: "Chart" },
+  ] as const;
+
   return (
-    <section aria-labelledby={descriptionId} className="space-y-4">
-      <Card variant="subtle">
-        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <h2 id={descriptionId} className="text-xl font-semibold leading-none tracking-tight">
-              {title}
-            </h2>
-            <CardDescription className="max-w-3xl prose-copy text-sm sm:text-base">
-              {description}
-            </CardDescription>
+    <ChartPanel
+      id={descriptionId}
+      title={title}
+      description={<span className="prose-copy">{description}</span>}
+      controls={
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex flex-col gap-1">
+            <Eyebrow>Rank by</Eyebrow>
+            <SegmentedControl<LeaderboardMetric>
+              value={metric}
+              onValueChange={setMetric}
+              options={metricOptions}
+              aria-label={`${title} ranking metric`}
+            />
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {!isMobile ? (
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Rank by
-              </span>
-              <ToggleGroup
-                type="single"
-                value={metric}
-                onValueChange={(value) => {
-                  if (value === "deal_count" || value === "total_transaction_value") {
-                    setMetric(value);
-                  }
-                }}
-                variant="outline"
-                aria-label={`${title} ranking metric`}
-                className="justify-start"
-              >
-                <ToggleGroupItem value="deal_count" aria-label="Rank by deal count">
-                  Deal count
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="total_transaction_value"
-                  aria-label="Rank by transaction value"
-                >
-                  Value
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-            {!isMobile ? (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  View
-                </span>
-                <ToggleGroup
-                  type="single"
-                  value={view}
-                  onValueChange={(value) => {
-                    if (value === "table" || value === "chart") {
-                      setView(value);
-                    }
-                  }}
-                  variant="outline"
-                  aria-label={`${title} view`}
-                  className="justify-start"
-                >
-                  <ToggleGroupItem value="table" aria-label="Show table">
-                    Table
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="chart" aria-label="Show chart">
-                    Chart
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-            ) : null}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {activeView === "table" ? (
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Table window
-              </span>
-              <RadioGroup
-                value={tableYear}
-                onValueChange={setTableYear}
-                aria-label={`${title} table year`}
-                className="flex flex-wrap gap-3"
-              >
-                {yearOptions.map((option) => (
-                  <label
-                    key={option.value}
-                    className="flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 text-sm text-foreground"
-                  >
-                    <RadioGroupItem value={option.value} id={`${tableId}-${option.value}`} />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </RadioGroup>
+              <Eyebrow>View</Eyebrow>
+              <SegmentedControl<LeaderboardView>
+                value={view}
+                onValueChange={setView}
+                options={viewOptions}
+                aria-label={`${title} view`}
+              />
             </div>
           ) : null}
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {activeView === "table" ? (
+          <div className="flex flex-col gap-1">
+            <Eyebrow>Table window</Eyebrow>
+            <SegmentedControl
+              value={tableYear}
+              onValueChange={setTableYear}
+              options={yearOptions}
+              aria-label={`${title} table year`}
+              size="sm"
+              className="flex-wrap self-start"
+            />
+          </div>
+        ) : null}
 
-          {activeView === "table" && tableRows.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-background/70 px-4 py-8 text-sm text-muted-foreground">
-              No counsel leaderboard data is available for that year yet.
-            </div>
-          ) : activeView === "table" ? (
-            <div className="overflow-x-auto rounded-lg border border-border bg-background/80">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[52%] min-w-[12rem] sm:min-w-[14rem]">Firm</TableHead>
-                    <TableHead className="text-right">Deals</TableHead>
-                    <TableHead className="text-right">Total value</TableHead>
+        {activeView === "table" && tableRows.length === 0 ? (
+          <EmptyState
+            variant="inline"
+            title="No counsel leaderboard data is available for that year yet."
+          />
+        ) : activeView === "table" ? (
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12 text-right">#</TableHead>
+                  <TableHead className="w-[52%] min-w-[12rem] sm:min-w-[14rem]">Firm</TableHead>
+                  <TableHead className="text-right">Deals</TableHead>
+                  <TableHead className="text-right">Total value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tableRows.map((row, index) => (
+                  <TableRow key={row.counsel}>
+                    <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                      {index + 1}
+                    </TableCell>
+                    <TableCell className="font-medium">{row.counsel}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {formatDealCount(row.deal_count)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {formatTransactionValue(row.total_transaction_value)}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tableRows.map((row) => (
-                    <TableRow key={row.counsel}>
-                      <TableCell className="font-medium">{row.counsel}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">
-                        {formatDealCount(row.deal_count)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">
-                        {formatTransactionValue(row.total_transaction_value)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : chartData.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-background/70 px-4 py-8 text-sm text-muted-foreground">
-              No counsel leaderboard data is available yet.
-            </div>
-          ) : (
-            <>
-              <p id={tableId} className="sr-only">
-                100 percent stacked area chart showing yearly share of the selected metric across the
-                current top 15 firms.
-              </p>
-              <CounselLeaderboardChart
-                data={chartData}
-                describedBy={descriptionId}
-                metricLabel={metric === "deal_count" ? "deal count" : "transaction value"}
-                series={chartSeries}
-                tableId={tableId}
-                valueFormatter={
-                  metric === "deal_count" ? formatDealCount : formatTransactionValue
-                }
-              />
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </section>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : chartData.length === 0 ? (
+          <EmptyState variant="inline" title="No counsel leaderboard data is available yet." />
+        ) : (
+          <>
+            <p id={tableId} className="sr-only">
+              100 percent stacked area chart showing yearly share of the selected metric across the
+              current top 15 firms.
+            </p>
+            <CounselLeaderboardChart
+              data={chartData}
+              describedBy={descriptionId}
+              metricLabel={metric === "deal_count" ? "deal count" : "transaction value"}
+              series={chartSeries}
+              tableId={tableId}
+              valueFormatter={
+                metric === "deal_count" ? formatDealCount : formatTransactionValue
+              }
+            />
+          </>
+        )}
+      </div>
+    </ChartPanel>
   );
+}
+
+/** Pulls the HTTP status out of "… request failed (403)" so ErrorState can map it. */
+function errorFromMessage(message: string) {
+  const match = message.match(/\((\d{3})\)/);
+  return { message, status: match ? Number(match[1]) : undefined };
 }
 
 function LeaderboardsSkeleton() {
@@ -361,9 +332,9 @@ export default function Leaderboards() {
 
   return (
     <PageShell
+      layout="data"
       title="Leaderboards"
-      size="xl"
-      subtitle={
+      description={
         <span className="prose-copy">
           Canonical counsel rankings for acquirer and target sides. The metric toggle swaps between
           distinct top-15 sets for deal count and total transaction value.
@@ -373,14 +344,7 @@ export default function Leaderboards() {
       <div className="space-y-6">
         {loading ? <LeaderboardsSkeleton /> : null}
 
-        {!loading && error ? (
-          <Card variant="subtle">
-            <CardHeader>
-              <CardTitle className="text-xl">Unavailable</CardTitle>
-              <CardDescription>{error}</CardDescription>
-            </CardHeader>
-          </Card>
-        ) : null}
+        {!loading && error ? <ErrorState error={errorFromMessage(error)} /> : null}
 
         {!loading && !error && data ? (
           <>
