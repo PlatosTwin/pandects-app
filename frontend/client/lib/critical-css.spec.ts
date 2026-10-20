@@ -24,7 +24,7 @@ function readRule(css: string, selector: string): string {
 
 function readDeclarations(rule: string): Map<string, string> {
   return new Map(
-    [...rule.matchAll(/(--[a-z-]+):\s*([^;]+);/g)].map((match) => [
+    [...rule.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)].map((match) => [
       match[1],
       match[2].trim(),
     ]),

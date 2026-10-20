@@ -48,6 +48,25 @@
 
     --radius: 0.375rem;
 
+    /* Status (semantic). Text use passes AA on card; solid use pairs with -foreground. */
+    --success: 152 76% 28%;
+    --success-foreground: 0 0% 100%;
+    --warning: 30 90% 34%;
+    --warning-foreground: 0 0% 100%;
+    --info: 212 80% 40%;
+    --info-foreground: 0 0% 100%;
+
+    /* Categorical chart series (max 8) + neutral "other" series. */
+    --chart-1: 212 93% 50%;
+    --chart-2: 170 84% 36%;
+    --chart-3: 35 92% 52%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 196 83% 42%;
+    --chart-6: 262 83% 58%;
+    --chart-7: 142 71% 45%;
+    --chart-8: 24 95% 53%;
+    --chart-neutral: 220 9% 60%;
+
     /* App background (used via bg-cream) — cool near-white */
     --cream: 220 20% 98.5%;
   }
@@ -76,12 +95,31 @@
     --accent: 222 8% 18%;
     --accent-foreground: 210 20% 96%;
 
-    --destructive: 0 70% 52%;
-    --destructive-foreground: 0 0% 100%;
+    /* Lighter red so text-destructive passes AA (5.6:1) on card; solid
+       destructive fills pair it with dark text (5.6:1) like --primary does. */
+    --destructive: 0 84% 66%;
+    --destructive-foreground: 222 9% 9.5%;
 
     --border: 222 7% 20%;
     --input: 222 7% 24%;
     --ring: 221.2 83.2% 65%;
+
+    --success: 150 60% 52%;
+    --success-foreground: 222 9% 9.5%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 222 9% 9.5%;
+    --info: 212 90% 66%;
+    --info-foreground: 222 9% 9.5%;
+
+    --chart-1: 212 93% 62%;
+    --chart-2: 170 70% 45%;
+    --chart-3: 38 92% 58%;
+    --chart-4: 0 84% 66%;
+    --chart-5: 196 80% 55%;
+    --chart-6: 262 83% 70%;
+    --chart-7: 142 60% 52%;
+    --chart-8: 24 95% 60%;
+    --chart-neutral: 220 9% 52%;
 
     /* App background (used via bg-cream) */
     --cream: 222 10% 6.5%;

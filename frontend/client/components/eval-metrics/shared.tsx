@@ -112,7 +112,7 @@ export function EvalSummaryTile({
           "text-[11px] font-semibold uppercase tracking-wide",
           muted
             ? "text-muted-foreground"
-            : "text-emerald-800 dark:text-emerald-200",
+            : "text-success",
         )}
       >
         {label}
@@ -122,7 +122,7 @@ export function EvalSummaryTile({
   );
 }
 
-/** Emerald summary strip holding a grid of EvalSummaryTiles. */
+/** Success-tinted summary strip holding a grid of EvalSummaryTiles. */
 export function EvalSummaryGrid({
   columnsClassName,
   metrics,
@@ -131,10 +131,10 @@ export function EvalSummaryGrid({
   metrics: Array<{ label: string; value: string }>;
 }) {
   return (
-    <div className="rounded-lg bg-emerald-500/10 p-3 lg:col-span-2">
+    <div className="rounded-lg bg-success/10 p-3 lg:col-span-2">
       <div
         className={cn(
-          "grid gap-3 text-emerald-900 dark:text-emerald-100",
+          "grid gap-3 text-foreground",
           columnsClassName,
         )}
       >
@@ -206,7 +206,9 @@ export function ConfusionMatrixPanel({
                 </tr>
               </thead>
               <tbody>
-                {matrix.map((row, rowIndex) => (
+                {matrix.map((row, rowIndex) => {
+                  const rowTotal = row.reduce((sum, cell) => sum + cell, 0);
+                  return (
                   <tr key={labels[rowIndex]}>
                     <th
                       scope="row"
@@ -217,22 +219,33 @@ export function ConfusionMatrixPanel({
                     {row.map((value, colIndex) => {
                       const isDiagonal = rowIndex === colIndex;
                       const hasValue = value > 0;
-                      const cellClass = isDiagonal
-                        ? "bg-emerald-500/20 text-foreground"
-                        : hasValue
-                          ? "bg-rose-500/15 text-foreground"
-                          : "bg-muted/40 text-muted-foreground/60";
+                      // Alpha scales with the cell's share of its row, so a
+                      // single stray error reads lighter than a systematic one.
+                      const share = rowTotal > 0 ? value / rowTotal : 0;
+                      const alpha = (0.08 + 0.42 * share).toFixed(3);
+                      const cellStyle = hasValue
+                        ? {
+                            backgroundColor: isDiagonal
+                              ? `hsl(var(--success) / ${alpha})`
+                              : `hsl(var(--destructive) / ${alpha})`,
+                          }
+                        : undefined;
+                      const cellClass = hasValue
+                        ? "text-foreground"
+                        : "bg-muted/40 text-muted-foreground/60";
                       return (
                         <td
                           key={`${rowIndex}-${colIndex}`}
                           className={`rounded-md px-2 py-1 text-center font-mono ${cellClass}`}
+                          style={cellStyle}
                         >
                           {value}
                         </td>
                       );
                     })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -289,9 +302,9 @@ export function PerClassMetricsPanel({
             {rows.map((row) => {
               const statusClass =
                 row.f1 >= 0.95
-                  ? "bg-emerald-500"
+                  ? "bg-success"
                   : row.f1 < 0.9
-                    ? "bg-amber-400"
+                    ? "bg-warning"
                     : "bg-muted-foreground/40";
               return (
                 <tr key={row.id} className="border-b border-border/50">
