@@ -53,6 +53,8 @@ export interface CopyButtonProps
   label?: string;
   /** Show a visible text label next to the icon ("Copy" / "Copied"). */
   showLabel?: boolean;
+  /** Visible idle label when `showLabel` is set, e.g. "Copy wget". Defaults to "Copy". */
+  idleText?: string;
   /** Text announced to screen readers after a successful copy. */
   copiedMessage?: string;
   /** Text announced after a failed copy. */
@@ -71,6 +73,7 @@ export const CopyButton = React.forwardRef<HTMLButtonElement, CopyButtonProps>(
       value,
       label = "Copy to clipboard",
       showLabel = false,
+      idleText = "Copy",
       copiedMessage = "Copied to clipboard",
       failedMessage = "Copying failed",
       onCopied,
@@ -84,7 +87,7 @@ export const CopyButton = React.forwardRef<HTMLButtonElement, CopyButtonProps>(
   ) => {
     const { state, copy } = useCopyToClipboard();
     const visibleLabel =
-      state === "copied" ? "Copied" : state === "failed" ? "Copy failed" : "Copy";
+      state === "copied" ? "Copied" : state === "failed" ? "Copy failed" : idleText;
 
     return (
       <>

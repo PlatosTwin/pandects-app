@@ -12,6 +12,8 @@ export interface CodeBlockProps {
   copyLabel?: string;
   /** Hide the copy button (e.g. while `code` is a placeholder). */
   copyDisabled?: boolean;
+  /** Called after each copy attempt (e.g. for analytics). */
+  onCopied?: (ok: boolean) => void;
   /** Wrap long lines instead of scrolling horizontally. */
   wrap?: boolean;
   className?: string;
@@ -24,6 +26,7 @@ export function CodeBlock({
   copyLabel = "Copy code",
   copyDisabled = false,
   wrap = false,
+  onCopied,
   className,
 }: CodeBlockProps) {
   return (
@@ -48,7 +51,12 @@ export function CodeBlock({
           <code>{code}</code>
         </pre>
         <div className="shrink-0 p-1">
-          <CopyButton value={code} label={copyLabel} disabled={copyDisabled} />
+          <CopyButton
+            value={code}
+            label={copyLabel}
+            disabled={copyDisabled}
+            onCopied={onCopied}
+          />
         </div>
       </div>
     </div>

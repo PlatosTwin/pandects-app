@@ -14,8 +14,8 @@ export interface DocsTocItem {
 
 /**
  * Tracks which section is in view. The band between 20% and 30% from the top
- * of the viewport is the "reading line"; the last section whose top crossed it
- * is active.
+ * of the viewport is the "reading line"; of the observed elements crossing it,
+ * the one listed last is active (so nested subsections beat their parent).
  */
 export function useScrollSpy(ids: readonly string[]): string | null {
   const [active, setActive] = useState<string | null>(ids[0] ?? null);
@@ -35,8 +35,10 @@ export function useScrollSpy(ids: readonly string[]): string | null {
           if (entry.isIntersecting) visible.add(entry.target.id);
           else visible.delete(entry.target.id);
         }
-        const firstVisible = ids.find((id) => visible.has(id));
-        if (firstVisible) setActive(firstVisible);
+        // Last match in list order wins, so a subsection beats the parent
+        // section that contains it.
+        const current = [...ids].reverse().find((id) => visible.has(id));
+        if (current) setActive(current);
       },
       { rootMargin: "-20% 0px -70% 0px" },
     );

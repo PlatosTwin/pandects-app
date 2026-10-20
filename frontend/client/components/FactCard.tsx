@@ -76,6 +76,7 @@ export function FactCard({
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       >
         {body}
+        {external ? <span className="sr-only"> (opens in a new tab)</span> : null}
       </a>
     );
   }
