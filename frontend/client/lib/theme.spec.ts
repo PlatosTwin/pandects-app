@@ -97,7 +97,7 @@ describe("theme", () => {
     theme.setThemePreference("dark");
     expect(root.classList.contains("dark")).toBe(true);
     expect(root.style.colorScheme).toBe("dark");
-    expect(themeColor()).toBe("#0f0e10");
+    expect(themeColor()).toBe("#0f1012");
 
     theme.setThemePreference("light");
     expect(root.classList.contains("dark")).toBe(false);

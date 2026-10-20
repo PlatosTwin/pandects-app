@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import type { SearchFilters } from "@shared/sections";
 import type {
   TaxClauseSearchResponse,
@@ -7,13 +6,16 @@ import type {
 } from "@shared/tax-clauses";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams } from "@/lib/url-params";
-import { authFetch } from "@/lib/auth-fetch";
 import { trackEvent } from "@/lib/analytics";
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/lib/constants";
 import {
-  DEFAULT_PAGE,
-  DEFAULT_PAGE_SIZE,
-  LARGE_PAGE_SIZE_FOR_CSV,
-} from "@/lib/constants";
+  csvEscape,
+  downloadCsvFile,
+  fetchAllPagesForCsv,
+  notifyCsvFailed,
+  notifyCsvTruncated,
+  type CsvExportRows,
+} from "@/lib/csv-export";
 import { logger } from "@/lib/logger";
 import { keys } from "@/lib/query-keys";
 import {
@@ -55,11 +57,6 @@ const EMPTY_FILTERS: TaxClauseFilters = {
 };
 
 const EMPTY_ACCESS: TaxClauseSearchResponse["access"] = { tier: "anonymous" };
-
-const csvEscape = (value: string | number | null | undefined): string => {
-  if (value === null || value === undefined || value === "") return "";
-  return `"${String(value).replace(/"/g, '""')}"`;
-};
 
 function buildTaxClauseParams(
   filters: TaxClauseFilters,
@@ -125,7 +122,6 @@ const TAX_CLAUSES_SEARCH_CONFIG = {
  * only commit actions do.
  */
 export function useTaxClauses() {
-  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<TaxClauseFilters>({ ...EMPTY_FILTERS });
   const [currentSort, setCurrentSort] = useState<SortField | null>("year");
   const [sort_direction, setSortDirection] = useState<SortDirection>("desc");
@@ -246,56 +242,52 @@ export function useTaxClauses() {
   );
 
   const downloadCSV = useCallback(async () => {
+    const isSelection = core.selectedResults.size > 0;
     let rows: TaxClauseSearchResult[] = [];
-    if (core.selectedResults.size > 0) {
+    let exportedFrom: CsvExportRows<TaxClauseSearchResult> | null = null;
+
+    if (isSelection) {
       rows = searchResults.filter((r) => core.selectedResults.has(r.id));
     } else {
+      // Export what the results show: the submitted query, not the sidebar draft.
+      if (!committed) return;
       try {
-        const params = buildTaxClauseParams(
-          { ...filters, page: undefined, page_size: undefined },
-          false,
+        exportedFrom = await fetchAllPagesForCsv<TaxClauseSearchResult>(
+          "v1/tax-clauses",
+          buildCommittedQueryString(committed),
         );
-        params.append("page_size", LARGE_PAGE_SIZE_FOR_CSV.toString());
-        params.append("page", DEFAULT_PAGE.toString());
-        const queryString = params.toString();
-        const body = await queryClient.fetchQuery({
-          queryKey: keys.taxClauses.search({ q: queryString, csv: true }),
-          queryFn: async () => {
-            const res = await authFetch(apiUrl(`v1/tax-clauses?${queryString}`));
-            if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-            return (await res.json()) as TaxClauseSearchResponse;
-          },
-          staleTime: 60 * 1000,
-        });
-        rows = body.results;
+        rows = exportedFrom.rows;
       } catch (error) {
         logger.error("Failed to fetch tax clauses for CSV:", error);
-        rows = searchResults;
+        TAX_CLAUSES_SEARCH_CONFIG.trackFailure(error);
+        notifyCsvFailed();
+        return;
       }
     }
 
     if (rows.length === 0) return;
 
     trackEvent("tax_clauses_csv_download_click", {
-      mode: core.selectedResults.size > 0 ? "selected" : "all",
+      mode: isSelection ? "selected" : "all",
       selected_count: core.selectedResults.size,
       downloaded_count: rows.length,
+      truncated: exportedFrom?.truncated ?? false,
     });
 
-    const headers = [
-      "Year",
-      "Target",
-      "Acquirer",
-      "Context",
-      "Tax Clause Types",
-      "Clause Text",
-      "Clause UUID",
-      "Section UUID",
-      "Agreement UUID",
-    ];
-    const csv = [
-      headers.join(","),
-      ...rows.map((r) =>
+    downloadCsvFile(
+      isSelection ? "ma_tax_clauses_selected" : "ma_tax_clauses",
+      [
+        "Year",
+        "Target",
+        "Acquirer",
+        "Context",
+        "Tax Clause Types",
+        "Clause Text",
+        "Clause UUID",
+        "Section UUID",
+        "Agreement UUID",
+      ],
+      rows.map((r) =>
         [
           r.year ?? "",
           csvEscape(r.target),
@@ -308,19 +300,16 @@ export function useTaxClauses() {
           r.agreement_uuid,
         ].join(","),
       ),
-    ].join("\n");
+    );
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const objectUrl = URL.createObjectURL(blob);
-    link.href = objectUrl;
-    const suffix = core.selectedResults.size > 0 ? "_selected" : "";
-    link.download = `ma_tax_clauses${suffix}_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-  }, [filters, searchResults, core.selectedResults, queryClient]);
+    if (exportedFrom?.truncated) {
+      notifyCsvTruncated(
+        rows.length,
+        exportedFrom.totalCount,
+        exportedFrom.totalCountIsApproximate,
+      );
+    }
+  }, [committed, searchResults, core.selectedResults]);
 
   const clearFilters = useCallback(() => {
     setFilters({ ...EMPTY_FILTERS });

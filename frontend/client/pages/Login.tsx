@@ -397,9 +397,9 @@ export default function Login() {
                 </div>
               </form>
 
-              {/* TEMPORARY (September reopen): new account creation is disabled. */}
+              {/* TEMPORARY (access lockdown): new account creation is disabled. */}
               <div className="text-center text-sm text-muted-foreground">
-                New account creation is temporarily disabled. Please check back in September.
+                New account creation is temporarily disabled.
               </div>
             </div>
           </Card>

@@ -631,6 +631,16 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("total_pages"), 1)
         self.assertEqual(len(body.get("results", [])), 2)
 
+    def test_agreements_index_includes_deal_terms(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements-index?page=1&page_size=10&sort_by=year&sort_dir=asc")
+        self.assertEqual(res.status_code, 200)
+        rows = {row["agreement_uuid"]: row for row in res.get_json()["results"]}
+        self.assertEqual(rows["a2"]["consideration_type"], "stock")
+        self.assertEqual(rows["a2"]["total_consideration"], 150000000.0)
+        self.assertEqual(rows["a3"]["consideration_type"], "assets")
+        self.assertNotIn("target_industry", rows["a2"])
+
     def test_agreements_summary_includes_latest_filing_date(self):
         self.app_module._agreements_summary_cache["payload"] = None
         self.app_module._agreements_summary_cache["ts"] = 0

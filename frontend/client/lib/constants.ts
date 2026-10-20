@@ -5,7 +5,6 @@
 // Pagination
 export const DEFAULT_PAGE_SIZE = 25;
 export const DEFAULT_PAGE = 1;
-export const LARGE_PAGE_SIZE_FOR_CSV = 10000;
 
 // UI Constants
 export const DROPDOWN_ANIMATION_DELAY = 100;

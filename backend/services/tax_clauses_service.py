@@ -6,6 +6,7 @@ from typing import Any, Protocol, cast
 
 from sqlalchemy import and_, asc, desc, func, or_
 
+from backend.core.pagination import clamp_page_size, search_max_page_size
 from backend.filtering import (
     build_canonical_counsel_agreement_uuid_subquery,
     build_transaction_price_bucket_filter,
@@ -107,9 +108,10 @@ def run_tax_clauses(
 
     if page < 1:
         page = 1
-    max_page_size = 100 if ctx.is_authenticated else 10
-    if page_size < 1 or page_size > max_page_size:
-        page_size = min(25, max_page_size)
+    page_size = clamp_page_size(
+        page_size,
+        max_page_size=search_max_page_size(is_authenticated=ctx.is_authenticated),
+    )
 
     q = cast(
         _Query,

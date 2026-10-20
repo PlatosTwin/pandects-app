@@ -14,6 +14,7 @@ import {
   DEFAULT_TRUNCATION_LENGTH,
 } from "@/lib/constants";
 import { truncateText } from "@/lib/text-utils";
+import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge, badgeVariants } from "@/components/ui/badge";
@@ -36,17 +37,6 @@ import type { SearchResult } from "@shared/sections";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 const tailUuid = (uuid: string, n = 6) => uuid.slice(-n);
-
-const formatCurrency = (value: string | null | undefined) => {
-  if (!value) return null;
-  const num = parseFloat(value);
-  if (isNaN(num)) return value;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(num);
-};
 
 interface SearchResultsTableProps {
   searchResults: SearchResult[];
@@ -385,11 +375,12 @@ const SearchResultRow = memo(function SearchResultRow({
   const showDevFallbackPill =
     import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
 
-  const hasNewFields =
-    result.transaction_price_total ||
-    result.deal_status ||
-    result.deal_type ||
-    result.purpose;
+  const deal = result.metadata ?? {};
+  const hasDealFields =
+    deal.transaction_price_total != null ||
+    deal.deal_status ||
+    deal.deal_type ||
+    deal.purpose;
 
   return (
     <div
@@ -643,48 +634,28 @@ const SearchResultRow = memo(function SearchResultRow({
                 </Badge>
               </div>
 
-              {/* New fields row - hidden on mobile */}
-              {hasNewFields && (
+              {/* Deal fields row - hidden on mobile */}
+              {hasDealFields && (
                 <div className="mt-2 hidden flex-wrap items-center gap-2 sm:flex">
-                  {result.transaction_price_total && (
+                  {deal.transaction_price_total != null && (
                     <Badge
                       variant="outline"
                       className="px-2 py-0.5 text-xs font-medium"
                     >
-                      {formatCurrency(result.transaction_price_total)}
+                      {formatCompactCurrencyValue(deal.transaction_price_total)}
                     </Badge>
                   )}
-                  {result.deal_status && (
-                    <Badge
-                      variant="outline"
-                      className="px-2 py-0.5 text-xs"
-                    >
-                      {result.deal_status}
-                    </Badge>
-                  )}
-                  {result.deal_type && (
-                    <Badge
-                      variant="outline"
-                      className="px-2 py-0.5 text-xs"
-                    >
-                      {result.deal_type}
-                    </Badge>
-                  )}
-                  {result.purpose && (
-                    <Badge
-                      variant="outline"
-                      className="px-2 py-0.5 text-xs"
-                      title={result.purpose}
-                    >
-                      <span className="max-w-[12rem] truncate">
-                        {
-                          truncateText(
-                            result.purpose,
-                            DEFAULT_TRUNCATION_LENGTH,
-                          ).truncated
-                        }
-                      </span>
-                    </Badge>
+                  {[deal.deal_status, deal.deal_type, deal.purpose].map(
+                    (value) =>
+                      value ? (
+                        <Badge
+                          key={value}
+                          variant="outline"
+                          className="px-2 py-0.5 text-xs"
+                        >
+                          {formatEnumValue(value)}
+                        </Badge>
+                      ) : null,
                   )}
                 </div>
               )}
