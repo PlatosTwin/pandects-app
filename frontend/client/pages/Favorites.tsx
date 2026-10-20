@@ -247,7 +247,7 @@ export default function FavoritesPage() {
 
   if (status === "loading" || !user) {
     return (
-      <PageShell title="Favorites">
+      <PageShell layout="data" title="Favorites">
         <div className="text-sm text-muted-foreground">Loading…</div>
       </PageShell>
     );

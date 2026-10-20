@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
+import { cn } from "@/lib/utils";
+import { eyebrowClassName } from "@/components/ui/eyebrow";
 import { LegalAcceptancePrompt } from "@/components/auth/LegalAcceptancePrompt";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -207,13 +209,12 @@ export default function Login() {
   return (
     <PageShell
       title="Sign in"
-      subtitle={
+      description={
         status === "anonymous"
           ? "Sign in to Pandects to manage API keys, review usage, and unlock full access."
           : undefined
       }
-      size="md"
-      className="max-w-2xl"
+      layout="form"
     >
       <div className="grid gap-6">
         {error ? (
@@ -264,7 +265,7 @@ export default function Login() {
             submitLabel={submitting ? "Finishing sign-in…" : "Continue"}
           />
         ) : state.kind === "verify" ? (
-          <Card className="mx-auto w-full max-w-xl border-border bg-card/95 p-6 shadow-sm">
+          <Card className="w-full p-6 shadow-sm">
             <div className="grid gap-4">
               <div>
                 <h2 className="text-base font-medium">Check your email</h2>
@@ -278,7 +279,6 @@ export default function Login() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-full"
                   onClick={() => void handleResendVerification(state.email)}
                   disabled={resending || resendCooldown}
                 >
@@ -319,23 +319,23 @@ export default function Login() {
             </div>
           </Card>
         ) : (
-          <Card className="mx-auto w-full max-w-xl border-border bg-card/95 p-6 shadow-sm sm:p-8">
+          <Card className="w-full p-6 shadow-sm sm:p-8">
             <div className="grid gap-5">
               <div className="grid gap-6">
-                <div className="flex justify-center">
+                <div>
                   <Button
                     onClick={() => void startGoogle()}
                     disabled={submitting || googleSubmitting}
                     variant="outline"
-                    className="h-11 min-w-[17rem] rounded-full border-slate-300 bg-white px-5 text-slate-900 shadow-sm hover:bg-slate-100 hover:text-slate-900"
+                    className="h-11 w-full px-5 shadow-sm"
                   >
                     <GoogleMark />
                     {googleSubmitting ? "Redirecting…" : "Continue with Google"}
                   </Button>
                 </div>
-                <div className="flex items-center gap-4 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+                <div className={cn("flex items-center gap-4", eyebrowClassName)}>
                   <div className="flex-1 border-t border-border" aria-hidden="true" />
-                  <span className="text-muted-foreground/95">or sign in with email</span>
+                  <span>or sign in with email</span>
                   <div className="flex-1 border-t border-border" aria-hidden="true" />
                 </div>
               </div>
@@ -379,11 +379,11 @@ export default function Login() {
                     className="h-11 border-border bg-background"
                   />
                 </div>
-                <div className="flex justify-center pt-1">
+                <div className="pt-1">
                   <Button
                     type="submit"
                     disabled={submitting || googleSubmitting}
-                    className="min-w-[10rem] rounded-full px-6"
+                    className="h-11 w-full"
                   >
                     {submitting ? (
                       <span className="inline-flex items-center gap-2">
@@ -398,7 +398,7 @@ export default function Login() {
               </form>
 
               {/* TEMPORARY (access lockdown): new account creation is disabled. */}
-              <div className="text-center text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 New account creation is temporarily disabled.
               </div>
             </div>

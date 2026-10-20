@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
+import { CodeBlock } from "@/components/ui/code-block";
+import { CopyButton } from "@/components/ui/copy-button";
+import { eyebrowClassName } from "@/components/ui/eyebrow";
+import { ExternalLink } from "@/components/ui/external-link";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -37,7 +41,7 @@ import {
   revokeApiKey,
 } from "@/lib/auth-api";
 import type { ApiKeySummary, UsageByDay, UsagePeriod } from "@/lib/auth-types";
-import { Check, Copy, Star, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { trackEvent } from "@/lib/analytics";
 import { formatDate } from "@/lib/format-utils";
@@ -62,7 +66,7 @@ const USAGE_RANGE_WINDOW_DAYS: Record<Exclude<UsagePeriod, "all">, number> = {
 };
 
 const API_KEY_DELETE_ICON_BUTTON_CLASS =
-  "h-9 w-9 shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive dark:text-red-400 dark:hover:text-red-400";
+  "h-9 w-9 shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive";
 
 const USAGE_RANGE_LABELS: Record<UsagePeriod, string> = {
   "1w": "1 week",
@@ -102,8 +106,6 @@ type McpClientCardProps = {
   title: string;
   description: string;
   command: string;
-  copied: boolean;
-  onCopy: () => void;
 };
 
 function parseIsoDayToUtcMs(isoDay: string): number {
@@ -129,50 +131,27 @@ function utcDayToIso(utcMs: number): string {
   return new Date(utcMs).toISOString().slice(0, 10);
 }
 
-function McpClientCard({ id, title, description, command, copied, onCopy }: McpClientCardProps) {
+function McpClientCard({ id, title, description, command }: McpClientCardProps) {
   const titleId = `${id}-mcp-title`;
   const descriptionId = `${id}-mcp-description`;
-  const commandId = `${id}-mcp-command`;
 
   return (
     <section
       aria-labelledby={titleId}
-      aria-describedby={`${descriptionId} ${commandId}`}
-      className="min-w-0 overflow-x-hidden rounded-lg border border-border bg-background p-4"
+      aria-describedby={descriptionId}
+      className="min-w-0 rounded-lg border border-border bg-background p-4"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h3 id={titleId} className="text-sm font-semibold">
-            {title}
-          </h3>
-          <p id={descriptionId} className="mt-1 text-sm prose-copy">
-            {description}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full sm:w-auto sm:shrink-0"
-          aria-label={`${copied ? "Copied" : "Copy"} ${title} MCP command`}
-          aria-describedby={commandId}
-          onClick={onCopy}
-        >
-          {copied ? (
-            <Check className="mr-1 h-3 w-3" aria-hidden="true" />
-          ) : (
-            <Copy className="mr-1 h-3 w-3" aria-hidden="true" />
-          )}
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
-      <pre
-        id={commandId}
-        tabIndex={0}
-        className="mt-3 max-w-full overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      >
-        <code className="font-mono whitespace-pre">{command}</code>
-      </pre>
+      <h3 id={titleId} className="text-sm font-semibold">
+        {title}
+      </h3>
+      <p id={descriptionId} className="mt-1 text-sm prose-copy">
+        {description}
+      </p>
+      <CodeBlock
+        className="mt-3"
+        code={command}
+        copyLabel={`Copy ${title} MCP command`}
+      />
     </section>
   );
 }
@@ -200,8 +179,6 @@ export default function Account() {
 
   const [newKeyName, setNewKeyName] = useState("");
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
-  const [copiedNewKey, setCopiedNewKey] = useState(false);
-  const [copiedMcpSnippet, setCopiedMcpSnippet] = useState<string | null>(null);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -344,27 +321,6 @@ export default function Account() {
     };
   }, [loadAccountData, user]);
 
-  useEffect(() => {
-    setCopiedNewKey(false);
-  }, [revealedKey]);
-
-  const handleCopyMcpSnippet = useCallback(async (id: string, text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedMcpSnippet(id);
-      toast({ title: "Copied to clipboard" });
-      window.setTimeout(() => {
-        setCopiedMcpSnippet((current) => (current === id ? null : current));
-      }, 1800);
-    } catch (err) {
-      toast({
-        title: "Copy failed",
-        description: err instanceof Error ? err.message : String(err),
-        variant: "destructive",
-      });
-    }
-  }, []);
-
   const redactedReminder = useMemo(() => {
     if (status !== "authenticated") return null;
     if (hasAnyKey) return null;
@@ -499,21 +455,15 @@ export default function Account() {
   return (
     <PageShell
       title="Account"
-      subtitle={
+      description={
         status === "anonymous" ? (
           <span className="text-sm prose-copy">
             Sign in to unlock full access, manage API keys, and view API usage.
           </span>
         ) : undefined
       }
-      size="md"
-      actions={
-        user ? (
-          <Button variant="outline" onClick={logout}>
-            Sign out
-          </Button>
-        ) : null
-      }
+      layout="data"
+      contentClassName="max-w-4xl"
     >
       {status === "loading" ? (
         <Card className="p-6" role="status" aria-live="polite">
@@ -521,35 +471,35 @@ export default function Account() {
         </Card>
       ) : (
         <div className="grid gap-6">
+          {user ? (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold">Profile</h2>
+              <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <dl className="grid min-w-0 gap-4 text-sm sm:grid-flow-col sm:gap-10">
+                  <div className="min-w-0">
+                    <dt className={eyebrowClassName}>Email</dt>
+                    <dd className="mt-1 break-words text-foreground">{user.email}</dd>
+                  </div>
+                  {user.created_at ? (
+                    <div>
+                      <dt className={eyebrowClassName}>Created</dt>
+                      <dd className="mt-1 text-foreground">{formatDate(user.created_at)}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+                <Button variant="outline" onClick={logout} className="w-full sm:w-auto">
+                  Sign out
+                </Button>
+              </div>
+            </Card>
+          ) : null}
+
           {redactedReminder ? (
             <Alert>
               <AlertTitle as="h2">API access</AlertTitle>
               <AlertDescription className="prose-copy">{redactedReminder}</AlertDescription>
             </Alert>
           ) : null}
-
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold">Favorites</h2>
-            <div className="mx-auto mt-4 grid max-w-xl grid-cols-[auto_minmax(0,1fr)] items-center gap-3 text-left">
-              <Star
-                className="h-6 w-6 shrink-0 fill-none text-amber-500"
-                strokeWidth={2}
-                aria-hidden="true"
-              />
-              <p className="text-sm leading-6 prose-copy">
-                Save starred sections, deals, and tax clauses in one workspace.
-                Double-click stars to add tags, notes, and project organization.
-              </p>
-            </div>
-            <div className="mt-3 text-center">
-              <Link
-                to="/favorites"
-                className="text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                Go to Favorites
-              </Link>
-            </div>
-          </Card>
 
           <Card className="p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -879,36 +829,23 @@ export default function Account() {
                   title="Codex"
                   description={`Run \`${CODEX_MCP_COMMAND}\` first, then run \`${CODEX_MCP_LOGIN_COMMAND}\` to start the browser auth flow.`}
                   command={`${CODEX_MCP_COMMAND}\n${CODEX_MCP_LOGIN_COMMAND}`}
-                  copied={copiedMcpSnippet === "codex"}
-                  onCopy={() =>
-                    void handleCopyMcpSnippet(
-                      "codex",
-                      `${CODEX_MCP_COMMAND}\n${CODEX_MCP_LOGIN_COMMAND}`,
-                    )
-                  }
                 />
                 <McpClientCard
                   id="claude"
                   title="Claude Code"
                   description="Add the remote HTTP server, then run `/mcp`, authenticate the `pandects` server there, and finish the Pandects sign-in flow in the browser."
                   command={CLAUDE_MCP_COMMAND}
-                  copied={copiedMcpSnippet === "claude"}
-                  onCopy={() => void handleCopyMcpSnippet("claude", CLAUDE_MCP_COMMAND)}
                 />
               </div>
 
               <div className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
                 Full walkthrough:{" "}
-                <a
+                <ExternalLink
                   href={`${docsUrl}/docs/mcp/using`}
-                  target="_blank"
-                  rel="noreferrer"
                   className="text-primary underline underline-offset-4"
-                  aria-label="Open the MCP guide in a new tab"
                 >
                   MCP guide
-                </a>
-                <span className="ml-1 text-xs text-muted-foreground">(opens in a new tab)</span>
+                </ExternalLink>
                 .
               </div>
             </div>
@@ -929,7 +866,7 @@ export default function Account() {
 
               <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,260px)] sm:items-end">
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <span className={eyebrowClassName}>
                     Range
                   </span>
                   <ToggleGroup
@@ -971,7 +908,7 @@ export default function Account() {
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="usage-key-filter" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <Label htmlFor="usage-key-filter" className={eyebrowClassName}>
                     API key
                   </Label>
                   <Select
@@ -1022,7 +959,7 @@ export default function Account() {
                     config={{
                       requests: {
                         label: "Requests",
-                        color: "hsl(215 88% 56%)",
+                        color: "hsl(var(--chart-1))",
                       },
                     }}
                     role="img"
@@ -1090,8 +1027,8 @@ export default function Account() {
             </div>
           </Card>
 
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold text-destructive dark:text-red-400">
+          <Card className="border-destructive/40 p-6">
+            <h2 className="text-xl font-semibold text-destructive">
               Delete account
             </h2>
             <p className="mt-1 text-sm prose-copy">
@@ -1179,36 +1116,15 @@ export default function Account() {
               Copy this now — you won’t be able to view it again.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="relative rounded-md border bg-muted px-3 py-2 pr-12 font-mono text-sm break-all">
-            <button
-              type="button"
-              onClick={() => {
-                if (!revealedKey) return;
-                void (async () => {
-                  try {
-                    await navigator.clipboard.writeText(revealedKey);
-                    setCopiedNewKey(true);
-                    toast({ title: "Copied to clipboard" });
-                  } catch (err) {
-                    toast({
-                      title: "Copy failed",
-                      description: err instanceof Error ? err.message : String(err),
-                      variant: "destructive",
-                    });
-                  }
-                })();
-              }}
-              className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded border border-border bg-background p-0 shadow-sm hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-8 sm:w-8"
-              title="Copy to clipboard"
-              aria-label="Copy API key"
-            >
-              {copiedNewKey ? (
-                <Check className="h-3 w-3 text-green-600" aria-hidden="true" />
-              ) : (
-                <Copy className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-              )}
-            </button>
-            {revealedKey}
+          <div className="flex items-start gap-2 rounded-md border bg-muted py-1 pl-3 pr-1 font-mono text-sm">
+            <span className="min-w-0 flex-1 break-all py-1.5">{revealedKey}</span>
+            <CopyButton
+              value={revealedKey ?? ""}
+              label="Copy API key"
+              variant="outline"
+              className="shrink-0 bg-background"
+              disabled={!revealedKey}
+            />
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Close</AlertDialogCancel>

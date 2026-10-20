@@ -3,7 +3,6 @@ import {
   BookOpen,
   CalendarClock,
   Cpu,
-  ExternalLink,
   FileCode2,
   FileText,
   LineChart,
@@ -14,7 +13,12 @@ import {
   Shield,
   Tags,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { SVGProps } from "react";
+import { FactCard } from "@/components/FactCard";
+import { CodeBlock } from "@/components/ui/code-block";
+import { ExternalLink } from "@/components/ui/external-link";
+import { Eyebrow, eyebrowClassName } from "@/components/ui/eyebrow";
 import { PageShell } from "@/components/PageShell";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -106,7 +110,8 @@ const helpAreas = [
     description: "Including OAuth flow reviews.",
   },
   {
-    icon: A11ySymbol,
+    // Custom glyph; structurally compatible with a lucide icon component.
+    icon: A11ySymbol as unknown as LucideIcon,
     title: "Accessibility",
     description: "Keyboard, focus, contrast.",
   },
@@ -118,7 +123,7 @@ const helpAreas = [
 ];
 
 const roadmapItems: {
-  icon: typeof Tags;
+  icon: LucideIcon;
   title: string;
   description?: string;
 }[] = [
@@ -146,13 +151,6 @@ const roadmapItems: {
   },
 ];
 
-const extIcon = (
-  <ExternalLink
-    className="ml-0.5 inline-block h-3 w-3 align-baseline opacity-60"
-    aria-hidden="true"
-  />
-);
-
 export default function About() {
   const {
     summary,
@@ -168,46 +166,39 @@ export default function About() {
     : "Since Jan. 1, 2000";
 
   return (
-    <PageShell size="lg" title="About">
+    <PageShell layout="docs" title="About">
       <div className="w-full">
         <article>
           <section
             id="overview"
-            className="scroll-mt-24 first:pt-0 pt-12"
+            className="scroll-mt-24"
             aria-labelledby="overview-heading"
           >
-            <SectionHeader number="01" title="Overview" id="overview-heading" />
+            <SectionHeader title="Overview" id="overview-heading" />
 
-            <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {quickFacts.map(({ icon: Icon, eyebrow, value }) => (
-                <div
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {quickFacts.map(({ icon, eyebrow, value }) => (
+                <FactCard
                   key={eyebrow}
-                  className="rounded-lg border border-border bg-card p-4"
-                >
-                  <Icon className="h-5 w-5 text-primary mb-2" />
-                  <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                    {eyebrow}
-                  </div>
-                  <div className="mt-1 text-sm font-medium leading-5 text-foreground">
-                    {eyebrow === "Coverage" ? coverageValue : value}
-                  </div>
-                </div>
+                  icon={icon}
+                  eyebrow={eyebrow}
+                  title={eyebrow === "Coverage" ? coverageValue : value}
+                  titleAs="h3"
+                />
               ))}
             </div>
 
-            <div className="mt-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="max-w-2xl">
-                  <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                    Agreement Index
-                  </div>
+            <div className="mt-4 rounded-xl border border-border bg-card p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <Eyebrow>Agreement Index</Eyebrow>
                   <p className="mt-1 text-sm prose-copy">
                     Browse the corpus by year, party, and processing status.
                   </p>
                 </div>
                 <Link
                   to="/agreement-index"
-                  className="inline-flex w-fit items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/50 hover:bg-primary/15"
+                  className="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/50 hover:bg-primary/15"
                 >
                   Browse the index
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -216,22 +207,20 @@ export default function About() {
 
               {!summaryError && (
                 <div
-                  className="mt-4 grid gap-3 md:grid-cols-3"
+                  className="mt-4 grid gap-3 sm:grid-cols-3"
                   aria-busy={summaryLoading}
                   aria-live="polite"
                 >
                   {corpusMetrics.map(({ key, icon: Icon, label, detail }) => (
                     <div
                       key={key}
-                      className="flex min-h-[5.5rem] items-center gap-3 rounded-md border border-border bg-background/80 p-3"
+                      className="flex min-h-[5.5rem] items-center gap-3 rounded-lg border border-border bg-background p-3"
                     >
                       <div className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-primary/10 text-primary">
                         <Icon className="h-4 w-4" aria-hidden="true" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                          {label}
-                        </div>
+                        <Eyebrow>{label}</Eyebrow>
                         <div className="flex min-h-7 items-center text-xl font-semibold tabular-nums text-foreground">
                           {summaryLoading ? (
                             <>
@@ -274,27 +263,19 @@ export default function About() {
               enabling you to tackle research questions by partnering with an
               AI research agent of your choice. To aid adoption of both the API
               and MCP server, we've put together a small collection of{" "}
-              <a
+              <ExternalLink
                 href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="GitHub directory of API examples (opens in a new tab)"
                 className="underline underline-offset-2"
               >
                 Jupyter Notebook examples
-                {extIcon}
-              </a>{" "}
+              </ExternalLink>{" "}
               as well as built out a{" "}
-              <a
+              <ExternalLink
                 href={docsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Documentation site (opens in a new tab)"
                 className="underline underline-offset-2"
               >
                 documentation site
-                {extIcon}
-              </a>
+              </ExternalLink>
               . Finally, for more control, users may elect to{" "}
               <Link to="/bulk-data" className="underline underline-offset-2">
                 bulk download
@@ -309,7 +290,6 @@ export default function About() {
             aria-labelledby="contributing-heading"
           >
             <SectionHeader
-              number="02"
               title="Contributing"
               id="contributing-heading"
             />
@@ -317,58 +297,42 @@ export default function About() {
             <p className="prose-copy mt-6">
               This is an open-source project, and contributions are welcome.
               See the{" "}
-              <a
+              <ExternalLink
                 href="https://github.com/PlatosTwin/pandects-app"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="GitHub repository (opens in a new tab)"
                 className="underline underline-offset-2"
               >
                 GitHub repository
-                {extIcon}
-              </a>{" "}
+              </ExternalLink>{" "}
               for details.
             </p>
 
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground mt-8">
-              Where help is most welcome
-            </h3>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-              {helpAreas.map(({ icon: Icon, title, description }) => (
-                <div
+            <Eyebrow asChild className="mt-8">
+              <h3>Where help is most welcome</h3>
+            </Eyebrow>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {helpAreas.map(({ icon, title, description }) => (
+                <FactCard
                   key={title}
-                  className="rounded-lg border border-border bg-card p-4"
-                >
-                  <Icon className="h-5 w-5 text-primary mb-2" />
-                  <h4 className="text-base font-medium text-foreground">
-                    {title}
-                  </h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {description}
-                  </p>
-                </div>
+                  icon={icon}
+                  title={title}
+                  description={description}
+                  titleAs="h4"
+                />
               ))}
             </div>
 
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground mt-8">
-              On the roadmap
-            </h3>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-              {roadmapItems.map(({ icon: Icon, title, description }) => (
-                <div
+            <Eyebrow asChild className="mt-8">
+              <h3>On the roadmap</h3>
+            </Eyebrow>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {roadmapItems.map(({ icon, title, description }) => (
+                <FactCard
                   key={title}
-                  className="rounded-lg border border-border bg-card p-4"
-                >
-                  <Icon className="h-5 w-5 text-primary mb-2" />
-                  <h4 className="text-base font-medium text-foreground">
-                    {title}
-                  </h4>
-                  {description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {description}
-                    </p>
-                  )}
-                </div>
+                  icon={icon}
+                  title={title}
+                  description={description}
+                  titleAs="h4"
+                />
               ))}
             </div>
           </section>
@@ -378,10 +342,10 @@ export default function About() {
             className="scroll-mt-24 pt-12"
             aria-labelledby="credits-heading"
           >
-            <SectionHeader number="03" title="Credits" id="credits-heading" />
+            <SectionHeader title="Credits" id="credits-heading" />
 
             <dl className="mt-6 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-x-6 gap-y-5">
-              <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground self-start">
+              <dt className={`${eyebrowClassName} self-start`}>
                 Advisors
               </dt>
               <dd className="text-sm text-foreground">
@@ -389,86 +353,66 @@ export default function About() {
                 Chris Sprigman (NYU Law).
               </dd>
 
-              <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground self-start">
+              <dt className={`${eyebrowClassName} self-start`}>
                 Institutional support
               </dt>
               <dd className="text-sm text-foreground">
-                <a
+                <ExternalLink
                   href="https://www.law.nyu.edu/leadershipprogram"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Jacobson Leadership Program in Law and Business (opens in a new tab)"
                   className="underline underline-offset-2"
                 >
                   Jacobson Leadership Program in Law and Business
-                  {extIcon}
-                </a>
+                </ExternalLink>
                 ; NYU IT High Performance Computing.
               </dd>
 
-              <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground self-start">
+              <dt className={`${eyebrowClassName} self-start`}>
                 Inspiration
               </dt>
               <dd className="text-sm text-foreground">
                 Site concept and design borrow from{" "}
-                <a
+                <ExternalLink
                   href="https://case.law"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Caselaw Access Project (opens in a new tab)"
                   className="underline underline-offset-2"
                 >
                   Caselaw Access Project
-                  {extIcon}
-                </a>
+                </ExternalLink>
                 , a product of the{" "}
-                <a
+                <ExternalLink
                   href="https://lil.law.harvard.edu/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Library Innovation Lab (opens in a new tab)"
                   className="underline underline-offset-2"
                 >
                   Library Innovation Lab
-                  {extIcon}
-                </a>{" "}
+                </ExternalLink>{" "}
                 (LIL) at Harvard Law. Jack Cushman at LIL provided early
                 guidance.
               </dd>
 
-              <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground self-start">
+              <dt className={`${eyebrowClassName} self-start`}>
                 Prior work
               </dt>
               <dd className="text-sm text-foreground">
                 Peter Adelson, Matthew Jennejohn, Julian Nyarko, Eric Talley —{" "}
-                <a
+                <ExternalLink
                   href="https://onlinelibrary.wiley.com/doi/abs/10.1111/jels.12410"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Introducing a New Corpus of Definitive M&A Agreements, 2000–2020 (opens in a new tab)"
                   className="underline underline-offset-2"
                 >
                   <em>
                     Introducing a New Corpus of Definitive M&A Agreements,
                     2000–2020
                   </em>
-                  {extIcon}
-                </a>
+                </ExternalLink>
                 .{" "}
-                <a
+                <ExternalLink
                   href="https://github.com/padelson/dma_corpus/tree/main"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="DMA corpus repository (opens in a new tab)"
                   className="underline underline-offset-2"
                 >
                   DMA corpus repository
-                  {extIcon}
-                </a>
+                </ExternalLink>
                 .
               </dd>
 
-              <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground self-start">
+              <dt className={`${eyebrowClassName} self-start`}>
                 Technical assistance
               </dt>
               <dd className="text-sm text-foreground">
@@ -483,7 +427,6 @@ export default function About() {
             aria-labelledby="cite-pandects-heading"
           >
             <SectionHeader
-              number="04"
               title="Cite Pandects"
               id="cite-pandects-heading"
             />
@@ -498,21 +441,20 @@ export default function About() {
                 Agreements
               </em>
               . 2026. Available at SSRN:{" "}
-              <a
+              <ExternalLink
                 href={ssrnUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Pandects SSRN paper (opens in a new tab)"
                 className="underline underline-offset-2"
               >
                 {ssrnUrl}
-                {extIcon}
-              </a>
+              </ExternalLink>
               .
             </p>
-            <pre className="mt-4 overflow-x-auto rounded-lg border border-border bg-card p-4 text-xs leading-5 text-foreground">
-              <code>{pandectsBibtex}</code>
-            </pre>
+            <CodeBlock
+              className="mt-4"
+              code={pandectsBibtex}
+              label="BibTeX"
+              copyLabel="Copy BibTeX citation"
+            />
           </section>
         </article>
       </div>

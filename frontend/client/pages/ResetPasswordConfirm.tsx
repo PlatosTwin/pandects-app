@@ -40,11 +40,10 @@ export default function ResetPasswordConfirm() {
   return (
     <PageShell
       title="Choose a new password"
-      subtitle="Finish resetting your Pandects password."
-      size="md"
-      className="max-w-3xl"
+      description="Finish resetting your Pandects password."
+      layout="form"
     >
-      <Card className="mx-auto w-full max-w-2xl border-border bg-card/95 p-6 shadow-sm sm:p-8">
+      <Card className="w-full p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
           {!userId || !code ? (
             <Alert variant="destructive">
@@ -106,11 +105,11 @@ export default function ResetPasswordConfirm() {
                   className="h-11 border-border bg-background"
                 />
               </div>
-              <div className="flex justify-center pt-1">
+              <div className="pt-1">
                 <Button
                   type="submit"
                   disabled={submitting || !userId || !code}
-                  className="min-w-[10rem] rounded-full px-6"
+                  className="min-w-[10rem] px-6"
                 >
                   {submitting ? "Updating password…" : "Update password"}
                 </Button>
@@ -118,7 +117,7 @@ export default function ResetPasswordConfirm() {
             </form>
           ) : null}
 
-          <div className="text-center text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground">
             <Link to="/login" className="text-primary hover:underline">
               Back to sign in
             </Link>
