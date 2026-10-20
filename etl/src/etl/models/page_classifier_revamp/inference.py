@@ -12,9 +12,7 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from .crf_pipeline import (
-    AgreementDocument,
     DecodableCRFProtocol,
-    FeatureDict,
     POSTPROCESS_ANNEX_ENTRY_MAX_RATIO,
     POSTPROCESS_BACK_WINDOW_SIZE,
     POSTPROCESS_BODY_LIKE_MIN_RATIO,
@@ -27,6 +25,12 @@ from .crf_pipeline import (
     predict_with_transition_overrides,
 )
 from .page_classifier_constants import CLASSIFIER_CRF_PATH, CLASSIFIER_LABEL_LIST
+from .page_types import AgreementDocument
+from .typesafe_judgments import (
+    append_typesafe_features,
+    fetch_page_judgments,
+    typesafe_artifact_metadata,
+)
 
 
 class ClassifierProbs(TypedDict):
@@ -116,6 +120,17 @@ def _coerce_transition_overrides(value: object) -> dict[tuple[str, str], float]:
             return monotonic_transition_overrides()
         overrides[(str(transition[0]), str(transition[1]))] = float(weight)
     return overrides
+
+
+def _coerce_typesafe_features(value: object) -> dict[str, str] | None:
+    if value is None:
+        return None
+    expected = typesafe_artifact_metadata()
+    if not isinstance(value, dict) or {str(key): str(item) for key, item in value.items()} != expected:
+        raise ValueError(
+            f"CRF artifact was trained with TypeSafe features {value!r}, but this code produces {expected!r}."
+        )
+    return expected
 
 
 def _coerce_postprocess_parameters(value: object) -> PostprocessParameters:
@@ -489,6 +504,7 @@ class ClassifierInference:
         self.transition_overrides = _coerce_transition_overrides(
             artifact.get("overwritten_transitions")
         )
+        self.typesafe_features = _coerce_typesafe_features(artifact.get("typesafe_features"))
 
     def classify(self, df: pd.DataFrame) -> list[ClassifierPrediction]:
         prepared = self._prepare_dataframe(df)
@@ -607,6 +623,8 @@ class ClassifierInference:
         documents: list[AgreementDocument],
     ) -> tuple[list[list[str]], list[list[dict[str, float]]], list[list[bool]]]:
         sequences = build_feature_sequences(documents, self.vectorizer)
+        if self.typesafe_features is not None:
+            sequences = append_typesafe_features(sequences, fetch_page_judgments(documents))
         predictions, marginals = predict_with_transition_overrides(
             self.model,
             sequences,

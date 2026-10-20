@@ -7,12 +7,11 @@ import sklearn_crfsuite
 
 from etl.models.page_classifier_revamp.crf_pipeline import (
     LABEL_TO_INDEX,
-    PAGE_LABELS,
     DecodableCRFProtocol,
-    FeatureDict,
     monotonic_transition_overrides,
     predict_with_transition_overrides,
 )
+from etl.models.page_classifier_revamp.page_types import PAGE_LABELS, FeatureDict
 
 
 class _FakeCRF:

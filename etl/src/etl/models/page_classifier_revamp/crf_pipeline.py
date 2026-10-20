@@ -22,7 +22,13 @@ from scipy.special import logsumexp
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
-PAGE_LABELS = ["front_matter", "toc", "body", "sig", "back_matter"]
+from .page_types import PAGE_LABELS, AgreementDocument, FeatureDict
+from .typesafe_judgments import (
+    append_typesafe_features,
+    fetch_page_judgments,
+    typesafe_artifact_metadata,
+)
+
 LABEL_TO_INDEX = {label: idx for idx, label in enumerate(PAGE_LABELS)}
 AGREEMENT_TYPE_LABELS = [
     "no_sig",
@@ -50,6 +56,7 @@ DEFAULT_METRICS_PATH = BASE_DIR / "eval_metrics" / "page_classifier_revamp_metri
 DEFAULT_SPLIT_SEED = 2718
 DEFAULT_OPTUNA_PATH = BASE_DIR / "eval_metrics" / "page_classifier_revamp_optuna_best.json"
 DEFAULT_OPTUNA_TRIALS = 12
+DEFAULT_TYPESAFE_CACHE_PATH = BASE_DIR / "data" / "typesafe-judgments.jsonl"
 POSTPROCESS_EARLY_BACK_RELATIVE_PAGE_MAX = 0.45
 POSTPROCESS_BACK_WINDOW_SIZE = 16
 POSTPROCESS_BODY_LIKE_MIN_RATIO = 0.40
@@ -97,17 +104,6 @@ STANDALONE_AGREEMENT_TITLE_RE = re.compile(
     re.IGNORECASE,
 )
 LEADING_FRAGMENT_RE = re.compile(r"[A-Z][A-Za-z&'/-]*(?:\s+[A-Z][A-Za-z&'/-]*){0,5}")
-
-FeatureValue = float | bool
-FeatureDict = dict[str, FeatureValue]
-
-
-@dataclass(frozen=True)
-class AgreementDocument:
-    agreement_uuid: str
-    page_texts: list[str]
-    labels: list[str]
-
 
 @dataclass(frozen=True)
 class LabelViolation:
@@ -324,6 +320,17 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=DEFAULT_ILLEGAL_TRANSITION_WEIGHT,
         help="Weight assigned to forbidden backward transitions.",
+    )
+    _ = parser.add_argument(
+        "--typesafe-features",
+        action="store_true",
+        help="Add TypeSafe page judgments as CRF features (needs TYPESAFE_API_KEY for uncached pages).",
+    )
+    _ = parser.add_argument(
+        "--typesafe-cache-path",
+        type=Path,
+        default=DEFAULT_TYPESAFE_CACHE_PATH,
+        help="JSONL cache of TypeSafe page judgments, read and appended to.",
     )
     _ = parser.add_argument(
         "--postprocess-early-back-relative-page-max",
@@ -1662,6 +1669,7 @@ def _run_crf_experiment(
     c2: float,
     max_iterations: int = 100,
     log_prefix: str | None = None,
+    typesafe_cache_path: Path | None = None,
 ) -> dict[str, object]:
     prefix = f"{log_prefix} " if log_prefix else ""
     train_page_texts = [page_text for doc in train_documents for page_text in doc.page_texts]
@@ -1674,6 +1682,18 @@ def _run_crf_experiment(
     y_train = build_label_sequences(train_documents)
     x_eval = build_feature_sequences(eval_documents, vectorizer)
     y_eval = build_label_sequences(eval_documents)
+    typesafe_features: dict[str, str] | None = None
+    if typesafe_cache_path is not None:
+        _log(f"{prefix}[crf] fetching TypeSafe page judgments (cache: {typesafe_cache_path})")
+        x_train = append_typesafe_features(
+            x_train,
+            fetch_page_judgments(train_documents, cache_path=typesafe_cache_path),
+        )
+        x_eval = append_typesafe_features(
+            x_eval,
+            fetch_page_judgments(eval_documents, cache_path=typesafe_cache_path),
+        )
+        typesafe_features = typesafe_artifact_metadata()
 
     sklearn_crfsuite, crf_metrics = _load_crf_modules()
     crf_model = sklearn_crfsuite.CRF(
@@ -1787,6 +1807,7 @@ def _run_crf_experiment(
             "c1": c1,
             "c2": c2,
             "max_iterations": max_iterations,
+            "typesafe_features": typesafe_features,
         },
         "postprocess": {
             "name": "early_back_matter_guard",
@@ -1809,6 +1830,7 @@ def _run_crf_experiment(
         "crf_model": crf_model,
         "vectorizer": vectorizer,
         "overwritten_transitions": overwritten_transitions,
+        "typesafe_features": typesafe_features,
         "report_text": report_text,
         "metrics_payload": metrics_payload,
     }
@@ -1826,6 +1848,7 @@ def _save_artifact(
     overwritten_transitions: dict[tuple[str, str], float],
     label_violations: list[LabelViolation],
     postprocess_parameters: PostprocessParameters,
+    typesafe_features: dict[str, str] | None,
 ) -> None:
     model_path.parent.mkdir(parents=True, exist_ok=True)
     artifact = {
@@ -1838,6 +1861,7 @@ def _save_artifact(
         "fitted_agreement_ids": fitted_agreement_ids,
         "overwritten_transitions": overwritten_transitions,
         "postprocess_parameters": postprocess_parameters,
+        "typesafe_features": typesafe_features,
         "label_violations": [
             {
                 "agreement_uuid": violation.agreement_uuid,
@@ -1869,6 +1893,7 @@ def train_and_evaluate(
     use_best_optuna_params: bool,
     illegal_transition_weight: float,
     postprocess_parameters: PostprocessParameters,
+    typesafe_cache_path: Path | None = None,
 ) -> dict[str, object]:
     df = load_page_dataframe(data_path)
     _log(f"[crf] loaded dataset: rows={len(df)}, agreements={df['agreement_uuid'].nunique()}")
@@ -1949,6 +1974,7 @@ def train_and_evaluate(
         c1=selected_hyperparameters["c1"],
         c2=selected_hyperparameters["c2"],
         log_prefix="[crf][train]",
+        typesafe_cache_path=typesafe_cache_path,
     )
     report_text = cast(str, experiment["report_text"])
     metrics_payload = cast(dict[str, object], experiment["metrics_payload"])
@@ -1983,6 +2009,7 @@ def train_and_evaluate(
         ),
         label_violations=label_violations,
         postprocess_parameters=postprocess_parameters,
+        typesafe_features=cast(dict[str, str] | None, experiment["typesafe_features"]),
     )
     _log(f"[crf] saved artifact to {model_path}")
     print(report_text)
@@ -2018,6 +2045,7 @@ def tune_hyperparameters(
     illegal_transition_weight: float,
     optuna_trials: int,
     postprocess_parameters: PostprocessParameters,
+    typesafe_cache_path: Path | None = None,
 ) -> dict[str, object]:
     if optuna_trials <= 0:
         raise ValueError("optuna_trials must be positive.")
@@ -2066,6 +2094,7 @@ def tune_hyperparameters(
             c1=c1,
             c2=c2,
             log_prefix=f"[crf][trial {trial.number + 1}/{optuna_trials}]",
+            typesafe_cache_path=typesafe_cache_path,
         )
         metrics_payload = cast(dict[str, object], experiment["metrics_payload"])
         macro_f1 = float(cast(float, metrics_payload["macro_f1"]))
@@ -2103,6 +2132,7 @@ def tune_hyperparameters(
         c1=best_c1,
         c2=best_c2,
         log_prefix="[crf][best]",
+        typesafe_cache_path=typesafe_cache_path,
     )
     report_text = cast(str, best_experiment["report_text"])
     metrics_payload = cast(dict[str, object], best_experiment["metrics_payload"])
@@ -2157,6 +2187,7 @@ def tune_hyperparameters(
         ),
         label_violations=label_violations,
         postprocess_parameters=postprocess_parameters,
+        typesafe_features=cast(dict[str, str] | None, best_experiment["typesafe_features"]),
     )
     _log(f"[crf] saved artifact to {model_path}")
     print(report_text)
@@ -2179,6 +2210,7 @@ def main() -> None:
         annex_entry_max_ratio=args.postprocess_annex_entry_max_ratio,
         late_back_trigger_relative_page=args.postprocess_late_back_trigger_relative_page,
     )
+    typesafe_cache_path = cast(Path, args.typesafe_cache_path) if args.typesafe_features else None
     resolved_model_path = _resolve_run_output_path(
         args.model_path,
         default_path=DEFAULT_MODEL_PATH,
@@ -2217,6 +2249,7 @@ def main() -> None:
             use_best_optuna_params=args.use_best_optuna_params,
             illegal_transition_weight=args.illegal_transition_weight,
             postprocess_parameters=postprocess_parameters,
+            typesafe_cache_path=typesafe_cache_path,
         )
     else:
         _ = tune_hyperparameters(
@@ -2233,6 +2266,7 @@ def main() -> None:
             illegal_transition_weight=args.illegal_transition_weight,
             optuna_trials=args.optuna_trials,
             postprocess_parameters=postprocess_parameters,
+            typesafe_cache_path=typesafe_cache_path,
         )
 
 

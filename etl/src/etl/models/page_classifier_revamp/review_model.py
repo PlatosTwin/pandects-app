@@ -22,13 +22,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .crf_pipeline import (
-    AgreementDocument,
     CRFHyperparameters,
     DecodableCRFProtocol,
     DEFAULT_DATA_PATH,
     DEFAULT_ILLEGAL_TRANSITION_WEIGHT,
     DEFAULT_OPTUNA_PATH,
     DEFAULT_SPLIT_PATH,
+    DEFAULT_TYPESAFE_CACHE_PATH,
     build_agreement_documents,
     build_feature_sequences,
     build_label_sequences,
@@ -53,6 +53,12 @@ from .page_classifier_constants import (
     CLASSIFIER_CRF_TUNE_VAL_PATH,
     CLASSIFIER_REVIEW_METRICS_PATH,
     CLASSIFIER_REVIEW_MODEL_PATH,
+)
+from .page_types import AgreementDocument
+from .typesafe_judgments import (
+    append_typesafe_features,
+    fetch_page_judgments,
+    typesafe_artifact_metadata,
 )
 
 DEFAULT_REVIEW_OOF_SPLITS = 5
@@ -86,6 +92,7 @@ class ReviewArtifact(TypedDict):
     threshold: float
     page_model_hyperparameters: CRFHyperparameters
     summary_thresholds: dict[str, float]
+    typesafe_features: dict[str, str] | None
 
 
 class ReviewCRFProtocol(Protocol):
@@ -216,6 +223,17 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_ILLEGAL_TRANSITION_WEIGHT,
         help="Weight assigned to forbidden backward transitions in the CRF.",
     )
+    _ = parser.add_argument(
+        "--typesafe-features",
+        action="store_true",
+        help="Give the out-of-fold CRFs TypeSafe page judgment features, matching a TypeSafe page model.",
+    )
+    _ = parser.add_argument(
+        "--typesafe-cache-path",
+        type=Path,
+        default=DEFAULT_TYPESAFE_CACHE_PATH,
+        help="JSONL cache of TypeSafe page judgments, read and appended to.",
+    )
     return parser.parse_args()
 
 
@@ -343,6 +361,7 @@ def _train_and_predict_crf(
     page_model_hyperparameters: CRFHyperparameters,
     illegal_transition_weight: float,
     log_prefix: str | None = None,
+    typesafe_cache_path: Path | None = None,
 ) -> tuple[list[list[str]], list[list[dict[str, float]]]]:
     prefix = f"{log_prefix} " if log_prefix else ""
     train_page_texts = [page_text for doc in train_documents for page_text in doc.page_texts]
@@ -357,6 +376,15 @@ def _train_and_predict_crf(
     x_train = build_feature_sequences(train_documents, vectorizer)
     y_train = build_label_sequences(train_documents)
     x_eval = build_feature_sequences(eval_documents, vectorizer)
+    if typesafe_cache_path is not None:
+        x_train = append_typesafe_features(
+            x_train,
+            fetch_page_judgments(train_documents, cache_path=typesafe_cache_path),
+        )
+        x_eval = append_typesafe_features(
+            x_eval,
+            fetch_page_judgments(eval_documents, cache_path=typesafe_cache_path),
+        )
 
     sklearn_crfsuite = _load_review_crf_module()
     crf_model = sklearn_crfsuite.CRF(
@@ -405,6 +433,7 @@ def _build_review_training_dataset(
     illegal_transition_weight: float,
     oof_splits: int,
     split_seed: int,
+    typesafe_cache_path: Path | None = None,
 ) -> tuple[ReviewDataset, ReviewDataset]:
     if len(train_documents) < 2:
         raise ValueError("Need at least two agreements to build a review-model training set.")
@@ -435,6 +464,7 @@ def _build_review_training_dataset(
             page_model_hyperparameters=page_model_hyperparameters,
             illegal_transition_weight=illegal_transition_weight,
             log_prefix=f"[review][oof {fold_number}/{n_splits}]",
+            typesafe_cache_path=typesafe_cache_path,
         )
         oof_frames.append(
             _build_review_rows(
@@ -452,6 +482,7 @@ def _build_review_training_dataset(
         page_model_hyperparameters=page_model_hyperparameters,
         illegal_transition_weight=illegal_transition_weight,
         log_prefix="[review][val-crf]",
+        typesafe_cache_path=typesafe_cache_path,
     )
     val_frame = _build_review_rows(val_documents, val_predictions, val_marginals)
     val_frame = val_frame.sort_values("agreement_uuid", kind="mergesort").reset_index(drop=True)
@@ -993,6 +1024,7 @@ def train_review_model(
     split_seed: int,
     oof_splits: int,
     illegal_transition_weight: float,
+    typesafe_cache_path: Path | None = None,
 ) -> dict[str, object]:
     df = load_page_dataframe(data_path)
     _log(f"[review] loaded dataset: rows={len(df)}, agreements={df['agreement_uuid'].nunique()}")
@@ -1039,6 +1071,7 @@ def train_review_model(
             illegal_transition_weight=illegal_transition_weight,
             oof_splits=oof_splits,
             split_seed=split_seed,
+            typesafe_cache_path=typesafe_cache_path,
         )
         _save_cached_review_dataset(train_dataset, train_oof_cache_path)
         _save_cached_review_dataset(val_dataset, val_cache_path)
@@ -1090,6 +1123,7 @@ def train_review_model(
             "very_low_confidence_threshold": DEFAULT_REVIEW_VERY_LOW_CONFIDENCE_THRESHOLD,
             "low_margin_threshold": DEFAULT_REVIEW_LOW_MARGIN_THRESHOLD,
         },
+        "typesafe_features": typesafe_artifact_metadata() if typesafe_cache_path is not None else None,
     }
     model_path.parent.mkdir(parents=True, exist_ok=True)
     _ = joblib.dump(artifact, model_path)
@@ -1146,6 +1180,7 @@ class ReviewModelInference:
         self.model = artifact["model"]
         self.feature_columns = list(artifact["feature_columns"])
         self.threshold = float(artifact["threshold"])
+        self.typesafe_features = artifact.get("typesafe_features")
         self.page_classifier = page_classifier
 
     def predict_from_summaries(
@@ -1171,6 +1206,8 @@ class ReviewModelInference:
     def predict_from_dataframe(self, df: pd.DataFrame) -> list[ReviewPrediction]:
         if self.page_classifier is None:
             self.page_classifier = ClassifierInference()
+        if self.page_classifier.typesafe_features != self.typesafe_features:
+            raise ValueError("Review model and page classifier were trained with different TypeSafe features.")
         summaries = self.page_classifier.summarize_review_risk(df)
         return self.predict_from_summaries(summaries)
 
@@ -1192,6 +1229,7 @@ def main() -> None:
         split_seed=args.split_seed,
         oof_splits=args.oof_splits,
         illegal_transition_weight=args.illegal_transition_weight,
+        typesafe_cache_path=cast(Path, args.typesafe_cache_path) if args.typesafe_features else None,
     )
 
 
