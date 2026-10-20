@@ -14,7 +14,19 @@ from collections.abc import Iterable, Mapping
 from decimal import Decimal
 from typing import Any, Protocol, cast
 
-from sqlalchemy import Float, Integer, Numeric, and_, cast as sql_cast, func, or_, select, true
+from sqlalchemy import (
+    Float,
+    Integer,
+    Numeric,
+    and_,
+    cast as sql_cast,
+    exists,
+    func,
+    literal,
+    or_,
+    select,
+    true,
+)
 from sqlalchemy.sql.elements import ColumnElement
 
 
@@ -128,29 +140,38 @@ def agreement_is_public_eligible_expr(
     )
 
 
-def agreement_uuid_is_public_eligible_expr(
+def ineligible_agreement_uuids_query(
     agreement_uuid_column: Any,
     agreements: _PublicEligibleAgreementModel,
-) -> ColumnElement[bool]:
-    """The same eligibility rule for a query keyed by agreement_uuid on another table.
+) -> Any | None:
+    """Gated-and-unverified agreements that have rows in ``agreement_uuid_column``'s table.
 
-    Section-level queries read the denormalized ``latest_sections_search`` and never
-    join ``agreements``; joining it only to apply the gate would cost a primary-key
-    lookup per candidate row. The gated set is small, so an uncorrelated
-    ``NOT IN (gated agreements)`` is evaluated once and probed per row instead.
+    Section-level queries read the denormalized ``latest_sections_search``, which is
+    built from eligible agreements, so this set is normally empty. Callers run it
+    once per request and exclude the returned uuids with a literal ``NOT IN``.
+
+    Do not inline it as an ``agreement_uuid NOT IN (subquery)`` predicate instead:
+    that forces a row lookup for ``agreement_uuid`` on every candidate row, which
+    turns covering-index counts (price buckets, deal-type filters) into full table
+    scans (on the local DB, ~0.05-0.3s became ~2s per uncached ``/v1/sections``
+    request). The probe here walks the gated set
+    (a few thousand rows) against the ``agreement_uuid`` index and costs ~10ms.
+
+    Returns None when the ``agreements`` model has no ``gated`` column.
     """
     gated_col = agreements.__table__.c.get("gated")
     if gated_col is None:
-        return true()
-    gated_agreement_uuids = (
-        select(agreements.agreement_uuid)
-        .where(
-            func.coalesce(gated_col, 0) == 1,
-            func.coalesce(agreements.verified, 0) != 1,
-        )
-        .correlate(None)
+        return None
+    keyed_table = agreement_uuid_column.table
+    return select(agreements.agreement_uuid).where(
+        func.coalesce(gated_col, 0) == 1,
+        func.coalesce(agreements.verified, 0) != 1,
+        exists(
+            select(literal(1))
+            .select_from(keyed_table)
+            .where(agreement_uuid_column == agreements.agreement_uuid)
+        ),
     )
-    return cast(ColumnElement[bool], agreement_uuid_column.notin_(gated_agreement_uuids))
 
 
 def pe_flag_values(values: Iterable[object]) -> list[int]:
@@ -373,11 +394,11 @@ __all__ = [
     "AGREEMENT_RANGE_FILTER_FIELDS",
     "agreement_filter_predicates",
     "agreement_is_public_eligible_expr",
-    "agreement_uuid_is_public_eligible_expr",
     "apply_agreement_filters",
     "build_any_counsel_agreement_uuid_subquery",
     "build_canonical_counsel_agreement_uuid_subquery",
     "build_transaction_price_bucket_filter",
     "has_agreement_filters",
+    "ineligible_agreement_uuids_query",
     "pe_flag_values",
 ]

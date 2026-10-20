@@ -1545,6 +1545,65 @@ class MainRoutesTests(unittest.TestCase):
                 self.app_module._filter_options_cache["payload"] = None
                 self.app_module._filter_options_cache["ts"] = 0
 
+    def test_section_search_excludes_gated_unverified_rows_in_search_table(self):
+        # latest_sections_search should never hold these rows; the search still drops
+        # them if it does, while gated-but-verified agreements stay visible.
+        hidden_section = "00000000-0000-0000-0000-000000000081"
+        visible_section = "00000000-0000-0000-0000-000000000082"
+        seeded = (
+            ("a_lss_gated_hidden", hidden_section, 0),
+            ("a_lss_gated_verified", visible_section, 1),
+        )
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                for agreement_uuid, section_uuid, verified in seeded:
+                    conn.execute(
+                        text(
+                            "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, "
+                            "verified, gated, url) VALUES "
+                            "(:a, '2025-06-01', 'Target Gate', 'Acquirer Gate', :v, 1, 'http://example.com/gate')"
+                        ),
+                        {"a": agreement_uuid, "v": verified},
+                    )
+                    conn.execute(
+                        text(
+                            "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                            "xml_content, section_standard_id, xml_version) VALUES "
+                            "(:a, :s, 'ARTICLE I', 'Gate Section', '<section>GATE</section>', '[\"s-gate\"]', 1)"
+                        ),
+                        {"a": agreement_uuid, "s": section_uuid},
+                    )
+                    conn.execute(
+                        text(
+                            "INSERT INTO latest_sections_search ("
+                            "section_uuid, agreement_uuid, filing_date, target, acquirer, verified, url, "
+                            "section_standard_ids, article_title, section_title"
+                            ") VALUES ("
+                            ":s, :a, '2025-06-01', 'Target Gate', 'Acquirer Gate', :v, "
+                            "'http://example.com/gate', '[\"s-gate\"]', 'ARTICLE I', 'Gate Section')"
+                        ),
+                        {"a": agreement_uuid, "s": section_uuid, "v": verified},
+                    )
+
+        try:
+            client = self.app.test_client()
+            res = client.get("/v1/sections?target=Target Gate&page=1&page_size=10")
+            self.assertEqual(res.status_code, 200)
+            body = res.get_json()
+            returned = [row["section_uuid"] for row in body.get("results", [])]
+            self.assertEqual(returned, [visible_section])
+            self.assertEqual(body.get("total_count"), 1)
+        finally:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    for agreement_uuid, _, _ in seeded:
+                        params = {"a": agreement_uuid}
+                        conn.execute(text("DELETE FROM latest_sections_search WHERE agreement_uuid = :a"), params)
+                        conn.execute(text("DELETE FROM sections WHERE agreement_uuid = :a"), params)
+                        conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = :a"), params)
+
     def test_filter_options_include_counsel_lists(self):
         self.app_module._filter_options_cache["payload"] = None
         self.app_module._filter_options_cache["ts"] = 0

@@ -12,9 +12,9 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from backend.core.pagination import clamp_page_size, search_max_page_size
 from backend.filtering import (
-    agreement_uuid_is_public_eligible_expr,
     apply_agreement_filters,
     has_agreement_filters,
+    ineligible_agreement_uuids_query,
 )
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
 from backend.search_counts import build_search_count_cache_key
@@ -702,7 +702,13 @@ def _run_sections(
     )
     # Defense in depth: latest_sections_search is built from eligible agreements, but
     # the public gate is enforced here too, as every agreement-level surface does.
-    q = q.filter(agreement_uuid_is_public_eligible_expr(latest.agreement_uuid, deps.Agreements))
+    # The ineligible uuids are resolved first so the common case (none present) adds
+    # no per-row predicate; see ineligible_agreement_uuids_query.
+    ineligible_query = ineligible_agreement_uuids_query(latest.agreement_uuid, deps.Agreements)
+    if ineligible_query is not None:
+        ineligible_uuids = [row[0] for row in db.session.execute(ineligible_query)]
+        if ineligible_uuids:
+            q = q.filter(latest.agreement_uuid.notin_(ineligible_uuids))
     q = apply_agreement_filters(
         q,
         latest,
