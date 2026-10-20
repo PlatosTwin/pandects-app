@@ -493,6 +493,62 @@ def party_metadata_conflict(
     )
 
 
+# Words that sibling entity names share without making them the same family
+# ("X Merger Sub" vs "Y Merger Sub"), so a shared one of these proves nothing.
+_COVER_GENERIC_PARTY_WORDS: Final[frozenset[str]] = frozenset(
+    """
+    MERGER SUB SUBS ACQUISITION ACQUISITIONS HOLDINGS HOLDING HOLDCO TOPCO MIDCO
+    BIDCO PARENT COMPANY GROUP INTERNATIONAL GLOBAL ARTICLE SECTION
+    REPRESENTATIONS WARRANTIES COVENANTS BY AMONG BETWEEN AGREEMENT PLAN
+    PURCHASE SALE SURVIVING CORPORATION ENTITY FIRST SECOND NEW
+    I II III IV V VI VII VIII IX X
+    """.split()
+)
+
+
+def _same_cover_entity(left: str, right: str) -> bool:
+    """Whether two cover party tokens name the same entity.
+
+    Word containment covers long/short variants ("IES HOLDINGS" vs
+    "HOLDINGS"); the suffix test covers rendering that glues words together
+    ("AGREEMENT PLAN MERGERAMONGPERMIAN RESOURCES" vs "PERMIAN RESOURCES").
+    """
+    left_words, right_words = set(left.split()), set(right.split())
+    if left_words <= right_words or right_words <= left_words:
+        return True
+    left_compact, right_compact = left.replace(" ", ""), right.replace(" ", "")
+    return left_compact.endswith(right_compact) or right_compact.endswith(left_compact)
+
+
+def cover_party_conflict(left: CoverIdentity, right: CoverIdentity) -> bool:
+    """Whether the two covers name different members of one entity family.
+
+    Fires when each side has a party the other side lacks and the two share a
+    distinctive word: "ENBRIDGE ELEPHANT HOLDINGS" vs "ENBRIDGE QUAIL
+    HOLDINGS", "COTTONWOOD MULTIFAMILY REIT I" vs "... REIT II". That is the
+    signature of same-day sibling template deals, which otherwise clear every
+    content and dated-as-of test. Staging rows carry no curated
+    (target, acquirer) metadata, so `party_metadata_conflict` cannot catch
+    them; this reads the covers instead. One-sided extras (a merger sub only
+    one copy's cover window reached) never conflict.
+    """
+    left_only = [
+        token
+        for token in left.party_tokens
+        if not any(_same_cover_entity(token, other) for other in right.party_tokens)
+    ]
+    right_only = [
+        token
+        for token in right.party_tokens
+        if not any(_same_cover_entity(token, other) for other in left.party_tokens)
+    ]
+    return any(
+        (set(left_token.split()) & set(right_token.split())) - _COVER_GENERIC_PARTY_WORDS
+        for left_token in left_only
+        for right_token in right_only
+    )
+
+
 # --- Duplicate decision --------------------------------------------------------
 
 
@@ -533,8 +589,10 @@ def decide_duplicate(
     it NEVER suffices on its own (the same parties can sign genuinely different
     agreements). `party_conflict=True` means both sides carry curated
     (target, acquirer) metadata that materially disagrees — such pairs never
-    auto-dedupe. `same_accession=True` means both URLs belong to the same
-    EDGAR filing: sibling exhibits are never duplicates, hard-block.
+    auto-dedupe. Covers that name different members of one entity family
+    (`cover_party_conflict`) likewise never auto-dedupe. `same_accession=True`
+    means both URLs belong to the same EDGAR filing: sibling exhibits are never
+    duplicates, hard-block.
     """
     fingerprint_match = newer_signature.content_fingerprint == older_signature.content_fingerprint
     scores = similarity_scores(newer_signature, older_signature)
@@ -563,6 +621,16 @@ def decide_duplicate(
         return DuplicateDecision(
             action=DuplicateAction.REVIEW,
             reason="party_metadata_conflict",
+            fingerprint_match=fingerprint_match,
+            scores=scores,
+        )
+    if cover_party_conflict(newer_cover, older_cover):
+        # Same safeguard read off the covers, for rows with no curated
+        # metadata (every staging row): Enbridge's Elephant and Quail
+        # purchases from Dominion matched on content and dated-as-of.
+        return DuplicateDecision(
+            action=DuplicateAction.REVIEW,
+            reason="cover_party_conflict",
             fingerprint_match=fingerprint_match,
             scores=scores,
         )

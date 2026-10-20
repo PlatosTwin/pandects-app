@@ -11,6 +11,7 @@ from etl.domain.dedupe_signatures import (
     DuplicateAction,
     SurvivorCandidate,
     compute_document_signature,
+    cover_party_conflict,
     decide_duplicate,
     extract_ar_reference_dates,
     extract_cover_identity,
@@ -219,6 +220,71 @@ class PartyConflictTests(unittest.TestCase):
         )
 
 
+# Cover party tokens as extracted from the real EDGAR exhibits (2026-10-20
+# validation review). Enbridge bought three Dominion utilities on 2023-09-05
+# under one template; each agreement was also filed twice.
+_ENBRIDGE_ELEPHANT = frozenset(
+    {"DOMINION ENERGY", "ENBRIDGE ELEPHANT HOLDINGS", "LIABILITY", "STANDING"}
+)
+_ENBRIDGE_QUAIL = frozenset({"DOMINION ENERGY", "ENBRIDGE QUAIL HOLDINGS"})
+_ENBRIDGE_ELEPHANT_OTHER_COPY = frozenset({"DOMINION ENERGY", "ENBRIDGE ELEPHANT HOLDINGS"})
+_COTTONWOOD_REIT_I = frozenset(
+    {"COTTONWOOD COMMUNITIES O P", "COTTONWOOD MULTIFAMILY REIT I", "COTTONWOOD MULTIFAMILY REIT I O P"}
+)
+_COTTONWOOD_REIT_II = frozenset(
+    {"COTTONWOOD COMMUNITIES O P", "COTTONWOOD MULTIFAMILY REIT II", "COTTONWOOD MULTIFAMILY REIT II O P"}
+)
+# True copies whose cover renders glued words in one filer's version.
+_PERMIAN_GLUED = frozenset(
+    {"AGREEMENT PLAN MERGERAMONGPERMIAN RESOURCES", "EARTHSTONE ENERGY", "PERMIAN RESOURCES OPERATING"}
+)
+_PERMIAN_CLEAN = frozenset(
+    {"EARTHSTONE ENERGY", "PERMIAN RESOURCES", "PERMIAN RESOURCES OPERATING"}
+)
+_GULF_ISLAND_GLUED = frozenset({"HOLDINGS", "LLCANDGULF ISLAND FABRICATION", "CONVERSION"})
+_GULF_ISLAND_CLEAN = frozenset(
+    {"GULF ISLAND FABRICATION", "IES HOLDINGS", "IES MERGER SUB", "CONVERSION"}
+)
+
+
+class CoverPartyConflictTests(unittest.TestCase):
+    def test_sibling_entities_of_one_family_conflict(self) -> None:
+        self.assertTrue(
+            cover_party_conflict(_cover(None, parties=_ENBRIDGE_ELEPHANT), _cover(None, parties=_ENBRIDGE_QUAIL))
+        )
+        self.assertTrue(
+            cover_party_conflict(_cover(None, parties=_COTTONWOOD_REIT_I), _cover(None, parties=_COTTONWOOD_REIT_II))
+        )
+
+    def test_one_sided_extra_party_does_not_conflict(self) -> None:
+        # One copy's cover window reached extra tokens; the other did not.
+        self.assertFalse(
+            cover_party_conflict(
+                _cover(None, parties=_ENBRIDGE_ELEPHANT),
+                _cover(None, parties=_ENBRIDGE_ELEPHANT_OTHER_COPY),
+            )
+        )
+
+    def test_glued_rendering_is_the_same_entity(self) -> None:
+        self.assertFalse(
+            cover_party_conflict(_cover(None, parties=_PERMIAN_GLUED), _cover(None, parties=_PERMIAN_CLEAN))
+        )
+        self.assertFalse(
+            cover_party_conflict(_cover(None, parties=_GULF_ISLAND_GLUED), _cover(None, parties=_GULF_ISLAND_CLEAN))
+        )
+
+    def test_shared_generic_word_alone_does_not_conflict(self) -> None:
+        self.assertFalse(
+            cover_party_conflict(
+                _cover(None, parties=frozenset({"ALPHA MERGER SUB", "ACME"})),
+                _cover(None, parties=frozenset({"BETA MERGER SUB", "ACME"})),
+            )
+        )
+
+    def test_empty_covers_do_not_conflict(self) -> None:
+        self.assertFalse(cover_party_conflict(_NO_COVER, _cover(None, parties=_ENBRIDGE_QUAIL)))
+
+
 class SameAccessionTests(unittest.TestCase):
     def test_sibling_exhibits_share_accession(self) -> None:
         self.assertTrue(
@@ -364,6 +430,35 @@ class DecideDuplicateTests(unittest.TestCase):
         )
         self.assertIs(decision.action, DuplicateAction.NONE)
         self.assertEqual(decision.reason, "same_accession_siblings")
+
+    def test_sibling_template_deals_without_metadata_go_to_review(self) -> None:
+        # Regression: Enbridge Elephant vs Quail (2023-09-05, one template)
+        # cleared strong content + matching dated-as-of and auto-deduped,
+        # because staging rows carry no curated target/acquirer metadata.
+        decision = decide_duplicate(
+            self.near_sig,
+            _cover(self.dated, parties=_ENBRIDGE_ELEPHANT),
+            self.base_sig,
+            _cover(self.dated, parties=_ENBRIDGE_QUAIL),
+        )
+        self.assertIs(decision.action, DuplicateAction.REVIEW)
+        self.assertEqual(decision.reason, "cover_party_conflict")
+
+    def test_true_copies_with_noisy_covers_still_auto_dedupe(self) -> None:
+        for newer_parties, older_parties in (
+            (_ENBRIDGE_ELEPHANT, _ENBRIDGE_ELEPHANT_OTHER_COPY),
+            (_PERMIAN_GLUED, _PERMIAN_CLEAN),
+            (_GULF_ISLAND_GLUED, _GULF_ISLAND_CLEAN),
+        ):
+            with self.subTest(newer=sorted(newer_parties)):
+                decision = decide_duplicate(
+                    self.near_sig,
+                    _cover(self.dated, parties=newer_parties),
+                    self.base_sig,
+                    _cover(self.dated, parties=older_parties),
+                )
+                self.assertIs(decision.action, DuplicateAction.AUTO_DEDUPE)
+                self.assertEqual(decision.reason, "content_and_dated_as_of")
 
     def test_party_metadata_conflict_forces_review_on_strong_content_and_date(self) -> None:
         decision = decide_duplicate(
