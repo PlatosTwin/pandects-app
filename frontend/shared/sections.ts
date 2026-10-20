@@ -41,7 +41,12 @@ export interface SearchResult {
   section_uuid: string;
   agreement_uuid: string;
   verified: boolean;
-  transaction_price_total?: string | null;
+  /** Deal fields requested via `metadata=` (see SECTION_RESULT_METADATA_FIELDS). */
+  metadata?: SectionResultMetadata | null;
+}
+
+export interface SectionResultMetadata {
+  transaction_price_total?: number | null;
   deal_status?: string | null;
   deal_type?: string | null;
   purpose?: string | null;

@@ -124,6 +124,19 @@ export function useCommittedSearchCore<TFilters, TResponse, TResult>(
     [responseData, config],
   );
 
+  // The last commit whose results actually loaded. While a newer fetch is in
+  // flight or has failed, the screen still shows this one's results, so
+  // exports use it rather than `committed`.
+  const loadedCommittedRef = useRef<CommittedQuery<TFilters> | null>(null);
+  useEffect(() => {
+    if (committed === null) {
+      loadedCommittedRef.current = null;
+    } else if (query.isSuccess && !query.isPlaceholderData) {
+      loadedCommittedRef.current = committed;
+    }
+  }, [committed, query.isSuccess, query.isPlaceholderData]);
+  const getLoadedCommitted = useCallback(() => loadedCommittedRef.current, []);
+
   // Clear selection whenever a new committed query is issued.
   useEffect(() => {
     if (committed !== null) {
@@ -192,6 +205,7 @@ export function useCommittedSearchCore<TFilters, TResponse, TResult>(
 
   return {
     committed,
+    getLoadedCommitted,
     commit,
     uncommit,
     query,

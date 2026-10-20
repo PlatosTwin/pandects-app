@@ -483,26 +483,12 @@ export function SearchSidebar({
 
   return (
     <>
-      {/* Backdrop for tablet overlay */}
-      {!isCollapsed && (
-        <button
-          type="button"
-          className="fixed inset-0 border-0 bg-black/50 p-0 z-40 lg:hidden"
-          onClick={toggleCollapse}
-          aria-label="Close filters"
-        />
-      )}
-
+      {/* The sidebar variant renders only at lg+ (smaller screens use the sheet).
+          It sticks under the 4rem site header and scrolls its own filter list. */}
       <div
         className={cn(
-          "bg-card border-r border-b border-border transition-all duration-300 ease-in-out h-screen",
-          // Desktop: normal sidebar behavior
-          "lg:flex-shrink-0 lg:sticky lg:top-0 lg:relative",
-          isCollapsed ? "lg:w-16" : "lg:w-80",
-          // Tablet/Mobile: overlay when expanded, collapsed when not
-          isCollapsed
-            ? "w-16 flex-shrink-0 sticky top-0"
-            : "w-80 fixed top-0 left-0 z-50 lg:static lg:z-auto",
+          "sticky top-16 h-[calc(100vh-4rem)] flex-shrink-0 self-start border-r border-border bg-card transition-[width] duration-300 ease-in-out",
+          isCollapsed ? "w-16" : "w-80",
           className,
         )}
       >

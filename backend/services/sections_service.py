@@ -10,6 +10,7 @@ from sqlalchemy.dialects.mysql import match as mysql_match
 from sqlalchemy.exc import DatabaseError, SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
+from backend.core.pagination import clamp_page_size, search_max_page_size
 from backend.filtering import (
     build_canonical_counsel_agreement_uuid_subquery,
     build_transaction_price_bucket_filter,
@@ -665,9 +666,10 @@ def _run_sections(
 
     if page < 1:
         page = 1
-    max_page_size = 100 if ctx.is_authenticated else 10
-    if page_size < 1 or page_size > max_page_size:
-        page_size = min(25, max_page_size)
+    page_size = clamp_page_size(
+        page_size,
+        max_page_size=search_max_page_size(is_authenticated=ctx.is_authenticated),
+    )
 
     # Build the ID-only query first so filters, sort order, and count estimation all share
     # the same search surface before we hydrate the selected rows.

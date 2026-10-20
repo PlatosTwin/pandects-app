@@ -51,6 +51,7 @@ import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { useAgreementSummary } from "@/hooks/use-agreement-summary";
 import { cn } from "@/lib/utils";
+import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 import { scheduleWhenBrowserIdle } from "@/lib/analytics";
 import { Link } from "react-router-dom";
 import { getDocsUrl } from "@/lib/docs-url";
@@ -67,9 +68,7 @@ type AgreementIndexRow = {
   target: string | null;
   acquirer: string | null;
   consideration_type: string | null;
-  total_consideration: string | number | null;
-  target_industry: string | null;
-  acquirer_industry: string | null;
+  total_consideration: number | null;
   verified: boolean;
 };
 
@@ -606,10 +605,10 @@ export default function AgreementIndex() {
                         {formatValue(agreement.acquirer)}
                       </TableCell>
                       <TableCell className="hidden text-muted-foreground lg:table-cell">
-                        {formatValue(agreement.consideration_type)}
+                        {formatEnumValue(agreement.consideration_type)}
                       </TableCell>
                       <TableCell className="hidden text-muted-foreground xl:table-cell">
-                        {formatValue(agreement.total_consideration)}
+                        {formatCompactCurrencyValue(agreement.total_consideration)}
                       </TableCell>
                       <TableCell className="text-right">
                         {agreement.verified ? (
@@ -715,7 +714,7 @@ export default function AgreementIndex() {
                           Consideration type
                         </div>
                         <div className="mt-1 text-muted-foreground">
-                          {formatValue(agreement.consideration_type)}
+                          {formatEnumValue(agreement.consideration_type)}
                         </div>
                       </div>
                       <div>
@@ -723,7 +722,7 @@ export default function AgreementIndex() {
                           Total consideration
                         </div>
                         <div className="mt-1 text-muted-foreground">
-                          {formatValue(agreement.total_consideration)}
+                          {formatCompactCurrencyValue(agreement.total_consideration)}
                         </div>
                       </div>
                     </div>

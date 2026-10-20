@@ -631,6 +631,36 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("total_pages"), 1)
         self.assertEqual(len(body.get("results", [])), 2)
 
+    def test_agreements_index_includes_deal_terms(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements-index?page=1&page_size=10&sort_by=year&sort_dir=asc")
+        self.assertEqual(res.status_code, 200)
+        rows = {row["agreement_uuid"]: row for row in res.get_json()["results"]}
+        self.assertEqual(rows["a2"]["consideration_type"], "stock")
+        self.assertEqual(rows["a2"]["total_consideration"], 150000000.0)
+        self.assertEqual(rows["a3"]["consideration_type"], "assets")
+        self.assertNotIn("target_industry", rows["a2"])
+
+    def test_oversized_page_size_clamps_to_tier_max(self):
+        client = self.app.test_client()
+        with self.app.app_context():
+            user = self.app_module.AuthUser()
+            user.id = "00000000-0000-0000-0000-0000000000c1"
+            user.email = "page-size-api@example.com"
+            user.password_hash = "not-used"
+            user.email_verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            self.app_module.db.session.add(user)
+            self.app_module.db.session.commit()
+            _, api_key = self.app_module._create_api_key(user_id=user.id, name="page-size")
+
+        for path in ("/v1/agreements-index", "/v1/search/agreements", "/v1/sections"):
+            anonymous = client.get(f"{path}?page=1&page_size=10000")
+            self.assertEqual(anonymous.status_code, 200, path)
+            self.assertEqual(anonymous.get_json()["page_size"], 10, path)
+            keyed = client.get(f"{path}?page=1&page_size=10000", headers={"X-API-Key": api_key})
+            self.assertEqual(keyed.status_code, 200, path)
+            self.assertEqual(keyed.get_json()["page_size"], 100, path)
+
     def test_agreements_summary_includes_latest_filing_date(self):
         self.app_module._agreements_summary_cache["payload"] = None
         self.app_module._agreements_summary_cache["ts"] = 0

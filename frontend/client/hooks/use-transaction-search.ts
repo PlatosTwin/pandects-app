@@ -1,10 +1,16 @@
 import { useCallback, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
 import { buildSearchParams } from "@/lib/url-params";
+import { trackEvent } from "@/lib/analytics";
 import { logger } from "@/lib/logger";
-import { LARGE_PAGE_SIZE_FOR_CSV, DEFAULT_PAGE } from "@/lib/constants";
+import {
+  csvEscape,
+  downloadCsvFile,
+  exportAllPagesForCsv,
+  notifyCsvFailed,
+  notifyCsvTruncated,
+  type CsvExportRows,
+} from "@/lib/csv-export";
 import { keys } from "@/lib/query-keys";
 import {
   formatCompactCurrencyValue,
@@ -56,7 +62,6 @@ const TRANSACTIONS_SEARCH_CONFIG = {
  * `useQuery`.
  */
 export function useTransactionSearch() {
-  const queryClient = useQueryClient();
   const [hasSearched, setHasSearched] = useState(false);
 
   const core = useCommittedSearchCore<
@@ -64,7 +69,7 @@ export function useTransactionSearch() {
     TransactionSearchResponse,
     TransactionSearchResult
   >(TRANSACTIONS_SEARCH_CONFIG);
-  const { responseData } = core;
+  const { responseData, getLoadedCommitted } = core;
 
   const results = core.results;
   const totalCount = responseData?.total_count ?? 0;
@@ -104,52 +109,45 @@ export function useTransactionSearch() {
     setHasSearched(false);
   }, [core.uncommit]);
 
-  const csvEscape = (value: string | number | null | undefined): string => {
-    if (value === null || value === undefined || value === "") return "";
-    const str = String(value);
-    return `"${str.replace(/"/g, '""')}"`;
-  };
+  const downloadCSV = useCallback(async () => {
+    const isSelection = core.selectedResults.size > 0;
+    let rows: TransactionSearchResult[] = [];
+    let exportedFrom: CsvExportRows<TransactionSearchResult> | null = null;
 
-  const downloadCSV = useCallback(
-    async (clauseTypesNested?: ClauseTypeTree, filters?: SearchFilters) => {
-      let rows: TransactionSearchResult[] = [];
-
-      if (core.selectedResults.size > 0) {
-        rows = results.filter((r) => core.selectedResults.has(r.agreement_uuid));
-      } else if (filters) {
-        try {
-          const searchFilters = {
-            ...filters,
-            page: undefined,
-            page_size: undefined,
-          };
-          const params = buildSearchParams(searchFilters, clauseTypesNested, false);
-          params.append("page_size", LARGE_PAGE_SIZE_FOR_CSV.toString());
-          params.append("page", DEFAULT_PAGE.toString());
-          const queryString = params.toString();
-          const payload = await queryClient.fetchQuery({
-            queryKey: keys.transactions.search({ q: queryString, csv: true }),
-            queryFn: async () => {
-              const res = await authFetch(
-                apiUrl(`v1/search/agreements?${queryString}`),
-              );
-              if (!res.ok) throw new Error(`HTTP ${res.status}`);
-              return (await res.json()) as TransactionSearchResponse;
-            },
-            staleTime: 60 * 1000,
-          });
-          rows = payload.results;
-        } catch (error) {
-          logger.error("Failed to fetch all transactions for CSV:", error);
-          rows = results;
-        }
-      } else {
-        rows = results;
+    if (isSelection) {
+      rows = results.filter((r) => core.selectedResults.has(r.agreement_uuid));
+    } else {
+      // Export what the results show: the last submitted query that loaded,
+      // not the sidebar draft.
+      const loaded = getLoadedCommitted();
+      if (!loaded) return;
+      try {
+        const exported = await exportAllPagesForCsv<TransactionSearchResult>(
+          "v1/search/agreements",
+          buildTransactionQueryString(loaded),
+        );
+        if (!exported) return;
+        exportedFrom = exported;
+        rows = exported.rows;
+      } catch (error) {
+        logger.error("Failed to fetch all transactions for CSV:", error);
+        trackEvent("api_error", {
+          endpoint: "api/search/agreements",
+          kind:
+            error instanceof TypeError && error.message.includes("fetch")
+              ? "network"
+              : "unknown",
+        });
+        notifyCsvFailed();
+        return;
       }
+    }
 
-      if (rows.length === 0) return;
+    if (rows.length === 0) return;
 
-      const headers = [
+    downloadCsvFile(
+      isSelection ? "ma_deals_selected" : "ma_deals",
+      [
         "Year",
         "Target",
         "Acquirer",
@@ -166,45 +164,38 @@ export function useTransactionSearch() {
         "Acquirer Industry",
         "SEC Filing URL",
         "Agreement UUID",
-      ];
+      ],
+      rows.map((r) =>
+        [
+          r.year ?? "",
+          csvEscape(r.target),
+          csvEscape(r.acquirer),
+          csvEscape(formatEnumValue(r.deal_type)),
+          csvEscape(formatEnumValue(r.deal_status)),
+          csvEscape(formatEnumValue(r.attitude)),
+          csvEscape(formatEnumValue(r.purpose)),
+          csvEscape(formatEnumValue(r.transaction_consideration)),
+          csvEscape(formatCompactCurrencyValue(r.transaction_price_total)),
+          csvEscape(formatDateValue(r.filing_date)),
+          csvEscape(formatDateValue(r.announce_date)),
+          csvEscape(formatDateValue(r.close_date)),
+          csvEscape(r.target_industry),
+          csvEscape(r.acquirer_industry),
+          csvEscape(r.url),
+          r.agreement_uuid,
+        ].join(","),
+      ),
+    );
 
-      const csv = [
-        headers.join(","),
-        ...rows.map((r) =>
-          [
-            r.year ?? "",
-            csvEscape(r.target),
-            csvEscape(r.acquirer),
-            csvEscape(formatEnumValue(r.deal_type)),
-            csvEscape(formatEnumValue(r.deal_status)),
-            csvEscape(formatEnumValue(r.attitude)),
-            csvEscape(formatEnumValue(r.purpose)),
-            csvEscape(formatEnumValue(r.transaction_consideration)),
-            csvEscape(formatCompactCurrencyValue(r.transaction_price_total)),
-            csvEscape(formatDateValue(r.filing_date)),
-            csvEscape(formatDateValue(r.announce_date)),
-            csvEscape(formatDateValue(r.close_date)),
-            csvEscape(r.target_industry),
-            csvEscape(r.acquirer_industry),
-            csvEscape(r.url),
-            r.agreement_uuid,
-          ].join(","),
-        ),
-      ].join("\n");
-
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const objectUrl = URL.createObjectURL(blob);
-      link.href = objectUrl;
-      const selectedText = core.selectedResults.size > 0 ? "_selected" : "";
-      link.download = `ma_deals${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-    },
-    [results, core.selectedResults, queryClient],
-  );
+    if (exportedFrom?.truncated) {
+      notifyCsvTruncated(
+        rows.length,
+        exportedFrom.totalCount,
+        exportedFrom.totalCountIsApproximate,
+        access.tier === "anonymous",
+      );
+    }
+  }, [getLoadedCommitted, results, core.selectedResults, access.tier]);
 
   return {
     isSearching: core.isSearching,

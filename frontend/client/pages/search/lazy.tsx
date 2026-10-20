@@ -55,7 +55,7 @@ export function SearchSidebarFallback({
   }
 
   return (
-    <div className="hidden h-screen w-80 border-r border-b border-border bg-card lg:block">
+    <div className="sticky top-16 hidden h-[calc(100vh-4rem)] w-80 flex-shrink-0 self-start border-r border-border bg-card lg:block">
       {content}
     </div>
   );

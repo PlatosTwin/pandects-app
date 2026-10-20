@@ -11,6 +11,11 @@ from flask_smorest import Blueprint
 from sqlalchemy import and_, asc, bindparam, desc, func, or_, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from backend.core.pagination import (
+    AUTHENTICATED_MAX_PAGE_SIZE,
+    clamp_page_size,
+    search_max_page_size,
+)
 from backend.services.counsel_leaderboards import build_counsel_leaderboards_from_summary_rows
 from backend.filtering import (
     build_canonical_counsel_agreement_uuid_subquery,
@@ -169,8 +174,7 @@ def register_agreements_routes(
                 abort(403, description="Authentication required when include_xml=true.")
 
             page_size = parsed_args["page_size"]
-            if page_size < 1 or page_size > 100:
-                page_size = 25
+            page_size = clamp_page_size(page_size, max_page_size=AUTHENTICATED_MAX_PAGE_SIZE)
 
             after_agreement_uuid = deps._decode_agreements_cursor(parsed_args["cursor"])
 
@@ -451,9 +455,10 @@ def register_agreements_routes(
             page_size = parsed_args["page_size"]
             if page < 1:
                 page = 1
-            max_page_size = 100 if ctx.is_authenticated else 10
-            if page_size < 1 or page_size > max_page_size:
-                page_size = min(25, max_page_size)
+            page_size = clamp_page_size(
+                page_size,
+                max_page_size=search_max_page_size(is_authenticated=ctx.is_authenticated),
+            )
             count_mode = parsed_args["count_mode"]
 
             clause_context_requested = bool(
@@ -1118,9 +1123,10 @@ def register_agreements_routes(
         if page < 1:
             page = 1
 
-        max_page_size = 100 if ctx.is_authenticated else 10
-        if page_size < 1 or page_size > max_page_size:
-            page_size = min(25, max_page_size)
+        page_size = clamp_page_size(
+            page_size,
+            max_page_size=search_max_page_size(is_authenticated=ctx.is_authenticated),
+        )
 
         db = deps.db
         sort_direction = sort_dir.lower()
@@ -1187,20 +1193,42 @@ def register_agreements_routes(
         )
         meta = deps._pagination_metadata(total_count=total_count, page=page, page_size=page_size)
 
+        # The summary table carries only the sortable columns; deal terms for the
+        # visible page come from the agreements table by primary key.
+        page_uuids = [
+            str(uuid)
+            for uuid in (deps._row_mapping_as_dict(cast(object, row)).get("agreement_uuid") for row in items)
+            if uuid
+        ]
+        deal_terms: dict[str, tuple[object, object]] = {}
+        if page_uuids:
+            agreements = deps.Agreements
+            for term_row in (
+                db.session.query(
+                    agreements.agreement_uuid,
+                    agreements.transaction_consideration,
+                    agreements.transaction_price_total,
+                )
+                .filter(agreements.agreement_uuid.in_(page_uuids))
+                .all()
+            ):
+                deal_terms[str(term_row[0])] = (term_row[1], term_row[2])
+
         results: list[dict[str, object]] = []
         for row in items:
             row_map = deps._row_mapping_as_dict(cast(object, row))
             verified_value = row_map.get("verified")
+            consideration_type, total_consideration = deal_terms.get(
+                str(row_map.get("agreement_uuid")), (None, None)
+            )
             results.append(
                 {
                     "agreement_uuid": row_map.get("agreement_uuid"),
                     "year": row_map.get("year"),
                     "target": row_map.get("target"),
                     "acquirer": row_map.get("acquirer"),
-                    "consideration_type": None,
-                    "total_consideration": None,
-                    "target_industry": None,
-                    "acquirer_industry": None,
+                    "consideration_type": consideration_type,
+                    "total_consideration": _to_float_or_none(total_consideration),
                     "verified": bool(verified_value) if verified_value is not None else False,
                 }
             )

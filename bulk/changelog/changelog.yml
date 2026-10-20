@@ -21,6 +21,18 @@
 # minor = additive/cosmetic.
 
 unreleased:
+- type: api
+  severity: minor
+  summary: "An out-of-range page_size now returns the largest allowed page instead of 25 rows."
+  details: >
+    On /v1/sections, /v1/tax-clauses, /v1/agreements, /v1/search/agreements, and
+    the MCP search_sections, search_tax_clauses, search_agreements,
+    list_agreements, and list_agreement_sections tools, a page_size above the
+    caller's ceiling (100 for signed-in and API-key callers, 10 for anonymous
+    callers) is now clamped to that ceiling rather than reset to the default of
+    25. A page_size below 1 still falls back to the default. Requests within
+    range are unchanged.
+  refs: []
 - type: mcp
   severity: notable
   summary: "search_sections phrase queries for common language now return results instead of an error."

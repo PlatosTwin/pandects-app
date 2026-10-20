@@ -614,7 +614,7 @@ export default function Search() {
               : transactionSearch.totalCount,
           is_filtered: Object.values(filters).flat().length > 0,
         });
-        void transactionSearch.downloadCSV(sectionClauseTypesNested, filters);
+        void transactionSearch.downloadCSV();
       },
       resultsFallback: <TransactionResultsFallback />,
       renderResults: () => (
@@ -725,7 +725,9 @@ export default function Search() {
   );
 
   return (
-    <div className="w-full overflow-x-hidden">
+    // overflow-x-clip, not -hidden: "hidden" makes this a scroll container,
+    // which stops the filter sidebar from sticking to the viewport.
+    <div className="w-full overflow-x-clip">
       <div className="flex min-h-full">
         {isDesktopLayout ? (
           shouldRenderDesktopSidebar && hasHydrated ? (

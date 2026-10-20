@@ -1,16 +1,23 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { SearchFilters, SearchResult, SearchResponse } from "@shared/sections";
+import {
+  SearchFilters,
+  SearchResult,
+  SearchResponse,
+  type SectionResultMetadata,
+} from "@shared/sections";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams } from "@/lib/url-params";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { trackEvent } from "@/lib/analytics";
-import { authFetch } from "@/lib/auth-fetch";
+import { DEFAULT_PAGE_SIZE, DEFAULT_PAGE } from "@/lib/constants";
 import {
-  DEFAULT_PAGE_SIZE,
-  DEFAULT_PAGE,
-  LARGE_PAGE_SIZE_FOR_CSV,
-} from "@/lib/constants";
+  csvEscape,
+  downloadCsvFile,
+  exportAllPagesForCsv,
+  notifyCsvFailed,
+  notifyCsvTruncated,
+  type CsvExportRows,
+} from "@/lib/csv-export";
 import { logger } from "@/lib/logger";
 import { keys } from "@/lib/query-keys";
 import {
@@ -48,11 +55,6 @@ const EMPTY_FILTERS: SearchFilters = {
 
 const EMPTY_ACCESS: SearchResponse["access"] = { tier: "anonymous" };
 
-const csvEscape = (value: string | number | null | undefined): string => {
-  if (value === null || value === undefined || value === "") return "";
-  return `"${String(value).replace(/"/g, '""')}"`;
-};
-
 function sortResultsArray(
   results: SearchResult[],
   sort_by: SortField | null,
@@ -78,10 +80,19 @@ function sortResultsArray(
   });
 }
 
+/** Deal fields shown on each section result; the API returns them under `metadata`. */
+const SECTION_RESULT_METADATA_FIELDS = [
+  "transaction_price_total",
+  "deal_status",
+  "deal_type",
+  "purpose",
+] as const satisfies readonly (keyof SectionResultMetadata)[];
+
 function buildSectionsQueryString(
   committed: CommittedQuery<SearchFilters>,
 ): string {
   const params = buildSearchParams(committed.filters, committed.clauseTypesNested);
+  SECTION_RESULT_METADATA_FIELDS.forEach((field) => params.append("metadata", field));
   if (committed.sortBy) {
     params.append("sort_by", committed.sortBy);
     params.append("sort_direction", committed.sortDirection);
@@ -128,7 +139,6 @@ const SECTIONS_SEARCH_CONFIG = {
  * before the follow-up fetch lands.
  */
 export function useSections() {
-  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<SearchFilters>({ ...EMPTY_FILTERS });
   const [currentSort, setCurrentSort] = useState<SortField | null>("year");
   const [sort_direction, setSortDirection] = useState<SortDirection>("desc");
@@ -137,7 +147,7 @@ export function useSections() {
   const core = useCommittedSearchCore<SearchFilters, SearchResponse, SearchResult>(
     SECTIONS_SEARCH_CONFIG,
   );
-  const { committed, responseData } = core;
+  const { committed, responseData, getLoadedCommitted } = core;
 
   const searchResults = useMemo(
     () => sortResultsArray(core.results, currentSort, sort_direction),
@@ -267,68 +277,53 @@ export function useSections() {
     [filters, currentSort, sort_direction, core.commit],
   );
 
-  const downloadCSV = useCallback(
-    async (clauseTypesNested?: ClauseTypeTree) => {
-      let resultsToDownload: SearchResult[] = [];
+  const downloadCSV = useCallback(async () => {
+    const isSelection = core.selectedResults.size > 0;
+    let resultsToDownload: SearchResult[] = [];
+    let exportedFrom: CsvExportRows<SearchResult> | null = null;
 
-      if (core.selectedResults.size > 0) {
-        resultsToDownload = searchResults.filter((result) =>
-          core.selectedResults.has(result.id),
+    if (isSelection) {
+      resultsToDownload = searchResults.filter((result) =>
+        core.selectedResults.has(result.id),
+      );
+    } else {
+      // Export what the results show: the last submitted query that loaded,
+      // not the sidebar draft.
+      const loaded = getLoadedCommitted();
+      if (!loaded) return;
+      try {
+        const exported = await exportAllPagesForCsv<SearchResult>(
+          "v1/sections",
+          buildSectionsQueryString(loaded),
         );
-      } else {
-        try {
-          const searchFilters = {
-            ...filters,
-            page: undefined,
-            page_size: undefined,
-          };
-          const params = buildSearchParams(searchFilters, clauseTypesNested, false);
-          params.append("page_size", LARGE_PAGE_SIZE_FOR_CSV.toString());
-          params.append("page", DEFAULT_PAGE.toString());
-          const queryString = params.toString();
-          const searchResponse = await queryClient.fetchQuery({
-            queryKey: keys.sections.search({ q: queryString, csv: true }),
-            queryFn: async () => {
-              const res = await authFetch(apiUrl(`v1/sections?${queryString}`));
-              if (!res.ok) {
-                trackEvent("api_error", {
-                  endpoint: "api/sections",
-                  status: res.status,
-                  status_text: res.statusText,
-                });
-                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-              }
-              return (await res.json()) as SearchResponse;
-            },
-            staleTime: 60 * 1000,
-          });
-          resultsToDownload = searchResponse.results;
-        } catch (error) {
-          logger.error("Failed to fetch all results for CSV:", error);
-          trackEvent("api_error", {
-            endpoint: "api/sections",
-            kind:
-              error instanceof TypeError && error.message.includes("fetch")
-                ? "network"
-                : "unknown",
-          });
-          resultsToDownload = searchResults;
-        }
+        if (!exported) return;
+        exportedFrom = exported;
+        resultsToDownload = exported.rows;
+      } catch (error) {
+        logger.error("Failed to fetch all results for CSV:", error);
+        SECTIONS_SEARCH_CONFIG.trackFailure(error);
+        notifyCsvFailed();
+        return;
       }
+    }
 
-      if (resultsToDownload.length === 0) return;
+    if (resultsToDownload.length === 0) return;
 
-      trackEvent("sections_csv_download_click", {
-        mode: core.selectedResults.size > 0 ? "selected" : "all",
-        selected_count: core.selectedResults.size,
-        downloaded_count: resultsToDownload.length,
-        years_count: filters.year?.length ?? 0,
-        targets_count: filters.target?.length ?? 0,
-        acquirers_count: filters.acquirer?.length ?? 0,
-        clause_types_count: filters.clauseType?.length ?? 0,
-      });
+    const exportedFilters = getLoadedCommitted()?.filters ?? filters;
+    trackEvent("sections_csv_download_click", {
+      mode: isSelection ? "selected" : "all",
+      selected_count: core.selectedResults.size,
+      downloaded_count: resultsToDownload.length,
+      truncated: exportedFrom?.truncated ?? false,
+      years_count: exportedFilters.year?.length ?? 0,
+      targets_count: exportedFilters.target?.length ?? 0,
+      acquirers_count: exportedFilters.acquirer?.length ?? 0,
+      clause_types_count: exportedFilters.clauseType?.length ?? 0,
+    });
 
-      const headers = [
+    downloadCsvFile(
+      isSelection ? "ma_clauses_selected" : "ma_clauses",
+      [
         "Year",
         "Target",
         "Acquirer",
@@ -337,37 +332,30 @@ export function useSections() {
         "Text",
         "Section UUID",
         "Agreement UUID",
-      ];
+      ],
+      resultsToDownload.map((result) =>
+        [
+          result.year,
+          csvEscape(result.target),
+          csvEscape(result.acquirer),
+          csvEscape(result.article_title),
+          csvEscape(result.section_title),
+          csvEscape(result.xml),
+          result.section_uuid,
+          result.agreement_uuid,
+        ].join(","),
+      ),
+    );
 
-      const csvContent = [
-        headers.join(","),
-        ...resultsToDownload.map((result) =>
-          [
-            result.year,
-            csvEscape(result.target),
-            csvEscape(result.acquirer),
-            csvEscape(result.article_title),
-            csvEscape(result.section_title),
-            csvEscape(result.xml),
-            result.section_uuid,
-            result.agreement_uuid,
-          ].join(","),
-        ),
-      ].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const objectUrl = URL.createObjectURL(blob);
-      link.href = objectUrl;
-      const selectedText = core.selectedResults.size > 0 ? "_selected" : "";
-      link.download = `ma_clauses${selectedText}_${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-    },
-    [filters, searchResults, core.selectedResults, queryClient],
-  );
+    if (exportedFrom?.truncated) {
+      notifyCsvTruncated(
+        resultsToDownload.length,
+        exportedFrom.totalCount,
+        exportedFrom.totalCountIsApproximate,
+        access.tier === "anonymous",
+      );
+    }
+  }, [getLoadedCommitted, filters, searchResults, core.selectedResults, access.tier]);
 
   const clearFilters = useCallback(() => {
     setFilters({

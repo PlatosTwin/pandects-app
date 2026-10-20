@@ -16,7 +16,7 @@ export const THEME_STORAGE_KEY = "pandects-theme";
 /** Browser-chrome color per theme; dark approximates the dark --cream token. */
 const THEME_COLOR: Record<ResolvedTheme, string> = {
   light: "#ffffff",
-  dark: "#0f0e10",
+  dark: "#0f1012",
 };
 
 const listeners = new Set<() => void>();
