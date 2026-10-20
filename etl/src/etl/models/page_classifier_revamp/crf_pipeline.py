@@ -24,6 +24,7 @@ from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
 from .page_types import PAGE_LABELS, AgreementDocument, FeatureDict
 from .typesafe_judgments import (
+    PageJudgment,
     append_typesafe_features,
     fetch_page_judgments,
     typesafe_artifact_metadata,
@@ -63,6 +64,8 @@ POSTPROCESS_BODY_LIKE_MIN_RATIO = 0.40
 POSTPROCESS_ANNEX_ENTRY_MAX_RATIO = 0.20
 POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE = 0.75
 DEFAULT_ILLEGAL_TRANSITION_WEIGHT = -1000.0
+BACK_MATTER_EVIDENCE_THRESHOLD = 0.2
+BACK_MATTER_GUARD_MAX_ROUNDS = 3
 
 TOC_DOTS_RE = re.compile(r"\.{6,}")
 SIG_BLOCK_RE = re.compile(
@@ -1513,14 +1516,20 @@ def predict_with_transition_overrides(
     crf_model: DecodableCRFProtocol,
     sequences: list[list[FeatureDict]],
     transition_overrides: dict[tuple[str, str], float],
+    blocked_labels: list[list[frozenset[str]]] | None = None,
+    *,
+    blocked_label_weight: float = DEFAULT_ILLEGAL_TRANSITION_WEIGHT,
 ) -> tuple[list[list[str]], list[list[dict[str, float]]]]:
     """Viterbi labels and forward-backward marginals with some transition weights replaced.
 
     crfsuite's tagger decodes from its compiled model, so assigning into a fitted CRF's
     `transition_features_` never reaches `predict()` or `predict_marginals()`. This decodes in
     Python from the learned state and transition weights instead; with no overrides it
-    reproduces the tagger's own output.
+    reproduces the tagger's own output. `blocked_labels`, when given, holds per sequence and
+    page the labels that page may not take; each gets `blocked_label_weight` added to its score.
     """
+    if blocked_labels is not None and len(blocked_labels) != len(sequences):
+        raise ValueError("blocked_labels must have one entry per sequence.")
     labels = [str(label) for label in crf_model.classes_]
     label_index = {label: index for index, label in enumerate(labels)}
     label_count = len(labels)
@@ -1538,7 +1547,7 @@ def predict_with_transition_overrides(
 
     predicted_sequences: list[list[str]] = []
     marginal_sequences: list[list[dict[str, float]]] = []
-    for sequence in sequences:
+    for sequence_index, sequence in enumerate(sequences):
         page_count = len(sequence)
         if page_count == 0:
             predicted_sequences.append([])
@@ -1550,6 +1559,13 @@ def predict_with_transition_overrides(
                 weights = attribute_weights.get(name)
                 if weights is not None:
                     emissions[page_index] += float(value) * weights
+        if blocked_labels is not None:
+            sequence_blocks = blocked_labels[sequence_index]
+            if len(sequence_blocks) != page_count:
+                raise ValueError("blocked_labels must have one entry per page.")
+            for page_index, page_blocks in enumerate(sequence_blocks):
+                for label in page_blocks:
+                    emissions[page_index, label_index[label]] += blocked_label_weight
 
         scores = emissions[0].copy()
         backpointers = np.zeros((page_count, label_count), dtype=np.int64)
@@ -1584,6 +1600,105 @@ def predict_with_transition_overrides(
             ]
         )
     return predicted_sequences, marginal_sequences
+
+
+def back_matter_start_evidence(judgments: list[PageJudgment], page_index: int) -> float:
+    """TypeSafe's support for back matter starting on this page: an attachment starts here, or the
+    previous page is a signature page."""
+    page_evidence = judgments[page_index]["attachment_start"]
+    if page_index == 0:
+        return page_evidence
+    previous = judgments[page_index - 1]
+    return max(page_evidence, previous["main_sig"], previous["part_probs"].get("sig", 0.0))
+
+
+def guard_back_matter_start(
+    crf_model: DecodableCRFProtocol,
+    feature_sequence: list[FeatureDict],
+    judgments: list[PageJudgment],
+    transition_overrides: dict[tuple[str, str], float],
+    labels: list[str],
+    marginals: list[dict[str, float]],
+    modified_mask: list[bool],
+    *,
+    postprocess_parameters: PostprocessParameters | None = None,
+) -> tuple[list[str], list[dict[str, float]], list[bool]]:
+    """Re-decode when back matter starts on a page TypeSafe gives no reason to start it on.
+
+    The hybrid CRF's back_matter self-transition outweighs body's, so on long documents with weak
+    text features it can label the whole agreement back matter even when TypeSafe calls every page
+    body. When the predicted back matter starts without evidence, back matter is blocked before the
+    next page that has evidence and the sequence is decoded again.
+    """
+    page_count = len(feature_sequence)
+    floor = 0
+    for _ in range(BACK_MATTER_GUARD_MAX_ROUNDS):
+        if "back_matter" not in labels:
+            break
+        back_start = labels.index("back_matter")
+        if back_matter_start_evidence(judgments, back_start) >= BACK_MATTER_EVIDENCE_THRESHOLD:
+            break
+        floor = max(
+            floor,
+            next(
+                (
+                    page_index
+                    for page_index in range(back_start + 1, page_count)
+                    if back_matter_start_evidence(judgments, page_index) >= BACK_MATTER_EVIDENCE_THRESHOLD
+                ),
+                page_count,
+            ),
+        )
+        blocked = [
+            frozenset({"back_matter"}) if page_index < floor else frozenset()
+            for page_index in range(page_count)
+        ]
+        decoded, decoded_marginals = predict_with_transition_overrides(
+            crf_model,
+            [feature_sequence],
+            transition_overrides,
+            [blocked],
+        )
+        labels, modified_mask = postprocess_prediction_sequence(
+            decoded[0],
+            feature_sequence,
+            postprocess_parameters=postprocess_parameters,
+        )
+        marginals = decoded_marginals[0]
+    return labels, marginals, modified_mask
+
+
+def guard_back_matter_starts(
+    crf_model: DecodableCRFProtocol,
+    feature_sequences: list[list[FeatureDict]],
+    judgments: list[list[PageJudgment]],
+    transition_overrides: dict[tuple[str, str], float],
+    label_sequences: list[list[str]],
+    marginal_sequences: list[list[dict[str, float]]],
+    *,
+    postprocess_parameters: PostprocessParameters | None = None,
+) -> tuple[list[list[str]], list[list[dict[str, float]]], int]:
+    """`guard_back_matter_start` over a batch; also returns how many sequences it changed."""
+    guarded_labels: list[list[str]] = []
+    guarded_marginals: list[list[dict[str, float]]] = []
+    changed_count = 0
+    for feature_sequence, document_judgments, labels, marginals in zip(
+        feature_sequences, judgments, label_sequences, marginal_sequences, strict=True
+    ):
+        new_labels, new_marginals, _ = guard_back_matter_start(
+            crf_model,
+            feature_sequence,
+            document_judgments,
+            transition_overrides,
+            labels,
+            marginals,
+            [False] * len(labels),
+            postprocess_parameters=postprocess_parameters,
+        )
+        changed_count += int(new_labels != labels)
+        guarded_labels.append(new_labels)
+        guarded_marginals.append(new_marginals)
+    return guarded_labels, guarded_marginals, changed_count
 
 
 def _save_report(report_path: Path, report_text: str) -> None:
@@ -1683,16 +1798,15 @@ def _run_crf_experiment(
     x_eval = build_feature_sequences(eval_documents, vectorizer)
     y_eval = build_label_sequences(eval_documents)
     typesafe_features: dict[str, str] | None = None
+    eval_judgments: list[list[PageJudgment]] | None = None
     if typesafe_cache_path is not None:
         _log(f"{prefix}[crf] fetching TypeSafe page judgments (cache: {typesafe_cache_path})")
         x_train = append_typesafe_features(
             x_train,
             fetch_page_judgments(train_documents, cache_path=typesafe_cache_path),
         )
-        x_eval = append_typesafe_features(
-            x_eval,
-            fetch_page_judgments(eval_documents, cache_path=typesafe_cache_path),
-        )
+        eval_judgments = fetch_page_judgments(eval_documents, cache_path=typesafe_cache_path)
+        x_eval = append_typesafe_features(x_eval, eval_judgments)
         typesafe_features = typesafe_artifact_metadata()
 
     sklearn_crfsuite, crf_metrics = _load_crf_modules()
@@ -1716,8 +1830,9 @@ def _run_crf_experiment(
         f"{prefix}[crf] predicting {sum(len(doc.labels) for doc in eval_documents)} pages "
         + f"across {len(eval_documents)} agreements"
     )
-    y_pred_raw, _ = predict_with_transition_overrides(
-        cast(DecodableCRFProtocol, cast(object, crf_model)),
+    decodable_model = cast(DecodableCRFProtocol, cast(object, crf_model))
+    y_pred_raw, y_pred_marginals = predict_with_transition_overrides(
+        decodable_model,
         x_eval,
         overwritten_transitions,
     )
@@ -1733,6 +1848,17 @@ def _run_crf_experiment(
             f"{prefix}[crf] postprocess adjusted {postprocess_modified_page_count} pages across "
             + f"{postprocess_modified_agreement_count} agreements"
         )
+    if eval_judgments is not None:
+        y_pred, _, guarded_count = guard_back_matter_starts(
+            decodable_model,
+            x_eval,
+            eval_judgments,
+            overwritten_transitions,
+            y_pred,
+            y_pred_marginals,
+            postprocess_parameters=postprocess_parameters,
+        )
+        _log(f"{prefix}[crf] back-matter guard re-decoded {guarded_count} agreements")
     y_eval_flat = flatten_label_sequences(y_eval)
     y_pred_flat = flatten_label_sequences(y_pred)
     report_text = crf_metrics.flat_classification_report(

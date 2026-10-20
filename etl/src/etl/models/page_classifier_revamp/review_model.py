@@ -33,6 +33,7 @@ from .crf_pipeline import (
     build_feature_sequences,
     build_label_sequences,
     fit_tfidf_vectorizer,
+    guard_back_matter_starts,
     load_or_create_split_manifest,
     load_page_dataframe,
     monotonic_transition_overrides,
@@ -56,6 +57,7 @@ from .page_classifier_constants import (
 )
 from .page_types import AgreementDocument
 from .typesafe_judgments import (
+    PageJudgment,
     append_typesafe_features,
     fetch_page_judgments,
     typesafe_artifact_metadata,
@@ -376,15 +378,14 @@ def _train_and_predict_crf(
     x_train = build_feature_sequences(train_documents, vectorizer)
     y_train = build_label_sequences(train_documents)
     x_eval = build_feature_sequences(eval_documents, vectorizer)
+    eval_judgments: list[list[PageJudgment]] | None = None
     if typesafe_cache_path is not None:
         x_train = append_typesafe_features(
             x_train,
             fetch_page_judgments(train_documents, cache_path=typesafe_cache_path),
         )
-        x_eval = append_typesafe_features(
-            x_eval,
-            fetch_page_judgments(eval_documents, cache_path=typesafe_cache_path),
-        )
+        eval_judgments = fetch_page_judgments(eval_documents, cache_path=typesafe_cache_path)
+        x_eval = append_typesafe_features(x_eval, eval_judgments)
 
     sklearn_crfsuite = _load_review_crf_module()
     crf_model = sklearn_crfsuite.CRF(
@@ -402,10 +403,12 @@ def _train_and_predict_crf(
     _ = crf_model.fit(x_train, y_train)
 
     _log(f"{prefix}[review] predicting eval fold")
+    decodable_model = cast(DecodableCRFProtocol, cast(object, crf_model))
+    transition_overrides = monotonic_transition_overrides(illegal_transition_weight=illegal_transition_weight)
     predicted_raw_labels, marginal_rows = predict_with_transition_overrides(
-        cast(DecodableCRFProtocol, cast(object, crf_model)),
+        decodable_model,
         x_eval,
-        monotonic_transition_overrides(illegal_transition_weight=illegal_transition_weight),
+        transition_overrides,
     )
     predicted_labels, modified_agreement_count, modified_page_count = postprocess_prediction_sequences(
         predicted_raw_labels,
@@ -416,6 +419,16 @@ def _train_and_predict_crf(
             f"{prefix}[review] postprocess adjusted {modified_page_count} pages across "
             + f"{modified_agreement_count} agreements"
         )
+    if eval_judgments is not None:
+        predicted_labels, marginal_rows, guarded_count = guard_back_matter_starts(
+            decodable_model,
+            x_eval,
+            eval_judgments,
+            transition_overrides,
+            predicted_labels,
+            marginal_rows,
+        )
+        _log(f"{prefix}[review] back-matter guard re-decoded {guarded_count} agreements")
     return predicted_labels, marginal_rows
 
 

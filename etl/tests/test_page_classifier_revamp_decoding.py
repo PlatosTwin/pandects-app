@@ -8,10 +8,14 @@ import sklearn_crfsuite
 from etl.models.page_classifier_revamp.crf_pipeline import (
     LABEL_TO_INDEX,
     DecodableCRFProtocol,
+    build_feature_sequences,
+    fit_tfidf_vectorizer,
+    guard_back_matter_start,
     monotonic_transition_overrides,
     predict_with_transition_overrides,
 )
-from etl.models.page_classifier_revamp.page_types import PAGE_LABELS, FeatureDict
+from etl.models.page_classifier_revamp.page_types import PAGE_LABELS, AgreementDocument, FeatureDict
+from etl.models.page_classifier_revamp.typesafe_judgments import PageJudgment
 
 
 class _FakeCRF:
@@ -151,6 +155,94 @@ class PredictWithTransitionOverridesTests(unittest.TestCase):
         for row, expected_row in zip(marginals[0], crf.predict_marginals(x_test)[0], strict=True):
             for label, probability in expected_row.items():
                 self.assertAlmostEqual(row[str(label)], float(probability), places=3)
+
+    def test_blocked_labels_are_avoided(self) -> None:
+        blocked = [[frozenset[str](), frozenset[str](), frozenset({"toc"}), frozenset[str](), frozenset[str]()]]
+
+        predicted, _ = predict_with_transition_overrides(MODEL, [SEQUENCE], {}, blocked)
+
+        self.assertEqual(predicted[0], ["front_matter", "body", "body", "body", "sig"])
+
+    def test_blocked_labels_must_match_page_count(self) -> None:
+        with self.assertRaises(ValueError):
+            _ = predict_with_transition_overrides(MODEL, [SEQUENCE], {}, [[frozenset()]])
+
+
+# Back matter's self-transition outweighs body's, so six body-ish pages followed by an exhibit
+# decode as back matter throughout.
+COLLAPSING_MODEL = _FakeCRF(
+    state_features={
+        ("text", "body"): 1.0,
+        ("text", "back_matter"): 0.8,
+        ("exhibit", "back_matter"): 3.0,
+    },
+    transition_features={
+        ("body", "body"): 0.5,
+        ("back_matter", "back_matter"): 2.0,
+    },
+)
+COLLAPSING_TEXTS = ["The parties agree as follows."] * 6 + ["Exhibit A"]
+# Real page features so postprocessing can run; the fake model only weighs "text" and "exhibit".
+COLLAPSING_SEQUENCE: list[FeatureDict] = [
+    {**feature_dict, ("exhibit" if page_index == 6 else "text"): 1.0}
+    for page_index, feature_dict in enumerate(
+        build_feature_sequences(
+            [AgreementDocument("a", COLLAPSING_TEXTS, [])],
+            fit_tfidf_vectorizer(COLLAPSING_TEXTS, max_features=10),
+        )[0]
+    )
+]
+
+
+def _judgments(attachment_starts: list[float]) -> list[PageJudgment]:
+    return [
+        {
+            "part_probs": {label: 1.0 if label == "body" else 0.0 for label in PAGE_LABELS},
+            "main_sig": 0.0,
+            "attachment_start": attachment_start,
+        }
+        for attachment_start in attachment_starts
+    ]
+
+
+class GuardBackMatterStartTests(unittest.TestCase):
+    def _decode(self) -> tuple[list[str], list[dict[str, float]]]:
+        labels, marginals = predict_with_transition_overrides(
+            COLLAPSING_MODEL, [COLLAPSING_SEQUENCE], monotonic_transition_overrides()
+        )
+        return labels[0], marginals[0]
+
+    def test_back_matter_without_evidence_is_pushed_to_the_next_evidence_page(self) -> None:
+        labels, marginals = self._decode()
+        self.assertEqual(labels, ["back_matter"] * 7)
+
+        guarded, guarded_marginals, _ = guard_back_matter_start(
+            COLLAPSING_MODEL,
+            COLLAPSING_SEQUENCE,
+            _judgments([0.0] * 6 + [0.9]),
+            monotonic_transition_overrides(),
+            labels,
+            marginals,
+            [False] * 7,
+        )
+
+        self.assertEqual(guarded, ["body"] * 6 + ["back_matter"])
+        self.assertLess(guarded_marginals[0]["back_matter"], 1e-6)
+
+    def test_back_matter_with_evidence_is_kept(self) -> None:
+        labels, marginals = self._decode()
+
+        guarded, _, _ = guard_back_matter_start(
+            COLLAPSING_MODEL,
+            COLLAPSING_SEQUENCE,
+            _judgments([0.5] + [0.0] * 6),
+            monotonic_transition_overrides(),
+            labels,
+            marginals,
+            [False] * 7,
+        )
+
+        self.assertEqual(guarded, labels)
 
 
 if __name__ == "__main__":

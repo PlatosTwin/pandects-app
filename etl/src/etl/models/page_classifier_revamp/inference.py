@@ -20,6 +20,7 @@ from .crf_pipeline import (
     POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE,
     PostprocessParameters,
     build_feature_sequences,
+    guard_back_matter_start,
     monotonic_transition_overrides,
     postprocess_prediction_sequence,
     predict_with_transition_overrides,
@@ -623,8 +624,9 @@ class ClassifierInference:
         documents: list[AgreementDocument],
     ) -> tuple[list[list[str]], list[list[dict[str, float]]], list[list[bool]]]:
         sequences = build_feature_sequences(documents, self.vectorizer)
-        if self.typesafe_features is not None:
-            sequences = append_typesafe_features(sequences, fetch_page_judgments(documents))
+        judgments = fetch_page_judgments(documents) if self.typesafe_features is not None else None
+        if judgments is not None:
+            sequences = append_typesafe_features(sequences, judgments)
         predictions, marginals = predict_with_transition_overrides(
             self.model,
             sequences,
@@ -632,12 +634,25 @@ class ClassifierInference:
         )
         postprocess_modified_masks: list[list[bool]] = []
         processed_predictions: list[list[str]] = []
-        for predicted_labels, feature_sequence in zip(predictions, sequences, strict=True):
+        for document_index, (predicted_labels, feature_sequence) in enumerate(
+            zip(predictions, sequences, strict=True)
+        ):
             processed_labels, modified_mask = postprocess_prediction_sequence(
                 predicted_labels,
                 feature_sequence,
                 postprocess_parameters=self.postprocess_parameters,
             )
+            if judgments is not None:
+                processed_labels, marginals[document_index], modified_mask = guard_back_matter_start(
+                    self.model,
+                    feature_sequence,
+                    judgments[document_index],
+                    self.transition_overrides,
+                    processed_labels,
+                    marginals[document_index],
+                    modified_mask,
+                    postprocess_parameters=self.postprocess_parameters,
+                )
             processed_predictions.append(processed_labels)
             postprocess_modified_masks.append(modified_mask)
         return processed_predictions, marginals, postprocess_modified_masks
