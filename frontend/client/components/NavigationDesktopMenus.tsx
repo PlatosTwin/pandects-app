@@ -1,20 +1,24 @@
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
-import { Suspense, lazy, memo, useMemo } from "react";
+import { Suspense, lazy, memo } from "react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
-import { getDocsUrl } from "@/lib/docs-url";
-import { ABOUT_LINKS, DATA_LINKS } from "@/components/navigation-links";
+import {
+  DOCS_LINK,
+  NAV_GROUPS,
+  SEARCH_LINK,
+  isGroupActive,
+  linkKey,
+  type NavLinkItem,
+} from "@/components/navigation-links";
+import { NavItemLink, useShowLock } from "@/components/NavLinkParts";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const DATA_NAV_LINKS = DATA_LINKS.filter((item) => item.type === "link");
 
 const AuthMenu = lazy(() =>
   import("@/components/AuthMenu").then((mod) => ({ default: mod.AuthMenu })),
@@ -26,170 +30,82 @@ function AuthMenuFallback() {
   );
 }
 
+// Horizontal bar: the active item gets a 2px primary indicator flush with the
+// header's bottom edge ((h-16 bar - h-9 item) / 2 = 0.875rem below the item).
+const topLevelBase =
+  "relative inline-flex h-9 items-center gap-1 rounded-md px-2.5 text-sm font-medium transition-colors after:pointer-events-none after:absolute after:inset-x-2.5 lg:px-3 lg:after:inset-x-3 after:-bottom-[0.875rem] after:h-0.5 after:rounded-full after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const topLevelActive = "text-foreground after:bg-primary";
+const topLevelIdle =
+  "text-muted-foreground after:bg-transparent hover:bg-accent/60 hover:text-foreground";
+
 function NavigationDesktopMenusComponent() {
   const location = useLocation();
-  const docsHomeUrl = `${getDocsUrl()}/docs/guides/getting-started`;
-  const isActive = (path: string) => location.pathname === path;
-  const navLinkBase =
-    "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-  const dataSeparatorClass = "bg-border";
+  const showLock = useShowLock();
+  const isActive = (link: NavLinkItem) =>
+    link.kind === "internal" && location.pathname === link.to;
 
-  const primaryLinks = useMemo(
-    () => [
-      { to: "/search", label: "Search", pandaTarget: "nav-search" },
-      {
-        to: docsHomeUrl,
-        label: "Docs",
-        pandaTarget: "nav-docs",
-        external: true,
-      },
-    ],
-    [docsHomeUrl],
+  const track = (event: string, link: NavLinkItem) => () =>
+    trackEvent(event, {
+      nav_item: link.label,
+      from_path: location.pathname,
+      to_path: linkKey(link),
+    });
+
+  const renderTopLink = (link: NavLinkItem) => (
+    <NavItemLink
+      key={linkKey(link)}
+      link={link}
+      active={isActive(link)}
+      locked={showLock(link)}
+      onClick={track("nav_primary_click", link)}
+      className={cn(topLevelBase, isActive(link) ? topLevelActive : topLevelIdle)}
+    />
   );
-  const isDataActive = DATA_NAV_LINKS.some((link) => isActive(link.to));
-  const isAboutActive = ABOUT_LINKS.some((link) => isActive(link.to));
 
   return (
-    <div className="hidden items-center gap-1 md:flex">
-      <div className="flex items-center gap-1">
-        {primaryLinks.map((link) =>
-          link.external ? (
-            <a
-              key={link.to}
-              href={link.to}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-panda-target={link.pandaTarget}
-              onClick={() =>
-                trackEvent("nav_primary_click", {
-                  nav_item: link.label,
-                  from_path: location.pathname,
-                  to_path: link.to,
-                })
-              }
-              className={cn(
-                navLinkBase,
-                "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-              )}
-            >
-              {link.label}
-            </a>
-          ) : (
-            <Link
-              key={link.to}
-              to={link.to}
-              data-panda-target={link.pandaTarget}
-              onClick={() =>
-                trackEvent("nav_primary_click", {
-                  nav_item: link.label,
-                  from_path: location.pathname,
-                  to_path: link.to,
-                })
-              }
-              aria-current={isActive(link.to) ? "page" : undefined}
-              className={cn(
-                navLinkBase,
-                isActive(link.to)
-                  ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                  : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-              )}
-            >
-              {link.label}
-            </Link>
-          ),
-        )}
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              data-panda-target="nav-bulk-data"
-              className={cn(
-                navLinkBase,
-                "inline-flex items-center gap-1",
-                isDataActive
-                  ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                  : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-              )}
-            >
-              Data
-              <ChevronDown className="h-4 w-4 opacity-70" aria-hidden="true" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {DATA_LINKS.map((item) =>
-              item.type === "separator" ? (
-                <DropdownMenuSeparator key={item.key} className={dataSeparatorClass} />
-              ) : (
-                <DropdownMenuItem key={item.to} asChild>
-                  <Link
-                    to={item.to}
-                    onClick={() =>
-                      trackEvent("nav_data_click", {
-                        nav_item: item.label,
-                        from_path: location.pathname,
-                        to_path: item.to,
-                      })
-                    }
-                    aria-current={isActive(item.to) ? "page" : undefined}
-                    className={cn(
-                      isActive(item.to)
-                        ? "bg-primary/10 font-medium text-primary"
-                        : "text-foreground",
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                </DropdownMenuItem>
-              ),
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              data-panda-target="nav-about"
-              className={cn(
-                navLinkBase,
-                "inline-flex items-center gap-1",
-                isAboutActive
-                  ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                  : "border-l-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-              )}
-            >
-              Project
-              <ChevronDown className="h-4 w-4 opacity-70" aria-hidden="true" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {ABOUT_LINKS.map((link) => (
-              <DropdownMenuItem key={link.to} asChild>
-                <Link
-                  to={link.to}
-                  data-panda-target={link.pandaTarget}
-                  onClick={() =>
-                    trackEvent("nav_secondary_click", {
-                      nav_item: link.label,
-                      from_path: location.pathname,
-                      to_path: link.to,
-                    })
-                  }
-                  aria-current={isActive(link.to) ? "page" : undefined}
-                  className={cn(
-                    isActive(link.to)
-                      ? "bg-primary/10 font-medium text-primary"
-                      : "text-foreground",
-                  )}
+    <div className="ml-3 hidden flex-1 items-center justify-between gap-2 md:flex lg:ml-6">
+      <div className="flex items-center gap-0.5 lg:gap-1">
+        {renderTopLink(SEARCH_LINK)}
+        {NAV_GROUPS.map((group) => {
+          const groupActive = isGroupActive(group, location.pathname);
+          return (
+            <DropdownMenu key={group.id} modal={false}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  data-panda-target={group.pandaTarget}
+                  data-active={groupActive ? "true" : undefined}
+                  className={cn(topLevelBase, groupActive ? topLevelActive : topLevelIdle)}
                 >
-                  {link.label}
-                </Link>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                  {group.label}
+                  <ChevronDown className="h-4 w-4 opacity-70" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {group.links.map((link) => (
+                  <DropdownMenuItem key={linkKey(link)} asChild>
+                    <NavItemLink
+                      link={link}
+                      active={isActive(link)}
+                      locked={showLock(link)}
+                      onClick={track("nav_data_click", link)}
+                      className={cn(
+                        "flex items-center gap-2",
+                        isActive(link)
+                          ? "bg-primary/10 font-medium text-primary"
+                          : "text-foreground",
+                      )}
+                    />
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        })}
+        {renderTopLink(DOCS_LINK)}
       </div>
 
-      <div className="ml-2 flex items-center gap-1">
+      <div className="flex items-center gap-1">
         <ThemeToggle />
         <Suspense fallback={<AuthMenuFallback />}>
           <AuthMenu />
