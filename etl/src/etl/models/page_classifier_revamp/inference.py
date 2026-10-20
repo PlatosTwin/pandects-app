@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, TypedDict, cast
+from typing import TypedDict, cast
 
 import joblib
 import numpy as np
@@ -13,6 +13,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from .crf_pipeline import (
     AgreementDocument,
+    DecodableCRFProtocol,
     FeatureDict,
     POSTPROCESS_ANNEX_ENTRY_MAX_RATIO,
     POSTPROCESS_BACK_WINDOW_SIZE,
@@ -21,7 +22,9 @@ from .crf_pipeline import (
     POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE,
     PostprocessParameters,
     build_feature_sequences,
+    monotonic_transition_overrides,
     postprocess_prediction_sequence,
+    predict_with_transition_overrides,
 )
 from .page_classifier_constants import CLASSIFIER_CRF_PATH, CLASSIFIER_LABEL_LIST
 
@@ -87,15 +90,6 @@ DEFAULT_REVIEW_LOW_MARGIN_THRESHOLD = 0.20
 DEFAULT_HIGH_PAGE_RISK_THRESHOLD = 3.0
 
 
-class CRFModelProtocol(Protocol):
-    def predict(self, x_test: list[list[FeatureDict]]) -> list[list[str]]: ...
-
-    def predict_marginals(
-        self,
-        x_test: list[list[FeatureDict]],
-    ) -> list[list[dict[str, float]]]: ...
-
-
 @dataclass(frozen=True)
 class _PreparedInferenceBatch:
     documents: list[AgreementDocument]
@@ -111,6 +105,17 @@ def _default_postprocess_parameters() -> PostprocessParameters:
         "annex_entry_max_ratio": POSTPROCESS_ANNEX_ENTRY_MAX_RATIO,
         "late_back_trigger_relative_page": POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE,
     }
+
+
+def _coerce_transition_overrides(value: object) -> dict[tuple[str, str], float]:
+    if not isinstance(value, dict) or not value:
+        return monotonic_transition_overrides()
+    overrides: dict[tuple[str, str], float] = {}
+    for transition, weight in value.items():
+        if not isinstance(transition, tuple) or len(transition) != 2:
+            return monotonic_transition_overrides()
+        overrides[(str(transition[0]), str(transition[1]))] = float(weight)
+    return overrides
 
 
 def _coerce_postprocess_parameters(value: object) -> PostprocessParameters:
@@ -476,10 +481,13 @@ class ClassifierInference:
             raise ValueError(
                 "Loaded CRF artifact label list does not match the production page label list."
             )
-        self.model = cast(CRFModelProtocol, artifact["crf_model"])
+        self.model = cast(DecodableCRFProtocol, artifact["crf_model"])
         self.vectorizer = cast(TfidfVectorizer, artifact["vectorizer"])
         self.postprocess_parameters = _coerce_postprocess_parameters(
             artifact.get("postprocess_parameters")
+        )
+        self.transition_overrides = _coerce_transition_overrides(
+            artifact.get("overwritten_transitions")
         )
 
     def classify(self, df: pd.DataFrame) -> list[ClassifierPrediction]:
@@ -599,13 +607,11 @@ class ClassifierInference:
         documents: list[AgreementDocument],
     ) -> tuple[list[list[str]], list[list[dict[str, float]]], list[list[bool]]]:
         sequences = build_feature_sequences(documents, self.vectorizer)
-        predictions_raw = self.model.predict(sequences)
-        marginals_raw = self.model.predict_marginals(sequences)
-        predictions = [[str(label) for label in sequence] for sequence in predictions_raw]
-        marginals = [
-            [{str(label): float(prob) for label, prob in marginal.items()} for marginal in sequence]
-            for sequence in marginals_raw
-        ]
+        predictions, marginals = predict_with_transition_overrides(
+            self.model,
+            sequences,
+            self.transition_overrides,
+        )
         postprocess_modified_masks: list[list[bool]] = []
         processed_predictions: list[list[str]] = []
         for predicted_labels, feature_sequence in zip(predictions, sequences, strict=True):

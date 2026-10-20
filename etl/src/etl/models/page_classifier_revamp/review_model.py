@@ -24,18 +24,20 @@ from sklearn.preprocessing import StandardScaler
 from .crf_pipeline import (
     AgreementDocument,
     CRFHyperparameters,
-    CRFModelProtocol,
+    DecodableCRFProtocol,
     DEFAULT_DATA_PATH,
+    DEFAULT_ILLEGAL_TRANSITION_WEIGHT,
     DEFAULT_OPTUNA_PATH,
     DEFAULT_SPLIT_PATH,
     build_agreement_documents,
     build_feature_sequences,
     build_label_sequences,
-    enforce_monotonic_transition_weights,
     fit_tfidf_vectorizer,
     load_or_create_split_manifest,
     load_page_dataframe,
+    monotonic_transition_overrides,
     postprocess_prediction_sequences,
+    predict_with_transition_overrides,
     split_dataframe_from_manifest,
 )
 from .inference import (
@@ -54,7 +56,6 @@ from .page_classifier_constants import (
 )
 
 DEFAULT_REVIEW_OOF_SPLITS = 5
-DEFAULT_ILLEGAL_TRANSITION_WEIGHT = -1000.0
 DEFAULT_REVIEW_THRESHOLD = 0.5
 DEFAULT_TARGET_REVIEW_RECALL = 0.98
 DEFAULT_REVIEW_RANKING_CUTOFFS = (10, 20, 30, 40, 50, 60, 70, 80, 100)
@@ -371,15 +372,13 @@ def _train_and_predict_crf(
         + f"tfidf_max_features={int(page_model_hyperparameters['tfidf_max_features'])}"
     )
     _ = crf_model.fit(x_train, y_train)
-    _ = enforce_monotonic_transition_weights(
-        cast(CRFModelProtocol, cast(object, crf_model)),
-        illegal_transition_weight=illegal_transition_weight,
-    )
 
     _log(f"{prefix}[review] predicting eval fold")
-    predicted_raw = crf_model.predict(x_eval)
-    marginals_raw = crf_model.predict_marginals(x_eval)
-    predicted_raw_labels = [[str(label) for label in sequence] for sequence in predicted_raw]
+    predicted_raw_labels, marginal_rows = predict_with_transition_overrides(
+        cast(DecodableCRFProtocol, cast(object, crf_model)),
+        x_eval,
+        monotonic_transition_overrides(illegal_transition_weight=illegal_transition_weight),
+    )
     predicted_labels, modified_agreement_count, modified_page_count = postprocess_prediction_sequences(
         predicted_raw_labels,
         x_eval,
@@ -389,10 +388,6 @@ def _train_and_predict_crf(
             f"{prefix}[review] postprocess adjusted {modified_page_count} pages across "
             + f"{modified_agreement_count} agreements"
         )
-    marginal_rows = [
-        [{str(label): float(cast(float, prob)) for label, prob in row.items()} for row in sequence]
-        for sequence in marginals_raw
-    ]
     return predicted_labels, marginal_rows
 
 

@@ -18,6 +18,7 @@ import numpy as np
 import optuna
 import pandas as pd
 from scipy.sparse import csr_matrix
+from scipy.special import logsumexp
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
@@ -54,6 +55,7 @@ POSTPROCESS_BACK_WINDOW_SIZE = 16
 POSTPROCESS_BODY_LIKE_MIN_RATIO = 0.40
 POSTPROCESS_ANNEX_ENTRY_MAX_RATIO = 0.20
 POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE = 0.75
+DEFAULT_ILLEGAL_TRANSITION_WEIGHT = -1000.0
 
 TOC_DOTS_RE = re.compile(r"\.{6,}")
 SIG_BLOCK_RE = re.compile(
@@ -190,6 +192,17 @@ class CRFModelProtocol(Protocol):
     def predict(self, x_test: list[list[FeatureDict]]) -> list[list[str]]: ...
 
 
+class DecodableCRFProtocol(Protocol):
+    @property
+    def classes_(self) -> list[str]: ...
+
+    @property
+    def state_features_(self) -> dict[tuple[str, str], float]: ...
+
+    @property
+    def transition_features_(self) -> dict[tuple[str, str], float]: ...
+
+
 class CRFSuiteModuleProtocol(Protocol):
     def CRF(
         self,
@@ -309,7 +322,7 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument(
         "--illegal-transition-weight",
         type=float,
-        default=-1000.0,
+        default=DEFAULT_ILLEGAL_TRANSITION_WEIGHT,
         help="Weight assigned to forbidden backward transitions.",
     )
     _ = parser.add_argument(
@@ -820,13 +833,13 @@ def postprocess_prediction_sequence(
 
     output_labels = list(predicted_labels)
     modified_mask = [False] * len(output_labels)
-    try:
-        first_back_index = output_labels.index("back_matter")
-    except ValueError:
-        return output_labels, modified_mask
-
-    first_back_relative_page = float(feature_sequence[first_back_index]["relative_page"])
-    if first_back_relative_page < float(params["early_back_relative_page_max"]):
+    # Sequences with no back_matter skip only the early-back repair; the clamp below always runs.
+    first_back_index = (
+        output_labels.index("back_matter") if "back_matter" in output_labels else None
+    )
+    if first_back_index is not None and float(
+        feature_sequence[first_back_index]["relative_page"]
+    ) < float(params["early_back_relative_page_max"]):
         has_prior_sig_context = any(label == "sig" for label in output_labels[:first_back_index])
         if not has_prior_sig_context:
             window_end = min(
@@ -1475,22 +1488,95 @@ def split_dataframe_from_manifest(
     return train_df, val_df, test_df
 
 
-def enforce_monotonic_transition_weights(
-    crf_model: CRFModelProtocol,
+def monotonic_transition_overrides(
     *,
-    illegal_transition_weight: float,
+    illegal_transition_weight: float = DEFAULT_ILLEGAL_TRANSITION_WEIGHT,
 ) -> dict[tuple[str, str], float]:
-    transition_features = crf_model.transition_features_
-
-    overwritten: dict[tuple[str, str], float] = {}
+    """Weights for every backward label transition, applied by `predict_with_transition_overrides`."""
+    overrides: dict[tuple[str, str], float] = {}
     for source_label in PAGE_LABELS:
         for target_label in PAGE_LABELS:
             if LABEL_TO_INDEX[target_label] >= LABEL_TO_INDEX[source_label]:
                 continue
-            transition = (source_label, target_label)
-            transition_features[transition] = illegal_transition_weight
-            overwritten[transition] = illegal_transition_weight
-    return overwritten
+            overrides[(source_label, target_label)] = illegal_transition_weight
+    return overrides
+
+
+def predict_with_transition_overrides(
+    crf_model: DecodableCRFProtocol,
+    sequences: list[list[FeatureDict]],
+    transition_overrides: dict[tuple[str, str], float],
+) -> tuple[list[list[str]], list[list[dict[str, float]]]]:
+    """Viterbi labels and forward-backward marginals with some transition weights replaced.
+
+    crfsuite's tagger decodes from its compiled model, so assigning into a fitted CRF's
+    `transition_features_` never reaches `predict()` or `predict_marginals()`. This decodes in
+    Python from the learned state and transition weights instead; with no overrides it
+    reproduces the tagger's own output.
+    """
+    labels = [str(label) for label in crf_model.classes_]
+    label_index = {label: index for index, label in enumerate(labels)}
+    label_count = len(labels)
+
+    attribute_weights: dict[str, np.ndarray] = {}
+    for (attribute, label), weight in crf_model.state_features_.items():
+        row = attribute_weights.setdefault(attribute, np.zeros(label_count))
+        row[label_index[label]] = weight
+    transitions = np.zeros((label_count, label_count))
+    for (source_label, target_label), weight in crf_model.transition_features_.items():
+        transitions[label_index[source_label], label_index[target_label]] = weight
+    for (source_label, target_label), weight in transition_overrides.items():
+        if source_label in label_index and target_label in label_index:
+            transitions[label_index[source_label], label_index[target_label]] = weight
+
+    predicted_sequences: list[list[str]] = []
+    marginal_sequences: list[list[dict[str, float]]] = []
+    for sequence in sequences:
+        page_count = len(sequence)
+        if page_count == 0:
+            predicted_sequences.append([])
+            marginal_sequences.append([])
+            continue
+        emissions = np.zeros((page_count, label_count))
+        for page_index, feature_dict in enumerate(sequence):
+            for name, value in feature_dict.items():
+                weights = attribute_weights.get(name)
+                if weights is not None:
+                    emissions[page_index] += float(value) * weights
+
+        scores = emissions[0].copy()
+        backpointers = np.zeros((page_count, label_count), dtype=np.int64)
+        for page_index in range(1, page_count):
+            candidates = scores[:, None] + transitions
+            backpointers[page_index] = candidates.argmax(axis=0)
+            scores = candidates.max(axis=0) + emissions[page_index]
+        path = [int(scores.argmax())]
+        for page_index in range(page_count - 1, 0, -1):
+            path.append(int(backpointers[page_index, path[-1]]))
+        path.reverse()
+        predicted_sequences.append([labels[index] for index in path])
+
+        alpha = np.zeros((page_count, label_count))
+        alpha[0] = emissions[0]
+        for page_index in range(1, page_count):
+            alpha[page_index] = (
+                logsumexp(alpha[page_index - 1][:, None] + transitions, axis=0)
+                + emissions[page_index]
+            )
+        beta = np.zeros((page_count, label_count))
+        for page_index in range(page_count - 2, -1, -1):
+            beta[page_index] = logsumexp(
+                transitions + (emissions[page_index + 1] + beta[page_index + 1])[None, :],
+                axis=1,
+            )
+        marginals = np.exp(alpha + beta - logsumexp(alpha[-1]))
+        marginal_sequences.append(
+            [
+                {label: float(row[index]) for label, index in label_index.items()}
+                for row in marginals
+            ]
+        )
+    return predicted_sequences, marginal_sequences
 
 
 def _save_report(report_path: Path, report_text: str) -> None:
@@ -1603,15 +1689,18 @@ def _run_crf_experiment(
     _ = crf_model.fit(x_train, y_train)
     _log(f"{prefix}[crf] fit complete")
 
-    overwritten_transitions = enforce_monotonic_transition_weights(
-        crf_model,
+    overwritten_transitions = monotonic_transition_overrides(
         illegal_transition_weight=illegal_transition_weight,
     )
     _log(
         f"{prefix}[crf] predicting {sum(len(doc.labels) for doc in eval_documents)} pages "
         + f"across {len(eval_documents)} agreements"
     )
-    y_pred_raw = crf_model.predict(x_eval)
+    y_pred_raw, _ = predict_with_transition_overrides(
+        cast(DecodableCRFProtocol, cast(object, crf_model)),
+        x_eval,
+        overwritten_transitions,
+    )
     y_pred, postprocess_modified_agreement_count, postprocess_modified_page_count = (
         postprocess_prediction_sequences(
             y_pred_raw,
