@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/PageShell";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import {
   Card,
   CardContent,
@@ -33,10 +34,7 @@ const XML_ELEMENT_TREE = String.raw`<document uuid="agreement-uuid">
 
 export default function XmlSchema() {
   return (
-    <PageShell
-      size="xl"
-      title="XML Schema"
-    >
+    <PageShell layout="docs" title="XML Schema">
       <div className="grid gap-6">
         <section
           aria-labelledby="xml-schema-overview"
@@ -59,9 +57,9 @@ export default function XmlSchema() {
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border border-border bg-muted/40 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Eyebrow>
                     Root Node
-                  </div>
+                  </Eyebrow>
                   <p className="mt-2 prose-copy">
                     <span className="font-mono text-sm text-foreground">&lt;document&gt;</span>{" "}
                     with a required{" "}
@@ -71,9 +69,9 @@ export default function XmlSchema() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/40 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Eyebrow>
                     Page Containers
-                  </div>
+                  </Eyebrow>
                   <p className="mt-2 prose-copy">
                     Optional containers split by page type:{" "}
                     <span className="font-mono text-sm text-foreground">frontMatter</span>,{" "}
@@ -138,9 +136,9 @@ export default function XmlSchema() {
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border border-border bg-muted/40 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Eyebrow>
                     Metadata Nodes
-                  </div>
+                  </Eyebrow>
                   <p className="mt-2 prose-copy">
                     <span className="font-mono text-sm text-foreground">agreementUuid</span>,{" "}
                     <span className="font-mono text-sm text-foreground">filingDate</span>,{" "}
@@ -154,9 +152,9 @@ export default function XmlSchema() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/40 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Eyebrow>
                     Content Nodes
-                  </div>
+                  </Eyebrow>
                   <p className="mt-2 prose-copy">
                     <span className="font-mono text-sm text-foreground">text</span>,{" "}
                     <span className="font-mono text-sm text-foreground">
@@ -187,9 +185,9 @@ export default function XmlSchema() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/40 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Eyebrow>
                     Structural Rules
-                  </div>
+                  </Eyebrow>
                   <p className="mt-2 prose-copy">
                     <span className="font-mono text-sm text-foreground">
                       article

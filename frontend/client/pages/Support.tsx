@@ -1,8 +1,8 @@
 import { PageShell } from "@/components/PageShell";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import type { LucideIcon } from "lucide-react";
+import { FactCard } from "@/components/FactCard";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import {
   Heart,
   Coffee,
@@ -39,71 +39,16 @@ const moneyItems = [
   },
 ];
 
-const helpCardClass =
-  "rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/40 block";
-
-function HelpCard({
-  icon: Icon,
-  title,
-  description,
-  href,
-  to,
-  external,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  href?: string;
-  to?: string;
-  external?: boolean;
-}) {
-  const body = (
-    <>
-      <Icon className="h-5 w-5 text-primary mb-2" aria-hidden />
-      <h3 className="text-base font-medium text-foreground">
-        {title}
-        {external && (
-          <ExternalLink
-            className="ml-0.5 inline-block h-3 w-3 align-baseline opacity-60"
-            aria-hidden
-          />
-        )}
-      </h3>
-      <p className="text-sm text-muted-foreground mt-1">{description}</p>
-    </>
-  );
-
-  if (href) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={external ? `${title} (opens in a new tab)` : title}
-        className={helpCardClass}
-      >
-        {body}
-      </a>
-    );
-  }
-  return (
-    <Link to={to!} className={helpCardClass}>
-      {body}
-    </Link>
-  );
-}
-
 export default function Support() {
   return (
-    <PageShell size="lg" title="Support">
+    <PageShell layout="docs" title="Support">
       <article>
         <section
           id="support-development"
-          className="scroll-mt-24 first:pt-0"
+          className="scroll-mt-24"
           aria-labelledby="support-development-heading"
         >
           <SectionHeader
-            number="01"
             title="Support development"
             id="support-development-heading"
           />
@@ -114,19 +59,19 @@ export default function Support() {
             current, and open.
           </p>
 
-          <div className="mt-6 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-2xl">
-                <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="mt-6 rounded-xl border border-border bg-card p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <Eyebrow className="flex items-center gap-2">
                   <Heart className="h-4 w-4 text-primary" aria-hidden="true" />
                   Buy Me a Coffee
-                </div>
+                </Eyebrow>
                 <p className="mt-2 text-sm text-muted-foreground">
                   A lightweight way to help cover operating expenses and
                   ongoing development.
                 </p>
               </div>
-              <Button asChild size="lg" className="w-fit gap-2 px-8">
+              <Button asChild size="lg" className="w-fit shrink-0 gap-2 px-6">
                 <a
                   href="https://www.buymeacoffee.com/nmbogdan"
                   target="_blank"
@@ -157,27 +102,17 @@ export default function Support() {
           aria-labelledby="operating-costs-heading"
         >
           <SectionHeader
-            number="02"
             title="Operating costs"
             id="operating-costs-heading"
           />
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {moneyItems.map(({ icon: Icon, title, description }) => (
-              <div
+            {moneyItems.map(({ icon, title, description }) => (
+              <FactCard
                 key={title}
-                className="rounded-lg border border-border bg-card p-4"
-              >
-                <Icon
-                  className="h-5 w-5 text-primary mb-2"
-                  aria-hidden="true"
-                />
-                <h3 className="text-base font-medium text-foreground">
-                  {title}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {description}
-                </p>
-              </div>
+                icon={icon}
+                title={title}
+                description={description}
+              />
             ))}
           </div>
         </section>
@@ -188,24 +123,21 @@ export default function Support() {
           aria-labelledby="other-ways-heading"
         >
           <SectionHeader
-            number="03"
             title="Other ways to help"
             id="other-ways-heading"
           />
-          <div className="mx-auto mt-6 grid max-w-3xl grid-cols-1 gap-3 md:grid-cols-2">
-            <HelpCard
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FactCard
               icon={Star}
               title="Star on GitHub"
               description="Help the project's visibility."
               href="https://github.com/PlatosTwin/pandects-app"
-              external
             />
-            <HelpCard
+            <FactCard
               icon={MessageSquareWarning}
               title="Open an issue"
               description="Report a bug or request a feature."
               href="https://github.com/PlatosTwin/pandects-app/issues"
-              external
             />
           </div>
         </section>
