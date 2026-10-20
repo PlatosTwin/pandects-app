@@ -3045,6 +3045,9 @@
     "outputSchema": {
       "type": "object",
       "properties": {
+        "agreement_uuid": {
+          "type": "string"
+        },
         "year": {
           "type": [
             "integer",
@@ -3234,6 +3237,7 @@
       },
       "additionalProperties": true,
       "required": [
+        "agreement_uuid",
         "xml_included",
         "target_industry_label",
         "acquirer_industry_label"

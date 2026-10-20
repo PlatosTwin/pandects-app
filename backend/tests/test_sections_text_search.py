@@ -16,7 +16,7 @@ from sqlalchemy.exc import InternalError, OperationalError
 from sqlalchemy.orm import Session
 
 from backend.core.config import bounded_statement, configure_auth_bind, configure_main_db
-from backend.models.main_db import LatestSectionsSearch, SectionTextSearch
+from backend.models.main_db import Agreements, LatestSectionsSearch, SectionTextSearch
 from backend.search_counts import build_search_count_cache_key
 from backend.services.sections_service import (
     SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE,
@@ -57,6 +57,7 @@ def _chained_query() -> MagicMock:
 def _service_deps(query: MagicMock, *, text_search_available: bool = True) -> MagicMock:
     deps = MagicMock(name="deps")
     deps.db.session.query.return_value = query
+    deps.Agreements = Agreements
     deps.LatestSectionsSearch = LatestSectionsSearch
     deps.SectionTextSearch = SectionTextSearch if text_search_available else None
     deps._dedupe_preserve_order = lambda values: values
@@ -207,6 +208,61 @@ class CompileBooleanTextQueryTests(unittest.TestCase):
             text_query_focus_terms("effect* adverse effect*", "all_terms"),
             ["effect", "adverse"],
         )
+
+
+class TextMatchSnippetTests(unittest.TestCase):
+    """Snippets for /v1/search/agreements matched sections."""
+
+    def test_phrase_pattern_spans_punctuation_and_centers_the_window(self) -> None:
+        from backend.services.snippets import text_match_patterns, text_match_snippet
+
+        text_content = ("Recitals. " * 40) + "Parent shall pay the Reverse-Termination  Fee promptly."
+        snippet, matched = text_match_snippet(
+            text_content,
+            patterns=text_match_patterns("reverse termination fee", "phrase"),
+            max_chars=80,
+        )
+        self.assertEqual(matched, ["Reverse-Termination Fee"])
+        self.assertIn("Reverse-Termination Fee", snippet)
+        self.assertLessEqual(len(snippet), 80 + len("...") * 2)
+        self.assertTrue(snippet.startswith("..."))
+
+    def test_term_modes_report_each_distinct_matched_span(self) -> None:
+        from backend.services.snippets import text_match_patterns, text_match_snippet
+
+        snippet, matched = text_match_snippet(
+            "The Termination Fee is payable on termination of this Agreement.",
+            patterns=text_match_patterns("termination fee", "all_terms"),
+            max_chars=220,
+        )
+        self.assertEqual(matched, ["Termination", "Fee"])
+        self.assertTrue(snippet.startswith("The Termination Fee"))
+
+    def test_prefix_terms_match_word_continuations_only(self) -> None:
+        from backend.services.snippets import text_match_patterns, text_match_snippet
+
+        _snippet, matched = text_match_snippet(
+            "Indemnifying parties and indemnification obligations.",
+            patterns=text_match_patterns("indemnif*", "any_terms"),
+            max_chars=220,
+        )
+        self.assertEqual(matched, ["Indemnifying"])
+        _snippet, no_match = text_match_snippet(
+            "Nonindemnified losses.",
+            patterns=text_match_patterns("indemnif*", "any_terms"),
+            max_chars=220,
+        )
+        self.assertEqual(no_match, [])
+
+    def test_no_match_falls_back_to_the_opening_text(self) -> None:
+        from backend.services.snippets import extract_text_from_xml, text_match_patterns, text_match_snippet
+
+        text_content = extract_text_from_xml("<section><text>Governing Law.</text> <text>Delaware.</text></section>")
+        snippet, matched = text_match_snippet(
+            text_content, patterns=text_match_patterns("arbitration", "phrase"), max_chars=220
+        )
+        self.assertEqual(matched, [])
+        self.assertTrue(snippet.startswith("Governing Law."))
 
 
 class SectionTextMatchExpressionTests(unittest.TestCase):

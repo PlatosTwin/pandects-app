@@ -4,7 +4,7 @@ from typing import TypedDict, cast
 
 from marshmallow import Schema, fields, validate
 
-from backend.schemas.sections import AccessInfoSchema
+from backend.schemas.sections import AccessInfoSchema, DumpVersionInfoSchema
 
 
 class TaxClausesArgsPayload(TypedDict):
@@ -98,6 +98,24 @@ class TaxClausesArgsSchema(Schema):
     page_size = fields.Int(load_default=25)
 
 
+class TaxClausesQueryArgsSchema(TaxClausesArgsSchema):
+    """`/v1/tax-clauses` arguments: the shared filter schema plus REST-only `include_dump`.
+
+    The MCP `search_tax_clauses` tool validates against the base schema and returns no
+    dump version, so the flag stays off its input schema.
+    """
+
+    include_dump = fields.Bool(
+        load_default=True,
+        metadata={
+            "description": (
+                "When false, omit `dump_version` from the response body. "
+                "The `X-Pandects-Dump-Hash` response header is always included."
+            ),
+        },
+    )
+
+
 class TaxClauseItemSchema(Schema):
     id = fields.Str()
     clause_uuid = fields.Str()
@@ -136,11 +154,13 @@ class TaxClausesResponseSchema(Schema):
     has_prev = fields.Bool()
     next_num = fields.Int(allow_none=True)
     prev_num = fields.Int(allow_none=True)
+    dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 
 __all__ = [
     "TaxClausesArgsPayload",
     "TaxClausesArgsSchema",
+    "TaxClausesQueryArgsSchema",
     "TaxClauseItemSchema",
     "TaxClausesResponseSchema",
 ]

@@ -4,15 +4,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
-from sqlalchemy import and_, asc, desc, func, or_
+from sqlalchemy import and_, asc, desc
 
 from backend.core.pagination import clamp_page_size, search_max_page_size
-from backend.filtering import (
-    build_canonical_counsel_agreement_uuid_subquery,
-    build_transaction_price_bucket_filter,
-)
+from backend.filtering import agreement_is_public_eligible_expr, apply_agreement_filters
 from backend.models.main_db import xml_latest_ok_filter
-from backend.routes.agreements import _agreement_is_public_eligible_expr
 from backend.routes.deps import (
     AccessContextProtocol,
     CachedExactQueryCountProtocol,
@@ -75,28 +71,7 @@ def run_tax_clauses(
     tax_standard_id_filter_expr = deps._tax_clause_standard_id_filter_expr
     year_from_filing_date = deps._year_from_filing_date_value
 
-    years = parsed_args["year"]
-    targets = parsed_args["target"]
-    acquirers = parsed_args["acquirer"]
     tax_standard_ids = parsed_args["tax_standard_id"]
-    transaction_price_totals = parsed_args["transaction_price_total"]
-    transaction_price_stocks = parsed_args["transaction_price_stock"]
-    transaction_price_cashes = parsed_args["transaction_price_cash"]
-    transaction_price_assets_vals = parsed_args["transaction_price_assets"]
-    transaction_considerations = parsed_args["transaction_consideration"]
-    target_types = parsed_args["target_type"]
-    acquirer_types = parsed_args["acquirer_type"]
-    target_counsels = parsed_args["target_counsel"]
-    acquirer_counsels = parsed_args["acquirer_counsel"]
-    target_industries = parsed_args["target_industry"]
-    acquirer_industries = parsed_args["acquirer_industry"]
-    deal_statuses = parsed_args["deal_status"]
-    attitudes = parsed_args["attitude"]
-    deal_types = parsed_args["deal_type"]
-    purposes = parsed_args["purpose"]
-    target_pes = parsed_args["target_pe"]
-    acquirer_pes = parsed_args["acquirer_pe"]
-    agreement_uuid = parsed_args["agreement_uuid"]
     section_uuid = parsed_args["section_uuid"]
     clause_uuid = parsed_args["clause_uuid"]
     include_rep_warranty = parsed_args["include_rep_warranty"]
@@ -127,37 +102,23 @@ def run_tax_clauses(
         )
         .filter(
             clauses.module == "tax",
-            _agreement_is_public_eligible_expr(agreements),
+            agreement_is_public_eligible_expr(agreements),
         ),
     )
 
     if not include_rep_warranty:
         q = q.filter(clauses.context_type != "rep_warranty")
 
-    if years:
-        year_filters = tuple(
-            and_(
-                agreements.filing_date >= f"{year:04d}-01-01",
-                agreements.filing_date < f"{year + 1:04d}-01-01",
-            )
-            for year in years
-        )
-        q = q.filter(or_(*year_filters))
-
-    if targets:
-        q = q.filter(agreements.target.in_(targets))
-    if acquirers:
-        q = q.filter(agreements.acquirer.in_(acquirers))
-
-    for col, values in (
-        (agreements.transaction_price_total, transaction_price_totals),
-        (agreements.transaction_price_stock, transaction_price_stocks),
-        (agreements.transaction_price_cash, transaction_price_cashes),
-        (agreements.transaction_price_assets, transaction_price_assets_vals),
-    ):
-        bucket_filter = build_transaction_price_bucket_filter(col, values)
-        if bucket_filter is not None:
-            q = q.filter(bucket_filter)
+    q = cast(
+        _Query,
+        apply_agreement_filters(
+            q,
+            agreements,
+            cast(dict[str, object], cast(object, parsed_args)),
+            agreement_counsel=agreement_counsel,
+            counsel=counsel,
+        ),
+    )
 
     if tax_standard_ids:
         key = tuple(sorted({value for value in tax_standard_ids if value}))
@@ -165,55 +126,6 @@ def run_tax_clauses(
         if expanded:
             q = q.filter(tax_standard_id_filter_expr(expanded))
 
-    if target_types:
-        q = q.filter(agreements.target_type.in_(target_types))
-    if acquirer_types:
-        q = q.filter(agreements.acquirer_type.in_(acquirer_types))
-    if transaction_considerations:
-        q = q.filter(agreements.transaction_consideration.in_(transaction_considerations))
-
-    target_counsel_subq = build_canonical_counsel_agreement_uuid_subquery(
-        side="target",
-        canonical_names=target_counsels,
-        agreement_counsel=agreement_counsel,
-        counsel=counsel,
-    )
-    if target_counsel_subq is not None:
-        q = q.filter(agreements.agreement_uuid.in_(target_counsel_subq))
-    acquirer_counsel_subq = build_canonical_counsel_agreement_uuid_subquery(
-        side="acquirer",
-        canonical_names=acquirer_counsels,
-        agreement_counsel=agreement_counsel,
-        counsel=counsel,
-    )
-    if acquirer_counsel_subq is not None:
-        q = q.filter(agreements.agreement_uuid.in_(acquirer_counsel_subq))
-
-    if target_industries:
-        q = q.filter(agreements.target_industry.in_(target_industries))
-    if acquirer_industries:
-        q = q.filter(agreements.acquirer_industry.in_(acquirer_industries))
-    if deal_statuses:
-        q = q.filter(agreements.deal_status.in_(deal_statuses))
-    if attitudes:
-        q = q.filter(agreements.attitude.in_(attitudes))
-    if deal_types:
-        q = q.filter(agreements.deal_type.in_(deal_types))
-    if purposes:
-        q = q.filter(agreements.purpose.in_(purposes))
-
-    for column, selected in ((agreements.target_pe, target_pes), (agreements.acquirer_pe, acquirer_pes)):
-        mapped: list[int] = []
-        for value in selected:
-            if value == "true":
-                mapped.append(1)
-            elif value == "false":
-                mapped.append(0)
-        if mapped:
-            q = q.filter(column.in_(mapped))
-
-    if agreement_uuid and agreement_uuid.strip():
-        q = q.filter(clauses.agreement_uuid == agreement_uuid.strip())
     if section_uuid and section_uuid.strip():
         q = q.filter(clauses.section_uuid == section_uuid.strip())
     if clause_uuid and clause_uuid.strip():

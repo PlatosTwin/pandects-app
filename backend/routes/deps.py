@@ -174,6 +174,7 @@ class VerifyTurnstileTokenProtocol(Protocol):
 class SectionsServiceDeps:
     db: Any
     AgreementCounsel: Any
+    Agreements: Any
     Counsel: Any
     LatestSectionsSearch: Any
     SectionTextSearch: Any
@@ -205,6 +206,7 @@ class AgreementsDeps:
     Clauses: Any
     Counsel: Any
     LatestSectionsSearch: Any
+    SectionTextSearch: Any
     Sections: Any
     TaxonomyL1: Any
     TaxonomyL2: Any
