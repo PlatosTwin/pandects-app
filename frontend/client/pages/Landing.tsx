@@ -183,7 +183,7 @@ export default function Landing() {
             <div className="mt-12 flex w-full flex-col items-center gap-3">
               <Button
                 asChild
-                className="w-full max-w-sm rounded-full px-8 py-3 text-base sm:w-auto"
+                className="w-full max-w-sm px-8 py-3 text-base sm:w-auto"
               >
                 <Link
                   to="/agreement-index"

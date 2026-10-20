@@ -82,11 +82,10 @@ export default function ResetPassword() {
   return (
     <PageShell
       title="Reset password"
-      subtitle="Request a Pandects password reset link for your email address."
-      size="md"
-      className="max-w-2xl"
+      description="Request a Pandects password reset link for your email address."
+      layout="form"
     >
-      <Card className="mx-auto w-full max-w-xl border-border bg-card/95 p-6 shadow-sm sm:p-8">
+      <Card className="w-full p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
           {submittedEmail ? (
             <Alert>
@@ -137,7 +136,7 @@ export default function ResetPassword() {
                 resetSignal={captchaResetSignal}
               />
             ) : null}
-            <div className="flex justify-center pt-1">
+            <div className="pt-1">
               <Button
                 type="submit"
                 disabled={
@@ -145,14 +144,14 @@ export default function ResetPassword() {
                   !captchaResolved ||
                   (captchaSiteKey !== null && !captchaToken)
                 }
-                className="min-w-[10rem] rounded-full px-6"
+                className="min-w-[10rem] px-6"
               >
                 {submitting ? "Sending reset link…" : "Send reset link"}
               </Button>
             </div>
           </form>
 
-          <div className="text-center text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground">
             Remembered it?{" "}
             <Link
               to={`/login?next=${encodeURIComponent(nextPath)}`}

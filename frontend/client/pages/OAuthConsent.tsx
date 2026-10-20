@@ -106,15 +106,14 @@ export default function OAuthConsent() {
   return (
     <PageShell
       title="Authorize access"
-      subtitle={
+      description={
         clientName
           ? `${clientName} wants to access your Pandects account.`
           : "An external application wants to access your Pandects account."
       }
-      size="md"
-      className="max-w-3xl"
+      layout="form"
     >
-      <Card className="mx-auto w-full max-w-2xl border-border bg-card/95 p-6 shadow-sm sm:p-8">
+      <Card className="w-full p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
           {!paramsValid ? (
             <Alert variant="destructive">
