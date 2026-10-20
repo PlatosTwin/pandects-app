@@ -33,6 +33,10 @@ interface StarButtonProps {
   ariaLabel?: string;
   className?: string;
   size?: "sm" | "md";
+  /** Extra classes for the button itself (e.g. a smaller hit area in toolbars). */
+  buttonClassName?: string;
+  /** Show the tag swatches under the star. Off in single-row toolbars. */
+  showTagSwatches?: boolean;
 }
 
 const DOUBLE_CLICK_MS = 300;
@@ -45,6 +49,8 @@ export function StarButton({
   ariaLabel,
   className,
   size = "sm",
+  buttonClassName,
+  showTagSwatches = true,
 }: StarButtonProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -400,6 +406,7 @@ export function StarButton({
       className={cn(
         "inline-flex h-11 w-11 select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         displayedStarred && "text-amber-500 hover:text-amber-500",
+        buttonClassName,
       )}
       aria-label={ariaLabel ?? defaultAriaLabel}
       aria-pressed={displayedStarred}
@@ -522,7 +529,7 @@ export function StarButton({
           </div>
         </PopoverContent>
       </Popover>
-      {displayTags.length > 0 ? (
+      {showTagSwatches && displayTags.length > 0 ? (
         <div
           className="mt-0.5 flex max-w-12 flex-wrap justify-center gap-0.5"
           aria-label={`Tags: ${displayTags.map((tag) => tag.name).join(", ")}`}

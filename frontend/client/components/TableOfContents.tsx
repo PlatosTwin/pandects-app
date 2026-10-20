@@ -15,6 +15,40 @@ interface TableOfContentsProps {
   onAnchorClick?: (anchorId: string) => void;
   className?: string;
   scrollable?: boolean;
+  /** Render the "Table of Contents" heading (off when a panel supplies its own). */
+  showTitle?: boolean;
+  /**
+   * When set, only these sections (and the articles that contain them) are
+   * listed, fully expanded. Used by the reader's section-type filter.
+   */
+  visibleSectionUuids?: ReadonlySet<string> | null;
+  /** Sections that matched the originating search; marked with a dot. */
+  matchedSectionUuids?: ReadonlySet<string> | null;
+}
+
+function filterTocItems(
+  items: TOCItem[],
+  visible: ReadonlySet<string>,
+): TOCItem[] {
+  const result: TOCItem[] = [];
+  for (const item of items) {
+    const children = item.children ? filterTocItems(item.children, visible) : [];
+    const selfVisible = item.sectionUuid != null && visible.has(item.sectionUuid);
+    if (selfVisible || children.length > 0) {
+      result.push({ ...item, children: item.children ? children : undefined });
+    }
+  }
+  return result;
+}
+
+function collectExpandableIds(items: TOCItem[], into: Set<string>): Set<string> {
+  for (const item of items) {
+    if (item.children && item.children.length > 0) {
+      into.add(item.id);
+      collectExpandableIds(item.children, into);
+    }
+  }
+  return into;
 }
 
 const REGION_ITEMS: Array<{ tagName: string; title: string }> = [
@@ -33,6 +67,9 @@ export function TableOfContents({
   onAnchorClick,
   className,
   scrollable = true,
+  showTitle = true,
+  visibleSectionUuids = null,
+  matchedSectionUuids = null,
 }: TableOfContentsProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(
     () => new Set(["region-body"]),
@@ -41,9 +78,21 @@ export function TableOfContents({
   const isPointerOverRef = useRef(false);
   const lastInteractionRef = useRef(0);
 
-  const tocItems = useMemo(() => {
+  const allTocItems = useMemo(() => {
     return extractTOCFromXML(xmlContent);
   }, [xmlContent]);
+
+  const isFiltered = visibleSectionUuids != null;
+  const tocItems = useMemo(
+    () =>
+      visibleSectionUuids ? filterTocItems(allTocItems, visibleSectionUuids) : allTocItems,
+    [allTocItems, visibleSectionUuids],
+  );
+  // A filtered list is short, so show it fully expanded.
+  const filteredExpanded = useMemo(
+    () => (isFiltered ? collectExpandableIds(tocItems, new Set()) : null),
+    [isFiltered, tocItems],
+  );
 
   useEffect(() => {
     if (!targetSectionUuid) return;
@@ -111,26 +160,28 @@ export function TableOfContents({
   };
 
   const renderTOCItem = (item: TOCItem, depth: number = 0): React.ReactNode => {
-    const isExpanded = expandedItems.has(item.id);
+    const isExpanded = (filteredExpanded ?? expandedItems).has(item.id);
     const hasChildren = item.children && item.children.length > 0;
     const isTarget =
       item.sectionUuid != null && item.sectionUuid === targetSectionUuid;
     const isActive =
       activeItemId != null &&
       (item.sectionUuid === activeItemId || item.anchorId === activeItemId);
+    const isMatched =
+      item.sectionUuid != null && matchedSectionUuids?.has(item.sectionUuid) === true;
 
     return (
       <div key={item.id} className="select-none">
         <button
           type="button"
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors",
+            "flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-foreground transition-colors",
             "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             (isActive || isTarget) && "bg-primary/10 text-primary font-medium",
-            depth > 0 && "ml-4",
+            depth > 0 && "ml-3 w-[calc(100%-0.75rem)]",
           )}
           onClick={() => {
-            if (hasChildren) {
+            if (hasChildren && !isFiltered) {
               toggleExpanded(item.id);
             }
             if (item.sectionUuid) {
@@ -147,7 +198,7 @@ export function TableOfContents({
               : item.title
           }
         >
-          <div className="w-4 flex-shrink-0 flex items-center justify-center">
+          <div className="mt-[0.3em] flex h-3 w-4 flex-shrink-0 items-center justify-center">
             {hasChildren ? (
               isExpanded ? (
                 <ChevronDown className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
@@ -158,12 +209,17 @@ export function TableOfContents({
               <FileText className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
             )}
           </div>
-          <span
-            className="min-w-0 flex-1 break-words leading-relaxed sm:truncate"
-            title={item.title}
-          >
+          <span className="min-w-0 flex-1 break-words leading-snug [overflow-wrap:anywhere]">
             {item.title}
           </span>
+          {isMatched ? (
+            <span
+              className="mt-[0.45em] h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+              title="Matched"
+            >
+              <span className="sr-only">(matched)</span>
+            </span>
+          ) : null}
         </button>
 
         {hasChildren && isExpanded && (
@@ -193,13 +249,21 @@ export function TableOfContents({
       onTouchMove={markInteraction}
       onKeyDown={markInteraction}
     >
-      <div className="p-4">
-        <h2 className="mb-3 text-sm font-medium text-foreground">
-          Table of Contents
-        </h2>
+      <div className={showTitle ? "p-4" : "p-2"}>
+        {showTitle ? (
+          <h2 className="mb-3 text-sm font-medium text-foreground">
+            Table of Contents
+          </h2>
+        ) : null}
         <nav aria-label="Agreement table of contents">
-          <div className="space-y-1">
-            {tocItems.map((item) => renderTOCItem(item))}
+          <div className="space-y-0.5">
+            {tocItems.length === 0 && isFiltered ? (
+              <p className="px-2.5 py-2 text-sm text-muted-foreground">
+                No sections of this type.
+              </p>
+            ) : (
+              tocItems.map((item) => renderTOCItem(item))
+            )}
           </div>
         </nav>
       </div>

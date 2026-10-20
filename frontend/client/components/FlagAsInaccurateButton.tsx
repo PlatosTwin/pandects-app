@@ -1,6 +1,6 @@
 import { type FormEvent, useId, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CircleAlert } from "lucide-react";
+import { Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -41,7 +41,9 @@ interface FlagAsInaccurateButtonProps {
   section_uuid?: string;
   className?: string;
   /** Preferred tooltip side. Use "left" when button is top-right (e.g. modal) to avoid viewport clipping. */
-  tooltipSide?: "left" | "bottom";
+  tooltipSide?: "left" | "bottom" | "top";
+  /** Accessible name for the trigger; defaults to "Report an issue". */
+  label?: string;
 }
 
 export function FlagAsInaccurateButton({
@@ -50,6 +52,7 @@ export function FlagAsInaccurateButton({
   section_uuid,
   className,
   tooltipSide = "bottom",
+  label = "Report an issue",
 }: FlagAsInaccurateButtonProps) {
   const { status } = useAuth();
   const location = useLocation();
@@ -115,7 +118,7 @@ export function FlagAsInaccurateButton({
   };
 
   const icon = (
-    <CircleAlert
+    <Flag
       className={cn(
         "h-4 w-4 shrink-0 text-muted-foreground",
         submitting && "opacity-50",
@@ -137,7 +140,7 @@ export function FlagAsInaccurateButton({
       onClick={() => setIsOpen(true)}
       disabled={submitting}
       className={cn(triggerClassName, "hover:text-foreground")}
-      aria-label="Report an issue"
+      aria-label={label}
       aria-haspopup="dialog"
     >
       {icon}
