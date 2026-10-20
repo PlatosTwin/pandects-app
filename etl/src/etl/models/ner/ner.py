@@ -1299,6 +1299,9 @@ class NERInference:
             tag = self.id2label.get(lid, "O")
             return "O" if tag == "O" else tag.split("-", 1)[1].lower()
 
+        def begins_entity(lid: int) -> bool:
+            return self.id2label.get(lid, "O").startswith(("B-", "S-"))
+
         res = []
         cur_ent = "O"
         pos = 0  # last emitted char pos in source text
@@ -1307,7 +1310,9 @@ class NERInference:
             if e == 0 or s >= e:
                 continue
             tok_ent = ent(lid)
-            if tok_ent != cur_ent:
+            # A B-/S- label starts a new entity even when it has the same type
+            # as the one before it (e.g. two adjacent section headings).
+            if tok_ent != cur_ent or (tok_ent != "O" and begins_entity(lid)):
                 if cur_ent != "O":
                     res.append(f"</{cur_ent}>")
                 if pos < s:
