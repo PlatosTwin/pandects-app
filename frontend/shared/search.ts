@@ -8,4 +8,10 @@ export function parseSearchMode(value: string | null | undefined): SearchMode {
   return "sections";
 }
 
-export type SharedSearchFilters = SearchFilters;
+/**
+ * Filters for any search mode. `include_rep_warranty` only affects tax-clause
+ * searches; the other modes ignore it.
+ */
+export type SearchQueryFilters = SearchFilters & {
+  include_rep_warranty?: boolean;
+};

@@ -1,238 +1,118 @@
-import { SearchFilters } from "@shared/sections";
-import type { SearchMode } from "@shared/search";
-import type { ClauseTypeTree } from "@/lib/clause-types";
+import type { SearchFilters } from "@shared/sections";
+import type { SearchMode, SearchQueryFilters } from "@shared/search";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
+type ArrayFilterField = {
+  [K in keyof SearchFilters]-?: NonNullable<SearchFilters[K]> extends string[] ? K : never;
+}[keyof SearchFilters];
+type TextFilterField = "agreement_uuid" | "section_uuid";
+
 /**
- * Build URL search parameters from search filters
+ * Every filter that travels in a search URL / API query string, in the order
+ * the params are written. The order is part of the URL format: shared deep
+ * links and React Query keys depend on it, so append new fields at the end of
+ * their group rather than reordering.
+ *
+ * `clauseType` is written as `standard_id` (section/deal taxonomy ids); tax
+ * mode rewrites it to `tax_standard_id` (see `buildTaxClauseParams`).
  */
-export const buildSearchParams = (
+export const SEARCH_FILTER_FIELDS: ReadonlyArray<
+  | { field: ArrayFilterField; param: string; kind: "array" }
+  | { field: TextFilterField; param: string; kind: "text" }
+> = [
+  { field: "year", param: "year", kind: "array" },
+  { field: "target", param: "target", kind: "array" },
+  { field: "acquirer", param: "acquirer", kind: "array" },
+  { field: "transaction_price_total", param: "transaction_price_total", kind: "array" },
+  { field: "transaction_price_stock", param: "transaction_price_stock", kind: "array" },
+  { field: "transaction_price_cash", param: "transaction_price_cash", kind: "array" },
+  { field: "transaction_price_assets", param: "transaction_price_assets", kind: "array" },
+  { field: "transaction_consideration", param: "transaction_consideration", kind: "array" },
+  { field: "target_type", param: "target_type", kind: "array" },
+  { field: "acquirer_type", param: "acquirer_type", kind: "array" },
+  { field: "target_counsel", param: "target_counsel", kind: "array" },
+  { field: "acquirer_counsel", param: "acquirer_counsel", kind: "array" },
+  { field: "target_industry", param: "target_industry", kind: "array" },
+  { field: "acquirer_industry", param: "acquirer_industry", kind: "array" },
+  { field: "deal_status", param: "deal_status", kind: "array" },
+  { field: "attitude", param: "attitude", kind: "array" },
+  { field: "deal_type", param: "deal_type", kind: "array" },
+  { field: "purpose", param: "purpose", kind: "array" },
+  { field: "target_pe", param: "target_pe", kind: "array" },
+  { field: "acquirer_pe", param: "acquirer_pe", kind: "array" },
+  { field: "agreement_uuid", param: "agreement_uuid", kind: "text" },
+  { field: "section_uuid", param: "section_uuid", kind: "text" },
+  { field: "clauseType", param: "standard_id", kind: "array" },
+];
+
+const ARRAY_FILTER_FIELDS = SEARCH_FILTER_FIELDS.filter(
+  (entry): entry is { field: ArrayFilterField; param: string; kind: "array" } =>
+    entry.kind === "array",
+);
+
+/** A fresh, empty filter draft (every array filter empty, default paging). */
+export function createEmptySearchFilters(): SearchFilters {
+  const filters: SearchFilters = {};
+  ARRAY_FILTER_FIELDS.forEach((entry) => {
+    filters[entry.field] = [];
+  });
+  filters.page = DEFAULT_PAGE;
+  filters.page_size = DEFAULT_PAGE_SIZE;
+  return filters;
+}
+
+/**
+ * Serialize search filters into query params (URL and API share this format).
+ */
+export function buildSearchParams(
   searchFilters: SearchFilters,
-  clauseTypesNested?: ClauseTypeTree,
   includePagination = true,
-): URLSearchParams => {
+): URLSearchParams {
   const params = new URLSearchParams();
 
-  // Handle array filters - append each value separately
-  if (searchFilters.year && searchFilters.year.length > 0) {
-    searchFilters.year.forEach((year) => params.append("year", year));
+  for (const entry of SEARCH_FILTER_FIELDS) {
+    if (entry.kind === "array") {
+      searchFilters[entry.field]?.forEach((value) => params.append(entry.param, value));
+    } else {
+      const value = searchFilters[entry.field]?.trim();
+      if (value) params.append(entry.param, value);
+    }
   }
 
-  if (searchFilters.target && searchFilters.target.length > 0) {
-    searchFilters.target.forEach((target) => params.append("target", target));
-  }
-
-  if (searchFilters.acquirer && searchFilters.acquirer.length > 0) {
-    searchFilters.acquirer.forEach((acquirer) =>
-      params.append("acquirer", acquirer),
-    );
-  }
-
-  // Transaction price filters
-  if (
-    searchFilters.transaction_price_total &&
-    searchFilters.transaction_price_total.length > 0
-  ) {
-    searchFilters.transaction_price_total.forEach((value) =>
-      params.append("transaction_price_total", value),
-    );
-  }
-
-  if (
-    searchFilters.transaction_price_stock &&
-    searchFilters.transaction_price_stock.length > 0
-  ) {
-    searchFilters.transaction_price_stock.forEach((value) =>
-      params.append("transaction_price_stock", value),
-    );
-  }
-
-  if (
-    searchFilters.transaction_price_cash &&
-    searchFilters.transaction_price_cash.length > 0
-  ) {
-    searchFilters.transaction_price_cash.forEach((value) =>
-      params.append("transaction_price_cash", value),
-    );
-  }
-
-  if (
-    searchFilters.transaction_price_assets &&
-    searchFilters.transaction_price_assets.length > 0
-  ) {
-    searchFilters.transaction_price_assets.forEach((value) =>
-      params.append("transaction_price_assets", value),
-    );
-  }
-
-  // New filters from DB definition
-  if (
-    searchFilters.transaction_consideration &&
-    searchFilters.transaction_consideration.length > 0
-  ) {
-    searchFilters.transaction_consideration.forEach((value) =>
-      params.append("transaction_consideration", value),
-    );
-  }
-
-  if (searchFilters.target_type && searchFilters.target_type.length > 0) {
-    searchFilters.target_type.forEach((type) =>
-      params.append("target_type", type),
-    );
-  }
-
-  if (searchFilters.acquirer_type && searchFilters.acquirer_type.length > 0) {
-    searchFilters.acquirer_type.forEach((type) =>
-      params.append("acquirer_type", type),
-    );
-  }
-
-  if (searchFilters.target_counsel && searchFilters.target_counsel.length > 0) {
-    searchFilters.target_counsel.forEach((counsel) =>
-      params.append("target_counsel", counsel),
-    );
-  }
-
-  if (searchFilters.acquirer_counsel && searchFilters.acquirer_counsel.length > 0) {
-    searchFilters.acquirer_counsel.forEach((counsel) =>
-      params.append("acquirer_counsel", counsel),
-    );
-  }
-
-  if (searchFilters.target_industry && searchFilters.target_industry.length > 0) {
-    searchFilters.target_industry.forEach((industry) =>
-      params.append("target_industry", industry),
-    );
-  }
-
-  if (
-    searchFilters.acquirer_industry &&
-    searchFilters.acquirer_industry.length > 0
-  ) {
-    searchFilters.acquirer_industry.forEach((industry) =>
-      params.append("acquirer_industry", industry),
-    );
-  }
-
-  if (searchFilters.deal_status && searchFilters.deal_status.length > 0) {
-    searchFilters.deal_status.forEach((status) =>
-      params.append("deal_status", status),
-    );
-  }
-
-  if (searchFilters.attitude && searchFilters.attitude.length > 0) {
-    searchFilters.attitude.forEach((attitude) =>
-      params.append("attitude", attitude),
-    );
-  }
-
-  if (searchFilters.deal_type && searchFilters.deal_type.length > 0) {
-    searchFilters.deal_type.forEach((type) => params.append("deal_type", type));
-  }
-
-  if (searchFilters.purpose && searchFilters.purpose.length > 0) {
-    searchFilters.purpose.forEach((purpose) =>
-      params.append("purpose", purpose),
-    );
-  }
-
-  if (searchFilters.target_pe && searchFilters.target_pe.length > 0) {
-    searchFilters.target_pe.forEach((pe) => params.append("target_pe", pe));
-  }
-
-  if (searchFilters.acquirer_pe && searchFilters.acquirer_pe.length > 0) {
-    searchFilters.acquirer_pe.forEach((pe) => params.append("acquirer_pe", pe));
-  }
-
-  // Text filters (single values, not arrays)
-  if (searchFilters.agreement_uuid && searchFilters.agreement_uuid.trim()) {
-    params.append("agreement_uuid", searchFilters.agreement_uuid.trim());
-  }
-
-  if (searchFilters.section_uuid && searchFilters.section_uuid.trim()) {
-    params.append("section_uuid", searchFilters.section_uuid.trim());
-  }
-
-  void clauseTypesNested;
-  // Send selected taxonomy IDs directly.
-  if (searchFilters.clauseType && searchFilters.clauseType.length > 0) {
-    searchFilters.clauseType.forEach((standard_id) =>
-      params.append("standard_id", standard_id),
-    );
-  }
-
-  // Handle pagination if requested
   if (includePagination) {
-    if (searchFilters.page)
-      params.append("page", searchFilters.page.toString());
-    if (searchFilters.page_size)
+    if (searchFilters.page) params.append("page", searchFilters.page.toString());
+    if (searchFilters.page_size) {
       params.append("page_size", searchFilters.page_size.toString());
+    }
   }
 
   return params;
-};
+}
 
-const ARRAY_FILTER_FIELDS: Array<keyof SearchFilters> = [
-  "year",
-  "target",
-  "acquirer",
-  "clauseType",
-  "transaction_price_total",
-  "transaction_price_stock",
-  "transaction_price_cash",
-  "transaction_price_assets",
-  "transaction_consideration",
-  "target_type",
-  "acquirer_type",
-  "target_counsel",
-  "acquirer_counsel",
-  "target_industry",
-  "acquirer_industry",
-  "deal_status",
-  "attitude",
-  "deal_type",
-  "purpose",
-  "target_pe",
-  "acquirer_pe",
-];
+/** Tax-clause API params: `clauseType` goes out as `tax_standard_id`. */
+export function buildTaxClauseParams(
+  filters: SearchQueryFilters,
+  includePagination = true,
+): URLSearchParams {
+  const params = buildSearchParams(filters, includePagination);
+  params.delete("standard_id");
+  filters.clauseType?.forEach((id) => params.append("tax_standard_id", id));
+  if (filters.include_rep_warranty) {
+    params.set("include_rep_warranty", "true");
+  }
+  return params;
+}
 
 /**
  * Filters parsed from a shareable URL. `include_rep_warranty` is only
- * meaningful in tax mode; it lives on TaxClauseFilters rather than the shared
- * SearchFilters, so it is typed here as an extension.
+ * meaningful in tax mode.
  */
-export type ParsedSearchFilters = SearchFilters & {
-  include_rep_warranty?: boolean;
-};
+export type ParsedSearchFilters = SearchQueryFilters;
 
 export function parseSearchFilters(params: URLSearchParams): ParsedSearchFilters {
-  const filters: ParsedSearchFilters = {
-    year: [],
-    target: [],
-    acquirer: [],
-    clauseType: [],
-    transaction_price_total: [],
-    transaction_price_stock: [],
-    transaction_price_cash: [],
-    transaction_price_assets: [],
-    transaction_consideration: [],
-    target_type: [],
-    acquirer_type: [],
-    target_counsel: [],
-    acquirer_counsel: [],
-    target_industry: [],
-    acquirer_industry: [],
-    deal_status: [],
-    attitude: [],
-    deal_type: [],
-    purpose: [],
-    target_pe: [],
-    acquirer_pe: [],
-  };
-
-  ARRAY_FILTER_FIELDS.forEach((field) => {
-    const queryKey = field === "clauseType" ? "standard_id" : field;
-    (filters[field] as string[] | undefined) = params.getAll(queryKey);
+  const filters: ParsedSearchFilters = {};
+  ARRAY_FILTER_FIELDS.forEach((entry) => {
+    filters[entry.field] = params.getAll(entry.param);
   });
 
   const agreementUuid = params.get("agreement_uuid");
@@ -256,17 +136,15 @@ export function buildSearchStateParams({
   mode,
   sortBy,
   sortDirection,
-  clauseTypesNested,
   taxIncludeRepWarranty,
 }: {
   filters: SearchFilters;
   mode: SearchMode;
   sortBy: "year" | "target" | "acquirer" | null;
   sortDirection: "asc" | "desc";
-  clauseTypesNested?: ClauseTypeTree;
   taxIncludeRepWarranty?: boolean;
 }): URLSearchParams {
-  const params = buildSearchParams(filters, clauseTypesNested, true);
+  const params = buildSearchParams(filters, true);
   if (params.get("page") === String(DEFAULT_PAGE)) params.delete("page");
   if (params.get("page_size") === String(DEFAULT_PAGE_SIZE)) {
     params.delete("page_size");

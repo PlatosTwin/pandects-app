@@ -1,5 +1,4 @@
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
+import { apiPost } from "@/lib/api/client";
 
 import type { AgreementMetadata, SectionDetails } from "./types";
 
@@ -21,20 +20,10 @@ export async function fetchAgreementMetadataBatch(
     const chunk = unique.slice(i, i + BATCH_LIMIT);
     let agreements: Record<string, AgreementMetadata> = {};
     try {
-      const res = await authFetch(
-        apiUrl("v1/me/favorites/agreement-metadata"),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agreement_uuids: chunk }),
-        },
-      );
-      if (res.ok) {
-        const body = (await res.json()) as {
-          agreements: Record<string, AgreementMetadata>;
-        };
-        agreements = body.agreements;
-      }
+      const body = await apiPost<{
+        agreements: Record<string, AgreementMetadata>;
+      }>("v1/me/favorites/agreement-metadata", { agreement_uuids: chunk });
+      agreements = body.agreements ?? {};
     } catch {
       // fall through: chunk resolves to nulls
     }
@@ -60,17 +49,10 @@ export async function fetchSectionDetailsBatch(
     const chunk = unique.slice(i, i + BATCH_LIMIT);
     let sections: Record<string, SectionDetails> = {};
     try {
-      const res = await authFetch(apiUrl("v1/me/favorites/section-details"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ section_uuids: chunk }),
-      });
-      if (res.ok) {
-        const body = (await res.json()) as {
-          sections: Record<string, SectionDetails>;
-        };
-        sections = body.sections;
-      }
+      const body = await apiPost<{
+        sections: Record<string, SectionDetails>;
+      }>("v1/me/favorites/section-details", { section_uuids: chunk });
+      sections = body.sections ?? {};
     } catch {
       // fall through: chunk resolves to nulls
     }

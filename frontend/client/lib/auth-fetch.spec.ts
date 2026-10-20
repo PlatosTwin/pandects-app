@@ -110,32 +110,4 @@ describe("auth-fetch", () => {
       }),
     );
   });
-
-  it("surfaces JSON API errors with normalized punctuation and code", async () => {
-    installBrowserGlobals();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>().mockResolvedValue(
-        new Response(JSON.stringify({ message: "Bad token", error: "bad_token" }), {
-          status: 401,
-          statusText: "Unauthorized",
-          headers: { "Content-Type": "application/json" },
-        }),
-      ),
-    );
-
-    const { AuthApiError, authFetchJson } = await importAuthFetchModule();
-
-    await expect(authFetchJson("https://example.com/api")).rejects.toMatchObject({
-      name: "AuthApiError",
-      message: "Bad token.",
-      status: 401,
-      statusText: "Unauthorized",
-      code: "bad_token",
-      bodyText: JSON.stringify({ message: "Bad token", error: "bad_token" }),
-    });
-    await expect(authFetchJson("https://example.com/api")).rejects.toBeInstanceOf(
-      AuthApiError,
-    );
-  });
 });

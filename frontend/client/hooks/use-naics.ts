@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
-import { authFetch } from "@/lib/auth-fetch";
+import { apiGet, errorMessage, isApiError } from "@/lib/api/client";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
 import {
@@ -19,23 +18,25 @@ interface UseNaicsReturn {
 
 const EMPTY_INDEX: NaicsLabelByCode = {};
 
-async function fetchNaics(): Promise<NaicsResponse> {
-  const response = await authFetch(apiUrl("v1/naics"));
-  if (!response.ok) {
-    trackEvent("api_error", {
-      endpoint: "api/naics",
-      status: response.status,
-      status_text: response.statusText,
-    });
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+async function fetchNaics(signal?: AbortSignal): Promise<NaicsResponse> {
+  try {
+    return await apiGet<NaicsResponse>("v1/naics", undefined, { signal });
+  } catch (error) {
+    if (isApiError(error) && !error.isNetworkError) {
+      trackEvent("api_error", {
+        endpoint: "v1/naics",
+        status: error.status,
+        status_text: error.statusText,
+      });
+    }
+    throw error;
   }
-  return (await response.json()) as NaicsResponse;
 }
 
 export function useNaics(): UseNaicsReturn {
   const query = useQuery({
     queryKey: keys.naics.all,
-    queryFn: fetchNaics,
+    queryFn: ({ signal }) => fetchNaics(signal),
     enabled: !IS_SERVER_RENDER,
     // Static reference data: fetch once per session, keep it cached all day.
     staleTime: Infinity,
@@ -50,6 +51,6 @@ export function useNaics(): UseNaicsReturn {
   return {
     labelByCode,
     isLoading: query.isLoading,
-    error: query.error ? (query.error as Error).message : null,
+    error: query.error ? errorMessage(query.error, "Unable to load NAICS labels.") : null,
   };
 }

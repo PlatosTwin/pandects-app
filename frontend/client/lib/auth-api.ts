@@ -1,5 +1,5 @@
 import { apiUrl } from "@/lib/api-config";
-import { authFetchJson } from "@/lib/auth-fetch";
+import { apiFetchJson } from "@/lib/api/client";
 import type {
   ApiKeySummary,
   AuthUser,
@@ -41,19 +41,19 @@ export type McpTokenResult = {
 };
 
 export async function fetchMe() {
-  return authFetchJson<{ user: AuthUser }>(apiUrl("v1/auth/me"));
+  return apiFetchJson<{ user: AuthUser }>(apiUrl("v1/auth/me"));
 }
 
 export async function logoutSession() {
-  return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/logout"), { method: "POST" });
+  return apiFetchJson<{ status: "ok" }>(apiUrl("v1/auth/logout"), { method: "POST" });
 }
 
 export async function listApiKeys() {
-  return authFetchJson<{ keys: ApiKeySummary[] }>(apiUrl("v1/auth/api-keys"));
+  return apiFetchJson<{ keys: ApiKeySummary[] }>(apiUrl("v1/auth/api-keys"));
 }
 
 export async function createApiKey(name?: string) {
-  return authFetchJson<{
+  return apiFetchJson<{
     api_key: { id: string; name: string | null; prefix: string; created_at: string };
     api_key_plaintext: string;
   }>(apiUrl("v1/auth/api-keys"), {
@@ -64,13 +64,13 @@ export async function createApiKey(name?: string) {
 }
 
 export async function revokeApiKey(id: string) {
-  return authFetchJson<{ status: "revoked" }>(apiUrl(`v1/auth/api-keys/${id}`), {
+  return apiFetchJson<{ status: "revoked" }>(apiUrl(`v1/auth/api-keys/${id}`), {
     method: "DELETE",
   });
 }
 
 export async function permanentlyDeleteApiKey(id: string) {
-  return authFetchJson<{ status: "deleted" }>(apiUrl(`v1/auth/api-keys/${id}/permanent`), {
+  return apiFetchJson<{ status: "deleted" }>(apiUrl(`v1/auth/api-keys/${id}/permanent`), {
     method: "DELETE",
   });
 }
@@ -80,13 +80,13 @@ export async function fetchUsage(params?: { period?: UsagePeriod; apiKeyId?: str
   if (params?.period) query.set("period", params.period);
   if (params?.apiKeyId) query.set("api_key_id", params.apiKeyId);
   const suffix = query.toString();
-  return authFetchJson<{ by_day: UsageByDay[]; total: number }>(
+  return apiFetchJson<{ by_day: UsageByDay[]; total: number }>(
     apiUrl(`v1/auth/usage${suffix ? `?${suffix}` : ""}`),
   );
 }
 
 export async function grantOAuthConsent(payload: { client_id: string; scope: string }) {
-  return authFetchJson<{ status: "granted"; client_id: string; scope: string }>(
+  return apiFetchJson<{ status: "granted"; client_id: string; scope: string }>(
     apiUrl("v1/auth/oauth/consent"),
     {
       method: "POST",
@@ -97,7 +97,7 @@ export async function grantOAuthConsent(payload: { client_id: string; scope: str
 }
 
 export async function deleteAccount(payload: { confirm: string }) {
-  return authFetchJson<{ status: "deleted" }>(apiUrl("v1/auth/account/delete"), {
+  return apiFetchJson<{ status: "deleted" }>(apiUrl("v1/auth/account/delete"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -111,21 +111,21 @@ export async function startZitadelWebsiteAuth(
 ) {
   const query = new URLSearchParams({ next: nextPath, provider });
   if (prompt) query.set("prompt", prompt);
-  return authFetchJson<{ authorize_url: string }>(
+  return apiFetchJson<{ authorize_url: string }>(
     apiUrl(`v1/auth/zitadel/start?${query.toString()}`),
   );
 }
 
 export async function startZitadelGoogleWebsiteAuth(nextPath = "/account") {
   const query = new URLSearchParams({ next: nextPath });
-  return authFetchJson<{ authorize_url: string }>(
+  return apiFetchJson<{ authorize_url: string }>(
     apiUrl(`v1/auth/zitadel/google/start?${query.toString()}`),
   );
 }
 
 export async function startMcpAccessTokenAuth(nextPath = "/account") {
   const query = new URLSearchParams({ next: nextPath });
-  return authFetchJson<{ authorize_url: string }>(
+  return apiFetchJson<{ authorize_url: string }>(
     apiUrl(`v1/auth/mcp-token/start?${query.toString()}`),
   );
 }
@@ -135,7 +135,7 @@ export async function loginWithPassword(payload: {
   password: string;
   next?: string;
 }) {
-  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/login/password"), {
+  return apiFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/login/password"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -150,7 +150,7 @@ export async function signupWithPassword(payload: {
   next?: string;
   captcha_token?: string;
 }) {
-  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/signup/password"), {
+  return apiFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/signup/password"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -161,7 +161,7 @@ export async function requestPasswordReset(payload: {
   email: string;
   captcha_token?: string;
 }) {
-  return authFetchJson<{ status: "requested" }>(apiUrl("v1/auth/password-reset/request"), {
+  return apiFetchJson<{ status: "requested" }>(apiUrl("v1/auth/password-reset/request"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -173,7 +173,7 @@ export type CaptchaSiteKeyResponse =
   | { enabled: true; site_key: string };
 
 export async function fetchCaptchaSiteKey() {
-  return authFetchJson<CaptchaSiteKeyResponse>(apiUrl("v1/auth/captcha/site-key"));
+  return apiFetchJson<CaptchaSiteKeyResponse>(apiUrl("v1/auth/captcha/site-key"));
 }
 
 export async function confirmPasswordReset(payload: {
@@ -181,7 +181,7 @@ export async function confirmPasswordReset(payload: {
   code: string;
   password: string;
 }) {
-  return authFetchJson<{ status: "updated" }>(apiUrl("v1/auth/password-reset/confirm"), {
+  return apiFetchJson<{ status: "updated" }>(apiUrl("v1/auth/password-reset/confirm"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -193,7 +193,7 @@ export async function completeZitadelWebsiteAuth(
     | { code: string; state: string }
     | { intent_id: string; intent_token: string; user_id?: string },
 ) {
-  return authFetchJson<WebsiteAuthResult | McpTokenResult>(apiUrl("v1/auth/zitadel/complete"), {
+  return apiFetchJson<WebsiteAuthResult | McpTokenResult>(apiUrl("v1/auth/zitadel/complete"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -201,7 +201,7 @@ export async function completeZitadelWebsiteAuth(
 }
 
 export async function finalizeZitadelWebsiteAuth(legal: LegalAcceptancePayload) {
-  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/zitadel/finalize"), {
+  return apiFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/zitadel/finalize"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ legal }),
@@ -213,7 +213,7 @@ export async function completeEmailVerification(payload: {
   code: string;
   next?: string;
 }) {
-  return authFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/email/verify/confirm"), {
+  return apiFetchJson<WebsiteAuthResult>(apiUrl("v1/auth/email/verify/confirm"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -221,7 +221,7 @@ export async function completeEmailVerification(payload: {
 }
 
 export async function resendEmailVerification(payload: { email: string }) {
-  return authFetchJson<{
+  return apiFetchJson<{
     status: "verification_required";
     user: AuthUser;
   }>(apiUrl("v1/auth/email/verify/resend"), {
@@ -232,7 +232,7 @@ export async function resendEmailVerification(payload: { email: string }) {
 }
 
 export async function listExternalSubjects() {
-  return authFetchJson<{ links: ExternalSubjectLink[] }>(
+  return apiFetchJson<{ links: ExternalSubjectLink[] }>(
     apiUrl("v1/auth/external-subjects"),
   );
 }
@@ -241,7 +241,7 @@ export async function linkExternalSubject(payload: {
   provider?: string;
   access_token: string;
 }) {
-  return authFetchJson<{
+  return apiFetchJson<{
     status: "linked" | "already_linked";
     link: ExternalSubjectLink;
   }>(apiUrl("v1/auth/external-subjects"), {
@@ -253,13 +253,13 @@ export async function linkExternalSubject(payload: {
 
 export async function startZitadelLink(nextPath = "/account") {
   const query = new URLSearchParams({ next: nextPath });
-  return authFetchJson<{ authorize_url: string }>(
+  return apiFetchJson<{ authorize_url: string }>(
     apiUrl(`v1/auth/external-subjects/zitadel/start?${query.toString()}`),
   );
 }
 
 export async function completeZitadelLink(payload: { code: string; state: string }) {
-  return authFetchJson<{
+  return apiFetchJson<{
     status: "linked" | "already_linked";
     link: ExternalSubjectLink;
     return_to: string;
@@ -271,7 +271,7 @@ export async function completeZitadelLink(payload: { code: string; state: string
 }
 
 export async function unlinkExternalSubject(id: number) {
-  return authFetchJson<{ status: "unlinked" }>(apiUrl(`v1/auth/external-subjects/${id}`), {
+  return apiFetchJson<{ status: "unlinked" }>(apiUrl(`v1/auth/external-subjects/${id}`), {
     method: "DELETE",
   });
 }
@@ -286,7 +286,7 @@ export async function flagAsInaccurate(payload: {
   request_follow_up: boolean;
   issue_types: string[];
 }) {
-  return authFetchJson<{ status: "ok" }>(apiUrl("v1/auth/flag-inaccurate"), {
+  return apiFetchJson<{ status: "ok" }>(apiUrl("v1/auth/flag-inaccurate"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

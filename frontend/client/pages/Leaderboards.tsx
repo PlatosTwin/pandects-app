@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import { CounselLeaderboardChart } from "@/components/CounselLeaderboardChart";
 import { PageShell } from "@/components/PageShell";
@@ -17,42 +17,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
+import { useCounselLeaderboards } from "@/hooks/use-insights";
 import { CHART_SERIES_PALETTE } from "@/lib/chart-palette";
 import { formatCompactCurrencyValue } from "@/lib/format-utils";
-import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
+import type { CounselLeaderboardSide } from "@shared/insights";
 
 type LeaderboardMetric = "deal_count" | "total_transaction_value";
 type LeaderboardView = "table" | "chart";
-
-type CounselLeaderboardYear = {
-  year: number;
-  deal_count: number;
-  total_transaction_value: number;
-};
-
-type CounselLeaderboardEntry = {
-  counsel: string;
-  deal_count: number;
-  total_transaction_value: number;
-  years: CounselLeaderboardYear[];
-};
-
-type CounselLeaderboardSide = {
-  annual: {
-    year: number;
-    top_by_count: CounselLeaderboardEntry[];
-    top_by_value: CounselLeaderboardEntry[];
-  }[];
-  top_by_count: CounselLeaderboardEntry[];
-  top_by_value: CounselLeaderboardEntry[];
-};
-
-type CounselLeaderboardResponse = {
-  buy_side: CounselLeaderboardSide;
-  sell_side: CounselLeaderboardSide;
-};
 
 type CounselSectionProps = {
   description: string;
@@ -61,8 +32,6 @@ type CounselSectionProps = {
 };
 
 const LEADERBOARD_COLORS = CHART_SERIES_PALETTE;
-const LEADERBOARDS_CACHE_KEY = "leaderboards:v1";
-const LEADERBOARDS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function formatDealCount(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -254,12 +223,6 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
   );
 }
 
-/** Pulls the HTTP status out of "… request failed (403)" so ErrorState can map it. */
-function errorFromMessage(message: string) {
-  const match = message.match(/\((\d{3})\)/);
-  return { message, status: match ? Number(match[1]) : undefined };
-}
-
 function LeaderboardsSkeleton() {
   return (
     <div className="space-y-6">
@@ -281,54 +244,7 @@ function LeaderboardsSkeleton() {
 }
 
 export default function Leaderboards() {
-  const [data, setData] = useState<CounselLeaderboardResponse | null>(() =>
-    readSessionCache<CounselLeaderboardResponse>(
-      LEADERBOARDS_CACHE_KEY,
-      LEADERBOARDS_CACHE_TTL_MS,
-    ),
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(data === null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const fetchLeaderboards = async () => {
-      try {
-        // Stale-while-revalidate: `loading` starts true only when there is no
-        // session-cached payload, so revisits keep showing cached content.
-        setError(null);
-        const response = await authFetch(apiUrl("v1/counsel-leaderboards"), {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error(`Leaderboards request failed (${response.status})`);
-        }
-        const nextData = (await response.json()) as CounselLeaderboardResponse;
-        if (!cancelled) {
-          setData(nextData);
-          writeSessionCache(LEADERBOARDS_CACHE_KEY, nextData);
-        }
-      } catch (err) {
-        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          setError(
-            err instanceof Error ? err.message : "Unable to load counsel leaderboards.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchLeaderboards();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, []);
+  const { data, isLoading: loading, error, apiError, refetch } = useCounselLeaderboards();
 
   return (
     <PageShell
@@ -344,7 +260,7 @@ export default function Leaderboards() {
       <div className="space-y-6">
         {loading ? <LeaderboardsSkeleton /> : null}
 
-        {!loading && error ? <ErrorState error={errorFromMessage(error)} /> : null}
+        {!loading && error ? <ErrorState error={apiError ?? error} onRetry={() => void refetch()} /> : null}
 
         {!loading && !error && data ? (
           <>

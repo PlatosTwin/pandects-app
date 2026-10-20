@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
-import { authFetch } from "@/lib/auth-fetch";
+import { apiGet, errorMessage, isApiError } from "@/lib/api/client";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
-import { keys } from "@/lib/query-keys";
+import { keys, type TaxonomyKind } from "@/lib/query-keys";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 
-export type TaxonomyKind = "main" | "tax";
+export type { TaxonomyKind };
 
 interface UseTaxonomyReturn {
   taxonomyTree: ClauseTypeTree | null;
@@ -20,37 +19,43 @@ interface UseTaxonomyOptions {
   kind?: TaxonomyKind;
 }
 
+const TAXONOMY_ENDPOINTS: Record<TaxonomyKind, string> = {
+  main: "v1/taxonomy",
+  tax: "v1/taxonomy/tax-clauses",
+};
+
 async function fetchTaxonomy(
   kind: TaxonomyKind,
   fresh: boolean,
+  signal?: AbortSignal,
 ): Promise<ClauseTypeTree> {
-  const endpoint = kind === "tax" ? "v1/taxonomy/tax-clauses" : "v1/taxonomy";
-  const endpointLabel =
-    kind === "tax" ? "api/taxonomy/tax-clauses" : "api/taxonomy";
-
-  const response = await authFetch(apiUrl(endpoint), {
-    cache: fresh ? "no-store" : undefined,
-  });
-  if (!response.ok) {
-    trackEvent("api_error", {
-      endpoint: endpointLabel,
-      status: response.status,
-      status_text: response.statusText,
+  const endpoint = TAXONOMY_ENDPOINTS[kind];
+  try {
+    return await apiGet<ClauseTypeTree>(endpoint, undefined, {
+      cache: fresh ? "no-store" : undefined,
+      signal,
     });
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  } catch (error) {
+    if (isApiError(error) && !error.isNetworkError) {
+      trackEvent("api_error", {
+        endpoint,
+        status: error.status,
+        status_text: error.statusText,
+      });
+    }
+    throw error;
   }
-  return (await response.json()) as ClauseTypeTree;
 }
 
+/** Clause taxonomy tree: `kind: "main"` (sections) or `"tax"` (tax clauses). */
 export function useTaxonomy(
   options: UseTaxonomyOptions = {},
 ): UseTaxonomyReturn {
   const { enabled = true, fresh = false, kind = "main" } = options;
 
   const query = useQuery({
-    queryKey:
-      kind === "tax" ? keys.taxClauseTaxonomy.all : keys.taxonomy.all,
-    queryFn: () => fetchTaxonomy(kind, fresh),
+    queryKey: keys.taxonomy.byKind(kind),
+    queryFn: ({ signal }) => fetchTaxonomy(kind, fresh, signal),
     enabled: enabled && !IS_SERVER_RENDER,
     staleTime: fresh ? 0 : 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
@@ -59,6 +64,6 @@ export function useTaxonomy(
   return {
     taxonomyTree: query.data ?? null,
     isLoading: enabled && query.isLoading,
-    error: query.error ? (query.error as Error).message : null,
+    error: query.error ? errorMessage(query.error, "Unable to load the taxonomy.") : null,
   };
 }

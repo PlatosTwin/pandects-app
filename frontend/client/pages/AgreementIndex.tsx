@@ -47,14 +47,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
 import { useAgreementSummary } from "@/hooks/use-agreement-summary";
+import { useAgreementIndex } from "@/hooks/use-insights";
 import { cn } from "@/lib/utils";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 import { scheduleWhenBrowserIdle } from "@/lib/analytics";
 import { Link } from "react-router-dom";
 import { getDocsUrl } from "@/lib/docs-url";
+import type { AgreementIndexRow } from "@shared/insights";
 
 const AgreementIndexOverview = lazy(() =>
   import("@/components/AgreementIndexOverview").then((mod) => ({
@@ -62,25 +62,7 @@ const AgreementIndexOverview = lazy(() =>
   })),
 );
 
-type AgreementIndexRow = {
-  agreement_uuid: string;
-  year: string | null;
-  target: string | null;
-  acquirer: string | null;
-  consideration_type: string | null;
-  total_consideration: number | null;
-  verified: boolean;
-};
-
-type AgreementIndexResponse = {
-  results: AgreementIndexRow[];
-  page: number;
-  page_size: number;
-  total_count: number;
-  total_pages: number;
-  has_next: boolean;
-  has_prev: boolean;
-};
+const EMPTY_ROWS: AgreementIndexRow[] = [];
 
 type SortColumn = "year" | "target" | "acquirer";
 type SortDirection = "asc" | "desc";
@@ -127,69 +109,24 @@ export default function AgreementIndex() {
   const [hasLoadedOverview, setHasLoadedOverview] = useState(false);
   const [showSupplementaryPanels, setShowSupplementaryPanels] = useState(false);
 
-  const [agreements, setAgreements] = useState<AgreementIndexRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [page_size] = useState(25);
-  const [total_count, setTotalCount] = useState(0);
-  const [total_pages, setTotalPages] = useState(1);
   const [sort_by, setSortBy] = useState<SortColumn>("year");
   const [sort_dir, setSortDir] = useState<SortDirection>("desc");
   const [filterInput, setFilterInput] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const fetchAgreements = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const params = new URLSearchParams();
-        params.set("page", String(page));
-        params.set("page_size", String(page_size));
-        params.set("sort_by", sort_by);
-        params.set("sort_dir", sort_dir);
-        if (filterQuery.trim()) {
-          params.set("query", filterQuery.trim());
-        }
-
-        const res = await authFetch(
-          apiUrl(`v1/agreements-index?${params.toString()}`),
-          { signal: controller.signal },
-        );
-        if (!res.ok) {
-          throw new Error(`Agreement index request failed (${res.status})`);
-        }
-        const data = (await res.json()) as AgreementIndexResponse;
-        if (!cancelled) {
-          setAgreements(data.results);
-          setTotalCount(data.total_count);
-          setTotalPages(Math.max(1, data.total_pages));
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Unable to load agreement index.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchAgreements();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [filterQuery, page, page_size, sort_by, sort_dir]);
-
+  const agreementIndex = useAgreementIndex({
+    page,
+    pageSize: page_size,
+    sortBy: sort_by,
+    sortDir: sort_dir,
+    query: filterQuery,
+  });
+  const agreements = agreementIndex.data?.results ?? EMPTY_ROWS;
+  const loading = agreementIndex.isFetching;
+  const error = agreementIndex.error;
+  const total_count = agreementIndex.data?.total_count ?? 0;
+  const total_pages = Math.max(1, agreementIndex.data?.total_pages ?? 1);
   useEffect(() => {
     const handle = window.setTimeout(() => {
       startTransition(() => {

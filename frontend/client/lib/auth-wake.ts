@@ -1,4 +1,4 @@
-import { AuthApiError } from "@/lib/auth-fetch";
+import { ApiError } from "@/lib/api/client";
 import { apiUrl } from "@/lib/api-config";
 
 const AUTH_WAKEUP_RETRY_DELAYS_MS = [300, 700, 1400] as const;
@@ -15,8 +15,8 @@ function sleep(ms: number) {
   });
 }
 
-export function isAuthWakeupError(error: unknown): error is AuthApiError {
-  if (!(error instanceof AuthApiError)) return false;
+export function isAuthWakeupError(error: unknown): error is ApiError {
+  if (!(error instanceof ApiError)) return false;
   if (error.status !== 503) return false;
 
   const combined = `${error.message}\n${error.bodyText}`.toLowerCase();

@@ -79,23 +79,3 @@ export interface FilterOptionsResponse {
   acquirer_industries: string[];
   clause_types?: Record<string, unknown>;
 }
-
-// Filter options (to be populated from API)
-export interface FilterOptions {
-  years: string[];
-  targets: string[];
-  acquirers: string[];
-  clauseTypes: string[];
-}
-
-// CSV Export format
-export interface CSVRow {
-  year: string;
-  target: string;
-  acquirer: string;
-  article_title: string;
-  section_title: string;
-  text: string;
-  section_uuid: string;
-  agreement_uuid: string;
-}

@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
 import type React from "react";
-import { API_BASE_URL, apiUrl } from "@/lib/api-config";
+import { API_BASE_URL } from "@/lib/api-config";
 import { getDocsUrl } from "@/lib/docs-url";
-import { authFetch } from "@/lib/auth-fetch";
+import { useDumps } from "@/hooks/use-insights";
+import type { DumpInfo } from "@shared/insights";
 import { trackEvent } from "@/lib/analytics";
 import { logger } from "@/lib/logger";
 import { PageShell } from "@/components/PageShell";
@@ -24,16 +24,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-
-interface DumpInfo {
-  manifest: string;
-  sha256: string;
-  sha256_url?: string;
-  sql: string;
-  timestamp: string;
-  size_bytes?: number;
-  warning?: string;
-}
 
 const downloadManifest = async (url: string) => {
   try {
@@ -115,77 +105,15 @@ function DumpActions({ dump, className }: { dump: DumpInfo; className: string })
 
 export default function BulkData() {
   const docsUrl = getDocsUrl();
-  const [dumps, setDumps] = useState<DumpInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [fetchAttempt, setFetchAttempt] = useState(0);
-  const [latestSha256, setLatestSha256] = useState<string | null>(null);
-  const [latestSqlUrl, setLatestSqlUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchDumps = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await authFetch(apiUrl("v1/dumps"), {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          trackEvent("api_error", {
-            endpoint: "api/dumps",
-            status: response.status,
-            status_text: response.statusText,
-          });
-          throw new Error(`Failed to fetch dumps: ${response.status}`);
-        }
-
-        const data: DumpInfo[] = await response.json();
-
-        // Find the latest version's SHA256
-        const latest = data.find((dump) => dump.timestamp === "latest");
-        const latestHash = latest?.sha256 || null;
-        setLatestSha256(latestHash);
-        setLatestSqlUrl(latest?.sql || null);
-
-        // Sort so 'latest' is always first, then sort others by timestamp
-        const sortedData = data.sort((a, b) => {
-          if (a.timestamp === "latest") return -1;
-          if (b.timestamp === "latest") return 1;
-          // For non-latest items, sort by timestamp descending (newest first)
-          return (
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
-        });
-
-        setDumps(sortedData);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          return;
-        }
-        if (import.meta.env.DEV) {
-          logger.error("Error fetching dumps:", err);
-        }
-        trackEvent("api_error", {
-          endpoint: "api/dumps",
-          kind:
-            err instanceof TypeError && err.message.includes("fetch")
-              ? "network"
-              : "unknown",
-        });
-        setError(err instanceof Error ? err.message : "Failed to load dumps");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDumps();
-    return () => {
-      controller.abort();
-    };
-  }, [fetchAttempt]);
+  const {
+    dumps,
+    latestSha256,
+    latestSqlUrl,
+    isLoading: loading,
+    error,
+    apiError,
+    refetch: refetchDumps,
+  } = useDumps();
 
   const formatTimestamp = (timestamp: string): string => {
     if (timestamp === "latest") {
@@ -269,9 +197,9 @@ export default function BulkData() {
             <ErrorState
               className="mt-4"
               variant="inline"
-              error={{ message: error, status: statusFromMessage(error) }}
+              error={apiError ?? error}
               body="Could not load the list of downloads. Check your connection and try again."
-              onRetry={() => setFetchAttempt((attempt) => attempt + 1)}
+              onRetry={() => void refetchDumps()}
             />
           ) : latestDump ? (
             <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -352,9 +280,9 @@ export default function BulkData() {
           ) : error ? (
             <ErrorState
               variant="inline"
-              error={{ message: error, status: statusFromMessage(error) }}
+              error={apiError ?? error}
               body="Could not load the list of downloads. Check your connection and try again."
-              onRetry={() => setFetchAttempt((attempt) => attempt + 1)}
+              onRetry={() => void refetchDumps()}
             />
           ) : (
             <>
@@ -536,7 +464,3 @@ export default function BulkData() {
 }
 
 /** Pulls the HTTP status out of "Failed to fetch dumps: 403" so ErrorState can map it. */
-function statusFromMessage(message: string): number | undefined {
-  const match = message.match(/:\s*(\d{3})\b/);
-  return match ? Number(match[1]) : undefined;
-}
