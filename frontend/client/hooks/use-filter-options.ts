@@ -1,8 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FilterOptionsResponse } from "@shared/sections";
-import { apiUrl } from "@/lib/api-config";
 import { trackEvent } from "@/lib/analytics";
-import { authFetch } from "@/lib/auth-fetch";
+import { apiGet, errorMessage, isApiError } from "@/lib/api/client";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
 import type { ClauseTypeTree } from "@/lib/clause-types";
@@ -47,23 +47,24 @@ function parseClauseTypes(
 
 async function fetchFilterOptions(
   fields?: ReadonlyArray<keyof FilterOptionsResponse>,
+  signal?: AbortSignal,
 ): Promise<FilterOptionsResponse> {
-  const params = new URLSearchParams();
-  fields?.forEach((field) => params.append("fields", field));
-  const endpoint = params.size
-    ? `v1/filter-options?${params.toString()}`
-    : "v1/filter-options";
-
-  const response = await authFetch(apiUrl(endpoint));
-  if (!response.ok) {
-    trackEvent("api_error", {
-      endpoint: "api/filter-options",
-      status: response.status,
-      status_text: response.statusText,
-    });
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  try {
+    return await apiGet<FilterOptionsResponse>(
+      "v1/filter-options",
+      { fields: fields ? [...fields] : undefined },
+      { signal },
+    );
+  } catch (error) {
+    if (isApiError(error) && !error.isNetworkError) {
+      trackEvent("api_error", {
+        endpoint: "v1/filter-options",
+        status: error.status,
+        status_text: error.statusText,
+      });
+    }
+    throw error;
   }
-  return (await response.json()) as FilterOptionsResponse;
 }
 
 export function useFilterOptions(
@@ -73,7 +74,7 @@ export function useFilterOptions(
 
   const query = useQuery({
     queryKey: keys.filterOptions.list(fields),
-    queryFn: () => fetchFilterOptions(fields),
+    queryFn: ({ signal }) => fetchFilterOptions(fields, signal),
     enabled: enabled && !IS_SERVER_RENDER,
     // Filter options change rarely (taxonomy/static-ish). Keep them fresh for
     // 30 minutes; the previous implementation cached forever in sessionStorage.
@@ -93,6 +94,45 @@ export function useFilterOptions(
     acquirer_industries: data?.acquirer_industries ?? [],
     clause_types: parseClauseTypes(data?.clause_types),
     isLoading: query.isLoading,
-    error: query.error ? (query.error as Error).message : null,
+    error: query.error ? errorMessage(query.error, "Unable to load filter options.") : null,
   };
+}
+
+export type FilterOptionSearchField = "target" | "acquirer";
+
+const FILTER_OPTION_SEARCH_LIMIT = 100;
+
+async function fetchFilterOptionSearch(
+  field: FilterOptionSearchField,
+  query: string,
+): Promise<string[]> {
+  const payload = await apiGet<{ options?: unknown }>(`v1/filter-options/${field}`, {
+    query: query || undefined,
+    limit: FILTER_OPTION_SEARCH_LIMIT,
+  });
+  return Array.isArray(payload.options)
+    ? payload.options.filter((value): value is string => typeof value === "string")
+    : [];
+}
+
+/**
+ * Type-ahead loader for the target/acquirer pickers. Returns a stable
+ * `(field, query) => Promise<string[]>`; results are cached per (field,
+ * query) for five minutes, so reopening a picker or retyping a prefix does
+ * not refetch.
+ */
+export function useFilterOptionSearch() {
+  const queryClient = useQueryClient();
+  return useCallback(
+    (field: FilterOptionSearchField, rawQuery: string) => {
+      const query = rawQuery.trim();
+      return queryClient.fetchQuery({
+        queryKey: keys.filterOptions.search(field, query),
+        queryFn: () => fetchFilterOptionSearch(field, query),
+        staleTime: 5 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
+      });
+    },
+    [queryClient],
+  );
 }

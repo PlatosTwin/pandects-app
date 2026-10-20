@@ -9,26 +9,26 @@ import {
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AVAILABLE_YEARS, BREAKPOINT_LG } from "@/lib/constants";
 import type { SearchFilters } from "@shared/sections";
-import { useSections } from "@/hooks/use-sections";
-import { useTransactionSearch } from "@/hooks/use-transaction-search";
-import { useTaxClauses } from "@/hooks/use-tax-clauses";
-import { useTaxClauseTaxonomy } from "@/hooks/use-tax-clause-taxonomy";
-import { useFilterOptions } from "@/hooks/use-filter-options";
+import { useSearch, type SortDirection, type SortField } from "@/hooks/use-search";
+import { useTaxonomy } from "@/hooks/use-taxonomy";
+import { useFilterOptions, useFilterOptionSearch } from "@/hooks/use-filter-options";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ErrorModal from "@/components/ErrorModal";
 import { useAuth } from "@/hooks/use-auth";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { indexClauseTypeLabels, indexClauseTypePaths } from "@/lib/clause-type-index";
 import { scheduleWhenBrowserIdle, trackEvent } from "@/lib/analytics";
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
 import {
   buildSearchStateParams,
   parseSearchFilters,
   type ParsedSearchFilters,
 } from "@/lib/url-params";
-import type { SortDirection, SortField } from "@/hooks/use-committed-search";
+import {
+  DEALS_SEARCH_CONFIG,
+  SECTIONS_SEARCH_CONFIG,
+  TAX_CLAUSES_SEARCH_CONFIG,
+} from "@/lib/search-configs";
 import { stashCompareClauses } from "@/lib/tax-compare-handoff";
 import { parseSearchMode, type SearchMode } from "@shared/search";
 import type { TransactionSearchResult } from "@shared/transactions";
@@ -47,36 +47,17 @@ import { SearchHeader } from "./search/SearchHeader";
 import { SearchActionsBar } from "./search/SearchActionsBar";
 import { SearchResultsPanel } from "./search/SearchResultsPanel";
 
-/**
- * Everything the page needs that varies by search mode. All mode hooks are
- * called unconditionally in the component (React's rules of hooks); the
- * adapters only select between their outputs, so switching modes never
- * changes the hook call order.
- */
-interface ModeAdapter {
-  isSearching: boolean;
-  hasSearched: boolean;
-  totalCount: number;
-  totalCountIsApproximate: boolean;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-  accessTier: string;
-  selectedSize: number;
-  resultsLength: number;
-  sidebarClauseTypeLabel: string;
-  isLoadingSidebarTaxonomy: boolean;
-  clearSelection: () => void;
-  runSearch: (
-    filters: ParsedSearchFilters,
-    markAsSearched: boolean,
-    sortBy: SortField | null,
-    sortDirection: SortDirection,
-  ) => Promise<void>;
-  downloadCSV: () => void;
-  resultsFallback: ReactElement;
-  renderResults: () => ReactElement;
-}
+/** Mode-specific labels and telemetry the unified search hook doesn't own. */
+const MODE_UI: Record<SearchMode, { exportEvent: string; sidebarClauseTypeLabel: string }> = {
+  sections: { exportEvent: "sections_export_click", sidebarClauseTypeLabel: "Section Type" },
+  tax: { exportEvent: "tax_clauses_export_click", sidebarClauseTypeLabel: "Tax clause type" },
+  transactions: {
+    exportEvent: "transactions_export_click",
+    sidebarClauseTypeLabel: "Section Type",
+  },
+};
+
+const EMPTY_CLAUSE_TYPE_TREE: ClauseTypeTree = {};
 
 export default function Search() {
   const { status: authStatus } = useAuth();
@@ -93,36 +74,33 @@ export default function Search() {
     tax: null,
   });
   const isHydratingFromUrlRef = useRef(true);
+  // The sections search owns the draft (filters + sort) shared by all modes;
+  // the other modes search that draft via performSearch({ filters, ... }).
+  const sectionSearch = useSearch(SECTIONS_SEARCH_CONFIG);
+  const transactionSearch = useSearch(DEALS_SEARCH_CONFIG);
+  const taxSearch = useSearch(TAX_CLAUSES_SEARCH_CONFIG);
+  const searches = {
+    sections: sectionSearch,
+    transactions: transactionSearch,
+    tax: taxSearch,
+  } as const;
   const {
     filters,
-    isSearching: isSearchingSections,
-    searchResults,
+    results: searchResults,
     selectedResults,
     hasSearched: hasSearchedSections,
-    total_count: totalCountSections,
-    totalCountIsApproximate: totalCountIsApproximateSections,
-    total_pages: totalPagesSections,
-    has_next: hasNextSections,
-    has_prev: hasPrevSections,
-    currentSort,
+    sortBy: currentSort,
+    sortDirection: sort_direction,
     currentPage,
-    page_size,
-    showErrorModal: showSectionsErrorModal,
-    errorMessage: sectionsErrorMessage,
-    sort_direction,
-    access: sectionAccess,
+    pageSize: page_size,
     actions,
-  } = useSections();
-  const transactionSearch = useTransactionSearch();
-  const taxSearch = useTaxClauses();
+  } = sectionSearch;
 
   const {
     toggleFilterValue,
     setTextFilterValue,
-    performSearch: performSectionSearch,
-    downloadCSV,
     clearFilters: clearSectionFilters,
-    sortResults,
+    setSortBy: sortResults,
     toggleSortDirection,
     toggleResultSelection,
     toggleSelectAll,
@@ -130,7 +108,9 @@ export default function Search() {
     hydrateFilters,
     updateFilter,
     setSortDirection,
+    setIncludeRepWarranty,
   } = actions;
+  const loadSearchFilterOptions = useFilterOptionSearch();
   const signInPath = useMemo(
     () => buildAccountPathWithNext(`${location.pathname}${location.search}${location.hash}`),
     [location.hash, location.pathname, location.search],
@@ -182,7 +162,7 @@ export default function Search() {
     if (nextMode === searchMode) return;
     setSearchMode(nextMode);
     clearSelection();
-    transactionSearch.clearSelection();
+    transactionSearch.actions.clearSelection();
     taxSearch.actions.clearSelection();
   };
 
@@ -249,9 +229,11 @@ export default function Search() {
   });
 
   const years = AVAILABLE_YEARS;
-  const { taxonomy: taxClauseTypesNested, isLoading: isLoadingTaxTaxonomy } = useTaxClauseTaxonomy({
+  const { taxonomyTree: taxClauseTaxonomy, isLoading: isLoadingTaxTaxonomy } = useTaxonomy({
+    kind: "tax",
     enabled: searchMode === "tax" && shouldLoadFilterData,
   });
+  const taxClauseTypesNested: ClauseTypeTree = taxClauseTaxonomy ?? EMPTY_CLAUSE_TYPE_TREE;
   const sectionClauseTypesNested: ClauseTypeTree = clause_types;
   const clauseTypesNested: ClauseTypeTree =
     searchMode === "tax" ? taxClauseTypesNested : sectionClauseTypesNested;
@@ -268,11 +250,11 @@ export default function Search() {
   // Error modals stay cross-mode ORs: an error surfaced by any mode's hook
   // must remain visible even after the user switches modes.
   const activeShowErrorModal =
-    showSectionsErrorModal || transactionSearch.showErrorModal || taxSearch.showErrorModal;
+    sectionSearch.showErrorModal || transactionSearch.showErrorModal || taxSearch.showErrorModal;
   const activeErrorMessage =
-    sectionsErrorMessage || transactionSearch.errorMessage || taxSearch.errorMessage;
+    sectionSearch.errorMessage || transactionSearch.errorMessage || taxSearch.errorMessage;
 
-  // Dispatches to the adapter for `nextMode`, which may differ from the
+  // Dispatches to the search for `nextMode`, which may differ from the
   // current mode while hydrating from the URL.
   const runActiveSearch = async (
     nextMode: SearchMode,
@@ -284,15 +266,12 @@ export default function Search() {
     overrideSortBy?: SortField,
     overrideSortDirection?: SortDirection,
   ) => {
-    // buildAdapters is a hoisted function declaration (defined below, next to
-    // the JSX that consumes the record), so dispatching here reads the same
-    // render's adapter closures without a use-before-declaration on the const.
-    await buildAdapters()[nextMode].runSearch(
-      nextFilters,
+    await searches[nextMode].actions.performSearch({
+      filters: nextFilters,
       markAsSearched,
-      overrideSortBy ?? currentSort,
-      overrideSortDirection ?? sort_direction,
-    );
+      sortBy: overrideSortBy ?? currentSort,
+      sortDirection: overrideSortDirection ?? sort_direction,
+    });
   };
 
   const buildAgreementHref = (agreementUuid: string, focusSectionUuid?: string | null) => {
@@ -327,12 +306,7 @@ export default function Search() {
     const nextSortBy = searchParams.get("sort_by");
     const nextSortDirection = searchParams.get("sort_direction");
 
-    // `include_rep_warranty` belongs to the tax hook, not the sections draft.
-    const { include_rep_warranty, ...sectionFilters } = nextFilters;
-    hydrateFilters(sectionFilters);
-    if (include_rep_warranty !== undefined) {
-      taxSearch.actions.setIncludeRepWarranty(include_rep_warranty);
-    }
+    hydrateFilters(nextFilters);
     setSearchMode(nextMode);
     const hydratedSortBy =
       nextSortBy === "year" || nextSortBy === "target" || nextSortBy === "acquirer"
@@ -371,38 +345,12 @@ export default function Search() {
       mode: searchMode,
       sortBy: currentSort,
       sortDirection: sort_direction,
-      clauseTypesNested,
-      taxIncludeRepWarranty: taxSearch.filters.include_rep_warranty,
+      taxIncludeRepWarranty: filters.include_rep_warranty,
     });
     if (nextParams.toString() !== searchParams.toString()) {
       setSearchParams(nextParams, { replace: true });
     }
-  }, [
-    clauseTypesNested,
-    currentSort,
-    filters,
-    searchMode,
-    searchParams,
-    setSearchParams,
-    sort_direction,
-    taxSearch.filters.include_rep_warranty,
-  ]);
-
-  const loadSearchFilterOptions = async (field: "target" | "acquirer", query: string) => {
-    const params = new URLSearchParams();
-    if (query.trim()) {
-      params.set("query", query.trim());
-    }
-    params.set("limit", "100");
-    const response = await authFetch(apiUrl(`v1/filter-options/${field}?${params.toString()}`));
-    if (!response.ok) {
-      throw new Error(`Unable to load ${field} options.`);
-    }
-    const payload = (await response.json()) as { options?: unknown };
-    return Array.isArray(payload.options)
-      ? payload.options.filter((value): value is string => typeof value === "string")
-      : [];
-  };
+  }, [currentSort, filters, searchMode, searchParams, setSearchParams, sort_direction]);
 
   const trackingActions = {
     toggleFilterValue: (field: string, value: string) => {
@@ -431,8 +379,7 @@ export default function Search() {
         filter_count: Object.values(filters).flat().length,
       });
       clearSectionFilters();
-      transactionSearch.clear();
-      transactionSearch.clearSelection();
+      transactionSearch.actions.clearResults();
       taxSearch.actions.clearFilters();
     },
     goToPage: async (page: number) => {
@@ -466,43 +413,13 @@ export default function Search() {
     },
   };
 
-  // Per-mode adapters (see ModeAdapter). Rebuilt every render like the
-  // ternaries they replace, so each field always reflects the latest hook
-  // output. `runActiveSearch` above indexes this record by mode.
-  function buildAdapters(): Record<SearchMode, ModeAdapter> {
-    return {
+  // Per-mode results rendering; every other per-mode value comes from the
+  // active search's unified shape below.
+  const resultsByMode: Record<
+    SearchMode,
+    { resultsFallback: ReactElement; renderResults: () => ReactElement }
+  > = {
     sections: {
-      isSearching: isSearchingSections,
-      hasSearched: hasSearchedSections,
-      totalCount: totalCountSections,
-      totalCountIsApproximate: totalCountIsApproximateSections,
-      totalPages: totalPagesSections,
-      hasNext: hasNextSections,
-      hasPrev: hasPrevSections,
-      accessTier: sectionAccess?.tier ?? "anonymous",
-      selectedSize: selectedResults.size,
-      resultsLength: searchResults.length,
-      sidebarClauseTypeLabel: "Section Type",
-      isLoadingSidebarTaxonomy: isLoadingFilterOptions,
-      clearSelection,
-      runSearch: async (nextFilters, markAsSearched, sortBy, sortDirection) => {
-        await performSectionSearch(
-          false,
-          sectionClauseTypesNested,
-          markAsSearched,
-          nextFilters,
-          sortBy,
-          sortDirection,
-        );
-      },
-      downloadCSV: () => {
-        trackEvent("sections_export_click", {
-          export_format: "csv",
-          result_count: selectedResults.size > 0 ? selectedResults.size : totalCountSections,
-          is_filtered: Object.values(filters).flat().length > 0,
-        });
-        downloadCSV();
-      },
       resultsFallback: <SearchResultsTableFallback />,
       renderResults: () => (
         <SearchResultsTable
@@ -525,47 +442,10 @@ export default function Search() {
       ),
     },
     tax: {
-      isSearching: taxSearch.isSearching,
-      hasSearched: taxSearch.hasSearched,
-      totalCount: taxSearch.total_count,
-      totalCountIsApproximate: taxSearch.totalCountIsApproximate,
-      totalPages: taxSearch.total_pages,
-      hasNext: taxSearch.has_next,
-      hasPrev: taxSearch.has_prev,
-      accessTier: taxSearch.access?.tier ?? "anonymous",
-      selectedSize: taxSearch.selectedResults.size,
-      resultsLength: taxSearch.searchResults.length,
-      sidebarClauseTypeLabel: "Tax clause type",
-      isLoadingSidebarTaxonomy: isLoadingTaxTaxonomy,
-      clearSelection: taxSearch.actions.clearSelection,
-      runSearch: async (nextFilters, markAsSearched, sortBy, sortDirection) => {
-        await taxSearch.actions.performSearch(
-          false,
-          markAsSearched,
-          {
-            ...nextFilters,
-            include_rep_warranty:
-              nextFilters.include_rep_warranty ?? taxSearch.filters.include_rep_warranty,
-          },
-          sortBy,
-          sortDirection,
-        );
-      },
-      downloadCSV: () => {
-        trackEvent("tax_clauses_export_click", {
-          export_format: "csv",
-          result_count:
-            taxSearch.selectedResults.size > 0
-              ? taxSearch.selectedResults.size
-              : taxSearch.total_count,
-          is_filtered: Object.values(filters).flat().length > 0,
-        });
-        void taxSearch.actions.downloadCSV();
-      },
       resultsFallback: <SearchResultsTableFallback />,
       renderResults: () => (
         <TaxClauseResultsList
-          results={taxSearch.searchResults}
+          results={taxSearch.results}
           getAgreementHref={(r: TaxClauseSearchResult) =>
             buildAgreementHref(r.agreement_uuid, r.section_uuid)
           }
@@ -583,39 +463,6 @@ export default function Search() {
       ),
     },
     transactions: {
-      isSearching: transactionSearch.isSearching,
-      hasSearched: transactionSearch.hasSearched,
-      totalCount: transactionSearch.totalCount,
-      totalCountIsApproximate: transactionSearch.totalCountIsApproximate,
-      totalPages: transactionSearch.totalPages,
-      hasNext: transactionSearch.hasNext,
-      hasPrev: transactionSearch.hasPrev,
-      accessTier: transactionSearch.access?.tier ?? "anonymous",
-      selectedSize: transactionSearch.selectedResults.size,
-      resultsLength: transactionSearch.results.length,
-      sidebarClauseTypeLabel: "Section Type",
-      isLoadingSidebarTaxonomy: isLoadingFilterOptions,
-      clearSelection: transactionSearch.clearSelection,
-      runSearch: async (nextFilters, markAsSearched, sortBy, sortDirection) => {
-        await transactionSearch.performSearch({
-          filters: nextFilters,
-          clauseTypesNested: sectionClauseTypesNested,
-          sortBy,
-          sortDirection,
-          markAsSearched,
-        });
-      },
-      downloadCSV: () => {
-        trackEvent("transactions_export_click", {
-          export_format: "csv",
-          result_count:
-            transactionSearch.selectedResults.size > 0
-              ? transactionSearch.selectedResults.size
-              : transactionSearch.totalCount,
-          is_filtered: Object.values(filters).flat().length > 0,
-        });
-        void transactionSearch.downloadCSV();
-      },
       resultsFallback: <TransactionResultsFallback />,
       renderResults: () => (
         <TransactionResultsList
@@ -626,8 +473,8 @@ export default function Search() {
           currentPage={currentPage}
           pageSize={page_size}
           selectedResults={transactionSearch.selectedResults}
-          onToggleResultSelection={transactionSearch.toggleResultSelection}
-          onToggleSelectAll={transactionSearch.toggleSelectAll}
+          onToggleResultSelection={transactionSearch.actions.toggleResultSelection}
+          onToggleSelectAll={transactionSearch.actions.toggleSelectAll}
           sortBy={currentSort ?? "year"}
           sortDirection={sort_direction}
           onSortResults={(field) => void trackingActions.sortResults(field)}
@@ -637,9 +484,36 @@ export default function Search() {
         />
       ),
     },
-    };
-  }
-  const adapter = buildAdapters()[searchMode];
+  };
+  const activeSearch = searches[searchMode];
+  const adapter = {
+    isSearching: activeSearch.isSearching,
+    hasSearched: activeSearch.hasSearched,
+    totalCount: activeSearch.totalCount,
+    totalCountIsApproximate: activeSearch.totalCountIsApproximate,
+    totalPages: activeSearch.totalPages,
+    hasNext: activeSearch.hasNext,
+    hasPrev: activeSearch.hasPrev,
+    accessTier: activeSearch.access?.tier ?? "anonymous",
+    selectedSize: activeSearch.selectedResults.size,
+    resultsLength: activeSearch.results.length,
+    sidebarClauseTypeLabel: MODE_UI[searchMode].sidebarClauseTypeLabel,
+    isLoadingSidebarTaxonomy:
+      searchMode === "tax" ? isLoadingTaxTaxonomy : isLoadingFilterOptions,
+    clearSelection: activeSearch.actions.clearSelection,
+    downloadCSV: () => {
+      trackEvent(MODE_UI[searchMode].exportEvent, {
+        export_format: "csv",
+        result_count:
+          activeSearch.selectedResults.size > 0
+            ? activeSearch.selectedResults.size
+            : activeSearch.totalCount,
+        is_filtered: Object.values(filters).flat().length > 0,
+      });
+      void activeSearch.actions.downloadCSV();
+    },
+    ...resultsByMode[searchMode],
+  };
 
   // Latest search action for the global Enter handler, so the listener below
   // can be attached once instead of re-subscribing every render.
@@ -708,7 +582,7 @@ export default function Search() {
   );
 
   const onTaxCompare = () => {
-    const clauses = taxSearch.searchResults.filter((r) =>
+    const clauses = taxSearch.results.filter((r) =>
       taxSearch.selectedResults.has(r.id),
     );
     stashCompareClauses(clauses);
@@ -774,8 +648,8 @@ export default function Search() {
             onSearch={() => void trackingActions.performSearch()}
             onDownloadCSV={adapter.downloadCSV}
             onClearFilters={trackingActions.clearFilters}
-            taxIncludeRepWarranty={!!taxSearch.filters.include_rep_warranty}
-            onTaxIncludeRepWarrantyChange={taxSearch.actions.setIncludeRepWarranty}
+            taxIncludeRepWarranty={!!filters.include_rep_warranty}
+            onTaxIncludeRepWarrantyChange={setIncludeRepWarranty}
             taxSelectedCount={taxSearch.selectedResults.size}
             onTaxCompare={onTaxCompare}
             filters={filters}
@@ -812,7 +686,7 @@ export default function Search() {
           isOpen={activeShowErrorModal}
           onClose={() => {
             actions.closeErrorModal();
-            transactionSearch.closeErrorModal();
+            transactionSearch.actions.closeErrorModal();
             taxSearch.actions.closeErrorModal();
           }}
           message={activeErrorMessage}
