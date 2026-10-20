@@ -35,6 +35,8 @@ export interface TransactionSearchResult {
   target_pe: boolean | null;
   acquirer_pe: boolean | null;
   url: string | null;
+  /** Not returned by the API yet; the deals table shows the column when present. */
+  target_counsel?: string | null;
   match_count: number;
   matched_sections: TransactionSearchMatchedSection[];
 }

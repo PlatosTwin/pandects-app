@@ -26,6 +26,38 @@ export const SECTION_RESULT_METADATA_FIELDS = [
   "purpose",
 ] as const satisfies readonly (keyof SectionResultMetadata)[];
 
+/**
+ * Which modes send the keyword (`text_query` + `text_match_mode`) to the API.
+ * The query bar disables the keyword input in the other modes.
+ *
+ * Deals: flip `transactions` to true once `GET /v1/search/agreements` honors
+ * `text_query` (same param names as `/v1/sections`). Tax clauses have no
+ * keyword support in the API.
+ */
+export const KEYWORD_SEARCH_SUPPORT: Readonly<Record<SearchMode, boolean>> = {
+  sections: true,
+  transactions: false,
+  tax: false,
+};
+
+/** Backend limit: keyword searches can page up to this page number. */
+export const MAX_KEYWORD_SEARCH_PAGE = 100;
+
+/** Append the keyword params when this mode sends them and a keyword is set. */
+function appendKeyword(
+  params: URLSearchParams,
+  mode: SearchMode,
+  { filters }: SearchSnapshot,
+): URLSearchParams {
+  const keyword = filters.text_query?.trim();
+  if (!KEYWORD_SEARCH_SUPPORT[mode] || !keyword) return params;
+  params.set("text_query", keyword);
+  if (filters.text_match_mode && filters.text_match_mode !== "phrase") {
+    params.set("text_match_mode", filters.text_match_mode);
+  }
+  return params;
+}
+
 function appendSort(
   params: URLSearchParams,
   { sortBy, sortDirection }: SearchSnapshot,
@@ -40,15 +72,19 @@ function appendSort(
 export function buildSectionsApiParams(snapshot: SearchSnapshot): URLSearchParams {
   const params = buildSearchParams(snapshot.filters);
   SECTION_RESULT_METADATA_FIELDS.forEach((field) => params.append("metadata", field));
-  return appendSort(params, snapshot);
+  return appendKeyword(appendSort(params, snapshot), "sections", snapshot);
 }
 
 export function buildTaxClausesApiParams(snapshot: SearchSnapshot): URLSearchParams {
-  return appendSort(buildTaxClauseParams(snapshot.filters), snapshot);
+  return appendKeyword(appendSort(buildTaxClauseParams(snapshot.filters), snapshot), "tax", snapshot);
 }
 
 export function buildDealsApiParams(snapshot: SearchSnapshot): URLSearchParams {
-  return appendSort(buildSearchParams(snapshot.filters), snapshot);
+  return appendKeyword(
+    appendSort(buildSearchParams(snapshot.filters), snapshot),
+    "transactions",
+    snapshot,
+  );
 }
 
 export const SECTIONS_SEARCH_CONFIG: SearchEndpointConfig<SearchResult> = {
