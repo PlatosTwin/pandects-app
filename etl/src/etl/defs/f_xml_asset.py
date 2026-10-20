@@ -28,16 +28,22 @@ from etl.domain.xml_tag_repairs import (
     SectionGap,
     XMLTagRepairStats,
     apply_body_start_tag_repairs,
+    dedupe_adjacent_same_number_headings,
     insert_missing_section_heading_tags,
+    merge_number_only_section_titles,
     normalize_no_space_section_prefixes,
     section_title_is_whole_number_article_heading,
     section_title_starts_with_same_article_decimal,
     split_leading_page_number_section_tags,
     split_combined_omitted_heading_tags,
     split_combined_missing_section_tags,
+    unwrap_bare_article_tags_before_other_article_sections,
     unwrap_bare_number_section_tags,
     unwrap_inline_section_reference_tags,
+    unwrap_same_line_cross_article_section_tags,
+    unwrap_section_of_reference_tags,
     unwrap_standalone_section_label_tags,
+    unwrap_stray_decimal_section_tags,
     wrap_untagged_article_headings_before_first_sections,
 )
 from etl.utils.db_utils import upsert_xml
@@ -1352,6 +1358,18 @@ def _apply_tag_repair_to_body_rows(
             repaired, stats = split_leading_page_number_section_tags(tagged_output)
         elif repair_name == "unwrap_inline_section_references":
             repaired, stats = unwrap_inline_section_reference_tags(tagged_output)
+        elif repair_name == "unwrap_section_of_references":
+            repaired, stats = unwrap_section_of_reference_tags(tagged_output)
+        elif repair_name == "merge_number_only_section_titles":
+            repaired, stats = merge_number_only_section_titles(tagged_output)
+        elif repair_name == "unwrap_stray_decimal_sections":
+            repaired, stats = unwrap_stray_decimal_section_tags(tagged_output)
+        elif repair_name == "dedupe_adjacent_headings":
+            repaired, stats = dedupe_adjacent_same_number_headings(tagged_output)
+        elif repair_name == "unwrap_same_line_cross_article_sections":
+            repaired, stats = unwrap_same_line_cross_article_section_tags(tagged_output)
+        elif repair_name == "unwrap_bare_articles_before_other_article_sections":
+            repaired, stats = unwrap_bare_article_tags_before_other_article_sections(tagged_output)
         elif repair_name == "insert_missing":
             repaired, stats = insert_missing_section_heading_tags(tagged_output, gaps)
         elif repair_name == "wrap_untagged_article":
@@ -1741,6 +1759,12 @@ def _apply_safe_xml_tag_repairs_to_df(
             "unwrap_standalone_section_labels",
             "split_leading_page_number_sections",
             "unwrap_inline_section_references",
+            "unwrap_section_of_references",
+            "merge_number_only_section_titles",
+            "unwrap_stray_decimal_sections",
+            "dedupe_adjacent_headings",
+            "unwrap_same_line_cross_article_sections",
+            "unwrap_bare_articles_before_other_article_sections",
             "article_sequence",
             "join_split_digits",
             "split_article_title",
