@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useId, useMemo, useState } from "react";
+import { Suspense, lazy, useId, useMemo, useState } from "react";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { Button } from "@/components/ui/button";
 import { MobileChartModal } from "@/components/MobileChartModal";
@@ -12,8 +12,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
+import type {
+  AgreementDealTypeYearRow,
+  AgreementStatusYearRow,
+  MetadataFieldCoverageRow,
+} from "@shared/insights";
 import {
   DEAL_TYPE_COLORS,
   DEAL_TYPE_FALLBACK_COLORS,
@@ -26,6 +29,10 @@ import {
 import { cn } from "@/lib/utils";
 import { buildYearAxisGuides } from "@/lib/year-axis";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  useAgreementDealTypesSummary,
+  useAgreementStatusSummary,
+} from "@/hooks/use-insights";
 
 const ProcessingStatusChart = lazy(() =>
   import("@/components/AgreementIndexCharts").then((mod) => ({
@@ -58,44 +65,9 @@ const DEAL_TYPE_DISPLAY_ORDER = [
   "unknown",
 ];
 
-type AgreementStatusYearRow = {
-  year: number;
-  color: "green" | "yellow" | "red" | "gray";
-  current_stage: string;
-  count: number;
-};
-
-type AgreementStatusSummaryResponse = {
-  years: AgreementStatusYearRow[];
-  latest_filing_date: string | null;
-  metadata_covered_agreements: number | null;
-  metadata_coverage_pct: number | null;
-  metadata_field_coverage: MetadataFieldCoverageRow[];
-  taxonomy_covered_sections: number | null;
-  taxonomy_coverage_pct: number | null;
-};
-
-type MetadataFieldCoverageRow = {
-  field: string;
-  label: string;
-  ingested_eligible_agreements: number;
-  ingested_covered_agreements: number;
-  ingested_coverage_pct: number | null;
-  processed_eligible_agreements: number;
-  processed_covered_agreements: number;
-  processed_coverage_pct: number | null;
-  note: string | null;
-};
-
-type AgreementDealTypeYearRow = {
-  year: number;
-  deal_type: string;
-  count: number;
-};
-
-type AgreementDealTypeSummaryResponse = {
-  years: AgreementDealTypeYearRow[];
-};
+const EMPTY_STATUS_ROWS: AgreementStatusYearRow[] = [];
+const EMPTY_FIELD_COVERAGE: MetadataFieldCoverageRow[] = [];
+const EMPTY_DEAL_TYPE_ROWS: AgreementDealTypeYearRow[] = [];
 
 type DealTypeSeries = {
   dealType: string;
@@ -145,49 +117,31 @@ export function AgreementIndexOverview() {
     useState<OverviewTab>("processing-status");
   const [dealTypeChartMode, setDealTypeChartMode] =
     useState<DealTypeChartMode>("count");
-  const [statusSummary, setStatusSummary] = useState<AgreementStatusYearRow[]>(
-    [],
-  );
-  const [statusSummaryLoading, setStatusSummaryLoading] = useState(false);
-  const [statusSummaryLoaded, setStatusSummaryLoaded] = useState(false);
-  const [statusSummaryError, setStatusSummaryError] = useState<string | null>(
-    null,
-  );
-  const [statusSummaryLatestFilingDate, setStatusSummaryLatestFilingDate] =
-    useState<string | null>(null);
-  const [
-    statusSummaryMetadataCoveredAgreements,
-    setStatusSummaryMetadataCoveredAgreements,
-  ] = useState<number | null>(null);
-  const [
-    statusSummaryMetadataCoveragePct,
-    setStatusSummaryMetadataCoveragePct,
-  ] = useState<number | null>(null);
-  const [
-    statusSummaryMetadataFieldCoverage,
-    setStatusSummaryMetadataFieldCoverage,
-  ] = useState<MetadataFieldCoverageRow[]>([]);
-  const [
-    statusSummaryTaxonomyCoveredSections,
-    setStatusSummaryTaxonomyCoveredSections,
-  ] = useState<number | null>(null);
-  const [
-    statusSummaryTaxonomyCoveragePct,
-    setStatusSummaryTaxonomyCoveragePct,
-  ] = useState<number | null>(null);
-  const [dealTypeSummary, setDealTypeSummary] = useState<
-    AgreementDealTypeYearRow[]
-  >([]);
-  const [dealTypeSummaryLoading, setDealTypeSummaryLoading] = useState(false);
-  const [dealTypeSummaryLoaded, setDealTypeSummaryLoaded] = useState(false);
-  const [dealTypeSummaryError, setDealTypeSummaryError] = useState<
-    string | null
-  >(null);
   const stagedChartDescriptionId = useId();
   const stagedChartTableId = useId();
   const dealTypeChartDescriptionId = useId();
   const dealTypeChartTableId = useId();
   const dealTypesTabOpen = overviewTab === "deal-types";
+  const statusSummaryQuery = useAgreementStatusSummary();
+  const statusSummaryData = statusSummaryQuery.data;
+  const statusSummary = statusSummaryData?.years ?? EMPTY_STATUS_ROWS;
+  const statusSummaryLoading = statusSummaryQuery.isLoading;
+  const statusSummaryError = statusSummaryQuery.error;
+  const statusSummaryLatestFilingDate = statusSummaryData?.latest_filing_date ?? null;
+  const statusSummaryMetadataCoveredAgreements =
+    statusSummaryData?.metadata_covered_agreements ?? null;
+  const statusSummaryMetadataCoveragePct = statusSummaryData?.metadata_coverage_pct ?? null;
+  const statusSummaryMetadataFieldCoverage =
+    statusSummaryData?.metadata_field_coverage ?? EMPTY_FIELD_COVERAGE;
+  const statusSummaryTaxonomyCoveredSections =
+    statusSummaryData?.taxonomy_covered_sections ?? null;
+  const statusSummaryTaxonomyCoveragePct = statusSummaryData?.taxonomy_coverage_pct ?? null;
+  // Fetched the first time the deal-types tab opens, then cached.
+  const dealTypeSummaryQuery = useAgreementDealTypesSummary({ enabled: dealTypesTabOpen });
+  const dealTypeSummary = dealTypeSummaryQuery.data?.years ?? EMPTY_DEAL_TYPE_ROWS;
+  const dealTypeSummaryLoading = dealTypeSummaryQuery.isLoading;
+  const dealTypeSummaryLoaded = dealTypeSummaryQuery.isLoaded;
+  const dealTypeSummaryError = dealTypeSummaryQuery.error;
 
   const renderMetadataFieldCoverageTooltip = () => (
     <div className="space-y-3">
@@ -382,119 +336,6 @@ export function AgreementIndexOverview() {
     }
     return label;
   };
-
-  useEffect(() => {
-    if (statusSummaryLoaded) return;
-
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const fetchStatusSummary = async () => {
-      try {
-        setStatusSummaryLoading(true);
-        setStatusSummaryError(null);
-        const res = await authFetch(apiUrl("v1/agreements-status-summary"), {
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          throw new Error(`Status summary request failed (${res.status})`);
-        }
-        const data = (await res.json()) as AgreementStatusSummaryResponse;
-        if (!cancelled) {
-          setStatusSummary(data.years ?? []);
-          setStatusSummaryLatestFilingDate(data.latest_filing_date ?? null);
-          setStatusSummaryMetadataCoveredAgreements(
-            data.metadata_covered_agreements ?? null,
-          );
-          setStatusSummaryMetadataCoveragePct(
-            data.metadata_coverage_pct ?? null,
-          );
-          setStatusSummaryMetadataFieldCoverage(
-            data.metadata_field_coverage ?? [],
-          );
-          setStatusSummaryTaxonomyCoveredSections(
-            data.taxonomy_covered_sections ?? null,
-          );
-          setStatusSummaryTaxonomyCoveragePct(
-            data.taxonomy_coverage_pct ?? null,
-          );
-          setStatusSummaryLoaded(true);
-        }
-      } catch (err) {
-        if (
-          !cancelled &&
-          !(err instanceof DOMException && err.name === "AbortError")
-        ) {
-          setStatusSummaryError(
-            err instanceof Error
-              ? err.message
-              : "Unable to load staging summary.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setStatusSummaryLoading(false);
-        }
-      }
-    };
-
-    fetchStatusSummary();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [statusSummaryLoaded]);
-
-  useEffect(() => {
-    if (!dealTypesTabOpen || dealTypeSummaryLoaded) {
-      return;
-    }
-
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const fetchDealTypeSummary = async () => {
-      try {
-        setDealTypeSummaryLoading(true);
-        setDealTypeSummaryError(null);
-        const res = await authFetch(
-          apiUrl("v1/agreements-deal-types-summary"),
-          {
-            signal: controller.signal,
-          },
-        );
-        if (!res.ok) {
-          throw new Error(`Deal type summary request failed (${res.status})`);
-        }
-        const data = (await res.json()) as AgreementDealTypeSummaryResponse;
-        if (!cancelled) {
-          setDealTypeSummary(data.years ?? []);
-          setDealTypeSummaryLoaded(true);
-        }
-      } catch (err) {
-        if (
-          !cancelled &&
-          !(err instanceof DOMException && err.name === "AbortError")
-        ) {
-          setDealTypeSummaryError(
-            err instanceof Error
-              ? err.message
-              : "Unable to load deal type summary.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setDealTypeSummaryLoading(false);
-        }
-      }
-    };
-
-    fetchDealTypeSummary();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [dealTypeSummaryLoaded, dealTypesTabOpen]);
 
   const stagedChartData = useMemo(() => {
     const yearMap = new Map<

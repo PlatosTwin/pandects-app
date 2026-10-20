@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import type { TransactionSearchResponse } from "@shared/transactions";
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
+import { apiGet, errorMessage } from "@/lib/api/client";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
+import { keys } from "@/lib/query-keys";
 
 /**
  * Fetches the N most-recently-filed agreements. Used on the landing page to
@@ -11,27 +11,21 @@ import { IS_SERVER_RENDER } from "@/lib/query-client";
  * Reuses the agreement-search endpoint with no filters; sort_by=year is keyed
  * to filing_date server-side, so this returns the freshest entries.
  */
-async function fetchRecentAgreements(
+function fetchRecentAgreements(
   limit: number,
+  signal?: AbortSignal,
 ): Promise<TransactionSearchResponse> {
-  const params = new URLSearchParams();
-  params.set("sort_by", "year");
-  params.set("sort_direction", "desc");
-  params.set("page", "1");
-  params.set("page_size", String(limit));
-  const res = await authFetch(
-    apiUrl(`v1/search/agreements?${params.toString()}`),
+  return apiGet<TransactionSearchResponse>(
+    "v1/search/agreements",
+    { sort_by: "year", sort_direction: "desc", page: 1, page_size: limit },
+    { signal },
   );
-  if (!res.ok) {
-    throw new Error(`Recent agreements request failed (${res.status})`);
-  }
-  return (await res.json()) as TransactionSearchResponse;
 }
 
 export function useRecentAgreements(limit: number = 4) {
   const query = useQuery({
-    queryKey: ["recent-agreements", limit] as const,
-    queryFn: () => fetchRecentAgreements(limit),
+    queryKey: keys.agreements.recent(limit),
+    queryFn: ({ signal }) => fetchRecentAgreements(limit, signal),
     enabled: !IS_SERVER_RENDER,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -41,9 +35,7 @@ export function useRecentAgreements(limit: number = 4) {
     results: query.data?.results ?? [],
     isLoading: query.isLoading,
     error: query.error
-      ? query.error instanceof Error
-        ? query.error.message
-        : "Failed to load recent agreements."
+      ? errorMessage(query.error, "Failed to load recent agreements.")
       : null,
   };
 }

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useId, useMemo, useState } from "react";
+import { Suspense, lazy, useId, useMemo, useState } from "react";
 
 import type { TrendsChartSeries } from "@/components/AgreementTrendsCharts";
 import { MobileChartModal } from "@/components/MobileChartModal";
@@ -9,8 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
+import { useAgreementTrends } from "@/hooks/use-insights";
 import {
   CHART_NEUTRAL_SERIES_COLOR,
   INDUSTRY_CHART_PALETTE,
@@ -19,66 +18,12 @@ import {
   heatmapCellFill,
 } from "@/lib/chart-palette";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
-import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
+import type { AgreementTrendsResponse } from "@shared/insights";
 import { cn } from "@/lib/utils";
 
 type OwnershipMetric = "deal_count" | "total_transaction_value";
 type HeatmapMetric = "deal_count" | "median_transaction_value";
 
-type OwnershipMixRow = {
-  year: number;
-  public_deal_count: number;
-  private_deal_count: number;
-  public_total_transaction_value: number;
-  private_total_transaction_value: number;
-};
-
-type OwnershipDealSizeRow = {
-  year: number;
-  public_deal_count: number;
-  private_deal_count: number;
-  public_p25_transaction_value: number | null;
-  public_median_transaction_value: number | null;
-  public_p75_transaction_value: number | null;
-  private_p25_transaction_value: number | null;
-  private_median_transaction_value: number | null;
-  private_p75_transaction_value: number | null;
-};
-
-type BuyerTypeMatrixRow = {
-  target_bucket: string;
-  buyer_bucket: string;
-  deal_count: number;
-  median_transaction_value: number | null;
-};
-
-type TargetIndustryByYearRow = {
-  year: number;
-  industry: string;
-  deal_count: number;
-  total_transaction_value: number;
-};
-
-type IndustryPairingRow = {
-  target_industry: string;
-  acquirer_industry: string;
-  deal_count: number;
-  total_transaction_value: number;
-};
-
-type AgreementTrendsResponse = {
-  ownership: {
-    mix_by_year: OwnershipMixRow[];
-    deal_size_by_year: OwnershipDealSizeRow[];
-    buyer_type_matrix: BuyerTypeMatrixRow[];
-  };
-  industries: {
-    target_industries_by_year: TargetIndustryByYearRow[];
-    pairings: IndustryPairingRow[];
-  };
-};
-const TRENDS_CACHE_KEY = "agreement-trends:v1";
-const TRENDS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const TrendsStackedShareAreaChart = lazy(async () => {
   const module = await import("@/components/AgreementTrendsCharts");
@@ -1038,54 +983,7 @@ function IndustryDynamicsPanel({
 }
 
 export default function TrendsAnalyses() {
-  const [data, setData] = useState<AgreementTrendsResponse | null>(() =>
-    readSessionCache<AgreementTrendsResponse>(
-      TRENDS_CACHE_KEY,
-      TRENDS_CACHE_TTL_MS,
-    ),
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(data === null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const fetchTrends = async () => {
-      try {
-        // Stale-while-revalidate: `loading` starts true only when there is no
-        // session-cached payload, so revisits keep showing cached content.
-        setError(null);
-        const response = await authFetch(apiUrl("v1/agreement-trends"), {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error(`Agreement trends request failed (${response.status})`);
-        }
-        const nextData = (await response.json()) as AgreementTrendsResponse;
-        if (!cancelled) {
-          setData(nextData);
-          writeSessionCache(TRENDS_CACHE_KEY, nextData);
-        }
-      } catch (err) {
-        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          setError(
-            err instanceof Error ? err.message : "Unable to load trend analyses.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchTrends();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, []);
+  const { data, isLoading: loading, error } = useAgreementTrends();
 
   return (
     <PageShell
