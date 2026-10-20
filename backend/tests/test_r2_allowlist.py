@@ -14,6 +14,7 @@ _PUBLIC_API_SOURCE_PATHS = (
     _REPO_ROOT / "backend" / "routes" / "agreements" / "__init__.py",
     _REPO_ROOT / "backend" / "routes" / "agreements" / "helpers.py",
     _REPO_ROOT / "backend" / "routes" / "reference_data.py",
+    _REPO_ROOT / "backend" / "services" / "agreements_service.py",
     _REPO_ROOT / "backend" / "services" / "sections_service.py",
 )
 _ORM_DEP_TO_TABLE = {

@@ -9,15 +9,11 @@ from typing import Any, cast
 
 from flask import abort
 from marshmallow import Schema, fields as ma_fields, validate
-from sqlalchemy import and_, asc, desc, func, or_, text
+from sqlalchemy import asc, desc, func, or_, text
 
 from backend.auth.mcp_runtime import McpPrincipal
 from backend.extensions import db
-from backend.filtering import (
-    build_any_counsel_agreement_uuid_subquery,
-    build_canonical_counsel_agreement_uuid_subquery,
-    build_transaction_price_bucket_filter,
-)
+from backend.filtering import agreement_filter_predicates, agreement_is_public_eligible_expr
 from backend.mcp.tools.args_schemas import (
     McpAgreementArgsSchema,
     McpAgreementTaxClausesArgsSchema,
@@ -72,11 +68,6 @@ from backend.mcp.tools.shared import (
     _taxonomy_coverage,
 )
 from backend.models import McpFeedback
-from backend.routes.agreements import (
-    _agreement_is_public_eligible_expr,
-    _tax_clause_count,
-    _tax_clause_rows,
-)
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
 from backend.schemas.public_api import (
     AgreementArgsPayload,
@@ -87,6 +78,14 @@ from backend.schemas.public_api import (
 )
 from backend.schemas.sections import SectionsArgsPayload
 from backend.schemas.tax_clauses import TaxClausesArgsPayload, TaxClausesArgsSchema
+from backend.services.agreements_service import (
+    agreement_metadata_columns,
+    get_agreement_row,
+    get_section,
+    row_to_agreement_metadata,
+    tax_clause_count,
+    tax_clause_rows,
+)
 from backend.services.sections_service import run_sections
 from backend.text_search import text_query_focus_terms
 from backend.services.tax_clauses_service import TaxClausesServiceDeps, run_tax_clauses
@@ -213,7 +212,6 @@ def _list_agreements(
         )),
     )
     parsed_args_raw = cast(dict[str, object], cast(object, parsed_args))
-    any_counsel_values = cast(list[str], parsed_args_raw.get("any_counsel", []))
     include_xml = parsed_args["include_xml"]
     if include_xml:
         _require_scope(principal, "agreements:read_fulltext")
@@ -240,130 +238,22 @@ def _list_agreements(
         .correlate(agreements)
         .scalar_subquery()
     ).label("section_count")
-    item_columns = [
-        agreements.agreement_uuid.label("agreement_uuid"),
-        year_expr,
-        agreements.target.label("target"),
-        agreements.acquirer.label("acquirer"),
-        agreements.filing_date.label("filing_date"),
-        agreements.prob_filing.label("prob_filing"),
-        agreements.filing_company_name.label("filing_company_name"),
-        agreements.filing_company_cik.label("filing_company_cik"),
-        agreements.form_type.label("form_type"),
-        agreements.exhibit_type.label("exhibit_type"),
-        agreements.transaction_price_total.label("transaction_price_total"),
-        agreements.transaction_price_stock.label("transaction_price_stock"),
-        agreements.transaction_price_cash.label("transaction_price_cash"),
-        agreements.transaction_price_assets.label("transaction_price_assets"),
-        agreements.transaction_consideration.label("transaction_consideration"),
-        agreements.target_type.label("target_type"),
-        agreements.acquirer_type.label("acquirer_type"),
-        agreements.target_industry.label("target_industry"),
-        agreements.acquirer_industry.label("acquirer_industry"),
-        agreements.announce_date.label("announce_date"),
-        agreements.close_date.label("close_date"),
-        agreements.deal_status.label("deal_status"),
-        agreements.attitude.label("attitude"),
-        agreements.deal_type.label("deal_type"),
-        agreements.purpose.label("purpose"),
-        agreements.target_pe.label("target_pe"),
-        agreements.acquirer_pe.label("acquirer_pe"),
-        agreements.url.label("url"),
-        section_count_subquery,
-    ]
     q = (
-        db.session.query(*item_columns)
+        db.session.query(*agreement_metadata_columns(deps), section_count_subquery)
         .join(xml, deps._agreement_latest_xml_join_condition())
-        .filter(_agreement_is_public_eligible_expr(agreements))
+        .filter(agreement_is_public_eligible_expr(agreements))
     )
 
     if include_xml:
         q = q.add_columns(xml.xml.label("xml"))
 
-    years = parsed_args["year"]
-    if years:
-        year_filters = tuple(
-            and_(
-                agreements.filing_date >= f"{year:04d}-01-01",
-                agreements.filing_date < f"{year + 1:04d}-01-01",
-            )
-            for year in years
-        )
-        q = q.filter(or_(*year_filters))
-
-    year_min_val = cast(int | None, parsed_args_raw.get("year_min"))
-    year_max_val = cast(int | None, parsed_args_raw.get("year_max"))
-    if year_min_val is not None:
-        q = q.filter(agreements.filing_date >= f"{year_min_val:04d}-01-01")
-    if year_max_val is not None:
-        q = q.filter(agreements.filing_date < f"{year_max_val + 1:04d}-01-01")
-
-    filed_after = cast(str | None, parsed_args_raw.get("filed_after"))
-    filed_before = cast(str | None, parsed_args_raw.get("filed_before"))
-    if filed_after:
-        q = q.filter(agreements.filing_date >= filed_after)
-    if filed_before:
-        q = q.filter(agreements.filing_date < filed_before)
-
-    list_filters = (
-        ("target", agreements.target),
-        ("acquirer", agreements.acquirer),
-        ("transaction_consideration", agreements.transaction_consideration),
-        ("target_type", agreements.target_type),
-        ("acquirer_type", agreements.acquirer_type),
-        ("target_industry", agreements.target_industry),
-        ("acquirer_industry", agreements.acquirer_industry),
-        ("deal_status", agreements.deal_status),
-        ("attitude", agreements.attitude),
-        ("deal_type", agreements.deal_type),
-        ("purpose", agreements.purpose),
-    )
-    for key, column in list_filters:
-        values = parsed_args[key]
-        if values:
-            q = q.filter(column.in_(values))
-
-    transaction_price_total_filter = build_transaction_price_bucket_filter(
-        agreements.transaction_price_total,
-        parsed_args["transaction_price_total"],
-    )
-    if transaction_price_total_filter is not None:
-        q = q.filter(transaction_price_total_filter)
-    transaction_price_stock_filter = build_transaction_price_bucket_filter(
-        agreements.transaction_price_stock,
-        parsed_args["transaction_price_stock"],
-    )
-    if transaction_price_stock_filter is not None:
-        q = q.filter(transaction_price_stock_filter)
-    transaction_price_cash_filter = build_transaction_price_bucket_filter(
-        agreements.transaction_price_cash,
-        parsed_args["transaction_price_cash"],
-    )
-    if transaction_price_cash_filter is not None:
-        q = q.filter(transaction_price_cash_filter)
-    transaction_price_assets_filter = build_transaction_price_bucket_filter(
-        agreements.transaction_price_assets,
-        parsed_args["transaction_price_assets"],
-    )
-    if transaction_price_assets_filter is not None:
-        q = q.filter(transaction_price_assets_filter)
-
-    for key, column in (("target_pe", agreements.target_pe), ("acquirer_pe", agreements.acquirer_pe)):
-        values = parsed_args[key]
-        if not values:
-            continue
-        db_values: list[int] = []
-        for value in values:
-            if value == "true":
-                db_values.append(1)
-            elif value == "false":
-                db_values.append(0)
-        if db_values:
-            q = q.filter(column.in_(db_values))
-
-    agreement_uuid = parsed_args["agreement_uuid"]
-    if agreement_uuid and agreement_uuid.strip():
-        q = q.filter(agreements.agreement_uuid == agreement_uuid.strip())
+    for predicate in agreement_filter_predicates(
+        agreements,
+        parsed_args_raw,
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
+    ):
+        q = q.filter(predicate)
 
     section_uuid = parsed_args["section_uuid"]
     if section_uuid and section_uuid.strip():
@@ -386,30 +276,6 @@ def _list_agreements(
         expanded = list(deps._expand_taxonomy_standard_ids_cached(standard_ids_key))
         if expanded:
             q = q.filter(deps._standard_id_agreement_filter_expr(agreements.agreement_uuid, expanded))
-
-    target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
-        side="target",
-        canonical_names=cast(list[str], parsed_args["target_counsel"]),
-        agreement_counsel=agreement_counsel,
-        counsel=counsel,
-    )
-    if target_counsel_subquery is not None:
-        q = q.filter(agreements.agreement_uuid.in_(target_counsel_subquery))
-    acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
-        side="acquirer",
-        canonical_names=cast(list[str], parsed_args["acquirer_counsel"]),
-        agreement_counsel=agreement_counsel,
-        counsel=counsel,
-    )
-    if acquirer_counsel_subquery is not None:
-        q = q.filter(agreements.agreement_uuid.in_(acquirer_counsel_subquery))
-    any_counsel_subquery = build_any_counsel_agreement_uuid_subquery(
-        canonical_names=any_counsel_values,
-        agreement_counsel=agreement_counsel,
-        counsel=counsel,
-    )
-    if any_counsel_subquery is not None:
-        q = q.filter(agreements.agreement_uuid.in_(any_counsel_subquery))
 
     sort_column_map = {
         "agreement_uuid": agreements.agreement_uuid,
@@ -460,37 +326,8 @@ def _list_agreements(
     for row in page_rows:
         row_map = deps._row_mapping_as_dict(row)
         row_agreement_uuid = row_map.get("agreement_uuid")
-        item = {
-            "agreement_uuid": _json_compatible_value(row_agreement_uuid),
-            "year": _json_compatible_value(row_map.get("year")),
-            "target": _json_compatible_value(row_map.get("target")),
-            "acquirer": _json_compatible_value(row_map.get("acquirer")),
-            "filing_date": _json_compatible_value(row_map.get("filing_date")),
-            "prob_filing": _json_compatible_value(row_map.get("prob_filing")),
-            "filing_company_name": _json_compatible_value(row_map.get("filing_company_name")),
-            "filing_company_cik": _json_compatible_value(row_map.get("filing_company_cik")),
-            "form_type": _json_compatible_value(row_map.get("form_type")),
-            "exhibit_type": _json_compatible_value(row_map.get("exhibit_type")),
-            "transaction_price_total": _json_compatible_value(row_map.get("transaction_price_total")),
-            "transaction_price_stock": _json_compatible_value(row_map.get("transaction_price_stock")),
-            "transaction_price_cash": _json_compatible_value(row_map.get("transaction_price_cash")),
-            "transaction_price_assets": _json_compatible_value(row_map.get("transaction_price_assets")),
-            "transaction_consideration": _json_compatible_value(row_map.get("transaction_consideration")),
-            "target_type": _json_compatible_value(row_map.get("target_type")),
-            "acquirer_type": _json_compatible_value(row_map.get("acquirer_type")),
-            "target_industry": _json_compatible_value(row_map.get("target_industry")),
-            "acquirer_industry": _json_compatible_value(row_map.get("acquirer_industry")),
-            "announce_date": _json_compatible_value(row_map.get("announce_date")),
-            "close_date": _json_compatible_value(row_map.get("close_date")),
-            "deal_status": _json_compatible_value(row_map.get("deal_status")),
-            "attitude": _json_compatible_value(row_map.get("attitude")),
-            "deal_type": _json_compatible_value(row_map.get("deal_type")),
-            "purpose": _json_compatible_value(row_map.get("purpose")),
-            "target_pe": _json_compatible_value(row_map.get("target_pe")),
-            "acquirer_pe": _json_compatible_value(row_map.get("acquirer_pe")),
-            "url": _json_compatible_value(row_map.get("url")),
-            "section_count": _json_compatible_value(row_map.get("section_count")),
-        }
+        item = row_to_agreement_metadata(row_map, convert=_json_compatible_value)
+        item["section_count"] = _json_compatible_value(row_map.get("section_count"))
         _decorate_industry_labels(item, label_by_code=naics_label_by_code)
         if include_xml:
             item["xml"] = _json_compatible_value(row_map.get("xml"))
@@ -639,150 +476,23 @@ def _search_agreements(
             section_count_subquery,
         )
         .join(xml, deps._agreement_latest_xml_join_condition())
-        .filter(_agreement_is_public_eligible_expr(agreements))
+        .filter(agreement_is_public_eligible_expr(agreements))
     )
     count_q = (
         db.session.query(func.count(agreements.agreement_uuid))
         .select_from(agreements)
         .join(xml, deps._agreement_latest_xml_join_condition())
-        .filter(_agreement_is_public_eligible_expr(agreements))
+        .filter(agreement_is_public_eligible_expr(agreements))
     )
 
-    years = cast(list[int], parsed_args["year"])
-    if years:
-        year_filters = tuple(
-            and_(
-                agreements.filing_date >= f"{year:04d}-01-01",
-                agreements.filing_date < f"{year + 1:04d}-01-01",
-            )
-            for year in years
-        )
-        year_clause = or_(*year_filters)
-        q = q.filter(year_clause)
-        count_q = count_q.filter(year_clause)
-
-    year_min = cast(int | None, parsed_args.get("year_min"))
-    year_max = cast(int | None, parsed_args.get("year_max"))
-    if year_min is not None:
-        clause = agreements.filing_date >= f"{year_min:04d}-01-01"
-        q = q.filter(clause)
-        count_q = count_q.filter(clause)
-    if year_max is not None:
-        clause = agreements.filing_date < f"{year_max + 1:04d}-01-01"
-        q = q.filter(clause)
-        count_q = count_q.filter(clause)
-
-    filed_after = cast(str | None, parsed_args.get("filed_after"))
-    filed_before = cast(str | None, parsed_args.get("filed_before"))
-    if filed_after:
-        clause = agreements.filing_date >= filed_after
-        q = q.filter(clause)
-        count_q = count_q.filter(clause)
-    if filed_before:
-        clause = agreements.filing_date < filed_before
-        q = q.filter(clause)
-        count_q = count_q.filter(clause)
-
-    list_filters = (
-        ("target", agreements.target),
-        ("acquirer", agreements.acquirer),
-        ("transaction_consideration", agreements.transaction_consideration),
-        ("target_type", agreements.target_type),
-        ("acquirer_type", agreements.acquirer_type),
-        ("target_industry", agreements.target_industry),
-        ("acquirer_industry", agreements.acquirer_industry),
-        ("deal_status", agreements.deal_status),
-        ("attitude", agreements.attitude),
-        ("deal_type", agreements.deal_type),
-        ("purpose", agreements.purpose),
-    )
-    for key, column in list_filters:
-        values = cast(list[str], parsed_args[key])
-        if values:
-            clause = column.in_(values)
-            q = q.filter(clause)
-            count_q = count_q.filter(clause)
-
-    transaction_price_total_filter = build_transaction_price_bucket_filter(
-        agreements.transaction_price_total,
-        cast(list[str], parsed_args["transaction_price_total"]),
-    )
-    if transaction_price_total_filter is not None:
-        q = q.filter(transaction_price_total_filter)
-        count_q = count_q.filter(transaction_price_total_filter)
-    transaction_price_stock_filter = build_transaction_price_bucket_filter(
-        agreements.transaction_price_stock,
-        cast(list[str], parsed_args["transaction_price_stock"]),
-    )
-    if transaction_price_stock_filter is not None:
-        q = q.filter(transaction_price_stock_filter)
-        count_q = count_q.filter(transaction_price_stock_filter)
-    transaction_price_cash_filter = build_transaction_price_bucket_filter(
-        agreements.transaction_price_cash,
-        cast(list[str], parsed_args["transaction_price_cash"]),
-    )
-    if transaction_price_cash_filter is not None:
-        q = q.filter(transaction_price_cash_filter)
-        count_q = count_q.filter(transaction_price_cash_filter)
-    transaction_price_assets_filter = build_transaction_price_bucket_filter(
-        agreements.transaction_price_assets,
-        cast(list[str], parsed_args["transaction_price_assets"]),
-    )
-    if transaction_price_assets_filter is not None:
-        q = q.filter(transaction_price_assets_filter)
-        count_q = count_q.filter(transaction_price_assets_filter)
-
-    for key, column in (("target_pe", agreements.target_pe), ("acquirer_pe", agreements.acquirer_pe)):
-        values = cast(list[str], parsed_args[key])
-        if not values:
-            continue
-        db_values: list[int] = []
-        for value in values:
-            if value == "true":
-                db_values.append(1)
-            elif value == "false":
-                db_values.append(0)
-        if db_values:
-            clause = column.in_(db_values)
-            q = q.filter(clause)
-            count_q = count_q.filter(clause)
-
-    target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
-        side="target",
-        canonical_names=cast(list[str], parsed_args["target_counsel"]),
+    for predicate in agreement_filter_predicates(
+        agreements,
+        parsed_args,
         agreement_counsel=agreement_counsel,
         counsel=counsel,
-    )
-    if target_counsel_subquery is not None:
-        clause = agreements.agreement_uuid.in_(target_counsel_subquery)
-        q = q.filter(clause)
-        count_q = count_q.filter(clause)
-    acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
-        side="acquirer",
-        canonical_names=cast(list[str], parsed_args["acquirer_counsel"]),
-        agreement_counsel=agreement_counsel,
-        counsel=counsel,
-    )
-    if acquirer_counsel_subquery is not None:
-        clause = agreements.agreement_uuid.in_(acquirer_counsel_subquery)
-        q = q.filter(clause)
-        count_q = count_q.filter(clause)
-
-    any_counsel_subquery = build_any_counsel_agreement_uuid_subquery(
-        canonical_names=cast(list[str], parsed_args["any_counsel"]),
-        agreement_counsel=agreement_counsel,
-        counsel=counsel,
-    )
-    if any_counsel_subquery is not None:
-        clause = agreements.agreement_uuid.in_(any_counsel_subquery)
-        q = q.filter(clause)
-        count_q = count_q.filter(clause)
-
-    agreement_uuid = cast(str | None, parsed_args["agreement_uuid"])
-    if agreement_uuid and agreement_uuid.strip():
-        clause = agreements.agreement_uuid == agreement_uuid.strip()
-        q = q.filter(clause)
-        count_q = count_q.filter(clause)
+    ):
+        q = q.filter(predicate)
+        count_q = count_q.filter(predicate)
 
     section_uuid = cast(str | None, parsed_args["section_uuid"])
     if section_uuid and section_uuid.strip():
@@ -923,83 +633,14 @@ def _get_agreement(
     neighbor_sections_int = parsed_args["neighbor_sections"]
     allow_fulltext = "agreements:read_fulltext" in principal.scopes
 
-    agreements = deps.Agreements
-    xml = deps.XML
     db = deps.db
-    year_expr = deps._agreement_year_expr().label("year")
-    columns: list[object] = [
-        year_expr,
-        agreements.target,
-        agreements.acquirer,
-        agreements.filing_date,
-        agreements.prob_filing,
-        agreements.filing_company_name,
-        agreements.filing_company_cik,
-        agreements.form_type,
-        agreements.exhibit_type,
-        agreements.transaction_price_total,
-        agreements.transaction_price_stock,
-        agreements.transaction_price_cash,
-        agreements.transaction_price_assets,
-        agreements.transaction_consideration,
-        agreements.target_type,
-        agreements.acquirer_type,
-        agreements.target_industry,
-        agreements.acquirer_industry,
-        agreements.announce_date,
-        agreements.close_date,
-        agreements.deal_status,
-        agreements.attitude,
-        agreements.deal_type,
-        agreements.purpose,
-        agreements.target_pe,
-        agreements.acquirer_pe,
-        agreements.url,
-    ]
-    # Only transfer the (large) XML blob when the caller asks for it; the join is
-    # retained either way so agreements without a latest XML row still 404.
-    if include_xml:
-        columns.append(xml.xml)
-    row = (
-        db.session.query(*columns)
-        .join(xml, deps._agreement_latest_xml_join_condition())
-        .filter(agreements.agreement_uuid == agreement_uuid)
-        .first()
-    )
-    if row is None:
+    # Same eligibility gate as the REST getAgreement: a gated, unverified agreement 404s.
+    row_map = get_agreement_row(deps, agreement_uuid, include_xml=include_xml)
+    if row_map is None:
         abort(404)
 
-    row_map = deps._row_mapping_as_dict(cast(object, row))
-    response = {
-        "year": _json_compatible_value(row_map.get("year")),
-        "target": _json_compatible_value(row_map.get("target")),
-        "acquirer": _json_compatible_value(row_map.get("acquirer")),
-        "filing_date": _json_compatible_value(row_map.get("filing_date")),
-        "prob_filing": _json_compatible_value(row_map.get("prob_filing")),
-        "filing_company_name": _json_compatible_value(row_map.get("filing_company_name")),
-        "filing_company_cik": _json_compatible_value(row_map.get("filing_company_cik")),
-        "form_type": _json_compatible_value(row_map.get("form_type")),
-        "exhibit_type": _json_compatible_value(row_map.get("exhibit_type")),
-        "transaction_price_total": _json_compatible_value(row_map.get("transaction_price_total")),
-        "transaction_price_stock": _json_compatible_value(row_map.get("transaction_price_stock")),
-        "transaction_price_cash": _json_compatible_value(row_map.get("transaction_price_cash")),
-        "transaction_price_assets": _json_compatible_value(row_map.get("transaction_price_assets")),
-        "transaction_consideration": _json_compatible_value(row_map.get("transaction_consideration")),
-        "target_type": _json_compatible_value(row_map.get("target_type")),
-        "acquirer_type": _json_compatible_value(row_map.get("acquirer_type")),
-        "target_industry": _json_compatible_value(row_map.get("target_industry")),
-        "acquirer_industry": _json_compatible_value(row_map.get("acquirer_industry")),
-        "announce_date": _json_compatible_value(row_map.get("announce_date")),
-        "close_date": _json_compatible_value(row_map.get("close_date")),
-        "deal_status": _json_compatible_value(row_map.get("deal_status")),
-        "attitude": _json_compatible_value(row_map.get("attitude")),
-        "deal_type": _json_compatible_value(row_map.get("deal_type")),
-        "purpose": _json_compatible_value(row_map.get("purpose")),
-        "target_pe": _json_compatible_value(row_map.get("target_pe")),
-        "acquirer_pe": _json_compatible_value(row_map.get("acquirer_pe")),
-        "url": _json_compatible_value(row_map.get("url")),
-        "xml_included": include_xml,
-    }
+    response = row_to_agreement_metadata(row_map, convert=_json_compatible_value)
+    response["xml_included"] = include_xml
     _decorate_industry_labels(
         response, label_by_code=_naics_label_map(db=db, schema_prefix=deps._schema_prefix())
     )
@@ -1043,42 +684,12 @@ def _get_agreements_batch(
     counsel = deps.Counsel
     xml = deps.XML
     db = deps.db
-    year_expr = deps._agreement_year_expr().label("year")
-    columns = [
-        agreements.agreement_uuid.label("agreement_uuid"),
-        year_expr,
-        agreements.target.label("target"),
-        agreements.acquirer.label("acquirer"),
-        agreements.filing_date.label("filing_date"),
-        agreements.prob_filing.label("prob_filing"),
-        agreements.filing_company_name.label("filing_company_name"),
-        agreements.filing_company_cik.label("filing_company_cik"),
-        agreements.form_type.label("form_type"),
-        agreements.exhibit_type.label("exhibit_type"),
-        agreements.transaction_price_total.label("transaction_price_total"),
-        agreements.transaction_price_stock.label("transaction_price_stock"),
-        agreements.transaction_price_cash.label("transaction_price_cash"),
-        agreements.transaction_price_assets.label("transaction_price_assets"),
-        agreements.transaction_consideration.label("transaction_consideration"),
-        agreements.target_type.label("target_type"),
-        agreements.acquirer_type.label("acquirer_type"),
-        agreements.target_industry.label("target_industry"),
-        agreements.acquirer_industry.label("acquirer_industry"),
-        agreements.announce_date.label("announce_date"),
-        agreements.close_date.label("close_date"),
-        agreements.deal_status.label("deal_status"),
-        agreements.attitude.label("attitude"),
-        agreements.deal_type.label("deal_type"),
-        agreements.purpose.label("purpose"),
-        agreements.target_pe.label("target_pe"),
-        agreements.acquirer_pe.label("acquirer_pe"),
-        agreements.url.label("url"),
-    ]
+    columns = agreement_metadata_columns(deps)
     rows = cast(
         list[object],
         db.session.query(*columns)
         .join(xml, deps._agreement_latest_xml_join_condition())
-        .filter(_agreement_is_public_eligible_expr(agreements))
+        .filter(agreement_is_public_eligible_expr(agreements))
         .filter(agreements.agreement_uuid.in_(agreement_uuids))
         .all(),
     )
@@ -1102,36 +713,7 @@ def _get_agreements_batch(
     results: list[dict[str, object]] = []
     for uuid in resolved_uuids:
         row_map = row_by_uuid[uuid]
-        item: dict[str, object] = {
-            "agreement_uuid": uuid,
-            "year": _json_compatible_value(row_map.get("year")),
-            "target": _json_compatible_value(row_map.get("target")),
-            "acquirer": _json_compatible_value(row_map.get("acquirer")),
-            "filing_date": _json_compatible_value(row_map.get("filing_date")),
-            "prob_filing": _json_compatible_value(row_map.get("prob_filing")),
-            "filing_company_name": _json_compatible_value(row_map.get("filing_company_name")),
-            "filing_company_cik": _json_compatible_value(row_map.get("filing_company_cik")),
-            "form_type": _json_compatible_value(row_map.get("form_type")),
-            "exhibit_type": _json_compatible_value(row_map.get("exhibit_type")),
-            "transaction_price_total": _json_compatible_value(row_map.get("transaction_price_total")),
-            "transaction_price_stock": _json_compatible_value(row_map.get("transaction_price_stock")),
-            "transaction_price_cash": _json_compatible_value(row_map.get("transaction_price_cash")),
-            "transaction_price_assets": _json_compatible_value(row_map.get("transaction_price_assets")),
-            "transaction_consideration": _json_compatible_value(row_map.get("transaction_consideration")),
-            "target_type": _json_compatible_value(row_map.get("target_type")),
-            "acquirer_type": _json_compatible_value(row_map.get("acquirer_type")),
-            "target_industry": _json_compatible_value(row_map.get("target_industry")),
-            "acquirer_industry": _json_compatible_value(row_map.get("acquirer_industry")),
-            "announce_date": _json_compatible_value(row_map.get("announce_date")),
-            "close_date": _json_compatible_value(row_map.get("close_date")),
-            "deal_status": _json_compatible_value(row_map.get("deal_status")),
-            "attitude": _json_compatible_value(row_map.get("attitude")),
-            "deal_type": _json_compatible_value(row_map.get("deal_type")),
-            "purpose": _json_compatible_value(row_map.get("purpose")),
-            "target_pe": _json_compatible_value(row_map.get("target_pe")),
-            "acquirer_pe": _json_compatible_value(row_map.get("acquirer_pe")),
-            "url": _json_compatible_value(row_map.get("url")),
-        }
+        item = row_to_agreement_metadata(row_map, convert=_json_compatible_value)
         _decorate_industry_labels(item, label_by_code=naics_label_by_code)
         sides = counsel_by_agreement.get(uuid, {"target": [], "acquirer": []})
         item["target_counsel"] = list(sides.get("target", []))
@@ -1175,33 +757,11 @@ def _get_section(
     if not deps._SECTION_ID_RE.match(section_uuid):
         _abort_invalid_argument("Invalid section_uuid.")
 
-    sections = deps.Sections
-    xml = deps.XML
-    row = (
-        deps.db.session.query(
-            sections.agreement_uuid.label("agreement_uuid"),
-            sections.section_uuid.label("section_uuid"),
-            deps._coalesced_section_standard_ids().label("section_standard_ids"),
-            sections.xml_content.label("xml_content"),
-            sections.article_title.label("article_title"),
-            sections.section_title.label("section_title"),
-        )
-        .join(xml, deps._section_latest_xml_join_condition())
-        .filter(sections.section_uuid == section_uuid)
-        .first()
-    )
-    if row is None:
+    # Same lookup (and eligibility gate) as the REST getSection.
+    section = get_section(deps, section_uuid)
+    if section is None:
         abort(404)
-
-    row_map = deps._row_mapping_as_dict(cast(object, row))
-    response = {
-        "agreement_uuid": row_map.get("agreement_uuid"),
-        "section_uuid": row_map.get("section_uuid"),
-        "standard_id": deps._parse_section_standard_ids(row_map.get("section_standard_ids")),
-        "xml": row_map.get("xml_content"),
-        "article_title": row_map.get("article_title"),
-        "section_title": row_map.get("section_title"),
-    }
+    response = {key: value for key, value in section.items() if key != "section_standard_id"}
     return McpToolResult(
         text=f"Fetched section {section_uuid}.",
         structured_content=response,
@@ -1460,7 +1020,10 @@ def _get_sections_batch(
         )
         .join(xml, deps._section_latest_xml_join_condition())
         .join(agreements, agreements.agreement_uuid == sections.agreement_uuid)
-        .filter(sections.section_uuid.in_(section_uuids))
+        .filter(
+            sections.section_uuid.in_(section_uuids),
+            agreement_is_public_eligible_expr(agreements),
+        )
         .all(),
     )
 
@@ -2011,20 +1574,20 @@ def _get_agreement_tax_clauses(
     _, unrecognized_tax_standard_ids = _partition_known_tax_standard_ids(deps, tax_standard_id)
     page = cast(int, parsed_args["page"])
     page_size = cast(int, parsed_args["page_size"])
-    clauses = _tax_clause_rows(
+    clauses = tax_clause_rows(
         deps,
         agreement_uuid=agreement_uuid,
         tax_standard_id=tax_standard_id,
         limit=page_size,
         offset=(page - 1) * page_size,
     )
-    total = _tax_clause_count(
+    total = tax_clause_count(
         deps, agreement_uuid=agreement_uuid, tax_standard_id=tax_standard_id
     )
     # extraction_status describes the record, not the filter, so an empty filtered page
     # must not be reported as "extraction never ran".
     unfiltered_total = (
-        _tax_clause_count(deps, agreement_uuid=agreement_uuid) if tax_standard_id else total
+        tax_clause_count(deps, agreement_uuid=agreement_uuid) if tax_standard_id else total
     )
     extraction_status, extraction_note = _tax_extraction_status(
         deps, agreement_uuid=agreement_uuid, has_tax_clauses=unfiltered_total > 0
@@ -2061,18 +1624,18 @@ def _get_section_tax_clauses(
     _, unrecognized_tax_standard_ids = _partition_known_tax_standard_ids(deps, tax_standard_id)
     page = cast(int, parsed_args["page"])
     page_size = cast(int, parsed_args["page_size"])
-    clauses = _tax_clause_rows(
+    clauses = tax_clause_rows(
         deps,
         section_uuid=section_uuid,
         tax_standard_id=tax_standard_id,
         limit=page_size,
         offset=(page - 1) * page_size,
     )
-    total = _tax_clause_count(
+    total = tax_clause_count(
         deps, section_uuid=section_uuid, tax_standard_id=tax_standard_id
     )
     unfiltered_total = (
-        _tax_clause_count(deps, section_uuid=section_uuid) if tax_standard_id else total
+        tax_clause_count(deps, section_uuid=section_uuid) if tax_standard_id else total
     )
     extraction_status, extraction_note = _tax_extraction_status(
         deps, section_uuid=section_uuid, has_tax_clauses=unfiltered_total > 0

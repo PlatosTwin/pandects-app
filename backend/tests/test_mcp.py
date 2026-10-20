@@ -803,6 +803,74 @@ class McpTests(unittest.TestCase):
         self.assertEqual(_tool_http_exception_category(NotFound()), "not_found")
         self.assertEqual(_tool_http_exception_category(InternalServerError()), "http_exception")
 
+    def test_get_agreement_returns_agreement_uuid(self):
+        res = self._call_tool("get_agreement", {"agreement_uuid": "a1"}, scope="agreements:read")
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["agreement_uuid"], "a1")
+
+    def test_single_reads_apply_public_eligibility(self):
+        """a4 is gated and unverified: REST already 404s it, and MCP now matches."""
+        gated_section_uuid = "00000000-0000-0000-0000-0000000000a4"
+        with self.app.app_context():
+            with self.app_module.db.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        f"('a4', '{gated_section_uuid}', 'ARTICLE I', 'Gated', '<section>GATED</section>', '[\"s1\"]', 1)"
+                    )
+                )
+        try:
+            agreement_res = self._call_tool("get_agreement", {"agreement_uuid": "a4"}, scope="agreements:read")
+            self.assertEqual(agreement_res.get_json()["error"]["code"], -32002)
+
+            section_res = self._call_tool("get_section", {"section_uuid": gated_section_uuid})
+            self.assertEqual(section_res.get_json()["error"]["code"], -32002)
+
+            batch_res = self._call_tool(
+                "get_sections_batch",
+                {"section_uuids": [gated_section_uuid, "00000000-0000-0000-0000-000000000001"]},
+            )
+            batch_payload = batch_res.get_json()["result"]["structuredContent"]
+            returned = [item["section_uuid"] for item in batch_payload["results"]]
+            self.assertEqual(returned, ["00000000-0000-0000-0000-000000000001"])
+            self.assertEqual(batch_payload["unresolved_section_uuids"], [gated_section_uuid])
+        finally:
+            with self.app.app_context():
+                with self.app_module.db.engine.begin() as conn:
+                    conn.execute(text(f"DELETE FROM sections WHERE section_uuid = '{gated_section_uuid}'"))
+
+    def test_agreement_filters_agree_between_list_and_search_tools(self):
+        """list_agreements and search_agreements share one metadata filter chain."""
+        cases: list[dict[str, object]] = [
+            {"year": [2020]},
+            {"year_min": 2019, "year_max": 2021},
+            {"filed_after": "2020-01-01", "filed_before": "2021-01-01"},
+            {"target_type": ["public"]},
+            {"deal_status": ["complete"]},
+            {"target_pe": ["false"]},
+            {"transaction_price_total": ["0 - 100M"]},
+        ]
+        matched_any = False
+        for case in cases:
+            with self.subTest(case=case):
+                list_res = self._call_tool("list_agreements", {**case, "page_size": 50})
+                search_res = self._call_tool("search_agreements", {**case, "page_size": 50})
+                list_body = list_res.get_json()
+                search_body = search_res.get_json()
+                self.assertIn("result", list_body, list_body)
+                self.assertIn("result", search_body, search_body)
+                listed = sorted(
+                    item["agreement_uuid"] for item in list_body["result"]["structuredContent"]["results"]
+                )
+                searched = sorted(
+                    item["agreement_uuid"] for item in search_body["result"]["structuredContent"]["results"]
+                )
+                self.assertEqual(listed, searched)
+                self.assertNotIn("a4", listed)
+                matched_any = matched_any or bool(listed)
+        self.assertTrue(matched_any)
+
     def test_get_section_not_found_returns_distinct_error(self):
         res = self._call_tool(
             "get_section", {"section_uuid": "00000000-0000-0000-0000-000000000099"}

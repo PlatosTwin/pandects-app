@@ -1208,6 +1208,16 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(total("filed_before=2011-06-01"), 2)
         self.assertEqual(total("year_min=2011&year_max=2011"), 1)
 
+    def _sections_total_count(self, **kwargs: object) -> tuple[int, bool]:
+        from backend.services.sections_service import sections_total_count_metadata
+
+        total_count, is_approximate, _method = sections_total_count_metadata(
+            self.app_module._build_sections_service_deps(),
+            count_mode="auto",
+            **kwargs,
+        )
+        return total_count, is_approximate
+
     def test_search_total_count_metadata_uses_table_estimate_for_unfiltered_search(self):
         with (
             patch.object(self.app_module, "_estimated_query_row_count", return_value=None),
@@ -1217,7 +1227,7 @@ class MainRoutesTests(unittest.TestCase):
                 return_value=488296,
             ),
         ):
-            total_count, is_approximate = self.app_module._search_total_count_metadata(
+            total_count, is_approximate = self._sections_total_count(
                 query=object(),
                 page=6,
                 page_size=25,
@@ -1229,29 +1239,9 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(total_count, 488296)
         self.assertTrue(is_approximate)
 
-    def test_search_total_count_metadata_legacy_shim_forwards_auto_mode(self):
-        with patch.object(
-            self.app_module,
-            "_svc_sections_total_count_metadata",
-            return_value=(123, True, "table_estimate"),
-        ) as metadata_mock:
-            total_count, is_approximate = self.app_module._search_total_count_metadata(
-                query=object(),
-                page=2,
-                page_size=25,
-                item_count=25,
-                has_next=True,
-                has_filters=False,
-            )
-
-        metadata_mock.assert_called_once()
-        self.assertEqual(metadata_mock.call_args.kwargs["count_mode"], "auto")
-        self.assertEqual(total_count, 123)
-        self.assertTrue(is_approximate)
-
     def test_search_total_count_metadata_uses_query_estimate_for_filtered_search_beyond_page_one(self):
         with patch.object(self.app_module, "_estimated_query_row_count", return_value=240):
-            total_count, is_approximate = self.app_module._search_total_count_metadata(
+            total_count, is_approximate = self._sections_total_count(
                 query=object(),
                 page=6,
                 page_size=25,
@@ -1269,7 +1259,7 @@ class MainRoutesTests(unittest.TestCase):
         query.order_by.return_value = ordered_query
         ordered_query.count.return_value = 37
 
-        total_count, is_approximate = self.app_module._search_total_count_metadata(
+        total_count, is_approximate = self._sections_total_count(
             query=query,
             page=1,
             page_size=25,
@@ -1289,7 +1279,7 @@ class MainRoutesTests(unittest.TestCase):
         query.order_by.return_value = ordered_query
         ordered_query.count.return_value = 163
         with patch.object(self.app_module, "_estimated_query_row_count", return_value=120):
-            total_count, is_approximate = self.app_module._search_total_count_metadata(
+            total_count, is_approximate = self._sections_total_count(
                 query=query,
                 page=6,
                 page_size=25,
@@ -2298,6 +2288,407 @@ class MainRoutesTests(unittest.TestCase):
             industries.get("pairings", []),
         )
 
+
+    # -- Unified agreement filter chain ------------------------------------------------
+
+    def _agreement_uuids(self, path: str) -> list[str]:
+        res = self.app.test_client().get(path)
+        self.assertEqual(res.status_code, 200, res.get_json())
+        return sorted(item["agreement_uuid"] for item in res.get_json().get("results", []))
+
+    def test_list_agreements_accepts_year_and_filing_date_ranges(self):
+        # a4's latest XML is invalid, so it never appears; a1/a2/a3 filed 2020/2021/2022.
+        self.assertEqual(self._agreement_uuids("/v1/agreements?year_min=2021&page_size=10"), ["a2", "a3"])
+        self.assertEqual(self._agreement_uuids("/v1/agreements?year_max=2020&page_size=10"), ["a1"])
+        # filed_after is inclusive and filed_before exclusive, as on /v1/sections.
+        self.assertEqual(
+            self._agreement_uuids(
+                "/v1/agreements?filed_after=2021-02-01&filed_before=2022-03-01&page_size=10"
+            ),
+            ["a2"],
+        )
+        res = self.app.test_client().get("/v1/agreements?filed_after=2021/02/01")
+        self.assertEqual(res.status_code, 422)
+
+    def test_agreement_filters_agree_across_list_and_search_routes(self):
+        cases = [
+            "year=2021",
+            "year_min=2021&year_max=2022",
+            "filed_after=2020-06-01",
+            "target_type=private",
+            "deal_status=complete&deal_status=pending",
+            "target_pe=true",
+            "transaction_price_total=100M - 250M",
+            "target_counsel=Wilson Sonsini Goodrich %26 Rosati",
+            "target_industry=tech&acquirer_industry=tech",
+            "transaction_consideration=assets",
+        ]
+        for case in cases:
+            with self.subTest(case=case):
+                listed = self._agreement_uuids(f"/v1/agreements?{case}&page_size=50")
+                searched = self._agreement_uuids(f"/v1/search/agreements?{case}&page_size=50")
+                self.assertEqual(listed, searched)
+                self.assertTrue(listed, f"case {case!r} should match at least one agreement")
+
+    def test_agreement_filters_agree_between_sections_and_agreement_search(self):
+        # Only a1 has a latest section in the search index, so the section route and the
+        # clause-scoped agreement search must both keep or both drop it.
+        for case, expected in (("year=2020", ["a1"]), ("year=2021", []), ("target_pe=false", ["a1"])):
+            with self.subTest(case=case):
+                res = self.app.test_client().get(f"/v1/sections?{case}&page_size=50")
+                self.assertEqual(res.status_code, 200)
+                section_agreements = sorted(
+                    {item["agreement_uuid"] for item in res.get_json().get("results", [])}
+                )
+                searched = self._agreement_uuids(
+                    f"/v1/search/agreements?{case}&standard_id=s1&page_size=50"
+                )
+                self.assertEqual(section_agreements, expected)
+                self.assertEqual(searched, expected)
+
+    def test_agreement_filter_predicates_are_empty_without_filters(self):
+        from backend.filtering import agreement_filter_predicates, has_agreement_filters
+
+        with self.app.app_context():
+            agreements = self.app_module.Agreements
+            empty = agreement_filter_predicates(
+                agreements,
+                {"year": [], "target": [], "year_min": None, "filed_after": "  "},
+                agreement_counsel=self.app_module.AgreementCounsel,
+                counsel=self.app_module.Counsel,
+            )
+            self.assertEqual(empty, [])
+            self.assertFalse(has_agreement_filters({"year": [], "filed_before": None}))
+            self.assertTrue(has_agreement_filters({"year_min": 2020}))
+            self.assertTrue(has_agreement_filters({"target_pe": ["false"]}))
+            predicates = agreement_filter_predicates(
+                agreements,
+                {"year": [2020, 2021], "filed_after": "2020-01-01", "target_pe": ["true"]},
+                agreement_counsel=self.app_module.AgreementCounsel,
+                counsel=self.app_module.Counsel,
+            )
+            self.assertEqual(len(predicates), 3)
+
+    # -- /v1/search/agreements -----------------------------------------------------------
+
+    def test_search_agreements_rejects_metadata(self):
+        res = self.app.test_client().get("/v1/search/agreements?metadata=deal_type")
+        self.assertEqual(res.status_code, 422)
+        self.assertIn("metadata", json.dumps(res.get_json()))
+
+    def test_search_agreements_direct_path_reports_dump_version(self):
+        dump = {"hash": "abc123", "dump_ts": "2026-10-01T00:00:00Z"}
+        with patch("backend.routes.agreements.g", SimpleNamespace(dump_version=dump)):
+            client = self.app.test_client()
+            with_dump = client.get("/v1/search/agreements?year=2020").get_json()
+            without_dump = client.get("/v1/search/agreements?year=2020&include_dump=false").get_json()
+        self.assertEqual(with_dump.get("dump_version"), dump)
+        self.assertNotIn("dump_version", without_dump)
+        self.assertIn("count_metadata", with_dump)
+
+    def _seed_text_search_rows(self) -> None:
+        with self.app.app_context():
+            with self.app_module.db.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "UPDATE sections SET xml_content = '<section><text>Parent shall pay the "
+                        "Reverse Termination Fee upon any termination.</text></section>', "
+                        "article_order = 1, section_order = 1 "
+                        "WHERE section_uuid = '00000000-0000-0000-0000-000000000001'"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, gated, url) "
+                        "VALUES ('a_text_gated', '2021-06-01', 'Gated Target', 'Gated Acquirer', 0, 1, 'http://example.com/g')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a_text_gated', '<document/>', 1, 'verified', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version, article_order, section_order) VALUES "
+                        "('a2', '00000000-0000-0000-0000-000000000011', 'ARTICLE VIII', 'Termination Fee', "
+                        "'<section><text>The Company shall pay a termination fee.</text></section>', '[\"s1\"]', 1, 8, 2), "
+                        "('a_text_gated', '00000000-0000-0000-0000-000000000081', 'ARTICLE VIII', 'Fee', "
+                        "'<section><text>Reverse termination fee.</text></section>', '[\"s1\"]', 1, 8, 1)"
+                    )
+                )
+                for agreement_uuid, section_uuid, filing_date, title in (
+                    ("a2", "00000000-0000-0000-0000-000000000011", "2021-02-01", "Termination Fee"),
+                    ("a_text_gated", "00000000-0000-0000-0000-000000000081", "2021-06-01", "Fee"),
+                ):
+                    conn.execute(
+                        text(
+                            "INSERT INTO latest_sections_search (section_uuid, agreement_uuid, filing_date, "
+                            "target, acquirer, verified, url, section_standard_ids, article_title, section_title) "
+                            "VALUES (:section_uuid, :agreement_uuid, :filing_date, 'T', 'A', 0, 'http://x', "
+                            "'[\"s1\"]', 'ARTICLE VIII', :title)"
+                        ),
+                        {
+                            "section_uuid": section_uuid,
+                            "agreement_uuid": agreement_uuid,
+                            "filing_date": filing_date,
+                            "title": title,
+                        },
+                    )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
+                        "VALUES ('s1', '00000000-0000-0000-0000-000000000011', 'a2'), "
+                        "('s1', '00000000-0000-0000-0000-000000000081', 'a_text_gated')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO section_text_search (section_uuid, agreement_uuid, xml_version, "
+                        "normalized_text, updated_at) VALUES "
+                        "('00000000-0000-0000-0000-000000000001', 'a1', 2, "
+                        "'parent shall pay the reverse termination fee upon any termination', '2026-10-01'), "
+                        "('00000000-0000-0000-0000-000000000011', 'a2', 1, "
+                        "'the company shall pay a termination fee', '2026-10-01'), "
+                        "('00000000-0000-0000-0000-000000000081', 'a_text_gated', 1, "
+                        "'reverse termination fee', '2026-10-01')"
+                    )
+                )
+
+    def _clear_text_search_rows(self) -> None:
+        with self.app.app_context():
+            with self.app_module.db.engine.begin() as conn:
+                conn.execute(text("DELETE FROM section_text_search"))
+                conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_text_gated'"))
+                conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_text_gated'"))
+
+    def _sqlite_text_search(self):
+        """Stand in for MariaDB FULLTEXT and POSIX REGEXP on the SQLite test database."""
+        import contextlib
+        import re
+
+        from sqlalchemy import and_, event, or_
+
+        def fake_candidate(column, *, text_query: str, match_mode: str):
+            terms = [term for term in re.split(r"\W+", text_query.lower()) if term]
+            likes = [column.like(f"%{term}%") for term in terms]
+            return or_(*likes) if match_mode == "any_terms" else and_(*likes)
+
+        def regexp(pattern: str, value: str | None) -> bool:
+            if value is None:
+                return False
+            translated = (
+                pattern.replace("[[:<:]]", r"\b").replace("[[:>:]]", r"\b").replace("[:alnum:]", "a-zA-Z0-9")
+            )
+            return re.search(translated, value, re.IGNORECASE) is not None
+
+        def on_connect(dbapi_connection, _record) -> None:
+            dbapi_connection.create_function("regexp", 2, regexp)
+
+        @contextlib.contextmanager
+        def active():
+            from backend.services.sections_service import reset_text_plan_cache
+
+            reset_text_plan_cache()
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                event.listen(engine, "connect", on_connect)
+                engine.dispose()
+            try:
+                with patch(
+                    "backend.services.agreements_service.build_section_text_candidate_expression",
+                    fake_candidate,
+                ):
+                    yield
+            finally:
+                with self.app.app_context():
+                    engine = self.app_module.db.engine
+                    event.remove(engine, "connect", on_connect)
+                    engine.dispose()
+                reset_text_plan_cache()
+
+        return active()
+
+    def test_search_agreements_applies_text_query(self):
+        self._seed_text_search_rows()
+        try:
+            with self._sqlite_text_search():
+                client = self.app.test_client()
+
+                phrase = client.get(
+                    "/v1/search/agreements?text_query=reverse+termination+fee&page_size=10"
+                )
+                self.assertEqual(phrase.status_code, 200, phrase.get_json())
+                body = phrase.get_json()
+                # a_text_gated matches too, but is gated and unverified.
+                self.assertEqual([r["agreement_uuid"] for r in body["results"]], ["a1"])
+                self.assertEqual(body["total_count"], 1)
+                self.assertFalse(body["total_count_is_approximate"])
+                self.assertEqual(body["count_metadata"]["method"], "query_count")
+                first = body["results"][0]
+                self.assertEqual(first["match_count"], 1)
+                preview = first["matched_sections"][0]
+                self.assertEqual(preview["section_uuid"], "00000000-0000-0000-0000-000000000001")
+                self.assertEqual(preview["standard_id"], ["s1"])
+                self.assertIn("Reverse Termination Fee", preview["snippet"])
+                self.assertEqual(preview["matched_terms"], ["Reverse Termination Fee"])
+
+                all_terms = client.get(
+                    "/v1/search/agreements?text_query=termination+fee&text_match_mode=all_terms"
+                    "&sort_by=year&sort_direction=asc&page_size=10"
+                )
+                self.assertEqual(all_terms.status_code, 200, all_terms.get_json())
+                self.assertEqual(
+                    [r["agreement_uuid"] for r in all_terms.get_json()["results"]], ["a1", "a2"]
+                )
+
+                filtered = client.get(
+                    "/v1/search/agreements?text_query=termination+fee&text_match_mode=all_terms"
+                    "&year=2021&standard_id=s1&page_size=10"
+                )
+                self.assertEqual(
+                    [r["agreement_uuid"] for r in filtered.get_json()["results"]], ["a2"]
+                )
+
+                paged = client.get(
+                    "/v1/search/agreements?text_query=termination+fee&text_match_mode=all_terms"
+                    "&sort_by=year&sort_direction=asc&page=2&page_size=1"
+                )
+                paged_body = paged.get_json()
+                self.assertEqual([r["agreement_uuid"] for r in paged_body["results"]], ["a2"])
+                self.assertEqual(paged_body["total_count"], 2)
+
+                none = client.get("/v1/search/agreements?text_query=indemnification&page_size=10")
+                self.assertEqual(none.get_json()["results"], [])
+                self.assertEqual(none.get_json()["total_count"], 0)
+        finally:
+            self._clear_text_search_rows()
+
+    def test_search_agreements_text_query_too_expensive_is_a_422(self):
+        from sqlalchemy.exc import OperationalError
+
+        timeout = OperationalError(
+            "SELECT 1", {}, Exception(1969, "Query execution was interrupted (max_statement_time exceeded)")
+        )
+        with patch(
+            "backend.services.agreements_service._search_agreements_by_text", side_effect=timeout
+        ):
+            res = self.app.test_client().get("/v1/search/agreements?text_query=material+adverse+effect")
+        self.assertEqual(res.status_code, 422)
+        self.assertIn("text_query", json.dumps(res.get_json()).lower())
+
+    def test_search_agreements_text_count_falls_back_to_lower_bound(self):
+        self._seed_text_search_rows()
+        try:
+            with self._sqlite_text_search(), patch(
+                "backend.services.agreements_service.budgeted_exact_count", return_value=None
+            ):
+                res = self.app.test_client().get(
+                    "/v1/search/agreements?text_query=termination+fee&text_match_mode=all_terms"
+                    "&page=1&page_size=1"
+                )
+            body = res.get_json()
+            self.assertEqual(res.status_code, 200, body)
+            self.assertTrue(body["total_count_is_approximate"])
+            self.assertEqual(body["count_metadata"]["method"], "filtered_lower_bound")
+            self.assertEqual(body["total_count"], 2)
+            self.assertTrue(body["has_next"])
+        finally:
+            self._clear_text_search_rows()
+
+    # -- Public eligibility on section reads ---------------------------------------------
+
+    def test_section_search_and_get_section_exclude_gated_unverified_agreements(self):
+        hidden_section = "00000000-0000-0000-0000-000000000091"
+        with self.app.app_context():
+            with self.app_module.db.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, gated, url) "
+                        "VALUES ('a_sec_gated', '2020-05-01', 'Hidden T', 'Hidden A', 0, 1, 'http://example.com/h')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        "('a_sec_gated', '<document/>', 1, 'verified', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        f"('a_sec_gated', '{hidden_section}', 'ARTICLE I', 'Hidden', '<section>H</section>', '[\"s1\"]', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search (section_uuid, agreement_uuid, filing_date, "
+                        "target, acquirer, verified, url, section_standard_ids, article_title, section_title) "
+                        f"VALUES ('{hidden_section}', 'a_sec_gated', '2020-05-01', 'Hidden T', 'Hidden A', 0, "
+                        "'http://example.com/h', '[\"s1\"]', 'ARTICLE I', 'Hidden')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) "
+                        f"VALUES ('s1', '{hidden_section}', 'a_sec_gated')"
+                    )
+                )
+        try:
+            client = self.app.test_client()
+            for path in ("/v1/sections?year=2020&page_size=50", "/v1/sections?standard_id=s1&page_size=50"):
+                with self.subTest(path=path):
+                    res = client.get(path)
+                    self.assertEqual(res.status_code, 200)
+                    body = res.get_json()
+                    uuids = [item["section_uuid"] for item in body["results"]]
+                    self.assertEqual(uuids, ["00000000-0000-0000-0000-000000000001"])
+                    self.assertEqual(body["total_count"], 1)
+            self.assertEqual(client.get(f"/v1/sections/{hidden_section}").status_code, 404)
+        finally:
+            with self.app.app_context():
+                with self.app_module.db.engine.begin() as conn:
+                    conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_sec_gated'"))
+                    conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_sec_gated'"))
+
+    # -- Response and parameter normalization --------------------------------------------
+
+    def test_agreements_index_accepts_sort_direction_and_legacy_sort_dir(self):
+        client = self.app.test_client()
+
+        def order(query: str) -> list[str]:
+            res = client.get(f"/v1/agreements-index?sort_by=year&page_size=10&{query}")
+            self.assertEqual(res.status_code, 200, res.get_json())
+            return [item["agreement_uuid"] for item in res.get_json()["results"]]
+
+        self.assertEqual(order("sort_direction=asc"), ["a2", "a3"])
+        self.assertEqual(order("sort_dir=asc"), ["a2", "a3"])
+        self.assertEqual(order(""), ["a3", "a2"])
+        # sort_direction wins when both are sent.
+        self.assertEqual(order("sort_direction=desc&sort_dir=asc"), ["a3", "a2"])
+        # Same 400 this route has always returned for an invalid sort_dir.
+        self.assertEqual(client.get("/v1/agreements-index?sort_direction=up").status_code, 400)
+
+    def test_get_agreement_and_get_section_carry_canonical_ids(self):
+        client = self.app.test_client()
+        agreement = client.get("/v1/agreements/a1").get_json()
+        self.assertEqual(agreement["agreement_uuid"], "a1")
+        section = client.get("/v1/sections/00000000-0000-0000-0000-000000000001").get_json()
+        self.assertEqual(section["standard_id"], ["s1"])
+        self.assertEqual(section["section_standard_id"], section["standard_id"])
+
+    def test_tax_clauses_report_dump_version(self):
+        dump = {"hash": "abc123", "dump_ts": "2026-10-01T00:00:00Z"}
+        with patch("backend.routes.tax_clauses.g", SimpleNamespace(dump_version=dump)):
+            client = self.app.test_client()
+            with_dump = client.get("/v1/tax-clauses?page=1&page_size=10")
+            without_dump = client.get("/v1/tax-clauses?page=1&page_size=10&include_dump=false")
+        self.assertEqual(with_dump.status_code, 200, with_dump.get_json())
+        self.assertEqual(with_dump.get_json().get("dump_version"), dump)
+        self.assertNotIn("dump_version", without_dump.get_json())
 
 if __name__ == "__main__":
     unittest.main()

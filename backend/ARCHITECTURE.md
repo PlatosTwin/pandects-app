@@ -60,6 +60,15 @@ flowchart LR
   - `register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprint, Blueprint, Blueprint]`
   - `register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint`
 
+## Agreements Domain
+- `backend/filtering.py` owns the agreement metadata filter chain and the public-eligibility rule:
+  - `agreement_filter_predicates(cols, args, ...)` / `apply_agreement_filters(query, cols, args, ...)` build every agreement metadata filter (year and filing-date ranges, parties, price buckets, types, counsel, industries, deal fields, PE flags, `agreement_uuid`). `cols` is either `agreements` or `latest_sections_search`, which carry the same column names. Every REST route and MCP tool that filters agreements goes through it.
+  - `agreement_is_public_eligible_expr(agreements)` is the gated/unverified rule; `agreement_uuid_is_public_eligible_expr(uuid_col, agreements)` applies it to tables keyed by `agreement_uuid` (section search) without joining `agreements` per row.
+- `backend/services/agreements_service.py` owns agreement query logic for REST and MCP: `AGREEMENT_METADATA_COLUMNS` / `agreement_metadata_columns()` / `row_to_agreement_metadata()` (the one metadata projection), list/search/index, single reads, tax-clause reads, summaries, trends, and filter options. `backend/routes/agreements/*` only parses arguments, applies caches, and shapes responses.
+- `backend/services/snippets.py` owns XML text extraction and match-focused snippets shared by agreement search and the MCP snippet tools.
+- `backend/services/sections_service.py` exposes the text-search plan race (`fetch_with_text_plan_race`) and the budgeted exact count (`budgeted_exact_count`) that agreement text search reuses.
+- Services never import route modules.
+
 ## Testing Guardrails
 - `backend/tests/test_route_contracts.py` checks route and operationId stability.
 - `backend/tests/test_auth_dependencies.py` checks auth dependency wiring.
