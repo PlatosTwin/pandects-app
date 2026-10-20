@@ -1,5 +1,4 @@
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
+import { apiGet } from "@/lib/api/client";
 import { toast } from "@/hooks/use-toast";
 
 /** Page size requested while exporting; the API clamps it to the caller's tier max. */
@@ -44,9 +43,7 @@ export async function fetchAllPagesForCsv<TRow>(
     const params = new URLSearchParams(query);
     params.set("page", String(page));
     params.set("page_size", String(CSV_EXPORT_PAGE_SIZE));
-    const res = await authFetch(apiUrl(`${endpoint}?${params.toString()}`));
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    const body = (await res.json()) as PagedResponse<TRow>;
+    const body = await apiGet<PagedResponse<TRow>>(endpoint, params);
     if (page === 1) {
       totalCount = body.total_count;
       totalCountIsApproximate = body.total_count_is_approximate ?? false;

@@ -1,5 +1,5 @@
 import { apiUrl } from "@/lib/api-config";
-import { authFetchJson } from "@/lib/auth-fetch";
+import { apiFetchJson } from "@/lib/api/client";
 
 export type FavoriteItemType = "section" | "agreement" | "tax_clause";
 
@@ -71,7 +71,7 @@ export interface FavoriteUpsertResponse {
 }
 
 export async function listFavorites(): Promise<Favorite[]> {
-  const res = await authFetchJson<FavoritesListResponse>(apiUrl("v1/me/favorites"));
+  const res = await apiFetchJson<FavoritesListResponse>(apiUrl("v1/me/favorites"));
   return res.favorites;
 }
 
@@ -79,14 +79,14 @@ export async function listFavoritesForProject(
   projectId: string,
 ): Promise<Favorite[]> {
   const params = new URLSearchParams({ project_id: projectId });
-  const res = await authFetchJson<FavoritesListResponse>(
+  const res = await apiFetchJson<FavoritesListResponse>(
     apiUrl(`v1/me/favorites?${params.toString()}`),
   );
   return res.favorites;
 }
 
 export async function listFavoriteProjects(): Promise<FavoriteProject[]> {
-  const res = await authFetchJson<FavoriteProjectsResponse>(
+  const res = await apiFetchJson<FavoriteProjectsResponse>(
     apiUrl("v1/me/favorite-projects"),
   );
   return res.projects;
@@ -96,7 +96,7 @@ export async function createProject(input: {
   name: string;
   color?: TagColor;
 }): Promise<FavoriteProject> {
-  const res = await authFetchJson<{
+  const res = await apiFetchJson<{
     project: FavoriteProject;
     created: boolean;
   }>(apiUrl("v1/me/favorite-projects"), {
@@ -111,7 +111,7 @@ export async function patchProject(
   id: string,
   input: { name?: string; color?: TagColor; sort_order?: number },
 ): Promise<FavoriteProject> {
-  const res = await authFetchJson<{ project: FavoriteProject }>(
+  const res = await apiFetchJson<{ project: FavoriteProject }>(
     apiUrl(`v1/me/favorite-projects/${id}`),
     {
       method: "PATCH",
@@ -133,7 +133,7 @@ export async function deleteProject(
   const params = reassignProjectId
     ? `?${new URLSearchParams({ reassign_project_id: reassignProjectId }).toString()}`
     : "";
-  return authFetchJson<{
+  return apiFetchJson<{
     deleted: boolean;
     reassigned_to_project_id: string;
     moved: number;
@@ -146,7 +146,7 @@ export async function bulkMoveFavorites(
   favoriteIds: string[],
   projectId: string,
 ): Promise<{ project_id: string; favorite_ids: string[]; moved: number }> {
-  return authFetchJson<{
+  return apiFetchJson<{
     project_id: string;
     favorite_ids: string[];
     moved: number;
@@ -161,7 +161,7 @@ export async function bulkCopyFavorites(
   favoriteIds: string[],
   projectIds: string[],
 ): Promise<{ project_ids: string[]; favorite_ids: string[]; copied: number }> {
-  return authFetchJson<{
+  return apiFetchJson<{
     project_ids: string[];
     favorite_ids: string[];
     copied: number;
@@ -183,7 +183,7 @@ export async function bulkUpdateFavoriteTags(
   tags_by_favorite: Record<string, FavoriteTag[]>;
   updated: number;
 }> {
-  return authFetchJson<{
+  return apiFetchJson<{
     action: "add" | "remove";
     tag_ids: string[];
     favorite_ids: string[];
@@ -204,7 +204,7 @@ export async function setFavoriteProjects(
   favoriteId: string,
   projectIds: string[],
 ): Promise<string[]> {
-  const res = await authFetchJson<{ project_ids: string[] }>(
+  const res = await apiFetchJson<{ project_ids: string[] }>(
     apiUrl(`v1/me/favorites/${favoriteId}/projects`),
     {
       method: "PUT",
@@ -224,7 +224,7 @@ export async function favoritesExists(
     item_type: itemType,
     item_uuids: itemUuids.join(","),
   });
-  const res = await authFetchJson<FavoritesExistsResponse>(
+  const res = await apiFetchJson<FavoritesExistsResponse>(
     apiUrl(`v1/me/favorites/exists?${params.toString()}`),
   );
   return res.favorites;
@@ -233,7 +233,7 @@ export async function favoritesExists(
 export async function upsertFavorite(
   input: FavoriteCreateInput,
 ): Promise<FavoriteUpsertResponse> {
-  const response = await authFetchJson<FavoriteUpsertResponse>(
+  const response = await apiFetchJson<FavoriteUpsertResponse>(
     apiUrl("v1/me/favorites?view=minimal"),
     {
       method: "POST",
@@ -256,7 +256,7 @@ export async function patchFavorite(
   id: string,
   input: { note?: string | null; project_id?: string | null },
 ): Promise<{ favorite: Favorite }> {
-  return authFetchJson<{ favorite: Favorite }>(apiUrl(`v1/me/favorites/${id}`), {
+  return apiFetchJson<{ favorite: Favorite }>(apiUrl(`v1/me/favorites/${id}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -264,13 +264,13 @@ export async function patchFavorite(
 }
 
 export async function deleteFavorite(id: string): Promise<void> {
-  await authFetchJson<{ deleted: boolean }>(apiUrl(`v1/me/favorites/${id}`), {
+  await apiFetchJson<{ deleted: boolean }>(apiUrl(`v1/me/favorites/${id}`), {
     method: "DELETE",
   });
 }
 
 export async function listTags(): Promise<FavoriteTag[]> {
-  const res = await authFetchJson<{ tags: FavoriteTag[] }>(apiUrl("v1/me/tags"));
+  const res = await apiFetchJson<{ tags: FavoriteTag[] }>(apiUrl("v1/me/tags"));
   return res.tags;
 }
 
@@ -278,7 +278,7 @@ export async function createTag(input: {
   name: string;
   color?: TagColor;
 }): Promise<{ tag: FavoriteTag; created: boolean }> {
-  return authFetchJson<{ tag: FavoriteTag; created: boolean }>(
+  return apiFetchJson<{ tag: FavoriteTag; created: boolean }>(
     apiUrl("v1/me/tags"),
     {
       method: "POST",
@@ -292,7 +292,7 @@ export async function patchTag(
   id: string,
   input: { name?: string; color?: TagColor },
 ): Promise<FavoriteTag> {
-  const res = await authFetchJson<{ tag: FavoriteTag }>(
+  const res = await apiFetchJson<{ tag: FavoriteTag }>(
     apiUrl(`v1/me/tags/${id}`),
     {
       method: "PATCH",
@@ -304,7 +304,7 @@ export async function patchTag(
 }
 
 export async function deleteTag(id: string): Promise<void> {
-  await authFetchJson<{ deleted: boolean }>(apiUrl(`v1/me/tags/${id}`), {
+  await apiFetchJson<{ deleted: boolean }>(apiUrl(`v1/me/tags/${id}`), {
     method: "DELETE",
   });
 }
@@ -313,7 +313,7 @@ export async function setFavoriteTags(
   favoriteId: string,
   tagIds: string[],
 ): Promise<FavoriteTag[]> {
-  const res = await authFetchJson<{ tags: FavoriteTag[] }>(
+  const res = await apiFetchJson<{ tags: FavoriteTag[] }>(
     apiUrl(`v1/me/favorites/${favoriteId}/tags`),
     {
       method: "PUT",
@@ -325,7 +325,7 @@ export async function setFavoriteTags(
 }
 
 export async function getFavoriteTags(favoriteId: string): Promise<FavoriteTag[]> {
-  const res = await authFetchJson<{ tags: FavoriteTag[] }>(
+  const res = await apiFetchJson<{ tags: FavoriteTag[] }>(
     apiUrl(`v1/me/favorites/${favoriteId}/tags`),
   );
   return res.tags;
