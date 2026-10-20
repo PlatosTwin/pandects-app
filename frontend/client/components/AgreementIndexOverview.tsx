@@ -1,7 +1,8 @@
-import { Suspense, lazy, useId, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useId, useMemo, useState } from "react";
+import { ChartPanel } from "@/components/ChartPanel";
+import { EmptyState, ErrorState } from "@/components/StateMessage";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
-import { Button } from "@/components/ui/button";
-import { MobileChartModal } from "@/components/MobileChartModal";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -11,7 +12,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   AgreementDealTypeYearRow,
   AgreementStatusYearRow,
@@ -22,7 +22,6 @@ import {
   DEAL_TYPE_FALLBACK_COLORS,
 } from "@/lib/chart-palette";
 import {
-  formatDateValue,
   formatEnumValue,
   formatNumberValue,
 } from "@/lib/format-utils";
@@ -77,8 +76,42 @@ type DealTypeSeries = {
   total: number;
 };
 
-type OverviewTab = "processing-status" | "deal-types";
 type DealTypeChartMode = "count" | "percent";
+
+const DEAL_TYPE_MODE_OPTIONS = [
+  { value: "count", label: "Counts" },
+  { value: "percent", label: "100%" },
+] as const satisfies ReadonlyArray<{ value: DealTypeChartMode; label: string }>;
+
+/** Chart height, shared by the lazy chart and its fallback so nothing shifts. */
+const CHART_HEIGHT_CLASS = "h-[240px] w-full sm:h-[300px] lg:h-[340px]";
+
+/**
+ * True once `ref` comes within `rootMargin` of the viewport, then stays true.
+ * Without IntersectionObserver (old browsers, tests) it is true at once.
+ */
+function useNearViewport<T extends Element>(rootMargin = "300px") {
+  // A callback ref (state) rather than useRef, so the effect reruns on attach.
+  const [node, ref] = useState<T | null>(null);
+  const [near, setNear] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
+  useEffect(() => {
+    if (near || !node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setNear(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [near, node, rootMargin]);
+  return [ref, near] as const;
+}
 
 const normalizeDealType = (dealType: string | null | undefined) => {
   if (!dealType) return "unknown";
@@ -109,25 +142,21 @@ const formatCoveragePct = (pct: number | null) =>
 
 export function AgreementIndexOverview() {
   const isMobile = useIsMobile();
-  const [isProcessingChartModalOpen, setIsProcessingChartModalOpen] =
-    useState(false);
-  const [isDealTypesChartModalOpen, setIsDealTypesChartModalOpen] =
-    useState(false);
-  const [overviewTab, setOverviewTab] =
-    useState<OverviewTab>("processing-status");
   const [dealTypeChartMode, setDealTypeChartMode] =
     useState<DealTypeChartMode>("count");
   const stagedChartDescriptionId = useId();
   const stagedChartTableId = useId();
   const dealTypeChartDescriptionId = useId();
   const dealTypeChartTableId = useId();
-  const dealTypesTabOpen = overviewTab === "deal-types";
+  const stagedTitleId = useId();
+  const dealTypeTitleId = useId();
+  // The deal-types panel sits below the fold: fetch its data as it nears view.
+  const [dealTypesPanelRef, dealTypesPanelNear] = useNearViewport<HTMLDivElement>();
   const statusSummaryQuery = useAgreementStatusSummary();
   const statusSummaryData = statusSummaryQuery.data;
   const statusSummary = statusSummaryData?.years ?? EMPTY_STATUS_ROWS;
   const statusSummaryLoading = statusSummaryQuery.isLoading;
   const statusSummaryError = statusSummaryQuery.error;
-  const statusSummaryLatestFilingDate = statusSummaryData?.latest_filing_date ?? null;
   const statusSummaryMetadataCoveredAgreements =
     statusSummaryData?.metadata_covered_agreements ?? null;
   const statusSummaryMetadataCoveragePct = statusSummaryData?.metadata_coverage_pct ?? null;
@@ -136,8 +165,7 @@ export function AgreementIndexOverview() {
   const statusSummaryTaxonomyCoveredSections =
     statusSummaryData?.taxonomy_covered_sections ?? null;
   const statusSummaryTaxonomyCoveragePct = statusSummaryData?.taxonomy_coverage_pct ?? null;
-  // Fetched the first time the deal-types tab opens, then cached.
-  const dealTypeSummaryQuery = useAgreementDealTypesSummary({ enabled: dealTypesTabOpen });
+  const dealTypeSummaryQuery = useAgreementDealTypesSummary({ enabled: dealTypesPanelNear });
   const dealTypeSummary = dealTypeSummaryQuery.data?.years ?? EMPTY_DEAL_TYPE_ROWS;
   const dealTypeSummaryLoading = dealTypeSummaryQuery.isLoading;
   const dealTypeSummaryLoaded = dealTypeSummaryQuery.isLoaded;
@@ -434,18 +462,9 @@ export function AgreementIndexOverview() {
         value: statusSummaryTaxonomyCoveredSections ?? "—",
         detail: formatPctDetail(statusSummaryTaxonomyCoveragePct, "sections"),
       },
-      {
-        key: "latest",
-        label: "Latest ingested",
-        value: statusSummaryLatestFilingDate
-          ? formatDateValue(statusSummaryLatestFilingDate)
-          : "—",
-        detail: "Max filing date",
-      },
     ] as const;
   }, [
     stagedTotals,
-    statusSummaryLatestFilingDate,
     statusSummaryMetadataCoveredAgreements,
     statusSummaryMetadataCoveragePct,
     statusSummaryTaxonomyCoveredSections,
@@ -622,11 +641,7 @@ export function AgreementIndexOverview() {
 
   const renderStagedChart = (className?: string) => (
     <Suspense
-      fallback={
-        <div className="rounded-lg border border-border bg-muted/20 p-4">
-          <Skeleton className="h-[240px] w-full sm:h-[300px] lg:h-[340px]" />
-        </div>
-      }
+      fallback={<Skeleton className={CHART_HEIGHT_CLASS} />}
     >
       <ProcessingStatusChart
         className={className}
@@ -642,17 +657,12 @@ export function AgreementIndexOverview() {
   );
 
   const renderStagedSummaryTable = (className?: string) => (
-    <div
-      className={cn(
-        "rounded-lg border border-border bg-muted/20 p-3",
-        className,
-      )}
-    >
+    <div className={className}>
       <div className="grid gap-2 sm:hidden">
         {stagedSummaryMetrics.map((metric) => (
           <dl
             key={metric.key}
-            className="rounded-md border border-border bg-background/70 p-3"
+            className="rounded-lg border border-border p-3"
           >
             <dt className="text-xs font-semibold text-muted-foreground">
               {renderMetricLabel(metric.label, metric.key)}
@@ -666,7 +676,7 @@ export function AgreementIndexOverview() {
           </dl>
         ))}
       </div>
-      <div className="hidden gap-0 overflow-hidden rounded-md border border-border bg-background/70 sm:grid">
+      <div className="hidden overflow-x-auto rounded-lg border border-border sm:grid">
         <div className="grid min-w-[520px] grid-cols-4">
           {stagedPrimarySummaryMetrics.map((metric, index) => (
             <div
@@ -687,7 +697,7 @@ export function AgreementIndexOverview() {
             </div>
           ))}
         </div>
-        <div className="grid min-w-[520px] grid-cols-3 border-t border-border">
+        <div className="grid min-w-[520px] grid-cols-2 border-t border-border">
           {stagedSecondarySummaryMetrics.map((metric, index) => (
             <div
               key={metric.key}
@@ -708,11 +718,10 @@ export function AgreementIndexOverview() {
           ))}
         </div>
       </div>
-      <table className="sr-only">
+      <div className="sr-only"><table>
         <caption>
           Summary totals for staged, awaiting validation, processed, and not
-          paginated agreements, plus metadata coverage, taxonomy coverage, and
-          latest ingested filing date.
+          paginated agreements, plus metadata coverage and taxonomy coverage.
         </caption>
         <thead>
           <tr>
@@ -734,22 +743,17 @@ export function AgreementIndexOverview() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 
   const renderDealTypeSummaryTable = (className?: string) => (
-    <div
-      className={cn(
-        "rounded-lg border border-border bg-muted/20 p-3",
-        className,
-      )}
-    >
+    <div className={className}>
       <div className="grid gap-2 sm:hidden">
         {dealTypeTotals.metrics.map((metric) => (
           <dl
             key={metric.key}
-            className="rounded-md border border-border bg-background/70 p-3"
+            className="rounded-lg border border-border p-3"
           >
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {metric.label}
@@ -763,7 +767,7 @@ export function AgreementIndexOverview() {
           </dl>
         ))}
       </div>
-      <div className="hidden overflow-x-auto sm:block">
+      <div className="hidden overflow-x-auto rounded-lg border border-border sm:block">
         <Table className="min-w-[520px]">
           <caption className="sr-only">
             Deal counts by deal type across all filing years.
@@ -802,12 +806,7 @@ export function AgreementIndexOverview() {
 
   const renderDealTypeChart = (className?: string) => (
     <Suspense
-      fallback={
-        <div className="rounded-lg border border-border bg-muted/20 p-4">
-          <Skeleton className="mb-3 h-8 w-40" />
-          <Skeleton className="h-[240px] w-full sm:h-[300px] lg:h-[340px]" />
-        </div>
-      }
+      fallback={<Skeleton className={CHART_HEIGHT_CLASS} />}
     >
       <DealTypesChart
         className={className}
@@ -815,7 +814,6 @@ export function AgreementIndexOverview() {
         describedBy={dealTypeChartDescriptionId}
         isMobile={isMobile}
         mode={dealTypeChartMode}
-        onModeChange={setDealTypeChartMode}
         series={dealTypeSeries}
         showSourceSplit={showDealTypeSourceSplit}
         tableId={dealTypeChartTableId}
@@ -826,17 +824,12 @@ export function AgreementIndexOverview() {
   );
 
   const renderStageFunnelTable = (className?: string) => (
-    <div
-      className={cn(
-        "rounded-lg border border-border bg-muted/20 p-3",
-        className,
-      )}
-    >
+    <div className={className}>
       <div className="grid gap-2 sm:hidden">
         {stageSummaryRows.map((row) => (
           <dl
             key={row.key}
-            className="rounded-md border border-border bg-background/70 p-3"
+            className="rounded-lg border border-border p-3"
           >
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {renderStageLabel(row)}
@@ -862,7 +855,7 @@ export function AgreementIndexOverview() {
           </dl>
         ))}
       </div>
-      <div className="hidden overflow-x-auto sm:block">
+      <div className="hidden overflow-x-auto rounded-lg border border-border sm:block">
         <Table className="min-w-[520px]">
           <caption className="sr-only">
             Staged versus awaiting validation agreements by pipeline stage.
@@ -909,94 +902,44 @@ export function AgreementIndexOverview() {
     </div>
   );
 
+  const panelSkeleton = (
+    <div className="space-y-4" aria-hidden="true">
+      <Skeleton className="h-[88px] w-full" />
+      <Skeleton className={CHART_HEIGHT_CLASS} />
+    </div>
+  );
+
   return (
-    <Tabs
-      value={overviewTab}
-      onValueChange={(value) => {
-        if (value === "processing-status" || value === "deal-types") {
-          setOverviewTab(value);
+    <div className="space-y-6">
+      <ChartPanel
+        id={stagedTitleId}
+        title="Processing status"
+        description={
+          <span id={stagedChartDescriptionId} className="prose-copy">
+            Every ingested agreement by pipeline stage and filing year. Staged
+            agreements have not yet gone through our pipelines; agreements
+            awaiting validation tripped one of our validations and are waiting
+            for review. Neither appears in the{" "}
+            <span className="font-mono text-foreground">/v1/sections/*</span> or{" "}
+            <span className="font-mono text-foreground">/v1/agreements/*</span>{" "}
+            routes.
+          </span>
         }
-      }}
-      className="space-y-3"
-    >
-      <TabsList className="grid h-auto w-full grid-cols-2">
-        <TabsTrigger value="processing-status">Processing status</TabsTrigger>
-        <TabsTrigger value="deal-types">Deal types</TabsTrigger>
-      </TabsList>
-      <TabsContent value="processing-status" className="mt-0 space-y-3">
-        <p
-          id={stagedChartDescriptionId}
-          className="text-base prose-copy"
-        >
-          Staged agreements have not yet gone through our pipelines. Agreements
-          that are awaiting validation have made it through at least one step of
-          the pipeline but tripped one of our validations and are awaiting
-          manual review. Agreements that are staged or awaiting validation do
-          not show up in the{" "}
-          <span className="font-mono text-sm text-foreground">
-            /v1/sections/*
-          </span>{" "}
-          or
-          <span className="font-mono text-sm text-foreground">
-            /v1/agreements/*
-          </span>{" "}
-          routes. The dashed vertical divider marks the 2020/2021 boundary: from
-          2000 through 2020, we use data from the DMA Corpus; beginning 2021, we
-          source data ourselves from EDGAR.
-        </p>
+        footnote="The dashed divider marks the 2020/2021 boundary: from 2000 through 2020 the data comes from the DMA Corpus; from 2021 we source it from EDGAR."
+        mobileExpand={stagedChartData.length > 0 ? () => renderStagedChart() : false}
+      >
         {statusSummaryLoading ? (
-          <div className="rounded-lg border border-border bg-muted/20 p-4">
-            <Skeleton className="h-4 w-40" />
-            <Skeleton className="mt-4 h-[220px] w-full sm:h-[260px]" />
-          </div>
+          panelSkeleton
         ) : statusSummaryError ? (
-          <div
-            className="rounded-lg border border-border bg-muted/10 p-4 text-sm text-muted-foreground"
-            role="alert"
-          >
-            {statusSummaryError}
-          </div>
+          <ErrorState error={statusSummaryError} variant="inline" />
         ) : stagedChartData.length === 0 ? (
-          <div
-            className="rounded-lg border border-border bg-muted/10 p-4 text-sm text-muted-foreground"
-            role="status"
-          >
-            No staged agreement data available yet.
-          </div>
+          <EmptyState title="No processing status data yet." variant="inline" />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {renderStagedSummaryTable()}
-            {isMobile ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setIsProcessingChartModalOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-describedby={stagedChartDescriptionId}
-                >
-                  Open processing status chart
-                </Button>
-                <MobileChartModal
-                  open={isProcessingChartModalOpen}
-                  onOpenChange={setIsProcessingChartModalOpen}
-                  title="Processing status"
-                  description="Shows annual counts for processed, awaiting validation, staged, and not paginated agreements."
-                >
-                  <div className="mx-auto w-full max-w-[980px]">
-                    <h2 className="mb-2 text-base font-semibold">
-                      Processing status
-                    </h2>
-                    {renderStagedChart("border-0 bg-background p-0")}
-                  </div>
-                </MobileChartModal>
-              </>
-            ) : (
-              renderStagedChart()
-            )}
+            {renderStagedChart()}
             {renderStageFunnelTable()}
-            <table id={stagedChartTableId} className="sr-only">
+            <div className="sr-only"><table id={stagedChartTableId}>
               <caption>
                 Processed, awaiting validation, staged, and not paginated
                 agreements by filing year
@@ -1038,115 +981,93 @@ export function AgreementIndexOverview() {
                   <td>{stagedTotals.total.toLocaleString("en-US")}</td>
                 </tr>
               </tbody>
-            </table>
+            </table></div>
           </div>
         )}
-      </TabsContent>
-      <TabsContent value="deal-types" className="mt-0 space-y-3">
-        <p
-          id={dealTypeChartDescriptionId}
-          className="text-base prose-copy"
+      </ChartPanel>
+
+      <div ref={dealTypesPanelRef}>
+        <ChartPanel
+          id={dealTypeTitleId}
+          title="Deal types"
+          description={
+            <span id={dealTypeChartDescriptionId} className="prose-copy">
+              Processed agreements by deal type and filing year.
+            </span>
+          }
+          controls={
+            <SegmentedControl<DealTypeChartMode>
+              value={dealTypeChartMode}
+              onValueChange={setDealTypeChartMode}
+              options={DEAL_TYPE_MODE_OPTIONS}
+              aria-label="Deal type chart mode"
+              size="sm"
+            />
+          }
+          footnote="The dashed divider marks the 2020/2021 boundary between DMA Corpus and EDGAR-sourced data."
+          mobileExpand={
+            dealTypeChartData.length > 0 && dealTypeSeries.length > 0
+              ? () => renderDealTypeChart()
+              : false
+          }
         >
-          Deal type counts are precomputed from processed agreements and grouped
-          by filing year. The dashed vertical divider marks the 2020/2021
-          boundary: from 2000 through 2020, we use data from the DMA Corpus;
-          beginning 2021, we source data ourselves from EDGAR.
-        </p>
-        {dealTypeSummaryLoading ||
-        (!dealTypeSummaryLoaded && !dealTypeSummaryError) ? (
-          <div className="rounded-lg border border-border bg-muted/20 p-4">
-            <Skeleton className="h-4 w-40" />
-            <Skeleton className="mt-4 h-[220px] w-full sm:h-[260px]" />
-          </div>
-        ) : dealTypeSummaryError ? (
-          <div
-            className="rounded-lg border border-border bg-muted/10 p-4 text-sm text-muted-foreground"
-            role="alert"
-          >
-            {dealTypeSummaryError}
-          </div>
-        ) : dealTypeChartData.length === 0 || dealTypeSeries.length === 0 ? (
-          <div
-            className="rounded-lg border border-border bg-muted/10 p-4 text-sm text-muted-foreground"
-            role="status"
-          >
-            No deal type data available yet.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {renderDealTypeSummaryTable()}
-            {isMobile ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setIsDealTypesChartModalOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-describedby={dealTypeChartDescriptionId}
-                >
-                  Open deal types chart
-                </Button>
-                <MobileChartModal
-                  open={isDealTypesChartModalOpen}
-                  onOpenChange={setIsDealTypesChartModalOpen}
-                  title="Deal types"
-                  description="Shows annual deal type counts for processed agreements."
-                >
-                  <div className="mx-auto w-full max-w-[980px]">
-                    <h2 className="mb-2 text-base font-semibold">Deal types</h2>
-                    {renderDealTypeChart("border-0 bg-background p-0")}
-                  </div>
-                </MobileChartModal>
-              </>
-            ) : (
-              renderDealTypeChart()
-            )}
-            <table id={dealTypeChartTableId} className="sr-only">
-              <caption>Deal type counts by filing year</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Year</th>
-                  {dealTypeSeries.map((series) => (
-                    <th key={`deal-type-head-${series.key}`} scope="col">
-                      {series.label}
-                    </th>
-                  ))}
-                  <th scope="col">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dealTypeChartData.map((row) => {
-                  const rowTotal = dealTypeSeries.reduce(
-                    (sum, series) => sum + Number(row[series.key] ?? 0),
-                    0,
-                  );
-                  return (
-                    <tr key={`deal-type-row-${row.year}`}>
-                      <th scope="row">{row.year}</th>
-                      {dealTypeSeries.map((series) => (
-                        <td key={`deal-type-cell-${row.year}-${series.key}`}>
-                          {Number(row[series.key] ?? 0).toLocaleString("en-US")}
-                        </td>
-                      ))}
-                      <td>{rowTotal.toLocaleString("en-US")}</td>
-                    </tr>
-                  );
-                })}
-                <tr>
-                  <th scope="row">Total</th>
-                  {dealTypeSeries.map((series) => (
-                    <td key={`deal-type-total-${series.key}`}>
-                      {series.total.toLocaleString("en-US")}
-                    </td>
-                  ))}
-                  <td>{dealTypeTotals.total.toLocaleString("en-US")}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-      </TabsContent>
-    </Tabs>
+          {dealTypeSummaryLoading ||
+          (!dealTypeSummaryLoaded && !dealTypeSummaryError) ? (
+            panelSkeleton
+          ) : dealTypeSummaryError ? (
+            <ErrorState error={dealTypeSummaryError} variant="inline" />
+          ) : dealTypeChartData.length === 0 || dealTypeSeries.length === 0 ? (
+            <EmptyState title="No deal type data yet." variant="inline" />
+          ) : (
+            <div className="space-y-4">
+              {renderDealTypeSummaryTable()}
+              {renderDealTypeChart()}
+              <div className="sr-only"><table id={dealTypeChartTableId}>
+                <caption>Deal type counts by filing year</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Year</th>
+                    {dealTypeSeries.map((series) => (
+                      <th key={`deal-type-head-${series.key}`} scope="col">
+                        {series.label}
+                      </th>
+                    ))}
+                    <th scope="col">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dealTypeChartData.map((row) => {
+                    const rowTotal = dealTypeSeries.reduce(
+                      (sum, series) => sum + Number(row[series.key] ?? 0),
+                      0,
+                    );
+                    return (
+                      <tr key={`deal-type-row-${row.year}`}>
+                        <th scope="row">{row.year}</th>
+                        {dealTypeSeries.map((series) => (
+                          <td key={`deal-type-cell-${row.year}-${series.key}`}>
+                            {Number(row[series.key] ?? 0).toLocaleString("en-US")}
+                          </td>
+                        ))}
+                        <td>{rowTotal.toLocaleString("en-US")}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <th scope="row">Total</th>
+                    {dealTypeSeries.map((series) => (
+                      <td key={`deal-type-total-${series.key}`}>
+                        {series.total.toLocaleString("en-US")}
+                      </td>
+                    ))}
+                    <td>{dealTypeTotals.total.toLocaleString("en-US")}</td>
+                  </tr>
+                </tbody>
+              </table></div>
+            </div>
+          )}
+        </ChartPanel>
+      </div>
+    </div>
   );
 }

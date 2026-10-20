@@ -4,7 +4,10 @@ import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
 
 export type AgreementSummary = {
+  /** Every agreement ingested, including those pending processing or verification. */
   agreements: number;
+  /** Agreements processed and searchable (the rows behind `v1/agreements-index`). */
+  processed_agreements?: number | null;
   sections: number;
   pages: number;
   latest_filing_date: string | null;

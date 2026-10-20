@@ -1429,6 +1429,24 @@ def register_agreements_routes(
             ).mappings().first()
         except SQLAlchemyError:
             overview_row = None
+        # Agreements a user can browse and search (eligible, latest XML verified);
+        # `agreements` above counts every eligible agreement ingested.
+        try:
+            processed_agreements = deps._to_int(
+                cast(
+                    object,
+                    db.session.execute(
+                        text(
+                            f"""
+                            SELECT COUNT(*)
+                            FROM {deps._schema_prefix()}agreement_index_summary
+                            """
+                        )
+                    ).scalar(),
+                )
+            )
+        except SQLAlchemyError:
+            processed_agreements = None
 
         row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
         overview_row_dict = (
@@ -1443,6 +1461,7 @@ def register_agreements_routes(
             latest_filing_date = str(latest_filing_date)
         payload: dict[str, object] = {
             "agreements": deps._to_int(cast(object, row_dict.get("agreements"))),
+            "processed_agreements": processed_agreements,
             "sections": deps._to_int(cast(object, row_dict.get("sections"))),
             "pages": deps._to_int(cast(object, row_dict.get("pages"))),
             "latest_filing_date": latest_filing_date,

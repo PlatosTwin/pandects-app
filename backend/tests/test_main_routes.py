@@ -695,6 +695,17 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("pages"), 12)
         self.assertEqual(body.get("latest_filing_date"), "2023-04-01")
 
+    def test_agreements_summary_includes_processed_agreements(self):
+        self.app_module._agreements_summary_cache["payload"] = None
+        self.app_module._agreements_summary_cache["ts"] = 0
+        client = self.app.test_client()
+        res = client.get("/v1/agreements-summary")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        # Every eligible agreement ingested vs. the browsable rows in agreement_index_summary.
+        self.assertEqual(body.get("agreements"), 4)
+        self.assertEqual(body.get("processed_agreements"), 2)
+
     def test_agreements_bulk_cursor_pagination(self):
         client = self.app.test_client()
         res = client.get("/v1/agreements?page_size=2")

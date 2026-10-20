@@ -78,11 +78,11 @@ const ROUTE_MANIFEST = [
     pathname: "/agreement-index",
     title: "Open-Source M&A Data | Agreement Index | Pandects",
     description:
-      "Explore Pandects' open-source M&A dataset with free access to SEC EDGAR merger agreement coverage, dataset totals, and sortable agreement metadata across years and parties.",
+      "Explore Pandects' open-source M&A dataset: SEC EDGAR merger agreement coverage, dataset totals, processing status, and deal types by filing year.",
     pageType: "CollectionPage",
     pageName: "Open-Source M&A Data Agreement Index",
     pageDescription:
-      "Explore Pandects' open-source M&A dataset with SEC EDGAR merger agreement coverage, dataset totals, and sortable agreement metadata across years and parties.",
+      "Explore Pandects' open-source M&A dataset: SEC EDGAR merger agreement coverage, dataset totals, processing status, and deal types by filing year.",
     sitemap: true,
     renderStrategy: "prerender",
     prerenderFilename: "agreement-index.html",
