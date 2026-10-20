@@ -65,6 +65,27 @@ export async function fetchAllPagesForCsv<TRow>(
   };
 }
 
+let exportInFlight = false;
+
+/**
+ * Run a full CSV fetch with a "preparing" toast, at most one at a time.
+ * Returns null when another export is already running.
+ */
+export async function exportAllPagesForCsv<TRow>(
+  endpoint: string,
+  query: string,
+): Promise<CsvExportRows<TRow> | null> {
+  if (exportInFlight) return null;
+  exportInFlight = true;
+  const progress = toast({ title: "Preparing CSV…", description: "Fetching results to export." });
+  try {
+    return await fetchAllPagesForCsv<TRow>(endpoint, query);
+  } finally {
+    progress.dismiss();
+    exportInFlight = false;
+  }
+}
+
 export const csvEscape = (value: string | number | null | undefined): string => {
   if (value === null || value === undefined || value === "") return "";
   return `"${String(value).replace(/"/g, '""')}"`;
@@ -89,11 +110,19 @@ export function downloadCsvFile(
 }
 
 /** Tell the user when an export holds fewer rows than the search matched. */
-export function notifyCsvTruncated(exported: number, total: number, approximate: boolean): void {
+export function notifyCsvTruncated(
+  exported: number,
+  total: number,
+  approximate: boolean,
+  isAnonymous: boolean,
+): void {
   const totalLabel = `${approximate ? "about " : ""}${total.toLocaleString()}`;
+  const nextStep = isAnonymous
+    ? `Sign in to export up to ${CSV_EXPORT_MAX_ROWS.toLocaleString()} rows.`
+    : "Narrow the filters to export the rest.";
   toast({
     title: "Partial CSV export",
-    description: `The file holds the first ${exported.toLocaleString()} of ${totalLabel} results. Narrow the filters to export the rest.`,
+    description: `The file holds the first ${exported.toLocaleString()} of ${totalLabel} results. ${nextStep}`,
   });
 }
 

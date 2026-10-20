@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
 import { apiUrl } from "@/lib/api-config";
 import { buildSearchParams } from "@/lib/url-params";
+import { trackEvent } from "@/lib/analytics";
 import { logger } from "@/lib/logger";
 import {
   csvEscape,
   downloadCsvFile,
-  fetchAllPagesForCsv,
+  exportAllPagesForCsv,
   notifyCsvFailed,
   notifyCsvTruncated,
   type CsvExportRows,
@@ -68,7 +69,7 @@ export function useTransactionSearch() {
     TransactionSearchResponse,
     TransactionSearchResult
   >(TRANSACTIONS_SEARCH_CONFIG);
-  const { committed, responseData } = core;
+  const { responseData, getLoadedCommitted } = core;
 
   const results = core.results;
   const totalCount = responseData?.total_count ?? 0;
@@ -116,16 +117,27 @@ export function useTransactionSearch() {
     if (isSelection) {
       rows = results.filter((r) => core.selectedResults.has(r.agreement_uuid));
     } else {
-      // Export what the results show: the submitted query, not the sidebar draft.
-      if (!committed) return;
+      // Export what the results show: the last submitted query that loaded,
+      // not the sidebar draft.
+      const loaded = getLoadedCommitted();
+      if (!loaded) return;
       try {
-        exportedFrom = await fetchAllPagesForCsv<TransactionSearchResult>(
+        const exported = await exportAllPagesForCsv<TransactionSearchResult>(
           "v1/search/agreements",
-          buildTransactionQueryString(committed),
+          buildTransactionQueryString(loaded),
         );
-        rows = exportedFrom.rows;
+        if (!exported) return;
+        exportedFrom = exported;
+        rows = exported.rows;
       } catch (error) {
         logger.error("Failed to fetch all transactions for CSV:", error);
+        trackEvent("api_error", {
+          endpoint: "api/search/agreements",
+          kind:
+            error instanceof TypeError && error.message.includes("fetch")
+              ? "network"
+              : "unknown",
+        });
         notifyCsvFailed();
         return;
       }
@@ -180,9 +192,10 @@ export function useTransactionSearch() {
         rows.length,
         exportedFrom.totalCount,
         exportedFrom.totalCountIsApproximate,
+        access.tier === "anonymous",
       );
     }
-  }, [committed, results, core.selectedResults]);
+  }, [getLoadedCommitted, results, core.selectedResults, access.tier]);
 
   return {
     isSearching: core.isSearching,

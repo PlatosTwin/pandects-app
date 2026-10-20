@@ -13,6 +13,8 @@ the MCP surface. Machine-readable version:
 
 - **[mcp/notable]** search_sections phrase queries for common language now return results instead of an error.
   - A phrase common enough to match a large share of the corpus -- "material adverse effect", "reasonable best efforts", "governing law" -- previously exceeded the database time bound and came back as a validation error telling the caller to add filters, which could not help. Phrase mode now picks between two query plans per search, so these queries return normally. Two consumer-visible consequences: the error text for a phrase that still cannot be served now asks for a longer or more distinctive phrase rather than filters, and for the most common phrases total_count is reported as a lower bound with method `filtered_lower_bound` and planning_reliability `low`, because an exact count of those matches is not affordable. Read total_count together with has_next on those searches; count_mode=exact degrades the same way rather than failing. Result rows and their order are unchanged.
+- **[api/minor]** An out-of-range page_size now returns the largest allowed page instead of 25 rows.
+  - On /v1/sections, /v1/tax-clauses, /v1/agreements, /v1/search/agreements, and the MCP search_sections, search_tax_clauses, search_agreements, list_agreements, and list_agreement_sections tools, a page_size above the caller's ceiling (100 for signed-in and API-key callers, 10 for anonymous callers) is now clamped to that ceiling rather than reset to the default of 25. A page_size below 1 still falls back to the default. Requests within range are unchanged.
 
 ## 2026-09-09 — released 2026-09-09
 

@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const authFetch = vi.fn();
 vi.mock("@/lib/auth-fetch", () => ({ authFetch: (url: string) => authFetch(url) }));
-vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn() }));
+vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn(() => ({ dismiss: vi.fn() })) }));
 
-const { CSV_EXPORT_MAX_PAGES, fetchAllPagesForCsv } = await import("./csv-export");
+const { CSV_EXPORT_MAX_PAGES, exportAllPagesForCsv, fetchAllPagesForCsv } = await import(
+  "./csv-export"
+);
 
 function page(results: number[], totalCount: number, hasNext: boolean) {
   return {
@@ -49,5 +51,20 @@ describe("fetchAllPagesForCsv", () => {
     authFetch.mockResolvedValueOnce({ ok: false, status: 429, statusText: "Too Many" });
 
     await expect(fetchAllPagesForCsv("v1/sections", "")).rejects.toThrow("HTTP 429");
+  });
+
+  it("ignores a second export while one is running", async () => {
+    let release: (value: unknown) => void = () => {};
+    authFetch.mockImplementationOnce(
+      () => new Promise((resolve) => (release = resolve)),
+    );
+
+    const first = exportAllPagesForCsv<number>("v1/sections", "");
+    const second = await exportAllPagesForCsv<number>("v1/sections", "");
+    release(page([1], 1, false));
+
+    expect(second).toBeNull();
+    expect((await first)?.rows).toEqual([1]);
+    expect(authFetch).toHaveBeenCalledTimes(1);
   });
 });

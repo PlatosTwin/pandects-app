@@ -15,6 +15,7 @@ from typing import Any, NoReturn, cast
 from sqlalchemy import and_, asc, desc, func, or_, text
 from werkzeug.exceptions import BadRequest
 
+from backend.core.pagination import AUTHENTICATED_MAX_PAGE_SIZE, clamp_page_size
 from backend.mcp.tools.constants import _STRUCTURED_FILTER_ARRAY_FIELDS
 from backend.routes.agreements import (
     _agreement_is_public_eligible_expr,
@@ -45,7 +46,7 @@ def _normalized_page(page: int) -> int:
 
 
 def _normalized_page_size(page_size: int) -> int:
-    return page_size if 1 <= page_size <= 100 else 25
+    return clamp_page_size(page_size, max_page_size=AUTHENTICATED_MAX_PAGE_SIZE)
 
 
 def _project_result_fields(

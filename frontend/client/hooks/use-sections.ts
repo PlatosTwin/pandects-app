@@ -13,7 +13,7 @@ import { DEFAULT_PAGE_SIZE, DEFAULT_PAGE } from "@/lib/constants";
 import {
   csvEscape,
   downloadCsvFile,
-  fetchAllPagesForCsv,
+  exportAllPagesForCsv,
   notifyCsvFailed,
   notifyCsvTruncated,
   type CsvExportRows,
@@ -147,7 +147,7 @@ export function useSections() {
   const core = useCommittedSearchCore<SearchFilters, SearchResponse, SearchResult>(
     SECTIONS_SEARCH_CONFIG,
   );
-  const { committed, responseData } = core;
+  const { committed, responseData, getLoadedCommitted } = core;
 
   const searchResults = useMemo(
     () => sortResultsArray(core.results, currentSort, sort_direction),
@@ -287,14 +287,18 @@ export function useSections() {
         core.selectedResults.has(result.id),
       );
     } else {
-      // Export what the results show: the submitted query, not the sidebar draft.
-      if (!committed) return;
+      // Export what the results show: the last submitted query that loaded,
+      // not the sidebar draft.
+      const loaded = getLoadedCommitted();
+      if (!loaded) return;
       try {
-        exportedFrom = await fetchAllPagesForCsv<SearchResult>(
+        const exported = await exportAllPagesForCsv<SearchResult>(
           "v1/sections",
-          buildSectionsQueryString(committed),
+          buildSectionsQueryString(loaded),
         );
-        resultsToDownload = exportedFrom.rows;
+        if (!exported) return;
+        exportedFrom = exported;
+        resultsToDownload = exported.rows;
       } catch (error) {
         logger.error("Failed to fetch all results for CSV:", error);
         SECTIONS_SEARCH_CONFIG.trackFailure(error);
@@ -305,7 +309,7 @@ export function useSections() {
 
     if (resultsToDownload.length === 0) return;
 
-    const exportedFilters = committed?.filters ?? filters;
+    const exportedFilters = getLoadedCommitted()?.filters ?? filters;
     trackEvent("sections_csv_download_click", {
       mode: isSelection ? "selected" : "all",
       selected_count: core.selectedResults.size,
@@ -348,9 +352,10 @@ export function useSections() {
         resultsToDownload.length,
         exportedFrom.totalCount,
         exportedFrom.totalCountIsApproximate,
+        access.tier === "anonymous",
       );
     }
-  }, [committed, filters, searchResults, core.selectedResults]);
+  }, [getLoadedCommitted, filters, searchResults, core.selectedResults, access.tier]);
 
   const clearFilters = useCallback(() => {
     setFilters({

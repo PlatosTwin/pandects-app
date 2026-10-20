@@ -11,12 +11,12 @@ from flask_smorest import Blueprint
 from sqlalchemy import and_, asc, bindparam, desc, func, or_, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.services.counsel_leaderboards import build_counsel_leaderboards_from_summary_rows
 from backend.core.pagination import (
     AUTHENTICATED_MAX_PAGE_SIZE,
     clamp_page_size,
     search_max_page_size,
 )
+from backend.services.counsel_leaderboards import build_counsel_leaderboards_from_summary_rows
 from backend.filtering import (
     build_canonical_counsel_agreement_uuid_subquery,
     build_transaction_price_bucket_filter,
@@ -1228,11 +1228,7 @@ def register_agreements_routes(
                     "target": row_map.get("target"),
                     "acquirer": row_map.get("acquirer"),
                     "consideration_type": consideration_type,
-                    "total_consideration": (
-                        float(cast(float, total_consideration))
-                        if total_consideration is not None
-                        else None
-                    ),
+                    "total_consideration": _to_float_or_none(total_consideration),
                     "verified": bool(verified_value) if verified_value is not None else False,
                 }
             )

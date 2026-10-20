@@ -11,7 +11,7 @@ import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/lib/constants";
 import {
   csvEscape,
   downloadCsvFile,
-  fetchAllPagesForCsv,
+  exportAllPagesForCsv,
   notifyCsvFailed,
   notifyCsvTruncated,
   type CsvExportRows,
@@ -132,7 +132,7 @@ export function useTaxClauses() {
     TaxClauseSearchResponse,
     TaxClauseSearchResult
   >(TAX_CLAUSES_SEARCH_CONFIG);
-  const { committed, responseData } = core;
+  const { committed, responseData, getLoadedCommitted } = core;
 
   const searchResults = core.results;
   const total_count = responseData?.total_count ?? 0;
@@ -249,14 +249,18 @@ export function useTaxClauses() {
     if (isSelection) {
       rows = searchResults.filter((r) => core.selectedResults.has(r.id));
     } else {
-      // Export what the results show: the submitted query, not the sidebar draft.
-      if (!committed) return;
+      // Export what the results show: the last submitted query that loaded,
+      // not the sidebar draft.
+      const loaded = getLoadedCommitted();
+      if (!loaded) return;
       try {
-        exportedFrom = await fetchAllPagesForCsv<TaxClauseSearchResult>(
+        const exported = await exportAllPagesForCsv<TaxClauseSearchResult>(
           "v1/tax-clauses",
-          buildCommittedQueryString(committed),
+          buildCommittedQueryString(loaded),
         );
-        rows = exportedFrom.rows;
+        if (!exported) return;
+        exportedFrom = exported;
+        rows = exported.rows;
       } catch (error) {
         logger.error("Failed to fetch tax clauses for CSV:", error);
         TAX_CLAUSES_SEARCH_CONFIG.trackFailure(error);
@@ -307,9 +311,10 @@ export function useTaxClauses() {
         rows.length,
         exportedFrom.totalCount,
         exportedFrom.totalCountIsApproximate,
+        access.tier === "anonymous",
       );
     }
-  }, [committed, searchResults, core.selectedResults]);
+  }, [getLoadedCommitted, searchResults, core.selectedResults, access.tier]);
 
   const clearFilters = useCallback(() => {
     setFilters({ ...EMPTY_FILTERS });
