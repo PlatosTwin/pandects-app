@@ -86,7 +86,10 @@ const COMPARISON_ROWS: ReadonlyArray<{
   },
 ];
 
-const markupHighlightClass = "rounded-sm bg-warning/10 px-1 text-warning";
+// The light warning token is 4.4:1 on its own 10% tint; a slightly darker
+// shade clears WCAG AA (4.5:1) for this small mono text.
+const markupHighlightClass =
+  "rounded-sm bg-warning/10 px-1 text-[hsl(30_90%_30%)] dark:text-warning";
 
 // Reserved heights for the lazy metrics cards (measured at the 720px docs
 // measure and at phone width) so deep links below them do not land short.

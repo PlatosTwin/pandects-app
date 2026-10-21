@@ -35,7 +35,7 @@ const XML_ELEMENT_TREE = String.raw`<document uuid="agreement-uuid">
 export default function XmlSchema() {
   return (
     <PageShell layout="docs" title="XML Schema">
-      <div className="grid gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <section
           aria-labelledby="xml-schema-overview"
           aria-describedby="xml-schema-overview-desc"
@@ -107,9 +107,9 @@ export default function XmlSchema() {
                 role="region"
                 aria-label="XML element tree"
                 tabIndex={0}
-                className="rounded-lg border border-border bg-muted/40 p-4"
+                className="overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
-                <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs font-mono text-muted-foreground [overflow-wrap:anywhere] sm:text-sm sm:whitespace-pre">
+                <pre className="w-max whitespace-pre font-mono text-xs text-muted-foreground sm:text-sm">
                   {XML_ELEMENT_TREE}
                 </pre>
               </div>
@@ -163,7 +163,7 @@ export default function XmlSchema() {
                     <span className="prose-copy">(optional)</span>,{" "}
                     <span className="font-mono text-sm text-foreground">
                       pageUUID
-                    </span>
+                    </span>{" "}
                     and{" "}
                     <span className="font-mono text-sm text-foreground">
                       page

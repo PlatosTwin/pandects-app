@@ -42,7 +42,10 @@ export function LegalMarkdownPage({
   const prepared = prepareLegalMarkdownForPage(markdown);
   const renderedHtml = renderLegalMarkdownToHtml(prepared.markdown);
   // The page title is the only h1; headings the markdown marks as h1 render as h2.
-  const demotedHtml = renderedHtml.replace(/<(\/?)h1(?=[\s>])/gi, "<$1h2");
+  // Code blocks are focusable so keyboard users can scroll them.
+  const demotedHtml = renderedHtml
+    .replace(/<(\/?)h1(?=[\s>])/gi, "<$1h2")
+    .replace(/<pre(?=[\s>])/gi, '<pre tabindex="0"');
   const html = transformHtml ? transformHtml(demotedHtml) : demotedHtml;
 
   const defaultRelatedLinks = pageKey ? (
@@ -78,7 +81,7 @@ export function LegalMarkdownPage({
     <PageShell layout="docs" title={title} description={prepared?.subtitle}>
       <div>
           <div
-            className="prose prose-slate max-w-none dark:prose-invert prose-headings:tracking-tight prose-h2:scroll-mt-24 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-p:leading-relaxed"
+            className="prose prose-slate max-w-none dark:prose-invert prose-headings:tracking-tight prose-h2:scroll-mt-24 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-p:leading-relaxed [&_pre:focus-visible]:outline-none [&_pre:focus-visible]:ring-2 [&_pre:focus-visible]:ring-ring"
             dangerouslySetInnerHTML={{ __html: html }}
           />
           {downloadHref && (

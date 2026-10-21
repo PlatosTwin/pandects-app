@@ -25,13 +25,13 @@ export default function Signup() {
     <PageShell title="Create account" layout="form">
       <Card className="w-full p-6 shadow-sm sm:p-8">
         <Alert>
-          <AlertTitle>Account creation is temporarily disabled</AlertTitle>
+          <AlertTitle as="h2">Account creation is temporarily disabled</AlertTitle>
         </Alert>
         <div className="mt-6 text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link
             to={`/login?next=${encodeURIComponent(nextPath)}`}
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
           >
             Sign in
           </Link>
