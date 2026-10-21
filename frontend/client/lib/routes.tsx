@@ -4,7 +4,7 @@ import { lazy, type LazyExoticComponent, type ComponentType } from "react";
  * Canonical runtime route table.
  *
  * This is the single place to register a SPA route. Add an entry here and
- * `main.tsx` will pick it up. SEO metadata for the same path lives in
+ * `App.tsx` will pick it up. SEO metadata for the same path lives in
  * `shared/route-manifest.mjs`; a unit test cross-checks that every static
  * runtime path also has a manifest entry, so adding a route in one file but
  * forgetting the other fails CI instead of silently shipping a "Not Found"

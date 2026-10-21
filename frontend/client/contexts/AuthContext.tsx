@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { AuthUser } from "@/lib/auth-types";
 import { clearSessionToken, getSessionToken } from "@/lib/auth-session";
 import { fetchMe, logoutSession } from "@/lib/auth-api";
@@ -26,7 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     transport === "cookie" || initialToken ? "loading" : "anonymous",
   );
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [session_token, setSessionTokenState] = useState<string | null>(initialToken);
+  const [session_token, setSessionTokenState] = useState<string | null>(
+    initialToken,
+  );
   const [wakePending, setWakePending] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -41,22 +50,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return await fetchMe();
         } catch (error) {
           if (isAuthWakeupError(error)) {
-            setWakePending(true);
+            startTransition(() => setWakePending(true));
           }
           throw error;
         }
       });
-      setUser(me.user);
-      setStatus("authenticated");
-      setWakePending(false);
+      // A transition, so an answer that lands while a prerendered page is
+      // still hydrating waits for hydration instead of discarding the page's
+      // server HTML and re-rendering it from scratch.
+      startTransition(() => {
+        setUser(me.user);
+        setStatus("authenticated");
+        setWakePending(false);
+      });
     } catch {
       if (transport === "bearer") {
         clearSessionToken();
       }
-      setSessionTokenState(null);
-      setUser(null);
-      setStatus("anonymous");
-      setWakePending(false);
+      startTransition(() => {
+        setSessionTokenState(null);
+        setUser(null);
+        setStatus("anonymous");
+        setWakePending(false);
+      });
     }
   }, [transport]);
 
