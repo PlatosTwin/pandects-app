@@ -172,7 +172,7 @@ DealOS KG is the vocabulary reference. Its `moving_parts` (obligor, conduct, out
 
 For each `(agreement_uuid, xml_version)`, the text layer is a deterministic projection of the verified XML:
 - walk `<body>` in document order;
-- emit the string value of every `<text>` and `<definition>` leaf, stripped, followed by `\n`;
+- emit the text of every `<text>` element, unstripped, followed by `\n`. A `<definition>` is a container of `<text>` elements (it never holds text of its own), so it is not a leaf; its `<text>` children are tagged with the defined term;
 - skip `<page>` and `<pageUUID>`.
 
 Other parts:
@@ -415,7 +415,7 @@ The annotation files themselves were lost: the scratch folder was cleaned up whi
    - Danka's fee is 2.08% of purchase price, a different basis.
 
    A `ma.deal.value` concept (price per share, share basis, stated purchase price) should feed the derived percentage. This confirms that `pct_of_equity_value_computed` is a derived field, computed in code, with its source recorded ([open question 5](#15-open-questions-for-you)).
-5. **The text layer contains duplicates and artifacts.** In 4 of the 6 agreements every definition appears twice in a row, and the first copy has page-footer lines (a page number plus a GUID) inside it. This looks like a systematic XML build issue in definitions articles, worth checking separately. This is why the anchoring steps for context and nearest position matter. The projection should also strip page-footer leftovers and report repeated blocks as an XML quality signal.
+5. **Duplicated definitions were a projection bug, not an XML defect** (corrected 2026-10-21). The first projection treated `<definition>` as a leaf, so it emitted each definition's whole text, `<pageUUID>` values included, and then each of its `<text>` lines again. With the fix, a 400-agreement random sample has no duplicated definitions. 25 of the 400 have 2–10% repeated long lines, and those checked are genuine mirrored representations (sections 3.16 and 4.16 for the two parties). The re-anchoring numbers in 6.3 were measured on the buggy layer, so they are, if anything, conservative.
 6. **"Expense reimbursement" conflated four things:** fee reimbursement on termination, reimbursement of financing-cooperation costs (payable whether or not the deal closes), costs of collecting an unpaid fee, and a split of HSR filing fees. They are now separate concepts: `ma.termination.expense_reimbursement`, `ma.financing.cooperation_costs`, `ma.termination.collection_costs`, `ma.regulatory.filing_fee_allocation`.
 7. **Booleans hide structure.** These booleans became structured fields:
    - the reverse fee's cap on buyer liability: a formula, not a yes/no (Grace: the fee *plus* uncapped reimbursements);
@@ -441,6 +441,85 @@ The annotation files themselves were lost: the scratch folder was cleaned up whi
 10. **Overlap stays modest at this grain, and nesting is common.** Only 2 span pairs overlapped. Nesting appeared 27 times (carve-outs inside MAE definitions). Both are supported by the model, but neither is the hard part. Cross-section instances and value resolution through defined terms are.
 
 The annotations reached the role vocabulary through use. In the first three agreements alone, 15 roles appeared; the common ones were `primary`, `trigger`, `extension`, `exclusive_remedy`, `carve_out`, `cap`, `guarantee` and `sources`. Roles become a small controlled list per concept in the YAML, not free text.
+
+### 7.4 M1 pilot results (2026-10-21)
+
+**Setup.** 50 verified agreements, stratified as 36 public-target and 14 private-target deals across four eras (before 2008, 2008–15, 2016–20, 2021 on). Three concepts: target fee, reverse fee, outside date. Everything ran as subagents in one Claude Code session, with no API calls:
+- **Stage 1 (code):** keeps sections whose title, article or text matches fee, termination or outside-date patterns, plus definitions of matching terms. Median 9 sections and 46K characters per agreement, about 19% of the body.
+- **Extractors, two arms:** Sonnet and Haiku, each seeing only the stage 1 candidates.
+- **Gold:** Opus, independently, searching the full body.
+- **Adjudication:** Opus judged every field where gold and the Sonnet arm disagreed, and fixed gold where it was wrong.
+
+Code and numbers are in `docs/plans/span-taxonomy/pilot/`.
+
+| Measure | Sonnet | Haiku |
+|---|---|---|
+| Presence, 150 agreement × concept calls | 150/150 | 149/150 (one capped expense reimbursement read as a fee) |
+| Quotes found verbatim in the text | 99.4% of 1,351 | 99.4% of 1,176 |
+| Target fee amount | 33/34 | 31/34 |
+| Outside date: initial date / effect / number of extensions | 49/49, 49/49, 47/49 | 48/49, 49/49, 46/49 |
+| Target fee triggers: exact set / set F1 | 18/34 / 0.93 | 16/34 / 0.89 |
+| Reverse fee triggers: exact set / set F1 | 14/21 / 0.84 | 12/21 / 0.74 |
+| Reverse fee `kind` / `payor` | 16/21, 14/21 | 13/21, 19/21 |
+| Remedy (target / reverse) | 29/34, 18/21 | 28/34, 18/21 |
+| Extension conditions / breach bar | 42/49, 41/49 | 40/49, 40/49 |
+| Operative spans found (target / reverse / outside date) | 60/64, 34/35, 50/50 | 51/64, 33/35, 49/50 |
+| Trigger and remedy spans found | 94/238, 38/85 | 69/238, 28/85 |
+| Subagent tokens for the 50 agreements | 1.50M | 2.45M |
+
+Stage 1 retrieval kept 612 of 628 gold spans (97.5%). Its misses were 5 fee definitions in a separate definitions section and 11 peripheral spans.
+
+**Adjudication.** 56 disputed fields were judged:
+- 30 times gold was right;
+- once the extractor was right;
+- twice neither was;
+- 23 times the schema was ambiguous: both readings were defensible because a code or rule was undefined.
+
+Gold was corrected in 4 places. So the gold labeler is reliable on what the text says, and **most of the remaining disagreement comes from the schema, not from the models.**
+
+**Against the acceptance bar** ([section 9](#9-evaluation-plan)):
+- **Passes:**
+  - presence detection (Sonnet: precision and recall 1.0 on all three concepts);
+  - the values people aggregate on: fee amount, outside date, effect and number of extensions;
+  - quote validity.
+- **Fails:**
+  - the coded multi-value fields: triggers, reverse-fee kind, remedy, extension conditions and breach bar;
+  - span recall for trigger and remedy roles. Extractors marked the clause that imposes the fee but seldom the termination rights it refers to, because the schema never asked for one span per trigger.
+- **Model choice:** Haiku was less accurate on most coded fields (reverse-fee payor was the exception), yet used more tokens than Sonnet, because it read more. A small model should be measured on the narrow stage 2 job (does this passage belong to the concept?), not on full extraction.
+
+**Schema v2: rules from the adjudication.**
+1. **Breach bar becomes two fields.**
+   - `conduct`: `breach`, `failure_to_perform`, `any_action_or_inaction`, `willful_breach`.
+   - `causation`, an ordinal: `principal_or_primary_cause`, `cause_or_result`, `no_causation_required`, `none`.
+
+   The one enum could not hold the most common wording, "has been the cause of, or resulted in", and labelers split it between `principal_cause` and `other`.
+2. **PartyRole records the side.** `side` is `target_side` or `buyer_side`, plus `entity` (`parent`, `merger_sub`, `sponsor`, …) and the defined term. "Parent" was coded `buyer` in 8 gold files and `parent` in 26.
+3. **One remedy rule:**
+   - `exclusive` when the text says the fee is the sole or exclusive remedy, or that termination releases all liability except the fee;
+   - `non_exclusive` only when the text says the fee is in addition to other remedies, or cumulative;
+   - otherwise `not_stated`, with the carve-outs listed.
+
+   Two adjudicators gave opposite rules for the silent case.
+4. **Reverse-fee `kind` gets definitions** and a `reciprocal` code, for a fee both sides owe on mirrored triggers.
+5. **Trigger rules:**
+   - a tender offer that expires with its minimum condition unmet counts as an approval failure (rename `vote_failure_*` to `approval_failure_*`);
+   - one termination right that covers several events emits every matching code;
+   - a fee payable on a recommendation change without termination gets its own code;
+   - each trigger needs its own `trigger` span on the termination right.
+6. **Amounts are always a list.** An amount defined outside the body is an entry with `amount: "not_stated"`, never an empty list.
+7. **"Or such later date as the parties agree" is not an extension.**
+
+**No exhibits has a cost.** In 3 of 50 agreements, the fee amount or the outside date is defined outside the body, so those values are `not_stated`. In two the definitions sit in Exhibit A. In the third, the agreement's own defined-terms article is missing from the body, which looks like a page-classification error worth checking. If that rate holds, about 6% of agreements lose a headline value. A defined-terms exhibit is part of the operative agreement, so the cheapest fix is to admit exhibits titled as definitions while keeping other exhibits out.
+
+**Equity value and fee percentages.** Equity value was found for 32 of 34 deals with a target fee: 4 from the agreement, 28 from web sources with URLs, and 2 from `tx_metadata`. `tx_metadata` agreed within 5% in 25 of 32. On the 27 deals with an equity-basis value:
+- The target fee was a median **3.5%** of equity value, and 1.4–4.9% in 26 of them.
+- The outlier, Anywhere Real Estate at 12.5%, is a heavily levered target, where the fee is about 2% of enterprise value.
+- In one more deal (OM Group), the lookup matched a different deal: a carve-out sale instead of the parent merger.
+
+Two rules follow. Store the percentage against both equity value and enterprise value, with their sources. Flag any fee above 8% of equity value for review.
+
+**Next step.** Detection, retrieval and the core values meet the bar, and the failures trace to the seven schema rules above rather than to model limits. So M2 should start with schema v2. Its 50-agreement dev split re-checks these three concepts under v2 before the other seven concepts are scored.
+
 
 ## 8. Extraction pipeline
 
@@ -632,13 +711,19 @@ GROUP BY yr;
 | # | Scope | Exit criterion |
 |---|---|---|
 | **M0: Decisions** (about 1 week) | Answer the [open questions](#15-open-questions-for-you); agree the text-layer spec with the smart-reader plan; YAML skeleton for `ma` and `tax` with the first 10 value concepts; DDL drafted | Spec merged as docs; loader validates the YAML in CI |
-| **M1: Pilot** (2–3 weeks) | Text layer and re-anchoring job; stages 1–4 for **3 concepts** (target fee, reverse fee, outside date) on **50 agreements**; Opus pre-labels plus your review of the 50 for gold; metrics report | Acceptance bar met on the pilot concepts, or a written diagnosis of why not; cost per agreement measured |
+| **M1: Pilot** (run 2026-10-21, [7.4](#74-m1-pilot-results-2026-10-21)) | Text layer; stages 1–3 for **3 concepts** (target fee, reverse fee, outside date) on **50 agreements**; Opus gold with model adjudication; metrics report | Met for detection, retrieval and core values. Coded fields diagnosed as schema gaps, and schema v2 written. Cost: about 30K Sonnet tokens per agreement for 3 concepts |
 | **M2: v1 concepts** (3–4 weeks) | All 10 value concepts; 150-agreement gold (50 dev / 100 test); review UI hardened; stage 2 model choice settled by measurement | Bar met per concept on the sealed test split |
 | **M3: Corpus and serving** (2–3 weeks) | Full pass for the passing concepts; serving tables, REST and MCP endpoints, bulk docs and changelog; reader span highlighting behind a flag | Live calls in prod return instances; distributions show n and coverage |
 | **M4: Tax and breadth** | Migrate tax clauses to spans; label concepts toward roughly 140-leaf coverage; derived `section_concepts`; deprecate old filters | Old taxonomy tables unused for one push cycle |
 | **M5: Distill and maintain** | Span tagger trained on accepted spans; incremental per-ingest runs; monthly checks | Stage 2 LLM spend cut by at least 80% with no recall loss on test |
 
 ## 15. Open questions for you
+
+**Decisions, 2026-10-21:**
+- **Q3, text layer scope:** no exhibits. The layer is the body only. Values that live only in an exhibit are recorded as `not_stated` with a note.
+- **Q5, equity value:** derive it from the agreement when price per share and share count are stated. Otherwise look up the announced equity value online, from the press release or a filing, with the source URL recorded. `tx_metadata` is a last resort.
+- **Q6, model vendor:** for M1 and M2, extraction and gold labeling run as subagents inside a Claude Code session, with no separate API calls. Cost is measured in subagent tokens. The vendor choice for a full corpus pass is decided later.
+- **Q7, review budget:** gold is written by an independent model labeler and adjudicated by a second model, not reviewed by hand. Model-written gold is reported separately so your monthly spot check can target it.
 
 1. **Concept granularity for the first wave.** Is the list of 10 right? In particular: one `ma.financing.structure` concept or separate ones, and should go-shop or matching rights replace expense reimbursement in v1?
 2. **Party as an attribute.** Are you comfortable collapsing the duplicate Company/Buyer representation subtrees into one concept with a `party` attribute? It is a visible change on the Taxonomy page.
@@ -653,4 +738,5 @@ GROUP BY yr;
 ## Appendix A. Pilot artifacts
 
 - `docs/plans/span-taxonomy/anchor_pilot.py`: the text-layer projection and re-anchoring measurement. It reads an XML dump, writes nothing, and is not wired into the ETL.
-- The pilot used read-only queries on the local database. No taxonomy LLM step was run over the corpus.
+- `docs/plans/span-taxonomy/pilot/`: the M1 pilot code. `text_layer.py` (projection), `prepare.py` (stage 1 retrieval and reading views), `schema_m1.md` (the extraction schema as run), `score.py` and `report.py` (scoring), `m1_results.json` (the numbers in 7.4).
+- The pilots used read-only queries on the local database. No taxonomy LLM step was run over the corpus. Extraction, gold and adjudication ran as subagents in a Claude Code session, with no separate API calls (decision Q6). The per-agreement JSON (extractions, gold, verdicts) was scratch and was deleted after scoring; `prepare.py` with the sample SQL in `pilot/README.md` rebuilds the inputs.
