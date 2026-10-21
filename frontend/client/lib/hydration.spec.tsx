@@ -21,6 +21,10 @@ vi.mock("@/pages/SoftwareLicense", () => ({
 
 const MISMATCH = /hydrat|did not match|server html|server rendered/i;
 
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
 let root: Root | null = null;
 
 afterEach(() => {
@@ -28,6 +32,7 @@ afterEach(() => {
   root = null;
   document.body.innerHTML = "";
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("prerendered pages", () => {
@@ -48,7 +53,12 @@ describe("prerendered pages", () => {
           removeListener: () => undefined,
           dispatchEvent: () => false,
         }) as MediaQueryList;
+      // Built on New Year's Eve, opened on New Year's Day: anything that
+      // renders the date must not fail hydration when the two differ.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(2026, 11, 31, 23, 59));
       const html = renderPage(pathname);
+      vi.setSystemTime(new Date(2027, 0, 1, 0, 1));
       window.history.replaceState(null, "", pathname);
       const container = document.createElement("div");
       container.id = "root";

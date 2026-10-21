@@ -38,47 +38,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const [wakePending, setWakePending] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const token = transport === "bearer" ? getSessionToken() : null;
-    setSessionTokenState(token);
-    setStatus("loading");
-    setWakePending(false);
+  // `apply` commits each state update. The mount-time check passes
+  // startTransition: its answer can land while a prerendered page is still
+  // hydrating, and an urgent update then would discard the page's server HTML
+  // and re-render it from scratch. Explicit refresh() calls (after sign-in)
+  // apply immediately, so the page they navigate to sees the new status.
+  const load = useCallback(
+    async (apply: (update: () => void) => void) => {
+      const token = transport === "bearer" ? getSessionToken() : null;
+      apply(() => {
+        setSessionTokenState(token);
+        setStatus("loading");
+        setWakePending(false);
+      });
 
-    try {
-      const me = await withAuthWakeRetry(async () => {
-        try {
-          return await fetchMe();
-        } catch (error) {
-          if (isAuthWakeupError(error)) {
-            startTransition(() => setWakePending(true));
+      try {
+        const me = await withAuthWakeRetry(async () => {
+          try {
+            return await fetchMe();
+          } catch (error) {
+            if (isAuthWakeupError(error)) {
+              apply(() => setWakePending(true));
+            }
+            throw error;
           }
-          throw error;
+        });
+        apply(() => {
+          setUser(me.user);
+          setStatus("authenticated");
+          setWakePending(false);
+        });
+      } catch {
+        if (transport === "bearer") {
+          clearSessionToken();
         }
-      });
-      // A transition, so an answer that lands while a prerendered page is
-      // still hydrating waits for hydration instead of discarding the page's
-      // server HTML and re-rendering it from scratch.
-      startTransition(() => {
-        setUser(me.user);
-        setStatus("authenticated");
-        setWakePending(false);
-      });
-    } catch {
-      if (transport === "bearer") {
-        clearSessionToken();
+        apply(() => {
+          setSessionTokenState(null);
+          setUser(null);
+          setStatus("anonymous");
+          setWakePending(false);
+        });
       }
-      startTransition(() => {
-        setSessionTokenState(null);
-        setUser(null);
-        setStatus("anonymous");
-        setWakePending(false);
-      });
-    }
-  }, [transport]);
+    },
+    [transport],
+  );
+
+  const refresh = useCallback(() => load((update) => update()), [load]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void load(startTransition);
+  }, [load]);
 
   const logout = useCallback(() => {
     if (transport === "cookie") {
