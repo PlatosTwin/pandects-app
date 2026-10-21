@@ -16,15 +16,19 @@ primary_region = 'iad'
 [processes]
   # Stock MariaDB defaults assume a machine several times this size: they reserve
   # a 128M MyISAM key cache this InnoDB-only workload never reads, and let a
-  # single FULLTEXT query grow its result cache to 2G on a 768M machine, which is
-  # how the server gets OOM-killed. Bound the FTS caches, reclaim the key buffer
-  # into the pool that actually serves reads, and keep connection-scoped memory
-  # small enough that the ceiling is reachable only by real work. The result-cache
-  # bound is sized against the joined query the API actually issues, which needs
-  # more room than a bare COUNT over the same matches: at 32M it was cutting off
-  # ordinary counts around 8k matches, while still leaving the truly dense
-  # phrases -- the ones that threaten the server -- well outside it.
-  app = '--datadir /data/mysql --key-buffer-size=8M --innodb-ft-result-cache-limit=128M --innodb-ft-total-cache-size=64M --innodb-buffer-pool-size=192M --max-connections=60 --table-open-cache=400'
+  # single FULLTEXT query grow its result cache to 2G, which is how the server
+  # gets OOM-killed. Bound the FTS caches, reclaim the key buffer into the pool
+  # that actually serves reads, and keep connection-scoped memory small enough
+  # that the ceiling is reachable only by real work.
+  #
+  # Budget on this 1024M machine (scaled from 768M after the 2026-10-21 OOM):
+  # 448M buffer pool + 2 x 64M FTS result caches (the API runs at most 2 keyword
+  # searches at once, backend/core/fulltext_slots.py) + ~150M server baseline +
+  # per-connection buffers leaves ~100M headroom at peak. A query that outgrows
+  # the 64M result cache is not an error: the API reports an approximate total or
+  # switches to the date-ordered plan. At 32M that cut off ordinary counts near
+  # 8k matches; 64M should roughly double that (estimated, not measured).
+  app = '--datadir /data/mysql --key-buffer-size=8M --innodb-ft-result-cache-limit=64M --innodb-ft-total-cache-size=64M --innodb-buffer-pool-size=448M --max-connections=60 --table-open-cache=400'
 
 [[mounts]]
   source = 'pdex_data'
