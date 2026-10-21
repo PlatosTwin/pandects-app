@@ -218,7 +218,7 @@ def standard_id_labels(
 # ---------------------------------------------------------------------------
 
 
-def _section_counts_query(*, gated_only: bool) -> Any:
+def _section_counts_query(*, agreement_uuids: list[str] | None = None) -> Any:
     """Distinct latest sections per node; L1/L2 nodes count their descendants too."""
     assignments = LatestSectionsSearchStandardId
     # (assigned standard_id, node it counts toward): itself plus every ancestor.
@@ -236,11 +236,25 @@ def _section_counts_query(*, gated_only: bool) -> Any:
         node_map.c.node_id,
         func.count(distinct(assignments.section_uuid)).label("section_count"),
     ).join(node_map, node_map.c.standard_id == assignments.standard_id)
-    if gated_only:
-        query = query.join(
-            Agreements, Agreements.agreement_uuid == assignments.agreement_uuid
-        ).where(not_(agreement_is_public_eligible_expr(cast(Any, Agreements))))
+    if agreement_uuids is not None:
+        query = query.where(assignments.agreement_uuid.in_(agreement_uuids))
     return query.group_by(node_map.c.node_id)
+
+
+def _ineligible_agreements_with_sections() -> list[str]:
+    """Gated, unverified agreements that still have rows in the standard-id map."""
+    assignments = LatestSectionsSearchStandardId
+    if Agreements.__table__.c.get("gated") is None:
+        return []
+    ineligible = select(Agreements.agreement_uuid).where(
+        not_(agreement_is_public_eligible_expr(cast(Any, Agreements)))
+    )
+    rows = db.session.execute(
+        select(distinct(assignments.agreement_uuid)).where(
+            assignments.agreement_uuid.in_(ineligible)
+        )
+    ).all()
+    return [value for (value,) in rows if isinstance(value, str)]
 
 
 def taxonomy_section_counts() -> dict[str, int]:
@@ -248,22 +262,23 @@ def taxonomy_section_counts() -> dict[str, int]:
 
     Search expands a parent id to its descendants, so a parent's count is the number
     of distinct sections tagged with it or any descendant. Search also excludes
-    sections of gated, unverified agreements; ``NOT IN (gated)`` on every assignment
-    row costs several seconds, so the ineligible sections are counted separately
-    (an indexed join over a small set) and subtracted. A section belongs to one
-    agreement, so the two distinct counts are disjoint and the difference is exact.
+    sections of gated, unverified agreements. Filtering every assignment row by
+    eligibility costs seconds, so the ineligible agreements that have assignments
+    are found first (a semi-join over the small gated set; normally none, because
+    the map is built from eligible agreements) and their sections are counted
+    separately and subtracted. A section belongs to one agreement, so the two
+    distinct counts are disjoint and the difference is exact.
     """
 
     def _build() -> dict[str, int]:
         counts: dict[str, int] = {}
-        for node_id, section_count in db.session.execute(
-            _section_counts_query(gated_only=False)
-        ).all():
+        for node_id, section_count in db.session.execute(_section_counts_query()).all():
             if isinstance(node_id, str):
                 counts[node_id] = int(section_count)
-        if Agreements.__table__.c.get("gated") is not None:
+        ineligible_uuids = _ineligible_agreements_with_sections()
+        if ineligible_uuids:
             for node_id, section_count in db.session.execute(
-                _section_counts_query(gated_only=True)
+                _section_counts_query(agreement_uuids=ineligible_uuids)
             ).all():
                 if isinstance(node_id, str) and node_id in counts:
                     counts[node_id] -= int(section_count)

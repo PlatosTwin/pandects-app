@@ -37,6 +37,8 @@ export interface SearchResult {
   article_title: string;
   section_title: string;
   standard_id: string[];
+  /** Clause-taxonomy label per id in `standard_id`. */
+  standard_id_labels?: Record<string, string>;
   xml: string;
   section_uuid: string;
   agreement_uuid: string;
@@ -77,5 +79,11 @@ export interface FilterOptionsResponse {
   acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
+  /**
+   * @deprecated The `GET /v1/taxonomy` tree; read it through `useTaxonomy`.
+   * `useFilterOptions` already serves `clause_types` from that cache.
+   */
   clause_types?: Record<string, unknown>;
+  /** NAICS label per code in `target_industries`/`acquirer_industries`. */
+  industry_labels?: Record<string, string>;
 }

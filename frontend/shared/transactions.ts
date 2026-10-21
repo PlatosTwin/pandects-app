@@ -3,6 +3,8 @@ export interface TransactionSearchMatchedSection {
   article_title: string | null;
   section_title: string | null;
   standard_id: string[];
+  /** Clause-taxonomy label per id in `standard_id`. */
+  standard_id_labels?: Record<string, string>;
   snippet: string | null;
 }
 
@@ -26,6 +28,10 @@ export interface TransactionSearchResult {
   acquirer_type: string | null;
   target_industry: string | null;
   acquirer_industry: string | null;
+  /** NAICS description of `target_industry` (null when unresolvable). */
+  target_industry_label?: string | null;
+  /** NAICS description of `acquirer_industry` (null when unresolvable). */
+  acquirer_industry_label?: string | null;
   announce_date: string | null;
   close_date: string | null;
   deal_status: string | null;
@@ -63,6 +69,8 @@ export interface AgreementSectionIndexItem {
   article_order: number | null;
   section_order: number | null;
   standard_id: string[];
+  /** Clause-taxonomy label per id in `standard_id`. */
+  standard_id_labels?: Record<string, string>;
 }
 
 export interface AgreementSectionIndexResponse {
