@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useInRouterContext } from "react-router-dom";
 import { StatusPage } from "@/components/StatusPage";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
@@ -59,6 +59,10 @@ function DefaultErrorFallback({
   reset: () => void;
 }) {
   const isDev = import.meta.env.DEV;
+  // The app-root boundary sits outside <BrowserRouter>, where <Link> would
+  // throw while drawing this fallback; a plain link (full reload) is the
+  // right recovery there anyway.
+  const inRouter = useInRouterContext();
   return (
     <StatusPage
       role="alert"
@@ -68,7 +72,7 @@ function DefaultErrorFallback({
         <>
           <Button onClick={reset}>Try again</Button>
           <Button asChild variant="outline">
-            <Link to="/">Go home</Link>
+            {inRouter ? <Link to="/">Go home</Link> : <a href="/">Go home</a>}
           </Button>
         </>
       }
