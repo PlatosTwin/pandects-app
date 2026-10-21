@@ -44,7 +44,7 @@ function sourceFiles(entry: string): string[] {
 
 describe("reference links", () => {
   it("open reference pages from working surfaces in a new tab", () => {
-    const routes = REFERENCE_ROUTES.map((route) => route.replace(/[/-]/g, "\\$&")).join("|");
+    const routes = REFERENCE_ROUTES.map((route) => route.replace(/[.*+?^${}()|[\]\\/-]/g, "\\$&")).join("|");
     const plainLink = new RegExp(`<Link\\b[^>]*?\\bto=["'{\`]+(${routes})(?=["'\`/?#])`, "gs");
     const navigation = new RegExp(`navigate\\(\\s*["'\`](${routes})(?=["'\`/?#])`, "g");
     const offenders: string[] = [];
