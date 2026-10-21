@@ -1,6 +1,6 @@
 # Span taxonomy: concept labels on text spans, with extracted values
 
-Status: design draft, 2026-10-20. Nothing here is built. A companion plan, `docs/plans/smart-reader.md` (live TOC, defined terms, cross-references), is being written in parallel, and the two share the text layer described in [section 6](#6-span-annotation-model).
+Status: design draft, 2026-10-20. Nothing here is built. A companion plan, `docs/plans/smart-reader.md` (live TOC, defined terms and cross-references; [PR #186](https://github.com/PlatosTwin/pandects-app/pull/186)), shares the text layer described in [section 6](#6-span-annotation-model).
 
 ## 1. Recommendation in brief
 
@@ -180,7 +180,13 @@ Other parts:
 - **`layer_hash`** is the sha256 of the layer text.
 - **Section and paragraph ranges** come out of the same walk: the start and end of each `<section uuid>`, and each smart-reader subsection node such as `8.3(b)(i)`. They are stored as a structure index on the layer.
 
-Front matter, table of contents, signature pages and back matter can be added later as separate zones of the same layer. v1 covers the body only. Exhibits often matter (forms of guarantee, debt commitment letters), so this is an open question ([section 15](#15-open-questions-for-you)).
+Front matter, table of contents, signature pages and back matter are separate zones of the same layer. The value pilot found that exhibits carry values the body depends on, so back matter should be in v1 if the XML holds it reliably ([open question 3](#15-open-questions-for-you)). The projection also drops page-footer leftovers (a page number followed by a GUID line) and records repeated blocks as an XML quality signal.
+
+**Reconciling with the smart reader's anchor contract** ([PR #186](https://github.com/PlatosTwin/pandects-app/pull/186), section 6.3). The reader index anchors to (section UUID or region, text-node ordinal, offset in UTF-16 code units over the entity-decoded node text), and it is regenerated for every XML version. The two schemes fit together:
+- **The node text must be identical.** The layer is the concatenation of exactly the per-node strings the reader uses, with the same normalization as `normalizeXmlText` and no extra stripping (the pilot script's `.strip()` must go), joined by `\n`. A (node ordinal, offset) pair and a layer offset then convert into each other with a prefix-sum table, which is stored in the structure index.
+- **Spans keep quote selectors; the reader index does not need them.** The reader index is derived and rebuilt with each XML version, so section-UUID churn does not hurt it. Concept spans are curated and reviewed, so they must survive rebuilds, which needs the quote selectors.
+- **The API serves both encodings** for spans: layer code points for Python and SQL, and (node, UTF-16 offset) for the browser.
+- **One shared fixture test** pins the conversion. The reader plan already proposes a pytest and vitest fixture with curly quotes, `&amp;`, `§` and a non-BMP character.
 
 **Shared with the smart reader.** The reader's live TOC, definitions and cross-references index the same leaves. One projection function, one hash and one structure index should serve both plans. A definition found by the reader then has the same coordinates as a concept span, and a cross-reference like "Section 8.1(c)" resolves to a range in the layer that a termination-fee trigger value can point to.
 
@@ -258,7 +264,7 @@ provision_instance   one concept occurring once in one agreement
 | `XRef` | the raw reference (`"Section 8.1(c)"`) plus the resolved range in the text layer (from the smart reader's cross-reference index), plus the concept instance it lands on, if any |
 | `Evidence` | a list of span IDs. Required on every field that is not null. |
 
-Every field has a three-way absence: `null` (not extracted), `not_stated` (the agreement is silent) or `not_applicable`. Aggregation must tell "no cap" apart from "we didn't find a cap".
+Every field has a three-way absence: `null` (not extracted), `not_stated` (the agreement is silent) or `not_applicable`. Aggregation must tell "no cap" apart from "we didn't find a cap". At instance level, a concept that the agreement affirmatively lacks (no financing condition) is an instance with `finding = absent` and a `scope_reviewed` list of ranges. It has evidence in place of a span.
 
 **Derived fields** are computed in code, never by the model, and flagged `derived: true` with their inputs recorded. The main example is `pct_of_equity_value_computed = fee.amount / deal.equity_value`. Equity value is often not stated in the agreement; it can be derived from per-share price × fully diluted shares, or taken from `tx_metadata` (`transaction_price_total`), which has known errors (see the SPAC acquirer note). So the derived percentage records which source it used, and aggregation can exclude low-trust sources.
 
@@ -268,33 +274,38 @@ Every field has a three-way absence: `null` (not extracted), `not_stated` (the a
 - `payor`, `payee`: PartyRole.
 - `tiers[]`: each tier has `label` (`standard`, `go_shop`, `window_shop`, `superior_proposal`, `other`), `amount` (Money), and `applies_when` (text plus an XRef).
 - `triggers[]`, each with:
-  - `kind`: one of `superior_proposal_termination`, `adverse_recommendation_change`, `breach_of_no_shop`, `vote_failure_with_tail`, `outside_date_with_tail`, `breach_with_tail`, `other`;
+  - `kind`: one of `superior_proposal_termination`, `adverse_recommendation_change`, `recommendation_failure`, `breach_of_no_shop`, `vote_failure_with_tail`, `outside_date_with_tail`, `breach_with_tail`, `other`;
   - `termination_right` (XRef);
-  - `tail`: `months`, `threshold_pct` (often 50% rather than the 15–20% in the definition), and `requires` (`definitive_agreement`, `consummation`, `either`).
-- `payment_timing`: Duration plus anchor.
-- `exclusive_remedy`: true or false, with the carve-outs (`fraud`, `willful_breach`).
+  - `tail`, set per trigger: `months`, `threshold_pct` (often 50% rather than the 15–20% in the definition), and `requires` (`definitive_agreement`, `consummation`, `either`);
+  - `remedy`, set per trigger: `exclusive`, `election_fee_or_damages`, or `non_exclusive`, with carve-outs (`fraud`, `willful_breach`);
+  - `deemed_as`: a link to another trigger;
+  - `conditions`: text for compound conditions.
+- `payment_timing`: Duration plus anchor, or `concurrent_with_termination`.
 - `expense_reimbursement_credit`: whether expenses are credited against the fee.
 - `pay_once_only`: whether the fee is payable on only one occasion.
 - `pct_of_equity_value_computed`: derived.
 
 **2. `ma.termination.fee.reverse`: reverse termination fee** (DealOS `cra:stub-reverse-termination-fee`)
 
-Everything in concept 1, plus:
+Everything in concept 1, with an added trigger kind `failure_to_close`, plus:
 - `kind`: `financing`, `regulatory`, `general`, or `two_tier`;
 - `guarantee`: `limited_guarantee`, `equity_commitment`, or `none`, plus the guarantor;
-- `liability_cap`: whether the fee caps buyer liability (DealOS `limits_amount_under` → `cra:124`);
+- `liability_cap`: the formula for the cap on buyer liability, as Money or text ("fee plus reimbursement obligations"), or `none` (DealOS `limits_amount_under` → `cra:124`);
 - `specific_performance_interaction`: `exclusive_alternative`, `both_available`, `conditional`, or `not_stated`.
 
-**3. `ma.termination.expense_reimbursement`: expense reimbursement**
+**3. `ma.termination.expense_reimbursement`: expense reimbursement on termination**
 - `payor`, `payee`;
 - `cap`: Money;
 - `triggers[]`, as in concept 1;
 - `credited_against_fee`.
 
+Three sibling label concepts keep other reimbursements out of this one: `ma.financing.cooperation_costs`, `ma.termination.collection_costs` and `ma.regulatory.filing_fee_allocation`.
+
 **4. `ma.termination.outside_date`: outside date** (DealOS `cra:4`, `cra:114`)
 - `initial`: DateRule.
-- `extensions[]`: each has `length` (Duration), `new_date` (DateRule), `condition` (`regulatory_pending`, `marketing_period`, `sec_review`, `other`), `exercise` (`automatic`, `either_party`, `buyer`, `target`), `count`.
-- `breach_bar`: whether a party whose breach caused the delay may still terminate.
+- `effect`: `termination_right` or `automatic_termination`.
+- `extensions[]`: each has `length` (Duration or text, when relative to a variable such as a notice period), `new_date` (DateRule), `condition` (`regulatory_pending`, `marketing_period`, `sec_review`, `notice_period`, `other`), `exercise` (`automatic`, `either_party`, `buyer`, `target`, `mutual`), `count`.
+- `breach_bar`: `none`, `principal_cause`, `proximate_cause`, `contributed`, or `other_text`. This is the standard by which a breaching party loses the right to terminate.
 - `days_from_signing_computed`: derived.
 
 **5. `ma.mae.definition`: material adverse effect definition** (DealOS `cra:82`)
@@ -305,11 +316,11 @@ Everything in concept 1, plus:
 - `carveouts[]`: child instances of `ma.mae.carveout`.
 
 **`ma.mae.carveout`: MAE carve-out** (label concept with a few values)
-- `category`: `general_economic`, `financial_markets`, `industry`, `change_in_law`, `change_in_gaap`, `political_war_terrorism`, `pandemic`, `natural_disaster`, `announcement_or_pendency`, `compliance_with_agreement`, `failure_to_meet_projections`, `stock_price_or_volume`, `buyer_action_or_request`, `other`;
+- `categories[]` (one clause often bundles several): `general_economic`, `financial_markets`, `industry`, `change_in_law`, `change_in_gaap`, `political_war_terrorism`, `pandemic`, `natural_disaster`, `announcement_or_pendency`, `compliance_with_agreement`, `failure_to_meet_projections`, `stock_price_or_volume`, `buyer_action_or_request`, `other`;
 - `disproportionate_effect_exception`: true or false.
 
 **6. `ma.financing.structure`: financing condition and related terms**
-- `financing_condition`: true or false. True is rare in public deals; its absence is the common finding.
+- `financing_condition`: true or false. True is rare in public deals; its absence is the common finding, recorded as `finding = absent` with the scope reviewed (see pilot finding 8).
 - `committed_financing`: `debt`, `equity`, or `none`, plus `sources[]`.
 - `efforts_standard`.
 - `marketing_period`: Duration, with blackout dates.
@@ -317,34 +328,75 @@ Everything in concept 1, plus:
 - `rtf_link`: the instance ID of the financing reverse termination fee.
 
 **7. `ma.indemn.cap`: indemnification cap** (DealOS `pcra:35`)
-- `caps[]`: each has `applies_to` (`general_reps`, `fundamental_reps`, `tax`, `covenants`, `specific_indemnity`, `all`), `amount` (Money; often `pct_of_purchase_price`), `indemnitor`, `excludes` (`fraud`, `willful_breach`).
+- `caps[]`: each has `applies_to[]` and `excludes[]`, both drawn from `general_reps`, `fundamental_reps`, `tax`, `covenants`, `specific_indemnity`, `fraud`, `willful_breach`; `amount` (Money; often `pct_of_purchase_price`); `indemnitor`. Buyer-side and seller-side caps are separate entries.
 - `escrow_sole_recourse`: true or false.
 - `rwi_interaction`: text.
 
 **8. `ma.indemn.basket`: basket / deductible** (DealOS `pcra:38`)
 - `type`: `deductible`, `tipping`, or `none`;
 - `amount`: Money;
-- `de_minimis`: a Money threshold per claim, and whether claims below it count toward the basket;
+- `de_minimis`: a Money threshold per claim; whether claims below it count toward the basket; and whether the threshold decides if a breach exists at all;
 - `applies_to[]`;
 - `indemnitor`.
 
 **9. `ma.indemn.survival`: survival periods** (DealOS survival architecture)
-- `periods[]`: each has `item` (`general_reps`, `fundamental_reps`, `tax_reps`, `covenants_pre`, `covenants_post`, `other`) and `period` (a Duration, or `statute_of_limitations_plus` with an `offset_days`).
+- `periods[]`: each has `item` (`all_reps`, `general_reps`, `fundamental_reps`, `tax_reps`, `covenants_pre`, `covenants_post`, `other`) and `period` (a Duration, `indefinite`, or `statute_of_limitations_plus` with an `offset_days`).
 - `no_survival`: the public-deal norm, where representations do not survive closing.
 
 **10. `tax.election.338h10`: 338(h)(10) / 336(e) election** (DealOS `pcor:9`)
 - `election`: `338h10`, `336e`, `338g`, `prohibited`, or `none`;
-- `decides`: `buyer`, `seller`, or `joint`;
+- `decides`: `buyer`, `seller`, `joint`, or `mandatory_joint`, plus `conditions` (text);
 - `seller_must_join`;
 - `allocation`: who prepares it, the deadline, the dispute mechanism, and the Section 1060 reference;
-- `gross_up`: true or false, with a formula reference;
+- `tax_cost_shift`: `payer`, `payee`, `scope` (`incremental_federal`, `incremental_state_local`, `all`) and a formula reference. The direction is explicit: in SkyWest, the sellers pay the buyer;
 - `deemed_sale_tax_borne_by`.
 
 **Exclusions.** Schemas cover what is stated in the agreement. Deal metadata (equity value, signing date) is joined in, never extracted again. Amendments that change a fee are out of scope for v1; flag them as an open question.
 
 ### 7.3 Pilot findings on the schemas
 
-<!-- PILOT_FINDINGS -->
+A subagent annotated agreements against a draft (v0) of these schemas, working on the text layer. Offsets were computed in code, and every quote was checked against the text. The run stopped after 3 of the 6 planned agreements:
+- W. R. Grace / Standard Industries: public merger, 2021;
+- Cerner / Oracle: public tender offer and merger, 2021;
+- Atlantic Southeast Airlines / SkyWest: private stock purchase with a 338(h)(10) election.
+
+The other three (Kadmon / Sanofi, Danka / Konica Minolta, Conexant / Synaptics) were not reached, so private-deal indemnity is thinly tested.
+
+**Totals:** 61 spans and 24 instances. All 61 quotes matched the text exactly.
+
+**What the pilot showed**, and the changes already folded into [section 7.2](#72-the-concepts):
+
+1. **Provisions cross sections routinely.** 6 of 24 instances span more than one section, including every fee and reverse-fee instance in the public deals. The worst instance took 9 spans (the Grace termination fee: amount, three triggers, two exclusivity statements, a tail, a deeming rule). The multi-span instance model is required, not optional.
+2. **Triggers are not independent enum values.**
+   - Tail windows differ by termination ground (Grace: 6 months after an End Date termination, 12 months after a vote failure or breach).
+   - Remedy exclusivity differs by trigger (Grace: the fee is exclusive for a recommendation change, but on the tail trigger Parent may elect the fee *or* willful-breach damages).
+   - One trigger can be deemed to be another (a vote failure is treated as a recommendation-change termination).
+
+   So `tail`, `remedy` and a `deemed_as` link now live on each trigger, plus a free-text `conditions` field for compound conditions such as "primarily attributable to". A new kind, `recommendation_failure`, covers a failure to reaffirm or reject, as in Cerner, which is not a change of recommendation.
+3. **Exhibits hold values the body cites.** Missing from the body-only layer:
+   - Grace's per-share merger consideration and "Marketing Period" (both defined in Exhibit A);
+   - Cerner's tender-offer conditions, which are where any financing condition would be (Exhibit B).
+
+   Body-only text is not enough for value concepts. [Open question 3](#15-open-questions-for-you) now recommends exhibits in v1.
+4. **Equity value is never stated as one number.** In both public deals the fee percentage had to come from the price per share and a share count stated in different sections, and the count is a basic count as of a stated date. This confirms that `pct_of_equity_value_computed` is a derived field, computed in code, with its source recorded ([open question 5](#15-open-questions-for-you)).
+5. **The text layer contains duplicates and artifacts.** In two agreements the MAE definition appears twice in a row, and one copy has a page-footer line (a page number plus a GUID) inside it. This is why the anchoring steps for context and nearest position matter. The projection should also strip page-footer leftovers and report repeated blocks as an XML quality signal.
+6. **"Expense reimbursement" conflated four things:** fee reimbursement on termination, reimbursement of financing-cooperation costs (payable whether or not the deal closes), costs of collecting an unpaid fee, and a split of HSR filing fees. They are now separate concepts: `ma.termination.expense_reimbursement`, `ma.financing.cooperation_costs`, `ma.termination.collection_costs`, `ma.regulatory.filing_fee_allocation`.
+7. **Booleans hide structure.** These booleans became structured fields:
+   - the reverse fee's cap on buyer liability: a formula, not a yes/no (Grace: the fee *plus* uncapped reimbursements);
+   - `exclusive_remedy`: an enum with an election option;
+   - the outside-date breach bar: a causation standard ("principal cause");
+   - the 338(h)(10) `gross_up`: a `tax_cost_shift` with a payer. In SkyWest the gross-up runs the other way: sellers pay the buyer's incremental state tax as a condition of the buyer joining the election.
+8. **Absence is a finding.** "No financing condition" and "representations do not survive" have no positive span. They come from reading the conditions article and finding nothing, or from a non-survival clause. Instances can now carry `finding = absent`, recording the scope reviewed (for example, the conditions article and Exhibit B), so "absent" is kept apart from "not extracted".
+9. **Enumerations needed more values:**
+   - outside date: `effect = termination_right` or `automatic_termination` (SkyWest terminates automatically);
+   - survival: an `indefinite` value;
+   - MAE carve-outs: `categories[]` rather than one category, since one clause often bundles economic, political and regulatory changes;
+   - indemnity cap: `applies_to` plus `excludes` lists ("all reps, but not covenants or the tax indemnity");
+   - de minimis: a flag for when the threshold decides whether a breach exists at all, not just whether it counts toward the basket;
+   - reverse fee: a `failure_to_close` trigger. Financing failure is never named as a trigger; it shows up as the buyer's failure to close.
+10. **Overlap stayed rare at this grain.** No two annotated spans overlapped. Nesting appears when carve-outs are annotated as children of the MAE definition, which this run mostly did not do. Overlap support stays in the model, but it is not the hard part. Cross-section instances are.
+
+The annotations reached the role vocabulary through use. 15 roles appeared; the common ones were `primary`, `trigger`, `extension`, `exclusive_remedy`, `carve_out`, `cap`, `guarantee` and `sources`. Roles become a small controlled list per concept in the YAML, not free text.
 
 ## 8. Extraction pipeline
 
@@ -480,6 +532,8 @@ WHERE i.concept_id = 'ma.termination.fee.target' AND i.status IN ('accepted','pr
 GROUP BY yr;
 ```
 
+**Redaction.** The API already redacts some sections for anonymous callers, and the reader-index plan filters anchors inside redacted sections. Provision endpoints must do the same: for anonymous callers, drop `quote`, `prefix` and `suffix` on spans inside redacted sections, and drop values whose only evidence sits there. Aggregates are unaffected.
+
 **Serving-schema caution.** Production `pdx` is restored only from the allowlists (`bulk/public_tables.txt`, `bulk/private_restore_tables.txt`), so every serving table must be on one of them. Per the project notes, a query that passes locally can still fail with a 500 in production if a table is missing. The deploy checklist therefore includes "the table exists in prod, and a live call returns rows".
 
 ## 11. API, MCP, bulk and frontend changes
@@ -527,7 +581,7 @@ GROUP BY yr;
 - **Smart reader**, in both directions:
   - The reader supplies the text layer, the subsection structure, defined terms and resolved cross-references. Stage 1 uses them as candidate signals and stage 3 as context.
   - This plan supplies concept overlays (chips at paragraph level, "jump to Termination Fee", values on hover) and typed links: a fee trigger that points to 8.1(e) becomes a link from the fee instance to the termination-right instance.
-  - Shared decisions to settle with that plan: the text-layer projection (one function), the subsection path syntax (`8.3(b)(i)`), and whether paragraph IDs are written into the XML or kept standoff (this plan prefers standoff).
+  - Both plans already choose standoff over rewriting the XML. Still to settle together: one projection function with the node-text normalization, the (node, UTF-16) ↔ layer conversion fixture, and the subsection path syntax (`8.3(b)(i)`).
 
 ## 14. Milestones
 
@@ -544,7 +598,7 @@ GROUP BY yr;
 
 1. **Concept granularity for the first wave.** Is the list of 10 right? In particular: one `ma.financing.structure` concept or separate ones, and should go-shop or matching rights replace expense reimbursement in v1?
 2. **Party as an attribute.** Are you comfortable collapsing the duplicate Company/Buyer representation subtrees into one concept with a `party` attribute? It is a visible change on the Taxonomy page.
-3. **Scope of the text layer.** Body only for v1, or include exhibits (guarantees, commitment letters, forms of escrow agreement) from the start? Reverse-fee guarantees often live there.
+3. **Scope of the text layer.** The pilot argues for including exhibits from v1: per-share consideration, tender-offer conditions and the "Marketing Period" definition were all in exhibits ([section 7.3](#73-pilot-findings-on-the-schemas)). That needs the exhibits to be in the verified XML (back matter) reliably. Is that true today, or does it need its own XML work?
 4. **Unreviewed rows in public data.** Serve `predicted` instances with a status flag, or only `accepted` ones? The flag is cheaper and more useful; accepted-only is safer for aggregates.
 5. **Equity-value source for percentage fields.** Derive it from the agreement (price × fully diluted shares, when stated), or use `tx_metadata.transaction_price_total`, or both, with the source recorded?
 6. **Model vendor.** The pipeline runs on OpenAI batch today. Keep gpt-5.4-mini for stage 2 and pick by measurement for stage 3, or standardize on one vendor?
