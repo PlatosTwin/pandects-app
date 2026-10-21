@@ -1,7 +1,10 @@
 import os
 import tempfile
-import time
 import unittest
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any, cast
+from unittest.mock import patch
 
 
 def _set_default_env() -> None:
@@ -30,7 +33,11 @@ os.environ.setdefault("AUTH_DATABASE_URI", f"sqlite:///{_AUTH_DB_TEMP.name}")
 
 
 from backend.app import create_test_app, db  # noqa: E402
-import backend.app as backend_app  # noqa: E402
+from backend.core.caching import TESTING_OPT_IN_CONFIG_KEY, clear_all_ttl_caches  # noqa: E402
+from backend.routes import reference_data  # noqa: E402
+
+# The cached payload builders ignore their deps argument for keying.
+_ANY_DEPS = cast(Any, None)
 
 
 class ApiValidationTests(unittest.TestCase):
@@ -91,22 +98,29 @@ class ApiValidationTests(unittest.TestCase):
         self.assertEqual(error_code_for_status(410), "gone")
         self.assertEqual(error_code_for_status(418), "im_a_teapot")
 
+    @contextmanager
+    def _ttl_caching(self) -> Iterator[None]:
+        """Turn the testing bypass off so seeded `ttl_cached` entries serve."""
+        clear_all_ttl_caches()
+        self.app.config[TESTING_OPT_IN_CONFIG_KEY] = True
+        try:
+            yield
+        finally:
+            self.app.config[TESTING_OPT_IN_CONFIG_KEY] = False
+            clear_all_ttl_caches()
+
     def test_dumps_cache_returns_cached_payload(self):
         payload: list[dict[str, object]] = [{"timestamp": "2025-01-01"}]
-        backend_app._dumps_cache["payload"] = payload
-        backend_app._dumps_cache["ts"] = time.time()
-
-        client = self.app.test_client()
-        res = client.get("/v1/dumps")
-        self.assertEqual(res.status_code, 200)
-        body = res.get_json()
-        self.assertEqual(body, payload)
+        with self._ttl_caching():
+            reference_data.dump_list_cached.cache_set(payload, _ANY_DEPS)
+            client = self.app.test_client()
+            res = client.get("/v1/dumps")
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.get_json(), payload)
+            self.assertEqual(res.headers.get("Cache-Control"), None)
 
     def test_changelog_returns_empty_when_unavailable(self):
         # No R2 client and no cache in the test app => graceful empty payload.
-        backend_app._changelog_cache["payload"] = None
-        backend_app._changelog_cache["ts"] = 0.0
-
         client = self.app.test_client()
         res = client.get("/v1/changelog")
         self.assertEqual(res.status_code, 200)
@@ -132,13 +146,15 @@ class ApiValidationTests(unittest.TestCase):
                 "changes": [{"type": "docs", "severity": "minor", "summary": "baseline"}],
             },
         ]
-        backend_app._changelog_cache["payload"] = {
-            "latest_version": "2026-08-01",
-            "latest_released": "2026-08-01T00:00:00Z",
-            "releases": releases,
-        }
-        backend_app._changelog_cache["ts"] = time.time()
-        try:
+        with self._ttl_caching():
+            reference_data.changelog_payload_cached.cache_set(
+                {
+                    "latest_version": "2026-08-01",
+                    "latest_released": "2026-08-01T00:00:00Z",
+                    "releases": releases,
+                },
+                _ANY_DEPS,
+            )
             client = self.app.test_client()
 
             res = client.get("/v1/changelog")
@@ -155,14 +171,11 @@ class ApiValidationTests(unittest.TestCase):
             self.assertEqual([r["version"] for r in body["releases"]], ["2026-07-19"])
             # latest_* still describe the newest published release when filtered.
             self.assertEqual(body["latest_version"], "2026-08-01")
-        finally:
-            backend_app._changelog_cache["payload"] = None
-            backend_app._changelog_cache["ts"] = 0.0
 
     def test_changelog_sanitizes_malformed_stats_instead_of_500(self):
         # The payload comes from an R2 object; a corrupted row_counts value
         # must be dropped by the route, not crash marshmallow at dump time.
-        backend_app._changelog_cache["payload"] = {
+        malformed: dict[str, object] = {
             "latest_version": "2026-08-01",
             "latest_released": "2026-08-01T00:00:00Z",
             "releases": [
@@ -203,8 +216,8 @@ class ApiValidationTests(unittest.TestCase):
                 },
             ],
         }
-        backend_app._changelog_cache["ts"] = time.time()
-        try:
+        with self._ttl_caching():
+            reference_data.changelog_payload_cached.cache_set(malformed, _ANY_DEPS)
             res = self.app.test_client().get("/v1/changelog")
             self.assertEqual(res.status_code, 200)
             releases = res.get_json()["releases"]
@@ -215,9 +228,6 @@ class ApiValidationTests(unittest.TestCase):
                 [{"type": "data", "severity": "minor", "summary": "z"}],
             )
             self.assertEqual(releases[3]["changes"], [])
-        finally:
-            backend_app._changelog_cache["payload"] = None
-            backend_app._changelog_cache["ts"] = 0.0
 
     def test_changelog_serves_stale_payload_when_refresh_fails(self):
         # An expired TTL plus a failed refresh (no R2 client in tests) must
@@ -236,23 +246,29 @@ class ApiValidationTests(unittest.TestCase):
                 }
             ],
         }
-        backend_app._changelog_cache["payload"] = payload
-        backend_app._changelog_cache["ts"] = 0.0  # long-expired TTL
-        backend_app._changelog_cache["fail_ts"] = 0.0
-        try:
+        ttl = reference_data.CHANGELOG_CACHE_TTL_SECONDS
+        fail_ttl = reference_data.CHANGELOG_FAIL_TTL_SECONDS
+        with self._ttl_caching():
+            with patch("backend.core.caching.time.time", return_value=1000.0):
+                reference_data.changelog_payload_cached.cache_set(payload, _ANY_DEPS)
             client = self.app.test_client()
-            res = client.get("/v1/changelog")
+            expired_at = 1000.0 + ttl + 1
+            with patch("backend.core.caching.time.time", return_value=expired_at):
+                res = client.get("/v1/changelog")
             self.assertEqual(res.status_code, 200)
             self.assertEqual(res.get_json()["latest_version"], "2026-08-01")
             # The failed refresh armed the negative cache; the stale copy must
-            # still be served inside that window.
-            self.assertGreater(backend_app._changelog_cache["fail_ts"], 0.0)
-            res = client.get("/v1/changelog")
+            # still be served inside that window, without another R2 read.
+            with (
+                patch("backend.core.caching.time.time", return_value=expired_at + fail_ttl - 1),
+                patch.object(
+                    reference_data.changelog_payload_cached,
+                    "__wrapped__",
+                    side_effect=AssertionError("refetched inside the negative-cache window"),
+                ),
+            ):
+                res = client.get("/v1/changelog")
             self.assertEqual(res.get_json()["latest_version"], "2026-08-01")
-        finally:
-            backend_app._changelog_cache["payload"] = None
-            backend_app._changelog_cache["ts"] = 0.0
-            backend_app._changelog_cache["fail_ts"] = 0.0
 
 
 if __name__ == "__main__":

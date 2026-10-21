@@ -94,11 +94,11 @@ class TaxonomyServiceTests(unittest.TestCase):
                 pass
 
     def setUp(self) -> None:
+        from backend.core.caching import clear_all_ttl_caches
         from backend.services.taxonomy_service import clear_reference_caches
 
         clear_reference_caches()
-        self.app_module._filter_options_cache["payload"] = None
-        self.app_module._filter_options_cache["ts"] = 0
+        clear_all_ttl_caches()
 
     def test_rest_mcp_and_filter_options_share_one_tree(self):
         from backend.mcp.tools.shared import _build_taxonomy_tree
