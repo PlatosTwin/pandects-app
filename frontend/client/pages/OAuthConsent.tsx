@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { apiUrl } from "@/lib/api-config";
-import { grantOAuthConsent } from "@/lib/auth-api";
-import { classifyOAuthClient } from "@/lib/oauth-client-identity";
+import { fetchOAuthConsentClient, grantOAuthConsent } from "@/lib/auth-api";
+import {
+  classifyOAuthClient,
+  type OAuthClientIdentity,
+} from "@/lib/oauth-client-identity";
 
 // Human-readable labels for the scope identifiers the MCP server publishes.
 // Keep in sync with mcp_supported_scopes() on the backend.
@@ -38,7 +41,6 @@ export default function OAuthConsent() {
   );
 
   const clientId = params.get("client_id") ?? "";
-  const clientName = params.get("client_name")?.trim() || null;
   const redirectUri = params.get("redirect_uri") ?? "";
   const responseType = params.get("response_type") ?? "";
   const scope = params.get("scope") ?? "";
@@ -57,10 +59,37 @@ export default function OAuthConsent() {
     !!codeChallenge &&
     !!codeChallengeMethod;
 
-  const identity = useMemo(
-    () => classifyOAuthClient(clientName, redirectUri),
-    [clientName, redirectUri],
-  );
+  // Anyone can link to this page with any query string, so who the client is
+  // comes from its registration on the server, not from the URL.
+  const [client, setClient] = useState<
+    | { status: "loading" }
+    | { status: "error" }
+    | { status: "ready"; name: string | null; identity: OAuthClientIdentity }
+  >({ status: "loading" });
+
+  useEffect(() => {
+    if (!paramsValid) return;
+    let cancelled = false;
+    fetchOAuthConsentClient({ client_id: clientId, redirect_uri: redirectUri })
+      .then((registration) => {
+        if (cancelled) return;
+        setClient({
+          status: "ready",
+          name: registration.client_name ?? null,
+          identity: classifyOAuthClient(
+            registration.client_name ?? null,
+            redirectUri,
+            registration.redirect_uris,
+          ),
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setClient({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [paramsValid, clientId, redirectUri]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +115,11 @@ export default function OAuthConsent() {
     setSubmitting(true);
     setError(null);
     try {
-      await grantOAuthConsent({ client_id: clientId, scope });
+      await grantOAuthConsent({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope,
+      });
       // The new grant means the gate passes and the backend 302s the browser
       // to the client's redirect_uri with the auth code.
       window.location.href = authorizeHref(false);
@@ -107,15 +140,15 @@ export default function OAuthConsent() {
     <PageShell
       title="Authorize access"
       description={
-        identity.kind === "known"
-          ? `${identity.knownLabel} wants to access your Pandects account.`
+        client.status === "ready" && client.identity.kind === "known"
+          ? `${client.identity.knownLabel} wants to access your Pandects account.`
           : "An external application wants to access your Pandects account."
       }
       layout="form"
     >
       <Card className="w-full p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
-          {!paramsValid ? (
+          {!paramsValid || client.status === "error" ? (
             <Alert variant="destructive">
               <AlertTitle>Invalid authorization request</AlertTitle>
               <AlertDescription>
@@ -124,86 +157,120 @@ export default function OAuthConsent() {
                 again.
               </AlertDescription>
             </Alert>
+          ) : client.status === "loading" ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
-            <>
-              <dl className="grid gap-3 text-sm">
-                <div>
-                  <dt className="text-muted-foreground">
-                    After you allow, you will be sent to
-                  </dt>
-                  <dd className="mt-0.5 break-all font-mono text-base font-medium text-foreground">
-                    {identity.host}
-                    {identity.kind === "local" ? (
-                      <span className="ml-2 font-sans text-sm font-normal text-muted-foreground">
-                        (an app on this computer)
-                      </span>
-                    ) : null}
-                  </dd>
-                </div>
-                {clientName ? (
-                  <div>
-                    <dt className="text-muted-foreground">
-                      Name the application gave itself
-                    </dt>
-                    <dd className="mt-0.5 break-words text-foreground">
-                      {clientName}
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-              {identity.kind === "impersonation" ? (
-                <Alert variant="destructive">
-                  <AlertTitle>This may not be {identity.knownLabel}</AlertTitle>
-                  <AlertDescription>
-                    It calls itself {identity.knownLabel}, but{" "}
-                    {identity.knownLabel} doesn&apos;t use {identity.host}. Deny
-                    unless you are sure.
-                  </AlertDescription>
-                </Alert>
-              ) : identity.kind === "unknown" ? (
-                <Alert variant="warning">
-                  <AlertTitle>Unrecognized application</AlertTitle>
-                  <AlertDescription>
-                    Pandects doesn&apos;t recognize {identity.host}. Allow only
-                    if you just started connecting this application yourself.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              <div>
-                <div className="text-sm font-medium">Requested permissions</div>
-                <ul className="mt-2 space-y-1 pl-5 text-sm text-muted-foreground list-disc">
-                  {scopes.map((s) => (
-                    <li key={s}>
-                      <span className="text-foreground">
-                        {describeScope(s)}
-                      </span>{" "}
-                      <span className="text-muted-foreground">({s})</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              {error ? (
-                <Alert variant="destructive">
-                  <AlertTitle>Could not record consent</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              ) : null}
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <Button
-                  variant="outline"
-                  onClick={handleDeny}
-                  disabled={submitting}
-                >
-                  Deny
-                </Button>
-                <Button onClick={handleAllow} disabled={submitting}>
-                  {submitting ? "Allowing…" : "Allow"}
-                </Button>
-              </div>
-            </>
+            <ConsentDetails
+              clientName={client.name}
+              identity={client.identity}
+              scopes={scopes}
+              error={error}
+              submitting={submitting}
+              onAllow={handleAllow}
+              onDeny={handleDeny}
+            />
           )}
         </div>
       </Card>
     </PageShell>
+  );
+}
+
+function ConsentDetails({
+  clientName,
+  identity,
+  scopes,
+  error,
+  submitting,
+  onAllow,
+  onDeny,
+}: {
+  clientName: string | null;
+  identity: OAuthClientIdentity;
+  scopes: string[];
+  error: string | null;
+  submitting: boolean;
+  onAllow: () => void;
+  onDeny: () => void;
+}) {
+  return (
+    <>
+      <dl className="grid gap-3 text-sm">
+        <div>
+          <dt className="text-muted-foreground">
+            After you allow, you will be sent to
+          </dt>
+          <dd className="mt-0.5 break-all font-mono text-base font-medium text-foreground">
+            {identity.host}
+            {identity.kind === "local" ? (
+              <span className="ml-2 font-sans text-sm font-normal text-muted-foreground">
+                (an app on this computer)
+              </span>
+            ) : null}
+          </dd>
+        </div>
+        {identity.otherHosts.length > 0 ? (
+          <div>
+            <dt className="text-muted-foreground">
+              Allowing also lets this application sign in through
+            </dt>
+            <dd className="mt-0.5 break-all font-mono text-foreground">
+              {identity.otherHosts.join(", ")}
+            </dd>
+          </div>
+        ) : null}
+        {clientName ? (
+          <div>
+            <dt className="text-muted-foreground">
+              Name the application gave itself
+            </dt>
+            <dd className="mt-0.5 break-words text-foreground">{clientName}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {identity.kind === "impersonation" ? (
+        <Alert variant="destructive">
+          <AlertTitle>This may not be {identity.knownLabel}</AlertTitle>
+          <AlertDescription>
+            It calls itself {identity.knownLabel}, but {identity.knownLabel}{" "}
+            doesn&apos;t use {identity.foreignHosts.join(", ")}. Deny unless you
+            are sure.
+          </AlertDescription>
+        </Alert>
+      ) : identity.kind === "unknown" ? (
+        <Alert variant="warning">
+          <AlertTitle>Unrecognized application</AlertTitle>
+          <AlertDescription>
+            Pandects doesn&apos;t recognize this application. Allow only if you
+            just started connecting it yourself.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <div>
+        <div className="text-sm font-medium">Requested permissions</div>
+        <ul className="mt-2 space-y-1 pl-5 text-sm text-muted-foreground list-disc">
+          {scopes.map((s) => (
+            <li key={s}>
+              <span className="text-foreground">{describeScope(s)}</span>{" "}
+              <span className="text-muted-foreground">({s})</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Could not record consent</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+        <Button variant="outline" onClick={onDeny} disabled={submitting}>
+          Deny
+        </Button>
+        <Button onClick={onAllow} disabled={submitting}>
+          {submitting ? "Allowing…" : "Allow"}
+        </Button>
+      </div>
+    </>
   );
 }

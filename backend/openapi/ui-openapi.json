@@ -4049,6 +4049,48 @@
         ]
       }
     },
+    "/v1/auth/oauth/consent/client": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "getAuthOAuthConsentClient",
+        "summary": "Describe an MCP OAuth client for the consent screen",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthOAuthConsentClientResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "client_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "redirect_uri",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ]
+      }
+    },
     "/v1/auth/oauth/consent": {
       "post": {
         "tags": [
@@ -8124,10 +8166,39 @@
         ],
         "additionalProperties": false
       },
+      "AuthOAuthConsentClientResponse": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "client_name": {
+            "type": "string",
+            "description": "The name the client gave itself at registration.",
+            "nullable": true
+          },
+          "redirect_uris": {
+            "type": "array",
+            "description": "Every redirect URI the client registered.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "client_id",
+          "client_name",
+          "redirect_uris"
+        ],
+        "additionalProperties": false
+      },
       "AuthOAuthConsentBody": {
         "type": "object",
         "properties": {
           "client_id": {
+            "type": "string"
+          },
+          "redirect_uri": {
             "type": "string"
           },
           "scope": {
@@ -8136,6 +8207,7 @@
         },
         "required": [
           "client_id",
+          "redirect_uri",
           "scope"
         ],
         "additionalProperties": false

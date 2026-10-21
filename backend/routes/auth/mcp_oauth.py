@@ -55,6 +55,27 @@ _DCR_UNUSED_GRACE_HOURS = 24
 _DCR_INACTIVE_DAYS = 90
 # Matches the auth_oauth_clients.client_name column.
 _DCR_CLIENT_NAME_MAX_LENGTH = 255
+# Characters that would let a client disguise its name on the consent screen:
+# control, format (bidi overrides, zero-width), surrogate, private-use,
+# unassigned, and line/paragraph separators.
+_DCR_CLIENT_NAME_BLOCKED_CATEGORIES = {"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"}
+# Letters and marks that render as blank space.
+_DCR_CLIENT_NAME_INVISIBLE_CHARS = {"\u034f", "\u115f", "\u1160", "\u2800", "\u3164", "\uffa0"}
+# Longest run of combining marks allowed on one base character; real scripts
+# stay well under this, while stacked marks can obscure a name.
+_DCR_CLIENT_NAME_MAX_COMBINING_RUN = 3
+
+
+def _client_name_displayable(name: str) -> bool:
+    combining_run = 0
+    for ch in name:
+        category = unicodedata.category(ch)
+        if category in _DCR_CLIENT_NAME_BLOCKED_CATEGORIES or ch in _DCR_CLIENT_NAME_INVISIBLE_CHARS:
+            return False
+        combining_run = combining_run + 1 if category in {"Mn", "Me"} else 0
+        if combining_run > _DCR_CLIENT_NAME_MAX_COMBINING_RUN:
+            return False
+    return True
 
 
 def register_mcp_oauth_routes(
@@ -202,11 +223,6 @@ def register_mcp_oauth_routes(
         param needed to (a) render the page and (b) replay /oauth/authorize
         after the user clicks Allow. The page POSTs /v1/auth/oauth/consent
         to record the grant, then navigates to /v1/auth/oauth/authorize."""
-        client_name = (
-            client.client_name.strip()
-            if isinstance(client.client_name, str) and client.client_name.strip()
-            else ""
-        )
         params: dict[str, str] = {
             "client_id": client.client_id,
             "redirect_uri": redirect_uri,
@@ -215,8 +231,6 @@ def register_mcp_oauth_routes(
             "code_challenge": code_challenge,
             "code_challenge_method": code_challenge_method,
         }
-        if client_name:
-            params["client_name"] = client_name
         if state:
             params["state"] = state
         # Defense-in-depth: an open redirect here would be a phishing primitive.
@@ -450,13 +464,11 @@ window.location.replace({json.dumps(login_url)});
                     error="invalid_client_metadata",
                     description=f"client_name must be at most {_DCR_CLIENT_NAME_MAX_LENGTH} characters.",
                 )
-            # Control and format characters (including bidi overrides) would let a
-            # client disguise its name on the consent screen.
-            if any(unicodedata.category(ch) in {"Cc", "Cf"} for ch in client_name):
+            if not _client_name_displayable(client_name):
                 return oauth_error(
                     400,
                     error="invalid_client_metadata",
-                    description="client_name must not contain control or formatting characters.",
+                    description="client_name must not contain control, formatting, or invisible characters.",
                 )
         token_endpoint_auth_method = data.get("token_endpoint_auth_method", "none")
         if token_endpoint_auth_method != "none":
@@ -512,6 +524,40 @@ window.location.replace({json.dumps(login_url)});
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
+    @auth_blp.get("/oauth/consent/client")
+    def oauth_consent_client():
+        """Describe a DCR client for the consent screen from its registration,
+        never from the consent page's own query string, which anyone can craft.
+        Every registered redirect URI is returned: a grant covers the client,
+        so any of them can receive a code once the user allows."""
+        deps._require_auth_db()
+        deps._require_verified_user()
+        client_id = request.args.get("client_id", "").strip()
+        redirect_uri = request.args.get("redirect_uri", "").strip()
+        client = (
+            deps.AuthOAuthClient.query.filter_by(client_id=client_id).first() if client_id else None
+        )
+        if client is None or not redirect_uri or not _oauth_redirect_uri_allowed(client, redirect_uri):
+            abort(400, description="Invalid OAuth client or redirect URI.")
+        raw_uris = client.redirect_uris if isinstance(client.redirect_uris, list) else []
+        client_name = (
+            client.client_name.strip()
+            if isinstance(client.client_name, str) and client.client_name.strip()
+            else None
+        )
+        resp = make_response(
+            jsonify(
+                {
+                    "client_id": client.client_id,
+                    "client_name": client_name,
+                    "redirect_uris": [str(uri).strip() for uri in raw_uris if str(uri).strip()],
+                }
+            ),
+            200,
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     @auth_blp.post("/oauth/consent")
     def oauth_consent():
         """Record a user's consent for a DCR-registered client to receive the
@@ -529,16 +575,21 @@ window.location.replace({json.dumps(login_url)});
             abort(400, description="Invalid consent payload.")
         client_id = data.get("client_id")
         scope_raw = data.get("scope")
+        redirect_uri = data.get("redirect_uri")
         if not isinstance(client_id, str) or not client_id.strip():
             abort(400, description="client_id is required.")
+        if not isinstance(redirect_uri, str) or not redirect_uri.strip():
+            abort(400, description="redirect_uri is required.")
         if not isinstance(scope_raw, str) or not scope_raw.strip():
             abort(400, description="scope is required.")
         # Re-runs the same scope normalization the authorize endpoint applies,
         # so an unsupported scope is rejected with the identical error.
         scope = _oauth_scope_string(scope_raw)
         client = deps.AuthOAuthClient.query.filter_by(client_id=client_id.strip()).first()
-        if client is None:
-            abort(400, description="Invalid OAuth client.")
+        # The consent screen identifies the client by its redirect hosts, so a
+        # grant is only recorded for a redirect URI the client registered.
+        if client is None or not _oauth_redirect_uri_allowed(client, redirect_uri.strip()):
+            abort(400, description="Invalid OAuth client or redirect URI.")
 
         now = deps._utc_now()
         normalized_scope = _normalize_granted_scope(scope)

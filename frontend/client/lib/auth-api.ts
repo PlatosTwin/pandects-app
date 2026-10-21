@@ -77,7 +77,18 @@ export async function fetchUsage(params?: { period?: UsagePeriod; apiKeyId?: str
   );
 }
 
-export async function grantOAuthConsent(payload: { client_id: string; scope: string }) {
+export async function fetchOAuthConsentClient(params: { client_id: string; redirect_uri: string }) {
+  const query = new URLSearchParams(params);
+  return apiFetchJson<Schemas["AuthOAuthConsentClientResponse"]>(
+    apiUrl(`v1/auth/oauth/consent/client?${query.toString()}`),
+  );
+}
+
+export async function grantOAuthConsent(payload: {
+  client_id: string;
+  redirect_uri: string;
+  scope: string;
+}) {
   return apiFetchJson<Schemas["AuthOAuthConsentResponse"]>(
     apiUrl("v1/auth/oauth/consent"),
     {
