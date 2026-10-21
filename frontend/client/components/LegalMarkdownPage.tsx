@@ -41,7 +41,9 @@ export function LegalMarkdownPage({
 }: LegalMarkdownPageProps) {
   const prepared = prepareLegalMarkdownForPage(markdown);
   const renderedHtml = renderLegalMarkdownToHtml(prepared.markdown);
-  const html = transformHtml ? transformHtml(renderedHtml) : renderedHtml;
+  // The page title is the only h1; headings the markdown marks as h1 render as h2.
+  const demotedHtml = renderedHtml.replace(/<(\/?)h1(?=[\s>])/gi, "<$1h2");
+  const html = transformHtml ? transformHtml(demotedHtml) : demotedHtml;
 
   const defaultRelatedLinks = pageKey ? (
     <>

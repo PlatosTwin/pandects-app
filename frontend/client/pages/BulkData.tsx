@@ -1,6 +1,7 @@
 import type React from "react";
 import { API_BASE_URL } from "@/lib/api-config";
 import { getDocsUrl } from "@/lib/docs-url";
+import { formatDumpTimestamp } from "@/lib/dump-timestamp";
 import { useDumps } from "@/hooks/use-insights";
 import type { DumpInfo } from "@shared/insights";
 import { trackEvent } from "@/lib/analytics";
@@ -103,13 +104,6 @@ function DumpActions({ dump, className }: { dump: DumpInfo; className: string })
   );
 }
 
-const DUMP_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  year: "numeric",
-  month: "long",
-  day: "numeric",
-  timeZone: "UTC",
-});
-
 export default function BulkData() {
   const docsUrl = getDocsUrl();
   const {
@@ -122,24 +116,7 @@ export default function BulkData() {
     refetch: refetchDumps,
   } = useDumps();
 
-  const formatTimestamp = (timestamp: string): string => {
-    if (timestamp === "latest") {
-      return "Latest";
-    }
-    // Dump versions look like "public_2026-09-09_16-08-00": the push script's
-    // local wall-clock time with no zone. Show the calendar date only, built
-    // in UTC so the viewer's offset can't move it a day.
-    const match = /(\d{4})-(\d{2})-(\d{2})(?:_\d{2}-\d{2}(?:-\d{2})?)?$/.exec(
-      timestamp,
-    );
-    if (match) {
-      const [, year, month, day] = match;
-      return DUMP_DATE_FORMATTER.format(
-        new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))),
-      );
-    }
-    return timestamp;
-  };
+  const formatTimestamp = formatDumpTimestamp;
 
   const formatSize = (bytes?: number): string => {
     if (!bytes) return "—";

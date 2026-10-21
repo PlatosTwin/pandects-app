@@ -141,7 +141,7 @@ export function ProcessingStatusChart({
         className="h-[240px] w-full min-w-0 aspect-auto sm:h-[300px] lg:h-[340px]"
         config={{
           processed: {
-            label: "Processed",
+            label: "Complete",
             color: PROCESSING_STATUS_COLORS.processed,
           },
           staged: {
@@ -158,7 +158,7 @@ export function ProcessingStatusChart({
           },
         }}
         role="img"
-        aria-label="Stacked bar chart showing processed, staged, awaiting validation, and not paginated agreements by filing year."
+        aria-label="Stacked bar chart showing complete, staged, awaiting validation, and not paginated agreements by filing year."
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <BarChart data={data} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
@@ -175,7 +175,7 @@ export function ProcessingStatusChart({
             interval="preserveStartEnd"
             ticks={yearTicks}
           />
-          <YAxis allowDecimals={false} tickMargin={6} width={32} />
+          <YAxis allowDecimals={false} tickMargin={6} width={40} />
           <ChartTooltip
             content={
               <ChartTooltipContent
@@ -198,7 +198,7 @@ export function ProcessingStatusChart({
                     total > 0 ? Math.round((count / total) * 1000) / 10 : 0;
                   const countValue = Number(value);
                   const pct =
-                    name === "Processed"
+                    name === "Complete"
                       ? getPct(processed)
                       : name === "Staged"
                         ? getPct(staged)
@@ -234,7 +234,7 @@ export function ProcessingStatusChart({
             dataKey="processed"
             stackId="agreements"
             fill="var(--color-processed)"
-            name="Processed"
+            name="Complete"
           />
           <Bar
             dataKey="staged"
@@ -356,7 +356,7 @@ export function DealTypesChart({
           />
           <YAxis
             tickMargin={6}
-            width={mode === "percent" ? 44 : 32}
+            width={mode === "percent" ? 44 : 40}
             allowDecimals={mode !== "percent"}
             domain={mode === "percent" ? [0, 100] : undefined}
             ticks={mode === "percent" ? PERCENT_AXIS_TICKS : undefined}

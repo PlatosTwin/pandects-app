@@ -55,6 +55,10 @@ const STAGE_TOOLTIP_COPY = {
     "Agreements that have been compiled into XML and are awaiting verification (via AI or manually, if that fails) before an upsert to the sections table.",
 } as const;
 
+/** The green bucket of the status summary (`color = 'green'` in the ETL). */
+const COMPLETE_STAGE_TOOLTIP =
+  "Passed every pipeline stage: verified XML, sections stored, and no stale tags.";
+
 const DEAL_TYPE_DISPLAY_ORDER = [
   "merger",
   "stock_acquisition",
@@ -298,6 +302,32 @@ export function AgreementIndexOverview() {
     label: string,
     metricKey: string,
   ): React.ReactNode => {
+    if (metricKey === "processed") {
+      return (
+        <span className="inline-flex items-center gap-1">
+          <span>{label}</span>
+          <AdaptiveTooltip
+            trigger={
+              <button
+                type="button"
+                aria-label="Complete details"
+                className="tooltip-help-trigger-compact min-h-[24px] min-w-[24px] sm:min-h-4 sm:min-w-4"
+              >
+                ?
+              </button>
+            }
+            content={COMPLETE_STAGE_TOOLTIP}
+            tooltipProps={{ side: "top", align: "start", className: "max-w-[320px] text-xs" }}
+            popoverProps={{
+              side: "top",
+              align: "start",
+              className: "w-[min(20rem,calc(100vw-2rem))] p-3 text-xs",
+            }}
+            delayDuration={0}
+          />
+        </span>
+      );
+    }
     if (metricKey === "metadata-coverage") {
       return (
         <span className="inline-flex items-center gap-1">
@@ -420,7 +450,7 @@ export function AgreementIndexOverview() {
       total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
     const formatPctDetail = (
       value: number | null,
-      denominatorLabel: "processed" | "sections",
+      denominatorLabel: "searchable" | "sections",
     ) =>
       value === null
         ? `—% of ${denominatorLabel}`
@@ -440,7 +470,7 @@ export function AgreementIndexOverview() {
       },
       {
         key: "processed",
-        label: "Processed",
+        label: "Complete",
         value: stagedTotals.processed,
         detail: `${pctOfTotal(stagedTotals.processed).toFixed(1)}% of total`,
       },
@@ -454,7 +484,7 @@ export function AgreementIndexOverview() {
         key: "metadata-coverage",
         label: "Metadata coverage",
         value: statusSummaryMetadataCoveredAgreements ?? "—",
-        detail: formatPctDetail(statusSummaryMetadataCoveragePct, "processed"),
+        detail: formatPctDetail(statusSummaryMetadataCoveragePct, "searchable"),
       },
       {
         key: "taxonomy-coverage",
@@ -720,7 +750,7 @@ export function AgreementIndexOverview() {
       </div>
       <div className="sr-only"><table>
         <caption>
-          Summary totals for staged, awaiting validation, processed, and not
+          Summary totals for staged, awaiting validation, complete, and not
           paginated agreements, plus metadata coverage and taxonomy coverage.
         </caption>
         <thead>
@@ -931,7 +961,11 @@ export function AgreementIndexOverview() {
         {statusSummaryLoading ? (
           panelSkeleton
         ) : statusSummaryError ? (
-          <ErrorState error={statusSummaryError} variant="inline" />
+          <ErrorState
+            error={statusSummaryQuery.apiError ?? statusSummaryError}
+            onRetry={() => void statusSummaryQuery.refetch()}
+            variant="inline"
+          />
         ) : stagedChartData.length === 0 ? (
           <EmptyState title="No processing status data yet." variant="inline" />
         ) : (
@@ -941,13 +975,13 @@ export function AgreementIndexOverview() {
             {renderStageFunnelTable()}
             <div className="sr-only"><table id={stagedChartTableId}>
               <caption>
-                Processed, awaiting validation, staged, and not paginated
+                Complete, awaiting validation, staged, and not paginated
                 agreements by filing year
               </caption>
               <thead>
                 <tr>
                   <th scope="col">Year</th>
-                  <th scope="col">Processed</th>
+                  <th scope="col">Complete</th>
                   <th scope="col">Awaiting validation</th>
                   <th scope="col">Staged</th>
                   <th scope="col">Not paginated</th>
@@ -1015,7 +1049,11 @@ export function AgreementIndexOverview() {
           (!dealTypeSummaryLoaded && !dealTypeSummaryError) ? (
             panelSkeleton
           ) : dealTypeSummaryError ? (
-            <ErrorState error={dealTypeSummaryError} variant="inline" />
+            <ErrorState
+              error={dealTypeSummaryQuery.apiError ?? dealTypeSummaryError}
+              onRetry={() => void dealTypeSummaryQuery.refetch()}
+              variant="inline"
+            />
           ) : dealTypeChartData.length === 0 || dealTypeSeries.length === 0 ? (
             <EmptyState title="No deal type data yet." variant="inline" />
           ) : (

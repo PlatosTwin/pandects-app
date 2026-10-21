@@ -16,6 +16,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { SVGProps } from "react";
 import { FactCard } from "@/components/FactCard";
+import { useHydrated } from "@/components/landing/use-hydrated";
 import { CodeBlock } from "@/components/ui/code-block";
 import { ExternalLink } from "@/components/ui/external-link";
 import { Eyebrow, eyebrowClassName } from "@/components/ui/eyebrow";
@@ -152,11 +153,15 @@ const roadmapItems: {
 ];
 
 export default function About() {
+  // The summary query is disabled during prerender, so render the loading
+  // state on the server and on the first client paint (as LandingStats does).
+  const hydrated = useHydrated();
   const {
     summary,
-    isLoading: summaryLoading,
+    isLoading: summaryQueryLoading,
     error: summaryError,
   } = useAgreementSummary();
+  const summaryLoading = !hydrated || summaryQueryLoading;
   const latestFilingDate =
     summary?.latest_filing_date && !summaryError
       ? formatDateValue(summary.latest_filing_date)

@@ -13,6 +13,7 @@ import type {
 } from "@shared/insights";
 import { trackEvent } from "@/lib/analytics";
 import { apiGet, errorMessage, isApiError } from "@/lib/api/client";
+import { parseDumpTimestamp } from "@/lib/dump-timestamp";
 import { logger } from "@/lib/logger";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
@@ -41,6 +42,9 @@ export function useAgreementStatusSummary() {
     data: query.data ?? null,
     isLoading: query.isPending && query.fetchStatus !== "idle",
     error: queryError(query.error, "Unable to load staging summary."),
+    /** The raw ApiError, so ErrorState can map its status. */
+    apiError: query.error ?? null,
+    refetch: query.refetch,
   };
 }
 
@@ -61,6 +65,9 @@ export function useAgreementDealTypesSummary({ enabled = true }: { enabled?: boo
     isLoading: query.isPending && query.fetchStatus !== "idle",
     isLoaded: query.isSuccess,
     error: queryError(query.error, "Unable to load deal type summary."),
+    /** The raw ApiError, so ErrorState can map its status. */
+    apiError: query.error ?? null,
+    refetch: query.refetch,
   };
 }
 
@@ -111,12 +118,19 @@ export interface DumpsData {
   latestSqlUrl: string | null;
 }
 
-function organizeDumps(data: DumpInfo[]): DumpsData {
+/** Sort key: "latest" first, then dated versions newest first, then the rest in API order. */
+function dumpRank(dump: DumpInfo): number {
+  if (dump.timestamp === "latest") return Number.POSITIVE_INFINITY;
+  return parseDumpTimestamp(dump.timestamp) ?? Number.NEGATIVE_INFINITY;
+}
+
+export function organizeDumps(data: DumpInfo[]): DumpsData {
   const latest = data.find((dump) => dump.timestamp === "latest");
+  // Array.prototype.sort is stable, so equal ranks keep API order.
   const dumps = [...data].sort((a, b) => {
-    if (a.timestamp === "latest") return -1;
-    if (b.timestamp === "latest") return 1;
-    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    const ra = dumpRank(a);
+    const rb = dumpRank(b);
+    return ra === rb ? 0 : rb > ra ? 1 : -1;
   });
   return {
     dumps,
@@ -140,12 +154,14 @@ export function useDumps() {
     const error = query.error;
     if (!error) return;
     if (import.meta.env.DEV) logger.error("Error fetching dumps:", error);
+    // One event per failure: HTTP errors carry their status, the rest a kind.
     if (isApiError(error) && !error.isNetworkError) {
       trackEvent("api_error", {
         endpoint: "v1/dumps",
         status: error.status,
         status_text: error.statusText,
       });
+      return;
     }
     trackEvent("api_error", {
       endpoint: "v1/dumps",
