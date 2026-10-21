@@ -71,7 +71,9 @@ by refactors. Line numbers below refer to current code.
 - **Radius** — closed scale (`xl`/`2xl` derived from `--radius`); text buttons
   no longer override to `rounded-full`.
 - **Chart palette** — `--chart-1..8` + `--chart-neutral` CSS variables with
-  dark variants; 8-series cap. Confusion-matrix cells scale alpha by the
+  dark variants; 8-series cap. Light-mode teal, amber, green, orange and
+  neutral were darkened to reach 3:1 on `card`/`background` (they measured
+  2.25–2.97:1). Confusion-matrix cells scale alpha by the
   cell's share of its row.
 - **Page frame** — `PageShell layout="docs|data|form"` with `PageHeader`;
   titles align with the nav logo. Migrated: About, Feedback, Support, legal
