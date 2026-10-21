@@ -140,7 +140,15 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
         : "";
 
   return (
-    <section aria-labelledby="search-page-title" className="flex min-w-0 flex-1 flex-col">
+    <section
+      id="search-results"
+      tabIndex={-1}
+      aria-labelledby="search-results-heading"
+      className="flex min-w-0 flex-1 flex-col outline-none"
+    >
+      <h2 id="search-results-heading" className="sr-only">
+        Results
+      </h2>
       <div className="z-10 border-b border-border bg-background/95 px-4 py-2 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur sm:px-6 lg:sticky lg:top-[calc(4rem+var(--search-bar-h,0px))] lg:px-6">
         <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-2">
           {props.mobileFilters}
