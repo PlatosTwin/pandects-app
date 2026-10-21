@@ -8,13 +8,13 @@ export type PageShellLayout = "docs" | "data" | "form" | "settings";
 export interface PageShellProps {
   /**
    * Page frame. The outer frame always matches the navigation bar
-   * (`max-w-7xl px-4 sm:px-6 lg:px-8`). Layouts narrower than the frame are
+   * (the `app-frame` class). Layouts narrower than the frame are
    * centered in it, with the title inside the column so it shares the
    * content's edges; only `data` pages line the title up with the logo.
    * - `docs`: one 720px reading measure, centered; pass `toc` for a sticky
    *   240px table of contents on the left (lg+), and the whole 1008px
    *   block is centered instead.
-   * - `data`: full `max-w-7xl` for tables, charts and dashboards.
+   * - `data`: the full frame for tables, charts and dashboards.
    * - `form`: a centered `max-w-md` column.
    * - `settings`: a centered `max-w-4xl` column for account-style pages.
    */
@@ -32,7 +32,7 @@ export interface PageShellProps {
   children: ReactNode;
 }
 
-const FRAME = "mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8";
+const FRAME = "app-frame flex-1 py-8";
 
 export function PageShell({
   layout,

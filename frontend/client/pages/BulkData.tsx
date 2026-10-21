@@ -160,7 +160,7 @@ export default function BulkData() {
         {/* Latest dump */}
         <section
           aria-labelledby="bulk-latest-heading"
-          className="rounded-xl border border-border bg-card p-4 sm:p-6"
+          className="rounded-xl border border-border bg-card shadow-raised p-4 sm:p-6"
         >
           <h2
             id="bulk-latest-heading"
@@ -267,7 +267,7 @@ export default function BulkData() {
         {/* History */}
         <section
           aria-labelledby="bulk-history-heading"
-          className="overflow-hidden rounded-xl border border-border bg-card"
+          className="overflow-hidden rounded-xl border border-border bg-card shadow-raised"
         >
           <div className="border-b border-border px-4 py-4 sm:px-6">
             <h2
@@ -485,7 +485,7 @@ export default function BulkData() {
         {/* Database Info */}
         <section
           aria-labelledby="bulk-about-heading"
-          className="rounded-xl border border-border bg-card p-4 sm:p-6"
+          className="rounded-xl border border-border bg-card shadow-raised p-4 sm:p-6"
         >
           <h2
             id="bulk-about-heading"

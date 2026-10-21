@@ -150,7 +150,7 @@ export default function TaxClauseCompare() {
     >
       <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
         {/* Selected clauses + sub-filter */}
-        <aside className="self-start rounded-xl border border-border bg-card lg:sticky lg:top-24">
+        <aside className="self-start rounded-xl border border-border bg-card shadow-raised lg:sticky lg:top-24">
           <div className="border-b border-border px-4 py-3">
             <h2 className="text-sm font-semibold text-foreground">
               Selected clauses ({clauses.length})
@@ -271,7 +271,7 @@ export default function TaxClauseCompare() {
                 return (
                   <li
                     key={c.id}
-                    className="rounded-xl border border-border bg-card p-4 shadow-sm"
+                    className="rounded-xl border border-border bg-card p-4 shadow-raised"
                   >
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">

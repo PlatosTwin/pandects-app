@@ -48,7 +48,7 @@ function NavigationComponent() {
       <nav
         ref={navRef}
         aria-label="Primary"
-        className="relative z-0 mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
+        className="relative z-0 flex h-16 app-frame items-center justify-between"
       >
         {/* Brand */}
         <div className="flex items-center gap-2">

@@ -43,7 +43,7 @@ export default function ResetPasswordConfirm() {
       description="Finish resetting your Pandects password."
       layout="form"
     >
-      <Card className="w-full p-6 shadow-sm sm:p-8">
+      <Card className="w-full p-6 shadow-raised sm:p-8">
         <div className="grid gap-6">
           {!userId || !code ? (
             <Alert variant="destructive">

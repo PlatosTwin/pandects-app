@@ -42,9 +42,9 @@ export function ResultRow({
   return (
     <div
       className={cn(
-        "grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 rounded-lg border bg-card transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto]",
+        "grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 surface-interactive rounded-lg border bg-card shadow-raised sm:grid-cols-[auto_minmax(0,1fr)_auto]",
         density === "compact" ? "px-3 py-2.5" : "px-4 py-4",
-        selected ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/30",
+        selected ? "border-primary/50 bg-primary/5 shadow-lifted" : "border-border",
         className,
       )}
     >

@@ -135,7 +135,7 @@ function StateFrame({
       role={role}
       className={cn(
         "flex flex-col items-center justify-center px-6 py-10 text-center",
-        variant === "card" && "rounded-xl border border-border bg-card",
+        variant === "card" && "rounded-xl border border-border bg-card shadow-raised",
         className,
       )}
     >

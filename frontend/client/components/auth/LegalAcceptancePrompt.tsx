@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { ReferenceLink } from "@/components/ui/reference-link";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -41,32 +41,29 @@ export function LegalAcceptancePrompt({
               Accept legal terms
             </Label>
             I have read and agree to the{" "}
-            <Link
+            <ReferenceLink
               to="/terms"
-              target="_blank"
-              rel="noreferrer"
+              hideIcon
               className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
               Terms of Service
-            </Link>
+            </ReferenceLink>
             ,{" "}
-            <Link
+            <ReferenceLink
               to="/privacy-policy"
-              target="_blank"
-              rel="noreferrer"
+              hideIcon
               className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
               Privacy Policy
-            </Link>
+            </ReferenceLink>
             , and{" "}
-            <Link
+            <ReferenceLink
               to="/license"
-              target="_blank"
-              rel="noreferrer"
+              hideIcon
               className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
               License
-            </Link>
+            </ReferenceLink>
             .
           </div>
         </div>

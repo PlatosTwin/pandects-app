@@ -75,7 +75,7 @@ function SelectionBar({
       aria-label="Selected results"
       className="pointer-events-none sticky bottom-4 z-30 mt-4 flex justify-center px-2 pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-popover/95 px-3 py-2 shadow-lg supports-[backdrop-filter]:bg-popover/80 supports-[backdrop-filter]:backdrop-blur">
+      <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-popover/95 px-3 py-2 shadow-overlay supports-[backdrop-filter]:bg-popover/80 supports-[backdrop-filter]:backdrop-blur">
         <span className="px-1 text-sm font-medium text-foreground" aria-live="polite">
           {selectedSize} selected
         </span>

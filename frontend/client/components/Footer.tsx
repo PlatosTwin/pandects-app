@@ -17,7 +17,7 @@ function FooterComponent() {
 
   return (
     <footer className="mt-auto border-t print:hidden border-border bg-background">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="app-frame">
         <nav
           aria-label="Footer"
           className="grid grid-cols-2 gap-x-6 gap-y-6 py-6 sm:grid-cols-4"

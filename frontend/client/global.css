@@ -68,6 +68,10 @@
     --chart-neutral: 220 9% 58%;
     /* Heatmap cell fill; text on it stays foreground at every opacity. */
     --heatmap: 212 93% 50%;
+    /* Elevation (tailwind shadow-raised / -lifted / -overlay). */
+    --elevation-raised: 0 1px 2px 0 hsl(222 30% 12% / 0.05), 0 1px 3px 0 hsl(222 30% 12% / 0.07);
+    --elevation-lifted: 0 6px 16px -4px hsl(222 30% 12% / 0.12), 0 2px 4px -1px hsl(222 30% 12% / 0.06);
+    --elevation-overlay: 0 16px 40px -12px hsl(222 30% 12% / 0.24), 0 4px 10px -2px hsl(222 30% 12% / 0.08);
 
     /* App background (used via bg-cream) — cool near-white */
     --cream: 220 20% 98.5%;
@@ -126,6 +130,10 @@
       --chart-neutral: 220 9% 52%;
       /* Darker than chart-1 so foreground text clears 4.5:1 at full intensity. */
       --heatmap: 212 93% 50%;
+    /* Dark shadows need more weight, plus a faint top highlight to read. */
+    --elevation-raised: 0 1px 2px 0 hsl(0 0% 0% / 0.4), inset 0 1px 0 0 hsl(0 0% 100% / 0.03);
+    --elevation-lifted: 0 8px 20px -6px hsl(0 0% 0% / 0.6), inset 0 1px 0 0 hsl(0 0% 100% / 0.05);
+    --elevation-overlay: 0 18px 44px -12px hsl(0 0% 0% / 0.7), 0 0 0 1px hsl(0 0% 100% / 0.05);
 
       /* App background (used via bg-cream) */
       --cream: 222 10% 6.5%;
@@ -137,6 +145,20 @@
   html {
     font-size: 16.5px;
     scrollbar-gutter: stable;
+  }
+
+  /* Radix menus, dialogs and sheets lock scroll through react-remove-scroll,
+     which hides the page scrollbar and pads the body by its width. With the
+     stable gutter above that moves the whole page sideways by a scrollbar
+     width whenever a menu opens. Keep the scrollbar and the body exactly as
+     they are unlocked; the lock still blocks wheel and touch scrolling outside
+     the open layer. The extra `html` beats the library's injected rule, which
+     has the same !important and is inserted later. */
+  html body[data-scroll-locked] {
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
   }
 
   * {
@@ -280,5 +302,32 @@
   h2,
   h3 {
     break-after: avoid;
+  }
+}
+
+@layer components {
+  /* The one page frame: navigation, footer, page shells, search and the
+     reader all line up on it. Change the width here, nowhere else. */
+  .app-frame {
+    @apply mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* A surface you can click (result card, starter tile, list row): it rises
+     a pixel and picks up the primary border on hover, settles on press. Pair
+     with a resting shadow-raised. Motion is dropped for reduced-motion users;
+     the shadow and border still change. */
+  .surface-interactive {
+    @apply transition-[box-shadow,border-color,background-color,transform] duration-150 ease-out;
+  }
+  .surface-interactive:hover {
+    @apply border-primary/30 shadow-lifted;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .surface-interactive:hover {
+      transform: translateY(-1px);
+    }
+    .surface-interactive:active {
+      transform: translateY(0);
+    }
   }
 }

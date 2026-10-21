@@ -237,7 +237,7 @@ function NodeExample({
       EXAMPLE_MAX_CHARS,
     );
     body = (
-      <figure className="space-y-2 rounded-xl border border-border bg-card p-4">
+      <figure className="space-y-2 rounded-xl border border-border bg-card shadow-raised p-4">
         <figcaption className="space-y-0.5">
           <p className="font-medium text-foreground">
             {example.target} / {example.acquirer}

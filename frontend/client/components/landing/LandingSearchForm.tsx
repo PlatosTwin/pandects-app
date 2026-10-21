@@ -59,7 +59,7 @@ export function LandingSearchForm() {
           placeholder="Search clauses, parties, sections…"
           autoComplete="off"
           enterKeyHint="search"
-          className="h-12 w-full min-w-0 rounded-lg border border-input bg-background pl-10 pr-3 text-base text-foreground shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="h-12 w-full min-w-0 rounded-lg border border-input bg-background pl-10 pr-3 text-base text-foreground shadow-raised ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
       </div>
       <Button type="submit" className="h-12 shrink-0 px-5 text-base">

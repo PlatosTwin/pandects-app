@@ -94,90 +94,101 @@ function DealDetails({
   props: TransactionResultsListProps;
 }) {
   const pattern = (terms?: string[]) => literalTermsPattern(terms) ?? props.highlightPattern ?? null;
+  const showPanel = props.showMatches;
   return (
-    <div className="grid gap-5 px-3 py-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:px-4">
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 self-start lg:grid-cols-3">
-        <Fact label="Filed">{formatDateValue(result.filing_date)}</Fact>
-        <Fact label="Announced">{formatDateValue(result.announce_date)}</Fact>
-        <Fact label="Closed">{formatDateValue(result.close_date)}</Fact>
-        <Fact label="Deal type">{formatEnumValue(result.deal_type)}</Fact>
-        <Fact label="Consideration">{formatEnumValue(result.transaction_consideration)}</Fact>
-        <Fact label="Status">{formatEnumValue(result.deal_status)}</Fact>
-        <Fact label="Attitude">{formatEnumValue(result.attitude)}</Fact>
-        <Fact label="Purpose">{formatEnumValue(result.purpose)}</Fact>
-        <Fact label="Target type">{formatEnumValue(result.target_type)}</Fact>
-        <Fact label="Acquirer type">{formatEnumValue(result.acquirer_type)}</Fact>
-        <Fact label="Target PE-backed">{yesNo(result.target_pe)}</Fact>
-        <Fact label="Acquirer PE-backed">{yesNo(result.acquirer_pe)}</Fact>
-        <Fact label="Cash">{formatCompactCurrencyValue(result.transaction_price_cash)}</Fact>
-        <Fact label="Stock">{formatCompactCurrencyValue(result.transaction_price_stock)}</Fact>
-        <div className="col-span-full">
-          <Fact label="Target industry">{formatIndustry(result.target_industry, result.target_industry_label) ?? DASH}</Fact>
-        </div>
-        <div className="col-span-full">
-          <Fact label="Acquirer industry">
-            {formatIndustry(result.acquirer_industry, result.acquirer_industry_label) ?? DASH}
-          </Fact>
-        </div>
-        {result.url ? (
-          <div className="col-span-full">
-            <ExternalLink href={result.url} className="text-sm font-medium text-primary hover:underline">
-              SEC filing
-            </ExternalLink>
+    <div className="px-3 py-4 motion-safe:animate-enter md:px-4">
+      {/* Facts flow into as many columns as the row is wide, so a wide screen
+          fills across instead of leaving the right side empty. */}
+      <div
+        className={cn(
+          "grid gap-6",
+          showPanel && "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]",
+        )}
+      >
+        <dl className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-6 gap-y-3 self-start">
+          <Fact label="Filed">{formatDateValue(result.filing_date)}</Fact>
+          <Fact label="Announced">{formatDateValue(result.announce_date)}</Fact>
+          <Fact label="Closed">{formatDateValue(result.close_date)}</Fact>
+          <Fact label="Deal type">{formatEnumValue(result.deal_type)}</Fact>
+          <Fact label="Consideration">{formatEnumValue(result.transaction_consideration)}</Fact>
+          <Fact label="Status">{formatEnumValue(result.deal_status)}</Fact>
+          <Fact label="Attitude">{formatEnumValue(result.attitude)}</Fact>
+          <Fact label="Purpose">{formatEnumValue(result.purpose)}</Fact>
+          <Fact label="Target type">{formatEnumValue(result.target_type)}</Fact>
+          <Fact label="Acquirer type">{formatEnumValue(result.acquirer_type)}</Fact>
+          <Fact label="Target PE-backed">{yesNo(result.target_pe)}</Fact>
+          <Fact label="Acquirer PE-backed">{yesNo(result.acquirer_pe)}</Fact>
+          <Fact label="Cash">{formatCompactCurrencyValue(result.transaction_price_cash)}</Fact>
+          <Fact label="Stock">{formatCompactCurrencyValue(result.transaction_price_stock)}</Fact>
+          <div className="col-span-2">
+            <Fact label="Target industry">{formatIndustry(result.target_industry, result.target_industry_label) ?? DASH}</Fact>
+          </div>
+          <div className="col-span-2">
+            <Fact label="Acquirer industry">
+              {formatIndustry(result.acquirer_industry, result.acquirer_industry_label) ?? DASH}
+            </Fact>
+          </div>
+        </dl>
+        {showPanel ? (
+          <div className="min-w-0">
+            <h4 className="text-sm font-semibold text-foreground">Why this matched</h4>
+            {result.matched_sections.length > 0 ? (
+              <>
+                <ul className="mt-2 space-y-2">
+                  {result.matched_sections.map((section) => {
+                    const title = section.section_title?.trim() || section.article_title?.trim() || "Matched section";
+                    const types = section.standard_id
+                      .map((id) => section.standard_id_labels?.[id] ?? props.clauseTypeLabelById?.[id])
+                      .filter(Boolean)
+                      .slice(0, 2);
+                    return (
+                      <li key={section.section_uuid} className="surface-interactive rounded-md border border-border bg-background p-3">
+                        <Link
+                          to={props.getAgreementHref(result, section.section_uuid)}
+                          className="text-sm font-medium text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {title}
+                        </Link>
+                        {types.length > 0 ? (
+                          <div className="mt-0.5 text-xs text-muted-foreground">{types.join(" · ")}</div>
+                        ) : null}
+                        {section.snippet ? (
+                          <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">
+                            <Highlight text={cleanSnippet(section.snippet)} pattern={pattern(section.matched_terms)} />
+                          </p>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {result.match_count > result.matched_sections.length ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Showing {result.matched_sections.length} of {result.match_count} matching sections.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">No matched section preview for this deal.</p>
+            )}
           </div>
         ) : null}
-      </dl>
-      <div className="min-w-0">
-        <h4 className="text-sm font-semibold text-foreground">
-          {props.showMatches ? "Why this matched" : "Agreement"}
-        </h4>
-        {props.showMatches && result.matched_sections.length > 0 ? (
-          <>
-            <ul className="mt-2 space-y-2">
-              {result.matched_sections.map((section) => {
-                const title = section.section_title?.trim() || section.article_title?.trim() || "Matched section";
-                const types = section.standard_id
-                  .map((id) => section.standard_id_labels?.[id] ?? props.clauseTypeLabelById?.[id])
-                  .filter(Boolean)
-                  .slice(0, 2);
-                return (
-                  <li key={section.section_uuid} className="rounded-md border border-border bg-background p-3">
-                    <Link
-                      to={props.getAgreementHref(result, section.section_uuid)}
-                      className="text-sm font-medium text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      {title}
-                    </Link>
-                    {types.length > 0 ? (
-                      <div className="mt-0.5 text-xs text-muted-foreground">{types.join(" · ")}</div>
-                    ) : null}
-                    {section.snippet ? (
-                      <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">
-                        <Highlight text={cleanSnippet(section.snippet)} pattern={pattern(section.matched_terms)} />
-                      </p>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-            {result.match_count > result.matched_sections.length ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Showing {result.matched_sections.length} of {result.match_count} matching sections.
-              </p>
-            ) : null}
-          </>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">
-            {props.showMatches
-              ? "No matched section preview for this deal."
-              : "Pick a clause type or keyword to see which sections match."}
-          </p>
-        )}
-        <Button asChild size="sm" className="mt-3">
-          <Link to={props.getAgreementHref(result, props.showMatches ? result.matched_sections[0]?.section_uuid : null)}>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-3">
+        <Button asChild size="sm">
+          <Link to={props.getAgreementHref(result, showPanel ? result.matched_sections[0]?.section_uuid : null)}>
             Open agreement
           </Link>
         </Button>
+        {result.url ? (
+          <ExternalLink href={result.url} className="text-sm font-medium text-primary hover:underline">
+            SEC filing
+          </ExternalLink>
+        ) : null}
+        {showPanel ? null : (
+          <p className="text-sm text-muted-foreground">
+            Pick a clause type or keyword to see which sections match.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -224,7 +235,7 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
+    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
       <table className="w-full table-fixed border-collapse text-sm">
         <caption className="sr-only">
           Deals. Column headers for year, target and acquirer sort the table; the chevron in each row shows details.
@@ -287,9 +298,10 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
                 <tr
                   onClick={(event) => onRowClick(event, id)}
                   className={cn(
-                    "cursor-pointer border-b border-border align-top last:border-b-0 hover:bg-accent/40",
+                    "cursor-pointer border-b border-border align-top transition-colors duration-150 last:border-b-0 hover:bg-accent/40",
                     isSelected && "bg-primary/5",
-                    isOpen && "bg-muted/30",
+                    // An open row and its details share a primary rail on the left.
+                    isOpen && "bg-muted/30 shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
                   )}
                 >
                   <td className={cn("pl-3 pr-1", cellY)}>
@@ -375,7 +387,7 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
                 </tr>
                 {isOpen ? (
                   <tr id={detailsId} className="border-b border-border bg-muted/20 last:border-b-0">
-                    <td colSpan={columnCount} className="p-0">
+                    <td colSpan={columnCount} className="p-0 shadow-[inset_3px_0_0_0_hsl(var(--primary))]">
                       <div className="flex items-center gap-1 border-b border-border/60 px-3 py-2 xl:hidden">
                         <StarButton
                           itemType="agreement"

@@ -54,7 +54,7 @@ export function EvalModelCard({
   title: string;
 }) {
   return (
-    <Card className="rounded-2xl border border-border bg-card/60 p-6">
+    <Card className="rounded-2xl border border-border bg-card/60 shadow-raised p-6">
       <EvalModelHeader badge={badge} title={title} />
       <div className={contentClassName}>{children}</div>
     </Card>

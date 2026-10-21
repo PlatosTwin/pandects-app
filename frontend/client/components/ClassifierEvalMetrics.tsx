@@ -64,7 +64,7 @@ export function ClassifierEvalMetrics({ data }: ClassifierEvalMetricsProps) {
           <AccordionItem
             key={model.id}
             value={model.id}
-            className="rounded-2xl border border-border bg-card/60"
+            className="rounded-2xl border border-border bg-card/60 shadow-raised"
           >
             <AccordionTrigger className="px-5 py-4 text-left">
               <EvalModelHeader

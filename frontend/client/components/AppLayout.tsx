@@ -21,7 +21,7 @@ import {
 // Neutral route-level placeholder: plain blocks with no card chrome or blur,
 // laid out in the same frame as the page it stands in for (see `shell` in
 // routes.tsx), so nothing moves sideways when the page replaces it.
-const FALLBACK_FRAME = "mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8";
+const FALLBACK_FRAME = "app-frame py-8";
 
 const fallbackBar = "animate-pulse rounded bg-muted/70";
 

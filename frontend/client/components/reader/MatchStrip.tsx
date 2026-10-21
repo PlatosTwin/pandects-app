@@ -46,7 +46,7 @@ export function MatchStrip({
       role="region"
       aria-label="Search matches in this agreement"
       className={cn(
-        "flex h-10 items-center gap-1 rounded-lg border border-primary/20 bg-card pl-3 pr-1 text-sm shadow-sm",
+        "flex h-10 items-center gap-1 rounded-lg border border-primary/20 bg-card pl-3 pr-1 text-sm shadow-raised",
         className,
       )}
     >

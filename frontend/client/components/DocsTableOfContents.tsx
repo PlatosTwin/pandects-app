@@ -103,7 +103,7 @@ export function DocsTableOfContents({
         <p className={cn(eyebrowClassName, "mb-3")}>{title}</p>
         {list()}
       </div>
-      <div className="rounded-lg border border-border bg-card lg:hidden">
+      <div className="rounded-lg border border-border bg-card shadow-raised lg:hidden">
         <button
           type="button"
           aria-expanded={open}

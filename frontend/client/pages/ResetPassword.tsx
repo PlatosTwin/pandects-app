@@ -85,7 +85,7 @@ export default function ResetPassword() {
       description="Request a Pandects password reset link for your email address."
       layout="form"
     >
-      <Card className="w-full p-6 shadow-sm sm:p-8">
+      <Card className="w-full p-6 shadow-raised sm:p-8">
         <div className="grid gap-6">
           {submittedEmail ? (
             <Alert>
