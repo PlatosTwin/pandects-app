@@ -30,13 +30,12 @@ export const SECTION_RESULT_METADATA_FIELDS = [
  * Which modes send the keyword (`text_query` + `text_match_mode`) to the API.
  * The query bar disables the keyword input in the other modes.
  *
- * Deals: flip `transactions` to true once `GET /v1/search/agreements` honors
- * `text_query` (same param names as `/v1/sections`). Tax clauses have no
- * keyword support in the API.
+ * Sections and deals (`GET /v1/search/agreements`) take the same params.
+ * Tax clauses have no keyword support in the API; flip `tax` once it does.
  */
 export const KEYWORD_SEARCH_SUPPORT: Readonly<Record<SearchMode, boolean>> = {
   sections: true,
-  transactions: false,
+  transactions: true,
   tax: false,
 };
 

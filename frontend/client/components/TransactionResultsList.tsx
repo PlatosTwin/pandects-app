@@ -1,517 +1,398 @@
-import { useState } from "react";
+import { Fragment, useState, type MouseEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowUpRight,
-  Building2,
-  Calendar,
-  ChevronDown,
-  CircleDollarSign,
-  ExternalLink,
-  FileText,
-  Gavel,
-  Layers,
-  ShieldCheck,
-  Tag,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ResultsToolbar } from "@/components/ResultsToolbar";
+import { ExternalLink } from "@/components/ui/external-link";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import { StarButton } from "@/components/StarButton";
+import type { ResultsDensity, ResultsSortField } from "@/components/ResultsToolbar";
 import { useNaics } from "@/hooks/use-naics";
-import {
-  formatCompactCurrencyValue,
-  formatDateValue,
-  formatEnumValue,
-} from "@/lib/format-utils";
+import { formatCompactCurrencyValue, formatDateValue, formatEnumValue } from "@/lib/format-utils";
 import { formatNaicsIndustry } from "@/lib/naics";
 import { cn } from "@/lib/utils";
 import type { TransactionSearchResult } from "@shared/transactions";
+import { Highlight, literalTermsPattern } from "@/pages/search/Highlight";
+import { cleanSnippet } from "@/pages/search/search-ui";
 
-interface TransactionResultsListProps {
+export interface TransactionResultsListProps {
   results: TransactionSearchResult[];
-  getAgreementHref: (
-    result: TransactionSearchResult,
-    focusSectionUuid?: string | null,
-  ) => string;
-  showClauseContext?: boolean;
-  clauseTypeLabelById?: Record<string, string>;
-  currentPage?: number;
-  pageSize?: number;
-  className?: string;
-  selectedResults?: Set<string>;
-  onToggleResultSelection?: (agreementUuid: string) => void;
-  onToggleSelectAll?: () => void;
-  sortBy?: "year" | "target" | "acquirer";
-  sortDirection?: "asc" | "desc";
-  onSortResults?: (field: "year" | "target" | "acquirer") => void;
-  onToggleSortDirection?: () => void;
-  density?: "comfy" | "compact";
-  onDensityChange?: (density: "comfy" | "compact") => void;
+  getAgreementHref: (result: TransactionSearchResult, focusSectionUuid?: string | null) => string;
+  /** A clause type, section UUID or keyword is active, so matched sections mean something. */
+  showMatches: boolean;
+  clauseTypeLabelById: Record<string, string>;
+  selectedResults: Set<string>;
+  onToggleResultSelection: (agreementUuid: string) => void;
+  onToggleSelectAll: () => void;
+  sortBy: ResultsSortField;
+  sortDirection: "asc" | "desc";
+  /** Header click: a new column sorts (keeping direction); the active column flips. */
+  onSort: (field: ResultsSortField) => void;
+  density?: ResultsDensity;
+  /** Fallback highlight when a result carries no `matched_terms`. */
+  highlightPattern?: RegExp | null;
 }
 
-const INITIAL_MATCHED_VISIBLE = 3;
+const DASH = "—";
 
-function formatParties(result: TransactionSearchResult) {
-  const target = result.target?.trim() || "Unknown target";
-  const acquirer = result.acquirer?.trim() || "Unknown acquirer";
-  return { target, acquirer };
-}
-
-function MetaPill({
-  icon: Icon,
+function SortHeader({
+  field,
   label,
-  value,
+  sortBy,
+  sortDirection,
+  onSort,
   className,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  field: ResultsSortField;
   label: string;
-  value: string;
+  sortBy: ResultsSortField;
+  sortDirection: "asc" | "desc";
+  onSort: (field: ResultsSortField) => void;
   className?: string;
 }) {
+  const active = sortBy === field;
+  const Icon = !active ? ArrowUpDown : sortDirection === "asc" ? ArrowUp : ArrowDown;
   return (
-    <div
-      className={cn(
-        "inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border bg-background/60 px-2.5 py-1 text-xs",
-        className,
-      )}
-      title={value}
+    <th
+      scope="col"
+      aria-sort={active ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+      className={cn("px-2 py-2 text-left font-medium", className)}
     >
-      <Icon
-        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <span className="text-muted-foreground">{label}</span>
-      <span className="truncate font-medium text-foreground">{value}</span>
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className={cn(
+          "-ml-1 inline-flex items-center gap-1 rounded px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          active && "text-foreground",
+        )}
+      >
+        {label}
+        <Icon className={cn("h-3.5 w-3.5", !active && "opacity-50")} aria-hidden="true" />
+      </button>
+    </th>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="truncate text-sm text-foreground">{children}</dd>
     </div>
   );
 }
 
-export function TransactionResultsList({
-  results,
-  getAgreementHref,
-  showClauseContext = true,
-  clauseTypeLabelById,
-  currentPage = 1,
-  pageSize = 25,
-  className,
-  selectedResults,
-  onToggleResultSelection,
-  onToggleSelectAll,
-  sortBy = "year",
-  sortDirection = "desc",
-  onSortResults,
-  onToggleSortDirection,
-  density = "comfy",
-  onDensityChange,
-}: TransactionResultsListProps) {
-  const [expandedMatches, setExpandedMatches] = useState<Set<string>>(
-    () => new Set(),
+const yesNo = (value: boolean | number | null | undefined) =>
+  value === null || value === undefined ? DASH : value ? "Yes" : "No";
+
+function DealDetails({
+  result,
+  props,
+}: {
+  result: TransactionSearchResult;
+  props: TransactionResultsListProps;
+}) {
+  const { labelByCode } = useNaics();
+  const pattern = (terms?: string[]) => literalTermsPattern(terms) ?? props.highlightPattern ?? null;
+  return (
+    <div className="grid gap-5 px-3 py-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:px-4">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 self-start lg:grid-cols-3">
+        <Fact label="Filed">{formatDateValue(result.filing_date)}</Fact>
+        <Fact label="Announced">{formatDateValue(result.announce_date)}</Fact>
+        <Fact label="Closed">{formatDateValue(result.close_date)}</Fact>
+        <Fact label="Deal type">{formatEnumValue(result.deal_type)}</Fact>
+        <Fact label="Consideration">{formatEnumValue(result.transaction_consideration)}</Fact>
+        <Fact label="Status">{formatEnumValue(result.deal_status)}</Fact>
+        <Fact label="Attitude">{formatEnumValue(result.attitude)}</Fact>
+        <Fact label="Purpose">{formatEnumValue(result.purpose)}</Fact>
+        <Fact label="Target type">{formatEnumValue(result.target_type)}</Fact>
+        <Fact label="Acquirer type">{formatEnumValue(result.acquirer_type)}</Fact>
+        <Fact label="Target PE-backed">{yesNo(result.target_pe)}</Fact>
+        <Fact label="Acquirer PE-backed">{yesNo(result.acquirer_pe)}</Fact>
+        <Fact label="Cash">{formatCompactCurrencyValue(result.transaction_price_cash)}</Fact>
+        <Fact label="Stock">{formatCompactCurrencyValue(result.transaction_price_stock)}</Fact>
+        <div className="col-span-full">
+          <Fact label="Target industry">{formatNaicsIndustry(labelByCode, result.target_industry) ?? DASH}</Fact>
+        </div>
+        <div className="col-span-full">
+          <Fact label="Acquirer industry">
+            {formatNaicsIndustry(labelByCode, result.acquirer_industry) ?? DASH}
+          </Fact>
+        </div>
+        {result.url ? (
+          <div className="col-span-full">
+            <ExternalLink href={result.url} className="text-sm font-medium text-primary hover:underline">
+              SEC filing
+            </ExternalLink>
+          </div>
+        ) : null}
+      </dl>
+      <div className="min-w-0">
+        <h4 className="text-sm font-semibold text-foreground">
+          {props.showMatches ? "Why this matched" : "Agreement"}
+        </h4>
+        {props.showMatches && result.matched_sections.length > 0 ? (
+          <>
+            <ul className="mt-2 space-y-2">
+              {result.matched_sections.map((section) => {
+                const title = section.section_title?.trim() || section.article_title?.trim() || "Matched section";
+                const types = section.standard_id
+                  .map((id) => props.clauseTypeLabelById[id])
+                  .filter(Boolean)
+                  .slice(0, 2);
+                return (
+                  <li key={section.section_uuid} className="rounded-md border border-border bg-background p-3">
+                    <Link
+                      to={props.getAgreementHref(result, section.section_uuid)}
+                      className="text-sm font-medium text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {title}
+                    </Link>
+                    {types.length > 0 ? (
+                      <div className="mt-0.5 text-xs text-muted-foreground">{types.join(" · ")}</div>
+                    ) : null}
+                    {section.snippet ? (
+                      <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">
+                        <Highlight text={cleanSnippet(section.snippet)} pattern={pattern(section.matched_terms)} />
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+            {result.match_count > result.matched_sections.length ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Showing {result.matched_sections.length} of {result.match_count} matching sections.
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {props.showMatches
+              ? "No matched section preview for this deal."
+              : "Pick a clause type or keyword to see which sections match."}
+          </p>
+        )}
+        <Button asChild size="sm" className="mt-3">
+          <Link to={props.getAgreementHref(result, props.showMatches ? result.matched_sections[0]?.section_uuid : null)}>
+            Open agreement
+          </Link>
+        </Button>
+      </div>
+    </div>
   );
-  const { labelByCode: naicsLabelByCode } = useNaics();
+}
 
-  const selectionEnabled = Boolean(onToggleResultSelection);
-  const allSelected =
-    selectionEnabled &&
-    results.length > 0 &&
-    results.every((r) => selectedResults?.has(r.agreement_uuid));
-  const someSelected =
-    selectionEnabled &&
-    !allSelected &&
-    results.some((r) => selectedResults?.has(r.agreement_uuid));
+const INTERACTIVE = "a,button,input,label,[role=checkbox],[role=menuitem],[data-row-ignore]";
 
-  const toggleExpandedMatches = (agreementUuid: string) => {
-    setExpandedMatches((prev) => {
+/**
+ * Deals as a dense, sortable table. A row (or its chevron) expands in place
+ * to show the deal facts and, with a clause type or keyword, the sections
+ * that matched. Also serves as the "browse all deals" view with no filters.
+ */
+export function TransactionResultsList(props: TransactionResultsListProps) {
+  const {
+    results,
+    selectedResults,
+    onToggleResultSelection,
+    onToggleSelectAll,
+    sortBy,
+    sortDirection,
+    onSort,
+    density = "comfy",
+    showMatches,
+  } = props;
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const showCounsel = results.some((result) => result.target_counsel !== undefined);
+  const allSelected = results.length > 0 && results.every((r) => selectedResults.has(r.agreement_uuid));
+  const someSelected = !allSelected && results.some((r) => selectedResults.has(r.agreement_uuid));
+  const cellY = density === "compact" ? "py-1.5" : "py-2.5";
+  const columnCount = 8 + (showCounsel ? 1 : 0) + (showMatches ? 1 : 0) + 1;
+
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(agreementUuid)) next.delete(agreementUuid);
-      else next.add(agreementUuid);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
+
+  const onRowClick = (event: MouseEvent<HTMLTableRowElement>, id: string) => {
+    if ((event.target as HTMLElement).closest(INTERACTIVE)) return;
+    if (window.getSelection()?.toString()) return;
+    toggle(id);
   };
 
   return (
-    <div className={cn("space-y-4", className)}>
-      <ResultsToolbar
-        selection={
-          selectionEnabled && results.length > 0
-            ? {
-                allSelected,
-                someSelected,
-                onToggleSelectAll: () => onToggleSelectAll?.(),
-                selectAllLabel: "Select all deals",
-                countLabel:
-                  (selectedResults?.size ?? 0) > 0
-                    ? `${selectedResults?.size} of ${results.length} selected`
-                    : "Select all",
-              }
-            : undefined
-        }
-        sortBy={sortBy}
-        sortDirection={sortDirection}
-        onSortResults={(field) => onSortResults?.(field)}
-        onToggleSortDirection={() => onToggleSortDirection?.()}
-        sortSelectLabel="Sort deal results by"
-        density={density}
-        onDensityChange={onDensityChange}
-      />
-      <ol
-        role="list"
-        aria-label="Deal search results"
-        className={cn("space-y-4", density === "compact" && "sm:space-y-2")}
-      >
-        {results.map((result, index) => {
-          const rank = (currentPage - 1) * pageSize + index + 1;
-          const href = getAgreementHref(
-            result,
-            showClauseContext
-              ? (result.matched_sections[0]?.section_uuid ?? null)
-              : null,
-          );
-          const { target, acquirer } = formatParties(result);
-          const titleLabel = `${target} — acquired by ${acquirer}`;
-          const dealValue = formatCompactCurrencyValue(
-            result.transaction_price_total,
-          );
-          const isMatchesExpanded = expandedMatches.has(result.agreement_uuid);
-          const matchedSections = isMatchesExpanded
-            ? result.matched_sections
-            : result.matched_sections.slice(0, INITIAL_MATCHED_VISIBLE);
-          const hiddenMatchCount = Math.max(
-            0,
-            result.matched_sections.length - INITIAL_MATCHED_VISIBLE,
-          );
-
-          const isSelected =
-            selectionEnabled && !!selectedResults?.has(result.agreement_uuid);
-          const targetIndustry = formatNaicsIndustry(
-            naicsLabelByCode,
-            result.target_industry,
-          );
-          const acquirerIndustry = formatNaicsIndustry(
-            naicsLabelByCode,
-            result.acquirer_industry,
-          );
-          return (
-            <li
-              key={result.agreement_uuid}
-              className={cn(
-                "group relative overflow-hidden rounded-lg border border-l-4 bg-card shadow-sm transition-all hover:border-border hover:shadow-md",
-                isSelected
-                  ? "border-primary/40 border-l-primary"
-                  : "border-border border-l-primary/35 hover:border-l-primary/60",
-              )}
-            >
-              {/* Header */}
-              <div
-                className={cn(
-                  "border-b px-4 py-3 sm:px-5 sm:py-4",
-                  isSelected
-                    ? "bg-primary/10 border-primary/20"
-                    : "bg-muted/20 border-border",
-                )}
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  {selectionEnabled ? (
-                    // Per-row selection follows the desktop-only bulk action
-                    // model for search results.
-                    <div className="hidden shrink-0 items-center justify-center pt-0.5 sm:flex">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() =>
-                          onToggleResultSelection?.(result.agreement_uuid)
-                        }
-                        className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                        aria-label={`Select deal ${rank}`}
-                      />
-                    </div>
-                  ) : null}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                        #{rank}
-                      </span>
-                      {result.year ? (
-                        <Badge
-                          variant="outline"
-                          className="px-2 py-0.5 font-medium"
-                        >
-                          {result.year}
-                        </Badge>
-                      ) : null}
-                      {result.deal_status ? (
-                        <Badge variant="muted" className="gap-1">
-                          <ShieldCheck className="h-3 w-3" aria-hidden="true" />
-                          {formatEnumValue(result.deal_status)}
-                        </Badge>
-                      ) : null}
-                      {result.deal_type ? (
-                        <Badge variant="muted" className="gap-1">
-                          <Tag className="h-3 w-3" aria-hidden="true" />
-                          {formatEnumValue(result.deal_type)}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <h2
-                      className="mt-2 text-base font-semibold leading-snug text-foreground sm:text-lg"
-                      title={titleLabel}
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <table className="w-full table-fixed border-collapse text-sm">
+        <caption className="sr-only">
+          Deals. Column headers for year, target and acquirer sort the table; the chevron in each row shows details.
+        </caption>
+        <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+          <tr>
+            <th scope="col" className="w-9 py-2 pl-3 pr-1">
+              <Checkbox
+                checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                onCheckedChange={onToggleSelectAll}
+                aria-label="Select all deals on this page"
+              />
+            </th>
+            <th scope="col" className="w-8 px-0">
+              <span className="sr-only">Details</span>
+            </th>
+            <SortHeader field="year" label="Year" {...{ sortBy, sortDirection, onSort }} className="w-16" />
+            <SortHeader field="target" label="Target" {...{ sortBy, sortDirection, onSort }} />
+            <SortHeader
+              field="acquirer"
+              label="Acquirer"
+              {...{ sortBy, sortDirection, onSort }}
+              className="hidden md:table-cell"
+            />
+            <th scope="col" className="w-20 px-2 py-2 text-right font-medium sm:w-24">
+              Value
+            </th>
+            <th scope="col" className="hidden w-28 px-2 py-2 text-left font-medium xl:table-cell">
+              Consideration
+            </th>
+            <th scope="col" className="hidden w-28 px-2 py-2 text-left font-medium lg:table-cell">
+              Status
+            </th>
+            {showCounsel ? (
+              <th scope="col" className="hidden px-2 py-2 text-left font-medium xl:table-cell">
+                Target counsel
+              </th>
+            ) : null}
+            {showMatches ? (
+              <th scope="col" className="hidden w-20 pl-2 pr-4 py-2 text-right font-medium sm:table-cell">
+                Matches
+              </th>
+            ) : null}
+            <th scope="col" className="hidden w-[8.5rem] px-2 py-2 text-right font-medium md:table-cell">
+              <span className="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((result) => {
+            const id = result.agreement_uuid;
+            const isOpen = expanded.has(id);
+            const isSelected = selectedResults.has(id);
+            const target = result.target?.trim() || "Unknown target";
+            const acquirer = result.acquirer?.trim() || "Unknown acquirer";
+            const detailsId = `deal-details-${id}`;
+            return (
+              <Fragment key={id}>
+                {/* Mouse convenience only: the chevron button is the keyboard path. */}
+                <tr
+                  onClick={(event) => onRowClick(event, id)}
+                  className={cn(
+                    "cursor-pointer border-b border-border align-top last:border-b-0 hover:bg-accent/40",
+                    isSelected && "bg-primary/5",
+                    isOpen && "bg-muted/30",
+                  )}
+                >
+                  <td className={cn("pl-3 pr-1", cellY)}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => onToggleResultSelection(id)}
+                      aria-label={`Select ${target} acquired by ${acquirer}`}
+                      className="mt-0.5"
+                    />
+                  </td>
+                  <td className={cn("px-0", cellY)}>
+                    <button
+                      type="button"
+                      onClick={() => toggle(id)}
+                      aria-expanded={isOpen}
+                      aria-controls={detailsId}
+                      aria-label={`${isOpen ? "Hide" : "Show"} details for ${target}`}
+                      className="-mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Target
-                      </span>{" "}
+                      <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} aria-hidden="true" />
+                    </button>
+                  </td>
+                  <td className={cn("px-2 tabular-nums text-muted-foreground", cellY)}>{result.year ?? DASH}</td>
+                  <td className={cn("min-w-0 px-2", cellY)}>
+                    <div className="truncate font-medium text-foreground" title={target}>
                       {target}
-                    </h2>
-                    <div
-                      className="mt-0.5 text-sm text-muted-foreground"
-                      title={`Acquirer: ${acquirer}`}
-                    >
-                      <span className="text-[11px] font-semibold uppercase tracking-wide">
-                        Acquirer
-                      </span>{" "}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground md:hidden" title={acquirer}>
+                      <span aria-hidden="true">← </span>
+                      <span className="sr-only">acquired by </span>
                       {acquirer}
                     </div>
-                    {result.transaction_consideration ? (
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Consideration:{" "}
-                        {formatEnumValue(result.transaction_consideration)}
+                  </td>
+                  <td className={cn("hidden min-w-0 px-2 md:table-cell", cellY)}>
+                    <div className="truncate text-foreground" title={acquirer}>
+                      {acquirer}
+                    </div>
+                  </td>
+                  <td className={cn("px-2 text-right tabular-nums text-foreground", cellY)}>
+                    {result.transaction_price_total != null
+                      ? formatCompactCurrencyValue(result.transaction_price_total)
+                      : DASH}
+                  </td>
+                  <td className={cn("hidden px-2 text-muted-foreground xl:table-cell", cellY)}>
+                    {formatEnumValue(result.transaction_consideration)}
+                  </td>
+                  <td className={cn("hidden px-2 lg:table-cell", cellY)}>
+                    {result.deal_status ? <Badge variant="muted">{formatEnumValue(result.deal_status)}</Badge> : DASH}
+                  </td>
+                  {showCounsel ? (
+                    <td className={cn("hidden min-w-0 px-2 text-muted-foreground xl:table-cell", cellY)}>
+                      <div className="truncate" title={result.target_counsel ?? undefined}>
+                        {result.target_counsel || DASH}
                       </div>
-                    ) : null}
-                  </div>
-                  <div className="flex min-w-0 flex-row-reverse flex-wrap items-center justify-between gap-3 sm:flex-col sm:flex-nowrap sm:items-end sm:justify-start">
-                    {result.transaction_price_total !== null ? (
-                      <div className="text-right">
-                        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Deal value
-                        </div>
-                        <div
-                          className="text-lg font-semibold tabular-nums text-foreground sm:text-xl"
-                          title={`$${result.transaction_price_total.toLocaleString()}`}
-                        >
-                          {dealValue}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-right text-xs text-muted-foreground">
-                        Deal value unavailable
-                      </div>
-                    )}
-                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                    </td>
+                  ) : null}
+                  {showMatches ? (
+                    <td className={cn("hidden pl-2 pr-4 text-right tabular-nums sm:table-cell", cellY)}>
+                      {result.match_count > 0 ? result.match_count : DASH}
+                    </td>
+                  ) : null}
+                  <td className={cn("hidden px-2 md:table-cell", cellY)}>
+                    <div className="-my-1 flex items-center justify-end gap-0.5" data-row-ignore>
                       <StarButton
                         itemType="agreement"
-                        itemUuid={result.agreement_uuid}
-                        context={{
-                          target: result.target,
-                          acquirer: result.acquirer,
-                          filing_date: result.filing_date,
-                        }}
+                        itemUuid={id}
+                        context={{ target: result.target, acquirer: result.acquirer, filing_date: result.filing_date }}
                         className="shrink-0"
                       />
-                      <FlagAsInaccurateButton
-                        source="search_result"
-                        agreement_uuid={result.agreement_uuid}
-                        className="shrink-0"
-                      />
-                      <Button
-                        asChild
-                        size="sm"
-                        className="h-11 min-w-0 flex-1 gap-1.5 shadow-sm sm:h-9 sm:flex-none"
-                      >
+                      <FlagAsInaccurateButton source="search_result" agreement_uuid={id} className="shrink-0" />
+                      <Button asChild size="sm" variant="outline" className="ml-1 h-8 px-3">
                         <Link
-                          to={href}
-                          aria-label={`Open agreement ${titleLabel}`}
+                          to={props.getAgreementHref(result, showMatches ? result.matched_sections[0]?.section_uuid : null)}
+                          aria-label={`Open agreement: ${target} acquired by ${acquirer}`}
                         >
-                          Open agreement
-                          <ArrowUpRight
-                            className="h-4 w-4"
-                            aria-hidden="true"
-                          />
+                          Open
                         </Link>
                       </Button>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Body */}
-              <div className="space-y-4 px-4 py-4 sm:px-5">
-                {/* Quick facts */}
-                <div className="flex flex-wrap gap-2">
-                  {result.filing_date ? (
-                    <MetaPill
-                      icon={Calendar}
-                      label="Filed"
-                      value={formatDateValue(result.filing_date)}
-                    />
-                  ) : null}
-                  {result.announce_date ? (
-                    <MetaPill
-                      icon={Calendar}
-                      label="Announced"
-                      value={formatDateValue(result.announce_date)}
-                    />
-                  ) : null}
-                  {targetIndustry ? (
-                    <MetaPill
-                      icon={Building2}
-                      label="Target industry"
-                      value={targetIndustry}
-                    />
-                  ) : null}
-                  {acquirerIndustry ? (
-                    <MetaPill
-                      icon={Building2}
-                      label="Acquirer industry"
-                      value={acquirerIndustry}
-                    />
-                  ) : null}
-                  {result.purpose ? (
-                    <MetaPill
-                      icon={CircleDollarSign}
-                      label="Purpose"
-                      value={formatEnumValue(result.purpose)}
-                    />
-                  ) : null}
-                  {result.attitude ? (
-                    <MetaPill
-                      icon={Gavel}
-                      label="Attitude"
-                      value={formatEnumValue(result.attitude)}
-                    />
-                  ) : null}
-                  {result.url ? (
-                    <a
-                      href={result.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    >
-                      <ExternalLink
-                        className="h-3.5 w-3.5"
-                        aria-hidden="true"
-                      />
-                      SEC filing
-                    </a>
-                  ) : null}
-                </div>
-
-                {/* Matched sections */}
-                {showClauseContext && result.matched_sections.length > 0 ? (
-                  <div className="rounded-lg border border-border bg-muted/20">
-                    <div className="flex items-center justify-between gap-3 border-b border-border/50 px-3 py-2 sm:px-4">
-                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <Layers className="h-3.5 w-3.5" aria-hidden="true" />
-                        Why this deal matched
+                  </td>
+                </tr>
+                {isOpen ? (
+                  <tr id={detailsId} className="border-b border-border bg-muted/20 last:border-b-0">
+                    <td colSpan={columnCount} className="p-0">
+                      <div className="flex items-center gap-1 border-b border-border/60 px-3 py-2 md:hidden">
+                        <StarButton
+                          itemType="agreement"
+                          itemUuid={id}
+                          context={{ target: result.target, acquirer: result.acquirer, filing_date: result.filing_date }}
+                          className="shrink-0"
+                        />
+                        <FlagAsInaccurateButton source="search_result" agreement_uuid={id} className="shrink-0" />
                       </div>
-                      <Badge variant="secondary" className="font-medium">
-                        {result.match_count}{" "}
-                        {result.match_count === 1 ? "section" : "sections"}
-                      </Badge>
-                    </div>
-                    <ul className="divide-y divide-border/50">
-                      {matchedSections.map((section) => {
-                        const sectionTitle =
-                          section.section_title?.trim() ||
-                          section.article_title?.trim() ||
-                          "Matched section";
-                        const subtitle =
-                          section.section_title && section.article_title
-                            ? section.article_title
-                            : null;
-                        return (
-                          <li key={section.section_uuid}>
-                            <Link
-                              to={getAgreementHref(
-                                result,
-                                section.section_uuid,
-                              )}
-                              className="flex items-start gap-3 px-3 py-3 transition-colors hover:bg-background/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-4"
-                            >
-                              <FileText
-                                className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-                                aria-hidden="true"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="font-medium text-foreground">
-                                    {sectionTitle}
-                                  </span>
-                                  {section.standard_id.slice(0, 2).map((id) => {
-                                    const label =
-                                      clauseTypeLabelById?.[id] ?? id;
-                                    return (
-                                      <Badge
-                                        key={id}
-                                        variant="outline"
-                                        className="bg-background/60 px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
-                                        title={label}
-                                      >
-                                        <span className="max-w-[14rem] truncate">
-                                          {label}
-                                        </span>
-                                      </Badge>
-                                    );
-                                  })}
-                                </div>
-                                {subtitle ? (
-                                  <div className="mt-0.5 text-xs text-muted-foreground">
-                                    {subtitle}
-                                  </div>
-                                ) : null}
-                                {section.snippet ? (
-                                  <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                                    {section.snippet}
-                                  </p>
-                                ) : null}
-                              </div>
-                              <ArrowUpRight
-                                className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground"
-                                aria-hidden="true"
-                              />
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {hiddenMatchCount > 0 ? (
-                      <div className="border-t border-border/50 px-3 py-2 sm:px-4">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleExpandedMatches(result.agreement_uuid)
-                          }
-                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                          aria-expanded={isMatchesExpanded}
-                        >
-                          {isMatchesExpanded ? (
-                            <>
-                              Show fewer
-                              <ChevronDown
-                                className="h-3.5 w-3.5 rotate-180"
-                                aria-hidden="true"
-                              />
-                            </>
-                          ) : (
-                            <>
-                              Show {hiddenMatchCount} more
-                              {hiddenMatchCount === 1
-                                ? " section"
-                                : " sections"}
-                              <ChevronDown
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                              />
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
+                      <DealDetails result={result} props={props} />
+                    </td>
+                  </tr>
                 ) : null}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

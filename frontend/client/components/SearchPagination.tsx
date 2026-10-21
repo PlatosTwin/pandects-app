@@ -1,4 +1,5 @@
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/format-utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -22,7 +23,14 @@ interface SearchPaginationProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   isLoading?: boolean;
+  /** Anonymous: page size is fixed (and page navigation off when `lockNavigation`). */
   isLimited?: boolean;
+  /** With `isLimited`, also block page navigation (the API's "sign in for full pagination"). */
+  lockNavigation?: boolean;
+  /** Sign-in link for the limited-mode notice. */
+  signInHref?: string;
+  /** Highest page the API serves (keyword searches stop at 100). */
+  maxPage?: number;
   /**
    * Accessible name for the <nav> landmark. The panel renders the pagination
    * twice (above and below the results), and landmark labels must be unique.
@@ -32,29 +40,35 @@ interface SearchPaginationProps {
 
 export function SearchPagination({
   currentPage,
-  totalPages,
+  totalPages: rawTotalPages,
   pageSize,
   totalCount,
   totalCountIsApproximate = false,
-  hasNext,
+  hasNext: rawHasNext,
   hasPrev,
   onPageChange,
   onPageSizeChange,
   isLoading = false,
   isLimited = false,
+  lockNavigation = false,
+  signInHref,
+  maxPage,
   label = "Search results pagination",
 }: SearchPaginationProps) {
   const pageSizeOptions = [10, 25, 50, 100];
-  const navigationDisabled = isLoading || isLimited;
+  const navigationDisabled = isLoading || (isLimited && lockNavigation);
+  const totalPages = maxPage ? Math.min(rawTotalPages, maxPage) : rawTotalPages;
+  const hasNext = rawHasNext && (!maxPage || currentPage < maxPage);
   const [jumpValue, setJumpValue] = useState(() => String(currentPage));
-  // Instance-unique ids: the component is mounted twice per results view.
+  const [syncedPage, setSyncedPage] = useState(currentPage);
   const jumpInputId = `${useId()}-jump-to-page`;
 
   // Keep the jump input in sync when navigation happens elsewhere
-  // (page buttons, Previous/Next, a new search).
-  useEffect(() => {
+  // (page buttons, Previous/Next, a new search): adjust during render.
+  if (syncedPage !== currentPage) {
+    setSyncedPage(currentPage);
     setJumpValue(String(currentPage));
-  }, [currentPage]);
+  }
 
   const commitJump = () => {
     if (navigationDisabled) return;
@@ -122,10 +136,10 @@ export function SearchPagination({
         <Select
           value={pageSize.toString()}
           onValueChange={(value) => onPageSizeChange(parseInt(value, 10))}
-          disabled={navigationDisabled}
+          disabled={isLoading || isLimited}
         >
           <SelectTrigger
-            className="h-8 w-20 rounded-none border-none border-b border-input bg-transparent focus:border-ring"
+            className="h-8 w-20"
             aria-label="Results per page"
           >
             <SelectValue />
@@ -140,12 +154,20 @@ export function SearchPagination({
         </Select>
       </div>
 
-      {/* Results info. Not a live region: the panel's sr-only status already
-          announces result counts, and this block is rendered twice. */}
+      {/* Results info. Not a live region: the results header already
+          announces counts. */}
       <div className="text-sm text-muted-foreground">
-        Showing {formatNumber(startResult)} to {formatNumber(endResult)} of{" "}
-        {totalCountIsApproximate ? "approx. " : ""}
-        {formatNumber(totalCount)} results
+        {formatNumber(startResult)}–{formatNumber(endResult)} of{" "}
+        {totalCountIsApproximate ? "about " : ""}
+        {formatNumber(totalCount)}
+        {isLimited && signInHref ? (
+          <span className="block text-xs sm:inline sm:pl-2">
+            <Link to={signInHref} className="font-medium text-primary hover:underline">
+              Sign in
+            </Link>{" "}
+            {lockNavigation ? "to see more pages and up to 100 per page." : "to show up to 100 per page."}
+          </span>
+        ) : null}
       </div>
 
       {/* Jump to page input (desktop only) */}

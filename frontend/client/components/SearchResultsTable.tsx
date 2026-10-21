@@ -1,669 +1,157 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowUpRight,
-  BadgeCheck,
-  Copy,
-  Check,
-  FileText,
-  Layers,
-  Link2,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import {
-  BREAKPOINT_SM,
-  DEFAULT_TRUNCATION_LENGTH,
-} from "@/lib/constants";
-import { truncateText } from "@/lib/text-utils";
-import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronDown, Copy } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Badge, badgeVariants } from "@/components/ui/badge";
-import { XMLRenderer } from "@/components/XMLRenderer";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ResultsToolbar } from "@/components/ResultsToolbar";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
-import { useToast } from "@/hooks/use-toast";
+import { useCopyToClipboard } from "@/components/ui/copy-button";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import { StarButton } from "@/components/StarButton";
+import type { ResultsDensity } from "@/components/ResultsToolbar";
+import { useToast } from "@/hooks/use-toast";
+import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
+import { cn } from "@/lib/utils";
 import type { SearchResult } from "@shared/sections";
+import { ClampedText, MetaLine, Parties, VerifiedBadge } from "@/pages/search/ResultBits";
+import { ResultRow, RowActions } from "@/pages/search/ResultRow";
+import {
+  collapseTaxonomyPath,
+  groupSectionResults,
+  type SectionResultGroup,
+  type SectionResultItem,
+} from "@/pages/search/search-ui";
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
-
-const tailUuid = (uuid: string, n = 6) => uuid.slice(-n);
-
-interface SearchResultsTableProps {
+export interface SearchResultsTableProps {
   searchResults: SearchResult[];
+  /** 1-based position of the first row (for telemetry and labels). */
+  startPosition: number;
   selectedResults: Set<string>;
-  clauseTypePathByStandardId: Record<string, readonly string[]>;
-  sort_by?: "year" | "target" | "acquirer";
-  sort_direction: "asc" | "desc";
   onToggleResultSelection: (resultId: string) => void;
-  onToggleSelectAll: () => void;
-  onOpenAgreement: (result: SearchResult, position: number) => void;
+  clauseTypePathByStandardId: Record<string, readonly string[]>;
   getAgreementHref: (result: SearchResult) => string;
-  onSortResults: (sort_by: "year" | "target" | "acquirer") => void;
-  onToggleSortDirection: () => void;
-  density?: "comfy" | "compact";
-  onDensityChange?: (density: "comfy" | "compact") => void;
-  currentPage?: number;
-  page_size?: number;
-  className?: string;
+  onOpenAgreement: (result: SearchResult, position: number) => void;
+  density?: ResultsDensity;
+  /** Keyword matches to highlight in section text. */
+  highlightPattern?: RegExp | null;
+  signInHref: string;
 }
 
-export function SearchResultsTable({
-  searchResults,
-  selectedResults,
-  clauseTypePathByStandardId,
-  sort_by = "year",
-  sort_direction,
-  onToggleResultSelection,
-  onToggleSelectAll,
-  onOpenAgreement,
-  getAgreementHref,
-  onSortResults,
-  onToggleSortDirection,
-  density = "comfy",
-  onDensityChange,
-  currentPage = 1,
-  page_size = 25,
-  className,
-}: SearchResultsTableProps) {
+function sectionTitleOf(result: SearchResult): string {
+  return result.section_title?.trim() || result.article_title?.trim() || "Untitled section";
+}
+
+function CopyMenu({ result, href, text }: { result: SearchResult; href: string; text: string }) {
+  const { copy } = useCopyToClipboard();
   const { toast } = useToast();
-  const [expandedResults, setExpandedResults] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [expandableResults, setExpandableResults] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const snippetRefs = useRef(new Map<string, HTMLDivElement | null>());
-  const copySuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const [copiedForResult, setCopiedForResult] = useState<{
-    resultId: string;
-    kind: "section" | "agreement" | "link";
-  } | null>(null);
-  const pendingCopyRef = useRef<{
-    text: string;
-    label: string;
-    resultId: string;
-    kind: "section" | "agreement" | "link";
-  } | null>(null);
-
-  const buildSectionLinkUrl = useCallback(
-    (result: SearchResult) => {
-      if (typeof window === "undefined") return "";
-      return new URL(getAgreementHref(result), window.location.origin).toString();
-    },
-    [getAgreementHref],
-  );
-
-  const registerSnippetRef = useCallback(
-    (resultId: string, node: HTMLDivElement | null) => {
-      if (node) {
-        snippetRefs.current.set(resultId, node);
-      } else {
-        snippetRefs.current.delete(resultId);
-      }
-    },
-    [],
-  );
-
-  const performCopy = useCallback(
-    async (
-      text: string,
-      label: string,
-      resultId: string,
-      kind: "section" | "agreement" | "link",
-    ) => {
-      try {
-        await navigator.clipboard.writeText(text);
-        // Store pending copy to process after dropdown closes
-        pendingCopyRef.current = { text, label, resultId, kind };
-      } catch {
-        // For errors, we can show immediately since dropdown might not be open
-        setTimeout(() => {
-          toast({ title: "Copy failed", variant: "destructive" });
-        }, 0);
-      }
-    },
-    [],
-  );
-
-  const processPendingCopy = useCallback(() => {
-    if (pendingCopyRef.current) {
-      const { label, resultId, kind } = pendingCopyRef.current;
-      pendingCopyRef.current = null;
-      // Use double RAF + setTimeout to ensure dropdown animation completes
-      // and avoid forced synchronous layout (reflow)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          // Defer toast and state updates to avoid reflow
-          setTimeout(() => {
-            toast({ title: `${label} copied` });
-            if (copySuccessTimeoutRef.current) {
-              clearTimeout(copySuccessTimeoutRef.current);
-            }
-            setCopiedForResult({ resultId, kind });
-            copySuccessTimeoutRef.current = setTimeout(() => {
-              setCopiedForResult(null);
-              copySuccessTimeoutRef.current = null;
-            }, 1000);
-          }, 0);
-        });
-      });
-    }
-  }, [toast]);
-
-  useEffect(
-    () => () => {
-      if (copySuccessTimeoutRef.current) {
-        clearTimeout(copySuccessTimeoutRef.current);
-      }
-    },
-    [],
-  );
-  const allSelected =
-    searchResults.length > 0 &&
-    searchResults.every((result) => selectedResults.has(result.id));
-  const someSelected =
-    searchResults.some((result) => selectedResults.has(result.id)) &&
-    !allSelected;
-
-  const toggleExpandedResult = useCallback((resultId: string) => {
-    setExpandedResults((prev) => {
-      const next = new Set(prev);
-      if (next.has(resultId)) {
-        next.delete(resultId);
-      } else {
-        next.add(resultId);
-      }
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const isMobile = window.innerWidth < BREAKPOINT_SM;
-    if (!isMobile) {
-      setExpandableResults(new Set());
-      return;
-    }
-
-    const recalculateExpandableResults = () => {
-      const currentIds = new Set(searchResults.map((result) => result.id));
-      setExpandableResults((prev) => {
-        const next = new Set<string>();
-        currentIds.forEach((id) => {
-          if (prev.has(id)) {
-            next.add(id);
-          }
-        });
-
-        searchResults.forEach((result) => {
-          const el = snippetRefs.current.get(result.id);
-          if (el && el.scrollHeight > el.clientHeight + 1) {
-            next.add(result.id);
-          }
-        });
-
-        return next;
-      });
-    };
-
-    const rafId = window.requestAnimationFrame(recalculateExpandableResults);
-    const resizeObserver = new ResizeObserver(() => {
-      window.requestAnimationFrame(recalculateExpandableResults);
-    });
-
-    snippetRefs.current.forEach((node) => {
-      if (node) {
-        resizeObserver.observe(node);
-      }
-    });
-
-    const handleResize = () => {
-      window.requestAnimationFrame(recalculateExpandableResults);
-    };
-
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [searchResults, density]);
-
+  const run = async (text: string, what: string) => {
+    const ok = await copy(text);
+    toast(ok ? { title: `${what} copied` } : { title: "Copy failed", variant: "destructive" });
+  };
+  const absolute = () =>
+    typeof window === "undefined" ? href : new URL(href, window.location.origin).toString();
   return (
-    <div className={cn("space-y-4", className)}>
-      <ResultsToolbar
-        selection={{
-          allSelected,
-          someSelected,
-          onToggleSelectAll,
-          selectAllLabel: "Select all results",
-          countLabel:
-            selectedResults.size > 0
-              ? `${selectedResults.size} of ${searchResults.length} selected`
-              : "Select all",
-        }}
-        sortBy={sort_by}
-        sortDirection={sort_direction}
-        onSortResults={onSortResults}
-        onToggleSortDirection={onToggleSortDirection}
-        sortSelectLabel="Sort section results by"
-        density={density}
-        onDensityChange={onDensityChange}
-      />
-
-      {/* Results Grid */}
-      <TooltipProvider>
-        <div
-          role="list"
-          className={cn(
-            "grid gap-4",
-            density === "compact" ? "sm:gap-2" : "sm:gap-4",
-          )}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground sm:h-8 sm:w-8"
+          aria-label={`Copy from ${sectionTitleOf(result)}`}
+          title="Copy…"
         >
-          {searchResults.map((result, index) => (
-            <SearchResultRow
-              key={result.id}
-              result={result}
-              resultNumber={(currentPage - 1) * page_size + index + 1}
-              isSelected={selectedResults.has(result.id)}
-              isExpanded={expandedResults.has(result.id)}
-              isExpandable={expandableResults.has(result.id)}
-              isCopied={copiedForResult?.resultId === result.id}
-              clauseTypePathByStandardId={clauseTypePathByStandardId}
-              density={density}
-              getAgreementHref={getAgreementHref}
-              onOpenAgreement={onOpenAgreement}
-              onToggleResultSelection={onToggleResultSelection}
-              onToggleExpanded={toggleExpandedResult}
-              performCopy={performCopy}
-              processPendingCopy={processPendingCopy}
-              buildSectionLinkUrl={buildSectionLinkUrl}
-              registerSnippetRef={registerSnippetRef}
-            />
-          ))}
-        </div>
-      </TooltipProvider>
-    </div>
+          <Copy className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[12rem]">
+        {text ? (
+          <DropdownMenuItem onSelect={() => void run(text, "Section text")}>Copy section text</DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onSelect={() => void run(absolute(), "Link")}>Copy link</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void run(result.section_uuid, "Section UUID")}>
+          Copy section UUID
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void run(result.agreement_uuid, "Agreement UUID")}>
+          Copy agreement UUID
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-interface SearchResultRowProps {
-  result: SearchResult;
-  resultNumber: number;
-  isSelected: boolean;
-  isExpanded: boolean;
-  isExpandable: boolean;
-  isCopied: boolean;
-  clauseTypePathByStandardId: Record<string, readonly string[]>;
-  density: "comfy" | "compact";
-  getAgreementHref: (result: SearchResult) => string;
-  onOpenAgreement: (result: SearchResult, position: number) => void;
-  onToggleResultSelection: (resultId: string) => void;
-  onToggleExpanded: (resultId: string) => void;
-  performCopy: (
-    text: string,
-    label: string,
-    resultId: string,
-    kind: "section" | "agreement" | "link",
-  ) => void;
-  processPendingCopy: () => void;
-  buildSectionLinkUrl: (result: SearchResult) => string;
-  registerSnippetRef: (resultId: string, node: HTMLDivElement | null) => void;
+interface SectionRowProps {
+  item: SectionResultItem;
+  /** Lead rows show deal context; follow-on rows from the same deal skip it. */
+  variant: "lead" | "follow";
+  props: SearchResultsTableProps;
 }
 
-// Memoized so table-level state changes (e.g. the transient copy feedback)
-// don't re-render — and re-run the XMLRenderer parse for — every other row.
-const SearchResultRow = memo(function SearchResultRow({
-  result,
-  resultNumber,
-  isSelected,
-  isExpanded,
-  isExpandable,
-  isCopied,
-  clauseTypePathByStandardId,
-  density,
-  getAgreementHref,
-  onOpenAgreement,
-  onToggleResultSelection,
-  onToggleExpanded,
-  performCopy,
-  processPendingCopy,
-  buildSectionLinkUrl,
-  registerSnippetRef,
-}: SearchResultRowProps) {
-  const targetText = truncateText(
-    result.target,
-    DEFAULT_TRUNCATION_LENGTH,
-  );
-  const acquirerText = truncateText(
-    result.acquirer,
-    DEFAULT_TRUNCATION_LENGTH,
-  );
-  const canExpand = isExpandable || isExpanded;
-  const standardIds = result.standard_id
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const matchedStandardId = standardIds.find(
-    (value) => clauseTypePathByStandardId[value],
-  );
-  const standard_id = matchedStandardId ?? standardIds[0] ?? null;
-  const clauseTypePath = standard_id
-    ? clauseTypePathByStandardId[standard_id]
-    : undefined;
-  const clauseTypeLabel = clauseTypePath
-    ?.map((part) => part.trim())
-    .join(" \u2022 ");
-  const clauseTypeText = clauseTypeLabel
-    ? truncateText(clauseTypeLabel, DEFAULT_TRUNCATION_LENGTH)
-    : null;
-  const showDevFallbackPill =
-    import.meta.env.DEV && (!clauseTypePath || !clauseTypeLabel);
-
+function SectionRow({ item, variant, props }: SectionRowProps) {
+  const { result, position, text, redacted, empty } = item;
+  const { density = "comfy", highlightPattern, clauseTypePathByStandardId } = props;
+  const href = props.getAgreementHref(result);
+  const title = sectionTitleOf(result);
   const deal = result.metadata ?? {};
-  const hasDealFields =
-    deal.transaction_price_total != null ||
-    deal.deal_status ||
-    deal.deal_type ||
-    deal.purpose;
+  const pathId = result.standard_id.find((id) => clauseTypePathByStandardId[id]);
+  const path = collapseTaxonomyPath(pathId ? clauseTypePathByStandardId[pathId] : undefined);
+  const extraTypes = result.standard_id.filter((id) => clauseTypePathByStandardId[id]).length - 1;
+  const onOpen = () => props.onOpenAgreement(result, position);
+
+  const meta =
+    variant === "lead" ? (
+      <MetaLine
+        items={[
+          result.year ? <span className="tabular-nums">{result.year}</span> : null,
+          <Parties target={result.target} acquirer={result.acquirer} />,
+          deal.transaction_price_total != null ? (
+            <span className="tabular-nums">{formatCompactCurrencyValue(deal.transaction_price_total)}</span>
+          ) : null,
+          deal.deal_status || deal.deal_type ? (
+            <span className="inline-flex gap-1">
+              {deal.deal_status ? <Badge variant="muted">{formatEnumValue(deal.deal_status)}</Badge> : null}
+              {deal.deal_type ? <Badge variant="muted">{formatEnumValue(deal.deal_type)}</Badge> : null}
+            </span>
+          ) : null,
+          result.verified ? <VerifiedBadge /> : null,
+        ]}
+      />
+    ) : (
+      <span className="text-xs">Same deal · {result.article_title?.trim() || "Section"}</span>
+    );
 
   return (
-    <div
-      role="listitem"
-      className={cn(
-        "group relative overflow-hidden rounded-lg border border-l-4 bg-card shadow-sm transition-all hover:shadow-md",
-        isSelected
-          ? "border-primary/40 border-l-primary bg-primary/5 shadow-md"
-          : "border-border border-l-primary/35 hover:border-l-primary/60",
-      )}
-    >
-      {/* Header with metadata and checkbox */}
-      <div
-        className={cn(
-          "border-b px-4 py-3 sm:px-5 sm:py-4",
-          density === "compact" && "sm:py-3",
-          isSelected
-            ? "bg-primary/10 border-primary/20"
-            : "bg-muted/20 border-border",
-        )}
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 flex-1 items-start gap-3">
-            {/* Per-row selection follows the desktop-only bulk action
-                model for search results. */}
-            <div className="hidden shrink-0 items-center justify-center pt-0.5 sm:flex">
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() =>
-                  onToggleResultSelection(result.id)
-                }
-                className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                aria-label={`Select result ${resultNumber}`}
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              {/* Top row: Number, Year, Verified, Clause Type */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                  #{resultNumber}
-                </span>
-                <Badge
-                  variant="outline"
-                  className="px-2 py-0.5 font-medium"
-                >
-                  {result.year}
-                </Badge>
-                {result.verified ? (
-                  <AdaptiveTooltip
-                    trigger={
-                      <button
-                        type="button"
-                        aria-label="Verified agreement"
-                        className={cn(
-                          badgeVariants({ variant: "success" }),
-                          "hidden gap-1 hover:bg-emerald-500/15 sm:inline-flex",
-                        )}
-                      >
-                        <BadgeCheck
-                          className="h-3.5 w-3.5"
-                          aria-hidden="true"
-                        />
-                        <span className="hidden sm:inline">
-                          Verified
-                        </span>
-                      </button>
-                    }
-                    content={
-                      <p>This agreement has been verified by hand.</p>
-                    }
-                    tooltipProps={{ side: "bottom" }}
-                    popoverProps={{
-                      side: "bottom",
-                      className: "w-auto max-w-sm p-2 text-sm",
-                    }}
-                  />
-                ) : null}
-                {clauseTypeLabel ? (
-                  <AdaptiveTooltip
-                    trigger={
-                      <button
-                        type="button"
-                        aria-label={`Clause type: ${clauseTypeLabel}`}
-                        className={cn(
-                          badgeVariants({ variant: "metadata" }),
-                          "hidden max-w-[28rem] min-w-0 cursor-help sm:inline-flex lg:max-w-[36rem]",
-                        )}
-                      >
-                        <span title={clauseTypeLabel}>
-                          {clauseTypeText?.truncated}
-                        </span>
-                      </button>
-                    }
-                    content={
-                      clauseTypePath ? (
-                        <div className="space-y-1">
-                          {clauseTypePath.map((part, partIndex) => (
-                            <p key={`${partIndex}-${part}`}>{part}</p>
-                          ))}
-                        </div>
-                      ) : null
-                    }
-                    tooltipProps={{ className: "max-w-sm" }}
-                    popoverProps={{
-                      className: "w-auto max-w-sm p-2 text-sm",
-                    }}
-                  />
-                ) : showDevFallbackPill ? (
-                  <AdaptiveTooltip
-                    trigger={
-                      <button
-                        type="button"
-                        aria-label="Clause type unavailable"
-                        className={cn(
-                          badgeVariants({ variant: "metadata" }),
-                          "hidden max-w-[28rem] min-w-0 cursor-help sm:inline-flex lg:max-w-[36rem]",
-                        )}
-                      >
-                        <span>Clause type unavailable</span>
-                      </button>
-                    }
-                    content={
-                      standard_id ? (
-                        <>
-                          <p>standard_id: {standard_id}</p>
-                          <p>
-                            Not found in the clause-type mapping used
-                            by the frontend.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p>
-                            Missing standard_id in search results.
-                          </p>
-                          <p>
-                            Restart the Flask API or deploy the latest
-                            backend so `/v1/sections` returns
-                            `standard_id`.
-                          </p>
-                        </>
-                      )
-                    }
-                    tooltipProps={{ className: "max-w-sm" }}
-                    popoverProps={{
-                      className: "w-auto max-w-sm p-2 text-sm",
-                    }}
-                  />
-                ) : null}
-              </div>
-
-              {/* Main info: Target and Acquirer */}
-              <div className="mt-2 min-w-0">
-                <h2
-                  className="min-w-0 break-words text-lg font-bold leading-snug text-foreground"
-                  title={result.target}
-                >
-                  <span className="mr-1.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Target
-                  </span>
-                  {targetText.needsTooltip ? (
-                    <AdaptiveTooltip
-                      trigger={
-                        <button
-                          type="button"
-                          aria-label={`Target: ${result.target}`}
-                          className="cursor-help break-words bg-transparent p-0 text-left font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                        >
-                          {targetText.truncated}
-                        </button>
-                      }
-                      content={<p>{result.target}</p>}
-                      popoverProps={{
-                        className: "w-auto max-w-sm p-2 text-sm",
-                      }}
-                    />
-                  ) : (
-                    <span className="break-words">
-                      {targetText.truncated}
-                    </span>
-                  )}
-                </h2>
-                <div
-                  className="mt-0.5 min-w-0 break-words text-base text-muted-foreground"
-                  title={result.acquirer}
-                >
-                  <span className="mr-1.5 align-middle text-[11px] font-semibold uppercase tracking-wide">
-                    Acquirer
-                  </span>
-                  {acquirerText.needsTooltip ? (
-                    <AdaptiveTooltip
-                      trigger={
-                        <button
-                          type="button"
-                          aria-label={`Acquirer: ${result.acquirer}`}
-                          className="cursor-help break-words bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                        >
-                          {acquirerText.truncated}
-                        </button>
-                      }
-                      content={<p>{result.acquirer}</p>}
-                      popoverProps={{
-                        className: "w-auto max-w-sm p-2 text-sm",
-                      }}
-                    />
-                  ) : (
-                    <span className="break-words">
-                      {acquirerText.truncated}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Article and Section pills - separate */}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Badge
-                  variant="muted"
-                  className="hidden gap-1 sm:inline-flex"
-                  title={result.article_title}
-                >
-                  <Layers
-                    className="h-3 w-3 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
-                    {
-                      truncateText(
-                        result.article_title,
-                        DEFAULT_TRUNCATION_LENGTH,
-                      ).truncated
-                    }
-                  </span>
-                </Badge>
-                <Badge
-                  variant="muted"
-                  className="gap-1"
-                  title={result.section_title}
-                >
-                  <FileText
-                    className="h-3 w-3 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span className="max-w-[12rem] truncate sm:max-w-[20rem]">
-                    {
-                      truncateText(
-                        result.section_title,
-                        DEFAULT_TRUNCATION_LENGTH,
-                      ).truncated
-                    }
-                  </span>
-                </Badge>
-              </div>
-
-              {/* Deal fields row - hidden on mobile */}
-              {hasDealFields && (
-                <div className="mt-2 hidden flex-wrap items-center gap-2 sm:flex">
-                  {deal.transaction_price_total != null && (
-                    <Badge
-                      variant="outline"
-                      className="px-2 py-0.5 text-xs font-medium"
-                    >
-                      {formatCompactCurrencyValue(deal.transaction_price_total)}
-                    </Badge>
-                  )}
-                  {[deal.deal_status, deal.deal_type, deal.purpose].map(
-                    (value) =>
-                      value ? (
-                        <Badge
-                          key={value}
-                          variant="outline"
-                          className="px-2 py-0.5 text-xs"
-                        >
-                          {formatEnumValue(value)}
-                        </Badge>
-                      ) : null,
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Actions: Flag + Open Agreement */}
-          <div className="flex w-full flex-wrap items-center gap-2 sm:ml-4 sm:w-auto sm:justify-end">
+    <ResultRow
+      density={density}
+      selected={props.selectedResults.has(result.id)}
+      onToggleSelected={() => props.onToggleResultSelection(result.id)}
+      selectLabel={`Select ${title} (${result.target || "unknown target"})`}
+      meta={meta}
+      title={
+        <h3 className={cn("text-base font-semibold leading-snug", density === "compact" && "text-sm")}>
+          <Link
+            to={href}
+            onClick={onOpen}
+            className="text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {title}
+          </Link>
+        </h3>
+      }
+      subtitle={
+        path.length > 0 ? (
+          <span title={path.join(" › ")}>
+            {path.join(" › ")}
+            {extraTypes > 0 ? ` +${extraTypes} more` : ""}
+          </span>
+        ) : null
+      }
+      actions={
+        <RowActions
+          star={
             <StarButton
               itemType="section"
               itemUuid={result.section_uuid}
@@ -675,249 +163,132 @@ const SearchResultRow = memo(function SearchResultRow({
                 section_title: result.section_title,
                 standard_id: result.standard_id,
                 xml: result.xml,
-                position: resultNumber,
+                position,
               }}
               className="shrink-0"
             />
+          }
+          flag={
             <FlagAsInaccurateButton
               source="search_result"
               agreement_uuid={result.agreement_uuid}
               section_uuid={result.section_uuid}
               className="shrink-0"
             />
-            <Button
-              size="sm"
-              asChild
-              className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 px-4 shadow-sm sm:h-9 sm:w-auto sm:flex-none sm:px-3"
-            >
-              <Link
-                to={getAgreementHref(result)}
-                onClick={() => onOpenAgreement(result, resultNumber)}
-                aria-label={`Open agreement for result ${resultNumber}: ${result.target} acquired by ${result.acquirer}`}
-              >
-                Open agreement
-                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </div>
+          }
+          extra={<CopyMenu result={result} href={href} text={redacted ? "" : text} />}
+          openHref={href}
+          openLabel={`Open ${title} in ${result.target || "the agreement"}`}
+          onOpen={onOpen}
+        />
+      }
+    >
+      {redacted ? (
+        <p className="text-sm text-muted-foreground">
+          <Link to={props.signInHref} className="font-medium text-primary hover:underline">
+            Sign in
+          </Link>{" "}
+          to read this section.
+        </p>
+      ) : empty ? (
+        <p className="text-sm text-muted-foreground">No stored text.</p>
+      ) : (
+        <ClampedText
+          text={text}
+          pattern={highlightPattern}
+          lines={variant === "lead" && density === "comfy" ? 6 : 3}
+        />
+      )}
+    </ResultRow>
+  );
+}
 
-      {/* Content area */}
-      <div
-        className={cn(
-          "p-4",
-          density === "compact" ? "sm:p-3" : "sm:p-4",
-        )}
-      >
-        {/* Clause text */}
-        {result.xml ? (
-          <>
-            <div
-              className={cn(
-                "relative rounded-md border border-border bg-muted/20 p-3",
-                density === "compact"
-                  ? "sm:h-28 sm:p-2"
-                  : "sm:h-36 sm:p-3",
-              )}
-            >
-              {/* Copy button - positioned in top-right corner of inner box */}
-              <div className="absolute right-2 top-2 z-10">
-                <DropdownMenu
-                  onOpenChange={(open) => {
-                    if (!open) {
-                      // Process pending copy after dropdown closes
-                      processPendingCopy();
-                    }
-                  }}
-                >
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      title="Copy…"
-                      className={cn(
-                        "flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-border bg-background shadow-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-muted/40 data-[state=open]:text-foreground sm:h-7 sm:w-7",
-                        isCopied &&
-                          "bg-primary/10 text-primary border-primary/20",
-                      )}
-                      aria-label="Copy"
-                      aria-haspopup="menu"
-                    >
-                      {isCopied ? (
-                        <Check
-                          className="h-3.5 w-3.5 text-primary"
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <Copy
-                          className="h-3.5 w-3.5"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    side="bottom"
-                    sideOffset={4}
-                    className="min-w-[14rem]"
-                  >
-                    <DropdownMenuItem
-                      onClick={() =>
-                        performCopy(
-                          result.section_uuid,
-                          "Section UUID",
-                          result.id,
-                          "section",
-                        )
-                      }
-                      title="Copy section UUID"
-                      className="flex cursor-pointer items-center gap-2 py-2"
-                    >
-                      <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted text-xs font-medium text-muted-foreground"
-                        aria-hidden="true"
-                      >
-                        §
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        Section UUID
-                      </span>
-                      <span
-                        className="ml-2 shrink-0 font-mono text-xs text-muted-foreground tabular-nums"
-                        title={result.section_uuid}
-                      >
-                        …{tailUuid(result.section_uuid)}
-                      </span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        performCopy(
-                          result.agreement_uuid,
-                          "Agreement UUID",
-                          result.id,
-                          "agreement",
-                        )
-                      }
-                      title="Copy agreement UUID"
-                      className="flex cursor-pointer items-center gap-2 py-2"
-                    >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                        <FileText
-                          className="h-4 w-4 text-muted-foreground"
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        Agreement UUID
-                      </span>
-                      <span
-                        className="ml-2 shrink-0 font-mono text-xs text-muted-foreground tabular-nums"
-                        title={result.agreement_uuid}
-                      >
-                        …{tailUuid(result.agreement_uuid)}
-                      </span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        // Extract text content from XML by stripping tags
-                        const textContent = result.xml
-                          ? result.xml
-                              .replace(/<[^>]+>/g, "")
-                              .replace(/\s+/g, " ")
-                              .trim()
-                          : "";
-                        performCopy(
-                          textContent,
-                          "Section text",
-                          result.id,
-                          "section",
-                        );
-                      }}
-                      title="Copy section text"
-                      className="flex cursor-pointer items-center gap-2 py-2"
-                    >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                        <FileText
-                          className="h-4 w-4 text-muted-foreground"
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        Section text
-                      </span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        performCopy(
-                          buildSectionLinkUrl(result),
-                          "Agreement link",
-                          result.id,
-                          "link",
-                        )
-                      }
-                      title="Copy link to this section"
-                      className="flex cursor-pointer items-center gap-2 py-2"
-                    >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                        <Link2
-                          className="h-4 w-4 text-muted-foreground"
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        Agreement link
-                      </span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div
-                ref={(node) => registerSnippetRef(result.id, node)}
-                className={cn(
-                  "text-sm leading-relaxed text-foreground pr-10",
-                  "overflow-hidden sm:h-full sm:overflow-y-auto",
-                  isExpanded ? "line-clamp-none" : "line-clamp-3",
-                  "sm:line-clamp-none",
-                )}
-                style={{
-                  scrollbarWidth: "thin",
-                  scrollbarColor:
-                    "hsl(var(--border)) hsl(var(--background))",
-                }}
-              >
-                <XMLRenderer xmlContent={result.xml} mode="search" />
-              </div>
-            </div>
-            {canExpand ? (
-              <div className="mt-2 sm:hidden">
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  onClick={() => onToggleExpanded(result.id)}
-                  className="h-8 px-0"
-                >
-                  {isExpanded ? "Show less" : "Show more"}
-                </Button>
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <div
-            className={cn(
-              density === "compact" ? "sm:h-28" : "sm:h-36",
-            )}
-          >
-            <Alert className="h-full">
-              <AlertTitle>Section text not available</AlertTitle>
-              <AlertDescription>
-                This section has no stored text.
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
-      </div>
+function SectionGroup({ group, props }: { group: SectionResultGroup; props: SearchResultsTableProps }) {
+  const [showMore, setShowMore] = useState(false);
+  const [showEmpty, setShowEmpty] = useState(false);
+  const first = group.lead?.result ?? group.empty[0]?.result;
+  const moreCount = group.more.length;
+  const emptyCount = group.empty.length;
+
+  const toggles = (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 pl-1 text-sm">
+      {moreCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setShowMore((prev) => !prev)}
+          aria-expanded={showMore}
+          className="inline-flex items-center gap-1 font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ChevronDown className={cn("h-4 w-4 transition-transform", !showMore && "-rotate-90")} aria-hidden="true" />
+          {showMore
+            ? `Hide ${moreCount} more ${moreCount === 1 ? "section" : "sections"}`
+            : `+${moreCount} more ${moreCount === 1 ? "section" : "sections"} from this deal`}
+        </button>
+      ) : null}
+      {emptyCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setShowEmpty((prev) => !prev)}
+          aria-expanded={showEmpty}
+          className="text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {showEmpty
+            ? `Hide ${emptyCount === 1 ? "empty section" : "empty sections"}`
+            : `${emptyCount} empty ${emptyCount === 1 ? "section" : "sections"} hidden`}
+        </button>
+      ) : null}
     </div>
   );
-});
+
+  return (
+    <li className="space-y-2">
+      {group.lead ? (
+        <SectionRow item={group.lead} variant="lead" props={props} />
+      ) : first ? (
+        <div className="flex flex-wrap items-center gap-x-1.5 rounded-lg border border-dashed border-border px-4 py-2.5 text-sm text-muted-foreground">
+          <MetaLine
+            items={[
+              first.year ? <span className="tabular-nums">{first.year}</span> : null,
+              <Parties target={first.target} acquirer={first.acquirer} />,
+            ]}
+          />
+        </div>
+      ) : null}
+      {moreCount > 0 || emptyCount > 0 ? toggles : null}
+      {showMore || showEmpty ? (
+        <ul className="space-y-2 border-l-2 border-border pl-3 sm:ml-4">
+          {showMore
+            ? group.more.map((item) => (
+                <li key={item.result.id}>
+                  <SectionRow item={item} variant="follow" props={props} />
+                </li>
+              ))
+            : null}
+          {showEmpty
+            ? group.empty.map((item) => (
+                <li key={item.result.id}>
+                  <SectionRow item={item} variant="follow" props={props} />
+                </li>
+              ))
+            : null}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+/** Section results: one card per run of hits from the same deal. */
+export function SearchResultsTable(props: SearchResultsTableProps) {
+  const { searchResults, startPosition, density = "comfy" } = props;
+  const groups = useMemo(
+    () => groupSectionResults(searchResults, startPosition),
+    [searchResults, startPosition],
+  );
+  return (
+    <ul aria-label="Section results" className={density === "compact" ? "space-y-2" : "space-y-3"}>
+      {groups.map((group) => (
+        <SectionGroup key={group.key} group={group} props={props} />
+      ))}
+    </ul>
+  );
+}

@@ -4,6 +4,8 @@ export interface TransactionSearchMatchedSection {
   section_title: string | null;
   standard_id: string[];
   snippet: string | null;
+  /** Distinct matched spans as they appear in the text (keyword searches only). */
+  matched_terms?: string[];
 }
 
 export interface TransactionSearchResult {
