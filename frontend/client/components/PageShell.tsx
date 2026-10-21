@@ -11,11 +11,14 @@ export type PageShellLayout = "docs" | "data" | "form";
 export interface PageShellProps {
   /**
    * Page frame. The outer frame always matches the navigation bar
-   * (`max-w-7xl px-4 sm:px-6 lg:px-8`), so the title lines up with the logo.
-   * - `docs`: one 720px reading measure; pass `toc` for a sticky 240px
-   *   table of contents on the left (lg+).
+   * (`max-w-7xl px-4 sm:px-6 lg:px-8`). Layouts narrower than the frame are
+   * centered in it, with the title inside the column so it shares the
+   * content's edges; only `data` pages line the title up with the logo.
+   * - `docs`: one 720px reading measure, centered; pass `toc` for a sticky
+   *   240px table of contents on the left (lg+), and the whole 1008px
+   *   block is centered instead.
    * - `data`: full `max-w-7xl` for tables, charts and dashboards.
-   * - `form`: a `max-w-md` column, left-aligned under the title.
+   * - `form`: a centered `max-w-md` column.
    */
   layout?: PageShellLayout;
   eyebrow?: ReactNode;
@@ -76,17 +79,17 @@ export function PageShell({
     return (
       <div className={cn(FRAME, className)}>
         {toc ? (
-          <>
-            <div className="max-w-[1008px]">{header}</div>
+          <div className="mx-auto max-w-[1008px]">
+            {header}
             <div className="lg:grid lg:grid-cols-[240px_minmax(0,720px)] lg:gap-12">
               <aside className="mb-6 lg:mb-0">
                 <div className="lg:sticky lg:top-24">{toc}</div>
               </aside>
               <div className={cn("min-w-0", contentClassName)}>{children}</div>
             </div>
-          </>
+          </div>
         ) : (
-          <div className={cn("max-w-[720px]", contentClassName)}>
+          <div className={cn("mx-auto max-w-[720px]", contentClassName)}>
             {header}
             {children}
           </div>
@@ -95,14 +98,21 @@ export function PageShell({
     );
   }
 
+  if (layout === "form") {
+    return (
+      <div className={cn(FRAME, className)}>
+        <div className="mx-auto max-w-md">
+          {header}
+          <div className={contentClassName}>{children}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(FRAME, className)}>
       {header}
-      <div
-        className={cn(layout === "form" ? "max-w-md" : "w-full", contentClassName)}
-      >
-        {children}
-      </div>
+      <div className={cn("w-full", contentClassName)}>{children}</div>
     </div>
   );
 }
