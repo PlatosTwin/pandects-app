@@ -76,6 +76,16 @@ flowchart LR
   - `register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint`
   - `register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blueprint`
 
+## API Contract (OpenAPI)
+- The OpenAPI spec is the source of truth for every `/v1` route the web client calls. `backend/scripts/export_openapi.py` writes two committed files from the app (no database):
+  - `frontend/public/openapi.yaml`: the public spec (flask-smorest resources). The docs site renders it.
+  - `backend/openapi/ui-openapi.json`: the public spec plus the internal UI routes. `frontend/shared/api.gen.ts` is generated from it (`npm run gen:api`), and the response types in `frontend/shared/*.ts` alias it.
+- Public routes document their body with `@blp.response(status, Schema)`. Internal routes that are plain Flask views (summaries, filter options, page views, auth, favorites) are listed as `UiOperation`s in `backend/schemas/ui_api.py` (with `ui_auth.py`, `ui_favorites.py`); those schemas are documentation only and never serialize a response.
+- Schemas must match what the route returns: `required=True` when the key is always present, `allow_none=True` when it can be null. Response schemas only dump (marshmallow ignores `required`/`validate` on dump), so these flags change the spec, not the payload. A `@blp.response` schema does drop undeclared keys, so a new response field needs a schema field. When a route returns a `Response` object, flask-smorest passes it through and the schema is documentation only.
+- Errors are documented as `Error` (`backend/schemas/errors.py`, the `{"error", "message"}` envelope) through `PandectsApi.ERROR_SCHEMA` in `backend/extensions.py`; UI operations reference the same `DEFAULT_ERROR` response.
+- Workflow when a response changes: update the schema in `backend/schemas/`, run `backend/venv/bin/python -m backend.scripts.export_openapi`, then `npm run gen:api` in `frontend/`, and commit all three. CI fails otherwise: `export_openapi --check` (Backend Quality) and `npm run check:api` (Frontend Quality).
+- `backend/tests/test_openapi_spec.py` fails when a `/v1` Flask rule is in neither spec (or the short `UNDOCUMENTED_V1_RULES` allowlist: MCP OAuth server endpoints and the Zitadel webhook), or when a `UiOperation` names a route that no longer exists.
+
 ## Error Envelope
 - Every `/v1` error body is `{"error": <code>, "message": <text>}` (`backend/core/errors.py`). `error` is a stable snake_case machine code; `message` is human text.
 - Generic errors (`abort(status, description=...)`, routing errors, marshmallow `ValidationError`, webargs 422s, SQLAlchemy failures) get the code for their status from `ERROR_CODES_BY_STATUS`: `bad_request`, `unauthorized`, `forbidden`, `not_found`, `method_not_allowed`, `conflict`, `payload_too_large`, `unsupported_media_type`, `validation_error` (422), `rate_limited`, `internal_error`, `bad_gateway`, `service_unavailable`, `gateway_timeout`; any other status uses its snake_case reason phrase.

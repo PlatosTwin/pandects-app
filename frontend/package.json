@@ -30,6 +30,8 @@
     "render:emails:sync": "npm run render:emails && ../backend/venv/bin/python ../backend/resend_templates_sync.py sync",
     "start": "node dist/server/node-build.mjs",
     "test": "vitest --run",
+    "gen:api": "node scripts/gen-api-types.mjs",
+    "check:api": "node scripts/gen-api-types.mjs --check",
     "format.fix": "prettier --write .",
     "lint": "eslint .",
     "typecheck": "tsc"
@@ -90,6 +92,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^15.9.0",
     "jsdom": "^29.1.1",
+    "openapi-typescript": "7.13.0",
     "postcss": "^8.5.15",
     "prettier": "^3.8.4",
     "tailwindcss": "^3.4.11",

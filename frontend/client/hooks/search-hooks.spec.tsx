@@ -45,12 +45,13 @@ const useDeals = () => useSearch(DEALS_SEARCH_CONFIG);
 function sectionResult(overrides: Partial<SearchResult> = {}): SearchResult {
   return {
     id: "r1",
-    year: "2021",
+    year: 2021,
     target: "Target Co",
     acquirer: "Acquirer Co",
     article_title: "Article I",
     section_title: "Definitions",
     standard_id: [],
+    standard_id_labels: {},
     xml: "<text>Body</text>",
     section_uuid: "s-uuid",
     agreement_uuid: "a-uuid",
@@ -65,7 +66,9 @@ function sectionsResponse(
 ): SearchResponse {
   return {
     results,
-    access: { tier: "anonymous" },
+    access: { tier: "anonymous", message: null },
+    count_metadata: {},
+    interpretation: {},
     total_count: results.length,
     total_count_is_approximate: false,
     page: 1,
@@ -92,10 +95,17 @@ function taxClauseResult(
     context_type: "covenant" as TaxClauseSearchResult["context_type"],
     source_method: null,
     tax_standard_ids: ["tx1"],
-    year: "2020",
+    tax_standard_id_labels: {},
+    year: 2020,
     target: "Target Co",
     acquirer: "Acquirer Co",
     verified: true,
+    transaction_price_total: null,
+    transaction_consideration: null,
+    deal_status: null,
+    deal_type: null,
+    target_counsel: null,
+    acquirer_counsel: null,
     ...overrides,
   };
 }
@@ -105,7 +115,8 @@ function taxClausesResponse(
 ): TaxClauseSearchResponse {
   return {
     results,
-    access: { tier: "anonymous" },
+    access: { tier: "anonymous", message: null },
+    count_metadata: {},
     total_count: results.length,
     total_count_is_approximate: false,
     page: 1,
@@ -125,7 +136,8 @@ function transactionsResponse(
     results: agreementUuids.map((agreement_uuid) => ({
       agreement_uuid,
     })) as TransactionSearchResponse["results"],
-    access: { tier: "anonymous" },
+    access: { tier: "anonymous", message: null },
+    count_metadata: {},
     total_count: agreementUuids.length,
     total_count_is_approximate: false,
     page: 1,
@@ -247,8 +259,8 @@ describe("useSearch (sections)", () => {
     mockAuthFetch.mockResolvedValue(
       okResponse(
         sectionsResponse([
-          sectionResult({ id: "a", year: "2019", target: "Beta" }),
-          sectionResult({ id: "b", year: "2022", target: "Alpha" }),
+          sectionResult({ id: "a", year: 2019, target: "Beta" }),
+          sectionResult({ id: "b", year: 2022, target: "Alpha" }),
         ]),
       ),
     );

@@ -3,15 +3,10 @@ import { apiGet, errorMessage } from "@/lib/api/client";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
 
-export type AgreementSummary = {
-  /** Every agreement ingested, including those pending processing or verification. */
-  agreements: number;
-  /** Agreements processed and searchable (the rows behind `v1/agreements-index`). */
-  processed_agreements?: number | null;
-  sections: number;
-  pages: number;
-  latest_filing_date: string | null;
-};
+import type { AgreementsSummaryResponse } from "@shared/insights";
+
+/** `v1/agreements-summary` (generated from the backend spec). */
+export type AgreementSummary = AgreementsSummaryResponse;
 
 function fetchAgreementSummary(signal?: AbortSignal): Promise<AgreementSummary> {
   return apiGet<AgreementSummary>("v1/agreements-summary", undefined, { signal });
