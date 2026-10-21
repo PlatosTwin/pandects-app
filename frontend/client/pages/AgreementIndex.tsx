@@ -93,7 +93,7 @@ export default function AgreementIndex() {
           {error
             ? "Dataset totals are unavailable right now."
             : processed !== null && ingested !== null
-              ? `${formatCount(processed)} agreements processed and searchable of ${formatCount(ingested)} ingested; the rest are pending processing or verification.`
+              ? `${formatCount(processed)} agreements processed and searchable of ${formatCount(ingested)} ingested.`
               : null}
         </p>
       </section>
