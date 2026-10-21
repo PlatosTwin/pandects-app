@@ -1,6 +1,7 @@
 """Final M2 pilot numbers: Sonnet against adjudicated gold on dev and test, stage 1
 recall, adjudication verdicts, and target fees as a share of equity value.
-Usage: python3 report_v2.py D > m2_results.json
+Usage: python3 report_v2.py D [SPLIT ...] > m2_results.json   (default splits: dev test;
+the M2 holdout is reported with: python3 report_v2.py D holdout > m2_holdout_results.json)
 """
 import glob, json, os, re, statistics, sys
 from collections import Counter
@@ -11,7 +12,7 @@ D = sys.argv[1]
 manifest = json.load(open(f"{D}/manifest.json"))
 out = {"agreements": Counter(m["split"] for m in manifest), "splits": {}}
 
-for split in ("dev", "test"):
+for split in sys.argv[2:] or ("dev", "test"):
     rep = score_v2.main(D, "sonnet", "gold", split, f"{D}/dis_{split}_final.json")
     raw = score_v2.main(D, "sonnet", "gold_raw", split)
     rep["detection_before_adjudication"] = raw["detection"]

@@ -1,6 +1,6 @@
-# M1 and M2 pilots (span taxonomy)
+# M1, M2 and M2 holdout pilots (span taxonomy)
 
-Results and discussion: [section 7.4](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21) (M1, 3 concepts, 50 agreements) and [section 7.5](../../span-taxonomy.md#75-m2-pilot-results-2026-10-21) (M2, 10 concepts, 150 agreements) of the plan.
+Results and discussion: [section 7.4](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21) (M1, 3 concepts, 50 agreements) and [section 7.5](../../span-taxonomy.md#75-m2-pilot-results-2026-10-21) (M2, 10 concepts, 150 agreements) and [section 7.6](../../span-taxonomy.md#76-m2-holdout-results-2026-10-21) (M2 holdout, 50 fresh agreements) of the plan.
 
 ## Rebuild the inputs
 
@@ -28,6 +28,8 @@ Then `python3 prepare.py m1.tsv OUT` writes the text layers, reading views and s
 
 M2 uses the same query with three changes: the seed is `'m2'` instead of `'m1pilot'`, the M1 agreements are excluded (`AND a.agreement_uuid NOT IN (...)`), and the final filter is `WHERE t.rn <= IF(t.era = 'd', 18, 19)` for both target types, giving 150 agreements. Then `python3 prepare_v2.py m2.tsv OUT` writes the same three views plus `manifest.json`, which assigns every third agreement (sorted by target type, era and uuid) to dev and the rest to test. `python3 prepare_v2.py --rebuild OUT [split]` re-runs stage 1 from the saved layers.
 
+The M2 holdout uses the seed `'m2holdout'`, excludes the M1 and M2 agreements, and filters on `WHERE t.rn <= IF(t.era = 'a', 7, 6)` for both target types, giving 50 agreements. Then `python3 prepare_v3.py holdout.tsv OUT` writes the views with defined-terms exhibits admitted and the stage 1 fixes from section 7.5; every agreement is in the `holdout` split.
+
 ## Files
 
 - `text_layer.py`: the canonical text layer (body `<text>` elements, unstripped, one per line).
@@ -38,7 +40,11 @@ M2 uses the same query with three changes: the seed is `'m2'` instead of `'m1pil
 - `prepare_v2.py`: M2 stage 1 for four concept groups, with long definitions sections trimmed to relevant terms.
 - `schema_v2.md`: the ten-concept schema run on the dev split. `schema_v2_1.md`: the same with 14 clarifications from dev, run on the test split and used for all adjudication.
 - `score_v2.py`: M2 detection, span and key-field metrics (`python3 score_v2.py D ARM GOLD [--split dev|test] [--disagreements OUT]`).
-- `report_v2.py`: final M2 numbers for both splits, stage 1 recall, verdicts and fee percentages; output in `m2_results.json`.
+- `report_v2.py`: final M2 numbers, stage 1 recall, verdicts and fee percentages (`python3 report_v2.py D [SPLIT ...]`, default dev and test); output in `m2_results.json`.
+- `text_layer.project(exhibits=True)`: also admits defined-terms exhibits from back matter (continuation lines keep their term) and splits section-less body text into synthetic sections.
+- `prepare_v3.py`: holdout stage 1 (funds reps, indemnity-limit titles, bare-number titles, trimming only for definitions sections).
+- `schema_v2_2.md`: v2.1 plus 13 clarifications, run on the holdout and used for its adjudication.
+- `m2_holdout_results.json`: holdout numbers, as run and with the exhibit continuation fix.
 
 ## How it ran
 

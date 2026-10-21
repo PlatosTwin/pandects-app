@@ -64,8 +64,9 @@ def fields(c, inst):
         exts = as_list(inst.get("extensions"))
         f["n_extensions"] = len(exts)
         f["extension_conditions"] = frozenset(code(obj(e).get("condition")) for e in exts)
-        bb = inst.get("breach_bar")
-        f["breach_causation"] = bb.get("causation") if isinstance(bb, dict) else bb
+        bb = inst.get("breach_bar")  # one object in v2/v2.1, a list from v2.2
+        f["breach_causation"] = (frozenset(obj(b).get("causation") for b in bb) if isinstance(bb, list)
+                                 else frozenset([bb.get("causation")]) if isinstance(bb, dict) else bb)
     elif c == "ma.mae.definition":
         defs = [obj(d) for d in as_list(inst.get("definitions"))]
         tgt = next((d for d in defs if d.get("party_side") in ("target_side", "both")), defs[0] if defs else {})
@@ -107,6 +108,7 @@ def show(v):
 
 
 def main(D, arm, gold, split=None, dis_path=None):
+    """split=None scores every agreement in the manifest."""
     uuids = [m["uuid"] for m in json.load(open(f"{D}/manifest.json")) if split in (None, m["split"])]
     q_ok = q_all = 0
     det = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0, "tn": 0})
