@@ -22,6 +22,15 @@ primary_region = 'iad'
   min_machines_running = 1
   processes = ['app']
 
+  # Liveness check; a rolling deploy waits on it before moving to the next
+  # machine. Checks go straight to the machine, so they don't wake suspended ones.
+  [[http_service.checks]]
+    grace_period = '30s'
+    interval = '30s'
+    method = 'GET'
+    path = '/healthz'
+    timeout = '5s'
+
 [deploy]
   release_command = "python3 -m backend.init_auth_db"
 
