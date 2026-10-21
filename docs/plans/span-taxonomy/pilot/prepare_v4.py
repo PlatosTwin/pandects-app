@@ -9,7 +9,8 @@ Changes from prepare_v3:
   Value, ...) whose definition is not already in the candidates, the defining paragraph
   is added. Definitions come from definition leaves and from inline definitions
   ('... (an "Adverse Recommendation Change")', '"X" means ...'). One pass only: terms used
-  inside an added definition are not resolved in turn.
+  inside an added definition are not resolved in turn. A term defined at the end of a list
+  brings the earlier list items and the lead-in line with it (added for the M3 holdout).
 
 Usage: python3 prepare_v4.py holdout.tsv OUT
 """
@@ -27,6 +28,7 @@ INLINE = re.compile(r"[\"“]([A-Z][^\"”]{1,60})[\"”]\s*\)")
 # '"X" means ...', and event definitions: '"Triggering Event" shall be deemed to have occurred if'
 DEFINED = re.compile(r"[\"“]([^\"”]{2,80})[\"”](\s+of any \w+)?\s*(shall\s+)?"
                      r"(means?|has the meaning|shall have the meaning|is defined|(shall|will) be deemed)")
+ITEM = re.compile(r"^\s*\((?:[ivx]{1,5}|[A-Z]|\d{1,2})\)\s")  # a roman, capital or numbered list item
 
 
 def leaf_terms(lf):
@@ -80,11 +82,27 @@ def resolve(layer, by_sec, groups, leaf_keep):
         used |= {term for term in index if re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", body)}
     for term in used:
         for lf in index[term]:
-            if kept(lf):
-                continue
-            sec = lf["section"]
-            leaf_keep.setdefault(sec, set()).add(id(lf))
-            groups[sec] = groups.get(sec, set()) | {"resolved"}
+            for x in [lf] + list_lead_in(layer, by_sec, lf):
+                if kept(x):
+                    continue
+                sec = x["section"]
+                leaf_keep.setdefault(sec, set()).add(id(x))
+                groups[sec] = groups.get(sec, set()) | {"resolved"}
+
+
+def list_lead_in(layer, by_sec, lf, limit=8):
+    """A term defined at the end of a list ("(iii) ...; any of the actions in clauses (i)-(iii), a
+    "Change of Recommendation"") is defined by the whole list: return the earlier items and the
+    lead-in line, back to the first line that is not a list item."""
+    if not ITEM.match(layer["text"][lf["start"]:lf["end"]]):
+        return []
+    leaves = by_sec.get(lf["section"], [])
+    out = []
+    for x in reversed(leaves[:leaves.index(lf)][-limit:]):
+        out.append(x)
+        if not ITEM.match(layer["text"][x["start"]:x["end"]]):
+            break
+    return out
 
 
 def main(dump, out):

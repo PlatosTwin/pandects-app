@@ -1,6 +1,6 @@
-# M1, M2 and M2 holdout pilots (span taxonomy)
+# Span-taxonomy pilots (M1, M2, M2 holdout, M3 holdout)
 
-Results and discussion: [section 7.4](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21) (M1, 3 concepts, 50 agreements) and [section 7.5](../../span-taxonomy.md#75-m2-pilot-results-2026-10-21) (M2, 10 concepts, 150 agreements) and [section 7.6](../../span-taxonomy.md#76-m2-holdout-results-2026-10-21) (M2 holdout, 50 fresh agreements) and [section 7.7](../../span-taxonomy.md#77-definition-resolution-re-check-2026-10-21) (definition-resolution re-check on the same holdout) of the plan.
+Results and discussion: [section 7.4](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21) (M1, 3 concepts, 50 agreements) and [section 7.5](../../span-taxonomy.md#75-m2-pilot-results-2026-10-21) (M2, 10 concepts, 150 agreements) and [section 7.6](../../span-taxonomy.md#76-m2-holdout-results-2026-10-21) (M2 holdout, 50 fresh agreements) and [section 7.7](../../span-taxonomy.md#77-definition-resolution-re-check-2026-10-21) (definition-resolution re-check on the same holdout) and [section 7.8](../../span-taxonomy.md#78-m3-holdout-2026-10-21) (M3 holdout, 50 fresh agreements) of the plan.
 
 ## Rebuild the inputs
 
@@ -32,6 +32,8 @@ The M2 holdout uses the seed `'m2holdout'`, excludes the M1 and M2 agreements, a
 
 The definition-resolution re-check reuses that dump: `python3 prepare_v4.py holdout.tsv OUT` adds page-blob exhibits and definition resolution, and `python3 score_v2.py D ARM GOLD --split holdout --concepts ma.termination.fee.target,ma.termination.fee.reverse,ma.indemn.cap,ma.mae.definition` scores the four concepts.
 
+The M3 holdout uses the seed `'m3holdout'`, excludes the M1, M2 and M2 holdout agreements (regenerate each list from its own seeded query, in that order), and filters on `WHERE t.rn <= IF(t.era = 'a', 7, 6)`, giving 50 agreements. `python3 prepare_v4.py m3.tsv OUT` writes the views; after extraction, `python3 postchecks.py OUT sonnet sonnet_pc` applies the post-checks and `python3 report_m3.py OUT` reports both arms against adjudicated gold. Run the post-check tests with `python3 -m unittest test_postchecks` from this directory.
+
 ## Files
 
 - `text_layer.py`: the canonical text layer (body `<text>` elements, unstripped, one per line).
@@ -50,7 +52,10 @@ The definition-resolution re-check reuses that dump: `python3 prepare_v4.py hold
 - `prepare_v4.py`: definition resolution (adds the defining paragraphs of relevant terms that candidate sections use) on top of `prepare_v3.py`; uses `text_layer.project(page_blobs=True)` for exhibits stored one page per `<text>`.
 - `schema_v2_3.md`: v2.2 plus 14 clarifications, run on the re-check and used for its adjudication.
 - `m2_defres_results.json`: re-check numbers for both arms (v3 candidates and v4 definition resolution).
+- `schema_v2_4.md`: v2.3 plus four rulings (prior bidder's fee refunds, indemnification outside the text, R&W-insurance-only deals, prices stated as components), run on the M3 holdout and used for its adjudication.
+- `postchecks.py`: deterministic checks applied to extractor output (recommendation failure, cap equal to the price, expense-labeled fees); `test_postchecks.py` holds its tests.
+- `report_m3.py`, `m3_holdout_results.json`: M3 holdout numbers, as extracted and after the post-checks.
 
 ## How it ran
 
-Extraction (Sonnet, plus a Haiku arm in M1), gold (Opus), adjudication (Opus) and the M2 equity-value lookups (Sonnet with web search) ran as subagents in a Claude Code session, with no API calls. The per-agreement JSON was scratch and was deleted after scoring.
+Extraction (Sonnet, plus a Haiku arm in M1), gold (Opus), adjudication (Opus) and the M2 equity-value lookups (Sonnet with web search) ran as subagents in a Claude Code session, with no API calls. The per-agreement JSON for M1 to the re-check was scratch and was deleted after scoring. The M3 holdout's inputs, gold, extractions and verdicts were kept in a gitignored folder of the worktree (`.claude/span-taxonomy-runs/m3holdout/`), which lasts as long as the worktree does.

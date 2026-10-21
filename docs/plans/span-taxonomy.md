@@ -776,11 +776,97 @@ What remains is rule application, so the next step is not more retrieval.
    - when a fee clause's amount is defined as out-of-pocket expenses, move it to expense reimbursement.
 
    These are code, not model calls, so they can be tested exactly.
-2. **Measure the post-checks on this holdout's saved outputs,** then judge them on a fresh 50-agreement holdout that has been read by no one, which gives the M3 call.
+2. **Judge the post-checks on a fresh 50-agreement holdout** that has been read by no one, which gives the M3 call. (This re-check's per-agreement outputs were deleted with its scratch files, so the post-checks cannot be measured on them; [7.8](#78-m3-holdout-2026-10-21) runs them on the fresh holdout instead.)
 3. **Before M3,** settle the open questions the adjudicators raised:
    - whether a refund of a prior bidder's fee paid as liquidated damages is a reverse fee;
    - whether a cap is present when indemnification lives in an exhibit outside the text, or in an R&W-insurance-only deal;
    - whether a price stated as a sum of parts fills the cap amount.
+
+### 7.8 M3 holdout (2026-10-21)
+
+**What was fixed before the run.**
+- **Schema v2.4 (`pilot/schema_v2_4.md`):** v2.3 plus the rulings on the open questions above:
+  - a refund of a prior bidder's fee is not a reverse fee (notes only);
+  - indemnification governed by a document outside the text makes the cap and basket `absent`, with a note;
+  - an R&W-insurance-only deal has no cap;
+  - a price stated only as components leaves the cap amount `not_stated`.
+- **Post-checks (`pilot/postchecks.py`, 14 tests in `pilot/test_postchecks.py`):** the three rules from 7.7, as code that reads only the candidates the extractor saw. The tests are the clauses the extractor got wrong in 7.7, plus the wording each check must leave alone.
+- **Stage 1 fix:** a term defined at the end of a list ("(iii) …, a 'Change of Recommendation'") now brings the earlier list items and the lead-in line. Before, the "(ii) fail to include the Company Recommendation" item never reached the extractor.
+
+**How it was measured.**
+- **Sample:** 50 agreements none of the earlier rounds used (seed `m3holdout`), drawn the same way as the 7.6 holdout.
+- **Blindness:** the schema, post-checks and stage 1 were frozen before any gold or extraction existed. The only look at the new sample was a count of how often the recommendation check matched its candidates (9 of 50), and of how many candidate files the list fix changed (10, all slightly).
+- **Labels:** Opus wrote gold for all ten concepts from the full text. Sonnet extracted from the candidates; the candidates were a median 36% of the text.
+- **Adjudication:** Opus judged every disputed field (66) and corrected gold in 3 agreements.
+- **Arms:** Sonnet as extracted, and the same output after the post-checks.
+
+**Results, against adjudicated gold.**
+- **Detection:** 9 of 10 concepts have precision and recall of at least 0.95. Financing does not: recall 0.83 (7 misses).
+- **False positives:** 1 in 50 agreements (an MAE definition), 0.02 per agreement.
+- **Quotes:** every non-empty quote is verbatim. The scorer's 99.1% counts 21 empty quote strings as misses.
+- **Stage 1 retrieval:** 97.1% of gold spans fall in a candidate section. 17 of the 30 misses are financing.
+
+| Field | Exact | Set F1 |
+|---|---|---|
+| Target-fee amount, payor | 25/25 each | |
+| Target-fee triggers | 19/25 (20/25 after post-checks) | 0.97 |
+| Target-fee remedy | 24/25 | |
+| Reverse-fee triggers | 11/15 | 0.86 |
+| Reverse-fee kind | 13/15 | |
+| Expense-reimbursement cap | 19/19 | |
+| Outside-date initial date | 45/47 | |
+| Outside-date effect | 47/47 | |
+| MAE carve-out categories | 34/45 | 0.96 |
+| MAE ability-to-consummate prong | 43/45 | |
+| Cap amounts | 16/22 | 0.90 |
+| Basket type and amount | 19/21 | 0.93 |
+| Survival, general and fundamental reps | 48/49 each | |
+
+**What went wrong.**
+- **Verdicts:** gold right 56, extractor right 2, both wrong 1, schema ambiguous 7.
+- **Extractor errors (57):**
+  - retrieval gaps 21;
+  - wrong codes 13;
+  - missed rules 8;
+  - over-inclusion 5;
+  - wrong values 5;
+  - missed in candidates 5.
+- **Retrieval is the largest cause again, mostly financing (9 of its 16 errors):**
+  - funds representations that stage 1 did not select;
+  - SPAC trust accounts and buyer deposits;
+  - a lenders'-consent closing condition.
+- **Financing also over-includes:** 4 cases list uncommitted capital raises as committed financing.
+- **Missed rules:** 8 across ten concepts, against 14 for four concepts in 7.7. Sonnet applied the recommendation-failure, cap-equals-price and expense-fee rules on its own in all but one case. The post-checks changed one agreement (a7d85da2) and fixed its trigger set; they made no wrong change.
+- **Reverse-fee errors are mostly wrong codes:** auction-loss terminations (`superior_proposal_termination`), reciprocal fees, and drop-dead-date triggers.
+
+**Against the acceptance bar.**
+- **Meets it on this holdout:**
+  - target fee (detection, amount, payor; triggers at set F1 0.97; remedy 24/25);
+  - expense reimbursement;
+  - survival.
+- **Close:**
+  - outside date: detection and effect are perfect; the initial date is 45/47, both misses retrieval gaps;
+  - MAE definition: carve-outs 0.96, precision 0.978.
+- **Does not meet it:**
+  - reverse fee (triggers 0.86);
+  - indemnity cap (amounts 0.90);
+  - basket (0.93);
+  - financing (recall 0.83).
+- **Too few cases to call:** 338 elections (4 present).
+
+**Open schema questions from adjudication.**
+- Whether a later outside date that applies only when regulatory conditions are unmet is an extension.
+- Whether an automatic extension while a specific-performance action is pending is an extension.
+- Whether two mirrored cure-period extensions are one entry or two.
+- Whether carve-outs that sit in an MAE closing condition, not the definition, count.
+- Whether an undefined inline MAE closing condition is a definition.
+- Codes for the buyer's-identity and cyber-attack carve-outs.
+- How to code `escrow_sole_recourse` when the escrow is the only recourse for general reps but not fundamental reps, or is used "initially".
+
+**Next step.**
+1. **M3 scope:** serve target fee, expense reimbursement and survival, plus the outside date and the MAE definition's presence and prongs. Hold the other coded fields until they pass.
+2. **Financing retrieval:** select funds representations, trust-account and deposit provisions, and financing-related closing conditions in stage 1. Add a rule that a capital raise without a commitment is not committed financing.
+3. **Settle the open questions above in v2.5,** then re-measure reverse fee, cap and basket on a fresh holdout.
 
 
 ## 8. Extraction pipeline
@@ -974,7 +1060,7 @@ GROUP BY yr;
 |---|---|---|
 | **M0: Decisions** (about 1 week) | Answer the [open questions](#15-open-questions-for-you); agree the text-layer spec with the smart-reader plan; YAML skeleton for `ma` and `tax` with the first 10 value concepts; DDL drafted | Spec merged as docs; loader validates the YAML in CI |
 | **M1: Pilot** (run 2026-10-21, [7.4](#74-m1-pilot-results-2026-10-21)) | Text layer; stages 1–3 for **3 concepts** (target fee, reverse fee, outside date) on **50 agreements**; Opus gold with model adjudication; metrics report | Met for detection, retrieval and core values. Coded fields diagnosed as schema gaps, and schema v2 written. Cost: about 30K Sonnet tokens per agreement for 3 concepts |
-| **M2: v1 concepts** (run 2026-10-21, [7.5](#75-m2-pilot-results-2026-10-21)) | All 10 value concepts; 150-agreement gold (50 dev / 100 test); review UI hardened; stage 2 model choice settled by measurement | Detection bar met on test for 6 of 10 concepts; financing fails on retrieval. After stage 1 fixes, defined-terms exhibits and schema v2.2, a fresh 50-agreement holdout ([7.6](#76-m2-holdout-results-2026-10-21)) meets the detection bar for all 10 (financing at 0.95). Fee triggers and cap amounts failed on missed definitions and one unwritten rule. Definition resolution and schema v2.3 ([7.7](#77-definition-resolution-re-check-2026-10-21)) cut retrieval gaps from 17 to 3 and lift target-fee triggers to set F1 0.96 and MAE carve-outs to 0.97; cap amounts (0.92) still fail, now on rule application. Not done in this run: the review UI and a stage 2 model comparison. Cost: about 60K Sonnet tokens per agreement for 10 concepts |
+| **M2: v1 concepts** (run 2026-10-21, [7.5](#75-m2-pilot-results-2026-10-21)) | All 10 value concepts; 150-agreement gold (50 dev / 100 test); review UI hardened; stage 2 model choice settled by measurement | Detection bar met on test for 6 of 10 concepts; financing fails on retrieval. After stage 1 fixes, defined-terms exhibits and schema v2.2, a fresh 50-agreement holdout ([7.6](#76-m2-holdout-results-2026-10-21)) meets the detection bar for all 10 (financing at 0.95). Fee triggers and cap amounts failed on missed definitions and one unwritten rule. Definition resolution and schema v2.3 ([7.7](#77-definition-resolution-re-check-2026-10-21)) cut retrieval gaps from 17 to 3 and lift target-fee triggers to set F1 0.96 and MAE carve-outs to 0.97; cap amounts (0.92) still fail, now on rule application. A blind 50-agreement holdout with schema v2.4 and post-checks ([7.8](#78-m3-holdout-2026-10-21)) meets the bar for target fee, expense reimbursement and survival, is close for outside date and MAE, and fails for reverse fee, cap, basket and financing (recall 0.83, mostly retrieval). Not done in this run: the review UI and a stage 2 model comparison. Cost: about 60K Sonnet tokens per agreement for 10 concepts |
 | **M3: Corpus and serving** (2–3 weeks) | Full pass for the passing concepts; serving tables, REST and MCP endpoints, bulk docs and changelog; reader span highlighting behind a flag | Live calls in prod return instances; distributions show n and coverage |
 | **M4: Tax and breadth** | Migrate tax clauses to spans; label concepts toward roughly 140-leaf coverage; derived `section_concepts`; deprecate old filters | Old taxonomy tables unused for one push cycle |
 | **M5: Distill and maintain** | Span tagger trained on accepted spans; incremental per-ingest runs; monthly checks | Stage 2 LLM spend cut by at least 80% with no recall loss on test |
@@ -1000,5 +1086,5 @@ GROUP BY yr;
 ## Appendix A. Pilot artifacts
 
 - `docs/plans/span-taxonomy/anchor_pilot.py`: the text-layer projection and re-anchoring measurement. It reads an XML dump, writes nothing, and is not wired into the ETL.
-- `docs/plans/span-taxonomy/pilot/`: the M1 pilot code. `text_layer.py` (projection), `prepare.py` (stage 1 retrieval and reading views), `schema_m1.md` (the extraction schema as run), `score.py` and `report.py` (scoring), `m1_results.json` (the numbers in 7.4). For M2: `prepare_v2.py` (four-group stage 1), `schema_v2.md` and `schema_v2_1.md` (the schemas as run on dev and test), `score_v2.py` and `report_v2.py` (scoring), `m2_results.json` (the numbers in 7.5). For the M2 holdout: `prepare_v3.py` (stage 1 fixes), `text_layer.project(exhibits=True)` (defined-terms exhibits and section-less body text), `schema_v2_2.md` (the schema as run), and `m2_holdout_results.json` (the numbers in 7.6, both arms). For the definition-resolution re-check: `prepare_v4.py` (definition resolution), `text_layer.project(page_blobs=True)` (page-blob exhibits), `schema_v2_3.md`, `score_v2.py --concepts` (score a subset of concepts) and `m2_defres_results.json` (the numbers in 7.7, both arms).
+- `docs/plans/span-taxonomy/pilot/`: the M1 pilot code. `text_layer.py` (projection), `prepare.py` (stage 1 retrieval and reading views), `schema_m1.md` (the extraction schema as run), `score.py` and `report.py` (scoring), `m1_results.json` (the numbers in 7.4). For M2: `prepare_v2.py` (four-group stage 1), `schema_v2.md` and `schema_v2_1.md` (the schemas as run on dev and test), `score_v2.py` and `report_v2.py` (scoring), `m2_results.json` (the numbers in 7.5). For the M2 holdout: `prepare_v3.py` (stage 1 fixes), `text_layer.project(exhibits=True)` (defined-terms exhibits and section-less body text), `schema_v2_2.md` (the schema as run), and `m2_holdout_results.json` (the numbers in 7.6, both arms). For the definition-resolution re-check: `prepare_v4.py` (definition resolution), `text_layer.project(page_blobs=True)` (page-blob exhibits), `schema_v2_3.md`, `score_v2.py --concepts` (score a subset of concepts) and `m2_defres_results.json` (the numbers in 7.7, both arms). For the M3 holdout: `schema_v2_4.md`, `postchecks.py` and `test_postchecks.py`, `report_m3.py`, and `m3_holdout_results.json` (the numbers in 7.8, both arms).
 - The pilots used read-only queries on the local database. No taxonomy LLM step was run over the corpus. Extraction, gold and adjudication ran as subagents in a Claude Code session, with no separate API calls (decision Q6). The per-agreement JSON (extractions, gold, verdicts) was scratch and was deleted after scoring; `prepare.py` with the sample SQL in `pilot/README.md` rebuilds the inputs.
