@@ -309,8 +309,8 @@ export default function SourcesMethods() {
     };
   }, []);
 
-  const validationClassifierF1 = 0.9666670514543612;
-  const finalClassifierF1 = 0.9507914467270675;
+  const validationClassifierF1 = 0.9717501480803046;
+  const finalClassifierF1 = 0.9903998045841298;
   const formatMetric = (value: number) => `${(value * 100).toFixed(2)}%`;
 
   return (
@@ -873,8 +873,11 @@ export default function SourcesMethods() {
                       XML Generation
                     </div>
                     <p className="text-sm prose-copy">
-                      Converts tagged body pages into agreement XML and upserts
-                      section records into the sections table.
+                      Converts tagged body pages into agreement XML, applying a
+                      small set of rule-checked repairs for common tagging slips
+                      (such as a stray number tagged as a heading or the same
+                      heading tagged twice), and upserts section records into
+                      the sections table.
                     </p>
                   </div>
                 </li>
@@ -1073,8 +1076,8 @@ export default function SourcesMethods() {
                 sample of <strong>699</strong> non-Exhibit 99 agreements from
                 the DMA Corpus from 2015 onwards, <strong>694</strong>{" "}
                 agreements (99.3%) made it through pre-screening, so it is the
-                Exhibit Model—not the earlier deterministic filtering—that does the
-                important selection work.
+                Exhibit Model—not the earlier deterministic filtering—that does
+                the important selection work.
               </div>
               {metricsData ? (
                 <Suspense
@@ -1125,7 +1128,17 @@ export default function SourcesMethods() {
                 <li className="space-y-2">
                   <div>
                     <strong>Architecture:</strong> The Page Classifier Model is
-                    a document-level monotonic CRF:
+                    a document-level monotonic CRF that combines its own page
+                    features with page-level judgments from{" "}
+                    <a
+                      href="https://typesafe.ai/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline underline-offset-2 hover:underline"
+                    >
+                      TypeSafe
+                    </a>
+                    &apos;s Jev model:
                     <ol className="list-decimal space-y-1 pl-5">
                       <li>
                         Each page is featurized with positional, structural, and
@@ -1133,6 +1146,16 @@ export default function SourcesMethods() {
                         heading patterns, TOC dots, signature and witness
                         markers, annex and appendix anchors, and compact TF-IDF
                         word features.
+                      </li>
+                      <li>
+                        Jev reads each page together with its position in the
+                        document and the end of the previous page and start of
+                        the next, and returns probabilities that the page
+                        belongs to each of the five classes, that it is the
+                        agreement&apos;s main signature page, and that an
+                        attachment (an exhibit, annex, or schedule) starts on
+                        it. These probabilities are added to the page&apos;s CRF
+                        features.
                       </li>
                       <li>
                         A constrained CRF predicts the full page sequence in one
@@ -1158,6 +1181,16 @@ export default function SourcesMethods() {
                         </span>
                         .
                       </li>
+                      <li>
+                        Two guards then check the predicted sequence against
+                        Jev&apos;s judgments. Back matter may begin only where
+                        Jev sees an attachment start or right after a signature
+                        page, and body may not run on into an attachment that
+                        Jev sees starting right after the main signature block,
+                        which catches exhibits that are themselves full
+                        agreements. When a check fails, the sequence is decoded
+                        again with the offending labels blocked.
+                      </li>
                     </ol>
                   </div>
                 </li>
@@ -1171,12 +1204,12 @@ export default function SourcesMethods() {
                           type="button"
                           className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
-                          <strong>67,596</strong>
+                          <strong>61,825</strong>
                         </button>
                       }
                       content={
                         <>
-                          Did we really label 67,596 pages by hand? Yes—but it
+                          Did we really label 61,825 pages by hand? Yes—but it
                           wasn't that bad. We had GPT build us a custom labeling
                           interface that allowed us to select all body pages in
                           a single go, so adding agreements was much faster than
@@ -1195,20 +1228,25 @@ export default function SourcesMethods() {
                           "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
                       }}
                     />{" "}
-                    manually labeled pages across 673 agreements, grouped by
+                    manually labeled pages across 606 agreements, grouped by
                     agreement and split with a stable manifest stratified by
-                    announcement year and agreement type.
+                    announcement year and agreement type. We audit these labels
+                    wherever a model disagrees with them; the October 2026 audit
+                    corrected 113 pages in 7 agreements.
                   </div>
                 </li>
               </ul>
 
               <p className="prose-copy">
-                Below are model performance metrics for the tuned validation CRF
-                run and the final holdout test run. The model reaches a macro F1
-                of <strong>{formatMetric(validationClassifierF1)}</strong> on
+                Below are model performance metrics for the validation run (fit
+                on the train split) and the final holdout test run (fit on train
+                and validation), both with Jev features and guards. The model
+                reaches a macro F1 of{" "}
+                <strong>{formatMetric(validationClassifierF1)}</strong> on
                 validation and{" "}
                 <strong>{formatMetric(finalClassifierF1)}</strong> on the final
-                test split, with most errors concentrated at the
+                test split, against 98.45% for the same CRF trained on the same
+                pages without Jev, with most remaining errors at the
                 body/back-matter boundary.
               </p>
               {metricsData ? (
@@ -1275,10 +1313,13 @@ export default function SourcesMethods() {
                     and Section start/end detection, focal token loss, preserved
                     input casing, and boundary-mix sampling over fixed-length
                     token windows. At inference time, overlapping windows are
-                    stitched by averaging logits and then lightly repaired into
-                    legal BIO-style sequences before tags are rendered back into
-                    the page text. We use BIOE tags for Articles and Sections,
-                    plus BIOES-style tags for Pages.
+                    stitched by averaging logits, decoded on the first sub-word
+                    token of each word (as in training), and lightly repaired
+                    into legal BIO-style sequences before tags are rendered back
+                    into the page text. Every entity start opens a new tag, so
+                    two adjacent headings of the same kind stay separate. We use
+                    BIOE tags for Articles and Sections, plus BIOES-style tags
+                    for Pages.
                   </div>
                 </li>
                 <li className="space-y-2">
@@ -1428,9 +1469,13 @@ export default function SourcesMethods() {
                 comparable to the deal universe from 2021 onwards.
               </li>
               <li>
-                We source all deal metadata via OpenAI enabled with the
-                web-search tool. While we've built in some validations, we have
-                no way of validating metadata at scale, meaning that
+                We source deal metadata via OpenAI enabled with the web-search
+                tool, and use LLM research agents to fill missing fields and to
+                correct errors that audits turn up; in October 2026, an audit of
+                250 deals led to corrections on about 1,300 agreements. Deal
+                price is the equity value at signing, excluding earnouts and
+                contingent value rights. While we've built in some validations,
+                we have no way of validating metadata at scale, meaning that
                 consideration types and totals, industry values, and other
                 derived metadata may contain errors.
               </li>
@@ -1488,11 +1533,22 @@ export default function SourcesMethods() {
               <li className="space-y-2">
                 <div>
                   <strong>Exhibit review:</strong> Before we treat an agreement
-                  as confirmed, we manually review every agreement surfaced by
-                  the Exhibit Model, except that non-amended agreements titled
-                  "Agreement and Plan of Merger", "Business Combination
-                  Agreement" or "Membership Interest Purchase Agreement" are
-                  assumed valid by default.
+                  as confirmed, we review every agreement surfaced by the
+                  Exhibit Model against a written rubric, except that
+                  non-amended agreements titled "Agreement and Plan of Merger",
+                  "Business Combination Agreement" or "Membership Interest
+                  Purchase Agreement" are assumed valid by default. The rubric
+                  admits executed, arm&apos;s-length, definitive agreements in
+                  which a buyer acquires a company or an operating business. It
+                  excludes sales of bare assets (real estate, single facilities,
+                  mineral or royalty interests, product or IP rights), minority
+                  stakes and joint ventures, affiliate reorganizations,
+                  financings, drafts and forms, standalone amendments, and
+                  duplicates. LLMs run the review: a first pass over each
+                  filing&apos;s opening text, then a second, independent read of
+                  every filing the first pass admits. Duplicates are found by
+                  full-text similarity, and an amended and restated agreement
+                  replaces the version it restates.
                 </div>
               </li>
               <li className="space-y-2">
@@ -1537,8 +1593,9 @@ export default function SourcesMethods() {
                   non-null core output field must have a valid citation; and
                   non-USD price notes require all purchase-price fields to be
                   null. Note, however, that these are basic validations that are
-                  designed to catch internal inconsistencies and impossibilities,
-                  rather than to ensure complete metadata accuracy.
+                  designed to catch internal inconsistencies and
+                  impossibilities, rather than to ensure complete metadata
+                  accuracy.
                 </div>
               </li>
             </ol>
