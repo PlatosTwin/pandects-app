@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { buildAgreementHref } from "@/lib/agreement-links";
 import { cn } from "@/lib/utils";
 import type { TaxClauseSearchResult } from "@shared/tax-clauses";
 import {
@@ -57,12 +58,12 @@ export default function TaxClauseCompare() {
     stashCompareClauses(next);
   };
 
-  const buildAgreementHref = (r: TaxClauseSearchResult) => {
-    const params = new URLSearchParams();
-    params.set("from", "/compare/tax");
-    if (r.section_uuid) params.set("focusSectionUuid", r.section_uuid);
-    return `/agreements/${r.agreement_uuid}?${params.toString()}`;
-  };
+  const readerHref = (r: TaxClauseSearchResult) =>
+    buildAgreementHref({
+      agreementUuid: r.agreement_uuid,
+      sectionUuid: r.section_uuid,
+      from: "/compare/tax",
+    });
 
   if (clauses.length === 0) {
     return (
@@ -293,12 +294,7 @@ export default function TaxClauseCompare() {
                           </span>
                         </span>
                         {c.context_type === "rep_warranty" && (
-                          <Badge
-                            variant="outline"
-                            className="border-amber-300/70 bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200"
-                          >
-                            Reps & warranties
-                          </Badge>
+                          <Badge variant="warning">Reps & warranties</Badge>
                         )}
                       </div>
                       {c.tax_standard_ids.length > 0 && (
@@ -326,7 +322,7 @@ export default function TaxClauseCompare() {
                       </p>
                       <div className="mt-3">
                         <Button asChild size="sm" variant="outline" className="gap-1.5">
-                          <Link to={buildAgreementHref(c)}>
+                          <Link to={readerHref(c)}>
                             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                             Open agreement
                           </Link>

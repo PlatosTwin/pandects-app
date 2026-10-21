@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+
+import { buildAgreementHref } from "@/lib/agreement-links";
 import { useHydrated } from "@/components/landing/use-hydrated";
 import { ArrowRight } from "lucide-react";
 import { useRecentAgreements } from "@/hooks/use-recent-agreements";
@@ -101,7 +103,7 @@ function FeaturedAgreementRow({
 
   return (
     <Link
-      to={`/agreements/${result.agreement_uuid}`}
+      to={buildAgreementHref({ agreementUuid: result.agreement_uuid, from: "/" })}
       onClick={() =>
         trackEvent("landing_featured_agreement_click", {
           position,

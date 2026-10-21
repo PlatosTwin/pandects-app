@@ -99,11 +99,16 @@ function SectionRow({ item, variant, props }: SectionRowProps) {
   const title = sectionTitleOf(result);
   const deal = result.metadata ?? {};
   const preferred = props.preferredTypeIds ?? [];
+  // The tree path is the richer display; the server's leaf label covers ids
+  // the tree doesn't have (or before it loads).
+  const serverLabels = result.standard_id_labels ?? {};
+  const pathFor = (id: string): readonly string[] | undefined =>
+    clauseTypePathByStandardId[id] ?? (serverLabels[id] ? [serverLabels[id]] : undefined);
   const pathId =
-    result.standard_id.find((id) => preferred.includes(id) && clauseTypePathByStandardId[id]) ??
-    result.standard_id.find((id) => clauseTypePathByStandardId[id]);
-  const path = collapseTaxonomyPath(pathId ? clauseTypePathByStandardId[pathId] : undefined);
-  const extraTypes = result.standard_id.filter((id) => clauseTypePathByStandardId[id]).length - 1;
+    result.standard_id.find((id) => preferred.includes(id) && pathFor(id)) ??
+    result.standard_id.find((id) => pathFor(id));
+  const path = collapseTaxonomyPath(pathId ? pathFor(pathId) : undefined);
+  const extraTypes = result.standard_id.filter((id) => pathFor(id)).length - 1;
   const onOpen = () => props.onOpenAgreement(result, position);
 
   const meta =

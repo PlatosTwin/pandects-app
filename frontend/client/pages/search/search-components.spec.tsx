@@ -8,7 +8,6 @@ vi.mock("@/components/StarButton", () => ({ StarButton: () => <span data-testid=
 vi.mock("@/components/FlagAsInaccurateButton", () => ({
   FlagAsInaccurateButton: () => <span data-testid="flag" />,
 }));
-vi.mock("@/hooks/use-naics", () => ({ useNaics: () => ({ labelByCode: {} }) }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 
 import { TooltipProvider } from "@/components/ui/tooltip";

@@ -12,7 +12,8 @@ import { ResultRow, RowActions } from "@/pages/search/ResultRow";
 export interface TaxClauseResultsListProps {
   results: TaxClauseSearchResult[];
   getAgreementHref: (result: TaxClauseSearchResult) => string;
-  clauseTypeLabelById: Record<string, string>;
+  /** Fallback labels (the tax taxonomy tree) for ids the result doesn't label. */
+  clauseTypeLabelById?: Record<string, string>;
   selectedResults: Set<string>;
   onToggleResultSelection: (id: string) => void;
   density?: ResultsDensity;
@@ -31,14 +32,15 @@ function clauseLabels(
   const ids = [...result.tax_standard_ids].sort(
     (a, b) => Number(!preferred.includes(a)) - Number(!preferred.includes(b)),
   );
-  return [...new Set(ids.map((id) => labels[id]).filter(Boolean))];
+  const own = result.tax_standard_id_labels ?? {};
+  return [...new Set(ids.map((id) => own[id] ?? labels[id]).filter(Boolean))];
 }
 
 /** Tax clause results: clause type first, then the clause text, in the shared row shell. */
 export function TaxClauseResultsList({
   results,
   getAgreementHref,
-  clauseTypeLabelById,
+  clauseTypeLabelById = {},
   selectedResults,
   onToggleResultSelection,
   density = "comfy",

@@ -14,8 +14,7 @@ import { cn } from "@/lib/utils";
 import { CheckboxFilter, CheckboxList } from "@/components/CheckboxFilter";
 import { TextFilter } from "@/components/TextFilter";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useNaics } from "@/hooks/use-naics";
-import { formatNaicsIndustry } from "@/lib/naics";
+import { formatIndustry } from "@/lib/naics";
 import type { SearchMode, SearchQueryFilters } from "@shared/search";
 import { ValueRangeFilter, YearRangeFilter } from "@/pages/search/RangeFacets";
 import {
@@ -34,6 +33,8 @@ export interface SearchSidebarProps {
   acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
+  /** NAICS label per industry code (`industry_labels` from filter options). */
+  industry_labels?: Record<string, string>;
   isLoadingFilterOptions: boolean;
   /** Toggle one value of an array filter. */
   onToggleFilterValue: (field: string, value: string) => void;
@@ -49,6 +50,8 @@ export interface SearchSidebarProps {
   notice?: ReactNode;
   className?: string;
 }
+
+const EMPTY_LABELS: Record<string, string> = {};
 
 const GROUP_TITLES: Record<FacetGroupId, string> = {
   tax: "Tax clauses",
@@ -126,6 +129,7 @@ export function SearchSidebar({
   acquirer_counsels,
   target_industries,
   acquirer_industries,
+  industry_labels = EMPTY_LABELS,
   isLoadingFilterOptions,
   onToggleFilterValue,
   onPatchFilters,
@@ -150,12 +154,11 @@ export function SearchSidebar({
     advanced: counts.advanced > 0,
   }));
 
-  const { labelByCode: naicsLabelByCode } = useNaics();
   // Industry values stay NAICS codes on the wire; the picker shows
   // "Label (code)" and maps toggles back to the code.
   const industryDisplay = useCallback(
-    (code: string) => formatNaicsIndustry(naicsLabelByCode, code) ?? code,
-    [naicsLabelByCode],
+    (code: string) => formatIndustry(code, industry_labels[code]) ?? code,
+    [industry_labels],
   );
   const industryCodeByDisplay = useMemo(() => {
     const map = new Map<string, string>();

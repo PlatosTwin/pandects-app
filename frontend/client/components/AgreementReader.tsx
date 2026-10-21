@@ -17,11 +17,9 @@ import {
   X,
 } from "lucide-react";
 import { StarButton } from "@/components/StarButton";
-import { useAgreement } from "@/hooks/use-agreement";
+import { useAgreementQuery, useAgreementSections } from "@/hooks/use-agreement";
 import { useAuth } from "@/hooks/use-auth";
-import { useFilterOptions } from "@/hooks/use-filter-options";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useNaics } from "@/hooks/use-naics";
 import { useScrollSpy } from "@/hooks/use-scroll-spy";
 import { useToast } from "@/hooks/use-toast";
 import { useFavorites } from "@/contexts/FavoritesContext";
@@ -59,11 +57,7 @@ import { readContentsOpen, writeContentsOpen } from "@/components/reader/reader-
 import { extractSectionPlainText, sectionShortLabel } from "@/components/reader/section-text";
 import { useFindInDocument } from "@/components/reader/use-find-in-document";
 import { useMediaQuery } from "@/components/reader/use-media-query";
-import {
-  useAgreementSectionIndex,
-  useReaderMatches,
-} from "@/components/reader/use-reader-data";
-import { indexClauseTypeLabels } from "@/lib/clause-type-index";
+import { useReaderMatches } from "@/components/reader/use-reader-data";
 import {
   buildAgreementHref,
   parseAgreementOrigin,
@@ -76,7 +70,7 @@ import {
   formatEnumValue,
   formatTextValue,
 } from "@/lib/format-utils";
-import { formatNaicsIndustry } from "@/lib/naics";
+import { formatIndustry } from "@/lib/naics";
 import { prefersReducedMotion } from "@/lib/scroll";
 import { cn } from "@/lib/utils";
 
@@ -150,18 +144,16 @@ export function AgreementReader({
   focusSectionUuid,
   backTo,
 }: AgreementReaderProps) {
-  // DATA HOOK PLUG-IN POINT: `useAgreement` (imperative fetch in an effect,
-  // below) and `useAgreementSectionIndex` are what the shared React Query
-  // hooks replace. Everything after this block only reads `agreement`,
-  // `isLoading`, `error`, and the section index.
-  const { agreement, isLoading, error, fetchAgreement } = useAgreement();
+  // With a focus section the API redacts around it (focus + neighbors), so
+  // each (uuid, focus) pair is its own cached query.
   const {
-    sectionIndex,
-    error: sectionIndexError,
-  } = useAgreementSectionIndex(agreementUuid);
-  useEffect(() => {
-    fetchAgreement(agreementUuid, focusSectionUuid ?? undefined);
-  }, [agreementUuid, fetchAgreement, focusSectionUuid]);
+    agreement,
+    isLoading,
+    error,
+    query: agreementQuery,
+  } = useAgreementQuery(agreementUuid, focusSectionUuid);
+  const { sections: sectionIndex, error: sectionIndexError } =
+    useAgreementSections(agreementUuid);
 
   const origin = useMemo(() => parseAgreementOrigin(backTo), [backTo]);
   const matchesQuery = useReaderMatches(origin, agreementUuid);
@@ -246,26 +238,22 @@ export function AgreementReader({
     [xml],
   );
 
-  const { clause_types } = useFilterOptions({ fields: ["clause_types"] });
-  const clauseTypeLabelById = useMemo(
-    () => indexClauseTypeLabels(clause_types),
-    [clause_types],
-  );
-  const { labelByCode: naicsLabelByCode } = useNaics();
-
   const sectionTypeOptions = useMemo(() => {
     const counts = new Map<string, number>();
+    const labels = new Map<string, string>();
     for (const item of sectionIndex) {
       for (const id of item.standard_id) {
         counts.set(id, (counts.get(id) ?? 0) + 1);
+        const label = item.standard_id_labels?.[id];
+        if (label && !labels.has(id)) labels.set(id, label);
       }
     }
     return Array.from(counts.entries()).map(([value, count]) => ({
       value,
-      label: clauseTypeLabelById[value] ?? value,
+      label: labels.get(value) ?? value,
       count,
     }));
-  }, [clauseTypeLabelById, sectionIndex]);
+  }, [sectionIndex]);
 
   const visibleSectionUuids = useMemo(() => {
     if (sectionType === "all") return null;
@@ -473,7 +461,7 @@ export function AgreementReader({
         <ErrorState
           error={errorFromMessage(error)}
           title="Agreement unavailable"
-          onRetry={() => fetchAgreement(agreementUuid, focusSectionUuid ?? undefined)}
+          onRetry={() => void agreementQuery.refetch()}
           action={
             <Button asChild variant="outline" size="sm">
               <Link to={origin?.href ?? "/search"}>
@@ -491,10 +479,13 @@ export function AgreementReader({
   const title = targetName || acquirerName || "Agreement";
   const showAcquirer = Boolean(targetName && acquirerName);
 
-  const targetIndustryDisplay = formatNaicsIndustry(naicsLabelByCode, agreement.target_industry);
-  const acquirerIndustryDisplay = formatNaicsIndustry(
-    naicsLabelByCode,
+  const targetIndustryDisplay = formatIndustry(
+    agreement.target_industry,
+    agreement.target_industry_label,
+  );
+  const acquirerIndustryDisplay = formatIndustry(
     agreement.acquirer_industry,
+    agreement.acquirer_industry_label,
   );
   const metadata = [
     { label: "Target", value: formatTextValue(agreement.target) },

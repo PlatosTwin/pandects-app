@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Agreement } from "@shared/agreement";
 import type {
@@ -85,37 +85,5 @@ export function useAgreementSections(agreementUuid: string | null | undefined) {
       ? errorMessage(query.error, "Unable to load agreement sections.")
       : null,
     query,
-  };
-}
-
-/**
- * Imperative adapter over `useAgreementQuery` for callers that still drive
- * the fetch from an effect (`fetchAgreement(uuid, focus)`). New code should
- * call `useAgreementQuery(uuid, focus)` directly.
- *
- * @deprecated Use `useAgreementQuery`.
- */
-export function useAgreement() {
-  const [target, setTarget] = useState<{ uuid: string; focus?: string } | null>(null);
-  const { agreement, isLoading, error } = useAgreementQuery(target?.uuid, target?.focus);
-
-  const requestAgreement = useCallback(
-    async (agreement_uuid: string, focus_section_uuid?: string) => {
-      setTarget((prev) =>
-        prev?.uuid === agreement_uuid && prev?.focus === focus_section_uuid
-          ? prev
-          : { uuid: agreement_uuid, focus: focus_section_uuid },
-      );
-    },
-    [],
-  );
-
-  return {
-    agreement,
-    // Before the first request the caller is about to fetch, so report
-    // loading to render the loading state on the first frame.
-    isLoading: target === null ? true : isLoading,
-    error,
-    fetchAgreement: requestAgreement,
   };
 }

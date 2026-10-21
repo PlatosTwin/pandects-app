@@ -342,32 +342,6 @@ export function findClauseTypeIds(tree: ClauseTypeTree, pattern: RegExp): string
 }
 
 // ---------------------------------------------------------------------------
-// Links into the reader
-// ---------------------------------------------------------------------------
-
-/**
- * Reader link that carries the current search URL as `from`, so the reader's
- * back button returns to this search. Same shape as
- * `lib/agreement-links.ts#buildAgreementHref` (landing separately); switch the
- * import once that module is on the base.
- */
-export function buildAgreementHref({
-  agreementUuid,
-  sectionUuid,
-  from,
-}: {
-  agreementUuid: string;
-  sectionUuid?: string | null;
-  from?: string;
-}): string {
-  const params = new URLSearchParams();
-  if (from) params.set("from", from);
-  if (sectionUuid) params.set("focusSectionUuid", sectionUuid);
-  const query = params.toString();
-  return `/agreements/${agreementUuid}${query ? `?${query}` : ""}`;
-}
-
-// ---------------------------------------------------------------------------
 // Recent searches (per-browser convenience; storage may be unavailable)
 // ---------------------------------------------------------------------------
 
