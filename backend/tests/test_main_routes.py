@@ -1344,7 +1344,7 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(
             res.get_json(),
             {
-                "error": "Unprocessable Entity",
+                "error": "validation_error",
                 "message": "Section text search is not available on this server yet.",
             },
         )

@@ -22,6 +22,25 @@
 
 unreleased:
 - type: api
+  severity: notable
+  summary: "Error responses now carry a machine code in `error` instead of the HTTP reason phrase."
+  details: >
+    Every /v1 error body is {"error": <code>, "message": <text>}. Generic errors
+    used to put the HTTP reason phrase in `error` ("Bad Request", "Not Found",
+    "Unprocessable Entity", ...); they now use stable snake_case codes:
+    bad_request (400), unauthorized (401), forbidden (403), not_found (404),
+    method_not_allowed (405), conflict (409), validation_error (422),
+    rate_limited (429), internal_error (500), service_unavailable (503). Other
+    statuses use the snake_case reason phrase. Codes that were already
+    specific (validation_error, rate_limited, captcha_required, legal_required,
+    ...) are unchanged. A 422 from query-parameter parsing now names the field
+    in `message` ("page_size: Not a valid integer.") instead of a generic
+    sentence. Status codes and the /mcp JSON-RPC errors are unchanged.
+  migration: >
+    Clients that compared `error` to a reason phrase should compare it to the
+    new code, or branch on the HTTP status.
+  refs: []
+- type: api
   severity: minor
   summary: "An out-of-range page_size now returns the largest allowed page instead of 25 rows."
   details: >
