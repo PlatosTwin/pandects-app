@@ -647,12 +647,15 @@ export default function Search() {
           users jump past its ~60 controls. */}
       <a
         href="#search-results"
-        className="sr-only z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:hidden lg:focus:not-sr-only lg:focus:fixed lg:focus:left-4 lg:focus:top-4"
+        className="sr-only z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:hidden lg:focus:not-sr-only lg:focus:fixed lg:focus:left-4 lg:focus:top-4"
       >
         Skip to results
       </a>
 
-      <div className="flex min-h-[calc(100vh-4rem)]">
+      {/* Same width as the app frame, without its padding: the filter rail
+          stays flush with the frame edge. Once the screen is wider than the
+          frame, side borders close off the workspace. */}
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-screen-2xl border-border min-[1536px]:border-x">
         {hydrated ? (
           <Suspense fallback={<SearchSidebarFallback />}>
             <SearchSidebar {...sidebarProps} />

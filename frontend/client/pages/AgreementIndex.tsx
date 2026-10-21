@@ -27,7 +27,7 @@ function StatCard({
   loading: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card shadow-raised p-5">
       <Eyebrow>{label}</Eyebrow>
       <div className="mt-2 flex min-h-8 items-center text-2xl font-semibold tabular-nums text-foreground">
         {loading ? (

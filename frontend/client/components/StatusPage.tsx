@@ -26,7 +26,7 @@ export interface StatusPageProps {
  * deliberate rather than a strip at the top of an empty screen.
  */
 export const STATUS_FRAME =
-  "mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-7xl flex-1 flex-col justify-center px-4 py-16 sm:px-6 lg:px-8";
+  "flex min-h-[calc(100svh-4rem)] app-frame flex-1 flex-col justify-center py-16";
 
 /**
  * Full-page status message: 404, crash fallback, temporary lockdown. Centered

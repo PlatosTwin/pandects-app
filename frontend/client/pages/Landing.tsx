@@ -44,7 +44,7 @@ export default function Landing() {
         className="pointer-events-none absolute inset-0 -z-10"
         style={GRID_TEXTURE_STYLE}
       />
-      <Card className="mx-auto w-full max-w-[960px] border-border bg-background/80 px-5 py-10 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-14">
+      <Card className="mx-auto w-full max-w-[960px] border-border bg-background/80 px-5 py-10 shadow-overlay backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-14">
         <section
           aria-labelledby="landing-heading"
           className="flex flex-col items-center text-center"
@@ -71,7 +71,7 @@ export default function Landing() {
                     sizes="(min-width: 640px) 112px, 88px"
                     fetchpriority="high"
                     decoding="async"
-                    className="h-[88px] w-[88px] rounded-2xl object-cover shadow-sm ring-1 ring-border sm:h-28 sm:w-28"
+                    className="h-[88px] w-[88px] rounded-2xl object-cover shadow-raised ring-1 ring-border sm:h-28 sm:w-28"
                   />
                 </picture>
               </button>
@@ -128,7 +128,7 @@ export default function Landing() {
                 Browse
               </h2>
             </div>
-            <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+            <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-raised">
               {BROWSE_LINKS.map((link) => (
                 <li key={link.to}>
                   <Link
@@ -143,7 +143,7 @@ export default function Landing() {
                   >
                     {link.label}
                     <ArrowRight
-                      className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+                      className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,transform] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
                       aria-hidden="true"
                     />
                   </Link>

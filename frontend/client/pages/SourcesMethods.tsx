@@ -603,13 +603,13 @@ export default function SourcesMethods() {
                         tooltipProps={{
                           side: "top",
                           className:
-                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                         }}
                         delayDuration={300}
                         popoverProps={{
                           side: "top",
                           className:
-                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                         }}
                       />
                       <a
@@ -930,13 +930,13 @@ export default function SourcesMethods() {
                 tooltipProps={{
                   side: "top",
                   className:
-                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                 }}
                 delayDuration={300}
                 popoverProps={{
                   side: "top",
                   className:
-                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                 }}
               />{" "}
               still made too many mistakes for us to be comfortable using them
@@ -1149,13 +1149,13 @@ export default function SourcesMethods() {
                       tooltipProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                       }}
                     />{" "}
                     manually labeled pages across 606 agreements, grouped by
@@ -1274,13 +1274,13 @@ export default function SourcesMethods() {
                       tooltipProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                       }}
                     />
                     . We split the corpus by <strong>agreement</strong>, not by

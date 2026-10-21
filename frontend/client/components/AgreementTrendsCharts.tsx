@@ -129,7 +129,7 @@ function TrendsMedianBandTooltipContent({
   );
 
   return (
-    <div className="grid min-w-[12rem] gap-3 rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
+    <div className="grid min-w-[12rem] gap-3 rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-overlay">
       <div className="font-medium text-foreground">Filing year {row.year}</div>
       {renderBucket(
         "Public targets",

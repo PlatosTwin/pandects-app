@@ -504,7 +504,7 @@ export default function FavoritesPage() {
                     <div className="max-w-full overflow-x-auto">
                       {/* aria-controls overrides Radix's generated content ids:
                           all four tabs filter the one shared items panel. */}
-                      <TabsList className="min-h-9 min-w-max border bg-background px-1 shadow-sm">
+                      <TabsList className="min-h-9 min-w-max border bg-background px-1 shadow-raised">
                         <TabsTrigger
                           className="px-3 text-sm"
                           value="all"
@@ -537,7 +537,7 @@ export default function FavoritesPage() {
                     </div>
                   </Tabs>
                 </div>
-                <label className="flex min-h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground shadow-sm">
+                <label className="flex min-h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground shadow-raised">
                   <Checkbox
                     checked={
                       allVisibleSelected
@@ -563,7 +563,7 @@ export default function FavoritesPage() {
               </div>
 
               {selectedIds.size > 0 ? (
-                <div className="sticky top-16 z-20 flex flex-col gap-2 rounded-lg border bg-background px-3 py-2 shadow-sm sm:flex-row sm:items-center">
+                <div className="sticky top-16 z-20 flex flex-col gap-2 rounded-lg border bg-background px-3 py-2 shadow-raised sm:flex-row sm:items-center">
                   <span className="text-sm font-medium text-foreground">
                     {selectedIds.size} selected
                   </span>

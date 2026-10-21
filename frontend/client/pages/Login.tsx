@@ -265,7 +265,7 @@ export default function Login() {
             submitLabel={submitting ? "Finishing sign-in…" : "Continue"}
           />
         ) : state.kind === "verify" ? (
-          <Card className="w-full p-6 shadow-sm">
+          <Card className="w-full p-6 shadow-raised">
             <div className="grid gap-4">
               <div>
                 <h2 className="text-base font-medium">Check your email</h2>
@@ -319,7 +319,7 @@ export default function Login() {
             </div>
           </Card>
         ) : (
-          <Card className="w-full p-6 shadow-sm sm:p-8">
+          <Card className="w-full p-6 shadow-raised sm:p-8">
             <div className="grid gap-5">
               <div className="grid gap-6">
                 <div>
@@ -327,7 +327,7 @@ export default function Login() {
                     onClick={() => void startGoogle()}
                     disabled={submitting || googleSubmitting}
                     variant="outline"
-                    className="h-11 w-full px-5 shadow-sm"
+                    className="h-11 w-full px-5 shadow-raised"
                   >
                     <GoogleMark />
                     {googleSubmitting ? "Redirecting…" : "Continue with Google"}

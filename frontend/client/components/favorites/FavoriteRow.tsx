@@ -161,7 +161,7 @@ export function FavoriteRow({
     <Card
       ref={setNodeRef}
       style={style}
-      className={`relative overflow-hidden border-l-4 border-l-amber-400 bg-card shadow-sm transition-shadow [contain-intrinsic-size:auto_10rem] [content-visibility:auto] hover:shadow-md ${isDragging ? "z-10 opacity-80 ring-2 ring-primary" : ""}`}
+      className={`relative overflow-hidden border-l-4 border-l-amber-400 bg-card shadow-raised transition-shadow [contain-intrinsic-size:auto_10rem] [content-visibility:auto] hover:shadow-lifted ${isDragging ? "z-10 opacity-80 ring-2 ring-primary" : ""}`}
     >
       <div className="relative p-4">
         <div className="min-w-0 space-y-2">

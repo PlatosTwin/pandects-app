@@ -1,5 +1,4 @@
 import { Link, useLocation } from "react-router-dom";
-import { Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -10,7 +9,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { PROJECT_LINKS } from "@/components/navigation-links";
 import { AvatarInitial } from "@/components/NavLinkParts";
@@ -45,31 +43,8 @@ export function AuthMenu() {
     );
   }
 
-  const favoritesActive = location.pathname === "/favorites";
-
   return (
     <div className="flex items-center gap-1">
-      <Button
-        asChild
-        variant="ghost"
-        size="icon"
-        className={cn(
-          "h-9 w-9 rounded-md",
-          favoritesActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <Link
-          to="/favorites"
-          aria-label="Favorites"
-          title="Favorites"
-          aria-current={favoritesActive ? "page" : undefined}
-        >
-          <Star
-            className={cn("h-4 w-4", favoritesActive && "fill-current")}
-            aria-hidden="true"
-          />
-        </Link>
-      </Button>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button

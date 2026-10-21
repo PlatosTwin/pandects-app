@@ -59,7 +59,7 @@ export default function Support() {
             current, and open.
           </p>
 
-          <div className="mt-6 rounded-xl border border-border bg-card p-5">
+          <div className="mt-6 rounded-xl border border-border bg-card shadow-raised p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <Eyebrow className="flex items-center gap-2">

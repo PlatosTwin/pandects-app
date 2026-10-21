@@ -75,7 +75,7 @@ function SelectionBar({
       aria-label="Selected results"
       className="pointer-events-none sticky bottom-4 z-30 mt-4 flex justify-center px-2 pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-popover/95 px-3 py-2 shadow-lg supports-[backdrop-filter]:bg-popover/80 supports-[backdrop-filter]:backdrop-blur">
+      <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-popover/95 px-3 py-2 shadow-overlay supports-[backdrop-filter]:bg-popover/80 supports-[backdrop-filter]:backdrop-blur">
         <span className="px-1 text-sm font-medium text-foreground" aria-live="polite">
           {selectedSize} selected
         </span>
@@ -153,7 +153,7 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
           Results
         </h2>
       ) : null}
-      <div className="z-10 border-b border-border bg-background/95 px-4 py-2 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur sm:px-6 lg:sticky lg:top-[calc(4rem+var(--search-bar-h,0px))] lg:px-6">
+      <div className="z-10 border-b border-border bg-background/95 px-4 py-2 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur sm:px-6 lg:sticky lg:top-[calc(4rem+var(--search-bar-h,0px))] lg:px-8">
         <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-2">
           {props.mobileFilters}
           {props.selectPage && showRows ? (
@@ -212,7 +212,7 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
         <div className="mt-2 empty:hidden lg:hidden">{props.chips}</div>
       </div>
 
-      <div className="flex-1 px-4 py-4 sm:px-6">
+      <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
         {!hasSearched ? (
           props.emptyState
         ) : error ? (

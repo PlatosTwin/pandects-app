@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
-import { Link } from "react-router-dom";
 import { Info } from "lucide-react";
 
+import { ReferenceLink } from "@/components/ui/reference-link";
 import { TaxonomyNodePanel } from "@/components/taxonomy/TaxonomyNodePanel";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -41,12 +41,12 @@ export function ClauseTypeInfo({ kind, standardId, label }: ClauseTypeInfoProps)
         titleAs="h3"
         titleId={titleId}
       />
-      <Link
+      <ReferenceLink
         to="/taxonomy"
         className="mt-4 inline-block text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
       >
         Open the Taxonomy page
-      </Link>
+      </ReferenceLink>
     </>
   );
 

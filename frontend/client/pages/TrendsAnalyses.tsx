@@ -236,7 +236,7 @@ function TrendsHeatmapTable({
                   <td key={`${row}-${column}`} className="w-44 px-2 py-2 align-top">
                     <div
                       className={cn(
-                        "flex min-h-[6.75rem] w-full flex-col items-center justify-center rounded-md border border-border/50 px-3 py-3 text-center shadow-sm transition-colors",
+                        "flex min-h-[6.75rem] w-full flex-col items-center justify-center rounded-md border border-border/50 px-3 py-3 text-center shadow-raised transition-colors",
                         foregroundClass,
                       )}
                       style={

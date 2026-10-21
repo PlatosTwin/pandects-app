@@ -54,7 +54,7 @@ export function SearchResultsTableFallback() {
   return (
     <div className="space-y-3" aria-hidden="true">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className="rounded-lg border border-border bg-card p-4">
+        <div key={index} className="rounded-lg border border-border bg-card shadow-raised p-4">
           <Skeleton className="h-4 w-64" />
           <Skeleton className="mt-3 h-5 w-80 max-w-full" />
           <Skeleton className="mt-3 h-4 w-full" />
@@ -68,7 +68,7 @@ export function SearchResultsTableFallback() {
 
 export function TransactionResultsFallback() {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card" aria-hidden="true">
+    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised" aria-hidden="true">
       <Skeleton className="h-9 w-full rounded-none" />
       {Array.from({ length: 8 }).map((_, index) => (
         <div key={index} className="flex gap-4 border-t border-border px-4 py-3">

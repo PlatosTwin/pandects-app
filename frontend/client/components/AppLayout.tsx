@@ -21,7 +21,7 @@ import {
 // Neutral route-level placeholder: plain blocks with no card chrome or blur,
 // laid out in the same frame as the page it stands in for (see `shell` in
 // routes.tsx), so nothing moves sideways when the page replaces it.
-const FALLBACK_FRAME = "mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8";
+const FALLBACK_FRAME = "app-frame py-8";
 
 const fallbackBar = "animate-pulse rounded bg-muted/70";
 
@@ -199,7 +199,7 @@ export function AppLayout() {
     <div className="min-h-screen bg-cream flex flex-col">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         Skip to content
       </a>

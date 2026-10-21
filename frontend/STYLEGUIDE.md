@@ -164,14 +164,17 @@ and status dots.
 ## Page frame
 
 Every page renders inside `PageShell` (`components/PageShell.tsx`). The outer
-frame matches the navigation bar (`max-w-7xl px-4 sm:px-6 lg:px-8`), so the
-title always lines up with the logo. Pick one `layout`; it sets the page's
+frame is the `app-frame` class (`global.css`: `max-w-screen-2xl` plus the
+`px-4 sm:px-6 lg:px-8` gutter), the same class the navigation bar, footer,
+search and the reader use, so the title always lines up with the logo. Change
+the width there only; `lib/design-system.spec.ts` fails on a copied
+`max-w-7xl`. Pick one `layout`; it sets the page's
 single reading measure. Never add per-paragraph `max-w-NNch` caps inside it.
 
 | `layout` | Content width | Use for |
 |----------|---------------|---------|
 | `docs` | 720px; with `toc`, a sticky 240px TOC column on the left (lg+) | About, legal, Sources & Methods, XML schema, support |
-| `data` | Full `max-w-7xl` | Tables, charts, dashboards, account |
+| `data` | The full frame | Tables, charts, dashboards, account |
 | `form` | `max-w-md`, left-aligned under the h1 | Sign in, sign up, password reset, consent |
 
 Props: `layout`, `eyebrow?`, `title?`, `description?`, `actions?`, `toc?`
@@ -179,6 +182,52 @@ Props: `layout`, `eyebrow?`, `title?`, `description?`, `actions?`, `toc?`
 props are deprecated; `size` without `layout` still renders the old centered
 frame for pages not migrated yet (Taxonomy, AgreementIndex, the Zitadel
 callback, the full-bleed Favorites view).
+
+## Elevation and motion
+
+Depth comes from one scale, set per theme in `global.css` and exposed as
+Tailwind shadows. Never use `shadow-sm/md/lg/xl`; the design-system spec fails
+on them, and on any bordered, rounded `bg-card` surface with no shadow.
+
+| Class | Use for |
+|-------|---------|
+| `shadow-raised` | Resting surfaces: cards, panels, result rows, chips, outline and primary buttons. `Card` has it built in. |
+| `shadow-lifted` | Hovered or selected surfaces; `Card variant="elevated"`. |
+| `shadow-overlay` | Popovers, menus, selects, tooltips, dialogs, sheets, floating cards. |
+
+- A card that is itself one link or button (starter tiles, linked
+  `FactCard`s) also gets `surface-interactive`: on hover the border picks up
+  primary, the shadow lifts and the card rises 1px; it settles on press.
+  Motion is skipped under `prefers-reduced-motion`. Cards that only contain
+  links or are selectable (result rows, matched sections) don't rise; they
+  take `hover:border-primary/30` (and `hover:shadow-lifted`) instead.
+- New content fades up with `motion-safe:animate-enter` (220ms): result cards,
+  an expanded deal row, the landing card. Use it for content that arrives,
+  not for every re-render.
+- Primary buttons press in (`active:scale-[0.98]`); list-row chevrons nudge
+  right on hover (`motion-safe:group-hover:translate-x-0.5`).
+- An open table row and its details share a 3px primary rail on the left.
+
+## Links, overlays and copy
+
+- **Reference links.** From a working surface (search, the reader, a terms
+  prompt) a link to an in-app reference page (Taxonomy, Sources & Methods,
+  XML schema, legal pages) uses `ReferenceLink`, which opens a new tab so the
+  user keeps their results. `lib/reference-links.spec.ts` enforces this.
+  Other sites use `ExternalLink`.
+- **Scroll lock.** Radix menus, selects, dialogs and sheets lock page scroll.
+  For menus and selects, the `html body[data-scroll-locked]` rule in
+  `global.css` keeps the scrollbar and body box unchanged, so nothing shifts
+  sideways; dialogs and sheets keep the full lock. Don't remove it;
+  `lib/scroll-lock.spec.ts` checks it against the library.
+- **Tooltip copy** describes what the control does, in the third person:
+  "Opens the Taxonomy page in a new tab", not "open the Taxonomy page".
+  Button labels stay imperative ("Open agreement").
+- **Filter chips** group values of the same filter into one chip with a "+N"
+  list (`groupChips` in `SearchActiveFilters.tsx`); the chip's X clears the
+  whole filter.
+- **Theme toggle** shows a sun or moon for the theme on screen; "System" is a
+  menu choice, not the trigger icon.
 
 ## Shared primitives
 

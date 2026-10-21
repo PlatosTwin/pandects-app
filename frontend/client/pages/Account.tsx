@@ -981,7 +981,7 @@ export default function Account() {
                           const point = payload[0]?.payload as UsageChartPoint | undefined;
                           if (!point) return null;
                           return (
-                            <div className="min-w-[180px] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
+                            <div className="min-w-[180px] rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-overlay">
                               <div className="mb-1.5 font-medium text-foreground">
                                 {formatUsageTooltipDay(point.day)}
                               </div>

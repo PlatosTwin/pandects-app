@@ -145,7 +145,7 @@ export function SearchEmptyState({
               <li key={starter.key}>
                 <Link
                   to={starter.href}
-                  className="flex h-full items-start gap-3 rounded-lg border border-border bg-card px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-full items-start gap-3 rounded-lg border border-border bg-card shadow-raised px-3 py-2.5 surface-interactive hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <SearchIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0">
@@ -164,7 +164,7 @@ export function SearchEmptyState({
           <h3 id="recent-searches-heading" className="text-sm font-semibold text-foreground">
             Recent searches
           </h3>
-          <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card">
+          <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card shadow-raised">
             {recent.map((entry) => (
               <li key={entry.search}>
                 <Link

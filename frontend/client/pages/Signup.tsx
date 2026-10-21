@@ -23,7 +23,7 @@ export default function Signup() {
 
   return (
     <PageShell title="Create account" layout="form">
-      <Card className="w-full p-6 shadow-sm sm:p-8">
+      <Card className="w-full p-6 shadow-raised sm:p-8">
         <Alert>
           <AlertTitle as="h2">Account creation is temporarily disabled</AlertTitle>
         </Alert>
