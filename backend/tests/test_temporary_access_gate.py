@@ -4,6 +4,8 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
+from sqlalchemy.exc import OperationalError
+
 
 def _set_default_env() -> None:
     os.environ.setdefault("SKIP_MAIN_DB_REFLECTION", "1")
@@ -78,6 +80,40 @@ class TemporaryAccessGateTests(unittest.TestCase):
         client = self.app.test_client()
         res = client.get("/v1/auth/me")
         self.assertEqual(res.status_code, 401)
+
+    @patch.dict(os.environ, _LOCKDOWN_ON)
+    def test_unknown_bearer_token_still_blocked(self):
+        client = self.app.test_client()
+        res = client.get("/v1/agreements", headers={"Authorization": "Bearer not-a-session"})
+        self.assertEqual(res.status_code, 403)
+
+    @patch.dict(os.environ, _LOCKDOWN_ON)
+    def test_auth_db_error_answers_503_not_lockdown_403(self):
+        # A signed-in user whose session lookup fails (auth Postgres down) must not
+        # be told the data API is disabled for them.
+        outage = OperationalError("SELECT auth_sessions", {}, Exception("connection refused"))
+        client = self.app.test_client()
+        with patch("backend.auth.session_runtime.session_token_hash", side_effect=outage):
+            res = client.get("/v1/agreements", headers={"Authorization": "Bearer some-session"})
+        self.assertEqual(res.status_code, 503)
+        self.assertIn("Auth backend is unavailable", res.get_json().get("message", ""))
+
+    @patch.dict(os.environ, _LOCKDOWN_ON)
+    def test_account_age_lookup_error_answers_503(self):
+        user_id = "00000000-0000-0000-0000-0000000000e3"
+        self._seed_user(
+            user_id=user_id,
+            email="existing-outage@example.com",
+            created_at=backend_app._utc_now() - timedelta(days=3),
+        )
+        outage = OperationalError("SELECT auth_users", {}, Exception("connection refused"))
+        client = self.app.test_client()
+        with (
+            patch("backend.auth.access.load_session_token", return_value=user_id),
+            patch("backend.auth.access.db.session.get", side_effect=outage),
+        ):
+            res = client.get("/v1/agreements", headers={"Authorization": "Bearer some-session"})
+        self.assertEqual(res.status_code, 503)
 
     def test_predates_today_helper(self):
         now = backend_app._utc_now()

@@ -11,6 +11,7 @@ from sqlalchemy.exc import DatabaseError, SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
 from backend.core.caching import ttl_cached
+from backend.core.fulltext_slots import fulltext_slot
 from backend.core.pagination import clamp_page_size, search_max_page_size
 from backend.filtering import (
     apply_agreement_filters,
@@ -697,11 +698,15 @@ def run_sections(
     parsed_args: SectionsArgsPayload,
     hydrate_xml: bool = True,
 ) -> dict[str, object]:
+    text_query = parsed_args["text_query"]
+    text_active = bool(text_query and text_query.strip())
     try:
-        return _run_sections(deps, ctx=ctx, parsed_args=parsed_args, hydrate_xml=hydrate_xml)
+        if not text_active:
+            return _run_sections(deps, ctx=ctx, parsed_args=parsed_args, hydrate_xml=hydrate_xml)
+        with fulltext_slot(deps.db.engine):
+            return _run_sections(deps, ctx=ctx, parsed_args=parsed_args, hydrate_xml=hydrate_xml)
     except DatabaseError as exc:
-        text_query = parsed_args["text_query"]
-        if not (text_query and text_query.strip() and is_text_plan_exhausted_error(exc)):
+        if not (text_active and is_text_plan_exhausted_error(exc)):
             raise
         deps.db.session.rollback()
         raise ValidationError({"text_query": [TEXT_QUERY_TOO_EXPENSIVE_MESSAGE]}) from exc

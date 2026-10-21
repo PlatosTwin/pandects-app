@@ -17,6 +17,7 @@ from marshmallow import ValidationError
 from sqlalchemy import and_, asc, bindparam, desc, distinct, false, func, text
 from sqlalchemy.exc import DatabaseError, SQLAlchemyError
 
+from backend.core.fulltext_slots import fulltext_slot
 from backend.core.pagination import (
     AUTHENTICATED_MAX_PAGE_SIZE,
     clamp_page_size,
@@ -303,9 +304,10 @@ def search_agreements(
     text_query = parsed_args["text_query"]
     if text_query is not None and text_query.strip():
         try:
-            return _search_agreements_by_text(
-                deps, ctx=ctx, parsed_args=parsed_args, page=page, page_size=page_size
-            )
+            with fulltext_slot(deps.db.engine):
+                return _search_agreements_by_text(
+                    deps, ctx=ctx, parsed_args=parsed_args, page=page, page_size=page_size
+                )
         except DatabaseError as exc:
             if not is_text_plan_exhausted_error(exc):
                 raise

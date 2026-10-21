@@ -802,6 +802,13 @@ class McpTests(unittest.TestCase):
         self.assertEqual(failed_message, "Tool request failed.")
         self.assertIsNone(failed_data)
 
+        from backend.core.fulltext_slots import FULLTEXT_BUSY_MESSAGE, FulltextSearchBusy
+
+        busy_code, busy_message, busy_data = _tool_http_exception_response(FulltextSearchBusy())
+        self.assertEqual(busy_code, -32004)
+        self.assertEqual(busy_message, FULLTEXT_BUSY_MESSAGE)
+        self.assertEqual(busy_data, {"category": "unavailable", "status_code": 503, "retryable": True})
+
     def test_tool_http_exception_category_separates_not_found(self):
         from werkzeug.exceptions import InternalServerError, NotFound
 

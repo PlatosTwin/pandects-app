@@ -109,6 +109,10 @@ def _tool_http_exception_response(
         return -32602, _bad_request_message(exc), None
     if exc.code == 404:
         return NOT_FOUND_ERROR_CODE, NOT_FOUND_MESSAGE, {"category": "not_found", "status_code": 404}
+    if exc.code == 503:
+        # Busy or briefly unreachable backend: tell the agent to retry, not give up.
+        message = exc.description or "Service temporarily unavailable."
+        return -32004, message, {"category": "unavailable", "status_code": 503, "retryable": True}
     return -32004, "Tool request failed.", None
 
 
