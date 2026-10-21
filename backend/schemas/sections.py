@@ -4,6 +4,7 @@ from typing import TypedDict, cast
 
 from marshmallow import Schema, ValidationError, fields, post_dump, validate, validates_schema
 
+from backend.schemas.labels import IndustryLabelsSchema, StandardIdLabelsSchema
 from backend.text_search import compile_boolean_text_query, validate_text_query_syntax
 
 
@@ -272,7 +273,7 @@ class SectionsArgsSchema(Schema):
     )
 
 
-class SectionsResultMetadataSchema(Schema):
+class SectionsResultMetadataSchema(IndustryLabelsSchema):
     filing_date = fields.Str(allow_none=True)
     prob_filing = fields.Float(allow_none=True)
     filing_company_name = fields.Str(allow_none=True)
@@ -299,7 +300,7 @@ class SectionsResultMetadataSchema(Schema):
     url = fields.Str(allow_none=True)
 
 
-class SectionItemSchema(Schema):
+class SectionItemSchema(StandardIdLabelsSchema):
     id = fields.Str()
     agreement_uuid = fields.Str()
     section_uuid = fields.Str()

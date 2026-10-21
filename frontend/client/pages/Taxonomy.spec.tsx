@@ -11,8 +11,24 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 
 const useTaxonomyMock = vi.fn();
+const useTaxonomyCountsMock = vi.fn();
 vi.mock("@/hooks/use-taxonomy", () => ({
   useTaxonomy: (...args: unknown[]) => useTaxonomyMock(...args),
+  useTaxonomyCounts: (...args: unknown[]) => useTaxonomyCountsMock(...args),
+  useTaxonomyNodeExample: () => ({
+    example: {
+      agreementUuid: "agr-1",
+      sectionUuid: "sec-1",
+      target: "Target Co",
+      acquirer: "Buyer Co",
+      year: "2021",
+      heading: "Section 3.2 Capitalization",
+      body: "<section><text>The authorized capital stock consists of shares.</text></section>",
+      bodyFormat: "xml",
+    },
+    isLoading: false,
+    error: null,
+  }),
 }));
 
 import Taxonomy from "./Taxonomy";
@@ -54,6 +70,11 @@ function renderPage(
   },
 ) {
   useTaxonomyMock.mockReturnValue({ ...state, error: null });
+  useTaxonomyCountsMock.mockReturnValue({
+    counts: { "L1-CORP": 1500, "L2-CAP": 1500, "L3-AUTH": 1234 },
+    isLoading: false,
+    error: null,
+  });
   return render(
     <MemoryRouter initialEntries={["/taxonomy"]}>
       <Taxonomy />
@@ -66,10 +87,10 @@ describe("Taxonomy page", () => {
     renderPage();
 
     expect(
-      screen.getByRole("radio", { name: "Show tree view" }).getAttribute("data-state"),
+      screen.getByRole("radio", { name: "Tree" }).getAttribute("data-state"),
     ).toBe("on");
     expect(
-      screen.getByRole("radio", { name: "Show tile view" }).getAttribute("data-state"),
+      screen.getByRole("radio", { name: "Tile" }).getAttribute("data-state"),
     ).toBe("off");
     expect(screen.getByRole("heading", { name: "Taxonomy Tree View" })).toBeTruthy();
   });
@@ -97,7 +118,7 @@ describe("Taxonomy page", () => {
 
     // Switching tabs must not leave the previous taxonomy's success state
     // sitting over the one now being fetched.
-    fireEvent.click(screen.getByRole("button", { name: "Tax" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Tax" }));
     await waitFor(() => expect(screen.queryByText("Copied")).toBeNull());
   });
 
@@ -119,5 +140,30 @@ describe("Taxonomy page", () => {
         true,
       );
     }
+  });
+
+  it("links each type to search and shows its corpus count", async () => {
+    renderPage();
+
+    const link = await screen.findByRole("link", { name: "Find Authorized Capital in search" });
+    expect(link.getAttribute("href")).toBe("/search?standard_id=L3-AUTH");
+    expect(screen.getByLabelText("1,234 sections")).toBeTruthy();
+  });
+
+  it("opens the node panel with path, count and an example", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Authorized Capital/ }));
+
+    const panel = await screen.findByRole("heading", { name: "Authorized Capital", level: 2 });
+    expect(panel).toBeTruthy();
+    const path = screen.getByRole("navigation", { name: "Parent path" });
+    expect(path.textContent).toContain("Corporate");
+    expect(path.textContent).toContain("Capital Structure");
+    expect(screen.getByText("1,234 sections")).toBeTruthy();
+    expect(screen.getByText("The authorized capital stock consists of shares.")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Open in agreement" }).getAttribute("href"),
+    ).toBe("/agreements/agr-1?focusSectionUuid=sec-1");
   });
 });

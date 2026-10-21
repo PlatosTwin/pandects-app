@@ -6,6 +6,7 @@ import { apiGet, errorMessage, isApiError } from "@/lib/api/client";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
 import type { ClauseTypeTree } from "@/lib/clause-types";
+import { useTaxonomy } from "@/hooks/use-taxonomy";
 
 interface UseFilterOptionsReturn {
   targets: string[];
@@ -14,7 +15,10 @@ interface UseFilterOptionsReturn {
   acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
+  /** The `GET /v1/taxonomy` tree (shared `useTaxonomy` cache). */
   clause_types: ClauseTypeTree;
+  /** NAICS label per industry code in `target_industries`/`acquirer_industries`. */
+  industry_labels: Record<string, string>;
   isLoading: boolean;
   error: string | null;
 }
@@ -24,6 +28,16 @@ interface UseFilterOptionsOptions {
   fields?: ReadonlyArray<keyof FilterOptionsResponse>;
 }
 
+/** Every `/v1/filter-options` field except the deprecated `clause_types`. */
+const SERVER_FILTER_FIELDS: ReadonlyArray<keyof FilterOptionsResponse> = [
+  "targets",
+  "acquirers",
+  "target_counsels",
+  "acquirer_counsels",
+  "target_industries",
+  "acquirer_industries",
+];
+
 const EMPTY: UseFilterOptionsReturn = {
   targets: [],
   acquirers: [],
@@ -32,18 +46,10 @@ const EMPTY: UseFilterOptionsReturn = {
   target_industries: [],
   acquirer_industries: [],
   clause_types: {},
+  industry_labels: {},
   isLoading: false,
   error: null,
 };
-
-function parseClauseTypes(
-  value: FilterOptionsResponse["clause_types"],
-): ClauseTypeTree {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return value as ClauseTypeTree;
-  }
-  return {};
-}
 
 async function fetchFilterOptions(
   fields?: ReadonlyArray<keyof FilterOptionsResponse>,
@@ -67,24 +73,43 @@ async function fetchFilterOptions(
   }
 }
 
+const EMPTY_CLAUSE_TYPES: ClauseTypeTree = {};
+const EMPTY_LABELS: Record<string, string> = {};
+
+/**
+ * Agreement filter options. `clause_types` is served from the `/v1/taxonomy`
+ * cache (`useTaxonomy`), never from `/v1/filter-options`, so the Taxonomy page,
+ * Search, the reader and Favorites share one copy of the tree. When
+ * `clause_types` is the only requested field, `/v1/filter-options` is not
+ * called at all.
+ */
 export function useFilterOptions(
   options: UseFilterOptionsOptions = {},
 ): UseFilterOptionsReturn {
   const { enabled = true, fields } = options;
+  const wantsClauseTypes = !fields || fields.includes("clause_types");
+  const serverFields = fields?.filter((field) => field !== "clause_types");
+  const needsServer = !serverFields || serverFields.length > 0;
+  // With no `fields`, ask for every summary field except the taxonomy.
+  const requestedFields = serverFields ?? SERVER_FILTER_FIELDS;
 
   const query = useQuery({
-    queryKey: keys.filterOptions.list(fields),
-    queryFn: ({ signal }) => fetchFilterOptions(fields, signal),
-    enabled: enabled && !IS_SERVER_RENDER,
+    queryKey: keys.filterOptions.list(requestedFields),
+    queryFn: ({ signal }) => fetchFilterOptions(requestedFields, signal),
+    enabled: enabled && needsServer && !IS_SERVER_RENDER,
     // Filter options change rarely (taxonomy/static-ish). Keep them fresh for
     // 30 minutes; the previous implementation cached forever in sessionStorage.
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
+  const taxonomy = useTaxonomy({ enabled: enabled && wantsClauseTypes });
 
   if (!enabled) return EMPTY;
 
   const data = query.data;
+  const errorValue = query.error
+    ? errorMessage(query.error, "Unable to load filter options.")
+    : taxonomy.error;
   return {
     targets: data?.targets ?? [],
     acquirers: data?.acquirers ?? [],
@@ -92,9 +117,10 @@ export function useFilterOptions(
     acquirer_counsels: data?.acquirer_counsels ?? [],
     target_industries: data?.target_industries ?? [],
     acquirer_industries: data?.acquirer_industries ?? [],
-    clause_types: parseClauseTypes(data?.clause_types),
-    isLoading: query.isLoading,
-    error: query.error ? errorMessage(query.error, "Unable to load filter options.") : null,
+    clause_types: (wantsClauseTypes && taxonomy.taxonomyTree) || EMPTY_CLAUSE_TYPES,
+    industry_labels: data?.industry_labels ?? EMPTY_LABELS,
+    isLoading: (needsServer && query.isLoading) || (wantsClauseTypes && taxonomy.isLoading),
+    error: errorValue,
   };
 }
 

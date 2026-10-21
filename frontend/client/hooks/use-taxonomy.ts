@@ -67,3 +67,139 @@ export function useTaxonomy(
     error: query.error ? errorMessage(query.error, "Unable to load the taxonomy.") : null,
   };
 }
+
+interface TaxonomyCountsResponse {
+  counts: Record<string, number>;
+}
+
+const TAXONOMY_COUNT_ENDPOINTS: Record<TaxonomyKind, string> = {
+  main: "v1/taxonomy/counts",
+  tax: "v1/taxonomy/tax-clauses/counts",
+};
+
+interface UseTaxonomyCountsReturn {
+  /** Sections (main) or tax clauses (tax) per node id; parents include descendants. */
+  counts: Record<string, number> | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+/** Corpus count per taxonomy node, as search counts it. */
+export function useTaxonomyCounts(
+  options: { enabled?: boolean; kind?: TaxonomyKind } = {},
+): UseTaxonomyCountsReturn {
+  const { enabled = true, kind = "main" } = options;
+  const query = useQuery({
+    queryKey: keys.taxonomy.counts(kind),
+    queryFn: ({ signal }) =>
+      apiGet<TaxonomyCountsResponse>(TAXONOMY_COUNT_ENDPOINTS[kind], undefined, { signal }),
+    enabled: enabled && !IS_SERVER_RENDER,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+  return {
+    counts: query.data?.counts ?? null,
+    isLoading: enabled && query.isLoading,
+    error: query.error ? errorMessage(query.error, "Unable to load counts.") : null,
+  };
+}
+
+/** One section (main) or tax clause (tax) tagged with a taxonomy node. */
+export interface TaxonomyNodeExample {
+  agreementUuid: string;
+  sectionUuid: string;
+  target: string;
+  acquirer: string;
+  year: string;
+  /** Section title, or the clause's anchor label in the tax taxonomy. */
+  heading: string | null;
+  /** Section XML (main) or clause text (tax). */
+  body: string;
+  bodyFormat: "xml" | "text";
+}
+
+interface SectionExampleResponse {
+  results: Array<{
+    agreement_uuid: string;
+    section_uuid: string;
+    target: string;
+    acquirer: string;
+    year: string | number;
+    section_title?: string | null;
+    xml?: string | null;
+  }>;
+}
+
+interface TaxClauseExampleResponse {
+  results: Array<{
+    agreement_uuid: string;
+    section_uuid: string;
+    target: string;
+    acquirer: string;
+    year: string | number;
+    anchor_label?: string | null;
+    clause_text: string;
+  }>;
+}
+
+async function fetchTaxonomyNodeExample(
+  kind: TaxonomyKind,
+  standardId: string,
+  signal?: AbortSignal,
+): Promise<TaxonomyNodeExample | null> {
+  if (kind === "tax") {
+    const payload = await apiGet<TaxClauseExampleResponse>(
+      "v1/tax-clauses",
+      { tax_standard_id: standardId, page_size: 1 },
+      { signal },
+    );
+    const clause = payload.results[0];
+    if (!clause) return null;
+    return {
+      agreementUuid: clause.agreement_uuid,
+      sectionUuid: clause.section_uuid,
+      target: clause.target,
+      acquirer: clause.acquirer,
+      year: String(clause.year),
+      heading: clause.anchor_label ?? null,
+      body: clause.clause_text,
+      bodyFormat: "text",
+    };
+  }
+  const payload = await apiGet<SectionExampleResponse>(
+    "v1/sections",
+    { standard_id: standardId, page_size: 1 },
+    { signal },
+  );
+  const section = payload.results[0];
+  if (!section) return null;
+  return {
+    agreementUuid: section.agreement_uuid,
+    sectionUuid: section.section_uuid,
+    target: section.target,
+    acquirer: section.acquirer,
+    year: String(section.year),
+    heading: section.section_title ?? null,
+    body: section.xml ?? "",
+    bodyFormat: "xml",
+  };
+}
+
+/** The most recent section (or tax clause) tagged with `standardId`, or null. */
+export function useTaxonomyNodeExample(
+  kind: TaxonomyKind,
+  standardId: string | null,
+): { example: TaxonomyNodeExample | null; isLoading: boolean; error: unknown } {
+  const query = useQuery({
+    queryKey: keys.taxonomy.example(kind, standardId ?? ""),
+    queryFn: ({ signal }) => fetchTaxonomyNodeExample(kind, standardId ?? "", signal),
+    enabled: Boolean(standardId) && !IS_SERVER_RENDER,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+  return {
+    example: query.data ?? null,
+    isLoading: Boolean(standardId) && query.isLoading,
+    error: query.error ?? null,
+  };
+}

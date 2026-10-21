@@ -1631,8 +1631,10 @@ class MainRoutesTests(unittest.TestCase):
         body = res.get_json()
         self.assertEqual(
             set(body.keys()),
-            {"target_counsels", "acquirer_industries"},
+            {"target_counsels", "acquirer_industries", "industry_labels"},
         )
+        # "tech" is not a NAICS code, so it gets no label.
+        self.assertEqual(body["industry_labels"], {})
         self.assertIn("Goodwin Procter", body.get("target_counsels", []))
         self.assertIn("tech", body.get("acquirer_industries", []))
 
@@ -2176,6 +2178,7 @@ class MainRoutesTests(unittest.TestCase):
                         "clause_text": "Parent shall bear all transfer taxes.",
                         "context_type": "operative",
                         "standard_ids": ["tax_transfer"],
+                        "standard_id_labels": {"tax_transfer": "Transfer Taxes"},
                     },
                     {
                         "clause_uuid": "clause-a1-2",
@@ -2189,6 +2192,9 @@ class MainRoutesTests(unittest.TestCase):
                         "clause_text": "Company and Parent intend the merger to qualify as tax-free.",
                         "context_type": "rep_warranty",
                         "standard_ids": ["tax_treatment"],
+                        "standard_id_labels": {
+                            "tax_treatment": "Tax Treatment of the Transaction"
+                        },
                     },
                 ]
             },

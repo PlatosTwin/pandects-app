@@ -4,6 +4,11 @@ from typing import TypedDict, cast
 
 from marshmallow import Schema, fields, validate
 
+from backend.schemas.labels import (
+    IndustryLabelsSchema,
+    StandardIdLabelsSchema,
+    TaxClauseStandardIdLabelsSchema,
+)
 from backend.schemas.sections import AccessInfoSchema, DumpVersionInfoSchema
 
 
@@ -198,7 +203,7 @@ class AgreementsBulkArgsPayload(TypedDict):
     standard_id: list[str]
 
 
-class AgreementResponseSchema(Schema):
+class AgreementResponseSchema(IndustryLabelsSchema):
     agreement_uuid = fields.Str()
     year = fields.Int()
     target = fields.Str()
@@ -231,7 +236,7 @@ class AgreementResponseSchema(Schema):
     is_redacted = fields.Bool(required=False)
 
 
-class AgreementListItemSchema(Schema):
+class AgreementListItemSchema(IndustryLabelsSchema):
     agreement_uuid = fields.Str()
     year = fields.Int(allow_none=True)
     target = fields.Str(allow_none=True)
@@ -278,7 +283,7 @@ class AgreementsListResponseSchema(Schema):
     dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 
-class AgreementSearchMatchedSectionSchema(Schema):
+class AgreementSearchMatchedSectionSchema(StandardIdLabelsSchema):
     section_uuid = fields.Str(required=True)
     article_title = fields.Str(allow_none=True)
     section_title = fields.Str(allow_none=True)
@@ -296,7 +301,7 @@ class AgreementSearchMatchedSectionSchema(Schema):
     )
 
 
-class AgreementSearchResultSchema(Schema):
+class AgreementSearchResultSchema(IndustryLabelsSchema):
     agreement_uuid = fields.Str(required=True)
     year = fields.Int(allow_none=True)
     target = fields.Str(allow_none=True)
@@ -363,7 +368,7 @@ class AgreementSearchResponseSchema(Schema):
     dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 
-class SectionResponseSchema(Schema):
+class SectionResponseSchema(StandardIdLabelsSchema):
     agreement_uuid = fields.Str()
     section_uuid = fields.Str()
     standard_id = fields.List(fields.Str())
@@ -376,7 +381,7 @@ class SectionResponseSchema(Schema):
     section_title = fields.Str()
 
 
-class TaxClauseSchema(Schema):
+class TaxClauseSchema(TaxClauseStandardIdLabelsSchema):
     clause_uuid = fields.Str()
     agreement_uuid = fields.Str()
     section_uuid = fields.Str()
@@ -400,7 +405,7 @@ class TaxClauseListResponseSchema(Schema):
     )
 
 
-class AgreementSectionIndexItemSchema(Schema):
+class AgreementSectionIndexItemSchema(StandardIdLabelsSchema):
     section_uuid = fields.Str(required=True)
     article_title = fields.Str(allow_none=True)
     section_title = fields.Str(allow_none=True)
@@ -522,6 +527,15 @@ class NaicsResponseSchema(Schema):
     )
 
 
+class TaxonomyCountsResponseSchema(Schema):
+    counts = fields.Dict(
+        keys=fields.Str(),
+        values=fields.Int(),
+        required=True,
+        metadata={"description": "Count per taxonomy node, keyed by standard ID."},
+    )
+
+
 class CounselEntrySchema(Schema):
     counsel_id = fields.Int(required=True)
     canonical_name = fields.Str(required=True)
@@ -554,6 +568,7 @@ __all__ = [
     "NaicsResponseSchema",
     "NaicsSectorSchema",
     "NaicsSubSectorSchema",
+    "TaxonomyCountsResponseSchema",
     "SectionResponseSchema",
     "TaxClauseListResponseSchema",
     "TaxClauseSchema",

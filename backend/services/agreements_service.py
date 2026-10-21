@@ -27,6 +27,7 @@ from backend.routes.deps import AccessContextProtocol, AgreementsDeps
 from backend.schemas.public_api import AgreementsBulkArgsPayload
 from backend.schemas.sections import SectionsArgsPayload
 from backend.search_counts import build_search_count_cache_key
+from backend.services import taxonomy_service
 from backend.services.counsel_leaderboards import build_counsel_leaderboards_from_summary_rows
 from backend.services.sections_service import (
     SECTION_TEXT_SEARCH_UNAVAILABLE_MESSAGE,
@@ -36,6 +37,7 @@ from backend.services.sections_service import (
     fetch_with_text_plan_race,
     is_text_plan_exhausted_error,
 )
+from backend.services.reference_labels import industry_labels_for
 from backend.services.snippets import (
     extract_text_from_xml,
     strip_xml_snippet,
@@ -1775,43 +1777,9 @@ FILTER_OPTION_FIELDS: tuple[str, ...] = (
 
 
 def clause_types_tree(deps: AgreementsDeps) -> dict[str, object]:
-    db = deps.db
-    l1_rows = db.session.query(deps.TaxonomyL1.standard_id, deps.TaxonomyL1.label).all()
-    l2_rows = db.session.query(
-        deps.TaxonomyL2.standard_id, deps.TaxonomyL2.label, deps.TaxonomyL2.parent_id
-    ).all()
-    l3_rows = db.session.query(
-        deps.TaxonomyL3.standard_id, deps.TaxonomyL3.label, deps.TaxonomyL3.parent_id
-    ).all()
-
-    l2_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for standard_id, label, parent_id in l2_rows:
-        if not isinstance(standard_id, str) or not isinstance(label, str) or not isinstance(parent_id, str):
-            raise ValueError("taxonomy_l2 has invalid parent_id or label.")
-        l2_by_parent[parent_id].append((standard_id, label))
-
-    l3_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for standard_id, label, parent_id in l3_rows:
-        if not isinstance(standard_id, str) or not isinstance(label, str) or not isinstance(parent_id, str):
-            raise ValueError("taxonomy_l3 has invalid parent_id or label.")
-        l3_by_parent[parent_id].append((standard_id, label))
-
-    validated_l1_rows: list[tuple[str, str]] = []
-    for standard_id, label in l1_rows:
-        if not isinstance(standard_id, str) or not isinstance(label, str):
-            raise ValueError("taxonomy_l1 has invalid standard_id or label.")
-        validated_l1_rows.append((standard_id, label))
-
-    tree: dict[str, object] = {}
-    for l1_standard_id, l1_label in sorted(validated_l1_rows, key=lambda row: row[1]):
-        l2_children: dict[str, object] = {}
-        for l2_standard_id, l2_label in sorted(l2_by_parent.get(l1_standard_id, []), key=lambda row: row[1]):
-            l3_children: dict[str, object] = {}
-            for l3_standard_id, l3_label in sorted(l3_by_parent.get(l2_standard_id, []), key=lambda row: row[1]):
-                l3_children[l3_label] = {"id": l3_standard_id}
-            l2_children[l2_label] = {"id": l2_standard_id, "children": l3_children}
-        tree[l1_label] = {"id": l1_standard_id, "children": l2_children}
-    return tree
+    """Deprecated ``clause_types`` filter option: the ``GET /v1/taxonomy`` tree, verbatim."""
+    del deps
+    return taxonomy_service.taxonomy_tree("clauses")
 
 
 def filter_options_payload(deps: AgreementsDeps, requested_fields: tuple[str, ...]) -> dict[str, object]:
@@ -1843,6 +1811,19 @@ def filter_options_payload(deps: AgreementsDeps, requested_fields: tuple[str, ..
                 field_values = payload.setdefault(field_name, [])
                 if isinstance(field_values, list):
                     cast(list[str], field_values).append(option_value)
+    industry_fields = [
+        field for field in ("target_industries", "acquirer_industries") if field in payload
+    ]
+    if industry_fields:
+        payload["industry_labels"] = industry_labels_for(
+            sorted(
+                {
+                    value
+                    for field in industry_fields
+                    for value in cast(list[str], payload[field])
+                }
+            )
+        )
     if "clause_types" in requested_fields:
         payload["clause_types"] = clause_types_tree(deps)
     return payload

@@ -42,6 +42,46 @@ unreleased:
   refs: []
 - type: api
   severity: minor
+  summary: "REST responses carry industry and taxonomy labels next to the raw codes."
+  details: >
+    Agreement rows on /v1/agreements, /v1/agreements/{uuid}, and
+    /v1/search/agreements gain target_industry_label and acquirer_industry_label:
+    the NAICS description of the code (a code with no catalog entry of its own
+    rolls up to its 2-digit sector; null when it cannot be resolved). The
+    /v1/sections result metadata block gains the same labels for the industry
+    fields that were requested. Section results, /v1/sections/{uuid},
+    /v1/agreements/{uuid}/sections, and /v1/search/agreements matched_sections
+    gain standard_id_labels, a {standard_id: label} map for the clause-taxonomy
+    ids in standard_id. Tax-clause results on /v1/tax-clauses gain
+    tax_standard_id_labels for tax_standard_ids, and the agreement and section
+    tax-clause lists gain standard_id_labels for standard_ids. /v1/filter-options
+    gains industry_labels ({code: label}) whenever target_industries or
+    acquirer_industries is returned. Existing fields are unchanged; callers no
+    longer need /v1/naics or /v1/taxonomy just to print a label.
+  refs: []
+- type: api
+  severity: minor
+  summary: "New /v1/taxonomy/counts and /v1/taxonomy/tax-clauses/counts endpoints."
+  details: >
+    GET /v1/taxonomy/counts returns {"counts": {standard_id: n}}: how many
+    sections /v1/sections?standard_id=<id> matches for each clause-taxonomy
+    node, a parent counting the distinct sections tagged with it or any
+    descendant. GET /v1/taxonomy/tax-clauses/counts returns the same shape for
+    the tax-clause taxonomy, counting the clauses /v1/tax-clauses?tax_standard_id=<id>
+    matches with default options (rep-and-warranty clauses excluded). Nodes with
+    no matches are omitted.
+  refs: []
+- type: api
+  severity: minor
+  summary: "The clause_types field of /v1/filter-options is deprecated in favor of /v1/taxonomy."
+  details: >
+    clause_types has always returned the same tree as GET /v1/taxonomy; both now
+    come from one builder and one cache. clause_types keeps working for existing
+    callers, but new code should read /v1/taxonomy, which is cacheable on its
+    own. The Pandects web client no longer requests clause_types.
+  refs: []
+- type: api
+  severity: minor
   summary: "An out-of-range page_size now returns the largest allowed page instead of 25 rows."
   details: >
     On /v1/sections, /v1/tax-clauses, /v1/agreements, /v1/search/agreements, and

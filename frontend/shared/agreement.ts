@@ -19,6 +19,10 @@ export interface Agreement {
   acquirer_type: string | null;
   target_industry: string | null;
   acquirer_industry: string | null;
+  /** NAICS description of `target_industry` (null when unresolvable). */
+  target_industry_label?: string | null;
+  /** NAICS description of `acquirer_industry` (null when unresolvable). */
+  acquirer_industry_label?: string | null;
   announce_date: string | null;
   close_date: string | null;
   deal_status: string | null;

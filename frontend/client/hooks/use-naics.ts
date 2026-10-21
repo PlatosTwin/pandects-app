@@ -33,6 +33,12 @@ async function fetchNaics(signal?: AbortSignal): Promise<NaicsResponse> {
   }
 }
 
+/**
+ * The whole NAICS catalog as a code → label index. Prefer the labels the API
+ * already returns: `target_industry_label` / `acquirer_industry_label` on
+ * agreement rows and section metadata, and `industry_labels` from
+ * `useFilterOptions`. Remove this hook once no component needs the catalog.
+ */
 export function useNaics(): UseNaicsReturn {
   const query = useQuery({
     queryKey: keys.naics.all,

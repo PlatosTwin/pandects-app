@@ -12,6 +12,8 @@ export interface TaxClauseSearchResult {
   context_type: TaxClauseContextType;
   source_method: string | null;
   tax_standard_ids: string[];
+  /** Tax-taxonomy label per id in `tax_standard_ids`. */
+  tax_standard_id_labels?: Record<string, string>;
   year: string;
   target: string;
   acquirer: string;

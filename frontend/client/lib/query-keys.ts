@@ -27,6 +27,11 @@ export const keys = {
     /** Clause taxonomy tree; "tax" is the tax-clause taxonomy. */
     byKind: (kind: TaxonomyKind) =>
       kind === "tax" ? (["taxonomy", "tax"] as const) : (["taxonomy", "main"] as const),
+    /** Corpus count per node (`v1/taxonomy/counts`, `.../tax-clauses/counts`). */
+    counts: (kind: TaxonomyKind) => ["taxonomy", kind, "counts"] as const,
+    /** One example section (or tax clause) tagged with a node. */
+    example: (kind: TaxonomyKind, standardId: string) =>
+      ["taxonomy", kind, "example", standardId] as const,
   },
   naics: {
     all: ["naics"] as const,
