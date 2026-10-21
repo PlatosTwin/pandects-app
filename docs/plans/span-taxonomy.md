@@ -268,10 +268,31 @@ Every field has a three-way absence: `null` (not extracted), `not_stated` (the a
 
 **Derived fields** are computed in code, never by the model, and flagged `derived: true` with their inputs recorded. The main example is `pct_of_equity_value_computed = fee.amount / deal.equity_value`. Equity value is often not stated in the agreement; it can be derived from per-share price × fully diluted shares, or taken from `tx_metadata` (`transaction_price_total`), which has known errors (see the SPAC acquirer note). So the derived percentage records which source it used, and aggregation can exclude low-trust sources.
 
+**Enums versus open fields.** An enum is a promise that the value set is known and stable. It pays off only when people will group or filter by the field. Each field gets one of four shapes:
+
+| Shape | Use when | Examples |
+|---|---|---|
+| **Closed enum** | The set is fixed by law, by arithmetic or by a structural fact, and nothing realistic falls outside it | currency (ISO 4217), Duration `unit`, outside-date `effect`, basket `type`, `election` (338(h)(10), 336(e), 338(g) are the only elections the Code offers), remedy exclusivity, the absence state |
+| **Coded with verbatim text** | Users will aggregate on it, but drafting has a long tail and the pilot already needed new values | trigger `kind`, MAE carve-out `categories[]`, survival `item`, indemnity `applies_to` / `excludes`, extension `condition`, tier `label`, reverse-fee `kind`, Money `basis`, outside-date `breach_bar`, `efforts_standard` |
+| **Number or structure** | The variation is quantitative or relational, so an enum would bucket away the information | tail `threshold_pct` and `months`, Durations, payor as a list of PartyRoles plus `liability` (`joint_and_several` or `several`) instead of a `joint` enum value, `deemed_as` as a link |
+| **Open text** | People read the field more than they count it, or the variation is in the conditions | `applies_when`, trigger `conditions`, `rwi_interaction`, the MAE `standard` phrase, election `conditions` |
+
+Rules for the coded shape:
+- The field is stored as `{code, text}`. `text` is the shortest verbatim phrase that justifies the code, always kept, so a later recode never needs another model pass.
+- `other` is allowed, and an `other` value must carry `text`. No `other_text` enum values.
+- The extractor may return `proposed:<snake_case>` for a value that fits nothing. Proposals and `other` texts are reviewed each release. When a cluster reaches about 2% of a field's instances, it becomes a code, which is a minor release with a crosswalk.
+- An `other` rate above about 5% for a field fails the release check. That is the signal that the enum is wrong, not the extractor.
+- Code lists live in the taxonomy YAML next to the concept, each value with a one-line definition and a positive and negative example. The prompts and validators read the same file.
+- Aggregations always show the `other` and `proposed` counts beside the coded buckets.
+
+Ordinal codes are worth the effort where a scale is real. `efforts_standard` (`hell_or_high_water` > `reasonable_best` > `commercially_reasonable` > `other`) and `breach_bar` (`contributed` > `proximate_cause` > `principal_cause`) both carry an `ordinal` so queries can ask for "at least as strict as".
+
+In evaluation, closed enums and codes are scored exactly. Open text is scored by whether its evidence span covers the gold span, not by string match.
+
 ### 7.2 The concepts
 
 **1. `ma.termination.fee.target`: target termination fee** (DealOS `cra:stub-termination-fees`)
-- `payor`, `payee`: PartyRole.
+- `payor`, `payee`: lists of PartyRole, with `liability` (`joint_and_several` or `several`) when more than one party pays.
 - `tiers[]`: each tier has `label` (`standard`, `go_shop`, `window_shop`, `superior_proposal`, `other`), `amount` (Money), and `applies_when` (text plus an XRef).
 - `triggers[]`, each with:
   - `kind`: one of `superior_proposal_termination`, `adverse_recommendation_change`, `recommendation_failure`, `breach_of_no_shop`, `vote_failure_with_tail`, `outside_date_with_tail`, `breach_with_tail`, `other`;
@@ -305,7 +326,7 @@ Three sibling label concepts keep other reimbursements out of this one: `ma.fina
 - `initial`: DateRule.
 - `effect`: `termination_right` or `automatic_termination`.
 - `extensions[]`: each has `length` (Duration or text, when relative to a variable such as a notice period), `new_date` (DateRule), `condition` (`regulatory_pending`, `marketing_period`, `sec_review`, `notice_period`, `other`), `exercise` (`automatic`, `either_party`, `buyer`, `target`, `mutual`), `count`.
-- `breach_bar`: `none`, `principal_cause`, `proximate_cause`, `contributed`, or `other_text`. This is the standard by which a breaching party loses the right to terminate.
+- `breach_bar`: coded (`none`, `principal_cause`, `proximate_cause`, `contributed`, `other`) with verbatim text and an ordinal. This is the standard by which a breaching party loses the right to terminate.
 - `days_from_signing_computed`: derived.
 
 **5. `ma.mae.definition`: material adverse effect definition** (DealOS `cra:82`)
@@ -322,7 +343,7 @@ Three sibling label concepts keep other reimbursements out of this one: `ma.fina
 **6. `ma.financing.structure`: financing condition and related terms**
 - `financing_condition`: true or false. True is rare in public deals; its absence is the common finding, recorded as `finding = absent` with the scope reviewed (see pilot finding 8).
 - `committed_financing`: `debt`, `equity`, or `none`, plus `sources[]`.
-- `efforts_standard`.
+- `efforts_standard`: coded with an ordinal (see the enum policy in 7.1).
 - `marketing_period`: Duration, with blackout dates.
 - `financing_cooperation`: present or absent.
 - `rtf_link`: the instance ID of the financing reverse termination fee.
@@ -409,7 +430,7 @@ The annotation files themselves were lost: the scratch folder was cleaned up whi
    - indemnity cap: `applies_to` plus `excludes` lists ("all reps, but not covenants or the tax indemnity");
    - de minimis: a flag for when the threshold decides whether a breach exists at all, not just whether it counts toward the basket;
    - reverse fee: a `failure_to_close` trigger. Financing failure is never named as a trigger; it shows up as the buyer's failure to close;
-   - payor: joint payors (Danka: Seller and Parent);
+   - payor: joint payors (Danka: Seller and Parent), now a list of parties rather than an enum value;
    - fee amounts: alternative amounts, as distinct from tiers;
    - Money `basis`: `pct_of_market_cap`;
    - MAE carve-outs: `stockholder_litigation`, `credit_rating` and `disclosure_schedule_items`, plus room for exceptions to carve-outs and alias defined terms;
