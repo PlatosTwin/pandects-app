@@ -241,7 +241,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
         </div>
       </form>
       {error ? (
-        <p id={errorId} role="alert" className="mt-1.5 text-sm text-destructive dark:text-red-400">
+        <p id={errorId} role="alert" className="mt-1.5 text-sm text-destructive">
           {error}
         </p>
       ) : null}

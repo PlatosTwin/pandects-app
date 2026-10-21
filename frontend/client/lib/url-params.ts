@@ -7,7 +7,9 @@ import {
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
 type ArrayFilterField = {
-  [K in keyof SearchFilters]-?: NonNullable<SearchFilters[K]> extends string[] ? K : never;
+  [K in keyof SearchFilters]-?: NonNullable<SearchFilters[K]> extends string[]
+    ? K
+    : never;
 }[keyof SearchFilters];
 type TextFilterField = "agreement_uuid" | "section_uuid";
 
@@ -27,11 +29,31 @@ export const SEARCH_FILTER_FIELDS: ReadonlyArray<
   { field: "year", param: "year", kind: "array" },
   { field: "target", param: "target", kind: "array" },
   { field: "acquirer", param: "acquirer", kind: "array" },
-  { field: "transaction_price_total", param: "transaction_price_total", kind: "array" },
-  { field: "transaction_price_stock", param: "transaction_price_stock", kind: "array" },
-  { field: "transaction_price_cash", param: "transaction_price_cash", kind: "array" },
-  { field: "transaction_price_assets", param: "transaction_price_assets", kind: "array" },
-  { field: "transaction_consideration", param: "transaction_consideration", kind: "array" },
+  {
+    field: "transaction_price_total",
+    param: "transaction_price_total",
+    kind: "array",
+  },
+  {
+    field: "transaction_price_stock",
+    param: "transaction_price_stock",
+    kind: "array",
+  },
+  {
+    field: "transaction_price_cash",
+    param: "transaction_price_cash",
+    kind: "array",
+  },
+  {
+    field: "transaction_price_assets",
+    param: "transaction_price_assets",
+    kind: "array",
+  },
+  {
+    field: "transaction_consideration",
+    param: "transaction_consideration",
+    kind: "array",
+  },
   { field: "target_type", param: "target_type", kind: "array" },
   { field: "acquirer_type", param: "acquirer_type", kind: "array" },
   { field: "target_counsel", param: "target_counsel", kind: "array" },
@@ -76,7 +98,9 @@ export function buildSearchParams(
 
   for (const entry of SEARCH_FILTER_FIELDS) {
     if (entry.kind === "array") {
-      searchFilters[entry.field]?.forEach((value) => params.append(entry.param, value));
+      searchFilters[entry.field]?.forEach((value) =>
+        params.append(entry.param, value),
+      );
     } else {
       const value = searchFilters[entry.field]?.trim();
       if (value) params.append(entry.param, value);
@@ -84,7 +108,8 @@ export function buildSearchParams(
   }
 
   if (includePagination) {
-    if (searchFilters.page) params.append("page", searchFilters.page.toString());
+    if (searchFilters.page)
+      params.append("page", searchFilters.page.toString());
     if (searchFilters.page_size) {
       params.append("page_size", searchFilters.page_size.toString());
     }
@@ -113,10 +138,26 @@ export function buildTaxClauseParams(
  */
 export type ParsedSearchFilters = SearchQueryFilters;
 
-export function parseSearchFilters(params: URLSearchParams): ParsedSearchFilters {
+/** The UI once offered "1B - 5B", which the API never had; old links map to its two buckets. */
+const LEGACY_PRICE_BUCKETS: Record<string, string[]> = {
+  "1B - 5B": ["1B - 2B", "2B - 5B"],
+};
+
+function upgradeLegacyPriceBuckets(values: string[]): string[] {
+  return Array.from(
+    new Set(values.flatMap((value) => LEGACY_PRICE_BUCKETS[value] ?? [value])),
+  );
+}
+
+export function parseSearchFilters(
+  params: URLSearchParams,
+): ParsedSearchFilters {
   const filters: ParsedSearchFilters = {};
   ARRAY_FILTER_FIELDS.forEach((entry) => {
-    filters[entry.field] = params.getAll(entry.param);
+    const values = params.getAll(entry.param);
+    filters[entry.field] = entry.param.startsWith("transaction_price_")
+      ? upgradeLegacyPriceBuckets(values)
+      : values;
   });
 
   const agreementUuid = params.get("agreement_uuid");

@@ -1,6 +1,10 @@
+import { buildAgreementHref } from "@/lib/agreement-links";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { buildTaxonomyEntries } from "@/lib/taxonomy-search";
-import { buildSearchStateParams, createEmptySearchFilters } from "@/lib/url-params";
+import {
+  buildSearchStateParams,
+  createEmptySearchFilters,
+} from "@/lib/url-params";
 import type { TaxonomyKind } from "@/lib/query-keys";
 
 export type TaxonomyNodeLevel = 1 | 2 | 3;
@@ -16,7 +20,9 @@ export interface TaxonomyNodeInfo {
 }
 
 /** Every node of a taxonomy tree keyed by standard id. */
-export function indexTaxonomyNodes(tree: ClauseTypeTree): Map<string, TaxonomyNodeInfo> {
+export function indexTaxonomyNodes(
+  tree: ClauseTypeTree,
+): Map<string, TaxonomyNodeInfo> {
   const index = new Map<string, TaxonomyNodeInfo>();
   for (const l1 of buildTaxonomyEntries(tree)) {
     index.set(l1.id, {
@@ -55,7 +61,10 @@ export function indexTaxonomyNodes(tree: ClauseTypeTree): Map<string, TaxonomyNo
  * Search URL filtered to one taxonomy node. Search writes the clause-type
  * filter as `standard_id` in both modes; `mode=tax` selects tax clauses.
  */
-export function taxonomySearchHref(kind: TaxonomyKind, standardId: string): string {
+export function taxonomySearchHref(
+  kind: TaxonomyKind,
+  standardId: string,
+): string {
   const params = buildSearchStateParams({
     filters: { ...createEmptySearchFilters(), clauseType: [standardId] },
     mode: kind === "tax" ? "tax" : "sections",
@@ -66,8 +75,12 @@ export function taxonomySearchHref(kind: TaxonomyKind, standardId: string): stri
 }
 
 /** Reader URL scrolled to one section. */
-export function sectionReaderHref(agreementUuid: string, sectionUuid: string): string {
-  return `/agreements/${encodeURIComponent(agreementUuid)}?focusSectionUuid=${encodeURIComponent(sectionUuid)}`;
+export function sectionReaderHref(
+  agreementUuid: string,
+  sectionUuid: string,
+  from?: string,
+): string {
+  return buildAgreementHref({ agreementUuid, sectionUuid, from });
 }
 
 /** Plain text of section XML (tags dropped, whitespace collapsed). */

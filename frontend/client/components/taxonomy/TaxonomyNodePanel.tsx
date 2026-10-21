@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, Search } from "lucide-react";
 
 import { EmptyState, ErrorState } from "@/components/StateMessage";
@@ -57,7 +57,11 @@ export function TaxonomyNodePanel({
   titleId,
   className,
 }: TaxonomyNodePanelProps) {
-  const { taxonomyTree, isLoading: isTreeLoading, error: treeError } = useTaxonomy({ kind });
+  const {
+    taxonomyTree,
+    isLoading: isTreeLoading,
+    error: treeError,
+  } = useTaxonomy({ kind });
   const { counts, isLoading: isCountsLoading } = useTaxonomyCounts({ kind });
   const nodes = useMemo(
     () => (taxonomyTree ? indexTaxonomyNodes(taxonomyTree) : null),
@@ -68,7 +72,11 @@ export function TaxonomyNodePanel({
 
   if (isTreeLoading) {
     return (
-      <div className={cn("space-y-3", className)} role="status" aria-live="polite">
+      <div
+        className={cn("space-y-3", className)}
+        role="status"
+        aria-live="polite"
+      >
         <span className="sr-only">Loading taxonomy node</span>
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-6 w-3/4" />
@@ -77,7 +85,9 @@ export function TaxonomyNodePanel({
     );
   }
   if (treeError) {
-    return <ErrorState variant="inline" error={treeError} className={className} />;
+    return (
+      <ErrorState variant="inline" error={treeError} className={className} />
+    );
   }
   if (!node) {
     return (
@@ -107,16 +117,25 @@ export function TaxonomyNodePanel({
     <div className={cn("space-y-5 text-sm", className)}>
       <div className="space-y-1.5">
         <Eyebrow>{TAXONOMY_LEVEL_NAMES[kind][node.level]}</Eyebrow>
-        <TitleTag id={titleId} className="text-lg font-semibold leading-snug text-foreground">
+        <TitleTag
+          id={titleId}
+          className="text-lg font-semibold leading-snug text-foreground"
+        >
           {node.label}
         </TitleTag>
         {node.path.length > 0 ? (
           <nav aria-label="Parent path">
             <ol className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-muted-foreground">
               {node.path.map((ancestor, index) => (
-                <li key={ancestor.id} className="inline-flex items-center gap-1">
+                <li
+                  key={ancestor.id}
+                  className="inline-flex items-center gap-1"
+                >
                   {index > 0 ? (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <ChevronRight
+                      className="h-3.5 w-3.5 shrink-0"
+                      aria-hidden="true"
+                    />
                   ) : null}
                   {nodeLink(ancestor.id, ancestor.label)}
                 </li>
@@ -139,8 +158,14 @@ export function TaxonomyNodePanel({
         </dd>
         <dt className="text-muted-foreground">Standard ID</dt>
         <dd className="flex min-w-0 items-center gap-1">
-          <span className="truncate font-mono text-xs text-foreground">{node.id}</span>
-          <CopyButton value={node.id} label="Copy standard ID" className="-my-1" />
+          <span className="truncate font-mono text-xs text-foreground">
+            {node.id}
+          </span>
+          <CopyButton
+            value={node.id}
+            label="Copy standard ID"
+            className="-my-1"
+          />
         </dd>
       </dl>
 
@@ -156,7 +181,10 @@ export function TaxonomyNodePanel({
           <Eyebrow>Contains</Eyebrow>
           <ul className="space-y-1">
             {node.children.map((child) => (
-              <li key={child.id} className="flex items-baseline justify-between gap-3">
+              <li
+                key={child.id}
+                className="flex items-baseline justify-between gap-3"
+              >
                 {nodeLink(child.id, child.label)}
                 {counts ? (
                   <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
@@ -174,8 +202,18 @@ export function TaxonomyNodePanel({
   );
 }
 
-function NodeExample({ kind, standardId }: { kind: TaxonomyKind; standardId: string }) {
-  const { example, isLoading, error } = useTaxonomyNodeExample(kind, standardId);
+function NodeExample({
+  kind,
+  standardId,
+}: {
+  kind: TaxonomyKind;
+  standardId: string;
+}) {
+  const location = useLocation();
+  const { example, isLoading, error } = useTaxonomyNodeExample(
+    kind,
+    standardId,
+  );
   const heading = kind === "tax" ? "Example clause" : "Example section";
 
   let body;
@@ -193,7 +231,9 @@ function NodeExample({ kind, standardId }: { kind: TaxonomyKind; standardId: str
     body = <p className="text-muted-foreground">No example found.</p>;
   } else {
     const text = truncateAtWord(
-      example.bodyFormat === "xml" ? plainTextFromXml(example.body) : example.body,
+      example.bodyFormat === "xml"
+        ? plainTextFromXml(example.body)
+        : example.body,
       EXAMPLE_MAX_CHARS,
     );
     body = (
@@ -210,7 +250,11 @@ function NodeExample({ kind, standardId }: { kind: TaxonomyKind; standardId: str
           {text}
         </blockquote>
         <Link
-          to={sectionReaderHref(example.agreementUuid, example.sectionUuid)}
+          to={sectionReaderHref(
+            example.agreementUuid,
+            example.sectionUuid,
+            `${location.pathname}${location.search}`,
+          )}
           className="inline-flex text-sm font-medium text-primary underline-offset-2 hover:underline"
         >
           Open in agreement

@@ -164,6 +164,6 @@ describe("Taxonomy page", () => {
     expect(screen.getByText("The authorized capital stock consists of shares.")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "Open in agreement" }).getAttribute("href"),
-    ).toBe("/agreements/agr-1?focusSectionUuid=sec-1");
+    ).toBe("/agreements/agr-1?from=%2Ftaxonomy%3Fnode%3DL3-AUTH&focusSectionUuid=sec-1");
   });
 });

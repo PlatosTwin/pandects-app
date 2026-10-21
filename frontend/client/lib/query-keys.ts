@@ -33,9 +33,6 @@ export const keys = {
     example: (kind: TaxonomyKind, standardId: string) =>
       ["taxonomy", kind, "example", standardId] as const,
   },
-  naics: {
-    all: ["naics"] as const,
-  },
   agreement: {
     detail: (uuid: string, focusSectionUuid?: string | null) =>
       focusSectionUuid

@@ -139,3 +139,12 @@ describe("search URL format", () => {
     );
   });
 });
+
+describe("legacy price buckets", () => {
+  it("maps the retired 1B - 5B bucket in old links to the API's two buckets", () => {
+    const filters = parseSearchFilters(
+      new URLSearchParams("transaction_price_total=1B - 5B&transaction_price_total=2B - 5B"),
+    );
+    expect(filters.transaction_price_total).toEqual(["1B - 2B", "2B - 5B"]);
+  });
+});
