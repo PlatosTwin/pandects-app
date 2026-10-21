@@ -3,7 +3,9 @@
 Production runs on a 1-vCPU MariaDB with a 192MB buffer pool, so a query that
 touches a few million InnoDB pages answers in a second on a laptop with the
 whole corpus cached and times out in production. Wall time on a warm local
-database hides that; the number of buffer-pool pages a request reads does not.
+database hides that; the number of buffer-pool pages a request touches
+(``Innodb_buffer_pool_read_requests``, logical reads) does not. Logical reads
+are a proxy: on a cold 192MB pool most of them become disk reads.
 This script calls each hot endpoint in-process and fails when its first call
 (before the in-process count and reference caches hold it) issues more
 statements or reads more pages than its budget; a second call is reported for
