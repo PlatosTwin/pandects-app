@@ -334,10 +334,7 @@ export function SearchSidebar({
       role="region"
       aria-label="Search filters"
       aria-busy={isLoadingFilterOptions}
-      // From xl (a 288px rail) pl-7 plus the groups' px-1 puts the content on
-      // the app-frame gutter, in line with the query bar and the logo; the
-      // 256px lg rail needs the width for the deal-value toggle.
-      className="px-4 xl:pl-7"
+      className="px-4"
     >
       {notice}
       {groups.map((group) => (

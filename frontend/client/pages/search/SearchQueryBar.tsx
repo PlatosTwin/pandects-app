@@ -152,7 +152,9 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
       ref={ref}
       className="z-20 border-b border-border bg-background/95 py-3 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur lg:sticky lg:top-16"
     >
-      <div className="app-frame">
+      {/* Full-bleed like the workspace below: lg:pl-5 lines the controls up
+          with the filter rail's content, lg:pr-8 with the results' edge. */}
+      <div className="px-4 sm:px-6 lg:pl-5 lg:pr-8">
         <h1 className="sr-only" id="search-page-title">
           Search {MODE_NOUNS[mode].many}
         </h1>

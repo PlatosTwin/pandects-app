@@ -165,10 +165,11 @@ and status dots.
 
 Every page renders inside `PageShell` (`components/PageShell.tsx`). The outer
 frame is the `app-frame` class (`global.css`: `max-w-screen-2xl` plus the
-`px-4 sm:px-6 lg:px-8` gutter), the same class the navigation bar, footer,
-search and the reader use, so the title always lines up with the logo. Change
+`px-4 sm:px-6 lg:px-8` gutter), the same class the navigation bar, footer
+and the reader use, so the title always lines up with the logo. Change
 the width there only; `lib/design-system.spec.ts` fails on a copied
-`max-w-7xl`. Pick one `layout`; it sets the page's
+`max-w-7xl`. Search is the exception: a full-bleed workspace with the
+filter rail flush against the screen edge, like most search UIs. Pick one `layout`; it sets the page's
 single reading measure. Never add per-paragraph `max-w-NNch` caps inside it.
 
 | `layout` | Content width | Use for |
