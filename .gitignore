@@ -176,3 +176,7 @@ graphify-out/.rebuild.lock
 pyrightconfig.backend.json
 pyrightconfig.etl.json
 etl/pyrightconfig.json
+
+# Local TypeSafe experiment scripts and results (not committed)
+etl/src/etl/models/page_classifier_revamp/typesafe_experiment/
+etl/src/etl/models/ner/typesafe_validation_experiment/
