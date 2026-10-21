@@ -47,6 +47,9 @@ from backend.services.snippets import (
 from backend.summary_specs import METADATA_FIELD_COVERAGE_CONFIG
 from backend.text_search import TEXT_SEARCH_MAX_STATEMENT_SECONDS, compile_phrase_text_pattern
 
+# Budget for the text plan when no sort-ordered fallback exists (all_terms/any_terms).
+_UNORDERED_TEXT_PLAN_SECONDS = 8
+
 
 # ---------------------------------------------------------------------------
 # Agreement metadata projection
@@ -760,7 +763,15 @@ def _search_agreements_by_text(
             limit=page_size + 1,
         )
     else:
-        page_rows_raw = cast(list[object], fulltext_query.offset(offset).limit(page_size + 1).all())
+        # all_terms/any_terms have no sort-ordered fallback plan, so a very common term
+        # would hold a worker for the full text budget before failing. Give up sooner.
+        page_rows_raw = cast(
+            list[object],
+            fulltext_query.execution_options(max_statement_time=_UNORDERED_TEXT_PLAN_SECONDS)
+            .offset(offset)
+            .limit(page_size + 1)
+            .all(),
+        )
 
     has_next = len(page_rows_raw) > page_size
     page_rows = page_rows_raw[:page_size]

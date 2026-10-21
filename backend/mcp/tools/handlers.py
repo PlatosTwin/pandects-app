@@ -836,7 +836,12 @@ def _get_section_snippet(
             deps._coalesced_section_standard_ids().label("section_standard_ids"),
             deps.Sections.xml_content.label("xml_content"),
         )
-        .filter(deps.Sections.section_uuid == section_uuid)
+        .join(deps.XML, deps._section_latest_xml_join_condition())
+        .join(deps.Agreements, deps.Agreements.agreement_uuid == deps.Sections.agreement_uuid)
+        .filter(
+            deps.Sections.section_uuid == section_uuid,
+            agreement_is_public_eligible_expr(deps.Agreements),
+        )
         .first()
     )
     if row is None:
@@ -912,7 +917,12 @@ def _get_section_snippets_batch(
             deps._coalesced_section_standard_ids().label("section_standard_ids"),
             deps.Sections.xml_content.label("xml_content"),
         )
-        .filter(deps.Sections.section_uuid.in_(section_uuids))
+        .join(deps.XML, deps._section_latest_xml_join_condition())
+        .join(deps.Agreements, deps.Agreements.agreement_uuid == deps.Sections.agreement_uuid)
+        .filter(
+            deps.Sections.section_uuid.in_(section_uuids),
+            agreement_is_public_eligible_expr(deps.Agreements),
+        )
         .all(),
     )
     row_by_uuid: dict[str, dict[str, object]] = {}

@@ -136,6 +136,7 @@ def iter_taxonomy_nodes(
 
 _cache_lock = threading.Lock()
 _cache: dict[tuple[str, str, str], tuple[float, object]] = {}
+_build_locks: dict[tuple[str, str, str], threading.Lock] = {}
 
 
 def _cache_scope() -> tuple[str, str]:
@@ -146,17 +147,27 @@ def _cache_scope() -> tuple[str, str]:
 
 
 def cached_reference_value(name: str, build: Callable[[], _T]) -> _T:
-    """Return ``build()``, cached for ``TAXONOMY_TTL_SECONDS`` per database."""
+    """Return ``build()``, cached for ``TAXONOMY_TTL_SECONDS`` per database.
+
+    Concurrent misses on one key wait for a single build rather than each
+    running the (possibly expensive) query.
+    """
     key = (*_cache_scope(), name)
-    now = time.monotonic()
     with _cache_lock:
         entry = _cache.get(key)
-    if entry is not None and now - entry[0] < TAXONOMY_TTL_SECONDS:
+        build_lock = _build_locks.setdefault(key, threading.Lock())
+    if entry is not None and time.monotonic() - entry[0] < TAXONOMY_TTL_SECONDS:
         return cast(_T, entry[1])
-    value = build()
-    with _cache_lock:
-        _cache[key] = (now, value)
-    return value
+    with build_lock:
+        with _cache_lock:
+            entry = _cache.get(key)
+        if entry is not None and time.monotonic() - entry[0] < TAXONOMY_TTL_SECONDS:
+            return cast(_T, entry[1])
+        now = time.monotonic()
+        value = build()
+        with _cache_lock:
+            _cache[key] = (now, value)
+        return value
 
 
 def clear_reference_caches() -> None:

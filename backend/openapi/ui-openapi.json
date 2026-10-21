@@ -4990,33 +4990,42 @@
         "required": [
           "error",
           "message"
-        ]
+        ],
+        "additionalProperties": false
       },
       "PaginationMetadata": {
         "type": "object",
         "properties": {
           "total": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Total number of items."
           },
           "total_pages": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Total number of pages."
           },
           "first_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "First available page number."
           },
           "last_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Last available page number."
           },
           "page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Current page number."
           },
           "previous_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Previous page number."
           },
           "next_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Next page number."
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SectionsResultMetadata": {
         "type": "object",
@@ -5137,7 +5146,8 @@
             "type": "string",
             "nullable": true
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SectionItem": {
         "type": "object",
@@ -5209,7 +5219,8 @@
           "target",
           "verified",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AccessInfo": {
         "type": "object",
@@ -5230,7 +5241,8 @@
         "required": [
           "message",
           "tier"
-        ]
+        ],
+        "additionalProperties": false
       },
       "DumpVersionInfo": {
         "type": "object",
@@ -5245,7 +5257,8 @@
         "required": [
           "dump_ts",
           "hash"
-        ]
+        ],
+        "additionalProperties": false
       },
       "SectionsResponse": {
         "type": "object",
@@ -5325,7 +5338,8 @@
           "total_count",
           "total_count_is_approximate",
           "total_pages"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementListItem": {
         "type": "object",
@@ -5495,7 +5509,8 @@
           "transaction_price_total",
           "url",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementsListResponse": {
         "type": "object",
@@ -5541,7 +5556,8 @@
           "page_size",
           "results",
           "returned_count"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementResponse": {
         "type": "object",
@@ -5710,7 +5726,8 @@
           "url",
           "xml",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementSectionIndexItem": {
         "type": "object",
@@ -5756,7 +5773,8 @@
           "section_uuid",
           "standard_id",
           "standard_id_labels"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementSectionIndexResponse": {
         "type": "object",
@@ -5774,7 +5792,8 @@
         "required": [
           "agreement_uuid",
           "results"
-        ]
+        ],
+        "additionalProperties": false
       },
       "TaxClause": {
         "type": "object",
@@ -5843,7 +5862,8 @@
           "standard_id_labels",
           "standard_ids",
           "start_char"
-        ]
+        ],
+        "additionalProperties": false
       },
       "TaxClauseListResponse": {
         "type": "object",
@@ -5857,7 +5877,8 @@
         },
         "required": [
           "clauses"
-        ]
+        ],
+        "additionalProperties": false
       },
       "SectionResponse": {
         "type": "object",
@@ -5907,7 +5928,8 @@
           "standard_id",
           "standard_id_labels",
           "xml"
-        ]
+        ],
+        "additionalProperties": false
       },
       "TaxClauseItem": {
         "type": "object",
@@ -6016,7 +6038,8 @@
           "transaction_price_total",
           "verified",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "TaxClausesResponse": {
         "type": "object",
@@ -6088,7 +6111,8 @@
           "total_count",
           "total_count_is_approximate",
           "total_pages"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementSearchMatchedSection": {
         "type": "object",
@@ -6136,7 +6160,8 @@
           "snippet",
           "standard_id",
           "standard_id_labels"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementSearchResult": {
         "type": "object",
@@ -6313,7 +6338,8 @@
           "transaction_price_total",
           "url",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementSearchResponse": {
         "type": "object",
@@ -6386,7 +6412,8 @@
           "total_count",
           "total_count_is_approximate",
           "total_pages"
-        ]
+        ],
+        "additionalProperties": false
       },
       "TaxonomyCountsResponse": {
         "type": "object",
@@ -6401,7 +6428,8 @@
         },
         "required": [
           "counts"
-        ]
+        ],
+        "additionalProperties": false
       },
       "NaicsSubSector": {
         "type": "object",
@@ -6416,7 +6444,8 @@
         "required": [
           "sub_sector_code",
           "sub_sector_desc"
-        ]
+        ],
+        "additionalProperties": false
       },
       "NaicsSector": {
         "type": "object",
@@ -6446,7 +6475,8 @@
           "sector_group",
           "sub_sectors",
           "super_sector"
-        ]
+        ],
+        "additionalProperties": false
       },
       "NaicsResponse": {
         "type": "object",
@@ -6460,7 +6490,8 @@
         },
         "required": [
           "sectors"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CounselEntry": {
         "type": "object",
@@ -6475,7 +6506,8 @@
         "required": [
           "canonical_name",
           "counsel_id"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CounselResponse": {
         "type": "object",
@@ -6489,7 +6521,8 @@
         },
         "required": [
           "counsel"
-        ]
+        ],
+        "additionalProperties": false
       },
       "DumpEntry": {
         "type": "object",
@@ -6532,7 +6565,8 @@
         },
         "required": [
           "timestamp"
-        ]
+        ],
+        "additionalProperties": false
       },
       "ChangelogStats": {
         "type": "object",
@@ -6544,7 +6578,8 @@
             },
             "nullable": true
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ChangelogChange": {
         "type": "object",
@@ -6598,7 +6633,8 @@
           "severity",
           "summary",
           "type"
-        ]
+        ],
+        "additionalProperties": false
       },
       "ChangelogRelease": {
         "type": "object",
@@ -6643,7 +6679,8 @@
           "dump_sha256",
           "released",
           "version"
-        ]
+        ],
+        "additionalProperties": false
       },
       "ChangelogResponse": {
         "type": "object",
@@ -6665,7 +6702,8 @@
         },
         "required": [
           "releases"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementsSummaryResponse": {
         "type": "object",
@@ -6697,7 +6735,8 @@
           "pages",
           "processed_agreements",
           "sections"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementIndexRow": {
         "type": "object",
@@ -6737,7 +6776,8 @@
           "total_consideration",
           "verified",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementIndexResponse": {
         "type": "object",
@@ -6789,7 +6829,8 @@
           "total_count",
           "total_count_is_approximate",
           "total_pages"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementStatusYearRow": {
         "type": "object",
@@ -6818,7 +6859,8 @@
           "count",
           "current_stage",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "MetadataFieldCoverageRow": {
         "type": "object",
@@ -6864,7 +6906,8 @@
           "processed_coverage_pct",
           "processed_covered_agreements",
           "processed_eligible_agreements"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementStatusSummaryResponse": {
         "type": "object",
@@ -6908,7 +6951,8 @@
           "taxonomy_coverage_pct",
           "taxonomy_covered_sections",
           "years"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementDealTypeYearRow": {
         "type": "object",
@@ -6927,7 +6971,8 @@
           "count",
           "deal_type",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementDealTypeSummaryResponse": {
         "type": "object",
@@ -6941,7 +6986,8 @@
         },
         "required": [
           "years"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CounselLeaderboardYear": {
         "type": "object",
@@ -6960,7 +7006,8 @@
           "deal_count",
           "total_transaction_value",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CounselLeaderboardEntry": {
         "type": "object",
@@ -6986,7 +7033,8 @@
           "deal_count",
           "total_transaction_value",
           "years"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CounselLeaderboardAnnual": {
         "type": "object",
@@ -7011,7 +7059,8 @@
           "top_by_count",
           "top_by_value",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CounselLeaderboardSide": {
         "type": "object",
@@ -7039,7 +7088,8 @@
           "annual",
           "top_by_count",
           "top_by_value"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CounselLeaderboardResponse": {
         "type": "object",
@@ -7054,7 +7104,8 @@
         "required": [
           "buy_side",
           "sell_side"
-        ]
+        ],
+        "additionalProperties": false
       },
       "OwnershipMixRow": {
         "type": "object",
@@ -7081,7 +7132,8 @@
           "public_deal_count",
           "public_total_transaction_value",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "OwnershipDealSizeRow": {
         "type": "object",
@@ -7130,7 +7182,8 @@
           "public_p25_transaction_value",
           "public_p75_transaction_value",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "BuyerTypeMatrixRow": {
         "type": "object",
@@ -7154,7 +7207,8 @@
           "deal_count",
           "median_transaction_value",
           "target_bucket"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementTrendsOwnership": {
         "type": "object",
@@ -7182,7 +7236,8 @@
           "buyer_type_matrix",
           "deal_size_by_year",
           "mix_by_year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "TargetIndustryByYearRow": {
         "type": "object",
@@ -7205,7 +7260,8 @@
           "industry",
           "total_transaction_value",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "IndustryPairingRow": {
         "type": "object",
@@ -7228,7 +7284,8 @@
           "deal_count",
           "target_industry",
           "total_transaction_value"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementTrendsIndustries": {
         "type": "object",
@@ -7249,7 +7306,8 @@
         "required": [
           "pairings",
           "target_industries_by_year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AgreementTrendsResponse": {
         "type": "object",
@@ -7264,7 +7322,8 @@
         "required": [
           "industries",
           "ownership"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FilterOptionsResponse": {
         "type": "object",
@@ -7323,7 +7382,8 @@
             "description": "Deprecated: the `GET /v1/taxonomy` tree. Read `/v1/taxonomy` instead.",
             "additionalProperties": {}
           }
-        }
+        },
+        "additionalProperties": false
       },
       "FilterOptionValuesResponse": {
         "type": "object",
@@ -7337,7 +7397,8 @@
         },
         "required": [
           "options"
-        ]
+        ],
+        "additionalProperties": false
       },
       "PageViewRequest": {
         "type": "object",
@@ -7354,7 +7415,8 @@
         },
         "required": [
           "path"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthStatusResponse": {
         "type": "object",
@@ -7366,7 +7428,8 @@
         },
         "required": [
           "status"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthCsrfResponse": {
         "type": "object",
@@ -7382,7 +7445,8 @@
         },
         "required": [
           "status"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthCaptchaDebug": {
         "type": "object",
@@ -7397,7 +7461,8 @@
           "has_secret_key": {
             "type": "boolean"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "AuthCaptchaSiteKeyResponse": {
         "type": "object",
@@ -7420,7 +7485,8 @@
         },
         "required": [
           "enabled"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthUser": {
         "type": "object",
@@ -7435,7 +7501,8 @@
         "required": [
           "email",
           "id"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthMeResponse": {
         "type": "object",
@@ -7446,7 +7513,8 @@
         },
         "required": [
           "user"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthPasswordLogin": {
         "type": "object",
@@ -7466,7 +7534,8 @@
         "required": [
           "email",
           "password"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthFlowResponse": {
         "type": "object",
@@ -7511,7 +7580,8 @@
         "required": [
           "next_path",
           "status"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthPasswordSignup": {
         "type": "object",
@@ -7543,7 +7613,8 @@
         "required": [
           "email",
           "password"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthPasswordResetRequest": {
         "type": "object",
@@ -7559,7 +7630,8 @@
         },
         "required": [
           "email"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthPasswordResetConfirm": {
         "type": "object",
@@ -7578,7 +7650,8 @@
           "code",
           "password",
           "user_id"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthEmailVerifyConfirmBody": {
         "type": "object",
@@ -7596,7 +7669,8 @@
         "required": [
           "code",
           "user_id"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthEmailVerifyResendBody": {
         "type": "object",
@@ -7607,7 +7681,8 @@
         },
         "required": [
           "email"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthVerificationResendUser": {
         "type": "object",
@@ -7618,7 +7693,8 @@
         },
         "required": [
           "email"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthVerificationResendResponse": {
         "type": "object",
@@ -7634,7 +7710,8 @@
         "required": [
           "status",
           "user"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthAuthorizeUrlResponse": {
         "type": "object",
@@ -7646,7 +7723,8 @@
         },
         "required": [
           "authorize_url"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthZitadelCompleteBody": {
         "type": "object",
@@ -7667,7 +7745,8 @@
           "user_id": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "AuthLegalAcceptance": {
         "type": "object",
@@ -7687,7 +7766,8 @@
         "required": [
           "checked_at_ms",
           "docs"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthLegalAcceptanceBody": {
         "type": "object",
@@ -7698,7 +7778,8 @@
         },
         "required": [
           "legal"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthApiKeySummary": {
         "type": "object",
@@ -7732,7 +7813,8 @@
           "name",
           "prefix",
           "revoked_at"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthApiKeysResponse": {
         "type": "object",
@@ -7746,7 +7828,8 @@
         },
         "required": [
           "keys"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthApiKey": {
         "type": "object",
@@ -7755,7 +7838,8 @@
             "type": "string",
             "nullable": true
           }
-        }
+        },
+        "additionalProperties": false
       },
       "AuthCreatedApiKey": {
         "type": "object",
@@ -7779,7 +7863,8 @@
           "id",
           "name",
           "prefix"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthCreateApiKeyResponse": {
         "type": "object",
@@ -7795,7 +7880,8 @@
         "required": [
           "api_key",
           "api_key_plaintext"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthUsageDay": {
         "type": "object",
@@ -7811,7 +7897,8 @@
         "required": [
           "count",
           "day"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthUsageResponse": {
         "type": "object",
@@ -7829,7 +7916,8 @@
         "required": [
           "by_day",
           "total"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthExternalSubject": {
         "type": "object",
@@ -7852,7 +7940,8 @@
           "id",
           "issuer",
           "subject"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthExternalSubjectsResponse": {
         "type": "object",
@@ -7866,7 +7955,8 @@
         },
         "required": [
           "links"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthExternalSubjectLink": {
         "type": "object",
@@ -7881,7 +7971,8 @@
         },
         "required": [
           "access_token"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthExternalLink": {
         "type": "object",
@@ -7908,7 +7999,8 @@
           "issuer",
           "provider",
           "subject"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthExternalLinkResponse": {
         "type": "object",
@@ -7924,7 +8016,8 @@
         "required": [
           "link",
           "status"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthZitadelLinkCompleteBody": {
         "type": "object",
@@ -7939,7 +8032,8 @@
         "required": [
           "code",
           "state"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthZitadelLinkCompleteResponse": {
         "type": "object",
@@ -7959,7 +8053,8 @@
           "link",
           "return_to",
           "status"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthFlagInaccurate": {
         "type": "object",
@@ -7994,7 +8089,8 @@
           "agreement_uuid",
           "issue_types",
           "source"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthDeleteAccount": {
         "type": "object",
@@ -8005,7 +8101,8 @@
         },
         "required": [
           "confirm"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthOAuthConsentBody": {
         "type": "object",
@@ -8020,7 +8117,8 @@
         "required": [
           "client_id",
           "scope"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AuthOAuthConsentResponse": {
         "type": "object",
@@ -8041,7 +8139,8 @@
           "client_id",
           "scope",
           "status"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteProject": {
         "type": "object",
@@ -8073,7 +8172,8 @@
           "is_default",
           "name",
           "sort_order"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteProjectsResponse": {
         "type": "object",
@@ -8087,7 +8187,8 @@
         },
         "required": [
           "projects"
-        ]
+        ],
+        "additionalProperties": false
       },
       "ProjectCreate": {
         "type": "object",
@@ -8113,7 +8214,8 @@
         },
         "required": [
           "name"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteProjectCreateResponse": {
         "type": "object",
@@ -8128,7 +8230,8 @@
         "required": [
           "created",
           "project"
-        ]
+        ],
+        "additionalProperties": false
       },
       "ProjectUpdate": {
         "type": "object",
@@ -8154,7 +8257,8 @@
           "sort_order": {
             "type": "integer"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "FavoriteProjectResponse": {
         "type": "object",
@@ -8165,7 +8269,8 @@
         },
         "required": [
           "project"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteProjectDeleteResponse": {
         "type": "object",
@@ -8184,7 +8289,8 @@
           "deleted",
           "moved",
           "reassigned_to_project_id"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteTagRef": {
         "type": "object",
@@ -8203,7 +8309,8 @@
           "color",
           "id",
           "name"
-        ]
+        ],
+        "additionalProperties": false
       },
       "Favorite": {
         "type": "object",
@@ -8269,7 +8376,8 @@
           "project_ids",
           "tags",
           "updated_at"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesListResponse": {
         "type": "object",
@@ -8283,7 +8391,8 @@
         },
         "required": [
           "favorites"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteCreate": {
         "type": "object",
@@ -8316,7 +8425,8 @@
         "required": [
           "item_type",
           "item_uuid"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteCreated": {
         "type": "object",
@@ -8381,7 +8491,8 @@
           "project_id",
           "project_ids",
           "updated_at"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteCreateResponse": {
         "type": "object",
@@ -8396,7 +8507,8 @@
         "required": [
           "created",
           "favorite"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesExistsResponse": {
         "type": "object",
@@ -8411,7 +8523,8 @@
         },
         "required": [
           "favorites"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesAgreementMetadata": {
         "type": "object",
@@ -8425,7 +8538,8 @@
         },
         "required": [
           "agreement_uuids"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteAgreementMetadata": {
         "type": "object",
@@ -8456,7 +8570,8 @@
           "target",
           "transaction_price_total",
           "year"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesAgreementMetadataResponse": {
         "type": "object",
@@ -8471,7 +8586,8 @@
         },
         "required": [
           "agreements"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesSectionDetails": {
         "type": "object",
@@ -8485,7 +8601,8 @@
         },
         "required": [
           "section_uuids"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteSectionDetail": {
         "type": "object",
@@ -8522,7 +8639,8 @@
           "section_title",
           "section_uuid",
           "xml"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesSectionDetailsResponse": {
         "type": "object",
@@ -8537,7 +8655,8 @@
         },
         "required": [
           "sections"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteUpdate": {
         "type": "object",
@@ -8550,7 +8669,8 @@
             "type": "string",
             "nullable": true
           }
-        }
+        },
+        "additionalProperties": false
       },
       "FavoriteResponse": {
         "type": "object",
@@ -8561,7 +8681,8 @@
         },
         "required": [
           "favorite"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteDeletedResponse": {
         "type": "object",
@@ -8572,7 +8693,8 @@
         },
         "required": [
           "deleted"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesBulkMove": {
         "type": "object",
@@ -8590,7 +8712,8 @@
         "required": [
           "favorite_ids",
           "project_id"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesBulkMoveResponse": {
         "type": "object",
@@ -8612,7 +8735,8 @@
           "favorite_ids",
           "moved",
           "project_id"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesBulkCopy": {
         "type": "object",
@@ -8633,7 +8757,8 @@
         "required": [
           "favorite_ids",
           "project_ids"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesBulkCopyResponse": {
         "type": "object",
@@ -8658,7 +8783,8 @@
           "copied",
           "favorite_ids",
           "project_ids"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesBulkTags": {
         "type": "object",
@@ -8687,7 +8813,8 @@
           "action",
           "favorite_ids",
           "tag_ids"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoritesBulkTagsResponse": {
         "type": "object",
@@ -8728,7 +8855,8 @@
           "tag_ids",
           "tags_by_favorite",
           "updated"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteTagsResponse": {
         "type": "object",
@@ -8742,7 +8870,8 @@
         },
         "required": [
           "tags"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteTagsSet": {
         "type": "object",
@@ -8756,7 +8885,8 @@
         },
         "required": [
           "tag_ids"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteProjectsSet": {
         "type": "object",
@@ -8770,7 +8900,8 @@
         },
         "required": [
           "project_ids"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteProjectIdsResponse": {
         "type": "object",
@@ -8784,7 +8915,8 @@
         },
         "required": [
           "project_ids"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteTag": {
         "type": "object",
@@ -8808,7 +8940,8 @@
           "created_at",
           "id",
           "name"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteTagListResponse": {
         "type": "object",
@@ -8829,7 +8962,8 @@
         "required": [
           "available_colors",
           "tags"
-        ]
+        ],
+        "additionalProperties": false
       },
       "TagCreate": {
         "type": "object",
@@ -8855,7 +8989,8 @@
         },
         "required": [
           "name"
-        ]
+        ],
+        "additionalProperties": false
       },
       "FavoriteTagCreateResponse": {
         "type": "object",
@@ -8870,7 +9005,8 @@
         "required": [
           "created",
           "tag"
-        ]
+        ],
+        "additionalProperties": false
       },
       "TagUpdate": {
         "type": "object",
@@ -8893,7 +9029,8 @@
               "violet"
             ]
           }
-        }
+        },
+        "additionalProperties": false
       },
       "FavoriteTagResponse": {
         "type": "object",
@@ -8904,7 +9041,8 @@
         },
         "required": [
           "tag"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "responses": {

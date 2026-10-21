@@ -835,6 +835,19 @@ class McpTests(unittest.TestCase):
             returned = [item["section_uuid"] for item in batch_payload["results"]]
             self.assertEqual(returned, ["00000000-0000-0000-0000-000000000001"])
             self.assertEqual(batch_payload["unresolved_section_uuids"], [gated_section_uuid])
+
+            snippet_res = self._call_tool("get_section_snippet", {"section_uuid": gated_section_uuid})
+            self.assertIn("error", snippet_res.get_json())
+
+            snippets_res = self._call_tool(
+                "get_section_snippets_batch",
+                {"section_uuids": [gated_section_uuid, "00000000-0000-0000-0000-000000000001"]},
+            )
+            snippets_payload = snippets_res.get_json()["result"]["structuredContent"]
+            self.assertEqual(
+                [item["section_uuid"] for item in snippets_payload["results"]],
+                ["00000000-0000-0000-0000-000000000001"],
+            )
         finally:
             with self.app.app_context():
                 with self.app_module.db.engine.begin() as conn:

@@ -2041,23 +2041,32 @@ components:
       required:
       - error
       - message
+      additionalProperties: false
     PaginationMetadata:
       type: object
       properties:
         total:
           type: integer
+          description: Total number of items.
         total_pages:
           type: integer
+          description: Total number of pages.
         first_page:
           type: integer
+          description: First available page number.
         last_page:
           type: integer
+          description: Last available page number.
         page:
           type: integer
+          description: Current page number.
         previous_page:
           type: integer
+          description: Previous page number.
         next_page:
           type: integer
+          description: Next page number.
+      additionalProperties: false
     SectionsResultMetadata:
       type: object
       properties:
@@ -2153,6 +2162,7 @@ components:
         url:
           type: string
           nullable: true
+      additionalProperties: false
     SectionItem:
       type: object
       properties:
@@ -2203,6 +2213,7 @@ components:
       - target
       - verified
       - year
+      additionalProperties: false
     AccessInfo:
       type: object
       properties:
@@ -2218,6 +2229,7 @@ components:
       required:
       - message
       - tier
+      additionalProperties: false
     DumpVersionInfo:
       type: object
       properties:
@@ -2228,6 +2240,7 @@ components:
       required:
       - dump_ts
       - hash
+      additionalProperties: false
     SectionsResponse:
       type: object
       properties:
@@ -2284,6 +2297,7 @@ components:
       - total_count
       - total_count_is_approximate
       - total_pages
+      additionalProperties: false
     AgreementListItem:
       type: object
       properties:
@@ -2422,6 +2436,7 @@ components:
       - transaction_price_total
       - url
       - year
+      additionalProperties: false
     AgreementsListResponse:
       type: object
       properties:
@@ -2452,6 +2467,7 @@ components:
       - page_size
       - results
       - returned_count
+      additionalProperties: false
     AgreementResponse:
       type: object
       properties:
@@ -2588,6 +2604,7 @@ components:
       - url
       - xml
       - year
+      additionalProperties: false
     AgreementSectionIndexItem:
       type: object
       properties:
@@ -2623,6 +2640,7 @@ components:
       - section_uuid
       - standard_id
       - standard_id_labels
+      additionalProperties: false
     AgreementSectionIndexResponse:
       type: object
       properties:
@@ -2635,6 +2653,7 @@ components:
       required:
       - agreement_uuid
       - results
+      additionalProperties: false
     TaxClause:
       type: object
       properties:
@@ -2687,6 +2706,7 @@ components:
       - standard_id_labels
       - standard_ids
       - start_char
+      additionalProperties: false
     TaxClauseListResponse:
       type: object
       properties:
@@ -2696,6 +2716,7 @@ components:
             $ref: '#/components/schemas/TaxClause'
       required:
       - clauses
+      additionalProperties: false
     SectionResponse:
       type: object
       properties:
@@ -2733,6 +2754,7 @@ components:
       - standard_id
       - standard_id_labels
       - xml
+      additionalProperties: false
     TaxClauseItem:
       type: object
       properties:
@@ -2817,6 +2839,7 @@ components:
       - transaction_price_total
       - verified
       - year
+      additionalProperties: false
     TaxClausesResponse:
       type: object
       properties:
@@ -2867,6 +2890,7 @@ components:
       - total_count
       - total_count_is_approximate
       - total_pages
+      additionalProperties: false
     AgreementSearchMatchedSection:
       type: object
       properties:
@@ -2905,6 +2929,7 @@ components:
       - snippet
       - standard_id
       - standard_id_labels
+      additionalProperties: false
     AgreementSearchResult:
       type: object
       properties:
@@ -3048,6 +3073,7 @@ components:
       - transaction_price_total
       - url
       - year
+      additionalProperties: false
     AgreementSearchResponse:
       type: object
       properties:
@@ -3102,6 +3128,7 @@ components:
       - total_count
       - total_count_is_approximate
       - total_pages
+      additionalProperties: false
     TaxonomyCountsResponse:
       type: object
       properties:
@@ -3112,6 +3139,7 @@ components:
             type: integer
       required:
       - counts
+      additionalProperties: false
     NaicsSubSector:
       type: object
       properties:
@@ -3122,6 +3150,7 @@ components:
       required:
       - sub_sector_code
       - sub_sector_desc
+      additionalProperties: false
     NaicsSector:
       type: object
       properties:
@@ -3143,6 +3172,7 @@ components:
       - sector_group
       - sub_sectors
       - super_sector
+      additionalProperties: false
     NaicsResponse:
       type: object
       properties:
@@ -3152,6 +3182,7 @@ components:
             $ref: '#/components/schemas/NaicsSector'
       required:
       - sectors
+      additionalProperties: false
     CounselEntry:
       type: object
       properties:
@@ -3162,6 +3193,7 @@ components:
       required:
       - canonical_name
       - counsel_id
+      additionalProperties: false
     CounselResponse:
       type: object
       properties:
@@ -3171,6 +3203,7 @@ components:
             $ref: '#/components/schemas/CounselEntry'
       required:
       - counsel
+      additionalProperties: false
     DumpEntry:
       type: object
       properties:
@@ -3203,6 +3236,7 @@ components:
           nullable: true
       required:
       - timestamp
+      additionalProperties: false
     ChangelogStats:
       type: object
       properties:
@@ -3211,6 +3245,7 @@ components:
           additionalProperties:
             type: integer
           nullable: true
+      additionalProperties: false
     ChangelogChange:
       type: object
       properties:
@@ -3251,6 +3286,7 @@ components:
       - severity
       - summary
       - type
+      additionalProperties: false
     ChangelogRelease:
       type: object
       properties:
@@ -3280,6 +3316,7 @@ components:
       - dump_sha256
       - released
       - version
+      additionalProperties: false
     ChangelogResponse:
       type: object
       properties:
@@ -3295,6 +3332,7 @@ components:
             $ref: '#/components/schemas/ChangelogRelease'
       required:
       - releases
+      additionalProperties: false
   responses:
     UNPROCESSABLE_ENTITY:
       description: Unprocessable Entity

@@ -13,7 +13,13 @@ type IconType = LucideIcon;
  * without importing it, and also accepts plain `Error`s and strings.
  */
 export type ErrorLike =
-  | { status?: number; code?: string; message?: string; name?: string }
+  | {
+      status?: number;
+      code?: string;
+      message?: string;
+      name?: string;
+      serverMessage?: string;
+    }
   | string
   | null
   | undefined;
@@ -33,10 +39,27 @@ export function describeError(error: ErrorLike): DescribedError {
   const status = shape.status;
   const message = shape.message ?? "";
   const isNetwork =
+    status === 0 ||
+    shape.code === "network" ||
     shape.code === "network_error" ||
     shape.name === "TypeError" ||
-    /failed to fetch|networkerror|load failed|network request failed/i.test(message);
+    /failed to fetch|networkerror|load failed|network request failed/i.test(
+      message,
+    );
 
+  // A 403 with its own explanation (lockdown, unverified email) isn't a sign-in problem.
+  if (
+    status === 403 &&
+    shape.serverMessage &&
+    !/sign(ed)?[- ]in|authentication required/i.test(shape.serverMessage)
+  ) {
+    return {
+      title: "You don't have access to this",
+      body: shape.serverMessage,
+      retryable: false,
+      needsSignIn: false,
+    };
+  }
   if (status === 401 || status === 403) {
     return {
       title: "Sign in to view this",
@@ -116,12 +139,17 @@ function StateFrame({
         className,
       )}
     >
-      <Icon className={cn("mb-3 h-6 w-6 text-muted-foreground", iconClassName)} aria-hidden="true" />
+      <Icon
+        className={cn("mb-3 h-6 w-6 text-muted-foreground", iconClassName)}
+        aria-hidden="true"
+      />
       <p className="text-base font-semibold text-foreground">{title}</p>
       {body ? (
         <div className="mt-1 text-sm text-muted-foreground">{body}</div>
       ) : null}
-      {action ? <div className="mt-4 flex flex-wrap justify-center gap-2">{action}</div> : null}
+      {action ? (
+        <div className="mt-4 flex flex-wrap justify-center gap-2">{action}</div>
+      ) : null}
     </div>
   );
 }
@@ -187,7 +215,9 @@ export function ErrorState({
     </>
   );
   const hasActions =
-    described.needsSignIn || (onRetry && described.retryable) || Boolean(action);
+    described.needsSignIn ||
+    (onRetry && described.retryable) ||
+    Boolean(action);
 
   return (
     <StateFrame
