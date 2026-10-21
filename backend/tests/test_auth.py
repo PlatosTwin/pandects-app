@@ -3692,6 +3692,22 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
 
+        # A scope token outside the RFC character set (or too long) is not echoed.
+        for crafted in ("%E2%80%AEevil", "%22%5C", "A" * 200):
+            crafted_res = client.get(
+                "/v1/auth/oauth/authorize"
+                f"?client_id={client_id}"
+                "&redirect_uri=https://codex.example.com/callback"
+                "&response_type=code"
+                f"&scope={crafted}"
+                "&code_challenge=test-challenge"
+                "&code_challenge_method=S256"
+            )
+            self.assertEqual(crafted_res.status_code, 302)
+            crafted_query = parse_qs(urlparse(crafted_res.headers["Location"]).query)
+            self.assertEqual(crafted_query["error"], ["invalid_scope"])
+            self.assertEqual(crafted_query["error_description"], ["Requested scope is not supported."])
+
         # With an unregistered redirect URI the error must not be redirected anywhere.
         bad_redirect = client.get(
             "/v1/auth/oauth/authorize"

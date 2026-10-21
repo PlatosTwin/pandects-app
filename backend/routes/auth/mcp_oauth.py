@@ -90,6 +90,17 @@ def register_mcp_oauth_routes(
                 deduped.append(scope_name)
         return " ".join(deduped), None
 
+    def _oauth_scope_error_description(scope_name: str) -> str:
+        # error_description is limited to %x20-21 / %x23-5B / %x5D-7E (RFC 6749
+        # 4.1.2.1). Name the scope only when it is a well-formed, short scope
+        # token, so a crafted request can't put arbitrary text in a client's UI.
+        if (
+            len(scope_name) <= 64
+            and all(0x21 <= ord(ch) <= 0x7E and ch not in '"\\' for ch in scope_name)
+        ):
+            return f"Unsupported OAuth scope: {scope_name}"
+        return "Requested scope is not supported."
+
     def _oauth_scope_string(raw: str | None) -> str:
         scope, unsupported = _oauth_parse_scope(raw)
         if unsupported is not None:
@@ -577,8 +588,9 @@ window.location.replace({json.dumps(login_url)});
                 redirect_uri,
                 error="invalid_scope",
                 state=state,
-                description=f"Unsupported OAuth scope: {unsupported_scope}",
+                description=_oauth_scope_error_description(unsupported_scope),
             )
+        # Guard: only reachable if the server advertises no scopes at all.
         if not scope:
             return _oauth_redirect_error(redirect_uri, error="invalid_scope", state=state)
         if not code_challenge or code_challenge_method != "S256":
