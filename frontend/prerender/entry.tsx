@@ -1,11 +1,9 @@
 import { renderToString } from "react-dom/server";
 import { Route, Routes } from "react-router-dom";
 import { StaticRouter } from "react-router-dom/server";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
+import { AppProviders } from "@/components/AppProviders";
 import { AccessGate } from "@/components/AccessGate";
-import { AuthProvider } from "@/contexts/AuthContext";
 import { createQueryClient } from "@/lib/query-client";
 import { ACCESS_GATED_PATHS } from "@/lib/lockdown";
 import { PRERENDER_ROUTES } from "@shared/route-manifest.mjs";
@@ -55,31 +53,29 @@ export function renderPage(pathname: string): string {
 
   const queryClient = createQueryClient();
   const app = (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <StaticRouter location={pathname}>
-            <Routes>
-              <Route element={<AppLayout />}>
-                {PRERENDER_ROUTES.map((route) => (
-                  <Route
-                    key={route.pathname}
-                    path={route.pathname}
-                    element={
-                      ACCESS_GATED_PATHS.has(route.pathname) ? (
-                        <AccessGate>{PRERENDER_COMPONENTS[route.pathname]}</AccessGate>
-                      ) : (
-                        PRERENDER_COMPONENTS[route.pathname]
-                      )
-                    }
-                  />
-                ))}
-              </Route>
-            </Routes>
-          </StaticRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <AppProviders queryClient={queryClient}>
+      <StaticRouter location={pathname}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            {PRERENDER_ROUTES.map((route) => (
+              <Route
+                key={route.pathname}
+                path={route.pathname}
+                element={
+                  ACCESS_GATED_PATHS.has(route.pathname) ? (
+                    <AccessGate>
+                      {PRERENDER_COMPONENTS[route.pathname]}
+                    </AccessGate>
+                  ) : (
+                    PRERENDER_COMPONENTS[route.pathname]
+                  )
+                }
+              />
+            ))}
+          </Route>
+        </Routes>
+      </StaticRouter>
+    </AppProviders>
   );
 
   return renderToString(app);

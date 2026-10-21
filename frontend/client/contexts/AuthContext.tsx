@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { AuthUser } from "@/lib/auth-types";
 import { clearSessionToken, getSessionToken } from "@/lib/auth-session";
 import { fetchMe, logoutSession } from "@/lib/auth-api";
@@ -26,43 +33,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     transport === "cookie" || initialToken ? "loading" : "anonymous",
   );
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [session_token, setSessionTokenState] = useState<string | null>(initialToken);
+  const [session_token, setSessionTokenState] = useState<string | null>(
+    initialToken,
+  );
   const [wakePending, setWakePending] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const token = transport === "bearer" ? getSessionToken() : null;
-    setSessionTokenState(token);
-    setStatus("loading");
-    setWakePending(false);
-
-    try {
-      const me = await withAuthWakeRetry(async () => {
-        try {
-          return await fetchMe();
-        } catch (error) {
-          if (isAuthWakeupError(error)) {
-            setWakePending(true);
-          }
-          throw error;
-        }
+  // `apply` commits each state update. The mount-time check passes
+  // startTransition: its answer can land while a prerendered page is still
+  // hydrating, and an urgent update then would discard the page's server HTML
+  // and re-render it from scratch. Explicit refresh() calls (after sign-in)
+  // apply immediately, so the page they navigate to sees the new status.
+  const load = useCallback(
+    async (apply: (update: () => void) => void) => {
+      const token = transport === "bearer" ? getSessionToken() : null;
+      apply(() => {
+        setSessionTokenState(token);
+        setStatus("loading");
+        setWakePending(false);
       });
-      setUser(me.user);
-      setStatus("authenticated");
-      setWakePending(false);
-    } catch {
-      if (transport === "bearer") {
-        clearSessionToken();
+
+      try {
+        const me = await withAuthWakeRetry(async () => {
+          try {
+            return await fetchMe();
+          } catch (error) {
+            if (isAuthWakeupError(error)) {
+              apply(() => setWakePending(true));
+            }
+            throw error;
+          }
+        });
+        apply(() => {
+          setUser(me.user);
+          setStatus("authenticated");
+          setWakePending(false);
+        });
+      } catch {
+        if (transport === "bearer") {
+          clearSessionToken();
+        }
+        apply(() => {
+          setSessionTokenState(null);
+          setUser(null);
+          setStatus("anonymous");
+          setWakePending(false);
+        });
       }
-      setSessionTokenState(null);
-      setUser(null);
-      setStatus("anonymous");
-      setWakePending(false);
-    }
-  }, [transport]);
+    },
+    [transport],
+  );
+
+  const refresh = useCallback(() => load((update) => update()), [load]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void load(startTransition);
+  }, [load]);
 
   const logout = useCallback(() => {
     if (transport === "cookie") {

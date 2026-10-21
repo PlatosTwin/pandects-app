@@ -43,8 +43,16 @@ function FooterComponent() {
 
         <div className="flex flex-col gap-3 border-t border-border py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span>© {currentYear} Nikita Bogdanov</span>
-            <ul role="list" aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {/* The prerender bakes in the build year; after New Year the browser
+                renders the next one. Patch the text instead of failing hydration. */}
+            <span suppressHydrationWarning>
+              © {currentYear} Nikita Bogdanov
+            </span>
+            <ul
+              role="list"
+              aria-label="Legal"
+              className="flex flex-wrap items-center gap-x-4 gap-y-1"
+            >
               {LEGAL_LINKS.map((link) => (
                 <li key={link.to}>
                   <Link
