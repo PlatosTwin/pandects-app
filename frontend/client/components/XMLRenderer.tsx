@@ -21,7 +21,6 @@ interface XMLRendererProps {
   xmlContent: string;
   className?: string;
   mode?: "search" | "agreement";
-  highlightedSection?: string | null;
   isMobile?: boolean;
   showBodyOnly?: boolean;
   /**
@@ -132,8 +131,6 @@ interface SharedNodeProps {
   isMobile: boolean;
   meta: Map<XMLNode, XmlNodeMeta>;
   collapsedTags: ReadonlySet<string>;
-  fadingHighlights: Set<string>;
-  highlightedSection: string | null | undefined;
   onToggleCollapse: (tagId: string) => void;
   findQuery: string;
   findRegex: RegExp | null;
@@ -247,8 +244,6 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
     isMobile,
     meta,
     collapsedTags,
-    fadingHighlights,
-    highlightedSection,
     onToggleCollapse,
     findQuery,
     findRegex,
@@ -298,8 +293,6 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
     isMobile,
     meta,
     collapsedTags,
-    fadingHighlights,
-    highlightedSection,
     onToggleCollapse,
     findQuery,
     findRegex,
@@ -411,9 +404,6 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
       node.tagName === "article"
         ? "text-lg font-semibold"
         : "text-base font-medium";
-    const isHighlighted = highlightedSection === sectionUuid;
-    const isFading = fadingHighlights.has(sectionUuid || "");
-    const showHighlight = isHighlighted || isFading;
     const isMatched = sectionUuid != null && matchedSectionUuids.has(sectionUuid);
     const isCurrentMatch = sectionUuid != null && currentMatchUuid === sectionUuid;
 
@@ -427,9 +417,6 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
     const containerProps = {
       className: cn(
         "my-4 scroll-mt-3 relative",
-        showHighlight && "z-10",
-        showHighlight && isMobile && "pl-1 pr-1 -ml-1 -mr-1",
-        showHighlight && !isMobile && "pr-2 -mr-2",
         // Persistent match marker: a left rule in the gutter, so the
         // section text keeps the same left edge as its neighbors.
         isMatched && "-ml-3.5 border-l-2 border-primary/30 pl-3",
@@ -453,19 +440,9 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
       </>
     );
 
-    const highlightOverlay = showHighlight ? (
-      <div
-        className={cn(
-          "absolute inset-0 bg-primary/10 border border-primary/30 rounded-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
-          isHighlighted ? "opacity-100" : "opacity-0",
-        )}
-      />
-    ) : null;
-
     if (isMobile) {
       return (
         <div {...containerProps}>
-          {highlightOverlay}
           <div className="group/heading flex items-start gap-2" data-section-heading="">
             {isCollapsible && (
               <button
@@ -501,7 +478,6 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
 
     return (
       <div {...containerProps}>
-        {highlightOverlay}
         <div className="flex items-start gap-1.5">
           <div className="flex-shrink-0">
             {isCollapsible && (
@@ -632,9 +608,9 @@ function collectFindHitNodes(
   return hits;
 }
 
-// Skip re-rendering a subtree unless a collapse/highlight change actually
+// Skip re-rendering a subtree unless a collapse/match change actually
 // touches an id inside it. All identity props are stable per parsed document,
-// so a highlight or collapse toggle only re-renders the affected paths.
+// so a match or collapse change only re-renders the affected paths.
 function xmlNodeViewPropsEqual(
   prev: XMLNodeViewProps,
   next: XMLNodeViewProps,
@@ -680,18 +656,6 @@ function xmlNodeViewPropsEqual(
   ) {
     return false;
   }
-  if (
-    prev.highlightedSection !== next.highlightedSection &&
-    ((prev.highlightedSection != null &&
-      subtreeUuids.has(prev.highlightedSection)) ||
-      (next.highlightedSection != null &&
-        subtreeUuids.has(next.highlightedSection)))
-  ) {
-    return false;
-  }
-  if (!setsAgreeWithin(prev.fadingHighlights, next.fadingHighlights, subtreeUuids)) {
-    return false;
-  }
   if (!setsAgreeWithin(prev.collapsedTags, next.collapsedTags, subtreeTagIds)) {
     return false;
   }
@@ -704,7 +668,6 @@ export function XMLRenderer({
   xmlContent,
   className,
   mode = "search",
-  highlightedSection,
   isMobile = false,
   showBodyOnly = false,
   findQuery = "",
@@ -714,40 +677,6 @@ export function XMLRenderer({
   renderSectionActions,
 }: XMLRendererProps) {
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
-  const [fadingHighlights, setFadingHighlights] = useState<Set<string>>(
-    new Set(),
-  );
-
-  // Handle highlight transitions
-  const [previousHighlightedSection, setPreviousHighlightedSection] = useState<
-    string | null
-  >(null);
-
-  useEffect(() => {
-    if (
-      previousHighlightedSection &&
-      previousHighlightedSection !== highlightedSection
-    ) {
-      setFadingHighlights((prev) =>
-        new Set(prev).add(previousHighlightedSection),
-      );
-
-      const timer = setTimeout(() => {
-        setFadingHighlights((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(previousHighlightedSection);
-          return newSet;
-        });
-      }, 1000);
-
-      setPreviousHighlightedSection(highlightedSection);
-      return () => clearTimeout(timer);
-    }
-
-    setPreviousHighlightedSection(highlightedSection);
-    return undefined;
-  }, [highlightedSection, previousHighlightedSection]);
-
   const {
     nodes: parsedXML,
     meta,
@@ -766,18 +695,14 @@ export function XMLRenderer({
     setCollapsedTags(new Set());
   }, [xmlContent, showBodyOnly]);
 
-  // When a section is highlighted (TOC jump, deep link), expand any collapsed
+  // On a reader jump (TOC, match stepping, deep link) expand any collapsed
   // ancestors so the target actually renders and can be scrolled to.
   // Collapse state for uuid-bearing nodes is keyed by uuid, so deleting the
   // uuids on the root->target path expands every ancestor of the target.
-  // `revealRequest` does the same for the reader's jumps (TOC, match
-  // stepping), which don't use the fading highlight.
   const revealUuid = revealRequest?.uuid;
   const revealSeq = revealRequest?.seq;
   useEffect(() => {
-    const pathUuids = [highlightedSection, revealUuid].flatMap((target) =>
-      target ? (uuidPaths.get(target) ?? []) : [],
-    );
+    const pathUuids = revealUuid ? (uuidPaths.get(revealUuid) ?? []) : [];
     if (pathUuids.length === 0) return;
     setCollapsedTags((prev) => {
       let changed = false;
@@ -787,7 +712,7 @@ export function XMLRenderer({
       }
       return changed ? next : prev;
     });
-  }, [highlightedSection, revealUuid, revealSeq, uuidPaths]);
+  }, [revealUuid, revealSeq, uuidPaths]);
 
   const normalizedFindQuery = findQuery.trim();
   const findRegex = useMemo(
@@ -833,8 +758,6 @@ export function XMLRenderer({
     // While find is active every section renders expanded so every hit is in
     // the DOM; the user's collapse state comes back when find closes.
     collapsedTags: findRegex ? EMPTY_SET : collapsedTags,
-    fadingHighlights,
-    highlightedSection,
     onToggleCollapse: toggleCollapse,
     findQuery: normalizedFindQuery,
     findRegex,

@@ -405,7 +405,7 @@ export function StarButton({
       type="button"
       className={cn(
         "inline-flex h-11 w-11 select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-        displayedStarred && "text-amber-500 hover:text-amber-500",
+        displayedStarred && "text-warning hover:text-warning",
         buttonClassName,
       )}
       aria-label={ariaLabel ?? defaultAriaLabel}

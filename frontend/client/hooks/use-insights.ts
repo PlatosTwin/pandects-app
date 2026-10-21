@@ -1,12 +1,11 @@
 /**
- * React Query hooks for the dataset pages: Agreement Index (list + overview
- * charts), Leaderboards, Trends & Analyses, and Bulk Data dumps.
+ * React Query hooks for the dataset pages: Agreement Index (overview charts),
+ * Leaderboards, Trends & Analyses, and Bulk Data dumps.
  */
 import { useEffect } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type {
   AgreementDealTypeSummaryResponse,
-  AgreementIndexResponse,
   AgreementStatusSummaryResponse,
   AgreementTrendsResponse,
   CounselLeaderboardResponse,
@@ -24,43 +23,6 @@ const AGGREGATE_GC_TIME_MS = 30 * 60 * 1000;
 
 function queryError(error: unknown, fallback: string): string | null {
   return error ? errorMessage(error, fallback) : null;
-}
-
-export interface AgreementIndexParams {
-  page: number;
-  pageSize: number;
-  sortBy: "year" | "target" | "acquirer";
-  sortDir: "asc" | "desc";
-  /** Free-text filter; trimmed before it is sent. */
-  query: string;
-}
-
-/** One page of `v1/agreements-index`. The previous page stays visible while the next loads. */
-export function useAgreementIndex(params: AgreementIndexParams) {
-  const normalized = { ...params, query: params.query.trim() };
-  const query = useQuery({
-    queryKey: keys.agreements.index(normalized),
-    queryFn: ({ signal }) =>
-      apiGet<AgreementIndexResponse>(
-        "v1/agreements-index",
-        {
-          page: normalized.page,
-          page_size: normalized.pageSize,
-          sort_by: normalized.sortBy,
-          sort_dir: normalized.sortDir,
-          query: normalized.query || undefined,
-        },
-        { signal },
-      ),
-    enabled: !IS_SERVER_RENDER,
-    placeholderData: keepPreviousData,
-  });
-  return {
-    data: query.data ?? null,
-    isLoading: query.isPending,
-    isFetching: query.isFetching,
-    error: queryError(query.error, "Unable to load agreement index."),
-  };
 }
 
 /** Processing-status chart data (`v1/agreements-status-summary`). */
