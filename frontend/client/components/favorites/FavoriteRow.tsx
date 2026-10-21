@@ -121,6 +121,8 @@ export function FavoriteRow({
           (value): value is string => typeof value === "string",
         )
       : []);
+  const sectionTypeLabel = (id: string) =>
+    sectionDetails?.standard_id_labels?.[id] ?? clauseTypeLabelById[id] ?? id;
   const sectionSnippet = firstWords(
     stripXmlText(sectionDetails?.xml ?? contextString(fav, "xml")),
     25,
@@ -194,10 +196,10 @@ export function FavoriteRow({
                       key={id}
                       variant="outline"
                       className="max-w-full rounded-md px-2 py-0.5 text-[11px] font-medium"
-                      title={clauseTypeLabelById[id] ?? id}
+                      title={sectionTypeLabel(id)}
                     >
                       <span className="truncate">
-                        {clauseTypeLabelById[id] ?? id}
+                        {sectionTypeLabel(id)}
                       </span>
                     </Badge>
                   ))}

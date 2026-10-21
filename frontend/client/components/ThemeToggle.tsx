@@ -1,6 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { memo, useEffect, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,12 +31,12 @@ function getServerSnapshot(): ThemePreference {
   return "system";
 }
 
+function useThemePreference() {
+  return useSyncExternalStore(subscribeTheme, getThemePreference, getServerSnapshot);
+}
+
 function ThemeToggleComponent() {
-  const preference = useSyncExternalStore(
-    subscribeTheme,
-    getThemePreference,
-    getServerSnapshot,
-  );
+  const preference = useThemePreference();
 
   // The pre-paint script only toggles the class; re-apply once on mount to
   // sync the derived outputs it skips (meta theme-color).
@@ -83,3 +84,45 @@ function ThemeToggleComponent() {
 }
 
 export const ThemeToggle = memo(ThemeToggleComponent);
+
+// Inline segmented variant for the mobile menu sheet, where a nested dropdown
+// is awkward to reach. Arrow keys are not wired: each option is a plain
+// toggle button reachable with Tab.
+function ThemeToggleInlineComponent({ className }: { className?: string }) {
+  const preference = useThemePreference();
+
+  return (
+    <div
+      role="group"
+      aria-label="Theme"
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5",
+        className,
+      )}
+    >
+      {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
+        const selected = preference === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={selected}
+            aria-label={label}
+            title={label}
+            onClick={() => setThemePreference(value)}
+            className={cn(
+              "inline-flex h-8 w-9 items-center justify-center rounded-[5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              selected
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Icon className="h-4 w-4" aria-hidden="true" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export const ThemeToggleInline = memo(ThemeToggleInlineComponent);

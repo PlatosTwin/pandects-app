@@ -1,11 +1,11 @@
 ---
 id: get-taxonomy
 title: "Retrieve clause taxonomy"
-description: "Returns the hierarchical Pandects taxonomy tree keyed by standard ID."
+description: "Returns the hierarchical Pandects clause taxonomy: nodes keyed by label, each carrying its `id` (standard ID) and, below L3, its `children`."
 sidebar_label: "Retrieve clause taxonomy"
 hide_title: true
 hide_table_of_contents: true
-api: eJytk01v2zAMhv+KwLMQNxt28a1AiyHYgAVDdwpyYCQ2VqtIKkUbDQz/90GO06ZNCgzbfPEHX37oeekemHKKIVOGuodPV1flZikbdklcDFDDj2+gwcQgFKREMSXvDJZo9ZCLpIdsGtpheZJ9Iqghbh7ICGhAa12Rol9yTMTiDq3e65ieWsdkoV6Bs7DWkN7onT3JysIubGHQYBrnLVP4+9bDdGmwdI+tl3MCN4eAIubI6kjsX6i8PZuJlk5ULghtiUG/G+N2bD+KBw1ZUNp8DuVyVsDdmLWjnHFLf5p2lA8axsNftO5CYv4Y/4hanHg6imHiL7jNxX7B5xjibl+WoCSOUBcWatiS3B2D7/v+JGk5ZCUNqcYRI5vGGfRqicGSkayOdZUwkXqkPVm12assGCyyVYubGRRC0sSpWXEKpYEaqm5eyWvrTNxRobHqoWUPNTQiKddVhcnN0tRxFvkc7JKjbU15UdfLBQz6tEJdVT4a9E3MUn+Zzz+fpX8vYWWpIx/TjoIcqqw1uHAfR3smti/nLgINZd5DiW5e/Ewxyw7HPR2XYyTIjjpSxmObSckHqPvXvf9v1KedEnqWKnl0oYw4cuknC1Zlbv1mOQqlEuj7DWb6xX4YyuenlngP9WqtoUN2uCk4VutBQ0NoiUfXHmkPNVwbQ6nY3KFvywBnv3Eh+7ISX2/vYBh+AyAO0Bc=
+api: eJzNVMlu2zAQ/ZXBnFqAteIGvainAAnaoAFqdDkFhjUmxxYTilRISrEg6N8LynIWG0WB9lJdtMz2lqF69BxqZwMHzHt8f3aWboqD9LqO2lnM8esXFCidjWxjilJdGy0pRbO7kFJ6DLLkitJT7GrGHN36jmVEgaSUTqlkFt7V7KPejzrO8/zQaM8K81vUCpcC61f5Wr2oCtFru8VBoCy1UZ7t348epkug4g01Jp4qcLkPAHvvPBwU+xdVXnMb+57SE0cwvkdaG4Zg6Z5XkgJDRbLUlkE6xQI2zgPvqKoNQ2FdXG1cY1UhoGjJaDViW42zCgHOQ+Ep8sroSkdWxQwFTtWY41N5ErniEGjLf0b4uanIvvNMakTKu9qQHed+hEfnlbZbqKgDWZLd8gyT6i+N3wvxPHD5OxM3ZAILjDqOaK/GusnGSNuQmkXaOeuqLnVJlSOOa4U5bjn+OASPKXzj2HgbIJYMpWZPXpZakoEFWcUyBpCGmsBwaJ+DdYoD3HPHCtYdGFqzEcAkS5DkfZdY6xig0KqANyGSVeQVXF++BbJKwJqNe4Sbc7HPOqz06EjFsXQT5rQ3FEvMMWvnWXxmENi37BPpHhtvMMcyxjrkWUa1ntUT8Jnzp44tvFONTC9wsbjGQbzskGeZcZJM6ULMP8zn5yflNykMils2rq7Yxn2XpUBtN25cmMmiJ/lSgsCEd9+inacVq12IFY2nxlLFeyO85paP9T7G0D+fwv/NvOmwRN7FrDakbWI6yttPTt4m+uLVqiaxU6Dv1xT4pzfDkD4/NOw7zG+XAlvyOp2v9DYILJkU+9H8e+4wxwspuU7b0pJpEoCTf1My6GmzPl39wGH4Bfe5HEg=
 sidebar_class_name: "get api-method"
 info_path: docs/pandects/pandects-api
 custom_edit_url: null
@@ -37,7 +37,7 @@ import Translate from "@docusaurus/Translate";
 
 
 
-Returns the hierarchical Pandects taxonomy tree keyed by standard ID.
+Returns the hierarchical Pandects clause taxonomy: nodes keyed by label, each carrying its `id` (standard ID) and, below L3, its `children`.
 
 <ParamsDetails
   parameters={undefined}

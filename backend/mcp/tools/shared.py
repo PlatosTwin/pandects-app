@@ -4,12 +4,10 @@ import base64
 import binascii
 import json
 import re
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
 from difflib import SequenceMatcher
 from decimal import Decimal
-from html import unescape
 from typing import Any, NoReturn, cast
 
 from sqlalchemy import and_, asc, desc, func, or_, text
@@ -17,11 +15,16 @@ from werkzeug.exceptions import BadRequest
 
 from backend.core.pagination import AUTHENTICATED_MAX_PAGE_SIZE, clamp_page_size
 from backend.mcp.tools.constants import _STRUCTURED_FILTER_ARRAY_FIELDS
-from backend.routes.agreements import (
-    _agreement_is_public_eligible_expr,
-    _normalize_industry_label,
-    _to_float_or_none,
+from backend.filtering import agreement_is_public_eligible_expr
+from backend.services.agreements_service import (
+    industry_pairings,
+    naics_label_by_code,
+    ownership_trends,
+    target_industries_by_year,
 )
+from backend.services.reference_labels import resolve_naics_label
+from backend.services.snippets import extract_text_from_xml, focused_snippet
+from backend.services.taxonomy_service import build_taxonomy_tree
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps
 from backend.schemas.public_api import AgreementsBulkArgsPayload
 
@@ -650,46 +653,11 @@ def _qualified_labels_by_standard_id(
 
 
 def _extract_text_from_xml(xml: object) -> str:
-    if not isinstance(xml, str):
-        return ""
-    text_content = unescape(_TAG_RE.sub(" ", xml))
-    return _WHITESPACE_RE.sub(" ", text_content).strip()
+    return extract_text_from_xml(xml)
 
 
 def _focused_snippet(text_content: str, *, focus_terms: list[str], max_chars: int) -> tuple[str, list[str]]:
-    cleaned_text = _WHITESPACE_RE.sub(" ", text_content).strip()
-    if cleaned_text == "":
-        return "", []
-
-    lowered_text = cleaned_text.lower()
-    matched_terms: list[str] = []
-    best_index: int | None = None
-    for term in focus_terms:
-        normalized_term = term.strip().lower()
-        if normalized_term == "":
-            continue
-        index = lowered_text.find(normalized_term)
-        if index >= 0:
-            matched_terms.append(term)
-            if best_index is None or index < best_index:
-                best_index = index
-
-    if best_index is None:
-        snippet = cleaned_text[:max_chars].rstrip()
-        if len(cleaned_text) > len(snippet):
-            snippet = snippet.rstrip(" .,;:") + "..."
-        return snippet, []
-
-    start = max(best_index - (max_chars // 3), 0)
-    end = min(start + max_chars, len(cleaned_text))
-    if end - start < max_chars and start > 0:
-        start = max(end - max_chars, 0)
-    snippet = cleaned_text[start:end].strip()
-    if start > 0:
-        snippet = "..." + snippet
-    if end < len(cleaned_text):
-        snippet = snippet.rstrip(" .,;:") + "..."
-    return snippet, matched_terms
+    return focused_snippet(text_content, focus_terms=focus_terms, max_chars=max_chars)
 
 
 # Two guards keep this from capturing sentence text as part of an amount:
@@ -733,56 +701,10 @@ def _extract_monetary_values_with_truncation(text: str) -> tuple[list[str], bool
 
 
 def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object, deps: ReferenceDataDeps) -> dict[str, object]:
-    db = deps.db
-    l1_rows = cast(
-        list[tuple[object, object]],
-        db.session.query(
-            cast(Any, l1_model).standard_id,
-            cast(Any, l1_model).label,
-        ).all(),
+    """The same tree as GET /v1/taxonomy (one builder: ``taxonomy_service``)."""
+    return build_taxonomy_tree(
+        deps.db.session, l1_model=l1_model, l2_model=l2_model, l3_model=l3_model
     )
-    l2_rows = cast(
-        list[tuple[object, object, object]],
-        db.session.query(
-            cast(Any, l2_model).standard_id,
-            cast(Any, l2_model).label,
-            cast(Any, l2_model).parent_id,
-        ).all(),
-    )
-    l3_rows = cast(
-        list[tuple[object, object, object]],
-        db.session.query(
-            cast(Any, l3_model).standard_id,
-            cast(Any, l3_model).label,
-            cast(Any, l3_model).parent_id,
-        ).all(),
-    )
-
-    l2_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for standard_id, label, parent_id in l2_rows:
-        if isinstance(standard_id, str) and isinstance(label, str) and isinstance(parent_id, str):
-            l2_by_parent[parent_id].append((standard_id, label))
-
-    l3_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for standard_id, label, parent_id in l3_rows:
-        if isinstance(standard_id, str) and isinstance(label, str) and isinstance(parent_id, str):
-            l3_by_parent[parent_id].append((standard_id, label))
-
-    validated_l1_rows: list[tuple[str, str]] = []
-    for standard_id, label in l1_rows:
-        if isinstance(standard_id, str) and isinstance(label, str):
-            validated_l1_rows.append((standard_id, label))
-
-    tree: dict[str, object] = {}
-    for l1_standard_id, l1_label in sorted(validated_l1_rows, key=lambda row: row[1]):
-        l2_children: dict[str, object] = {}
-        for l2_standard_id, l2_label in sorted(l2_by_parent.get(l1_standard_id, []), key=lambda row: row[1]):
-            l3_children: dict[str, object] = {}
-            for l3_standard_id, l3_label in sorted(l3_by_parent.get(l2_standard_id, []), key=lambda row: row[1]):
-                l3_children[l3_label] = {"id": l3_standard_id}
-            l2_children[l2_label] = {"id": l2_standard_id, "children": l3_children}
-        tree[l1_label] = {"id": l1_standard_id, "children": l2_children}
-    return tree
 
 
 def _naics_payload(deps: ReferenceDataDeps) -> dict[str, object]:
@@ -870,6 +792,10 @@ def _decorate_industry_labels(
 ) -> None:
     """Add a ``<field>_label`` sibling for every present field, null when undecodable.
 
+    Labels resolve like REST (``resolve_naics_label``): a code with no catalog entry
+    of its own (a 4-digit industry group, an unlisted subsector such as "459") rolls
+    up to its 2-digit sector.
+
     A field whose base key is present but the code is null or has no catalog entry
     still gets the ``_label`` key, null rather than omitted: a real export hit 9/326
     rows missing the key entirely, which breaks strict schema validation downstream
@@ -882,11 +808,9 @@ def _decorate_industry_labels(
     for field_name in fields:
         if field_name not in payload:
             continue
-        raw = payload.get(field_name)
-        label: str | None = None
-        if isinstance(raw, str) and raw.strip():
-            label = label_by_code.get(raw.strip())
-        payload[f"{field_name}_label"] = label
+        payload[f"{field_name}_label"] = resolve_naics_label(
+            payload.get(field_name), label_by_code
+        )
 
 
 def _counsel_names_by_agreement(
@@ -970,7 +894,7 @@ def _agreements_summary_payload(deps: AgreementsDeps) -> dict[str, object]:
     retrievable = (
         deps.db.session.query(func.count(func.distinct(agreements.agreement_uuid)))
         .join(deps.XML, deps._agreement_latest_xml_join_condition())
-        .filter(_agreement_is_public_eligible_expr(agreements))
+        .filter(agreement_is_public_eligible_expr(agreements))
         .scalar()
     )
     # latest_sections_search is the table the section tools query, so counting it is the
@@ -1024,200 +948,33 @@ def _agreement_trends_payload(
     year_max: int | None = None,
 ) -> dict[str, object]:
     requested = set(sections)
-    db = deps.db
-    schema_prefix = deps._schema_prefix()
     result: dict[str, object] = {"sections_returned": sorted(requested)}
 
     def _keep_year(row: dict[str, Any]) -> bool:
         return _year_in_range(row.get("year"), year_min=year_min, year_max=year_max)
 
+    # The trend arrays are built by the same service code as REST /v1/agreement-trends;
+    # this tool only selects sections and applies the optional year window.
     if "ownership" in requested:
-        ownership_mix_rows = db.session.execute(
-            text(
-                f"""
-                SELECT year, target_bucket, deal_count, total_transaction_value
-                FROM {schema_prefix}agreement_ownership_mix_summary
-                ORDER BY year ASC, target_bucket ASC
-                """
-            )
-        ).mappings().all()
-        ownership_deal_size_rows = db.session.execute(
-            text(
-                f"""
-                SELECT year, target_bucket, deal_count, p25_transaction_value, median_transaction_value, p75_transaction_value
-                FROM {schema_prefix}agreement_ownership_deal_size_summary
-                ORDER BY year ASC, target_bucket ASC
-                """
-            )
-        ).mappings().all()
-        buyer_matrix_rows = db.session.execute(
-            text(
-                f"""
-                SELECT target_bucket, buyer_bucket, deal_count, median_transaction_value
-                FROM {schema_prefix}agreement_buyer_type_matrix_summary
-                ORDER BY target_bucket ASC, buyer_bucket ASC
-                """
-            )
-        ).mappings().all()
-
-        ownership_mix_by_year: dict[int, dict[str, object]] = {}
-        for row in ownership_mix_rows:
-            year = deps._to_int(row.get("year"))
-            year_row = ownership_mix_by_year.setdefault(
-                year,
-                {
-                    "year": year,
-                    "public_deal_count": 0,
-                    "private_deal_count": 0,
-                    "public_total_transaction_value": 0.0,
-                    "private_total_transaction_value": 0.0,
-                },
-            )
-            target_bucket = str(row.get("target_bucket") or "")
-            if target_bucket == "public":
-                year_row["public_deal_count"] = deps._to_int(row.get("deal_count"))
-                year_row["public_total_transaction_value"] = _to_float_or_none(row.get("total_transaction_value")) or 0.0
-            elif target_bucket == "private":
-                year_row["private_deal_count"] = deps._to_int(row.get("deal_count"))
-                year_row["private_total_transaction_value"] = _to_float_or_none(row.get("total_transaction_value")) or 0.0
-
-        ownership_deal_size_by_year: dict[int, dict[str, object]] = {}
-        for row in ownership_deal_size_rows:
-            year = deps._to_int(row.get("year"))
-            year_row = ownership_deal_size_by_year.setdefault(
-                year,
-                {
-                    "year": year,
-                    "public_deal_count": 0,
-                    "private_deal_count": 0,
-                    "public_p25_transaction_value": None,
-                    "public_median_transaction_value": None,
-                    "public_p75_transaction_value": None,
-                    "private_p25_transaction_value": None,
-                    "private_median_transaction_value": None,
-                    "private_p75_transaction_value": None,
-                },
-            )
-            target_bucket = str(row.get("target_bucket") or "")
-            if target_bucket == "public":
-                year_row["public_deal_count"] = deps._to_int(row.get("deal_count"))
-                year_row["public_p25_transaction_value"] = _to_float_or_none(row.get("p25_transaction_value"))
-                year_row["public_median_transaction_value"] = _to_float_or_none(row.get("median_transaction_value"))
-                year_row["public_p75_transaction_value"] = _to_float_or_none(row.get("p75_transaction_value"))
-            elif target_bucket == "private":
-                year_row["private_deal_count"] = deps._to_int(row.get("deal_count"))
-                year_row["private_p25_transaction_value"] = _to_float_or_none(row.get("p25_transaction_value"))
-                year_row["private_median_transaction_value"] = _to_float_or_none(row.get("median_transaction_value"))
-                year_row["private_p75_transaction_value"] = _to_float_or_none(row.get("p75_transaction_value"))
-
-        buyer_matrix_lookup = {
-            (
-                str(row.get("target_bucket") or ""),
-                str(row.get("buyer_bucket") or ""),
-            ): row
-            for row in buyer_matrix_rows
-        }
-        buyer_matrix: list[dict[str, object]] = []
-        for target_bucket in ("public", "private"):
-            for buyer_bucket in ("public_buyer", "private_strategic", "private_equity", "other"):
-                row = buyer_matrix_lookup.get((target_bucket, buyer_bucket))
-                buyer_matrix.append(
-                    {
-                        "target_bucket": target_bucket,
-                        "buyer_bucket": buyer_bucket,
-                        "deal_count": deps._to_int(row.get("deal_count")) if row else 0,
-                        "median_transaction_value": (
-                            _to_float_or_none(row.get("median_transaction_value")) if row else None
-                        ),
-                    }
-                )
-
+        ownership = ownership_trends(deps)
         result["ownership"] = {
-            "mix_by_year": [
-                ownership_mix_by_year[year]
-                for year in sorted(ownership_mix_by_year.keys())
-                if _keep_year(ownership_mix_by_year[year])
-            ],
-            "deal_size_by_year": [
-                ownership_deal_size_by_year[year]
-                for year in sorted(ownership_deal_size_by_year.keys())
-                if _keep_year(ownership_deal_size_by_year[year])
-            ],
-            "buyer_type_matrix": buyer_matrix,
+            "mix_by_year": [row for row in ownership["mix_by_year"] if _keep_year(row)],
+            "deal_size_by_year": [row for row in ownership["deal_size_by_year"] if _keep_year(row)],
+            "buyer_type_matrix": ownership["buyer_type_matrix"],
         }
 
-    need_industry_labels = bool(requested & {"target_industries", "pairings"})
-    naics_label_by_code: dict[str, str] = {}
-    if need_industry_labels:
-        naics_sector_rows = db.session.execute(
-            text(f"SELECT sector_code, sector_desc FROM {schema_prefix}naics_sectors")
-        ).mappings().all()
-        naics_sub_sector_rows = db.session.execute(
-            text(f"SELECT sub_sector_code, sub_sector_desc FROM {schema_prefix}naics_sub_sectors")
-        ).mappings().all()
-        for row in naics_sector_rows:
-            sector_code = row.get("sector_code")
-            sector_desc = row.get("sector_desc")
-            if sector_code is not None and isinstance(sector_desc, str):
-                naics_label_by_code[str(sector_code)] = sector_desc
-        for row in naics_sub_sector_rows:
-            sub_sector_code = row.get("sub_sector_code")
-            sub_sector_desc = row.get("sub_sector_desc")
-            if sub_sector_code is not None and isinstance(sub_sector_desc, str):
-                naics_label_by_code[str(sub_sector_code)] = sub_sector_desc
-
+    label_by_code: dict[str, str] = (
+        naics_label_by_code(deps) if requested & {"target_industries", "pairings"} else {}
+    )
     industries: dict[str, object] = {}
     if "target_industries" in requested:
-        target_industry_rows = db.session.execute(
-            text(
-                f"""
-                SELECT year, industry, deal_count, total_transaction_value
-                FROM {schema_prefix}agreement_target_industry_summary
-                ORDER BY year ASC, industry ASC
-                """
-            )
-        ).mappings().all()
         industries["target_industries_by_year"] = [
-            entry
-            for row in target_industry_rows
-            for entry in [
-                {
-                    "year": deps._to_int(row.get("year")),
-                    "industry": _normalize_industry_label(
-                        row.get("industry"),
-                        label_by_code=naics_label_by_code,
-                    ),
-                    "deal_count": deps._to_int(row.get("deal_count")),
-                    "total_transaction_value": _to_float_or_none(row.get("total_transaction_value")) or 0.0,
-                }
-            ]
-            if _keep_year(entry)
+            row
+            for row in target_industries_by_year(deps, label_by_code=label_by_code)
+            if _keep_year(row)
         ]
     if "pairings" in requested:
-        industry_pairing_rows = db.session.execute(
-            text(
-                f"""
-                SELECT target_industry, acquirer_industry, deal_count, total_transaction_value
-                FROM {schema_prefix}agreement_industry_pairing_summary
-                ORDER BY deal_count DESC, total_transaction_value DESC, target_industry ASC, acquirer_industry ASC
-                """
-            )
-        ).mappings().all()
-        industries["pairings"] = [
-            {
-                "target_industry": _normalize_industry_label(
-                    row.get("target_industry"),
-                    label_by_code=naics_label_by_code,
-                ),
-                "acquirer_industry": _normalize_industry_label(
-                    row.get("acquirer_industry"),
-                    label_by_code=naics_label_by_code,
-                ),
-                "deal_count": deps._to_int(row.get("deal_count")),
-                "total_transaction_value": _to_float_or_none(row.get("total_transaction_value")) or 0.0,
-            }
-            for row in industry_pairing_rows
-        ]
+        industries["pairings"] = industry_pairings(deps, label_by_code=label_by_code)
     if industries:
         result["industries"] = industries
 

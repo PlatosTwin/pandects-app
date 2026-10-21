@@ -12,7 +12,7 @@ type NerEvalMetricsProps = {
 };
 
 const getStatusDotClass = (value: number) =>
-  value >= 0.95 ? "bg-emerald-500" : "bg-muted-foreground/40";
+  value >= 0.95 ? "bg-success" : "bg-muted-foreground/40";
 
 export function NerEvalMetrics({ data }: NerEvalMetricsProps) {
   const { summary, perEntity, boundaries } = data;
@@ -33,19 +33,19 @@ export function NerEvalMetrics({ data }: NerEvalMetricsProps) {
       contentClassName="mt-4 space-y-6"
       title="Model Metrics"
     >
-      <div className="rounded-lg bg-emerald-500/10 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-emerald-900 dark:text-emerald-100">
+      <div className="rounded-lg bg-success/10 p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-foreground">
           <div className="text-[11px] font-semibold uppercase tracking-wide">
             Entity-level micro metrics
           </div>
           <Badge
             variant="chip"
-            className="border-emerald-500/40 bg-emerald-500/15 uppercase tracking-wide text-emerald-900 dark:text-emerald-100"
+            className="border-success/40 bg-success/15 uppercase tracking-wide text-foreground"
           >
             Strict
           </Badge>
         </div>
-        <div className="grid gap-3 text-emerald-900 dark:text-emerald-100 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 text-foreground sm:grid-cols-2 lg:grid-cols-3">
           {summaryMetrics.map((metric) => (
             <EvalSummaryTile
               key={metric.label}

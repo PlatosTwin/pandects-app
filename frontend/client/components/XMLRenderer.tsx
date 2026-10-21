@@ -3,6 +3,11 @@ import type { ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { decodeXmlEntities } from "@/lib/text-utils";
+import { Badge } from "@/components/ui/badge";
+import {
+  buildFindRegex,
+  renderFindHighlights,
+} from "@/components/reader/find-highlight";
 import {
   buildXmlTreeIndex,
   findFirstTagNode,
@@ -16,10 +21,28 @@ interface XMLRendererProps {
   xmlContent: string;
   className?: string;
   mode?: "search" | "agreement";
-  highlightedSection?: string | null;
   isMobile?: boolean;
   showBodyOnly?: boolean;
+  /**
+   * Find-in-document query. Every hit in rendered text and headings is
+   * wrapped in `<mark data-find-hit>`; collapsed sections render expanded
+   * while a query is active so every hit is in the DOM.
+   */
+  findQuery?: string;
+  /** Sections that matched the originating search: persistent left rule + "Matched" label. */
+  matchedSectionUuids?: ReadonlySet<string> | null;
+  /** The match the reader is focused on (stronger marker). */
+  currentMatchUuid?: string | null;
+  /**
+   * Expand the collapsed ancestors of `uuid`. Bump `seq` to re-request the
+   * same section after the user collapsed it again.
+   */
+  revealRequest?: { uuid: string; seq: number } | null;
+  /** Per-section heading actions (agreement mode, `<section>` nodes only). Must be stable. */
+  renderSectionActions?: (section: { uuid: string; title: string }) => ReactNode;
 }
+
+const EMPTY_SET: ReadonlySet<string> = new Set<string>();
 
 interface NormalizedAgreementTocRow {
   kind: "entry" | "heading";
@@ -28,8 +51,8 @@ interface NormalizedAgreementTocRow {
 }
 
 const XML_TAG_COLORS = {
-  text: "text-blue-600 dark:text-blue-400",
-  definition: "text-green-600 dark:text-green-400",
+  text: "text-info",
+  definition: "text-success",
 } as const;
 
 const SEARCH_COLLAPSIBLE_TAGS = new Set(["text", "definition"]);
@@ -107,10 +130,15 @@ interface SharedNodeProps {
   mode: "search" | "agreement";
   isMobile: boolean;
   meta: Map<XMLNode, XmlNodeMeta>;
-  collapsedTags: Set<string>;
-  fadingHighlights: Set<string>;
-  highlightedSection: string | null | undefined;
+  collapsedTags: ReadonlySet<string>;
   onToggleCollapse: (tagId: string) => void;
+  findQuery: string;
+  findRegex: RegExp | null;
+  /** Nodes whose subtree contains a hit for `findRegex` (see collectFindHitNodes). */
+  findHitNodes: ReadonlySet<XMLNode>;
+  matchedSectionUuids: ReadonlySet<string>;
+  currentMatchUuid: string | null;
+  renderSectionActions?: (section: { uuid: string; title: string }) => ReactNode;
 }
 
 interface XMLNodeViewProps extends SharedNodeProps {
@@ -168,7 +196,7 @@ function renderAgreementTableOfContents(
               key={`toc-heading-${rowIndex}`}
               className="pt-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground first:pt-0"
             >
-              {row.text}
+              {renderFindHighlights(row.text, shared.findRegex)}
             </div>
           );
         }
@@ -191,7 +219,7 @@ function renderAgreementTableOfContents(
                 isArticle && "font-medium tracking-[0.02em]",
               )}
             >
-              {row.text}
+              {renderFindHighlights(row.text, shared.findRegex)}
             </span>
             {row.pageNumber ? (
               <span className="w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground">
@@ -216,9 +244,13 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
     isMobile,
     meta,
     collapsedTags,
-    fadingHighlights,
-    highlightedSection,
     onToggleCollapse,
+    findQuery,
+    findRegex,
+    findHitNodes,
+    matchedSectionUuids,
+    currentMatchUuid,
+    renderSectionActions,
   } = props;
 
   if (node.type === "text") {
@@ -231,7 +263,7 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
             : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
         )}
       >
-        {normalizedContent}
+        {renderFindHighlights(normalizedContent, findRegex)}
       </span>
     );
   }
@@ -261,9 +293,13 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
     isMobile,
     meta,
     collapsedTags,
-    fadingHighlights,
-    highlightedSection,
     onToggleCollapse,
+    findQuery,
+    findRegex,
+    findHitNodes,
+    matchedSectionUuids,
+    currentMatchUuid,
+    renderSectionActions,
   };
 
   if (mode === "agreement" && node.tagName === "metadata") {
@@ -368,39 +404,46 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
       node.tagName === "article"
         ? "text-lg font-semibold"
         : "text-base font-medium";
-    const isHighlighted = highlightedSection === sectionUuid;
-    const isFading = fadingHighlights.has(sectionUuid || "");
-    const showHighlight = isHighlighted || isFading;
+    const isMatched = sectionUuid != null && matchedSectionUuids.has(sectionUuid);
+    const isCurrentMatch = sectionUuid != null && currentMatchUuid === sectionUuid;
 
     // Add article header attribute for scroll targeting
     const additionalAttributes =
       node.tagName === "article" ? { "data-article-header": "true" } : {};
+    const matchAttributes = isMatched
+      ? { "data-matched": isCurrentMatch ? "current" : "true" }
+      : {};
 
     const containerProps = {
       className: cn(
         "my-4 scroll-mt-3 relative",
-        showHighlight && "z-10",
-        showHighlight && isMobile && "pl-1 pr-1 -ml-1 -mr-1",
-        showHighlight && !isMobile && "pr-2 -mr-2",
+        // Persistent match marker: a left rule in the gutter, so the
+        // section text keeps the same left edge as its neighbors.
+        isMatched && "-ml-3.5 border-l-2 border-primary/30 pl-3",
+        isCurrentMatch && "rounded-r-lg border-primary bg-primary/5 py-1 pr-2",
       ),
       ...dataAttributes,
       ...additionalAttributes,
+      ...matchAttributes,
     };
 
-    const highlightOverlay = showHighlight ? (
-      <div
-        className={cn(
-          "absolute inset-0 bg-primary/10 border border-primary/30 rounded-lg pointer-events-none -z-10 transition-opacity duration-1000 ease-out",
-          isHighlighted ? "opacity-100" : "opacity-0",
-        )}
-      />
-    ) : null;
+    const headingExtras = (
+      <>
+        {isMatched ? (
+          <Badge variant="count" className="mt-0.5 shrink-0 px-2 py-0 text-[11px]">
+            Matched
+          </Badge>
+        ) : null}
+        {node.tagName === "section" && sectionUuid && renderSectionActions
+          ? renderSectionActions({ uuid: sectionUuid, title })
+          : null}
+      </>
+    );
 
     if (isMobile) {
       return (
         <div {...containerProps}>
-          {highlightOverlay}
-          <div className="flex items-start gap-2">
+          <div className="group/heading flex items-start gap-2" data-section-heading="">
             {isCollapsible && (
               <button
                 type="button"
@@ -419,8 +462,9 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
             )}
 
             <h3 className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
-              {title}
+              {renderFindHighlights(title, findRegex)}
             </h3>
+            {headingExtras}
           </div>
 
           {!isCollapsed && node.children && node.children.length > 0 && (
@@ -434,7 +478,6 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
 
     return (
       <div {...containerProps}>
-        {highlightOverlay}
         <div className="flex items-start gap-1.5">
           <div className="flex-shrink-0">
             {isCollapsible && (
@@ -456,9 +499,15 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h3 className={cn(headerLevel, "mb-2 break-words text-foreground [overflow-wrap:anywhere]")}>
-              {title}
-            </h3>
+            <div
+              className="group/heading mb-2 flex items-start gap-2"
+              data-section-heading=""
+            >
+              <h3 className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
+                {renderFindHighlights(title, findRegex)}
+              </h3>
+              {headingExtras}
+            </div>
 
             {!isCollapsed && node.children && node.children.length > 0 && (
               <div className="agreement-children ml-2 min-w-0">
@@ -526,9 +575,42 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
   );
 }
 
-// Skip re-rendering a subtree unless a collapse/highlight change actually
+function regexHits(regex: RegExp, text: string): boolean {
+  regex.lastIndex = 0;
+  const hit = regex.test(text);
+  regex.lastIndex = 0;
+  return hit;
+}
+
+const EMPTY_NODE_SET: ReadonlySet<XMLNode> = new Set<XMLNode>();
+
+/** Every node (text leaf or tag) whose rendered subtree contains a find hit. */
+function collectFindHitNodes(
+  nodes: XMLNode[],
+  regex: RegExp | null,
+): ReadonlySet<XMLNode> {
+  if (!regex) return EMPTY_NODE_SET;
+  const hits = new Set<XMLNode>();
+  const visit = (node: XMLNode): boolean => {
+    let hit = false;
+    if (node.type === "text") {
+      hit = regexHits(regex, normalizeXmlText(node.content));
+    } else {
+      if (node.title && regexHits(regex, decodeXmlEntities(node.title))) hit = true;
+      for (const child of node.children ?? []) {
+        if (visit(child)) hit = true;
+      }
+    }
+    if (hit) hits.add(node);
+    return hit;
+  };
+  nodes.forEach(visit);
+  return hits;
+}
+
+// Skip re-rendering a subtree unless a collapse/match change actually
 // touches an id inside it. All identity props are stable per parsed document,
-// so a highlight or collapse toggle only re-renders the affected paths.
+// so a match or collapse change only re-renders the affected paths.
 function xmlNodeViewPropsEqual(
   prev: XMLNodeViewProps,
   next: XMLNodeViewProps,
@@ -547,21 +629,31 @@ function xmlNodeViewPropsEqual(
     return false;
   }
 
+  if (prev.findQuery !== next.findQuery) {
+    // Only subtrees holding a hit for the old or new query re-render, so a
+    // query change on a long agreement touches a few paths, not every node.
+    if (prev.findHitNodes.has(next.node) || next.findHitNodes.has(next.node)) {
+      return false;
+    }
+    if (next.node.type !== "tag") return true;
+  }
   if (next.node.type !== "tag") return true;
   const nodeMeta = next.meta.get(next.node);
   if (!nodeMeta) return false;
 
   const { subtreeTagIds, subtreeUuids } = nodeMeta;
+  if (prev.renderSectionActions !== next.renderSectionActions) return false;
   if (
-    prev.highlightedSection !== next.highlightedSection &&
-    ((prev.highlightedSection != null &&
-      subtreeUuids.has(prev.highlightedSection)) ||
-      (next.highlightedSection != null &&
-        subtreeUuids.has(next.highlightedSection)))
+    prev.currentMatchUuid !== next.currentMatchUuid &&
+    ((prev.currentMatchUuid != null && subtreeUuids.has(prev.currentMatchUuid)) ||
+      (next.currentMatchUuid != null && subtreeUuids.has(next.currentMatchUuid)))
   ) {
     return false;
   }
-  if (!setsAgreeWithin(prev.fadingHighlights, next.fadingHighlights, subtreeUuids)) {
+  if (
+    prev.matchedSectionUuids !== next.matchedSectionUuids &&
+    !setsAgreeWithin(prev.matchedSectionUuids, next.matchedSectionUuids, subtreeUuids)
+  ) {
     return false;
   }
   if (!setsAgreeWithin(prev.collapsedTags, next.collapsedTags, subtreeTagIds)) {
@@ -576,45 +668,15 @@ export function XMLRenderer({
   xmlContent,
   className,
   mode = "search",
-  highlightedSection,
   isMobile = false,
   showBodyOnly = false,
+  findQuery = "",
+  matchedSectionUuids,
+  currentMatchUuid = null,
+  revealRequest = null,
+  renderSectionActions,
 }: XMLRendererProps) {
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
-  const [fadingHighlights, setFadingHighlights] = useState<Set<string>>(
-    new Set(),
-  );
-
-  // Handle highlight transitions
-  const [previousHighlightedSection, setPreviousHighlightedSection] = useState<
-    string | null
-  >(null);
-
-  useEffect(() => {
-    if (
-      previousHighlightedSection &&
-      previousHighlightedSection !== highlightedSection
-    ) {
-      setFadingHighlights((prev) =>
-        new Set(prev).add(previousHighlightedSection),
-      );
-
-      const timer = setTimeout(() => {
-        setFadingHighlights((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(previousHighlightedSection);
-          return newSet;
-        });
-      }, 1000);
-
-      setPreviousHighlightedSection(highlightedSection);
-      return () => clearTimeout(timer);
-    }
-
-    setPreviousHighlightedSection(highlightedSection);
-    return undefined;
-  }, [highlightedSection, previousHighlightedSection]);
-
   const {
     nodes: parsedXML,
     meta,
@@ -633,14 +695,15 @@ export function XMLRenderer({
     setCollapsedTags(new Set());
   }, [xmlContent, showBodyOnly]);
 
-  // When a section is highlighted (TOC jump, deep link), expand any collapsed
+  // On a reader jump (TOC, match stepping, deep link) expand any collapsed
   // ancestors so the target actually renders and can be scrolled to.
   // Collapse state for uuid-bearing nodes is keyed by uuid, so deleting the
   // uuids on the root->target path expands every ancestor of the target.
+  const revealUuid = revealRequest?.uuid;
+  const revealSeq = revealRequest?.seq;
   useEffect(() => {
-    if (!highlightedSection) return;
-    const pathUuids = uuidPaths.get(highlightedSection);
-    if (!pathUuids || pathUuids.length === 0) return;
+    const pathUuids = revealUuid ? (uuidPaths.get(revealUuid) ?? []) : [];
+    if (pathUuids.length === 0) return;
     setCollapsedTags((prev) => {
       let changed = false;
       const next = new Set(prev);
@@ -649,7 +712,17 @@ export function XMLRenderer({
       }
       return changed ? next : prev;
     });
-  }, [highlightedSection, uuidPaths]);
+  }, [revealUuid, revealSeq, uuidPaths]);
+
+  const normalizedFindQuery = findQuery.trim();
+  const findRegex = useMemo(
+    () => buildFindRegex(normalizedFindQuery),
+    [normalizedFindQuery],
+  );
+  const findHitNodes = useMemo(
+    () => collectFindHitNodes(parsedXML, findRegex),
+    [findRegex, parsedXML],
+  );
 
   const toggleCollapse = useCallback((tagId: string) => {
     setCollapsedTags((prev) => {
@@ -667,7 +740,7 @@ export function XMLRenderer({
     return (
       <div className={cn("xml-renderer min-w-0 max-w-full", className)}>
         <div className="py-8 text-center" role="alert">
-          <p className="font-medium text-destructive dark:text-red-400">
+          <p className="font-medium text-destructive">
             Unable to render this document
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -682,10 +755,16 @@ export function XMLRenderer({
     mode,
     isMobile,
     meta,
-    collapsedTags,
-    fadingHighlights,
-    highlightedSection,
+    // While find is active every section renders expanded so every hit is in
+    // the DOM; the user's collapse state comes back when find closes.
+    collapsedTags: findRegex ? EMPTY_SET : collapsedTags,
     onToggleCollapse: toggleCollapse,
+    findQuery: normalizedFindQuery,
+    findRegex,
+    findHitNodes,
+    matchedSectionUuids: matchedSectionUuids ?? EMPTY_SET,
+    currentMatchUuid,
+    renderSectionActions,
   };
 
   return (

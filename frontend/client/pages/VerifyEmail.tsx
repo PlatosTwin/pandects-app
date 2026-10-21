@@ -119,8 +119,8 @@ export default function VerifyEmail() {
   return (
     <PageShell
       title="Verify your email"
-      subtitle="Completing your Pandects email verification."
-      size="md"
+      description="Completing your Pandects email verification."
+      layout="form"
     >
       <div className="grid gap-6">
         {state.kind === "legal" ? (

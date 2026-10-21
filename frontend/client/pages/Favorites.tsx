@@ -44,7 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { indexClauseTypeLabels } from "@/lib/clause-type-index";
-import { useFilterOptions } from "@/hooks/use-filter-options";
+import { useTaxonomy } from "@/hooks/use-taxonomy";
 import {
   bulkCopyFavorites as apiBulkCopyFavorites,
   bulkMoveFavorites as apiBulkMoveFavorites,
@@ -61,10 +61,11 @@ const EMPTY_SECTIONS: Record<string, SectionDetails | null> = {};
 export default function FavoritesPage() {
   const { status, user } = useAuth();
   const { toast } = useToast();
-  const { clause_types } = useFilterOptions({ fields: ["clause_types"] });
+  // Fallback for section favorites whose details carry no labels.
+  const { taxonomyTree } = useTaxonomy();
   const clauseTypeLabelById = useMemo(
-    () => indexClauseTypeLabels(clause_types),
-    [clause_types],
+    () => indexClauseTypeLabels(taxonomyTree ?? {}),
+    [taxonomyTree],
   );
   const {
     projects,
@@ -247,7 +248,7 @@ export default function FavoritesPage() {
 
   if (status === "loading" || !user) {
     return (
-      <PageShell title="Favorites">
+      <PageShell layout="data" title="Favorites">
         <div className="text-sm text-muted-foreground">Loading…</div>
       </PageShell>
     );
@@ -461,23 +462,18 @@ export default function FavoritesPage() {
   };
 
   return (
-    <PageShell size="full" className="px-0 py-0 sm:px-0 lg:px-0">
+    <PageShell
+      layout="data"
+      title="Favorites"
+      actions={
+        <span className="text-sm text-muted-foreground">
+          {visible.length} of {favorites.length} shown
+        </span>
+      }
+    >
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="w-full overflow-x-hidden">
-          <div className="border-b border-border px-4 py-3 sm:px-8">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5">
-                <h1 className="shrink-0 text-xl font-semibold tracking-tight text-foreground">
-                  Favorites
-                </h1>
-              </div>
-              <span className="text-sm text-muted-foreground">
-                {visible.length} of {favorites.length} shown
-              </span>
-            </div>
-          </div>
-
-          <div className="border-b border-border bg-muted/20 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-muted/20 sm:px-8">
+        <div className="w-full min-w-0">
+          <div className="rounded-xl border border-border bg-muted/20 px-4 py-2.5">
             <div className="grid min-w-0 gap-2 xl:grid-cols-[18rem_minmax(0,1fr)]">
               <TagsManager
                 onTagUpdated={handleTagUpdated}
@@ -491,7 +487,7 @@ export default function FavoritesPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 px-4 py-4 sm:px-8 xl:grid-cols-[18rem_minmax(0,1fr)]">
+          <div className="mt-4 grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
             <ProjectSidebar
               projects={projects}
               activeProjectId={activeProjectId}
@@ -575,7 +571,7 @@ export default function FavoritesPage() {
               </div>
 
               {selectedIds.size > 0 ? (
-                <div className="sticky top-16 z-20 flex flex-col gap-2 rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur sm:flex-row sm:items-center">
+                <div className="sticky top-16 z-20 flex flex-col gap-2 rounded-lg border bg-background px-3 py-2 shadow-sm sm:flex-row sm:items-center">
                   <span className="text-sm font-medium text-foreground">
                     {selectedIds.size} selected
                   </span>

@@ -178,9 +178,15 @@ export default function AuthZitadelCallback() {
 
   return (
     <PageShell
-      title="Signing in…"
-      subtitle="Completing your account sign-in."
-      size="md"
+      layout="form"
+      title={
+        state.kind === "error"
+          ? "Could not sign in"
+          : state.kind === "working"
+            ? "Signing in…"
+            : "Sign in"
+      }
+      description={state.kind === "working" ? "Completing your account sign-in." : undefined}
     >
       {state.kind === "working" ? (
         <Card className="p-6">
@@ -192,11 +198,8 @@ export default function AuthZitadelCallback() {
       ) : state.kind === "error" ? (
         <Card className="p-6">
           <div className="grid gap-4" role="alert">
-            <div>
-              <div className="text-sm font-medium">Could not sign in</div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                {shouldHandleAuthWakeupMessage(state.message) ? AUTH_WAKEUP_MESSAGE : state.message}
-              </div>
+            <div className="text-sm text-muted-foreground">
+              {shouldHandleAuthWakeupMessage(state.message) ? AUTH_WAKEUP_MESSAGE : state.message}
             </div>
             <Button onClick={() => navigate("/login", { replace: true })}>
               Back to sign in

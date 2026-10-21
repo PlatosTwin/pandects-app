@@ -31,6 +31,7 @@ os.environ.setdefault("AUTH_DATABASE_URI", f"sqlite:///{_AUTH_DB_TEMP.name}")
 
 from backend.app import create_test_app, db  # noqa: E402
 import backend.app as backend_app  # noqa: E402
+from backend.core import rate_limit  # noqa: E402
 
 
 class PaginationAndAccessTests(unittest.TestCase):
@@ -120,13 +121,13 @@ class PaginationAndAccessTests(unittest.TestCase):
         self.assertIsNone(backend_app._safe_next_path("/account\nx"))
 
     def test_rate_limit_pruning_caps_state_growth(self):
-        old_max = backend_app._RATE_LIMIT_MAX_KEYS
-        old_interval = backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS
-        old_last_prune = backend_app._rate_limit_last_prune_at
+        old_max = rate_limit.RATE_LIMIT_MAX_KEYS
+        old_interval = rate_limit.RATE_LIMIT_PRUNE_INTERVAL_SECONDS
+        old_last_prune = rate_limit.rate_limit_last_prune_at
         try:
-            backend_app._RATE_LIMIT_MAX_KEYS = 3
-            backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS = 0.0
-            backend_app._rate_limit_last_prune_at = 0.0
+            rate_limit.RATE_LIMIT_MAX_KEYS = 3
+            rate_limit.RATE_LIMIT_PRUNE_INTERVAL_SECONDS = 0.0
+            rate_limit.rate_limit_last_prune_at = 0.0
             backend_app._rate_limit_state.clear()
             backend_app._endpoint_rate_limit_state.clear()
 
@@ -140,26 +141,26 @@ class PaginationAndAccessTests(unittest.TestCase):
             self.assertLessEqual(len(backend_app._rate_limit_state), 3)
             self.assertLessEqual(len(backend_app._endpoint_rate_limit_state), 3)
         finally:
-            backend_app._RATE_LIMIT_MAX_KEYS = old_max
-            backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS = old_interval
-            backend_app._rate_limit_last_prune_at = old_last_prune
+            rate_limit.RATE_LIMIT_MAX_KEYS = old_max
+            rate_limit.RATE_LIMIT_PRUNE_INTERVAL_SECONDS = old_interval
+            rate_limit.rate_limit_last_prune_at = old_last_prune
             backend_app._rate_limit_state.clear()
             backend_app._endpoint_rate_limit_state.clear()
 
     def test_endpoint_rate_limit_state_is_bounded_under_high_cardinality_auth_requests(self):
-        old_max = backend_app._RATE_LIMIT_MAX_KEYS
-        old_interval = backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS
-        old_last_prune = backend_app._rate_limit_last_prune_at
+        old_max = rate_limit.RATE_LIMIT_MAX_KEYS
+        old_interval = rate_limit.RATE_LIMIT_PRUNE_INTERVAL_SECONDS
+        old_last_prune = rate_limit.rate_limit_last_prune_at
         try:
-            backend_app._RATE_LIMIT_MAX_KEYS = 8
-            backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS = 0.0
-            backend_app._rate_limit_last_prune_at = 0.0
+            rate_limit.RATE_LIMIT_MAX_KEYS = 8
+            rate_limit.RATE_LIMIT_PRUNE_INTERVAL_SECONDS = 0.0
+            rate_limit.rate_limit_last_prune_at = 0.0
             backend_app._rate_limit_state.clear()
             backend_app._endpoint_rate_limit_state.clear()
 
             for idx in range(60):
                 with patch("backend.app.time.time", return_value=1000.0 + idx):
-                    with patch("backend.app._request_ip_address", return_value=f"10.0.0.{idx}"):
+                    with patch("backend.core.rate_limit.request_ip_address", return_value=f"10.0.0.{idx}"):
                         with self.app.test_request_context("/v1/auth/flag-inaccurate", method="POST"):
                             backend_app._check_endpoint_rate_limit()
 
@@ -170,9 +171,9 @@ class PaginationAndAccessTests(unittest.TestCase):
             self.assertLessEqual(len(backend_app._endpoint_rate_limit_state), 8)
             self.assertLessEqual(len(backend_app._rate_limit_state), 8)
         finally:
-            backend_app._RATE_LIMIT_MAX_KEYS = old_max
-            backend_app._RATE_LIMIT_PRUNE_INTERVAL_SECONDS = old_interval
-            backend_app._rate_limit_last_prune_at = old_last_prune
+            rate_limit.RATE_LIMIT_MAX_KEYS = old_max
+            rate_limit.RATE_LIMIT_PRUNE_INTERVAL_SECONDS = old_interval
+            rate_limit.rate_limit_last_prune_at = old_last_prune
             backend_app._rate_limit_state.clear()
             backend_app._endpoint_rate_limit_state.clear()
 

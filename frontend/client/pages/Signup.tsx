@@ -22,12 +22,12 @@ export default function Signup() {
   }
 
   return (
-    <PageShell title="Create account" size="md" className="max-w-3xl">
-      <Card className="mx-auto w-full max-w-xl border-border bg-card/95 p-6 shadow-sm sm:p-8">
+    <PageShell title="Create account" layout="form">
+      <Card className="w-full p-6 shadow-sm sm:p-8">
         <Alert>
           <AlertTitle>Account creation is temporarily disabled</AlertTitle>
         </Alert>
-        <div className="mt-6 text-center text-sm text-muted-foreground">
+        <div className="mt-6 text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link
             to={`/login?next=${encodeURIComponent(nextPath)}`}

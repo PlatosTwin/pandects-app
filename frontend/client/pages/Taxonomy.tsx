@@ -1,44 +1,33 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
+import { ChevronDown, ListTree, Search } from "lucide-react";
+
 import { PageShell } from "@/components/PageShell";
-import { getDocsUrl } from "@/lib/docs-url";
-import { useTaxonomy } from "@/hooks/use-taxonomy";
+import { EmptyState, ErrorState } from "@/components/StateMessage";
+import { TaxonomyExportButtons } from "@/components/TaxonomyExportButtons";
+import { TaxonomyNodePanel } from "@/components/taxonomy/TaxonomyNodePanel";
 import {
-  ArrowRight,
-  ChevronDown,
-  Copy,
-  Folder,
-  Layers,
-  Search,
-  Tag,
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "@/components/ui/card";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-} from "@/components/ui/accordion";
-import { cn } from "@/lib/utils";
+  countNoun,
+  formatCount,
+  taxonomySearchHref,
+} from "@/components/taxonomy/taxonomy-nodes";
+import { Accordion, AccordionContent, AccordionItem } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CopyButton } from "@/components/ui/copy-button";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { ExternalLink } from "@/components/ui/external-link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { TaxonomyExportButtons } from "@/components/TaxonomyExportButtons";
-import {
-  formatTaxonomyTreeText,
-  taxonomyTextFileName,
-} from "@/lib/taxonomy-export";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useMediaQuery } from "@/components/reader/use-media-query";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTaxonomy, useTaxonomyCounts } from "@/hooks/use-taxonomy";
 import { scheduleWhenBrowserIdle } from "@/lib/analytics";
-import { logger } from "@/lib/logger";
+import { getDocsUrl } from "@/lib/docs-url";
+import type { TaxonomyKind } from "@/lib/query-keys";
 import {
   buildTaxonomyEntries,
   buildTaxonomySearchEntries,
@@ -46,9 +35,29 @@ import {
   normalizeForTaxonomySearch,
   type TaxonomySearchEntry,
 } from "@/lib/taxonomy-search";
+import { formatTaxonomyTreeText, taxonomyTextFileName } from "@/lib/taxonomy-export";
+import { cn } from "@/lib/utils";
 
-type TaxonomyTab = "main" | "tax";
 type TaxonomyViewMode = "tile" | "tree";
+
+const TAB_OPTIONS = [
+  { value: "main", label: "Main" },
+  { value: "tax", label: "Tax" },
+] as const;
+
+const VIEW_OPTIONS = [
+  { value: "tree", label: "Tree" },
+  { value: "tile", label: "Tile" },
+] as const;
+
+/** The detail panel docks beside the tree at `lg`; below it, it opens as a sheet. */
+const DOCKED_PANEL_QUERY = "(min-width: 1024px)";
+
+function useDockedPanel(): boolean {
+  // Prerendered HTML has the docked panel; phones switch to the sheet after
+  // hydration instead of mismatching on the first render.
+  return useMediaQuery(DOCKED_PANEL_QUERY, true);
+}
 
 /**
  * Accordion header whose trigger is a full-row overlay button instead of a
@@ -67,7 +76,7 @@ function TileAccordionHeader({
   ariaLabel: string;
   children: ReactNode;
   className?: string;
-  headingLevel: "h2" | "h3";
+  headingLevel: "h3" | "h4";
 }) {
   return (
     <AccordionPrimitive.Header asChild>
@@ -96,27 +105,27 @@ function TileAccordionHeader({
 export default function Taxonomy() {
   const docsUrl = getDocsUrl();
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get("tab") === "tax" ? "tax" : "main";
+  const currentTab: TaxonomyKind = searchParams.get("tab") === "tax" ? "tax" : "main";
+  const selectedId = searchParams.get("node");
   const { taxonomyTree, isLoading, error } = useTaxonomy({ kind: currentTab });
+  const { counts } = useTaxonomyCounts({ kind: currentTab });
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
+  const isPanelDocked = useDockedPanel();
   const [hasActivatedSearch, setHasActivatedSearch] = useState(false);
   const [openLevel1, setOpenLevel1] = useState<string[]>([]);
-  const [openLevel2ByParent, setOpenLevel2ByParent] = useState<
-    Record<string, string[]>
-  >({});
+  const [openLevel2ByParent, setOpenLevel2ByParent] = useState<Record<string, string[]>>(
+    {},
+  );
   const [viewMode, setViewMode] = useState<TaxonomyViewMode>("tree");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [shouldRenderTree, setShouldRenderTree] = useState(false);
   const highlightTimerRef = useRef<number | null>(null);
-  const endpointPath =
-    currentTab === "tax" ? "/v1/taxonomy/tax-clauses" : "/v1/taxonomy";
+  const endpointPath = currentTab === "tax" ? "/v1/taxonomy/tax-clauses" : "/v1/taxonomy";
   const endpointDocsUrl =
     currentTab === "tax"
       ? `${docsUrl}/docs/pandects/get-tax-clause-taxonomy`
       : `${docsUrl}/docs/pandects/get-taxonomy`;
-  const overviewTitle =
-    currentTab === "tax" ? "Tax Taxonomy Overview" : "Taxonomy Overview";
   const treeTitle = currentTab === "tax" ? "Tax Taxonomy Tree" : "Taxonomy Tree";
   const taxonomySearchLabel =
     currentTab === "tax" ? "Find a clause class" : "Find a section class";
@@ -125,9 +134,7 @@ export default function Taxonomy() {
       ? "Search clause types or taxonomy IDs"
       : "Search section types or taxonomy IDs";
   const emptySearchMessage =
-    currentTab === "tax"
-      ? "No matching tax clause types yet."
-      : "No matching section types yet.";
+    currentTab === "tax" ? "No matching tax clause types yet." : "No matching section types yet.";
   const taxonomyEntries = useMemo(
     () => (taxonomyTree ? buildTaxonomyEntries(taxonomyTree) : []),
     [taxonomyTree],
@@ -149,33 +156,15 @@ export default function Taxonomy() {
   }, [flattenedEntries, hasQuery, searchQuery]);
   const orderedResults = useMemo(() => {
     const results = [...searchResults];
-    const depthRank = (entry: TaxonomySearchEntry) => {
-      if (entry.l3) {
-        return 2;
-      }
-      if (entry.l2) {
-        return 1;
-      }
-      return 0;
-    };
+    const depthRank = (entry: TaxonomySearchEntry) => (entry.l3 ? 2 : entry.l2 ? 1 : 0);
     results.sort((a, b) => {
       const level = depthRank(a) - depthRank(b);
-      if (level !== 0) {
-        return level;
-      }
+      if (level !== 0) return level;
       const l1 = a.l1.localeCompare(b.l1, "en", { sensitivity: "base" });
-      if (l1 !== 0) {
-        return l1;
-      }
-      const l2 = (a.l2 ?? "").localeCompare(b.l2 ?? "", "en", {
-        sensitivity: "base",
-      });
-      if (l2 !== 0) {
-        return l2;
-      }
-      return (a.l3 ?? "").localeCompare(b.l3 ?? "", "en", {
-        sensitivity: "base",
-      });
+      if (l1 !== 0) return l1;
+      const l2 = (a.l2 ?? "").localeCompare(b.l2 ?? "", "en", { sensitivity: "base" });
+      if (l2 !== 0) return l2;
+      return (a.l3 ?? "").localeCompare(b.l3 ?? "", "en", { sensitivity: "base" });
     });
     return results;
   }, [searchResults]);
@@ -193,16 +182,13 @@ export default function Taxonomy() {
       setShouldRenderTree(false);
       return;
     }
-
     if (hasQuery) {
       setShouldRenderTree(true);
       return;
     }
-
     const cancelDeferredTree = scheduleWhenBrowserIdle(() => {
       setShouldRenderTree(true);
     }, 1800);
-
     return cancelDeferredTree;
   }, [hasQuery, isLoading, taxonomyEntries.length]);
 
@@ -228,10 +214,7 @@ export default function Taxonomy() {
     const ranges: Array<{ start: number; end: number }> = [];
     let searchStart = 0;
     while (true) {
-      const matchIndex = normalizedLabel.indexOf(
-        normalizedQueryValue,
-        searchStart,
-      );
+      const matchIndex = normalizedLabel.indexOf(normalizedQueryValue, searchStart);
       if (matchIndex === -1) {
         break;
       }
@@ -249,9 +232,7 @@ export default function Taxonomy() {
     let cursor = 0;
     ranges.forEach((range, index) => {
       if (range.start > cursor) {
-        parts.push(
-          <span key={`text-${index}`}>{label.slice(cursor, range.start)}</span>,
-        );
+        parts.push(<span key={`text-${index}`}>{label.slice(cursor, range.start)}</span>);
       }
       parts.push(
         <span
@@ -269,15 +250,8 @@ export default function Taxonomy() {
     return parts;
   };
 
-  const getResultLevel = (result: TaxonomySearchEntry) => {
-    if (result.l3) {
-      return "L3";
-    }
-    if (result.l2) {
-      return "L2";
-    }
-    return "L1";
-  };
+  const getResultLevel = (result: TaxonomySearchEntry) =>
+    result.l3 ? "L3" : result.l2 ? "L2" : "L1";
 
   // Depth encoded as darkness steps off the primary token: L3 is primary,
   // L2 and L1 mix progressively more black into it.
@@ -290,6 +264,19 @@ export default function Taxonomy() {
       default:
         return "border-transparent bg-[color-mix(in_srgb,hsl(var(--primary))_45%,black)] text-white";
     }
+  };
+
+  const updateParams = (mutate: (params: URLSearchParams) => void) => {
+    const nextParams = new URLSearchParams(searchParams);
+    mutate(nextParams);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const selectNode = (standardId: string | null) => {
+    updateParams((params) => {
+      if (standardId) params.set("node", standardId);
+      else params.delete("node");
+    });
   };
 
   const addUnique = (items: string[], value: string) =>
@@ -306,6 +293,7 @@ export default function Taxonomy() {
         ? `taxonomy-l2-${level2Id}`
         : `taxonomy-l1-${level1Id}`;
 
+    selectNode(level3Id ?? level2Id ?? level1Id);
     setOpenLevel1((prev) => addUnique(prev, level1Id));
     if (level2Id) {
       setOpenLevel2ByParent((prev) => ({
@@ -332,57 +320,20 @@ export default function Taxonomy() {
   };
 
   const highlightRingClass = (id: string) =>
-    highlightedId === id
-      ? "bg-primary/10 ring-2 ring-primary/35"
-      : "ring-1 ring-transparent";
+    highlightedId === id ? "bg-primary/10 ring-2 ring-primary/35" : "ring-1 ring-transparent";
 
   const totals = useMemo(() => {
-    const l1 = taxonomyEntries.length;
-    const l2 = taxonomyEntries.reduce(
-      (sum, entry) => sum + entry.children.length,
-      0,
-    );
-    const l3 = taxonomyEntries.reduce(
-      (sum, entry) =>
-        sum +
-        entry.children.reduce(
-          (childSum, child) => childSum + child.children.length,
-          0,
-        ),
-      0,
-    );
-    return { l1, l2, l3 };
+    const l2 = taxonomyEntries.reduce((sum, entry) => sum + entry.children.length, 0);
+    const l3 = taxonomyEntries.reduce((sum, entry) => sum + entry.l3Count, 0);
+    return { l1: taxonomyEntries.length, l2, l3 };
   }, [taxonomyEntries]);
 
-  const copyToClipboard = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      logger.warn("Clipboard write failed.");
-    }
-  };
-
-  const renderCopyControl = (value: string, label: string) => (
-    <button
-      type="button"
-      onClick={() => void copyToClipboard(value)}
-      className="pointer-events-auto inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-transparent bg-transparent text-foreground/65 transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      aria-label={label}
-      title={label}
-    >
-      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-    </button>
-  );
-
-  const handleTabChange = (value: string) => {
-    const nextTab: TaxonomyTab = value === "tax" ? "tax" : "main";
-    const nextParams = new URLSearchParams(searchParams);
-    if (nextTab === "main") {
-      nextParams.delete("tab");
-    } else {
-      nextParams.set("tab", nextTab);
-    }
-    setSearchParams(nextParams, { replace: true });
+  const handleTabChange = (nextTab: TaxonomyKind) => {
+    updateParams((params) => {
+      if (nextTab === "main") params.delete("tab");
+      else params.set("tab", nextTab);
+      params.delete("node");
+    });
     setSearchQuery("");
     setHasActivatedSearch(false);
     setOpenLevel1([]);
@@ -394,92 +345,130 @@ export default function Taxonomy() {
     }
   };
 
+  const nodeCount = (id: string) =>
+    counts ? (
+      <span
+        className="shrink-0 text-xs tabular-nums text-muted-foreground"
+        aria-label={`${formatCount(counts[id] ?? 0)} ${countNoun(currentTab, counts[id] ?? 0)}`}
+      >
+        {formatCount(counts[id] ?? 0)}
+      </span>
+    ) : null;
+
+  const searchLink = (id: string, label: string, className?: string) => (
+    <Link
+      to={taxonomySearchHref(currentTab, id)}
+      aria-label={`Find ${label} in search`}
+      title="Find in search"
+      className={cn(
+        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        className,
+      )}
+    >
+      <Search className="h-4 w-4" aria-hidden="true" />
+    </Link>
+  );
+
+  /** One selectable row of the tree view. */
+  const treeRow = (
+    id: string,
+    label: string,
+    level: 1 | 2 | 3,
+    domId: string,
+  ) => {
+    const isSelected = selectedId === id;
+    return (
+      <div
+        id={domId}
+        className={cn(
+          "group flex items-center gap-2 rounded-lg pl-2 pr-1 transition-colors duration-700",
+          isSelected ? "bg-primary/10" : "hover:bg-accent/60",
+          highlightRingClass(domId),
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => selectNode(id)}
+          aria-pressed={isSelected}
+          className="flex min-h-9 min-w-0 flex-1 flex-wrap items-baseline gap-x-2 rounded-md py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span
+            className={cn(
+              "text-foreground",
+              level === 1 ? "font-semibold" : level === 2 ? "font-medium" : "",
+            )}
+          >
+            {label}
+          </span>
+          {!isMobile ? (
+            <span className="font-mono text-[11px] text-muted-foreground">{id}</span>
+          ) : null}
+        </button>
+        {nodeCount(id)}
+        {level === 3 ? searchLink(id, label) : <span className="w-8 shrink-0" aria-hidden="true" />}
+      </div>
+    );
+  };
+
+  const panel = selectedId ? (
+    <TaxonomyNodePanel
+      key={`${currentTab}:${selectedId}`}
+      kind={currentTab}
+      standardId={selectedId}
+      onSelectNode={selectNode}
+      titleId="taxonomy-node-title"
+    />
+  ) : null;
+
   return (
     <PageShell
-      size="xl"
+      layout="data"
       title="Taxonomy"
-    >
-      <div className="mb-4">
-        <div className="prose-copy rounded-lg bg-muted/20 pb-3 pt-0 text-sm sm:text-base">
+      description={
+        <>
           Pull the latest taxonomy via the{" "}
-          <span className="font-mono text-sm text-foreground">{endpointPath}</span>{" "}
-          API route. See the{" "}
-          <a
-            href={endpointDocsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Open taxonomy API docs in a new tab"
-            className="font-medium text-primary underline decoration-primary/60 underline-offset-2"
-          >
-            Docs
-          </a>{" "}
-          for usage details.
-        </div>
-      </div>
-
-      <div className="grid gap-6">
-        <section aria-labelledby="taxonomy-controls" role="search">
-          <div className="border-b border-border/50 pb-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="w-full lg:max-w-md xl:max-w-lg">
-                <Label
-                  id="taxonomy-controls"
-                  htmlFor="taxonomy-search-input"
-                  className="sr-only"
-                >
-                  {taxonomySearchLabel}
-                </Label>
-                <div className="relative">
-                  <Search
-                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/45"
-                    aria-hidden="true"
-                  />
-                  <Input
-                    id="taxonomy-search-input"
-                    value={searchQuery}
-                    onChange={(event) => {
-                      setHasActivatedSearch(true);
-                      setSearchQuery(event.target.value);
-                    }}
-                    onFocus={() => setHasActivatedSearch(true)}
-                    placeholder={taxonomySearchPlaceholder}
-                    className="h-11 rounded-full border-border bg-background pl-10 pr-4 text-base shadow-none md:text-sm"
-                    autoComplete="off"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center lg:justify-end">
-                <div
-                  className="inline-grid grid-cols-2 rounded-full border border-border bg-muted/35 p-1"
-                  role="group"
-                  aria-label="Taxonomy mode"
-                >
-                  {(["main", "tax"] as const).map((tab) => {
-                    const isActive = currentTab === tab;
-                    return (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => handleTabChange(tab)}
-                        aria-pressed={isActive}
-                        className={`inline-flex min-w-[6.75rem] items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                          isActive
-                            ? "border border-primary/20 bg-primary/10 text-primary shadow-sm"
-                            : "text-foreground/60 hover:bg-background/70 hover:text-foreground"
-                        }`}
-                      >
-                        {tab === "main" ? "Main" : "Tax"}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+          <span className="font-mono text-sm text-foreground">{endpointPath}</span> API
+          route. See the <ExternalLink href={endpointDocsUrl}>Docs</ExternalLink> for usage
+          details.
+        </>
+      }
+      actions={
+        <SegmentedControl
+          aria-label="Taxonomy mode"
+          value={currentTab}
+          onValueChange={handleTabChange}
+          options={TAB_OPTIONS}
+        />
+      }
+    >
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
+        <div className="grid min-w-0 gap-6">
+          <section aria-labelledby="taxonomy-controls" role="search">
+            <Label id="taxonomy-controls" htmlFor="taxonomy-search-input" className="sr-only">
+              {taxonomySearchLabel}
+            </Label>
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="taxonomy-search-input"
+                value={searchQuery}
+                onChange={(event) => {
+                  setHasActivatedSearch(true);
+                  setSearchQuery(event.target.value);
+                }}
+                onFocus={() => setHasActivatedSearch(true)}
+                placeholder={taxonomySearchPlaceholder}
+                className="h-11 pl-10 pr-4 text-base md:text-sm"
+                autoComplete="off"
+              />
             </div>
 
             {hasQuery && (
               <div
-                className="mt-4 rounded-xl border border-border bg-muted/20 p-3"
+                className="mt-3 rounded-xl border border-border bg-card p-3"
                 aria-live="polite"
                 aria-atomic="true"
               >
@@ -490,30 +479,24 @@ export default function Taxonomy() {
                     <Skeleton className="h-4 w-3/4" />
                   </div>
                 ) : searchResults.length === 0 ? (
-                  <div className="text-sm text-foreground">
-                    {emptySearchMessage}
-                  </div>
+                  <p className="text-sm text-foreground">{emptySearchMessage}</p>
                 ) : (
                   <div className="space-y-2">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-foreground/90">
-                      {searchResults.length}{" "}
-                      {searchResults.length === 1 ? "result" : "results"}
-                    </div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {searchResults.length} {searchResults.length === 1 ? "result" : "results"}
+                    </p>
                     <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {orderedResults.map((result) => (
-                        <li
-                          key={result.id}
-                          className="rounded-md border border-border bg-card shadow-sm"
-                        >
+                        <li key={result.id} className="rounded-lg border border-border bg-card">
                           <button
                             type="button"
                             onClick={() => handleResultClick(result)}
-                            className="flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                            className="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={`View clause: ${[result.l1, result.l2, result.l3].filter(Boolean).join(" > ")}`}
                           >
                             <Badge
                               variant="outline"
-                              className={`shrink-0 min-w-[2.5rem] justify-center text-[11px] ${getResultLevelStyles(
+                              className={`min-w-[2.5rem] shrink-0 justify-center text-[11px] ${getResultLevelStyles(
                                 getResultLevel(result),
                               )}`}
                             >
@@ -524,29 +507,17 @@ export default function Taxonomy() {
                                 {renderHighlighted(result.l1)}
                               </div>
                               {result.l2 && (
-                                <div className="ml-1 mt-0.5 border-l border-foreground/35 pl-3">
-                                  <div className="relative leading-snug text-foreground">
-                                    <span
-                                      aria-hidden="true"
-                                      className="absolute -left-3 top-1/2 h-px w-2 -translate-y-1/2 bg-foreground/35"
-                                    />
-                                    <span>{renderHighlighted(result.l2)}</span>
-                                  </div>
+                                <div className="ml-1 mt-0.5 border-l border-border pl-3">
+                                  <div className="leading-snug">{renderHighlighted(result.l2)}</div>
                                   {result.l3 && (
-                                    <div className="ml-3 mt-0.5 border-l border-foreground/30 pl-3">
-                                      <div className="relative leading-snug">
-                                        <span
-                                          aria-hidden="true"
-                                          className="absolute -left-3 top-1/2 h-px w-2 -translate-y-1/2 bg-foreground/30"
-                                        />
-                                        <span>{renderHighlighted(result.l3)}</span>
-                                      </div>
+                                    <div className="ml-3 mt-0.5 border-l border-border pl-3 leading-snug">
+                                      {renderHighlighted(result.l3)}
                                     </div>
                                   )}
                                 </div>
                               )}
                               {!isMobile ? (
-                                <div className="font-mono text-xs text-foreground/90">
+                                <div className="font-mono text-xs text-muted-foreground">
                                   {renderHighlighted(result.id)}
                                 </div>
                               ) : null}
@@ -559,381 +530,258 @@ export default function Taxonomy() {
                 )}
               </div>
             )}
-          </div>
-        </section>
+          </section>
 
-        <section
-          aria-labelledby="taxonomy-overview"
-          aria-describedby="taxonomy-overview-desc"
-        >
-          <Card className="border-border bg-card">
-            <CardHeader className="pb-4">
-              <h2
-                id="taxonomy-overview"
-                className="text-xl font-semibold leading-none tracking-tight"
-              >
-                {overviewTitle}
-              </h2>
-              <CardDescription id="taxonomy-overview-desc" className="prose-copy">
-                Expand a level to see how categories roll up to standard IDs and
-                child labels.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div
-                  className="grid min-h-[8.75rem] gap-4 sm:grid-cols-3"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <Skeleton className="h-20 w-full" />
-                  <Skeleton className="h-20 w-full" />
-                  <Skeleton className="h-20 w-full" />
-                </div>
-              ) : (
-                <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
-                  <div className="rounded-lg border border-border bg-card px-4 py-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
-                      <Folder className="h-4 w-4" aria-hidden="true" />
-                      Level 1 Categories
-                    </div>
-                    <div className="mt-1.5 text-4xl font-bold leading-none text-foreground">
-                      {totals.l1}
-                    </div>
-                  </div>
-                  <div className="hidden justify-center text-muted-foreground sm:flex">
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </div>
-                  <div className="rounded-lg border border-border bg-card px-4 py-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
-                      <Layers className="h-4 w-4" aria-hidden="true" />
-                      Level 2 Groups
-                    </div>
-                    <div className="mt-1.5 text-4xl font-bold leading-none text-foreground">
-                      {totals.l2}
-                    </div>
-                  </div>
-                  <div className="hidden justify-center text-muted-foreground sm:flex">
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </div>
-                  <div className="rounded-lg border border-border bg-card px-4 py-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/90">
-                      <Tag className="h-4 w-4" aria-hidden="true" />
-                      Level 3 Types
-                    </div>
-                    <div className="mt-1.5 text-4xl font-bold leading-none text-foreground">
-                      {totals.l3}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>Taxonomy unavailable</AlertTitle>
-            <AlertDescription>
-              {error} Please refresh the page to try again.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <section aria-labelledby="taxonomy-tree">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2
-              id="taxonomy-tree"
-              className="text-xl font-semibold leading-none tracking-tight"
-            >
-              {viewMode === "tree" ? `${treeTitle} View` : treeTitle}
-            </h2>
-            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-              <TaxonomyExportButtons
-                // Remount on tab change so a "Copied" flash from the previous
-                // taxonomy can't linger over the one now loading, matching how
-                // handleTabChange clears the page's other transient state.
-                key={currentTab}
-                getText={() => formatTaxonomyTreeText(taxonomyEntries)}
-                fileName={taxonomyTextFileName(currentTab)}
-                disabled={isLoading || taxonomyEntries.length === 0}
-              />
-              <div className="flex items-center gap-3">
-                <Label
-                  htmlFor="taxonomy-view-mode-tile"
-                  className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                >
-                  View
-                </Label>
-                <ToggleGroup
-                  type="single"
-                  value={viewMode}
-                  onValueChange={(value) => {
-                    if (value === "tile" || value === "tree") {
-                      setViewMode(value);
-                    }
-                  }}
+          <section aria-labelledby="taxonomy-tree">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-1">
+                <h2 id="taxonomy-tree" className="text-xl">
+                  {viewMode === "tree" ? `${treeTitle} View` : treeTitle}
+                </h2>
+                {!isLoading && taxonomyEntries.length > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {totals.l1} categories · {totals.l2} groups · {totals.l3} types
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                <TaxonomyExportButtons
+                  // Remount on tab change so a "Copied" flash from the previous
+                  // taxonomy can't linger over the one now loading, matching how
+                  // handleTabChange clears the page's other transient state.
+                  key={currentTab}
+                  getText={() => formatTaxonomyTreeText(taxonomyEntries)}
+                  fileName={taxonomyTextFileName(currentTab)}
+                  disabled={isLoading || taxonomyEntries.length === 0}
+                />
+                <SegmentedControl<TaxonomyViewMode>
                   aria-label="Taxonomy view"
-                >
-                  <ToggleGroupItem
-                    id="taxonomy-view-mode-tile"
-                    value="tile"
-                    aria-label="Show tile view"
-                  >
-                    Tile
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="tree" aria-label="Show tree view">
-                    Tree
-                  </ToggleGroupItem>
-                </ToggleGroup>
+                  value={viewMode}
+                  onValueChange={setViewMode}
+                  options={VIEW_OPTIONS}
+                />
               </div>
             </div>
-          </div>
 
-          <div className="mt-4" aria-busy={isLoading}>
-            {isLoading ? (
-              <div
-                className="min-h-[28rem] space-y-4"
-                role="status"
-                aria-live="polite"
-              >
-                <Skeleton className="h-32 w-full" />
-                <Skeleton className="h-32 w-full" />
-                <Skeleton className="h-32 w-full" />
-              </div>
-            ) : taxonomyEntries.length === 0 ? (
-              <Card className="border-border bg-card">
-                <CardContent className="py-6 text-sm text-foreground/90">
-                  No taxonomy entries are available right now.
-                </CardContent>
-              </Card>
-            ) : !shouldRenderTree ? (
-              <div
-                className="min-h-[28rem] space-y-4"
-                role="status"
-                aria-live="polite"
-              >
-                <Skeleton className="h-32 w-full" />
-                <Skeleton className="h-32 w-full" />
-                <Skeleton className="h-32 w-full" />
-              </div>
-            ) : (
-              viewMode === "tile" ? (
+            <div className="mt-4" aria-busy={isLoading}>
+              {error ? (
+                <ErrorState variant="card" error={error} />
+              ) : isLoading || (taxonomyEntries.length > 0 && !shouldRenderTree) ? (
+                <div className="min-h-[28rem] space-y-4" role="status" aria-live="polite">
+                  <Skeleton className="h-32 w-full" />
+                  <Skeleton className="h-32 w-full" />
+                  <Skeleton className="h-32 w-full" />
+                </div>
+              ) : taxonomyEntries.length === 0 ? (
+                <EmptyState
+                  variant="card"
+                  icon={ListTree}
+                  title="No taxonomy entries are available right now."
+                />
+              ) : viewMode === "tile" ? (
                 <Accordion
                   type="multiple"
                   value={openLevel1}
                   onValueChange={setOpenLevel1}
-                  className="space-y-4"
+                  className="space-y-3"
                 >
                   {taxonomyEntries.map((entry) => (
                     <AccordionItem
                       key={entry.id}
                       value={entry.id}
                       id={`taxonomy-l1-${entry.id}`}
-                      className={`rounded-lg border border-border bg-card px-0 transition-all duration-1000 hover:-translate-y-1 hover:shadow-md ${highlightRingClass(
+                      className={`rounded-xl border border-border bg-card px-0 transition-shadow duration-700 ${highlightRingClass(
                         `taxonomy-l1-${entry.id}`,
                       )}`}
                     >
                       <TileAccordionHeader
-                        headingLevel="h2"
+                        headingLevel="h3"
                         ariaLabel={`Toggle ${entry.label}`}
-                        className="px-6 py-4 text-xl font-semibold"
+                        className="px-5 py-4"
                       >
                         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <div className="text-xl font-semibold text-foreground">
+                            <span className="text-lg font-semibold text-foreground">
                               {entry.label}
-                            </div>
+                            </span>
                             {!isMobile ? (
-                              <div className="inline-flex items-center gap-1 text-sm text-foreground/80">
+                              <span className="inline-flex items-center gap-1">
                                 <span className="font-mono text-[13px] text-foreground/80">
                                   {entry.id}
                                 </span>
-                                {renderCopyControl(entry.id, "Copy level 1 ID")}
-                              </div>
+                                <CopyButton
+                                  value={entry.id}
+                                  label="Copy level 1 ID"
+                                  className="pointer-events-auto"
+                                />
+                              </span>
                             ) : null}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="count" className="min-w-[5.5rem] justify-center">
-                              {entry.l2Count} Groups
-                            </Badge>
-                            <Badge variant="count" className="min-w-[5.5rem] justify-center">
-                              {entry.l3Count} Types
-                            </Badge>
+                            <Badge variant="count">{entry.l2Count} Groups</Badge>
+                            <Badge variant="count">{entry.l3Count} Types</Badge>
                           </div>
                         </div>
                       </TileAccordionHeader>
-                      <AccordionContent className="px-6 pb-6 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
-                        <div className="rounded-lg border border-border bg-muted/20 p-4">
-                          <Accordion
-                            type="multiple"
-                            value={openLevel2ByParent[entry.id] ?? []}
-                            onValueChange={(value) => {
-                              setOpenLevel2ByParent((prev) => ({
-                                ...prev,
-                                [entry.id]: value,
-                              }));
-                            }}
-                            className="space-y-3"
-                          >
-                            {entry.children.map((child) => (
-                              <AccordionItem
-                                key={child.id}
-                                value={child.id}
-                                id={`taxonomy-l2-${child.id}`}
-                                className={`rounded-lg border border-border bg-muted/20 transition-all duration-1000 hover:-translate-y-1 hover:shadow-md ${highlightRingClass(
-                                  `taxonomy-l2-${child.id}`,
-                                )}`}
+                      <AccordionContent className="px-5 pb-5 pt-0">
+                        <Accordion
+                          type="multiple"
+                          value={openLevel2ByParent[entry.id] ?? []}
+                          onValueChange={(value) => {
+                            setOpenLevel2ByParent((prev) => ({ ...prev, [entry.id]: value }));
+                          }}
+                          className="space-y-2"
+                        >
+                          {entry.children.map((child) => (
+                            <AccordionItem
+                              key={child.id}
+                              value={child.id}
+                              id={`taxonomy-l2-${child.id}`}
+                              className={`rounded-lg border border-border bg-muted/20 transition-shadow duration-700 ${highlightRingClass(
+                                `taxonomy-l2-${child.id}`,
+                              )}`}
+                            >
+                              <TileAccordionHeader
+                                headingLevel="h4"
+                                ariaLabel={`Toggle ${child.label}`}
+                                className="px-4 py-3"
                               >
-                                <TileAccordionHeader
-                                  headingLevel="h3"
-                                  ariaLabel={`Toggle ${child.label}`}
-                                  className="px-5 py-3 text-sm font-semibold"
-                                >
-                                  <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                      <div className="text-sm font-semibold text-foreground">
-                                        {child.label}
-                                      </div>
-                                      {!isMobile ? (
-                                        <div className="inline-flex items-center gap-1 text-xs text-foreground/80">
-                                          <span className="font-mono text-[11px] text-foreground/80">
-                                            {child.id}
-                                          </span>
-                                          {renderCopyControl(child.id, "Copy level 2 ID")}
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                    <Badge variant="count" className="min-w-[5.5rem] justify-center">
-                                      {child.children.length} Types
-                                    </Badge>
+                                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <span className="text-sm font-semibold text-foreground">
+                                      {child.label}
+                                    </span>
+                                    {!isMobile ? (
+                                      <span className="inline-flex items-center gap-1">
+                                        <span className="font-mono text-[11px] text-foreground/80">
+                                          {child.id}
+                                        </span>
+                                        <CopyButton
+                                          value={child.id}
+                                          label="Copy level 2 ID"
+                                          className="pointer-events-auto"
+                                        />
+                                      </span>
+                                    ) : null}
                                   </div>
-                                </TileAccordionHeader>
-                                <AccordionContent className="px-5 pb-4 pt-0 transition-all duration-300 data-[state=closed]:animate-[accordion-up_0.3s_ease-out] data-[state=open]:animate-[accordion-down_0.3s_ease-out]">
-                                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                    {child.children.map((leaf) => (
+                                  <Badge variant="count">{child.children.length} Types</Badge>
+                                </div>
+                              </TileAccordionHeader>
+                              <AccordionContent className="px-4 pb-4 pt-0">
+                                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                  {child.children.map((leaf) => {
+                                    const isSelected = selectedId === leaf.id;
+                                    return (
                                       <li
                                         key={leaf.id}
                                         id={`taxonomy-l3-${leaf.id}`}
-                                        className={`group rounded-md border border-border bg-card px-3 py-3 shadow-sm transition-all duration-1000 hover:-translate-y-1 hover:border-primary/60 hover:shadow-md ${highlightRingClass(
-                                          `taxonomy-l3-${leaf.id}`,
-                                        )}`}
+                                        className={cn(
+                                          "flex items-start gap-1 rounded-lg border bg-card p-1 transition-colors duration-700",
+                                          isSelected ? "border-primary/60 bg-primary/5" : "border-border",
+                                          highlightRingClass(`taxonomy-l3-${leaf.id}`),
+                                        )}
                                       >
-                                        <div className="text-sm font-medium text-foreground">
-                                          {leaf.label}
-                                        </div>
-                                        {!isMobile ? (
-                                          <div className="mt-1 flex items-center gap-1.5 text-xs text-foreground">
-                                            <span className="font-mono text-xs text-foreground">
-                                              {leaf.id}
-                                            </span>
-                                            {renderCopyControl(leaf.id, "Copy level 3 ID")}
-                                          </div>
-                                        ) : null}
+                                        <button
+                                          type="button"
+                                          onClick={() => selectNode(leaf.id)}
+                                          aria-pressed={isSelected}
+                                          className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        >
+                                          <span className="block text-sm font-medium text-foreground">
+                                            {leaf.label}
+                                          </span>
+                                          <span className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
+                                            {!isMobile ? (
+                                              <span className="font-mono">{leaf.id}</span>
+                                            ) : null}
+                                            {counts ? (
+                                              <span className="tabular-nums">
+                                                {formatCount(counts[leaf.id] ?? 0)}{" "}
+                                                {countNoun(currentTab, counts[leaf.id] ?? 0)}
+                                              </span>
+                                            ) : null}
+                                          </span>
+                                        </button>
+                                        {searchLink(leaf.id, leaf.label)}
                                       </li>
-                                    ))}
-                                  </ul>
-                                </AccordionContent>
-                              </AccordionItem>
-                            ))}
-                          </Accordion>
-                        </div>
+                                    );
+                                  })}
+                                </ul>
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                        </Accordion>
                       </AccordionContent>
                     </AccordionItem>
                   ))}
                 </Accordion>
               ) : (
-                <Card className="border-border bg-card">
-                  <CardContent className="p-5 sm:p-6">
-                    <div className="rounded-lg border border-border bg-muted/10 p-4">
-                      <ul className="space-y-4">
-                        {taxonomyEntries.map((entry) => (
-                          <li
-                            key={entry.id}
-                            id={`taxonomy-l1-${entry.id}`}
-                            className={`rounded-md px-3 py-2 transition-all duration-1000 ${highlightRingClass(
-                              `taxonomy-l1-${entry.id}`,
-                            )}`}
-                          >
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground">
-                                {entry.label}
-                              </span>
-                              {!isMobile ? (
-                                <span className="font-mono text-xs text-foreground/80">
-                                  {entry.id}
-                                </span>
-                              ) : null}
-                              <span className="text-xs text-foreground/75">
-                                {entry.l2Count} groups, {entry.l3Count} types
-                              </span>
-                            </div>
-                            <ul className="mt-3 space-y-3 border-l-2 border-foreground/35 pl-4">
-                              {entry.children.map((child) => (
-                                <li
-                                  key={child.id}
-                                  id={`taxonomy-l2-${child.id}`}
-                                  className={`relative rounded-md px-3 py-2 transition-all duration-1000 ${highlightRingClass(
-                                    `taxonomy-l2-${child.id}`,
-                                  )}`}
-                                >
-                                  <span
-                                    aria-hidden="true"
-                                    className="absolute -left-4 top-5 h-0.5 w-3 bg-foreground/35"
-                                  />
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-medium text-foreground">
-                                      {child.label}
-                                    </span>
-                                    {!isMobile ? (
-                                      <span className="font-mono text-xs text-foreground/80">
-                                        {child.id}
-                                      </span>
-                                    ) : null}
-                                    <span className="text-xs text-foreground/75">
-                                      {child.children.length} types
-                                    </span>
-                                  </div>
-                                  <ul className="mt-2 space-y-2 border-l-2 border-dashed border-foreground/30 pl-4">
-                                    {child.children.map((leaf) => (
-                                      <li
-                                        key={leaf.id}
-                                        id={`taxonomy-l3-${leaf.id}`}
-                                        className={`relative rounded-md px-3 py-1.5 transition-all duration-1000 ${highlightRingClass(
-                                          `taxonomy-l3-${leaf.id}`,
-                                        )}`}
-                                      >
-                                        <span
-                                          aria-hidden="true"
-                                          className="absolute -left-4 top-4 h-0.5 w-3 bg-foreground/30"
-                                        />
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <span className="text-sm text-foreground">
-                                            {leaf.label}
-                                          </span>
-                                          {!isMobile ? (
-                                            <span className="font-mono text-xs text-foreground/80">
-                                              {leaf.id}
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </li>
-                              ))}
-                            </ul>
-                          </li>
-                        ))}
-                      </ul>
+                <div className="rounded-xl border border-border bg-card p-2 sm:p-3">
+                  {counts ? (
+                    <div className="flex justify-end pb-1 pr-10" aria-hidden="true">
+                      <Eyebrow>{currentTab === "tax" ? "Clauses" : "Sections"}</Eyebrow>
                     </div>
-                  </CardContent>
-                </Card>
-              )
-            )}
-          </div>
-        </section>
+                  ) : null}
+                  <ul className="space-y-3">
+                    {taxonomyEntries.map((entry) => (
+                      <li key={entry.id}>
+                        {treeRow(entry.id, entry.label, 1, `taxonomy-l1-${entry.id}`)}
+                        <ul className="ml-3 mt-1 space-y-1 border-l border-border pl-3">
+                          {entry.children.map((child) => (
+                            <li key={child.id}>
+                              {treeRow(child.id, child.label, 2, `taxonomy-l2-${child.id}`)}
+                              <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-dashed border-border pl-3">
+                                {child.children.map((leaf) => (
+                                  <li key={leaf.id}>
+                                    {treeRow(leaf.id, leaf.label, 3, `taxonomy-l3-${leaf.id}`)}
+                                  </li>
+                                ))}
+                              </ul>
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        {isPanelDocked ? (
+          <aside aria-labelledby={panel ? "taxonomy-node-title" : undefined} className="hidden lg:block">
+            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl border border-border bg-card p-5">
+              {panel ?? (
+                <EmptyState
+                  variant="inline"
+                  icon={ListTree}
+                  title="Select a node"
+                  body="Its path, corpus count, and an example appear here."
+                />
+              )}
+            </div>
+          </aside>
+        ) : null}
       </div>
+
+      {!isPanelDocked ? (
+        <Sheet
+          open={Boolean(selectedId)}
+          onOpenChange={(open) => {
+            if (!open) selectNode(null);
+          }}
+        >
+          <SheetContent
+            side="bottom"
+            className="max-h-[85vh] overflow-y-auto rounded-t-2xl"
+            aria-describedby={undefined}
+          >
+            <SheetTitle className="sr-only">Taxonomy node</SheetTitle>
+            {panel}
+          </SheetContent>
+        </Sheet>
+      ) : null}
     </PageShell>
   );
 }

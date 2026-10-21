@@ -1,54 +1,39 @@
 /**
  * Single source of truth for chart colors.
  *
- * Two kinds of values live here:
- * - Theme-token strings (`hsl(var(--...))`) that resolve through CSS variables
- *   and therefore follow any future dark-mode token changes automatically.
- * - Literal hsl series colors that have no design-token equivalent today.
- *   A dark mode that needs different series colors should change them here
- *   (or promote them to CSS variables) — no chart component declares its own.
+ * Every value resolves through a CSS variable (`hsl(var(--...))`) defined in
+ * `client/global.css` for both `:root` and `.dark`, so charts follow the theme.
+ * The categorical palette is capped at 8 series (`--chart-1..8`); a chart
+ * that needs more should fold the tail into an "Other" series colored with
+ * CHART_NEUTRAL_SERIES_COLOR rather than reuse hues.
  */
 
 // ---------------------------------------------------------------------------
-// Categorical series colors (literal values; no matching design token exists).
+// Categorical series colors.
 // ---------------------------------------------------------------------------
 
+const chartVar = (n: number) => `hsl(var(--chart-${n}))`;
+
+/** Maximum distinct categorical series a chart should draw. */
+export const CHART_MAX_CATEGORICAL_SERIES = 8;
+
 export const CHART_SERIES_COLORS = {
-  blue: "hsl(212 93% 50%)",
-  teal: "hsl(170 84% 36%)",
-  amber: "hsl(35 92% 52%)",
-  red: "hsl(0 84% 60%)",
-  cyan: "hsl(196 83% 42%)",
-  purple: "hsl(262 83% 58%)",
-  green: "hsl(142 71% 45%)",
-  orange: "hsl(24 95% 53%)",
-  indigo: "hsl(221 83% 53%)",
-  coral: "hsl(12 76% 61%)",
-  deepCyan: "hsl(187 72% 41%)",
-  violet: "hsl(271 81% 56%)",
-  yellow: "hsl(43 96% 56%)",
-  seaGreen: "hsl(151 55% 42%)",
-  skyBlue: "hsl(215 70% 59%)",
+  blue: chartVar(1),
+  teal: chartVar(2),
+  amber: chartVar(3),
+  red: chartVar(4),
+  cyan: chartVar(5),
+  purple: chartVar(6),
+  green: chartVar(7),
+  orange: chartVar(8),
+  /** Aliases kept for existing callers; they map onto the 8-series palette. */
+  coral: chartVar(4),
 } as const;
 
-/** Ordered categorical palette for many-series charts (counsel leaderboards). */
-export const CHART_SERIES_PALETTE: readonly string[] = [
-  CHART_SERIES_COLORS.blue,
-  CHART_SERIES_COLORS.teal,
-  CHART_SERIES_COLORS.amber,
-  CHART_SERIES_COLORS.red,
-  CHART_SERIES_COLORS.cyan,
-  CHART_SERIES_COLORS.purple,
-  CHART_SERIES_COLORS.green,
-  CHART_SERIES_COLORS.orange,
-  CHART_SERIES_COLORS.indigo,
-  CHART_SERIES_COLORS.coral,
-  CHART_SERIES_COLORS.deepCyan,
-  CHART_SERIES_COLORS.violet,
-  CHART_SERIES_COLORS.yellow,
-  CHART_SERIES_COLORS.seaGreen,
-  CHART_SERIES_COLORS.skyBlue,
-];
+/** Ordered categorical palette (8 series). */
+export const CHART_SERIES_PALETTE: readonly string[] = [1, 2, 3, 4, 5, 6, 7, 8].map(
+  chartVar,
+);
 
 /**
  * Seven-color prefix used by industry-composition charts. Kept as a fixed
@@ -58,7 +43,7 @@ export const INDUSTRY_CHART_PALETTE: readonly string[] =
   CHART_SERIES_PALETTE.slice(0, 7);
 
 /** Neutral gray for "unknown" / "other" catch-all series. */
-export const CHART_NEUTRAL_SERIES_COLOR = "hsl(220 9% 60%)";
+export const CHART_NEUTRAL_SERIES_COLOR = "hsl(var(--chart-neutral))";
 
 // ---------------------------------------------------------------------------
 // Semantic series assignments.
@@ -82,14 +67,14 @@ export const DEAL_TYPE_COLORS: Record<string, string> = {
 
 /** Alternating fallback pair for deal types outside DEAL_TYPE_COLORS. */
 export const DEAL_TYPE_FALLBACK_COLORS = [
-  "hsl(226 80% 58%)",
-  "hsl(191 82% 45%)",
+  CHART_SERIES_COLORS.purple,
+  CHART_SERIES_COLORS.orange,
 ] as const;
 
 /** Pipeline processing-status series on the agreement index charts. */
 export const PROCESSING_STATUS_COLORS = {
   processed: CHART_SERIES_COLORS.green,
-  staged: "hsl(38 92% 55%)",
+  staged: CHART_SERIES_COLORS.amber,
   awaiting: CHART_SERIES_COLORS.red,
   notPaginated: CHART_NEUTRAL_SERIES_COLOR,
 } as const;
@@ -99,7 +84,7 @@ export const SECTOR_CONCENTRATION_LINE_COLOR = CHART_SERIES_COLORS.coral;
 
 /** Heatmap cell fill: primary series blue at a data-driven opacity. */
 export function heatmapCellFill(opacity: number): string {
-  return `hsl(212 93% 50% / ${opacity})`;
+  return `hsl(var(--chart-1) / ${opacity})`;
 }
 
 // ---------------------------------------------------------------------------

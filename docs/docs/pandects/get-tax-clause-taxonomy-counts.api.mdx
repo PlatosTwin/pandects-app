@@ -1,0 +1,61 @@
+---
+id: get-tax-clause-taxonomy-counts
+title: "Tax-clause counts per tax-clause-taxonomy node"
+description: "Returns, for every tax-clause-taxonomy node, how many clauses `GET /v1/tax-clauses?tax_standard_id=<id>` matches with default options (rep-and-warranty clauses excluded): a parent node counts the distinct clauses tagged with it or any descendant. Nodes with no clauses are omitted."
+sidebar_label: "Tax-clause counts per tax-clause-taxonomy node"
+hide_title: true
+hide_table_of_contents: true
+api: eJztVUtv20YQ/iuDObUAJcYtemGbFEFipEaL1kjdk2FI490RufFyd7M7lEUI/O/Frig/Ivdx6LEniZzXN998M9xj5BS8S5yw2eM3r17lH81JRRPEeIcN/vYzVqi8E3aSrRSCNYqytf6Usssek+q4p/xPxsDYoL/9xEqwwhB94CjmUED5wUl6ye95zXfZDwJHENp55/sRnNdcwR2PrOF2hCTkNEUNF++XWCFpbXIs2ctnBecyxgm3HHGapgojfx5MZI3N9RHQzV9l2JBNXKEYsTnP1Yym4EsfZ+5y2im3sKHByimD7w8G4Bh9hCPj/x2rJe8TtyTRuPaE1N+Fbi1DcnTHK0WJoSfVGcegCrcbH4F31AfLsHZeVhs/OL2uYL0la3TBtiq11hX4COtIwitreiOs13kKczQ2+BCOU4U9p0Qt/zPCn4ae3CIy6YKUd8GSK3W/h3sftXEt9DSC6si1vMQvp3kg4rHgvx3reYmbDmMUalNOJrRbKEtD4sVRhDlhTlIgXWhssGW5ot274vZcHCfNfWQZokszz1uOI7xQYtZ55++hJzfCwZxg/eH8CurtWf0Yk34U2q2Oi7Ay+vUPRr9ZQ0+iOk5wb6SDWZTgC4wEX0UOC3J6cU8xkpPHCrxTdtCsv26AIFBkJwUMHHYEpGPQJolxSh6ChNqW9aGUkayKDDo3zk6TkyX86vURi/MPcRQZfG9EWC/LwKTzM59Z3iQdNji3W3h52netjgwnjluOeVx7HKLFBjuRkJq6pmCWgZxmJWnp46nWLqPXg8oP8PbyAqfqaYamrq1XZDufpPnu7Ozbk/Bfshk0b9n60GeuSpabCo3b+CL1WVyXM4riUGHGe0ixPcvLEXySnsq+O+rnIzN3eqR+PoQvauVLZPvHq/K/5P5GcvMlEt5JHSwZl4dRFLCf9XedJ5Tvwbz81ZOTkMr1Pn47skyy/35/S4n/iHaa8uvPA8cRm+ubCrcUTb5p+WmqsGPSHIts73jEBt8qxSFLf0t2yLhOvgdZWg9r8uH8CqfpT0X0wKA=
+sidebar_class_name: "get api-method"
+info_path: docs/pandects/pandects-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Tax-clause counts per tax-clause-taxonomy node"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/v1/taxonomy/tax-clauses/counts"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Returns, for every tax-clause-taxonomy node, how many clauses `GET /v1/tax-clauses?tax_standard_id=<id>` matches with default options (rep-and-warranty clauses excluded): a parent node counts the distinct clauses tagged with it or any descendant. Nodes with no clauses are omitted.
+
+<ParamsDetails
+  parameters={undefined}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-tax-clause-taxonomy-counts.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-tax-clause-taxonomy-counts.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

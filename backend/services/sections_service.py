@@ -5,15 +5,16 @@ import time
 from typing import Any, Protocol, cast
 
 from marshmallow import ValidationError
-from sqlalchemy import and_, asc, desc, distinct, or_, text
+from sqlalchemy import and_, asc, desc, distinct, text
 from sqlalchemy.dialects.mysql import match as mysql_match
 from sqlalchemy.exc import DatabaseError, SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
 from backend.core.pagination import clamp_page_size, search_max_page_size
 from backend.filtering import (
-    build_canonical_counsel_agreement_uuid_subquery,
-    build_transaction_price_bucket_filter,
+    apply_agreement_filters,
+    has_agreement_filters,
+    ineligible_agreement_uuids_query,
 )
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
 from backend.search_counts import build_search_count_cache_key
@@ -526,21 +527,44 @@ def _count_with_timeout_fallback(
     far more than the page it accompanies. Returns (count, is_exact); the count
     is None only when the estimate is also unavailable.
     """
+    counted = budgeted_exact_count(
+        deps.db,
+        cached_exact_query_count=deps._cached_exact_query_count,
+        query=query,
+        cache_key=cache_key,
+    )
+    if counted is not None:
+        return counted, True
+    # EXPLAIN reports rows=1 for a FULLTEXT plan, so this is None for exactly the
+    # phrases that need it most; callers fall back to a page-derived lower bound.
+    return estimated_query_row_count(deps, query), False
+
+
+def budgeted_exact_count(
+    db: Any,
+    *,
+    cached_exact_query_count: Any,
+    query: Any,
+    cache_key: str | None,
+) -> int | None:
+    """Exact COUNT(*) under the text-count time budget, or None when it cannot fit.
+
+    A count that blew the budget once is remembered per ``cache_key`` and not
+    retried on later pages of the same search.
+    """
     if _count_known_unaffordable(cache_key):
-        return None, False
+        return None
     try:
         budgeted = query.execution_options(
             max_statement_time=_TEXT_COUNT_BUDGET_SECONDS
         )
-        return deps._cached_exact_query_count(budgeted, cache_key=cache_key), True
+        return cast(int, cached_exact_query_count(budgeted, cache_key=cache_key))
     except DatabaseError as exc:
         if not is_text_plan_exhausted_error(exc):
             raise
-        deps.db.session.rollback()
+        db.session.rollback()
     _remember_count_unaffordable(cache_key)
-    # EXPLAIN reports rows=1 for a FULLTEXT plan, so this is None for exactly the
-    # phrases that need it most; callers fall back to a page-derived lower bound.
-    return estimated_query_row_count(deps, query), False
+    return None
 
 
 def _fetch_phrase_page(
@@ -552,10 +576,31 @@ def _fetch_phrase_page(
     offset: int,
     limit: int,
 ) -> tuple[list[object], Any]:
+    return fetch_with_text_plan_race(
+        deps.db,
+        fulltext_query=fulltext_query,
+        date_scan_query=date_scan_query,
+        cache_key=cache_key,
+        offset=offset,
+        limit=limit,
+    )
+
+
+def fetch_with_text_plan_race(
+    db: Any,
+    *,
+    fulltext_query: Any,
+    date_scan_query: Any,
+    cache_key: str | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[object], Any]:
     """Serve a phrase page under whichever plan can actually run it.
 
-    Returns the rows and the query that produced them, so the count path runs
-    against the same shape the page came from.
+    Shared by section and agreement text search: both have a FULLTEXT-candidate
+    plan and a sort-ordered scan plan selecting the same rows. Returns the rows
+    and the query that produced them, so the count path runs against the same
+    shape the page came from.
     """
     remembered = _remembered_text_plan(cache_key)
     ordered_plans: list[tuple[str, Any]] = [
@@ -579,7 +624,7 @@ def _fetch_phrase_page(
         if not is_text_plan_exhausted_error(exc):
             raise
         # The abort leaves the session unusable; the fallback needs a clean one.
-        deps.db.session.rollback()
+        db.session.rollback()
     else:
         _remember_text_plan(cache_key, first_plan)
         return rows, first_query
@@ -627,33 +672,8 @@ def _run_sections(
     parse_standard_ids = deps._parse_section_standard_ids
     year_from_filing_date = deps._year_from_filing_date_value
 
-    years = parsed_args["year"]
-    year_min = parsed_args["year_min"]
-    year_max = parsed_args["year_max"]
-    filed_after = parsed_args["filed_after"]
-    filed_before = parsed_args["filed_before"]
-    targets = parsed_args["target"]
-    acquirers = parsed_args["acquirer"]
     standard_ids = parsed_args["standard_id"]
-    transaction_price_totals = parsed_args["transaction_price_total"]
-    transaction_price_stocks = parsed_args["transaction_price_stock"]
-    transaction_price_cashes = parsed_args["transaction_price_cash"]
-    transaction_price_assets = parsed_args["transaction_price_assets"]
-    transaction_considerations = parsed_args["transaction_consideration"]
-    target_types = parsed_args["target_type"]
-    acquirer_types = parsed_args["acquirer_type"]
-    target_counsels = parsed_args["target_counsel"]
-    acquirer_counsels = parsed_args["acquirer_counsel"]
-    target_industries = parsed_args["target_industry"]
-    acquirer_industries = parsed_args["acquirer_industry"]
-    deal_statuses = parsed_args["deal_status"]
-    attitudes = parsed_args["attitude"]
-    deal_types = parsed_args["deal_type"]
-    purposes = parsed_args["purpose"]
-    target_pes = parsed_args["target_pe"]
-    acquirer_pes = parsed_args["acquirer_pe"]
     requested_metadata_fields = dedupe_preserve_order(parsed_args["metadata"])
-    agreement_uuid = parsed_args["agreement_uuid"]
     section_uuid = parsed_args["section_uuid"]
     text_query = parsed_args["text_query"]
     text_match_mode = parsed_args["text_match_mode"]
@@ -680,54 +700,22 @@ def _run_sections(
         section_text_search=section_text_search,
         text_query=text_query,
     )
-
-    if years:
-        year_filters = tuple(
-            and_(
-                latest.filing_date >= f"{year:04d}-01-01",
-                latest.filing_date < f"{year + 1:04d}-01-01",
-            )
-            for year in years
-        )
-        q = q.filter(or_(*year_filters))
-
-    if year_min is not None:
-        q = q.filter(latest.filing_date >= f"{year_min:04d}-01-01")
-    if year_max is not None:
-        q = q.filter(latest.filing_date < f"{year_max + 1:04d}-01-01")
-    if filed_after:
-        q = q.filter(latest.filing_date >= filed_after)
-    if filed_before:
-        q = q.filter(latest.filing_date < filed_before)
-
-    if targets:
-        q = q.filter(latest.target.in_(targets))
-    if acquirers:
-        q = q.filter(latest.acquirer.in_(acquirers))
-    transaction_price_total_filter = build_transaction_price_bucket_filter(
-        latest.transaction_price_total,
-        transaction_price_totals,
+    # Defense in depth: latest_sections_search is built from eligible agreements, but
+    # the public gate is enforced here too, as every agreement-level surface does.
+    # The ineligible uuids are resolved first so the common case (none present) adds
+    # no per-row predicate; see ineligible_agreement_uuids_query.
+    ineligible_query = ineligible_agreement_uuids_query(latest.agreement_uuid, deps.Agreements)
+    if ineligible_query is not None:
+        ineligible_uuids = [row[0] for row in db.session.execute(ineligible_query)]
+        if ineligible_uuids:
+            q = q.filter(latest.agreement_uuid.notin_(ineligible_uuids))
+    q = apply_agreement_filters(
+        q,
+        latest,
+        cast(dict[str, object], cast(object, parsed_args)),
+        agreement_counsel=agreement_counsel,
+        counsel=counsel,
     )
-    if transaction_price_total_filter is not None:
-        q = q.filter(transaction_price_total_filter)
-    transaction_price_stock_filter = build_transaction_price_bucket_filter(
-        latest.transaction_price_stock,
-        transaction_price_stocks,
-    )
-    if transaction_price_stock_filter is not None:
-        q = q.filter(transaction_price_stock_filter)
-    transaction_price_cash_filter = build_transaction_price_bucket_filter(
-        latest.transaction_price_cash,
-        transaction_price_cashes,
-    )
-    if transaction_price_cash_filter is not None:
-        q = q.filter(transaction_price_cash_filter)
-    transaction_price_assets_filter = build_transaction_price_bucket_filter(
-        latest.transaction_price_assets,
-        transaction_price_assets,
-    )
-    if transaction_price_assets_filter is not None:
-        q = q.filter(transaction_price_assets_filter)
 
     standard_ids_expanded = False
     if standard_ids:
@@ -736,64 +724,6 @@ def _run_sections(
         if expanded_standard_ids:
             standard_ids_expanded = set(expanded_standard_ids) != set(standard_ids_key)
             q = q.filter(standard_id_filter_expr(expanded_standard_ids))
-
-    if target_types:
-        q = q.filter(latest.target_type.in_(target_types))
-    if transaction_considerations:
-        q = q.filter(latest.transaction_consideration.in_(transaction_considerations))
-    if acquirer_types:
-        q = q.filter(latest.acquirer_type.in_(acquirer_types))
-    target_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
-        side="target",
-        canonical_names=target_counsels,
-        agreement_counsel=agreement_counsel,
-        counsel=counsel,
-    )
-    if target_counsel_subquery is not None:
-        q = q.filter(latest.agreement_uuid.in_(target_counsel_subquery))
-    acquirer_counsel_subquery = build_canonical_counsel_agreement_uuid_subquery(
-        side="acquirer",
-        canonical_names=acquirer_counsels,
-        agreement_counsel=agreement_counsel,
-        counsel=counsel,
-    )
-    if acquirer_counsel_subquery is not None:
-        q = q.filter(latest.agreement_uuid.in_(acquirer_counsel_subquery))
-    if target_industries:
-        q = q.filter(latest.target_industry.in_(target_industries))
-    if acquirer_industries:
-        q = q.filter(latest.acquirer_industry.in_(acquirer_industries))
-    if deal_statuses:
-        q = q.filter(latest.deal_status.in_(deal_statuses))
-    if attitudes:
-        q = q.filter(latest.attitude.in_(attitudes))
-    if deal_types:
-        q = q.filter(latest.deal_type.in_(deal_types))
-    if purposes:
-        q = q.filter(latest.purpose.in_(purposes))
-
-    if target_pes:
-        db_target_pes: list[int] = []
-        for pe in target_pes:
-            if pe == "true":
-                db_target_pes.append(1)
-            elif pe == "false":
-                db_target_pes.append(0)
-        if db_target_pes:
-            q = q.filter(latest.target_pe.in_(db_target_pes))
-
-    if acquirer_pes:
-        db_acquirer_pes: list[int] = []
-        for pe in acquirer_pes:
-            if pe == "true":
-                db_acquirer_pes.append(1)
-            elif pe == "false":
-                db_acquirer_pes.append(0)
-        if db_acquirer_pes:
-            q = q.filter(latest.acquirer_pe.in_(db_acquirer_pes))
-
-    if agreement_uuid and agreement_uuid.strip():
-        q = q.filter(latest.agreement_uuid == agreement_uuid.strip())
 
     if section_uuid and section_uuid.strip():
         q = q.filter(latest.section_uuid == section_uuid.strip())
@@ -864,37 +794,11 @@ def _run_sections(
     has_next = len(page_rows) > page_size
     item_rows = page_rows[:page_size]
     item_count = len(item_rows)
-    has_filters = any(
-        (
-            years,
-            year_min is not None,
-            year_max is not None,
-            filed_after,
-            filed_before,
-            targets,
-            acquirers,
-            standard_ids,
-            transaction_price_totals,
-            transaction_price_stocks,
-            transaction_price_cashes,
-            transaction_price_assets,
-            transaction_considerations,
-            target_types,
-            acquirer_types,
-            target_counsels,
-            acquirer_counsels,
-            target_industries,
-            acquirer_industries,
-            deal_statuses,
-            attitudes,
-            deal_types,
-            purposes,
-            target_pes,
-            acquirer_pes,
-            agreement_uuid and agreement_uuid.strip(),
-            section_uuid and section_uuid.strip(),
-            text_query and text_query.strip(),
-        )
+    has_filters = bool(
+        has_agreement_filters(cast(dict[str, object], cast(object, parsed_args)))
+        or standard_ids
+        or (section_uuid and section_uuid.strip())
+        or (text_query and text_query.strip())
     )
     total_agreement_count: int | None = None
     page_lower_bound = ((page - 1) * page_size) + item_count

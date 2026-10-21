@@ -803,6 +803,87 @@ class McpTests(unittest.TestCase):
         self.assertEqual(_tool_http_exception_category(NotFound()), "not_found")
         self.assertEqual(_tool_http_exception_category(InternalServerError()), "http_exception")
 
+    def test_get_agreement_returns_agreement_uuid(self):
+        res = self._call_tool("get_agreement", {"agreement_uuid": "a1"}, scope="agreements:read")
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(payload["agreement_uuid"], "a1")
+
+    def test_single_reads_apply_public_eligibility(self):
+        """a4 is gated and unverified: REST already 404s it, and MCP now matches."""
+        gated_section_uuid = "00000000-0000-0000-0000-0000000000a4"
+        with self.app.app_context():
+            with self.app_module.db.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        f"('a4', '{gated_section_uuid}', 'ARTICLE I', 'Gated', '<section>GATED</section>', '[\"s1\"]', 1)"
+                    )
+                )
+        try:
+            agreement_res = self._call_tool("get_agreement", {"agreement_uuid": "a4"}, scope="agreements:read")
+            self.assertEqual(agreement_res.get_json()["error"]["code"], -32002)
+
+            section_res = self._call_tool("get_section", {"section_uuid": gated_section_uuid})
+            self.assertEqual(section_res.get_json()["error"]["code"], -32002)
+
+            batch_res = self._call_tool(
+                "get_sections_batch",
+                {"section_uuids": [gated_section_uuid, "00000000-0000-0000-0000-000000000001"]},
+            )
+            batch_payload = batch_res.get_json()["result"]["structuredContent"]
+            returned = [item["section_uuid"] for item in batch_payload["results"]]
+            self.assertEqual(returned, ["00000000-0000-0000-0000-000000000001"])
+            self.assertEqual(batch_payload["unresolved_section_uuids"], [gated_section_uuid])
+
+            snippet_res = self._call_tool("get_section_snippet", {"section_uuid": gated_section_uuid})
+            self.assertIn("error", snippet_res.get_json())
+
+            snippets_res = self._call_tool(
+                "get_section_snippets_batch",
+                {"section_uuids": [gated_section_uuid, "00000000-0000-0000-0000-000000000001"]},
+            )
+            snippets_payload = snippets_res.get_json()["result"]["structuredContent"]
+            self.assertEqual(
+                [item["section_uuid"] for item in snippets_payload["results"]],
+                ["00000000-0000-0000-0000-000000000001"],
+            )
+        finally:
+            with self.app.app_context():
+                with self.app_module.db.engine.begin() as conn:
+                    conn.execute(text(f"DELETE FROM sections WHERE section_uuid = '{gated_section_uuid}'"))
+
+    def test_agreement_filters_agree_between_list_and_search_tools(self):
+        """list_agreements and search_agreements share one metadata filter chain."""
+        cases: list[dict[str, object]] = [
+            {"year": [2020]},
+            {"year_min": 2019, "year_max": 2021},
+            {"filed_after": "2020-01-01", "filed_before": "2021-01-01"},
+            {"target_type": ["public"]},
+            {"deal_status": ["complete"]},
+            {"target_pe": ["false"]},
+            {"transaction_price_total": ["0 - 100M"]},
+        ]
+        matched_any = False
+        for case in cases:
+            with self.subTest(case=case):
+                list_res = self._call_tool("list_agreements", {**case, "page_size": 50})
+                search_res = self._call_tool("search_agreements", {**case, "page_size": 50})
+                list_body = list_res.get_json()
+                search_body = search_res.get_json()
+                self.assertIn("result", list_body, list_body)
+                self.assertIn("result", search_body, search_body)
+                listed = sorted(
+                    item["agreement_uuid"] for item in list_body["result"]["structuredContent"]["results"]
+                )
+                searched = sorted(
+                    item["agreement_uuid"] for item in search_body["result"]["structuredContent"]["results"]
+                )
+                self.assertEqual(listed, searched)
+                self.assertNotIn("a4", listed)
+                matched_any = matched_any or bool(listed)
+        self.assertTrue(matched_any)
+
     def test_get_section_not_found_returns_distinct_error(self):
         res = self._call_tool(
             "get_section", {"section_uuid": "00000000-0000-0000-0000-000000000099"}
@@ -1396,6 +1477,18 @@ class McpTests(unittest.TestCase):
         self.assertIn("target_counsels", body["error"]["message"])
         self.assertIn("target_counsels", body["error"]["data"])
 
+    def test_unknown_price_bucket_is_an_invalid_argument_on_every_filter_tool(self):
+        for tool_name in ("search_sections", "search_agreements", "list_agreements", "search_tax_clauses"):
+            with self.subTest(tool=tool_name):
+                res = self._call_tool(tool_name, {"transaction_price_total": ["1B - 5B"]})
+                self.assertEqual(res.status_code, 200)
+                error = res.get_json()["error"]
+                self.assertEqual(error["code"], -32602)
+                self.assertIn("transaction_price_total", error["message"])
+                self.assertIn("'1B - 5B'", error["message"])
+                self.assertIn("Valid values: 0 - 100M, 100M - 250M", error["message"])
+                self.assertIn("transaction_price_total", error["data"])
+
     def test_search_sections_rejects_legacy_query_parameter(self):
         # Agreement-name discovery uses `query`; literal section search deliberately
         # uses the unambiguous `text_query` name.
@@ -1867,6 +1960,23 @@ class McpTests(unittest.TestCase):
         _decorate_industry_labels(null_payload, label_by_code={"334": "Computer Manufacturing"})
         self.assertIsNone(null_payload["target_industry_label"])
         self.assertIsNone(null_payload["acquirer_industry_label"])
+
+        # An unlisted code rolls up to its 2-digit sector, exactly as REST labels it.
+        from backend.services.reference_labels import industry_labels_from, resolve_naics_label
+
+        catalog = {"44": "Retail Trade", "45": "Retail Trade", "111": "Crop Production", "11": "Agriculture"}
+        rollup: dict[str, object] = {"target_industry": "459", "acquirer_industry": "1119"}
+        _decorate_industry_labels(rollup, label_by_code=catalog)
+        self.assertEqual(rollup["target_industry_label"], "Retail Trade")
+        self.assertEqual(rollup["acquirer_industry_label"], "Agriculture")
+        for code in ("459", "1119", "111", " 111 ", "tech", "9", "", "99"):
+            decorated: dict[str, object] = {"target_industry": code}
+            _decorate_industry_labels(decorated, label_by_code=catalog, fields=("target_industry",))
+            self.assertEqual(decorated["target_industry_label"], resolve_naics_label(code, catalog), code)
+        self.assertEqual(
+            industry_labels_from(["459", "111", "tech"], catalog),
+            {"459": "Retail Trade", "111": "Crop Production"},
+        )
 
         self.assertTrue(_year_in_range(2023, year_min=2022, year_max=2024))
         self.assertFalse(_year_in_range(2021, year_min=2022, year_max=None))

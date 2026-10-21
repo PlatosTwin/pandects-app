@@ -27,8 +27,8 @@ by refactors. Line numbers below refer to current code.
   `border-l-2 border-primary bg-primary/10 font-medium text-primary` with
   `aria-current="page"`; hover is the more subtle `hover:bg-accent/60`
   (`NavigationDesktopMenus.tsx`, `NavigationMobileMenu.tsx`).
-- **Section headers** — shared `SectionHeader.tsx` (numbered chip +
-  `text-2xl font-semibold`).
+- **Section headers** — shared `SectionHeader.tsx`; the numbered chip is
+  opt-in (`number?`) and no longer used on About/Feedback/Support.
 - **Loading states** — skeleton loaders are used across pages
   (`ui/skeleton.tsx`); empty states have icon + hierarchy treatment
   (`search/SearchResultsPanel.tsx`).
@@ -60,3 +60,39 @@ by refactors. Line numbers below refer to current code.
   `Taxonomy`, and the favorites-area count pills (`ProjectSidebar`,
   `FilterBar`, `TagsManager` → `variant="muted"` with `px-1.5 text-[10px]`
   size overrides). Deliberate non-badges are listed in `STYLEGUIDE.md`.
+
+## Applied (design-system foundations, October 2026)
+
+- **Status tokens** — `--success` / `--warning` / `--info` (+ `-foreground`)
+  in both themes; raw emerald/amber/red status classes replaced in
+  SourcesMethods, eval metrics, badges, alerts, toast, Account and ErrorModal.
+  Dark `--destructive` now passes AA as text (5.6:1 on card) with a dark
+  foreground for solid fills; the `dark:text-red-400` workarounds are gone.
+- **Radius** — closed scale (`xl`/`2xl` derived from `--radius`); text buttons
+  no longer override to `rounded-full`.
+- **Chart palette** — `--chart-1..8` + `--chart-neutral` CSS variables with
+  dark variants; 8-series cap. Confusion-matrix cells scale alpha by the
+  cell's share of its row.
+- **Page frame** — `PageShell layout="docs|data|form"` with `PageHeader`;
+  titles align with the nav logo. Migrated: About, Feedback, Support, legal
+  pages, BulkData, XmlSchema, SourcesMethods, Leaderboards, TrendsAnalyses,
+  Account, auth pages, NotFound, Favorites (loading state).
+- **Primitives** — Eyebrow, FactCard, ChartPanel, SegmentedControl,
+  ErrorState/EmptyState, StatusPage, CodeBlock/CopyButton,
+  DocsTableOfContents, ExternalLink (see `STYLEGUIDE.md`). `radio-group`
+  removed (unused).
+
+## Open
+
+- Raw status colors remain in files owned elsewhere: `TaxClauseCompare`,
+  `XMLRenderer`, `TaxClauseResultsList`, `AgreementReader`, `StarButton`,
+  `TurnstileWidget`, `SearchResultsTable`, `SaveConfirmationModal`,
+  `AgreementModal` (several still carry `dark:text-red-400`, now redundant).
+- `backdrop-blur` on static surfaces: `Footer`, `Landing` hero card,
+  `Favorites` filter bar, `search/SearchResultsPanel`, `search/SearchActionsBar`.
+- Hand-rolled clipboard code left in `SearchResultsTable` and `Taxonomy`; use
+  `CopyButton` / `useCopyToClipboard`.
+- Leaderboards charts draw 15 series against the 8-color palette; fold ranks
+  9+ into "Other".
+- Pages still on the deprecated `size` prop: Taxonomy, AgreementIndex,
+  AuthZitadelCallback, full-bleed Favorites.

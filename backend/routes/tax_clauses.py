@@ -4,13 +4,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import cast
 
+from flask import g
 from flask_smorest import Blueprint
 from flask.views import MethodView
 
 from backend.routes.deps import AccessContextProtocol
 from backend.schemas.tax_clauses import (
     TaxClausesArgsPayload,
-    TaxClausesArgsSchema,
+    TaxClausesQueryArgsSchema,
     TaxClausesResponseSchema,
 )
 from backend.services.tax_clauses_service import TaxClausesServiceDeps, run_tax_clauses
@@ -42,16 +43,20 @@ def register_tax_clauses_routes(*, deps: TaxClausesDeps) -> Blueprint:
                 "`include_rep_warranty=true` to include them."
             ),
         )
-        @tax_clauses_blp.arguments(TaxClausesArgsSchema, location="query")
+        @tax_clauses_blp.arguments(TaxClausesQueryArgsSchema, location="query")
         @tax_clauses_blp.response(200, TaxClausesResponseSchema)
         def get(self, args: dict[str, object]) -> dict[str, object]:
             ctx = deps._current_access_context()
             parsed_args = cast(TaxClausesArgsPayload, cast(object, args))
-            return run_tax_clauses(
+            result = run_tax_clauses(
                 deps.tax_clauses_service_deps,
                 ctx=ctx,
                 parsed_args=parsed_args,
             )
+            dump_version = getattr(g, "dump_version", None)
+            if dump_version is not None and bool(args.get("include_dump", True)):
+                result["dump_version"] = dump_version
+            return result
 
     return tax_clauses_blp
 

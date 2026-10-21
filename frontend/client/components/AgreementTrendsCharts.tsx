@@ -194,7 +194,7 @@ export function TrendsStackedShareAreaChart({
   );
 
   return (
-    <div className={cn("rounded-lg border border-border bg-muted/20 p-3", className)}>
+    <div className={cn("min-w-0", className)}>
       <ChartContainer
         className="h-[260px] w-full min-w-0 aspect-auto sm:h-[320px] lg:h-[360px]"
         config={chartConfig}
@@ -323,7 +323,7 @@ export function TrendsMedianBandChart({
   );
 
   return (
-    <div className={cn("rounded-lg border border-border bg-muted/20 p-3", className)}>
+    <div className={cn("min-w-0", className)}>
       <ChartContainer
         className="h-[260px] w-full min-w-0 aspect-auto sm:h-[320px] lg:h-[360px]"
         config={MEDIAN_CHART_CONFIG}
@@ -448,7 +448,7 @@ export function TrendsPercentLineChart({
   );
 
   return (
-    <div className={cn("rounded-lg border border-border bg-muted/20 p-3", className)}>
+    <div className={cn("min-w-0", className)}>
       <ChartContainer
         className="h-[220px] w-full min-w-0 aspect-auto sm:h-[280px] lg:h-[320px]"
         config={{

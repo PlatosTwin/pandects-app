@@ -33,7 +33,7 @@ const traceSteps: TraceStep[] = [
       },
       {
         name: "mcp__pandects__search_agreements",
-        args: 'target_industry: ["Technology", "Software"], acquirer_pe: ["true"], transaction_price_total: ["1B - 5B"], year_min: 2021, year_max: 2026',
+        args: 'target_industry: ["Technology", "Software"], acquirer_pe: ["true"], transaction_price_total: ["1B - 2B", "2B - 5B"], year_min: 2021, year_max: 2026',
       },
     ],
     finding:
@@ -61,7 +61,7 @@ const traceSteps: TraceStep[] = [
       },
       {
         name: "mcp__pandects__search_agreements",
-        args: 'acquirer_pe: ["true"], transaction_price_total: ["1B - 5B"], year_min: 2021, year_max: 2026, page_size: 50',
+        args: 'acquirer_pe: ["true"], transaction_price_total: ["1B - 2B", "2B - 5B"], year_min: 2021, year_max: 2026, page_size: 50',
       },
     ],
     finding:
@@ -77,7 +77,7 @@ const traceSteps: TraceStep[] = [
       },
       {
         name: "mcp__pandects__search_sections",
-        args: 'standard_id: ["4703077b83eea31c"], acquirer_pe: ["true"], target_industry: ["511","517","518","519","541"], transaction_price_total: ["1B - 5B"], year_min: 2021, year_max: 2026, page_size: 50',
+        args: 'standard_id: ["4703077b83eea31c"], acquirer_pe: ["true"], target_industry: ["511","517","518","519","541"], transaction_price_total: ["1B - 2B", "2B - 5B"], year_min: 2021, year_max: 2026, page_size: 50',
       },
     ],
     finding:

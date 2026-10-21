@@ -114,6 +114,12 @@ const sidebar: SidebarsConfig = {
           label: "/v1/taxonomy",
           className: "api-method get",
         },
+        {
+          type: "doc",
+          id: "pandects/get-taxonomy-counts",
+          label: "/v1/taxonomy/counts",
+          className: "api-method get",
+        },
       ],
     },
     {
@@ -128,6 +134,12 @@ const sidebar: SidebarsConfig = {
           type: "doc",
           id: "pandects/get-tax-clause-taxonomy",
           label: "/v1/taxonomy/tax-clauses",
+          className: "api-method get",
+        },
+        {
+          type: "doc",
+          id: "pandects/get-tax-clause-taxonomy-counts",
+          label: "/v1/taxonomy/tax-clauses/counts",
           className: "api-method get",
         },
       ],

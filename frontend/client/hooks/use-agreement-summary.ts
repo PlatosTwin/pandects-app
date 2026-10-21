@@ -1,27 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
+import { apiGet, errorMessage } from "@/lib/api/client";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
+import { keys } from "@/lib/query-keys";
 
-export type AgreementSummary = {
-  agreements: number;
-  sections: number;
-  pages: number;
-  latest_filing_date: string | null;
-};
+import type { AgreementsSummaryResponse } from "@shared/insights";
 
-async function fetchAgreementSummary(): Promise<AgreementSummary> {
-  const res = await authFetch(apiUrl("v1/agreements-summary"));
-  if (!res.ok) {
-    throw new Error(`Summary request failed (${res.status})`);
-  }
-  return (await res.json()) as AgreementSummary;
+/** `v1/agreements-summary` (generated from the backend spec). */
+export type AgreementSummary = AgreementsSummaryResponse;
+
+function fetchAgreementSummary(signal?: AbortSignal): Promise<AgreementSummary> {
+  return apiGet<AgreementSummary>("v1/agreements-summary", undefined, { signal });
 }
 
 export function useAgreementSummary() {
   const query = useQuery({
-    queryKey: ["agreement-summary"] as const,
-    queryFn: fetchAgreementSummary,
+    queryKey: keys.agreements.summary,
+    queryFn: ({ signal }) => fetchAgreementSummary(signal),
     enabled: !IS_SERVER_RENDER,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -31,9 +25,7 @@ export function useAgreementSummary() {
     summary: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error
-      ? query.error instanceof Error
-        ? query.error.message
-        : "Unable to load agreement summary."
+      ? errorMessage(query.error, "Unable to load agreement summary.")
       : null,
   };
 }

@@ -31,6 +31,8 @@ export interface SectionDetails {
   agreement_uuid: string | null;
   section_uuid: string;
   section_standard_id: string[];
+  /** Clause-taxonomy label per id, when the API sends it. */
+  standard_id_labels?: Record<string, string>;
   xml: string | null;
   article_title: string | null;
   section_title: string | null;

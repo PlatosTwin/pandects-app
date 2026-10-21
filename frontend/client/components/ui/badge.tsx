@@ -15,9 +15,14 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
-        /** Status chip (e.g. "Verified"): emerald tint with a soft ring. */
+        /** Status chips: soft semantic tint with a soft ring (e.g. "Verified"). */
         success:
-          "border-transparent bg-emerald-500/10 px-2 font-medium text-emerald-700 ring-1 ring-emerald-500/20 dark:text-emerald-300",
+          "border-transparent bg-success/10 px-2 font-medium text-success ring-1 ring-success/20",
+        warning:
+          "border-transparent bg-warning/10 px-2 font-medium text-warning ring-1 ring-warning/20",
+        info: "border-transparent bg-info/10 px-2 font-medium text-info ring-1 ring-info/20",
+        danger:
+          "border-transparent bg-destructive/10 px-2 font-medium text-destructive ring-1 ring-destructive/20",
         /** Neutral metadata pill: on-background with a border ring. */
         metadata:
           "border-transparent bg-background px-2 font-medium text-muted-foreground ring-1 ring-border",

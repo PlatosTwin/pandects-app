@@ -1,28 +1,35 @@
-import hashlib
+"""Application composition: config, typed route deps, hooks, and blueprints.
+
+Runtime logic lives elsewhere (see ``backend/ARCHITECTURE.md``):
+
+- ``backend/core/rate_limit.py``: per-tier, per-endpoint, and per-account limits
+- ``backend/auth/access.py``: request access context and user gates
+- ``backend/auth/api_keys.py``: API key issuance and lookup
+- ``backend/services/notifications.py``: maintainer notification emails
+- ``backend/services/dumps.py``: R2 client and active dump version
+- ``backend/services/side_effects.py``: async task runner and usage recording
+
+Names below marked as re-exports keep ``backend.app.<name>`` working for
+tests and tooling that still reach into this module.
+"""
+
 import os
-from typing import Any, Protocol, TypedDict, cast
-from collections.abc import Iterable
-from pathlib import Path
-import time
 import random
-from threading import Lock
-from datetime import datetime
-import uuid
 import re
-import click
-from flask import Flask, request, abort, Response, g, current_app, has_app_context
-from flask_smorest import Blueprint
-from boto3.session import Session
-from botocore.config import Config as BotoConfig
-from marshmallow import Schema
-from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import (
-    text,
-)
-from dotenv import load_dotenv
+import time
+from pathlib import Path
+from threading import Lock
+from typing import Any, Protocol, cast
 from urllib.parse import urlencode
-import secrets
+
+import click
+from dotenv import load_dotenv
+from flask import Flask, Response, abort, has_app_context
+from flask_smorest import Blueprint
+from marshmallow import Schema
+from sqlalchemy import text
+# Re-export: tests hash fixture passwords through `backend.app`.
+from werkzeug.security import generate_password_hash as generate_password_hash
 
 # Load env vars from `backend/.env` regardless of process working directory.
 _ = load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
@@ -32,10 +39,7 @@ _ = load_dotenv()
 from backend.extensions import db, api
 from backend.models import (
     ApiKey,
-    ApiRequestEvent,
     ApiUsageDaily,
-    ApiUsageDailyIp,
-    ApiUsageHourly,
     AuthExternalSubject,
     AuthOAuthAuthorizationCode,
     AuthOAuthClient,
@@ -61,6 +65,8 @@ from backend.schemas.auth import (
     AuthPasswordResetRequestSchema,
     AuthPasswordSignupSchema,
 )
+from backend.auth import access as _access
+from backend.auth import api_keys as _api_keys
 from backend.auth.mcp_runtime import (
     authenticate_external_identity as _authenticate_external_identity,
     resolve_mcp_identity_provider_name as _resolve_mcp_identity_provider_name,
@@ -113,10 +119,10 @@ from backend.routes.favorites import FavoritesDeps, register_favorites_routes
 from backend.services.tax_clauses_service import TaxClausesServiceDeps
 from backend.mcp.routes import McpDeps, register_mcp_routes
 from backend.routes.telemetry import register_telemetry_routes
+from backend.core import rate_limit as _rate_limit
 from backend.core.config import (
     app_config_map as _app_config_map,
     configure_app as _configure_app_core,
-    temporary_access_lockdown_enabled as _temporary_access_lockdown_enabled,
 )
 from backend.core.errors import (
     json_error as _json_error,
@@ -125,18 +131,18 @@ from backend.core.errors import (
 )
 from backend.core.hooks import (
     auth_rate_limit_guard as _auth_rate_limit_guard_core,
-    capture_request_start as _capture_request_start_core,
+    capture_request_start as _capture_request_start,
     register_request_hooks as _register_request_hooks_core,
     set_security_headers as _set_security_headers_core,
 )
 from backend.core.runtime_utils import (
     current_app_object as _current_app_object,
-    decode_agreements_cursor as _core_decode_agreements_cursor,
+    decode_agreements_cursor as _decode_agreements_cursor,
     dedupe_preserve_order as _dedupe_preserve_order,
-    encode_agreements_cursor as _core_encode_agreements_cursor,
+    encode_agreements_cursor as _encode_agreements_cursor,
     load_json as _core_load_json,
     load_query as _core_load_query,
-    pagination_metadata as _core_pagination_metadata,
+    pagination_metadata as _pagination_metadata,
     row_mapping_as_dict as _row_mapping_as_dict,
     to_int as _to_int,
     utc_now as _utc_now,
@@ -154,8 +160,6 @@ from backend.auth.email_runtime import (
     frontend_base_url as _frontend_base_url,
     is_email_like as _is_email_like,
     normalize_email as _normalize_email,
-    send_resend_text_email as _send_resend_text_email,
-    send_welcome_email as _send_welcome_email,
 )
 from backend.auth.legal_runtime import (
     _LEGAL_DOCS,
@@ -179,10 +183,9 @@ from backend.auth.session_runtime import (
     clear_auth_cookies as _clear_auth_cookies,
     csrf_cookie_value as _csrf_cookie_value,
     csrf_required as _csrf_required,
-    ensure_auth_tables_exist as _ensure_auth_tables_exist_auth_runtime,
-    is_running_on_fly as _is_running_on_fly_auth_runtime,
+    ensure_auth_tables_exist as _ensure_auth_tables_exist,
+    is_running_on_fly as _is_running_on_fly,
     issue_session_token as _issue_session_token,
-    load_session_token as _load_session_token,
     request_ip_address as _request_ip_address,
     request_user_agent as _request_user_agent,
     require_auth_db as _require_auth_db,
@@ -194,18 +197,64 @@ from backend.auth.session_runtime import (
 from backend.search_counts import (
     cached_exact_query_count as _search_counts_cached_exact_query_count,
 )
-from backend.services.async_tasks import AsyncTaskRunner
+from backend.services import dumps as _dumps
+from backend.services import notifications as _notifications
 from backend.services.sections_service import (
     estimated_latest_sections_search_table_rows as _svc_estimated_latest_sections_search_table_rows,
     estimated_query_row_count as _svc_estimated_query_row_count,
-    sections_total_count_metadata as _svc_sections_total_count_metadata,
 )
-from backend.services.usage import LATENCY_BUCKET_BOUNDS_MS, UsageBuffer
-from backend.services.usage import record_api_key_usage as _record_api_key_usage_service
-from backend.services.usage import record_web_session_usage as _record_web_session_usage_service
+from backend.services.side_effects import record_request_usage as _record_request_usage
 
 # Retained for tests and modules that still import `metadata` from `backend.app`.
 metadata = _main_db_metadata
+
+_SKIP_MAIN_DB_REFLECTION = os.environ.get("SKIP_MAIN_DB_REFLECTION", "").strip() == "1"
+_ENABLE_MAIN_DB_REFLECTION = (
+    os.environ.get("ENABLE_MAIN_DB_REFLECTION", "1").strip() != "0"
+)
+
+# ── Re-exports (tests and app-module indirection) ─────────────────────────
+# Mutable state is the same object as in the owning module, so `.clear()` and
+# item assignment through `backend.app` still act on live state. Scalars
+# (limits, intervals) must be patched on the owning module instead.
+_rate_limit_state = _rate_limit.rate_limit_state
+_endpoint_rate_limit_state = _rate_limit.endpoint_rate_limit_state
+_account_login_failure_state = _rate_limit.account_login_failure_state
+_ENDPOINT_RATE_LIMITS = _rate_limit.ENDPOINT_RATE_LIMITS
+_ACCOUNT_LOGIN_FAILURE_LIMIT = _rate_limit.ACCOUNT_LOGIN_FAILURE_LIMIT
+_apply_search_read_rate_limit = _rate_limit.apply_search_read_rate_limit
+_prune_rate_limit_state = _rate_limit.prune_rate_limit_state
+_check_rate_limit = _rate_limit.check_rate_limit
+_check_endpoint_rate_limit = _rate_limit.check_endpoint_rate_limit
+_check_account_login_rate_limit = _rate_limit.check_account_login_rate_limit
+_record_account_login_failure = _rate_limit.record_account_login_failure
+_record_account_login_success = _rate_limit.record_account_login_success
+_account_login_key = _rate_limit.account_login_key
+
+_api_key_last_used_touch_state = _api_keys.api_key_last_used_touch_state
+_DUMMY_API_KEY_HASH = _api_keys.DUMMY_API_KEY_HASH
+_lookup_api_key = _api_keys.lookup_api_key
+_create_api_key = _api_keys.create_api_key
+_permanently_delete_api_key = _api_keys.permanently_delete_api_key
+_should_touch_api_key_last_used = _api_keys.should_touch_api_key_last_used
+
+_current_access_context = _access.current_access_context
+_require_user = _access.require_user
+_require_verified_user = _access.require_verified_user
+_user_id_is_verified = _access.user_id_is_verified
+_access_account_predates_today = _access.access_account_predates_today
+_temporary_access_gate = _access.temporary_access_gate
+
+_send_signup_notification_email = _notifications.send_signup_notification_email
+_send_flag_notification_email = _notifications.send_flag_notification_email
+_is_agreement_section_eligible = _notifications.is_agreement_section_eligible
+
+R2_BUCKET_NAME = _dumps.R2_BUCKET_NAME
+R2_ENDPOINT = _dumps.R2_ENDPOINT
+PUBLIC_DEV_BASE = _dumps.PUBLIC_DEV_BASE
+_fetch_latest_dump_version = _dumps.fetch_latest_dump_version
+_r2_client: _dumps.S3Client | None = _dumps.build_r2_client()
+client = _r2_client
 
 # Contract surface consumed by `backend.routes.auth` via app_module indirection.
 _AUTH_SCHEMA_EXPORTS = (
@@ -214,326 +263,58 @@ _AUTH_SCHEMA_EXPORTS = (
     AuthExternalSubjectLinkSchema,
     AuthFlagInaccurateSchema,
 )
+_SECTION_ID_RE = re.compile(
+    r"^(?:[0-9a-fA-F]{16}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
+)
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
-class _FilterOptionsPayload(TypedDict):
-    targets: list[str]
-    acquirers: list[str]
-    target_counsels: list[str]
-    acquirer_counsels: list[str]
-    target_industries: list[str]
-    acquirer_industries: list[str]
-
-
-class _FilterOptionsCache(TypedDict):
-    ts: float
-    payload: _FilterOptionsPayload | None
-
-
-class _ObjectPayloadCache(TypedDict):
-    ts: float
-    payload: dict[str, object] | None
-
-
-class _AgreementsSummaryPayload(TypedDict):
-    agreements: int
-    sections: int
-    pages: int
-
-
-class _AgreementsSummaryCache(TypedDict):
-    ts: float
-    payload: _AgreementsSummaryPayload | None
-
-
-class _DumpsCache(TypedDict):
-    ts: float
-    payload: list[dict[str, object]] | None
-
-
-class _ChangelogCache(TypedDict):
-    ts: float
-    payload: dict[str, object] | None
-    fail_ts: float
-
-
-class _DumpsManifestCacheEntry(TypedDict):
-    etag: str
-    payload: dict[str, object]
-
-
-class _DumpVersionInfo(TypedDict):
-    hash: str
-    dump_ts: str
-
-
-class _DumpVersionCache(TypedDict):
-    ts: float
-    payload: _DumpVersionInfo | None
-    failed_ts: float
-
-class _S3ListObject(TypedDict, total=False):
-    Key: str
-    ETag: str
-
-
-class _S3ListPage(TypedDict, total=False):
-    Contents: list[_S3ListObject]
-
-
-class _S3Paginator(Protocol):
-    def paginate(self, *, Bucket: str, Prefix: str) -> Iterable[_S3ListPage]:
-        ...
-
-
-class _S3BodyReader(Protocol):
-    def read(self) -> bytes:
-        ...
-
-
-class _S3GetObjectResult(TypedDict):
-    Body: _S3BodyReader
-
-
-class _S3Client(Protocol):
-    def get_paginator(self, operation_name: str) -> _S3Paginator:
-        ...
-
-    def get_object(self, *, Bucket: str, Key: str) -> _S3GetObjectResult:
-        ...
-
-
-class _HttpResponseReader(Protocol):
-    def __enter__(self) -> "_HttpResponseReader":
-        ...
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: object | None,
-    ) -> bool | None:
-        ...
-
-    def read(self, amt: int | None = None) -> bytes:
-        ...
-
-
-class _Boto3SessionLike(Protocol):
-    def client(
-        self,
-        service_name: str,
-        *,
-        aws_access_key_id: str,
-        aws_secret_access_key: str,
-        endpoint_url: str,
-        config: object,
-    ) -> object:
-        ...
-
-
-class _FlaskExtension(Protocol):
+class _ApiExtension(Protocol):
     def init_app(self, app: Flask, **kwargs: object) -> None:
         ...
 
-
-class _ApiExtension(_FlaskExtension, Protocol):
     def register_blueprint(
         self, blp: Blueprint, *, parameters: object | None = None, **options: object
     ) -> None:
         ...
 
 
-_MAIN_SCHEMA_TOKEN = "__main_schema__"
-_SKIP_MAIN_DB_REFLECTION = os.environ.get("SKIP_MAIN_DB_REFLECTION", "").strip() == "1"
-_ENABLE_MAIN_DB_REFLECTION = (
-    os.environ.get("ENABLE_MAIN_DB_REFLECTION", "1").strip() != "0"
-)
-
-# ── Simple in-process caching ─────────────────────────────────────────────
-_FILTER_OPTIONS_TTL_SECONDS = int(os.environ.get("FILTER_OPTIONS_TTL_SECONDS", "21600"))
-_filter_options_cache: _FilterOptionsCache = {"ts": 0.0, "payload": None}
-_filter_options_lock = Lock()
-_TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
-_taxonomy_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
-_taxonomy_lock = Lock()
-_tax_clause_taxonomy_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
-_tax_clause_taxonomy_lock = Lock()
-_COUNSEL_TTL_SECONDS = int(os.environ.get("COUNSEL_TTL_SECONDS", "21600"))
-_counsel_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
-_counsel_lock = Lock()
-_NAICS_TTL_SECONDS = int(os.environ.get("NAICS_TTL_SECONDS", "21600"))
-_naics_cache: _ObjectPayloadCache = {"ts": 0.0, "payload": None}
-_naics_lock = Lock()
-_AGREEMENTS_SUMMARY_TTL_SECONDS = int(
-    os.environ.get("AGREEMENTS_SUMMARY_TTL_SECONDS", "60")
-)
-_agreements_summary_cache: _AgreementsSummaryCache = {"ts": 0.0, "payload": None}
-_agreements_summary_lock = Lock()
-
-# ── Simple in-process rate limiting ──────────────────────────────────────
-_rate_limit_lock = Lock()
-_rate_limit_state: dict[str, dict[str, float | int]] = {}
-_endpoint_rate_limit_state: dict[str, dict[str, float | int]] = {}
-_RATE_LIMIT_WINDOW_SECONDS = 60.0
-_RATE_LIMIT_MAX_KEYS = int(os.environ.get("RATE_LIMIT_MAX_KEYS", "50000"))
-_RATE_LIMIT_PRUNE_INTERVAL_SECONDS = float(
-    os.environ.get("RATE_LIMIT_PRUNE_INTERVAL_SECONDS", "30")
-)
-_rate_limit_last_prune_at = 0.0
-
-# ── Simple in-process caching for dumps ───────────────────────────────────
-_DUMPS_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_CACHE_TTL_SECONDS", "300"))
-_dumps_cache: _DumpsCache = {"ts": 0.0, "payload": None}
-_dumps_cache_lock = Lock()
-_CHANGELOG_CACHE_TTL_SECONDS = int(os.environ.get("CHANGELOG_CACHE_TTL_SECONDS", "300"))
-_changelog_cache: _ChangelogCache = {"ts": 0.0, "payload": None, "fail_ts": 0.0}
-_changelog_cache_lock = Lock()
-_DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(
-    os.environ.get("DUMPS_MANIFEST_CACHE_TTL_SECONDS", "1800")
-)
-_dumps_manifest_cache: dict[str, _DumpsManifestCacheEntry] = {}
-_dumps_manifest_cache_lock = Lock()
-_DUMP_VERSION_CACHE_TTL_SECONDS = int(os.environ.get("DUMP_VERSION_CACHE_TTL_SECONDS", "3600"))
-# How long to back off after a failed fetch. Without this, an outage of the
-# bulk host would make every request re-attempt the fetch and block on its
-# timeout — this hook runs before every request.
-_DUMP_VERSION_FAILURE_TTL_SECONDS = int(
-    os.environ.get("DUMP_VERSION_FAILURE_TTL_SECONDS", "120")
-)
-_dump_version_cache: _DumpVersionCache = {"ts": 0.0, "payload": None, "failed_ts": 0.0}
-_dump_version_cache_lock = Lock()
-
-# ── API usage logging ─────────────────────────────────────────────────────
-# Sample every successful request at current traffic volume; at ~1-2k calls
-# per quarter a 0.05 rate left the raw event table (and latency percentiles)
-# effectively empty. Retention below keeps the table bounded instead.
-_USAGE_SAMPLE_RATE_2XX = float(os.environ.get("USAGE_SAMPLE_RATE_2XX", "1.0"))
-_USAGE_SAMPLE_RATE_3XX = float(os.environ.get("USAGE_SAMPLE_RATE_3XX", "1.0"))
-_API_REQUEST_EVENTS_RETENTION_DAYS = int(
-    os.environ.get("API_REQUEST_EVENTS_RETENTION_DAYS", "180")
-)
-_LATENCY_BUCKET_BOUNDS_MS = LATENCY_BUCKET_BOUNDS_MS
-_API_KEY_MIN_HASH_CHECKS = 5
-_DUMMY_API_KEY_HASH = generate_password_hash("pdcts_dummy_api_key")
-_USAGE_BUFFER_ENABLED = os.environ.get("USAGE_LOG_BUFFER_ENABLED", "1").strip() != "0"
-_USAGE_BUFFER_FLUSH_SECONDS = float(os.environ.get("USAGE_LOG_BUFFER_FLUSH_SECONDS", "1"))
-_USAGE_BUFFER_MAX_EVENTS = int(os.environ.get("USAGE_LOG_BUFFER_MAX_EVENTS", "200"))
-_ASYNC_SIDE_EFFECTS_ENABLED = os.environ.get("ASYNC_SIDE_EFFECTS_ENABLED", "1").strip() != "0"
-_ASYNC_SIDE_EFFECTS_MAX_QUEUE = int(os.environ.get("ASYNC_SIDE_EFFECTS_MAX_QUEUE", "100"))
-_API_KEY_LAST_USED_TOUCH_SECONDS = int(
-    os.environ.get("API_KEY_LAST_USED_TOUCH_SECONDS", "300")
-)
-_API_KEY_LAST_USED_MAX_KEYS = int(os.environ.get("API_KEY_LAST_USED_MAX_KEYS", "50000"))
-_api_key_last_used_touch_lock = Lock()
-_api_key_last_used_touch_state: dict[str, float] = {}
-_SEARCH_EXPLAIN_ESTIMATE_ENABLED = (
-    os.environ.get("SEARCH_EXPLAIN_ESTIMATE_ENABLED", "1").strip() != "0"
-)
-
 # ── Cached exact result counts for paginated search ───────────────────────
 # A search's match count depends only on its filter signature, so it is the
 # same on every page. Memoizing it per signature turns one COUNT-per-page into
 # one COUNT-per-search; values stay exact, just reused while fresh.
-_SEARCH_COUNT_CACHE_TTL_SECONDS = float(
-    os.environ.get("SEARCH_COUNT_CACHE_TTL_SECONDS", "120")
-)
+_SEARCH_COUNT_CACHE_TTL_SECONDS = float(os.environ.get("SEARCH_COUNT_CACHE_TTL_SECONDS", "120"))
 _SEARCH_COUNT_CACHE_MAX_KEYS = int(os.environ.get("SEARCH_COUNT_CACHE_MAX_KEYS", "10000"))
 _search_count_cache: dict[str, tuple[float, int]] = {}
 _search_count_cache_lock = Lock()
+_SEARCH_EXPLAIN_ESTIMATE_ENABLED = (
+    os.environ.get("SEARCH_EXPLAIN_ESTIMATE_ENABLED", "1").strip() != "0"
+)
 
 
-def _usage_buffer() -> UsageBuffer | None:
-    if not _USAGE_BUFFER_ENABLED:
-        return None
-    buffer = current_app.extensions.get("usage_buffer")
-    if buffer is None:
-        app_obj = _current_app_object()
-        buffer = UsageBuffer(
-            app=app_obj,
-            db=db,
-            ApiUsageDaily=ApiUsageDaily,
-            ApiUsageHourly=ApiUsageHourly,
-            ApiUsageDailyIp=ApiUsageDailyIp,
-            ApiRequestEvent=ApiRequestEvent,
-            latency_bucket_bounds=_LATENCY_BUCKET_BOUNDS_MS,
-            flush_interval_seconds=_USAGE_BUFFER_FLUSH_SECONDS,
-            max_pending_events=_USAGE_BUFFER_MAX_EVENTS,
-            request_event_retention_days=_API_REQUEST_EVENTS_RETENTION_DAYS,
-        )
-        current_app.extensions["usage_buffer"] = buffer
-    return buffer
+def _cached_exact_query_count(query: object, *, cache_key: str | None) -> int:
+    """Exact COUNT(*) for a search query, memoized per filter signature + dump.
+
+    `cache_key=None` bypasses the cache for an authoritative fresh count.
+    """
+    namespaced_key = (
+        None if cache_key is None else f"{_dumps.current_dump_version_token()}|{cache_key}"
+    )
+    return _search_counts_cached_exact_query_count(
+        query=query,
+        cache_key=namespaced_key,
+        cache=_search_count_cache,
+        lock=_search_count_cache_lock,
+        ttl_seconds=_SEARCH_COUNT_CACHE_TTL_SECONDS,
+        max_keys=_SEARCH_COUNT_CACHE_MAX_KEYS,
+        to_int=_to_int,
+        now=time.time,
+    )
 
 
-def _async_task_runner() -> AsyncTaskRunner | None:
-    if not _ASYNC_SIDE_EFFECTS_ENABLED:
-        return None
-    runner = current_app.extensions.get("async_task_runner")
-    if runner is None:
-        app_obj = _current_app_object()
-        runner = AsyncTaskRunner(
-            app=app_obj,
-            max_queue_size=_ASYNC_SIDE_EFFECTS_MAX_QUEUE,
-        )
-        current_app.extensions["async_task_runner"] = runner
-    return runner
-
-def _fetch_latest_dump_version() -> _DumpVersionInfo | None:
-    import json as _json
-    import urllib.request
-
-    now = time.time()
-    with _dump_version_cache_lock:
-        cached = _dump_version_cache["payload"]
-        cached_ts = _dump_version_cache["ts"]
-        failed_ts = _dump_version_cache["failed_ts"]
-        if cached is not None and (now - cached_ts < _DUMP_VERSION_CACHE_TTL_SECONDS):
-            return cached
-        if now - failed_ts < _DUMP_VERSION_FAILURE_TTL_SECONDS:
-            # Recent fetch failure: serve the stale payload (or nothing)
-            # instead of re-blocking every request on the timeout.
-            return cached
-    try:
-        url = f"{PUBLIC_DEV_BASE}/dumps/latest.json"
-        req = urllib.request.Request(url, headers={"User-Agent": "pandects-api/1.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            manifest = _json.loads(resp.read())
-        sha256_val = manifest.get("sha256")
-        dump_ts_val = manifest.get("timestamp")
-        if not isinstance(sha256_val, str) or not isinstance(dump_ts_val, str):
-            raise ValueError("Malformed dumps manifest.")
-    except Exception:
-        with _dump_version_cache_lock:
-            _dump_version_cache["failed_ts"] = now
-            stale = _dump_version_cache["payload"]
-        return stale
-    info: _DumpVersionInfo = {"hash": sha256_val, "dump_ts": dump_ts_val}
-    with _dump_version_cache_lock:
-        _dump_version_cache["payload"] = info
-        _dump_version_cache["ts"] = now
-        _dump_version_cache["failed_ts"] = 0.0
-    return info
-
-
-def _populate_dump_version() -> None:
-    # Tests must not depend on (or wait for) the live bulk host.
-    if current_app.testing:
-        g.dump_version = None
-        return
-    g.dump_version = _fetch_latest_dump_version()
-
-
-def _attach_dump_version_header(response: Response) -> Response:
-    info = getattr(g, "dump_version", None)
-    if isinstance(info, dict) and isinstance(info.get("hash"), str):
-        response.headers["X-Pandects-Dump-Hash"] = info["hash"]
-    return response
-
-
-# Legacy names retained for tests and app-module indirection.
-_is_running_on_fly = _is_running_on_fly_auth_runtime
-_ensure_auth_tables_exist = _ensure_auth_tables_exist_auth_runtime
-
+# ── Small adapters handed to route deps ───────────────────────────────────
 def _schema_prefix() -> str:
     """Return the configured schema prefix for raw SQL assembly."""
     if has_app_context():
@@ -545,128 +326,10 @@ def _schema_prefix() -> str:
     return f"{value}." if value else ""
 
 
-def _configure_app(
-    target_app: Flask, *, config_overrides: dict[str, object] | None = None
-) -> None:
-    _configure_app_core(
-        target_app,
-        auth_database_uri=AUTH_DATABASE_URI,
-        config_overrides=config_overrides,
-    )
-
-
-
-# ── JSON error responses for API routes ──────────────────────────────────
-
-# —— Bulk data setup ——————��———————————————————————————————————————————————
-R2_BUCKET_NAME = "pandects-bulk"
-R2_ENDPOINT = "https://7b5e7846d94ee35b35e21999fc4fad5b.r2.cloudflarestorage.com"
-PUBLIC_DEV_BASE = "https://bulk.pandects.org"
-
-client: _S3Client | None = None
-if os.environ.get("R2_ACCESS_KEY_ID") and os.environ.get("R2_SECRET_ACCESS_KEY"):
-    session = cast(_Boto3SessionLike, Session())
-    raw_client = session.client(
-        service_name="s3",
-        aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
-        aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
-        endpoint_url=R2_ENDPOINT,
-        # Botocore defaults are 60s connect/read; a slow R2 would pin request
-        # workers on the routes that read it (/v1/dumps, /v1/changelog).
-        config=BotoConfig(
-            connect_timeout=10,
-            read_timeout=30,
-            retries={"max_attempts": 3, "mode": "standard"},
-        ),
-    )
-    client = cast(_S3Client, raw_client)
-
-_SIGNUP_NOTIFICATION_EMAIL = "nmbogdan@alumni.stanford.edu"
-
-
-def _send_signup_notification_email(
-    *,
-    new_user_email: str,
-    provider: str,
-    signed_up_at: datetime,
-    full_name: str | None = None,
-) -> None:
-    subject = "New Pandects signup"
-    lines = [
-        "A new user just signed up on Pandects.",
-        "",
-        (
-            "Full name: "
-            f"{full_name.strip() if isinstance(full_name, str) and full_name.strip() else 'Not provided'}"
-        ),
-        f"Email: {new_user_email}",
-        f"Provider: {provider}",
-        f"Signup date: {signed_up_at:%Y-%m-%d}",
-        f"Signup time: {signed_up_at:%H:%M:%S} UTC",
-    ]
-    text = "\n".join(lines)
-
-    def _send() -> None:
-        _send_resend_text_email(
-            to_email=_SIGNUP_NOTIFICATION_EMAIL,
-            subject=subject,
-            text=text,
-        )
-        _send_welcome_email(to_email=new_user_email, name=full_name)
-
-    runner = _async_task_runner()
-    if runner is None or not runner.enqueue(_send):
-        _send()
-
-
-def _send_flag_notification_email(
-    *,
-    user_email: str,
-    submitted_at: datetime,
-    source: str,
-    agreement_uuid: str,
-    section_uuid: str | None,
-    message: str | None,
-    request_follow_up: bool,
-    issue_types: list[str],
-) -> None:
-    lines = [
-        "Pandects issue report",
-        "",
-        f"User: {user_email}",
-        f"Date/time (UTC): {submitted_at.strftime('%Y-%m-%d %H:%M:%S')} UTC",
-        f"Context: {source}",
-        f"Agreement UUID: {agreement_uuid}",
-    ]
-    if section_uuid:
-        lines.append(f"Section UUID: {section_uuid}")
-    if issue_types:
-        lines.extend(["", "Issue categories:", ", ".join(issue_types)])
-    if message:
-        lines.extend(["", "Report details:", message])
-    else:
-        lines.extend(["", "Report details: (none provided)"])
-    lines.append(f"Request follow-up: {'Yes' if request_follow_up else 'No'}")
-    text = "\n".join(lines)
-    subject = "Pandects: Issue report"
-    _send_resend_text_email(
-        to_email=_SIGNUP_NOTIFICATION_EMAIL, subject=subject, text=text
-    )
-
-
-_SECTION_ID_RE = re.compile(
-    r"^(?:[0-9a-fA-F]{16}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
-)
-_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-
-
 def _redact_agreement_xml(
     xml_content: str, *, focus_section_uuid: str | None, neighbor_sections: int
 ) -> str:
-    if __package__:
-        from .redaction import redact_agreement_xml
-    else:
-        from redaction import redact_agreement_xml
+    from backend.redaction import redact_agreement_xml
 
     try:
         return redact_agreement_xml(
@@ -686,27 +349,16 @@ def _load_query(schema: Schema) -> dict[str, object]:
     return _core_load_query(schema, json_error=_json_error)
 
 
-def _pagination_metadata(
-    *,
-    total_count: int,
-    page: int,
-    page_size: int,
-    has_next_override: bool | None = None,
-    total_count_is_approximate: bool = False,
-) -> dict[str, object]:
-    return _core_pagination_metadata(
-        total_count=total_count,
-        page=page,
-        page_size=page_size,
-        has_next_override=has_next_override,
-        total_count_is_approximate=total_count_is_approximate,
-    )
+def _auth_enumeration_delay() -> None:
+    time.sleep(random.uniform(0.15, 0.35))
 
 
+# ── Sections service deps ─────────────────────────────────────────────────
 def _build_sections_service_deps() -> SectionsServiceDeps:
     return SectionsServiceDeps(
         db=db,
         AgreementCounsel=AgreementCounsel,
+        Agreements=Agreements,
         Counsel=Counsel,
         LatestSectionsSearch=LatestSectionsSearch,
         SectionTextSearch=SectionTextSearch,
@@ -726,739 +378,24 @@ def _build_sections_service_deps() -> SectionsServiceDeps:
     )
 
 
+_shared_sections_service_deps: SectionsServiceDeps | None = None
+
+
+def _sections_service_deps_for_estimates() -> SectionsServiceDeps:
+    """One deps instance for the row-estimate adapters, built on first use."""
+    global _shared_sections_service_deps
+    if _shared_sections_service_deps is None:
+        _shared_sections_service_deps = _build_sections_service_deps()
+    return _shared_sections_service_deps
+
+
 def _estimated_query_row_count(query: object) -> int | None:
-    return _svc_estimated_query_row_count(_build_sections_service_deps(), query)
-
-
-def _current_dump_version_token() -> str:
-    """Stable token for the active data dump, scoping cached counts to it.
-
-    Returns ``"none"`` outside a request context (e.g. direct unit calls) so the
-    cached-count helper stays usable without a live request.
-    """
-    try:
-        dump = getattr(g, "dump_version", None)
-    except RuntimeError:
-        return "none"
-    if isinstance(dump, dict):
-        hash_value = dump.get("hash")
-        if isinstance(hash_value, str) and hash_value:
-            return hash_value
-    return "none"
-
-
-def _cached_exact_query_count(query: object, *, cache_key: str | None) -> int:
-    """Exact COUNT(*) for a search query, memoized per filter signature + dump.
-
-    `cache_key=None` bypasses the cache for an authoritative fresh count.
-    """
-    namespaced_key = (
-        None if cache_key is None else f"{_current_dump_version_token()}|{cache_key}"
-    )
-    return _search_counts_cached_exact_query_count(
-        query=query,
-        cache_key=namespaced_key,
-        cache=_search_count_cache,
-        lock=_search_count_cache_lock,
-        ttl_seconds=_SEARCH_COUNT_CACHE_TTL_SECONDS,
-        max_keys=_SEARCH_COUNT_CACHE_MAX_KEYS,
-        to_int=_to_int,
-        now=time.time,
-    )
+    return _svc_estimated_query_row_count(_sections_service_deps_for_estimates(), query)
 
 
 def _estimated_latest_sections_search_table_rows() -> int | None:
-    return _svc_estimated_latest_sections_search_table_rows(_build_sections_service_deps())
-
-
-def _search_total_count_metadata(  # pyright: ignore[reportUnusedFunction]
-    *,
-    query: object,
-    page: int,
-    page_size: int,
-    item_count: int,
-    has_next: bool,
-    has_filters: bool,
-    count_cache_key: str | None = None,
-) -> tuple[int, bool]:
-    total_count, is_approximate, _ = _svc_sections_total_count_metadata(
-        _build_sections_service_deps(),
-        query=query,
-        page=page,
-        page_size=page_size,
-        item_count=item_count,
-        has_next=has_next,
-        has_filters=has_filters,
-        count_mode="auto",
-        count_cache_key=count_cache_key,
-    )
-    return total_count, is_approximate
-
-
-def _auth_enumeration_delay() -> None:
-    time.sleep(random.uniform(0.15, 0.35))
-
-
-def _is_agreement_section_eligible(agreement_uuid: str, section_uuid: str | None) -> bool:
-    if not agreement_uuid or not _UUID_RE.match(agreement_uuid):
-        return False
-    if section_uuid is not None and (not section_uuid or not _UUID_RE.match(section_uuid)):
-        return False
-    q = (
-        db.session.query(Sections.section_uuid)
-        .join(XML, _section_latest_xml_join_condition())
-        .filter(Sections.agreement_uuid == agreement_uuid)
-    )
-    if section_uuid is not None:
-        q = q.filter(Sections.section_uuid == section_uuid)
-    return q.first() is not None
-
-
-def _lookup_api_key(raw_key: str) -> ApiKey | None:
-    if _auth_is_mocked():
-        return None
-    raw_key = raw_key.strip()
-    if not raw_key.startswith("pdcts_"):
-        return None
-    prefix = raw_key[: 6 + 12]  # "pdcts_" + 12 chars
-    candidates = cast(
-        list[ApiKey],
-        ApiKey.query.filter_by(prefix=prefix, revoked_at=None, deleted_at=None).limit(25).all(),
-    )
-    checks = 0
-    for candidate in candidates:
-        checks += 1
-        key_hash = cast(object, candidate.key_hash)
-        if isinstance(key_hash, str) and check_password_hash(key_hash, raw_key):
-            candidate_id = cast(object, candidate.id)
-            if candidate_id is not None:
-                candidate_id_str = str(candidate_id)
-                if _should_touch_api_key_last_used(candidate_id_str):
-                    try:
-                        candidate.last_used_at = _utc_now()
-                        db.session.commit()
-                    except SQLAlchemyError:
-                        db.session.rollback()
-            return candidate
-    for _ in range(max(0, _API_KEY_MIN_HASH_CHECKS - checks)):
-        _ = check_password_hash(_DUMMY_API_KEY_HASH, raw_key)
-    return None
-
-
-def _current_access_context() -> AccessContext:
-    """Resolve request auth (cookie session or X-API-Key) into AccessContext; cached on g."""
-    cached = getattr(g, "access_ctx", None)
-    if isinstance(cached, AccessContext):
-        return cached
-
-    if _auth_session_transport() == "cookie":
-        cookie_token = request.cookies.get(_SESSION_COOKIE_NAME)
-        if isinstance(cookie_token, str) and cookie_token.strip():
-            user_id = _load_session_token(cookie_token.strip())
-            if user_id:
-                if _auth_is_mocked():
-                    user = _mock_auth.get_user(user_id)
-                    if user is not None and user.email_verified_at is not None:
-                        return AccessContext(tier="user", user_id=user_id)
-                elif _auth_db_is_configured():
-                    try:
-                        user = db.session.get(AuthUser, user_id)
-                    except SQLAlchemyError:
-                        user = None
-                    if user is not None and cast(object, user.email_verified_at) is not None:
-                        return AccessContext(tier="user", user_id=user_id)
-
-    api_key_raw = request.headers.get("X-API-Key")
-    api_key_raw = api_key_raw.strip() if isinstance(api_key_raw, str) else ""
-    if api_key_raw:
-        if _auth_is_mocked():
-            api_key = _mock_auth.lookup_api_key(api_key_raw)
-            if api_key is not None:
-                api_key_user_id = cast(object, api_key.user_id)
-                api_key_id = cast(object, api_key.id)
-                if isinstance(api_key_user_id, str) and _user_id_is_verified(api_key_user_id):
-                    if api_key_id is not None:
-                        g.api_key_last_used_candidate_id = str(api_key_id)
-                    return AccessContext(
-                        tier="api_key",
-                        user_id=api_key_user_id,
-                        api_key_id=api_key_id if isinstance(api_key_id, str) else None,
-                    )
-        elif _auth_db_is_configured():
-            try:
-                api_key = _lookup_api_key(api_key_raw)
-            except SQLAlchemyError:
-                api_key = None
-            if api_key is not None:
-                api_key_user_id = cast(object, api_key.user_id)
-                api_key_id = cast(object, api_key.id)
-                if isinstance(api_key_user_id, str) and _user_id_is_verified(api_key_user_id):
-                    return AccessContext(
-                        tier="api_key",
-                        user_id=api_key_user_id,
-                        api_key_id=api_key_id if isinstance(api_key_id, str) else None,
-                    )
-
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header.removeprefix("Bearer ").strip()
-        user_id = _load_session_token(token)
-        if user_id:
-            if _auth_is_mocked():
-                user = _mock_auth.get_user(user_id)
-                if user is not None and user.email_verified_at is not None:
-                    return AccessContext(tier="user", user_id=user_id)
-            elif _auth_db_is_configured():
-                try:
-                    user = db.session.get(AuthUser, user_id)
-                except SQLAlchemyError:
-                    user = None
-                if user is not None and cast(object, user.email_verified_at) is not None:
-                    return AccessContext(tier="user", user_id=user_id)
-
-    return AccessContext(tier="anonymous")
-
-
-# --- Temporary September access restrictions ---------------------------------
-# New account creation is disabled and the data API is limited to accounts that
-# already existed before the current day, surfaced in-app as a "check back in
-# September" notice. To reopen access, remove _temporary_access_gate (and its
-# before_request registration in _register_request_hooks) plus the OAuth
-# register guard in backend/routes/auth/__init__.py.
-_REGISTRATION_DISABLED_MESSAGE = (
-    "New user creation is temporarily disabled. Please check back in September."
-)
-_DATA_API_DISABLED_MESSAGE = (
-    "This API is temporarily disabled for non-authenticated users. "
-    "Please check back in September."
-)
-
-
-def _access_account_predates_today(ctx: AccessContext) -> bool:
-    """True only for an authenticated account created before the current UTC day."""
-    if not ctx.is_authenticated or ctx.user_id is None:
-        return False
-    if _auth_is_mocked():
-        user = _mock_auth.get_user(ctx.user_id)
-    elif _auth_db_is_configured():
-        try:
-            user = db.session.get(AuthUser, ctx.user_id)
-        except SQLAlchemyError:
-            return False
-    else:
-        return False
-    created_at = getattr(user, "created_at", None) if user is not None else None
-    if not isinstance(created_at, datetime):
-        return False
-    return created_at.date() < _utc_today()
-
-
-def _temporary_access_gate() -> None:
-    """Block new registration and restrict the data API to pre-today accounts."""
-    if not _temporary_access_lockdown_enabled():
-        return
-    if request.method == "OPTIONS":
-        return
-    path = request.path
-    if request.method == "POST" and path == "/v1/auth/signup/password":
-        abort(403, description=_REGISTRATION_DISABLED_MESSAGE)
-    # Only the data API is gated; /v1/auth/* (sign-in, session, captcha, etc.)
-    # stays reachable so existing users can still authenticate, and
-    # /v1/page-views stays open because anonymous-visitor telemetry is the
-    # point of that endpoint (it exposes no data).
-    if not path.startswith("/v1/") or path.startswith("/v1/auth/"):
-        return
-    if path == "/v1/page-views":
-        return
-    ctx = getattr(g, "access_ctx", None)
-    if not isinstance(ctx, AccessContext):
-        ctx = _current_access_context()
-    if _access_account_predates_today(ctx):
-        return
-    abort(403, description=_DATA_API_DISABLED_MESSAGE)
-
-
-def _create_api_key(*, user_id: str, name: str | None) -> tuple[ApiKey, str]:
-    token = f"pdcts_{uuid.uuid4().hex}{uuid.uuid4().hex}"
-    prefix = token[: 6 + 12]
-    key = ApiKey()
-    key.user_id = user_id
-    key.name = name.strip() if isinstance(name, str) and name.strip() else None
-    key.prefix = prefix
-    key.key_hash = generate_password_hash(token)
-    db.session.add(key)
-    db.session.commit()
-    return key, token
-
-
-def _permanently_delete_api_key(*, user_id: str, key_id: str) -> bool:
-    """Tombstone an API key while retaining usage rows that reference it."""
-    try:
-        key = ApiKey.query.filter_by(id=key_id, user_id=user_id).first()
-        if key is None:
-            return False
-        if key.deleted_at is not None:
-            return True
-        now = _utc_now()
-        key.deleted_at = now
-        if key.revoked_at is None:
-            key.revoked_at = now
-        key.key_hash = _DUMMY_API_KEY_HASH
-        key.name = None
-        db.session.commit()
-        return True
-    except SQLAlchemyError:
-        db.session.rollback()
-        raise
-
-
-def _require_user() -> tuple[AuthUser, AccessContext]:
-    ctx = _current_access_context()
-    if not ctx.user_id or ctx.tier == "api_key":
-        abort(401, description="Sign in required.")
-    if _auth_is_mocked():
-        user = _mock_auth.get_user(ctx.user_id)
-        if user is None:
-            abort(401, description="Invalid session.")
-        if user.email.startswith("deleted+") and user.email.endswith("@deleted.invalid"):
-            abort(401, description="Account deleted.")
-        auth_user = AuthUser()
-        auth_user.id = user.id
-        auth_user.email = user.email
-        auth_user.email_verified_at = user.email_verified_at
-        auth_user.created_at = user.created_at
-        return (
-            auth_user,
-            ctx,
-        )
-    try:
-        user = db.session.get(AuthUser, ctx.user_id)
-    except SQLAlchemyError:
-        abort(503, description="Auth backend is unavailable right now.")
-    if user is None:
-        abort(401, description="Invalid session.")
-    user_email = cast(object, user.email)
-    if (
-        isinstance(user_email, str)
-        and user_email.startswith("deleted+")
-        and user_email.endswith("@deleted.invalid")
-    ):
-        abort(401, description="Account deleted.")
-    return user, ctx
-
-
-def _require_verified_user() -> tuple[AuthUser, AccessContext]:
-    user, ctx = _require_user()
-    if cast(object, user.email_verified_at) is None:
-        abort(403, description="Email address not verified.")
-    return user, ctx
-
-
-def _user_id_is_verified(user_id: str) -> bool:
-    if _auth_is_mocked():
-        user = _mock_auth.get_user(user_id)
-        return user is not None and user.email_verified_at is not None
-    if not _auth_db_is_configured():
-        return False
-    try:
-        user = db.session.get(AuthUser, user_id)
-    except SQLAlchemyError:
-        return False
-    if user is None:
-        return False
-    return cast(object, user.email_verified_at) is not None
-
-
-def _rate_limit_key(ctx: AccessContext) -> tuple[str, int]:
-    if ctx.tier == "api_key" and ctx.api_key_id:
-        return f"api_key:{ctx.api_key_id}", 300
-    if ctx.tier == "user" and ctx.user_id:
-        return f"user:{ctx.user_id}", 120
-    ip = _request_ip_address() or "unknown"
-    return f"anon:{ip}", 60
-
-
-# Read-only search endpoints are paginated, so a single user session legitimately
-# fans out into many GETs. Give those reads their own higher-ceiling bucket
-# (separate key prefix) so deep pagination is not throttled by — and does not
-# starve — the general per-tier limit shared by all other /v1 traffic.
-_SEARCH_READ_RATE_LIMIT_PATHS = frozenset(
-    {
-        "/v1/sections",
-        "/v1/search/agreements",
-        "/v1/tax-clauses",
-    }
-)
-_SEARCH_READ_RATE_LIMITS_BY_TIER = {
-    "anonymous": 300,
-    "user": 600,
-    "api_key": 1200,
-}
-
-
-def _is_search_read_request() -> bool:
-    if request.method != "GET":
-        return False
-    path = request.path
-    return (
-        path in _SEARCH_READ_RATE_LIMIT_PATHS
-        or path == "/v1/filter-options"
-        or path.startswith("/v1/filter-options/")
-    )
-
-
-def _apply_search_read_rate_limit(
-    ctx: AccessContext, key: str, per_minute: int
-) -> tuple[str, int]:
-    if not _is_search_read_request():
-        return key, per_minute
-    return f"search:{key}", _SEARCH_READ_RATE_LIMITS_BY_TIER.get(ctx.tier, per_minute)
-
-
-_ENDPOINT_RATE_LIMITS: dict[tuple[str, str], int] = {
-    ("POST", "/v1/page-views"): 60,
-    ("POST", "/v1/auth/flag-inaccurate"): 10,
-    ("POST", "/v1/auth/signup/password"): 5,
-    ("POST", "/v1/auth/login/password"): 10,
-    ("POST", "/v1/auth/password-reset/request"): 3,
-    ("POST", "/v1/auth/email/verify/resend"): 5,
-    ("POST", "/v1/auth/oauth/register"): 10,
-}
-
-# Per-account login-failure throttle. Layers on top of the per-IP endpoint
-# limit so an attacker can't spread credential-stuffing attempts across many
-# IPs against the same email. Keyed on SHA-256(email) so plaintext addresses
-# never sit in process memory or logs. Counts are local to each process — on
-# a horizontally scaled deployment the effective limit is N × the per-process
-# threshold; not perfect, but a meaningful raise on the bar.
-_account_login_failure_lock = Lock()
-_account_login_failure_state: dict[str, dict[str, float | int]] = {}
-_ACCOUNT_LOGIN_FAILURE_WINDOW_SECONDS = 15 * 60
-_ACCOUNT_LOGIN_FAILURE_LIMIT = 8
-_ACCOUNT_LOGIN_BACKOFF_SECONDS = 15 * 60
-_ACCOUNT_LOGIN_STATE_MAX_KEYS = int(
-    os.environ.get("ACCOUNT_LOGIN_STATE_MAX_KEYS", "50000")
-)
-
-
-def _account_login_key(email_normalized: str) -> str:
-    return hashlib.sha256(email_normalized.encode("utf-8")).hexdigest()
-
-
-def _prune_account_login_state_locked(now: float) -> None:
-    cutoff = now - _ACCOUNT_LOGIN_FAILURE_WINDOW_SECONDS
-    stale_keys = [
-        key
-        for key, payload in _account_login_failure_state.items()
-        if float(payload["ts"]) < cutoff and float(payload.get("blocked_until", 0)) <= now
-    ]
-    for key in stale_keys:
-        _ = _account_login_failure_state.pop(key, None)
-    overflow = len(_account_login_failure_state) - _ACCOUNT_LOGIN_STATE_MAX_KEYS
-    if overflow > 0:
-        oldest_keys = [
-            existing_key
-            for existing_key, _payload in sorted(
-                _account_login_failure_state.items(),
-                key=lambda item: float(item[1]["ts"]),
-            )[:overflow]
-        ]
-        for existing_key in oldest_keys:
-            _ = _account_login_failure_state.pop(existing_key, None)
-
-
-def _check_account_login_rate_limit(email_normalized: str) -> None:
-    key = _account_login_key(email_normalized)
-    now = time.time()
-    with _account_login_failure_lock:
-        _prune_account_login_state_locked(now)
-        state = _account_login_failure_state.get(key)
-        if state is None:
-            return
-        blocked_until = float(state.get("blocked_until", 0))
-        if blocked_until > now:
-            retry_after = max(1, int(blocked_until - now))
-        else:
-            return
-    abort(
-        _json_error(
-            429,
-            error="rate_limited",
-            message="Too many failed sign-in attempts for this account. Please retry shortly.",
-            headers={"Retry-After": str(retry_after)},
-        )
-    )
-
-
-def _record_account_login_failure(email_normalized: str) -> None:
-    key = _account_login_key(email_normalized)
-    now = time.time()
-    with _account_login_failure_lock:
-        state = _account_login_failure_state.get(key)
-        if state is None or (
-            now - float(state["ts"]) >= _ACCOUNT_LOGIN_FAILURE_WINDOW_SECONDS
-            and float(state.get("blocked_until", 0)) <= now
-        ):
-            _account_login_failure_state[key] = {
-                "ts": now,
-                "count": 1,
-                "blocked_until": 0.0,
-            }
-            return
-        new_count = int(state["count"]) + 1
-        state["count"] = new_count
-        state["ts"] = now
-        if new_count >= _ACCOUNT_LOGIN_FAILURE_LIMIT:
-            state["blocked_until"] = now + _ACCOUNT_LOGIN_BACKOFF_SECONDS
-
-
-def _record_account_login_success(email_normalized: str) -> None:
-    key = _account_login_key(email_normalized)
-    with _account_login_failure_lock:
-        _ = _account_login_failure_state.pop(key, None)
-
-
-def _endpoint_rate_limit_key(method: str, path: str) -> tuple[str, int] | None:
-    limit = _ENDPOINT_RATE_LIMITS.get((method, path))
-    if limit is None:
-        return None
-    ip = _request_ip_address() or "unknown"
-    return f"endpoint:{method}:{path}:ip:{ip}", limit
-
-
-def _prune_rate_limit_state(now: float) -> None:
-    global _rate_limit_last_prune_at
-    if (now - _rate_limit_last_prune_at) < _RATE_LIMIT_PRUNE_INTERVAL_SECONDS:
-        return
-
-    cutoff = now - _RATE_LIMIT_WINDOW_SECONDS
-    for state in (_rate_limit_state, _endpoint_rate_limit_state):
-        stale_keys = [key for key, payload in state.items() if float(payload["ts"]) < cutoff]
-        for key in stale_keys:
-            _ = state.pop(key, None)
-        overflow = len(state) - _RATE_LIMIT_MAX_KEYS
-        if overflow > 0:
-            oldest_keys = [
-                key
-                for key, _payload in sorted(
-                    state.items(),
-                    key=lambda item: float(item[1]["ts"]),
-                )[:overflow]
-            ]
-            for key in oldest_keys:
-                _ = state.pop(key, None)
-
-    _rate_limit_last_prune_at = now
-
-
-def _should_touch_api_key_last_used(key_id: str) -> bool:
-    interval_seconds = float(max(0, _API_KEY_LAST_USED_TOUCH_SECONDS))
-    now = time.time()
-    with _api_key_last_used_touch_lock:
-        if interval_seconds > 0:
-            cutoff = now - (interval_seconds * 2.0)
-            stale_keys = [
-                existing_key
-                for existing_key, touched_at in _api_key_last_used_touch_state.items()
-                if touched_at < cutoff
-            ]
-            for stale_key in stale_keys:
-                _ = _api_key_last_used_touch_state.pop(stale_key, None)
-        overflow = len(_api_key_last_used_touch_state) - _API_KEY_LAST_USED_MAX_KEYS
-        if overflow > 0:
-            oldest_keys = [
-                existing_key
-                for existing_key, _touched_at in sorted(
-                    _api_key_last_used_touch_state.items(),
-                    key=lambda item: item[1],
-                )[:overflow]
-            ]
-            for oldest_key in oldest_keys:
-                _ = _api_key_last_used_touch_state.pop(oldest_key, None)
-        last_touched_at = _api_key_last_used_touch_state.get(key_id)
-        if interval_seconds > 0 and last_touched_at is not None:
-            if (now - last_touched_at) < interval_seconds:
-                return False
-        _api_key_last_used_touch_state[key_id] = now
-        return True
-
-
-def _touch_api_key_last_used_if_needed() -> None:
-    candidate_id = getattr(g, "api_key_last_used_candidate_id", None)
-    if not isinstance(candidate_id, str) or not candidate_id:
-        return
-    if not _should_touch_api_key_last_used(candidate_id):
-        return
-    try:
-        _ = ApiKey.query.filter_by(id=candidate_id, revoked_at=None).update(
-            {"last_used_at": _utc_now()},
-            synchronize_session=False,
-        )
-        db.session.commit()
-    except SQLAlchemyError:
-        db.session.rollback()
-
-
-def _check_rate_limit(ctx: AccessContext) -> None:
-    if not request.path.startswith("/v1/"):
-        return
-
-    key, per_minute = _rate_limit_key(ctx)
-    key, per_minute = _apply_search_read_rate_limit(ctx, key, per_minute)
-    now = time.time()
-    window = _RATE_LIMIT_WINDOW_SECONDS
-    with _rate_limit_lock:
-        _prune_rate_limit_state(now)
-        state = _rate_limit_state.get(key)
-        if state is None or (now - float(state["ts"])) >= window:
-            _rate_limit_state[key] = {"ts": now, "count": 1}
-            return
-
-        count = int(state["count"]) + 1
-        state["count"] = count
-        if count <= per_minute:
-            return
-
-        retry_after = max(1, int(window - (now - float(state["ts"]))))
-    abort(
-        _json_error(
-            429,
-            error="rate_limited",
-            message="Too many requests. Please retry shortly.",
-            headers={"Retry-After": str(retry_after)},
-        )
-    )
-
-
-def _check_endpoint_rate_limit() -> None:
-    if not request.path.startswith("/v1/"):
-        return
-
-    key_limit = _endpoint_rate_limit_key(request.method, request.path)
-    if key_limit is None:
-        return
-    key, per_minute = key_limit
-    now = time.time()
-    window = _RATE_LIMIT_WINDOW_SECONDS
-    with _rate_limit_lock:
-        _prune_rate_limit_state(now)
-        state = _endpoint_rate_limit_state.get(key)
-        if state is None or (now - float(state["ts"])) >= window:
-            _endpoint_rate_limit_state[key] = {"ts": now, "count": 1}
-            return
-
-        count = int(state["count"]) + 1
-        state["count"] = count
-        if count <= per_minute:
-            return
-
-        retry_after = max(1, int(window - (now - float(state["ts"]))))
-    abort(
-        _json_error(
-            429,
-            error="rate_limited",
-            message="Too many requests. Please retry shortly.",
-            headers={"Retry-After": str(retry_after)},
-        )
-    )
-
-
-def _capture_request_start() -> None:
-    _capture_request_start_core()
-
-
-def _auth_rate_limit_guard():
-    _auth_rate_limit_guard_core(
-        current_access_context=lambda: _current_access_context(),
-        csrf_required=_csrf_required,
-        check_rate_limit=lambda ctx: _check_rate_limit(cast(AccessContext, ctx)),
-        check_endpoint_rate_limit=_check_endpoint_rate_limit,
-        csrf_cookie_name=_CSRF_COOKIE_NAME,
-    )
-
-
-def _record_api_key_usage(response: Response) -> Response:
-    _touch_api_key_last_used_if_needed()
-    ctx = _current_access_context()
-    _record_web_session_usage_service(
-        ctx=ctx,
-        response=response,
-        auth_is_mocked=_auth_is_mocked,
-    )
-    return _record_api_key_usage_service(
-        ctx=ctx,
-        response=response,
-        db=db,
-        ApiUsageDaily=ApiUsageDaily,
-        ApiUsageHourly=ApiUsageHourly,
-        ApiUsageDailyIp=ApiUsageDailyIp,
-        ApiRequestEvent=ApiRequestEvent,
-        auth_is_mocked=_auth_is_mocked,
-        mock_auth=_mock_auth,
-        request_ip_address=_request_ip_address,
-        request_user_agent=_request_user_agent,
-        sample_rate_2xx=_USAGE_SAMPLE_RATE_2XX,
-        sample_rate_3xx=_USAGE_SAMPLE_RATE_3XX,
-        latency_bucket_bounds=_LATENCY_BUCKET_BOUNDS_MS,
-        usage_buffer=_usage_buffer(),
-    )
-
-
-def _set_security_headers(response: Response) -> Response:
-    return _set_security_headers_core(response, is_running_on_fly=_is_running_on_fly)
-
-
-def _register_request_hooks(target_app: Flask) -> None:
-    _register_request_hooks_core(
-        target_app,
-        capture_request_start=_capture_request_start,
-        auth_rate_limit_guard=_auth_rate_limit_guard,
-        record_api_key_usage=_record_api_key_usage,
-        set_security_headers=_set_security_headers,
-        populate_dump_version=_populate_dump_version,
-        attach_dump_version_header=_attach_dump_version_header,
-    )
-    # Temporary September gate; registered after the core guard so g.access_ctx is set.
-    _temp_access_gate: object = target_app.before_request(_temporary_access_gate)
-
-# Legacy helper names kept so route dependency wiring and tests can import one app module.
-_encode_agreements_cursor = _core_encode_agreements_cursor
-_decode_agreements_cursor = _core_decode_agreements_cursor
-
-def _register_blueprints(target_app: Flask) -> None:
-    api_ext = cast(_ApiExtension, cast(object, api))
-    sections_deps, agreements_deps, reference_data_deps, tax_clauses_deps, _ = _build_route_deps()
-    sections_list_blp = register_sections_routes(deps=sections_deps)
-    agreements_blp, sections_blp, agreement_search_blp = register_agreements_routes(
-        target_app,
-        deps=agreements_deps,
-    )
-    taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp, changelog_blp = register_reference_data_routes(
-        deps=reference_data_deps,
-    )
-    tax_clauses_blp = register_tax_clauses_routes(deps=tax_clauses_deps)
-    api_ext.register_blueprint(sections_list_blp)
-    api_ext.register_blueprint(agreements_blp)
-    api_ext.register_blueprint(sections_blp)
-    api_ext.register_blueprint(tax_clauses_blp)
-    api_ext.register_blueprint(agreement_search_blp)
-    api_ext.register_blueprint(taxonomy_blp)
-    api_ext.register_blueprint(tax_clause_taxonomy_blp)
-    api_ext.register_blueprint(naics_blp)
-    api_ext.register_blueprint(counsel_blp)
-    api_ext.register_blueprint(dumps_blp)
-    api_ext.register_blueprint(changelog_blp)
-    target_app.register_blueprint(register_telemetry_routes())
-    target_app.register_blueprint(
-        register_mcp_routes(
-            target_app,
-            deps=McpDeps(
-                sections_service_deps=sections_deps.sections_service_deps,
-                agreements_deps=agreements_deps,
-                reference_data_deps=reference_data_deps,
-                tax_clauses_service_deps=tax_clauses_deps.tax_clauses_service_deps,
-            ),
-        )
+    return _svc_estimated_latest_sections_search_table_rows(
+        _sections_service_deps_for_estimates()
     )
 
 
@@ -1484,11 +421,11 @@ def _build_tax_clauses_service_deps() -> TaxClausesServiceDeps:
     )
 
 
+# ── Route deps ────────────────────────────────────────────────────────────
 def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps, TaxClausesDeps, AuthDeps]:
-    sections_service_deps = _build_sections_service_deps()
     sections_deps = SectionsDeps(
         _current_access_context=_current_access_context,
-        sections_service_deps=sections_service_deps,
+        sections_service_deps=_build_sections_service_deps(),
     )
     tax_clauses_deps = TaxClausesDeps(
         _current_access_context=_current_access_context,
@@ -1500,6 +437,7 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         Clauses=Clauses,
         Counsel=Counsel,
         LatestSectionsSearch=LatestSectionsSearch,
+        SectionTextSearch=SectionTextSearch,
         Sections=Sections,
         TaxonomyL1=TaxonomyL1,
         TaxonomyL2=TaxonomyL2,
@@ -1509,15 +447,9 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         TaxClauseTaxonomyL2=TaxClauseTaxonomyL2,
         TaxClauseTaxonomyL3=TaxClauseTaxonomyL3,
         XML=XML,
-        _AGREEMENTS_SUMMARY_TTL_SECONDS=_AGREEMENTS_SUMMARY_TTL_SECONDS,
-        _FILTER_OPTIONS_TTL_SECONDS=_FILTER_OPTIONS_TTL_SECONDS,
         _SECTION_ID_RE=_SECTION_ID_RE,
         _agreement_latest_xml_join_condition=_agreement_latest_xml_join_condition,
         _agreement_year_expr=_agreement_year_expr,
-        _agreements_summary_cache=cast(
-            dict[str, object], cast(object, _agreements_summary_cache)
-        ),
-        _agreements_summary_lock=_agreements_summary_lock,
         _coalesced_section_standard_ids=_coalesced_section_standard_ids,
         _current_access_context=_current_access_context,
         _decode_agreements_cursor=_decode_agreements_cursor,
@@ -1525,8 +457,6 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _expand_tax_clause_taxonomy_standard_ids_cached=_expand_tax_clause_taxonomy_standard_ids_cached,
         _tax_clause_standard_id_filter_expr=_tax_clause_standard_id_filter_expr,
         _encode_agreements_cursor=_encode_agreements_cursor,
-        _filter_options_cache=cast(dict[str, object], cast(object, _filter_options_cache)),
-        _filter_options_lock=_filter_options_lock,
         _load_query=_load_query,
         _pagination_metadata=_pagination_metadata,
         _parse_section_standard_ids=_parse_section_standard_ids,
@@ -1541,7 +471,6 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _to_int=_to_int,
         _year_from_filing_date_value=_year_from_filing_date_value,
         db=db,
-        time=time,
     )
     reference_data_deps = ReferenceDataDeps(
         Counsel=Counsel,
@@ -1555,33 +484,12 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         TaxonomyL1=TaxonomyL1,
         TaxonomyL2=TaxonomyL2,
         TaxonomyL3=TaxonomyL3,
-        _CHANGELOG_CACHE_TTL_SECONDS=_CHANGELOG_CACHE_TTL_SECONDS,
-        _DUMPS_CACHE_TTL_SECONDS=_DUMPS_CACHE_TTL_SECONDS,
-        _DUMPS_MANIFEST_CACHE_TTL_SECONDS=_DUMPS_MANIFEST_CACHE_TTL_SECONDS,
-        _COUNSEL_TTL_SECONDS=_COUNSEL_TTL_SECONDS,
-        _NAICS_TTL_SECONDS=_NAICS_TTL_SECONDS,
-        _TAXONOMY_TTL_SECONDS=_TAXONOMY_TTL_SECONDS,
-        _changelog_cache=cast(dict[str, object], cast(object, _changelog_cache)),
-        _changelog_cache_lock=_changelog_cache_lock,
-        _counsel_cache=cast(dict[str, object], cast(object, _counsel_cache)),
-        _counsel_lock=_counsel_lock,
-        _dumps_cache=cast(dict[str, object], cast(object, _dumps_cache)),
-        _dumps_cache_lock=_dumps_cache_lock,
-        _dumps_manifest_cache=cast(dict[str, object], cast(object, _dumps_manifest_cache)),
-        _dumps_manifest_cache_lock=_dumps_manifest_cache_lock,
-        _naics_cache=cast(dict[str, object], cast(object, _naics_cache)),
-        _naics_lock=_naics_lock,
-        _tax_clause_taxonomy_cache=cast(
-            dict[str, object], cast(object, _tax_clause_taxonomy_cache)
-        ),
-        _tax_clause_taxonomy_lock=_tax_clause_taxonomy_lock,
-        _taxonomy_cache=cast(dict[str, object], cast(object, _taxonomy_cache)),
-        _taxonomy_lock=_taxonomy_lock,
-        client=client,
+        client=_r2_client,
         db=db,
-        time=time,
     )
 
+    # The three wrappers below resolve their target through this module at
+    # call time, so tests can swap `backend.app._oauth_fetch_json` and friends.
     def _oauth_fetch_json_for_routes(
         url: str,
         *,
@@ -1684,37 +592,121 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
     return sections_deps, agreements_deps, reference_data_deps, tax_clauses_deps, auth_deps
 
 
-def _register_app(target_app: Flask) -> None:
-    _, _, _, _, auth_deps = _build_route_deps()
+def _build_favorites_deps() -> FavoritesDeps:
+    return FavoritesDeps(
+        Favorite=Favorite,
+        FavoriteProject=FavoriteProject,
+        FavoriteProjectAssignment=FavoriteProjectAssignment,
+        FavoriteTag=FavoriteTag,
+        FavoriteTagAssignment=FavoriteTagAssignment,
+        Sections=Sections,
+        Clauses=Clauses,
+        Agreements=Agreements,
+        XML=XML,
+        db=db,
+        _section_latest_xml_join_condition=_section_latest_xml_join_condition,
+        _agreement_latest_xml_join_condition=_agreement_latest_xml_join_condition,
+        _coalesced_section_standard_ids=_coalesced_section_standard_ids,
+        _parse_section_standard_ids=_parse_section_standard_ids,
+        _require_auth_db=_require_auth_db,
+        _require_verified_user=_require_verified_user,
+        _auth_is_mocked=_auth_is_mocked,
+        _load_json=_load_json,
+        _utc_now=_utc_now,
+    )
 
+
+# ── Request hooks ─────────────────────────────────────────────────────────
+def _auth_rate_limit_guard() -> None:
+    _auth_rate_limit_guard_core(
+        current_access_context=_current_access_context,
+        csrf_required=_csrf_required,
+        check_rate_limit=lambda ctx: _check_rate_limit(cast(AccessContext, ctx)),
+        check_endpoint_rate_limit=_check_endpoint_rate_limit,
+        csrf_cookie_name=_CSRF_COOKIE_NAME,
+    )
+
+
+def _record_api_key_usage(response: Response) -> Response:
+    _api_keys.touch_api_key_last_used_if_needed()
+    return _record_request_usage(_current_access_context(), response)
+
+
+def _set_security_headers(response: Response) -> Response:
+    return _set_security_headers_core(response, is_running_on_fly=_is_running_on_fly)
+
+
+def _register_request_hooks(target_app: Flask) -> None:
+    _register_request_hooks_core(
+        target_app,
+        capture_request_start=_capture_request_start,
+        auth_rate_limit_guard=_auth_rate_limit_guard,
+        record_api_key_usage=_record_api_key_usage,
+        set_security_headers=_set_security_headers,
+        populate_dump_version=_dumps.populate_dump_version,
+        attach_dump_version_header=_dumps.attach_dump_version_header,
+    )
+    # Temporary lockdown gate; registered after the core guard so g.access_ctx is set.
+    _temp_access_gate: object = target_app.before_request(_temporary_access_gate)
+
+
+# ── Blueprints ────────────────────────────────────────────────────────────
+def _register_blueprints(target_app: Flask) -> None:
+    api_ext = cast(_ApiExtension, cast(object, api))
+    sections_deps, agreements_deps, reference_data_deps, tax_clauses_deps, auth_deps = (
+        _build_route_deps()
+    )
+    sections_list_blp = register_sections_routes(deps=sections_deps)
+    agreements_blp, sections_blp, agreement_search_blp = register_agreements_routes(
+        target_app,
+        deps=agreements_deps,
+    )
+    taxonomy_blp, naics_blp, counsel_blp, dumps_blp, tax_clause_taxonomy_blp, changelog_blp = register_reference_data_routes(
+        deps=reference_data_deps,
+    )
+    tax_clauses_blp = register_tax_clauses_routes(deps=tax_clauses_deps)
+    api_ext.register_blueprint(sections_list_blp)
+    api_ext.register_blueprint(agreements_blp)
+    api_ext.register_blueprint(sections_blp)
+    api_ext.register_blueprint(tax_clauses_blp)
+    api_ext.register_blueprint(agreement_search_blp)
+    api_ext.register_blueprint(taxonomy_blp)
+    api_ext.register_blueprint(tax_clause_taxonomy_blp)
+    api_ext.register_blueprint(naics_blp)
+    api_ext.register_blueprint(counsel_blp)
+    api_ext.register_blueprint(dumps_blp)
+    api_ext.register_blueprint(changelog_blp)
+    target_app.register_blueprint(register_telemetry_routes())
+    target_app.register_blueprint(
+        register_mcp_routes(
+            target_app,
+            deps=McpDeps(
+                sections_service_deps=sections_deps.sections_service_deps,
+                agreements_deps=agreements_deps,
+                reference_data_deps=reference_data_deps,
+                tax_clauses_service_deps=tax_clauses_deps.tax_clauses_service_deps,
+            ),
+        )
+    )
+    _ = register_auth_routes(target_app, deps=auth_deps)
+    _ = register_favorites_routes(target_app, deps=_build_favorites_deps())
+
+
+# ── App factory ───────────────────────────────────────────────────────────
+def _configure_app(
+    target_app: Flask, *, config_overrides: dict[str, object] | None = None
+) -> None:
+    _configure_app_core(
+        target_app,
+        auth_database_uri=AUTH_DATABASE_URI,
+        config_overrides=config_overrides,
+    )
+
+
+def _register_app(target_app: Flask) -> None:
     _register_error_handlers(target_app)
     _register_request_hooks(target_app)
     _register_blueprints(target_app)
-    _ = register_auth_routes(target_app, deps=auth_deps)
-    _ = register_favorites_routes(
-        target_app,
-        deps=FavoritesDeps(
-            Favorite=Favorite,
-            FavoriteProject=FavoriteProject,
-            FavoriteProjectAssignment=FavoriteProjectAssignment,
-            FavoriteTag=FavoriteTag,
-            FavoriteTagAssignment=FavoriteTagAssignment,
-            Sections=Sections,
-            Clauses=Clauses,
-            Agreements=Agreements,
-            XML=XML,
-            db=db,
-            _section_latest_xml_join_condition=_section_latest_xml_join_condition,
-            _agreement_latest_xml_join_condition=_agreement_latest_xml_join_condition,
-            _coalesced_section_standard_ids=_coalesced_section_standard_ids,
-            _parse_section_standard_ids=_parse_section_standard_ids,
-            _require_auth_db=_require_auth_db,
-            _require_verified_user=_require_verified_user,
-            _auth_is_mocked=_auth_is_mocked,
-            _load_json=_load_json,
-            _utc_now=_utc_now,
-        ),
-    )
 
 
 def create_app(*, config_overrides: dict[str, object] | None = None) -> Flask:
@@ -1754,17 +746,7 @@ def init_auth_db():
     click.echo(f"Auth DB migrated ({url}).")
 
 
-# ── CLI command for OpenAPI spec generation ──────────────────────────────
-@app.cli.command("gen-openapi")
-def gen_openapi():
-    """Generate an OpenAPI3 YAML spec for your Flask-Smorest API."""
-    with app.test_request_context():
-        spec = api.spec
-        if spec is None:
-            raise click.ClickException("OpenAPI spec is unavailable.")
-        yaml_spec = spec.to_yaml()
-        _ = Path("openapi.yaml").write_text(yaml_spec)
-        click.echo("Wrote openapi.yaml")
+# OpenAPI specs: `python -m backend.scripts.export_openapi` (see ARCHITECTURE.md, "API Contract").
 
 
 if __name__ == "__main__":

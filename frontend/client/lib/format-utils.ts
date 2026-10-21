@@ -138,10 +138,10 @@ export function formatEnumValue(value?: string | null): string {
 
 /**
  * Formats a boolean value
- * @param value - Boolean or null
+ * @param value - Boolean, a 0/1 flag (the API's `*_pe` fields), or null
  * @returns "Yes", "No", or "—"
  */
-export function formatBooleanValue(value?: boolean | null): string {
+export function formatBooleanValue(value?: boolean | number | null): string {
   if (value === null || value === undefined) return "—";
   return value ? "Yes" : "No";
 }

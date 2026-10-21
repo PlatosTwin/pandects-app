@@ -117,7 +117,7 @@ export function CheckboxFilter({
     <div className={cn("flex flex-col gap-2", className)}>
       <label
         id={labelId}
-        className="text-xs font-normal text-muted-foreground tracking-[0.15px]"
+        className="text-sm font-medium text-foreground"
       >
         {label}
       </label>
@@ -217,5 +217,47 @@ export function CheckboxFilter({
         </PopoverContent>
       </Popover>
     </div>
+  );
+}
+
+interface CheckboxListProps {
+  label: string;
+  options: readonly string[];
+  selectedValues: string[];
+  onToggle: (value: string) => void;
+  /** Display text per option; defaults to sentence-cased enum values. */
+  formatOption?: (option: string) => string;
+  className?: string;
+}
+
+/** Short enum facets (status, type, PE…) as visible checkboxes instead of a dropdown. */
+export function CheckboxList({
+  label,
+  options,
+  selectedValues,
+  onToggle,
+  formatOption = formatFilterOption,
+  className,
+}: CheckboxListProps) {
+  return (
+    <fieldset className={cn("min-w-0", className)}>
+      <legend className="mb-1.5 text-sm font-medium text-foreground">{label}</legend>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {options.map((option) => (
+          <label
+            key={option}
+            className="flex min-h-8 cursor-pointer items-center gap-2 text-sm text-foreground"
+          >
+            <input
+              type="checkbox"
+              checked={selectedValues.includes(option)}
+              onChange={() => onToggle(option)}
+              className="h-4 w-4 rounded border-input accent-primary"
+            />
+            {formatOption(option)}
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }

@@ -4,6 +4,8 @@ from typing import TypedDict, cast
 
 from marshmallow import Schema, ValidationError, fields, post_dump, validate, validates_schema
 
+from backend.filtering import TRANSACTION_PRICE_BUCKETS
+from backend.schemas.labels import IndustryLabelsSchema, StandardIdLabelsSchema, pe_flag_field
 from backend.text_search import compile_boolean_text_query, validate_text_query_syntax
 
 
@@ -34,6 +36,23 @@ SECTIONS_RESULT_METADATA_FIELDS = (
     "url",
 )
 MAX_TEXT_SEARCH_PAGE = 100
+
+
+def price_bucket_list_field() -> fields.List[str]:
+    """A price-range filter: repeatable, each value one of `TRANSACTION_PRICE_BUCKETS`.
+
+    An unknown label is a 422 naming the field, the value, and the valid labels;
+    it used to be dropped silently, which returned unfiltered results.
+    """
+    return fields.List(
+        fields.Str(
+            validate=validate.OneOf(
+                TRANSACTION_PRICE_BUCKETS,
+                error="Unknown price bucket {input!r}. Valid values: {choices}.",
+            )
+        ),
+        load_default=[],
+    )
 
 
 def _validate_nonblank_text_query(value: str) -> None:
@@ -127,10 +146,10 @@ class SectionsArgsSchema(Schema):
             "example": ["4207f2e8f6698935", "fe2f63338a1eaf30"],
         },
     )
-    transaction_price_total = fields.List(fields.Str(), load_default=[])
-    transaction_price_stock = fields.List(fields.Str(), load_default=[])
-    transaction_price_cash = fields.List(fields.Str(), load_default=[])
-    transaction_price_assets = fields.List(fields.Str(), load_default=[])
+    transaction_price_total = price_bucket_list_field()
+    transaction_price_stock = price_bucket_list_field()
+    transaction_price_cash = price_bucket_list_field()
+    transaction_price_assets = price_bucket_list_field()
     transaction_consideration = fields.List(fields.Str(), load_default=[])
     target_type = fields.List(fields.Str(), load_default=[])
     acquirer_type = fields.List(fields.Str(), load_default=[])
@@ -272,7 +291,7 @@ class SectionsArgsSchema(Schema):
     )
 
 
-class SectionsResultMetadataSchema(Schema):
+class SectionsResultMetadataSchema(IndustryLabelsSchema):
     filing_date = fields.Str(allow_none=True)
     prob_filing = fields.Float(allow_none=True)
     filing_company_name = fields.Str(allow_none=True)
@@ -294,23 +313,23 @@ class SectionsResultMetadataSchema(Schema):
     attitude = fields.Str(allow_none=True)
     deal_type = fields.Str(allow_none=True)
     purpose = fields.Str(allow_none=True)
-    target_pe = fields.Bool(allow_none=True)
-    acquirer_pe = fields.Bool(allow_none=True)
+    target_pe = pe_flag_field()
+    acquirer_pe = pe_flag_field()
     url = fields.Str(allow_none=True)
 
 
-class SectionItemSchema(Schema):
-    id = fields.Str()
-    agreement_uuid = fields.Str()
-    section_uuid = fields.Str()
-    standard_id = fields.List(fields.Str())
+class SectionItemSchema(StandardIdLabelsSchema):
+    id = fields.Str(required=True)
+    agreement_uuid = fields.Str(required=True)
+    section_uuid = fields.Str(required=True)
+    standard_id = fields.List(fields.Str(), required=True)
     xml = fields.Str()
-    article_title = fields.Str()
-    section_title = fields.Str()
-    acquirer = fields.Str()
-    target = fields.Str()
-    year = fields.Int()
-    verified = fields.Bool()
+    article_title = fields.Str(required=True)
+    section_title = fields.Str(required=True)
+    acquirer = fields.Str(required=True)
+    target = fields.Str(required=True)
+    year = fields.Int(required=True)
+    verified = fields.Bool(required=True)
     metadata = fields.Nested(
         lambda: SectionsResultMetadataSchema(),
         required=False,
@@ -325,8 +344,8 @@ class SectionItemSchema(Schema):
 
 
 class AccessInfoSchema(Schema):
-    tier = fields.Str(required=True)
-    message = fields.Str(required=False, allow_none=True)
+    tier = fields.Str(required=True, validate=validate.OneOf(("anonymous", "user", "api_key")))
+    message = fields.Str(required=True, allow_none=True)
 
 
 class DumpVersionInfoSchema(Schema):
@@ -339,21 +358,22 @@ class SectionsResponseSchema(Schema):
         object,
         fields.List(
             fields.Nested(SectionItemSchema),
+            required=True,
         ),
     )
-    access = fields.Nested(AccessInfoSchema)
-    page = fields.Int()
-    page_size = fields.Int()
-    total_count = fields.Int()
+    access = fields.Nested(AccessInfoSchema, required=True)
+    page = fields.Int(required=True)
+    page_size = fields.Int(required=True)
+    total_count = fields.Int(required=True)
     total_agreement_count = fields.Int(required=False)
-    total_count_is_approximate = fields.Bool()
-    count_metadata = fields.Dict()
-    interpretation = fields.Dict()
-    total_pages = fields.Int()
-    has_next = fields.Bool()
-    has_prev = fields.Bool()
-    next_num = fields.Int(allow_none=True)
-    prev_num = fields.Int(allow_none=True)
+    total_count_is_approximate = fields.Bool(required=True)
+    count_metadata = fields.Dict(required=True)
+    interpretation = fields.Dict(required=True)
+    total_pages = fields.Int(required=True)
+    has_next = fields.Bool(required=True)
+    has_prev = fields.Bool(required=True)
+    next_num = fields.Int(allow_none=True, required=True)
+    prev_num = fields.Int(allow_none=True, required=True)
     dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 

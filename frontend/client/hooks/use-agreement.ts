@@ -1,92 +1,89 @@
-import { useCallback, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Agreement } from "@shared/agreement";
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { Agreement } from "@shared/agreement";
+import type {
+  AgreementSectionIndexItem,
+  AgreementSectionIndexResponse,
+} from "@shared/transactions";
+import { apiGet, errorMessage } from "@/lib/api/client";
 import { logger } from "@/lib/logger";
+import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
 
-async function fetchAgreementApi(
+const AGREEMENT_STALE_TIME_MS = 5 * 60 * 1000;
+
+export function fetchAgreement(
   agreementUuid: string,
-  focusSectionUuid?: string,
+  focusSectionUuid?: string | null,
+  signal?: AbortSignal,
 ): Promise<Agreement> {
-  const params = new URLSearchParams();
-  if (focusSectionUuid) {
-    params.set("focus_section_uuid", focusSectionUuid);
-    params.set("neighbor_sections", "1");
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : "";
-  const response = await authFetch(
-    apiUrl(`v1/agreements/${agreementUuid}${suffix}`),
+  return apiGet<Agreement>(
+    `v1/agreements/${encodeURIComponent(agreementUuid)}`,
+    focusSectionUuid
+      ? { focus_section_uuid: focusSectionUuid, neighbor_sections: 1 }
+      : undefined,
+    { signal },
   );
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
-  return (await response.json()) as Agreement;
 }
 
 /**
- * Imperative agreement fetcher with cache-backed deduplication.
- *
- * Callers (AgreementModal, AgreementReader) drive fetches from useEffects keyed
- * on uuid/focus. We keep that imperative shape but route through React Query's
- * cache so repeat fetches of the same (uuid, focus) pair are deduplicated.
+ * One agreement (metadata + XML). With `focusSectionUuid` the API also
+ * returns the neighbors of that section; each (uuid, focus) pair is cached
+ * separately.
  */
-export function useAgreement() {
-  const queryClient = useQueryClient();
-  const [agreement, setAgreement] = useState<Agreement | null>(null);
-  // Starts true so consumers render their loading state on the first frame,
-  // before the effect-driven fetch has actually started.
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  // Guards against overlapping fetches resolving out of order: only the
-  // latest request is allowed to apply its result.
-  const requestSeqRef = useRef(0);
+export function useAgreementQuery(
+  agreementUuid: string | null | undefined,
+  focusSectionUuid?: string | null,
+) {
+  const query = useQuery({
+    queryKey: keys.agreement.detail(agreementUuid ?? "", focusSectionUuid),
+    queryFn: ({ signal }) => fetchAgreement(agreementUuid!, focusSectionUuid, signal),
+    enabled: !IS_SERVER_RENDER && Boolean(agreementUuid),
+    staleTime: AGREEMENT_STALE_TIME_MS,
+  });
 
-  const fetchAgreement = useCallback(
-    async (agreement_uuid: string, focus_section_uuid?: string) => {
-      const requestId = ++requestSeqRef.current;
-      setIsLoading(true);
-      setError(null);
-      try {
-        const cacheKey = focus_section_uuid
-          ? ([
-              ...keys.agreement.detail(agreement_uuid),
-              "focus",
-              focus_section_uuid,
-            ] as const)
-          : keys.agreement.detail(agreement_uuid);
-
-        const data = await queryClient.fetchQuery({
-          queryKey: cacheKey,
-          queryFn: () => fetchAgreementApi(agreement_uuid, focus_section_uuid),
-          staleTime: 5 * 60 * 1000,
-        });
-        if (requestSeqRef.current !== requestId) return;
-        setAgreement(data);
-      } catch (err) {
-        if (requestSeqRef.current !== requestId) return;
-        logger.error("Failed to fetch agreement:", err);
-        setError(err instanceof Error ? err.message : "Failed to load agreement");
-      } finally {
-        if (requestSeqRef.current === requestId) {
-          setIsLoading(false);
-        }
-      }
-    },
-    [queryClient],
-  );
-
-  const clearAgreement = useCallback(() => {
-    setAgreement(null);
-    setError(null);
-  }, []);
+  useEffect(() => {
+    if (query.error) logger.error("Failed to fetch agreement:", query.error);
+  }, [query.error]);
 
   return {
-    agreement,
-    isLoading,
-    error,
-    fetchAgreement,
-    clearAgreement,
+    agreement: query.data ?? null,
+    // True until the first response for this (uuid, focus) arrives.
+    isLoading: query.isPending,
+    error: query.error ? errorMessage(query.error, "Failed to load agreement") : null,
+    query,
+  };
+}
+
+const EMPTY_SECTION_INDEX: AgreementSectionIndexItem[] = [];
+
+/**
+ * The agreement's section index (`v1/agreements/<uuid>/sections`), used for
+ * the reader's table of contents and section-type filter.
+ */
+export function useAgreementSections(agreementUuid: string | null | undefined) {
+  const query = useQuery({
+    queryKey: keys.agreement.sections(agreementUuid ?? ""),
+    queryFn: ({ signal }) =>
+      apiGet<AgreementSectionIndexResponse>(
+        `v1/agreements/${encodeURIComponent(agreementUuid!)}/sections`,
+        undefined,
+        { signal },
+      ),
+    enabled: !IS_SERVER_RENDER && Boolean(agreementUuid),
+    staleTime: AGREEMENT_STALE_TIME_MS,
+  });
+
+  useEffect(() => {
+    if (query.error) logger.error("Failed to fetch agreement sections index:", query.error);
+  }, [query.error]);
+
+  return {
+    sections: query.data?.results ?? EMPTY_SECTION_INDEX,
+    isLoading: query.isPending,
+    error: query.error
+      ? errorMessage(query.error, "Unable to load agreement sections.")
+      : null,
+    query,
   };
 }

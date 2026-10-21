@@ -31,6 +31,10 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Check generated API types are current
+        # shared/api.gen.ts must match backend/openapi/ui-openapi.json (npm run gen:api).
+        run: npm run check:api
+
       - name: Run frontend tests
         run: npm test
 

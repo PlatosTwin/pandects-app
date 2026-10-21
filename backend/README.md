@@ -37,11 +37,14 @@ Run the backend without touching the main MariaDB reflection path:
 caffeinate -i env SKIP_MAIN_DB_REFLECTION=1 FLASK_APP=backend.app backend/venv/bin/flask run --port 5113
 ```
 
-Generate the OpenAPI file when needed:
+Regenerate the OpenAPI specs after changing a route or response schema (no database needed; CI fails when they are stale):
 
 ```bash
-caffeinate -i env SKIP_MAIN_DB_REFLECTION=1 backend/venv/bin/python -m backend.app openapi
+backend/venv/bin/python -m backend.scripts.export_openapi          # writes frontend/public/openapi.yaml + backend/openapi/ui-openapi.json
+backend/venv/bin/python -m backend.scripts.export_openapi --check  # what CI runs
 ```
+
+Then run `npm run gen:api` in `frontend/` to refresh `frontend/shared/api.gen.ts`. See `ARCHITECTURE.md` ("API Contract").
 
 ## Environment variables
 

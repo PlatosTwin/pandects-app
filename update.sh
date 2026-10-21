@@ -6,9 +6,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 FRONTEND_PUBLIC_DIR="$PROJECT_ROOT/frontend/public"
 DOCS_DIR="$PROJECT_ROOT/docs"
-# adjust this if your generator outputs a different filename
 OPENAPI_FILENAME="openapi.yaml"
-OPENAPI_BACKEND_PATH="$BACKEND_DIR/$OPENAPI_FILENAME"
 OPENAPI_FRONTEND_PATH="$FRONTEND_PUBLIC_DIR/$OPENAPI_FILENAME"
 
 # ── Generate OpenAPI spec ────────────────────────────────────────────────────
@@ -24,16 +22,13 @@ else
   exit 1
 fi
 
-# Use the venv’s Python to run Flask
-python -m flask --app app gen-openapi
-
-# ── Move spec to frontend ─────────────────────────────────────────────────────
-echo "📦 Syncing $OPENAPI_FILENAME to $FRONTEND_PUBLIC_DIR..."
-if [[ ! -f "$OPENAPI_BACKEND_PATH" ]]; then
-  echo "Error: $OPENAPI_FILENAME not found in $BACKEND_DIR" >&2
+# Writes frontend/public/openapi.yaml (public spec, read by docs/) and
+# backend/openapi/ui-openapi.json (UI spec, read by `npm run gen:api`).
+(cd "$PROJECT_ROOT" && python -m backend.scripts.export_openapi)
+if [[ ! -f "$OPENAPI_FRONTEND_PATH" ]]; then
+  echo "Error: $OPENAPI_FILENAME not found in $FRONTEND_PUBLIC_DIR" >&2
   exit 1
 fi
-cp -f "$OPENAPI_BACKEND_PATH" "$OPENAPI_FRONTEND_PATH"
 
 # ── Freeze backend requirements ───────────────────────────────────────────────
 echo "🐍 Freezing backend requirements to requirements.txt..."

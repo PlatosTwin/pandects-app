@@ -1,4 +1,5 @@
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/format-utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -22,7 +23,14 @@ interface SearchPaginationProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   isLoading?: boolean;
+  /** Anonymous: page size is fixed (and page navigation off when `lockNavigation`). */
   isLimited?: boolean;
+  /** With `isLimited`, also block page navigation (the API's "sign in for full pagination"). */
+  lockNavigation?: boolean;
+  /** Sign-in link for the limited-mode notice. */
+  signInHref?: string;
+  /** Highest page the API serves (keyword searches stop at 100). */
+  maxPage?: number;
   /**
    * Accessible name for the <nav> landmark. The panel renders the pagination
    * twice (above and below the results), and landmark labels must be unique.
@@ -32,29 +40,35 @@ interface SearchPaginationProps {
 
 export function SearchPagination({
   currentPage,
-  totalPages,
+  totalPages: rawTotalPages,
   pageSize,
   totalCount,
   totalCountIsApproximate = false,
-  hasNext,
+  hasNext: rawHasNext,
   hasPrev,
   onPageChange,
   onPageSizeChange,
   isLoading = false,
   isLimited = false,
+  lockNavigation = false,
+  signInHref,
+  maxPage,
   label = "Search results pagination",
 }: SearchPaginationProps) {
   const pageSizeOptions = [10, 25, 50, 100];
-  const navigationDisabled = isLoading || isLimited;
+  const navigationDisabled = isLoading || (isLimited && lockNavigation);
+  const totalPages = maxPage ? Math.min(rawTotalPages, maxPage) : rawTotalPages;
+  const hasNext = rawHasNext && (!maxPage || currentPage < maxPage);
   const [jumpValue, setJumpValue] = useState(() => String(currentPage));
-  // Instance-unique ids: the component is mounted twice per results view.
+  const [syncedPage, setSyncedPage] = useState(currentPage);
   const jumpInputId = `${useId()}-jump-to-page`;
 
   // Keep the jump input in sync when navigation happens elsewhere
-  // (page buttons, Previous/Next, a new search).
-  useEffect(() => {
+  // (page buttons, Previous/Next, a new search): adjust during render.
+  if (syncedPage !== currentPage) {
+    setSyncedPage(currentPage);
     setJumpValue(String(currentPage));
-  }, [currentPage]);
+  }
 
   const commitJump = () => {
     if (navigationDisabled) return;
@@ -104,7 +118,8 @@ export function SearchPagination({
   const visiblePages = getVisiblePages();
   const startResult = (currentPage - 1) * pageSize + 1;
   const endResult = totalCountIsApproximate
-    ? (currentPage - 1) * pageSize + (hasNext ? pageSize : Math.min(pageSize, totalCount))
+    ? (currentPage - 1) * pageSize +
+      (hasNext ? pageSize : Math.min(pageSize, totalCount))
     : Math.min(currentPage * pageSize, totalCount);
 
   if (totalCount === 0) {
@@ -112,170 +127,185 @@ export function SearchPagination({
   }
 
   return (
-    <nav
-      className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center"
-      aria-label={label}
-    >
-      {/* Results per page selector */}
-      <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex">
-        <span>Results per page:</span>
-        <Select
-          value={pageSize.toString()}
-          onValueChange={(value) => onPageSizeChange(parseInt(value, 10))}
-          disabled={navigationDisabled}
-        >
-          <SelectTrigger
-            className="h-8 w-20 rounded-none border-none border-b border-input bg-transparent focus:border-ring"
-            aria-label="Results per page"
+    <div className="space-y-2">
+      <nav
+        className="flex flex-col items-stretch justify-between gap-x-6 gap-y-3 sm:flex-row sm:flex-wrap sm:items-center"
+        aria-label={label}
+      >
+        {/* Results per page selector */}
+        <div className="hidden items-center gap-2 whitespace-nowrap text-sm text-muted-foreground sm:flex">
+          <span>Results per page:</span>
+          <Select
+            value={pageSize.toString()}
+            onValueChange={(value) => onPageSizeChange(parseInt(value, 10))}
+            disabled={isLoading || isLimited}
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {pageSizeOptions.map((size) => (
-              <SelectItem key={size} value={size.toString()}>
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Results info. Not a live region: the panel's sr-only status already
-          announces result counts, and this block is rendered twice. */}
-      <div className="text-sm text-muted-foreground">
-        Showing {formatNumber(startResult)} to {formatNumber(endResult)} of{" "}
-        {totalCountIsApproximate ? "approx. " : ""}
-        {formatNumber(totalCount)} results
-      </div>
-
-      {/* Jump to page input (desktop only) */}
-      <div className="hidden items-center gap-2 text-sm sm:flex">
-        {!totalCountIsApproximate && (
-          <>
-            <label htmlFor={jumpInputId} className="text-muted-foreground">
-              Go to:
-            </label>
-            <input
-              id={jumpInputId}
-              type="number"
-              min={1}
-              max={totalPages}
-              value={jumpValue}
-              onChange={(e) => setJumpValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  commitJump();
-                }
-              }}
-              onBlur={commitJump}
-              className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={navigationDisabled}
-              aria-label="Jump to page number"
-            />
-          </>
-        )}
-        {totalCountIsApproximate && (
-          <span className="text-muted-foreground">Page {formatNumber(currentPage)}</span>
-        )}
-      </div>
-
-      {/* Pagination controls */}
-      <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-1">
-        {/* Mobile buttons */}
-        <div className="flex w-full gap-2 sm:hidden">
-          <Button
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={!hasPrev || navigationDisabled}
-            variant="outline"
-            size="sm"
-            className="h-11 flex-1"
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-            Previous
-          </Button>
-          <Button
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={!hasNext || navigationDisabled}
-            variant="outline"
-            size="sm"
-            className="h-11 flex-1"
-            aria-label="Next page"
-          >
-            Next
-            <ChevronRight className="w-4 h-4" aria-hidden="true" />
-          </Button>
+            <SelectTrigger className="h-8 w-20" aria-label="Results per page">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {pageSizeOptions.map((size) => (
+                <SelectItem key={size} value={size.toString()}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Desktop buttons */}
-        <div className="hidden items-center gap-1 sm:flex">
-          <Button
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={!hasPrev || navigationDisabled}
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Previous</span>
-          </Button>
+        {/* Results info. Not a live region: the results header already
+          announces counts. */}
+        <div className="whitespace-nowrap text-sm text-muted-foreground">
+          {formatNumber(startResult)}–{formatNumber(endResult)} of{" "}
+          {totalCountIsApproximate ? "about " : ""}
+          {formatNumber(totalCount)}
+        </div>
 
-          {/* Page numbers */}
-          <div className="hidden items-center gap-1 sm:flex">
-            {!totalCountIsApproximate && (
-              <>
-                {visiblePages.map((page, index) => {
-                  if (page === "...") {
-                    return (
-                      <span
-                        key={`ellipsis-${index}`}
-                        className="px-2 py-1 text-sm text-muted-foreground"
-                        aria-hidden="true"
-                      >
-                        ...
-                      </span>
-                    );
+        {/* Jump to page input (desktop only) */}
+        <div className="hidden items-center gap-2 whitespace-nowrap text-sm sm:flex">
+          {!totalCountIsApproximate && (
+            <>
+              <label htmlFor={jumpInputId} className="text-muted-foreground">
+                Go to:
+              </label>
+              <input
+                id={jumpInputId}
+                type="number"
+                min={1}
+                max={totalPages}
+                value={jumpValue}
+                onChange={(e) => setJumpValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    commitJump();
                   }
+                }}
+                onBlur={commitJump}
+                className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={navigationDisabled}
+                aria-label="Jump to page number"
+              />
+            </>
+          )}
+          {totalCountIsApproximate && (
+            <span className="text-muted-foreground">
+              Page {formatNumber(currentPage)}
+            </span>
+          )}
+        </div>
 
-                  const pageNumber = page as number;
-                  const isActive = pageNumber === currentPage;
-
-                  return (
-                    <Button
-                      key={pageNumber}
-                      onClick={() => onPageChange(pageNumber)}
-                      disabled={navigationDisabled}
-                      variant={isActive ? "default" : "ghost"}
-                      size="icon"
-                      className={cn(
-                        "h-8 w-8",
-                        !isActive && "text-muted-foreground hover:text-foreground",
-                      )}
-                      aria-label={`Page ${pageNumber}`}
-                      aria-current={isActive ? "page" : undefined}
-                    >
-                      {pageNumber}
-                    </Button>
-                  );
-                })}
-              </>
-            )}
+        {/* Pagination controls */}
+        <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-1">
+          {/* Mobile buttons */}
+          <div className="flex w-full gap-2 sm:hidden">
+            <Button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={!hasPrev || navigationDisabled}
+              variant="outline"
+              size="sm"
+              className="h-11 flex-1"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+              Previous
+            </Button>
+            <Button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={!hasNext || navigationDisabled}
+              variant="outline"
+              size="sm"
+              className="h-11 flex-1"
+              aria-label="Next page"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" aria-hidden="true" />
+            </Button>
           </div>
 
-          <Button
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={!hasNext || navigationDisabled}
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
-            aria-label="Next page"
-          >
-            <span className="hidden sm:inline">Next</span>
-            <ChevronRight className="w-4 h-4" aria-hidden="true" />
-          </Button>
+          {/* Desktop buttons */}
+          <div className="hidden items-center gap-1 sm:flex">
+            <Button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={!hasPrev || navigationDisabled}
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Previous</span>
+            </Button>
+
+            {/* Page numbers */}
+            <div className="hidden items-center gap-1 sm:flex">
+              {!totalCountIsApproximate && (
+                <>
+                  {visiblePages.map((page, index) => {
+                    if (page === "...") {
+                      return (
+                        <span
+                          key={`ellipsis-${index}`}
+                          className="px-2 py-1 text-sm text-muted-foreground"
+                          aria-hidden="true"
+                        >
+                          ...
+                        </span>
+                      );
+                    }
+
+                    const pageNumber = page as number;
+                    const isActive = pageNumber === currentPage;
+
+                    return (
+                      <Button
+                        key={pageNumber}
+                        onClick={() => onPageChange(pageNumber)}
+                        disabled={navigationDisabled}
+                        variant={isActive ? "default" : "ghost"}
+                        size="icon"
+                        className={cn(
+                          "h-8 w-8",
+                          !isActive &&
+                            "text-muted-foreground hover:text-foreground",
+                        )}
+                        aria-label={`Page ${pageNumber}`}
+                        aria-current={isActive ? "page" : undefined}
+                      >
+                        {pageNumber}
+                      </Button>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+
+            <Button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={!hasNext || navigationDisabled}
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 px-3 text-muted-foreground hover:text-foreground"
+              aria-label="Next page"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="w-4 h-4" aria-hidden="true" />
+            </Button>
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+      {isLimited && signInHref ? (
+        <p className="text-xs text-muted-foreground">
+          <Link
+            to={signInHref}
+            className="font-medium text-primary hover:underline"
+          >
+            Sign in
+          </Link>{" "}
+          {lockNavigation
+            ? "to see more pages and up to 100 results per page."
+            : "to show up to 100 results per page."}
+        </p>
+      ) : null}
+    </div>
   );
 }

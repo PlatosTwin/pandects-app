@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 
 import { PageShell } from "@/components/PageShell";
-import { Card } from "@/components/ui/card";
 import { prepareLegalMarkdownForPage, renderLegalMarkdownToHtml } from "@/lib/legal-markdown";
 
 // The two sibling core-legal pages each page cross-links, ahead of the
@@ -42,7 +41,9 @@ export function LegalMarkdownPage({
 }: LegalMarkdownPageProps) {
   const prepared = prepareLegalMarkdownForPage(markdown);
   const renderedHtml = renderLegalMarkdownToHtml(prepared.markdown);
-  const html = transformHtml ? transformHtml(renderedHtml) : renderedHtml;
+  // The page title is the only h1; headings the markdown marks as h1 render as h2.
+  const demotedHtml = renderedHtml.replace(/<(\/?)h1(?=[\s>])/gi, "<$1h2");
+  const html = transformHtml ? transformHtml(demotedHtml) : demotedHtml;
 
   const defaultRelatedLinks = pageKey ? (
     <>
@@ -74,11 +75,10 @@ export function LegalMarkdownPage({
   const resolvedRelatedLinks = relatedLinks ?? defaultRelatedLinks;
 
   return (
-    <PageShell size="md" title={title} subtitle={prepared?.subtitle}>
-      <Card className="border-border bg-background/70 p-8 backdrop-blur sm:p-10">
-        <div className="mx-auto max-w-3xl">
+    <PageShell layout="docs" title={title} description={prepared?.subtitle}>
+      <div>
           <div
-            className="prose prose-slate dark:prose-invert prose-headings:tracking-tight prose-h2:scroll-mt-24 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-p:leading-relaxed"
+            className="prose prose-slate max-w-none dark:prose-invert prose-headings:tracking-tight prose-h2:scroll-mt-24 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-p:leading-relaxed"
             dangerouslySetInnerHTML={{ __html: html }}
           />
           {downloadHref && (
@@ -98,8 +98,7 @@ export function LegalMarkdownPage({
               Also see our {resolvedRelatedLinks}.
             </p>
           )}
-        </div>
-      </Card>
+      </div>
     </PageShell>
   );
 }

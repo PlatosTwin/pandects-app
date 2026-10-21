@@ -16,7 +16,6 @@ import {
   CHART_REFERENCE_LINE_STROKE,
   PROCESSING_STATUS_COLORS,
 } from "@/lib/chart-palette";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   type ChartConfig,
   ChartContainer,
@@ -70,7 +69,6 @@ type DealTypesChartProps = {
   describedBy: string;
   isMobile: boolean;
   mode: DealTypeChartMode;
-  onModeChange: (value: DealTypeChartMode) => void;
   series: DealTypeSeries[];
   showSourceSplit: boolean;
   tableId: string;
@@ -137,16 +135,13 @@ export function ProcessingStatusChart({
 }: ProcessingStatusChartProps) {
   return (
     <div
-      className={cn(
-        "rounded-lg border border-border bg-muted/20 p-3",
-        className,
-      )}
+      className={cn("min-w-0", className)}
     >
       <ChartContainer
         className="h-[240px] w-full min-w-0 aspect-auto sm:h-[300px] lg:h-[340px]"
         config={{
           processed: {
-            label: "Processed",
+            label: "Complete",
             color: PROCESSING_STATUS_COLORS.processed,
           },
           staged: {
@@ -163,7 +158,7 @@ export function ProcessingStatusChart({
           },
         }}
         role="img"
-        aria-label="Stacked bar chart showing processed, staged, awaiting validation, and not paginated agreements by filing year."
+        aria-label="Stacked bar chart showing complete, staged, awaiting validation, and not paginated agreements by filing year."
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <BarChart data={data} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>
@@ -180,7 +175,7 @@ export function ProcessingStatusChart({
             interval="preserveStartEnd"
             ticks={yearTicks}
           />
-          <YAxis allowDecimals={false} tickMargin={6} width={32} />
+          <YAxis allowDecimals={false} tickMargin={6} width={40} />
           <ChartTooltip
             content={
               <ChartTooltipContent
@@ -203,7 +198,7 @@ export function ProcessingStatusChart({
                     total > 0 ? Math.round((count / total) * 1000) / 10 : 0;
                   const countValue = Number(value);
                   const pct =
-                    name === "Processed"
+                    name === "Complete"
                       ? getPct(processed)
                       : name === "Staged"
                         ? getPct(staged)
@@ -239,7 +234,7 @@ export function ProcessingStatusChart({
             dataKey="processed"
             stackId="agreements"
             fill="var(--color-processed)"
-            name="Processed"
+            name="Complete"
           />
           <Bar
             dataKey="staged"
@@ -286,7 +281,6 @@ export function DealTypesChart({
   describedBy,
   isMobile,
   mode,
-  onModeChange,
   series,
   showSourceSplit,
   tableId,
@@ -330,44 +324,8 @@ export function DealTypesChart({
 
   return (
     <div
-      className={cn(
-        "rounded-lg border border-border bg-muted/20 p-3",
-        className,
-      )}
+      className={cn("min-w-0", className)}
     >
-      <div className="mb-3 flex items-center justify-end gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Chart mode
-        </span>
-        <ToggleGroup
-          type="single"
-          value={mode}
-          onValueChange={(value) => {
-            if (value === "count" || value === "percent") {
-              onModeChange(value);
-            }
-          }}
-          variant="outline"
-          size="xs"
-          aria-label="Deal type chart mode"
-          className="justify-start"
-        >
-          <ToggleGroupItem
-            value="count"
-            aria-label="Stacked counts"
-            className="text-muted-foreground data-[state=on]:text-foreground"
-          >
-            Counts
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            value="percent"
-            aria-label="100 percent stacked"
-            className="text-muted-foreground data-[state=on]:text-foreground"
-          >
-            100%
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
       <ChartContainer
         className="h-[240px] w-full min-w-0 aspect-auto sm:h-[300px] lg:h-[340px]"
         config={chartConfig}
@@ -398,7 +356,7 @@ export function DealTypesChart({
           />
           <YAxis
             tickMargin={6}
-            width={mode === "percent" ? 44 : 32}
+            width={mode === "percent" ? 44 : 40}
             allowDecimals={mode !== "percent"}
             domain={mode === "percent" ? [0, 100] : undefined}
             ticks={mode === "percent" ? PERCENT_AXIS_TICKS : undefined}

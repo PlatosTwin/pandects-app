@@ -174,6 +174,7 @@ class VerifyTurnstileTokenProtocol(Protocol):
 class SectionsServiceDeps:
     db: Any
     AgreementCounsel: Any
+    Agreements: Any
     Counsel: Any
     LatestSectionsSearch: Any
     SectionTextSearch: Any
@@ -205,6 +206,7 @@ class AgreementsDeps:
     Clauses: Any
     Counsel: Any
     LatestSectionsSearch: Any
+    SectionTextSearch: Any
     Sections: Any
     TaxonomyL1: Any
     TaxonomyL2: Any
@@ -214,13 +216,9 @@ class AgreementsDeps:
     TaxClauseTaxonomyL2: Any
     TaxClauseTaxonomyL3: Any
     XML: Any
-    _AGREEMENTS_SUMMARY_TTL_SECONDS: int
-    _FILTER_OPTIONS_TTL_SECONDS: int
     _SECTION_ID_RE: Pattern[str]
     _agreement_latest_xml_join_condition: Callable[[], object]
     _agreement_year_expr: Callable[..., Any]
-    _agreements_summary_cache: dict[str, Any]
-    _agreements_summary_lock: Any
     _coalesced_section_standard_ids: Callable[..., Any]
     _current_access_context: Callable[[], AccessContextProtocol]
     _decode_agreements_cursor: Callable[[str | None], str | None]
@@ -228,8 +226,6 @@ class AgreementsDeps:
     _expand_tax_clause_taxonomy_standard_ids_cached: Callable[[tuple[str, ...]], tuple[str, ...]]
     _tax_clause_standard_id_filter_expr: Callable[[list[str]], Any]
     _encode_agreements_cursor: Callable[[str], str]
-    _filter_options_cache: dict[str, Any]
-    _filter_options_lock: Any
     _load_query: Callable[[Schema], dict[str, object]]
     _pagination_metadata: PaginationMetadataProtocol
     _parse_section_standard_ids: Callable[[object], list[str]]
@@ -244,7 +240,6 @@ class AgreementsDeps:
     _to_int: ToIntProtocol
     _year_from_filing_date_value: Callable[[object], int | None]
     db: Any
-    time: Any
 
 
 @dataclass(frozen=True)
@@ -260,29 +255,8 @@ class ReferenceDataDeps:
     TaxonomyL1: Any
     TaxonomyL2: Any
     TaxonomyL3: Any
-    _CHANGELOG_CACHE_TTL_SECONDS: int
-    _DUMPS_CACHE_TTL_SECONDS: int
-    _DUMPS_MANIFEST_CACHE_TTL_SECONDS: int
-    _COUNSEL_TTL_SECONDS: int
-    _NAICS_TTL_SECONDS: int
-    _TAXONOMY_TTL_SECONDS: int
-    _changelog_cache: dict[str, Any]
-    _changelog_cache_lock: Any
-    _counsel_cache: dict[str, Any]
-    _counsel_lock: Any
-    _dumps_cache: dict[str, Any]
-    _dumps_cache_lock: Any
-    _dumps_manifest_cache: dict[str, Any]
-    _dumps_manifest_cache_lock: Any
-    _naics_cache: dict[str, Any]
-    _naics_lock: Any
-    _tax_clause_taxonomy_cache: dict[str, Any]
-    _tax_clause_taxonomy_lock: Any
-    _taxonomy_cache: dict[str, Any]
-    _taxonomy_lock: Any
     client: Any
     db: Any
-    time: Any
 
 
 @dataclass(frozen=True)

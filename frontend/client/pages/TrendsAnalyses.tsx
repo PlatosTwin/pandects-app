@@ -1,16 +1,19 @@
-import { Suspense, lazy, useEffect, useId, useMemo, useState } from "react";
+import { Suspense, lazy, useId, useMemo, useState } from "react";
 
 import type { TrendsChartSeries } from "@/components/AgreementTrendsCharts";
-import { MobileChartModal } from "@/components/MobileChartModal";
+import { ChartPanel } from "@/components/ChartPanel";
 import { PageShell } from "@/components/PageShell";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ErrorState } from "@/components/StateMessage";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import {
+  SegmentedControl,
+  type SegmentedControlOption,
+} from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { apiUrl } from "@/lib/api-config";
-import { authFetch } from "@/lib/auth-fetch";
+import { useAgreementTrends } from "@/hooks/use-insights";
 import {
   CHART_NEUTRAL_SERIES_COLOR,
   INDUSTRY_CHART_PALETTE,
@@ -19,66 +22,12 @@ import {
   heatmapCellFill,
 } from "@/lib/chart-palette";
 import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
-import { readSessionCache, writeSessionCache } from "@/lib/session-cache";
+import type { AgreementTrendsResponse } from "@shared/insights";
 import { cn } from "@/lib/utils";
 
 type OwnershipMetric = "deal_count" | "total_transaction_value";
 type HeatmapMetric = "deal_count" | "median_transaction_value";
 
-type OwnershipMixRow = {
-  year: number;
-  public_deal_count: number;
-  private_deal_count: number;
-  public_total_transaction_value: number;
-  private_total_transaction_value: number;
-};
-
-type OwnershipDealSizeRow = {
-  year: number;
-  public_deal_count: number;
-  private_deal_count: number;
-  public_p25_transaction_value: number | null;
-  public_median_transaction_value: number | null;
-  public_p75_transaction_value: number | null;
-  private_p25_transaction_value: number | null;
-  private_median_transaction_value: number | null;
-  private_p75_transaction_value: number | null;
-};
-
-type BuyerTypeMatrixRow = {
-  target_bucket: string;
-  buyer_bucket: string;
-  deal_count: number;
-  median_transaction_value: number | null;
-};
-
-type TargetIndustryByYearRow = {
-  year: number;
-  industry: string;
-  deal_count: number;
-  total_transaction_value: number;
-};
-
-type IndustryPairingRow = {
-  target_industry: string;
-  acquirer_industry: string;
-  deal_count: number;
-  total_transaction_value: number;
-};
-
-type AgreementTrendsResponse = {
-  ownership: {
-    mix_by_year: OwnershipMixRow[];
-    deal_size_by_year: OwnershipDealSizeRow[];
-    buyer_type_matrix: BuyerTypeMatrixRow[];
-  };
-  industries: {
-    target_industries_by_year: TargetIndustryByYearRow[];
-    pairings: IndustryPairingRow[];
-  };
-};
-const TRENDS_CACHE_KEY = "agreement-trends:v1";
-const TRENDS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const TrendsStackedShareAreaChart = lazy(async () => {
   const module = await import("@/components/AgreementTrendsCharts");
@@ -114,6 +63,42 @@ const OWNERSHIP_SERIES: TrendsChartSeries[] = [
   },
 ];
 const INDUSTRY_COLORS = INDUSTRY_CHART_PALETTE;
+
+const VALUE_METRIC_OPTIONS: ReadonlyArray<SegmentedControlOption<OwnershipMetric>> = [
+  { value: "deal_count", label: "Deal count" },
+  { value: "total_transaction_value", label: "Value" },
+];
+const HEATMAP_METRIC_OPTIONS: ReadonlyArray<SegmentedControlOption<HeatmapMetric>> = [
+  { value: "deal_count", label: "Deal count" },
+  { value: "median_transaction_value", label: "Median value" },
+];
+
+/** Eyebrow-labeled metric switch used in chart panel controls. */
+function MetricSwitch<T extends string>({
+  label,
+  value,
+  onValueChange,
+  options,
+  ariaLabel,
+}: {
+  label: string;
+  value: T;
+  onValueChange: (value: T) => void;
+  options: ReadonlyArray<SegmentedControlOption<T>>;
+  ariaLabel: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Eyebrow>{label}</Eyebrow>
+      <SegmentedControl<T>
+        value={value}
+        onValueChange={onValueChange}
+        options={options}
+        aria-label={ariaLabel}
+      />
+    </div>
+  );
+}
 
 function formatMoney(value: number | null | undefined) {
   return formatCompactCurrencyValue(value ?? null);
@@ -254,9 +239,7 @@ function TrendsHeatmapTable({
                       }
                       aria-label={`${row}, ${column}, ${formatterLabel}: ${cell.displayValue}`}
                     >
-                      <div className="text-xs font-medium uppercase tracking-wide">
-                        {formatterLabel}
-                      </div>
+                      <Eyebrow className="text-current">{formatterLabel}</Eyebrow>
                       <div className="mt-1 font-mono text-sm tabular-nums">
                         {cell.displayValue}
                       </div>
@@ -277,11 +260,8 @@ function OwnershipStructurePanel({
 }: {
   ownership: AgreementTrendsResponse["ownership"];
 }) {
-  const isMobile = useIsMobile();
   const [mixMetric, setMixMetric] = useState<OwnershipMetric>("deal_count");
   const [matrixMetric, setMatrixMetric] = useState<HeatmapMetric>("deal_count");
-  const [isMixChartModalOpen, setIsMixChartModalOpen] = useState(false);
-  const [isDealSizeChartModalOpen, setIsDealSizeChartModalOpen] = useState(false);
   const mixDescriptionId = useId();
   const dealSizeDescriptionId = useId();
   const matrixDescriptionId = useId();
@@ -385,212 +365,109 @@ function OwnershipStructurePanel({
     };
   }, [matrixMetric, ownership.buyer_type_matrix]);
 
+  const mixChart = (inModal: boolean) => (
+    <Suspense fallback={<ChartSkeleton />}>
+      <TrendsStackedShareAreaChart
+        className={inModal ? "border-0 bg-background p-0" : undefined}
+        ariaLabel="100 percent stacked area chart showing public-target and private-target share by filing year."
+        data={mixChartData}
+        describedBy={mixDescriptionId}
+        series={OWNERSHIP_SERIES}
+        tableId={mixTableId}
+        valueFormatter={mixMetric === "deal_count" ? formatCount : formatMoney}
+      />
+    </Suspense>
+  );
+  const dealSizeChart = (inModal: boolean) => (
+    <Suspense fallback={<ChartSkeleton />}>
+      <TrendsMedianBandChart
+        className={inModal ? "border-0 bg-background p-0" : undefined}
+        ariaLabel="Line chart showing median reported deal size with percentile bands for public and private targets by filing year."
+        data={dealSizeChartData}
+        describedBy={dealSizeDescriptionId}
+        tableId={dealSizeTableId}
+        valueFormatter={(value) => formatMoney(value)}
+      />
+    </Suspense>
+  );
+
   return (
     <div className="space-y-6">
-      <Card variant="subtle">
-        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <CardTitle as="h2" id={mixDescriptionId} className="text-xl sm:text-2xl">
-              Public vs. Private Target Mix Over Time
-            </CardTitle>
-            <CardDescription className="prose-copy text-sm sm:text-base">
-              Share of public vs. private targets by filing year.
-            </CardDescription>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Metric
-            </span>
-            <ToggleGroup
-              type="single"
-              value={mixMetric}
-              onValueChange={(value) => {
-                if (value === "deal_count" || value === "total_transaction_value") {
-                  setMixMetric(value);
-                }
-              }}
-              variant="outline"
-              aria-label="Ownership mix metric"
-              className="justify-start"
-            >
-              <ToggleGroupItem value="deal_count">Deal count</ToggleGroupItem>
-              <ToggleGroupItem value="total_transaction_value">Value</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p id={mixTableId} className="sr-only">
-            100 percent stacked area chart showing public-target and private-target share by filing
-            year.
-          </p>
-          {isMobile ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => setIsMixChartModalOpen(true)}
-                aria-haspopup="dialog"
-                aria-describedby={mixDescriptionId}
-              >
-                Open chart
-              </Button>
-              <MobileChartModal
-                open={isMixChartModalOpen}
-                onOpenChange={setIsMixChartModalOpen}
-                title="Public vs. Private Target Mix Over Time"
-                description="Shows the share of public versus private targets by filing year."
-              >
-                <div className="mx-auto w-full max-w-[980px]">
-                  <h2 className="mb-2 text-base font-semibold">
-                    Public vs. Private Target Mix Over Time
-                  </h2>
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <TrendsStackedShareAreaChart
-                      className="border-0 bg-background p-0"
-                      ariaLabel="100 percent stacked area chart showing public-target and private-target share by filing year."
-                      data={mixChartData}
-                      describedBy={mixDescriptionId}
-                      series={OWNERSHIP_SERIES}
-                      tableId={mixTableId}
-                      valueFormatter={mixMetric === "deal_count" ? formatCount : formatMoney}
-                    />
-                  </Suspense>
-                </div>
-              </MobileChartModal>
-            </>
-          ) : (
-            <Suspense fallback={<ChartSkeleton />}>
-              <TrendsStackedShareAreaChart
-                ariaLabel="100 percent stacked area chart showing public-target and private-target share by filing year."
-                data={mixChartData}
-                describedBy={mixDescriptionId}
-                series={OWNERSHIP_SERIES}
-                tableId={mixTableId}
-                valueFormatter={mixMetric === "deal_count" ? formatCount : formatMoney}
-              />
-            </Suspense>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card variant="subtle">
-        <CardHeader>
-          <div className="space-y-2">
-            <CardTitle as="h2" id={dealSizeDescriptionId} className="text-xl sm:text-2xl">
-              Public vs. Private Deal Size
-            </CardTitle>
-            <CardDescription className="prose-copy text-sm sm:text-base">
-              Median deal value by year; shaded bands show the 25th to 75th percentile range.
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p id={dealSizeTableId} className="sr-only">
-            Line chart showing median reported deal size with 25th to 75th percentile bands for
-            public and private targets by filing year.
-          </p>
-          {isMobile ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => setIsDealSizeChartModalOpen(true)}
-                aria-haspopup="dialog"
-                aria-describedby={dealSizeDescriptionId}
-              >
-                Open chart
-              </Button>
-              <MobileChartModal
-                open={isDealSizeChartModalOpen}
-                onOpenChange={setIsDealSizeChartModalOpen}
-                title="Public vs. Private Deal Size"
-                description="Shows median reported deal value with percentile bands for public and private targets by filing year."
-              >
-                <div className="mx-auto w-full max-w-[980px]">
-                  <h2 className="mb-2 text-base font-semibold">
-                    Public vs. Private Deal Size
-                  </h2>
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <TrendsMedianBandChart
-                      className="border-0 bg-background p-0"
-                      ariaLabel="Line chart showing median reported deal size with percentile bands for public and private targets by filing year."
-                      data={dealSizeChartData}
-                      describedBy={dealSizeDescriptionId}
-                      tableId={dealSizeTableId}
-                      valueFormatter={(value) => formatMoney(value)}
-                    />
-                  </Suspense>
-                </div>
-              </MobileChartModal>
-            </>
-          ) : (
-            <Suspense fallback={<ChartSkeleton />}>
-              <TrendsMedianBandChart
-                ariaLabel="Line chart showing median reported deal size with percentile bands for public and private targets by filing year."
-                data={dealSizeChartData}
-                describedBy={dealSizeDescriptionId}
-                tableId={dealSizeTableId}
-                valueFormatter={(value) => formatMoney(value)}
-              />
-            </Suspense>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card variant="subtle">
-        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <CardTitle as="h2" id={matrixDescriptionId} className="text-xl sm:text-2xl">
-              Target Type by Buyer Type
-            </CardTitle>
-            <CardDescription className="prose-copy text-sm sm:text-base">
-              Counts or median deal value for each target-buyer bucket combination.
-            </CardDescription>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Heatmap metric
-            </span>
-            <ToggleGroup
-              type="single"
-              value={matrixMetric}
-              onValueChange={(value) => {
-                if (value === "deal_count" || value === "median_transaction_value") {
-                  setMatrixMetric(value);
-                }
-              }}
-              variant="outline"
-              aria-label="Buyer matrix metric"
-              className="justify-start"
-            >
-              <ToggleGroupItem value="deal_count">Deal count</ToggleGroupItem>
-              <ToggleGroupItem value="median_transaction_value">Median value</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm prose-copy">
-            Private targets include PE-backed targets. Private-equity buyers are broken out
-            separately from private strategic buyers.
-          </p>
-          <TrendsHeatmapTable
-            caption="Target type by buyer type heatmap"
-            columns={matrixRows.columns.map((item) => item.label)}
-            formatterLabel={
-              matrixMetric === "deal_count" ? "Deal count" : "Median value"
-            }
-            getCell={(rowLabel, columnLabel) => {
-              const rowKey = matrixRows.rows.find((item) => item.label === rowLabel)?.key ?? "";
-              const columnKey =
-                matrixRows.columns.find((item) => item.label === columnLabel)?.key ?? "";
-              return matrixRows.getCell(rowKey, columnKey);
-            }}
-            rows={matrixRows.rows.map((item) => item.label)}
+      <ChartPanel
+        id={mixDescriptionId}
+        title="Public vs. Private Target Mix Over Time"
+        description={
+          <span className="prose-copy">Share of public vs. private targets by filing year.</span>
+        }
+        controls={
+          <MetricSwitch<OwnershipMetric>
+            label="Metric"
+            value={mixMetric}
+            onValueChange={setMixMetric}
+            options={VALUE_METRIC_OPTIONS}
+            ariaLabel="Ownership mix metric"
           />
-        </CardContent>
-      </Card>
+        }
+        mobileExpand={() => mixChart(true)}
+      >
+        <p id={mixTableId} className="sr-only">
+          100 percent stacked area chart showing public-target and private-target share by filing
+          year.
+        </p>
+        {mixChart(false)}
+      </ChartPanel>
+
+      <ChartPanel
+        id={dealSizeDescriptionId}
+        title="Public vs. Private Deal Size"
+        description={
+          <span className="prose-copy">
+            Median deal value by year; shaded bands show the 25th to 75th percentile range.
+          </span>
+        }
+        mobileExpand={() => dealSizeChart(true)}
+      >
+        <p id={dealSizeTableId} className="sr-only">
+          Line chart showing median reported deal size with 25th to 75th percentile bands for
+          public and private targets by filing year.
+        </p>
+        {dealSizeChart(false)}
+      </ChartPanel>
+
+      <ChartPanel
+        id={matrixDescriptionId}
+        title="Target Type by Buyer Type"
+        description={
+          <span className="prose-copy">
+            Counts or median deal value for each target-buyer bucket combination.
+          </span>
+        }
+        controls={
+          <MetricSwitch<HeatmapMetric>
+            label="Heatmap metric"
+            value={matrixMetric}
+            onValueChange={setMatrixMetric}
+            options={HEATMAP_METRIC_OPTIONS}
+            ariaLabel="Buyer matrix metric"
+          />
+        }
+        footnote="Private targets include PE-backed targets. Private-equity buyers are broken out separately from private strategic buyers."
+      >
+        <TrendsHeatmapTable
+          caption="Target type by buyer type heatmap"
+          columns={matrixRows.columns.map((item) => item.label)}
+          formatterLabel={
+            matrixMetric === "deal_count" ? "Deal count" : "Median value"
+          }
+          getCell={(rowLabel, columnLabel) => {
+            const rowKey = matrixRows.rows.find((item) => item.label === rowLabel)?.key ?? "";
+            const columnKey =
+              matrixRows.columns.find((item) => item.label === columnLabel)?.key ?? "";
+            return matrixRows.getCell(rowKey, columnKey);
+          }}
+          rows={matrixRows.rows.map((item) => item.label)}
+        />
+      </ChartPanel>
     </div>
   );
 }
@@ -600,17 +477,12 @@ function IndustryDynamicsPanel({
 }: {
   industries: AgreementTrendsResponse["industries"];
 }) {
-  const isMobile = useIsMobile();
   const [compositionMetric, setCompositionMetric] =
     useState<OwnershipMetric>("deal_count");
   const [pairingsMetric, setPairingsMetric] =
     useState<OwnershipMetric>("deal_count");
   const [concentrationMetric, setConcentrationMetric] =
     useState<OwnershipMetric>("deal_count");
-  const [isCompositionChartModalOpen, setIsCompositionChartModalOpen] =
-    useState(false);
-  const [isConcentrationChartModalOpen, setIsConcentrationChartModalOpen] =
-    useState(false);
   const compositionDescriptionId = useId();
   const pairingsDescriptionId = useId();
   const concentrationDescriptionId = useId();
@@ -788,240 +660,109 @@ function IndustryDynamicsPanel({
     };
   }, [concentrationMetric, industries.target_industries_by_year]);
 
+  const compositionChart = (inModal: boolean) => (
+    <Suspense fallback={<ChartSkeleton />}>
+      <TrendsStackedShareAreaChart
+        className={inModal ? "border-0 bg-background p-0" : undefined}
+        ariaLabel="100 percent stacked area chart showing target-industry composition by filing year."
+        data={industryComposition.data}
+        describedBy={compositionDescriptionId}
+        series={industryComposition.series}
+        tableId={compositionTableId}
+        valueFormatter={compositionMetric === "deal_count" ? formatCount : formatMoney}
+      />
+    </Suspense>
+  );
+  const concentrationChart = (inModal: boolean) => (
+    <Suspense fallback={<ChartSkeleton className="h-[220px] sm:h-[280px] lg:h-[320px]" />}>
+      <TrendsPercentLineChart
+        className={inModal ? "border-0 bg-background p-0" : undefined}
+        ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
+        data={concentrationTrend.data}
+        describedBy={concentrationDescriptionId}
+        lineColor={SECTOR_CONCENTRATION_LINE_COLOR}
+        tableId={concentrationTableId}
+      />
+    </Suspense>
+  );
+
   return (
     <div className="space-y-6">
-      <Card variant="subtle">
-        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <CardTitle as="h2" id={compositionDescriptionId} className="text-xl sm:text-2xl">
-              Industry Composition Over Time
-            </CardTitle>
-            <CardDescription className="prose-copy text-sm sm:text-base">
-              Share of deals by target industry over time.
-            </CardDescription>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Metric
-            </span>
-            <ToggleGroup
-              type="single"
-              value={compositionMetric}
-              onValueChange={(value) => {
-                if (value === "deal_count" || value === "total_transaction_value") {
-                  setCompositionMetric(value);
-                }
-              }}
-              variant="outline"
-              aria-label="Industry composition metric"
-              className="justify-start"
-            >
-              <ToggleGroupItem value="deal_count">Deal count</ToggleGroupItem>
-              <ToggleGroupItem value="total_transaction_value">Value</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p id={compositionTableId} className="sr-only">
-            100 percent stacked area chart showing target-industry composition by filing year.
-          </p>
-          {isMobile ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => setIsCompositionChartModalOpen(true)}
-                aria-haspopup="dialog"
-                aria-describedby={compositionDescriptionId}
-              >
-                Open chart
-              </Button>
-              <MobileChartModal
-                open={isCompositionChartModalOpen}
-                onOpenChange={setIsCompositionChartModalOpen}
-                title="Industry Composition Over Time"
-                description="Shows the share of deals by target industry over time."
-              >
-                <div className="mx-auto w-full max-w-[980px]">
-                  <h2 className="mb-2 text-base font-semibold">
-                    Industry Composition Over Time
-                  </h2>
-                  <Suspense fallback={<ChartSkeleton />}>
-                    <TrendsStackedShareAreaChart
-                      className="border-0 bg-background p-0"
-                      ariaLabel="100 percent stacked area chart showing target-industry composition by filing year."
-                      data={industryComposition.data}
-                      describedBy={compositionDescriptionId}
-                      series={industryComposition.series}
-                      tableId={compositionTableId}
-                      valueFormatter={
-                        compositionMetric === "deal_count" ? formatCount : formatMoney
-                      }
-                    />
-                  </Suspense>
-                </div>
-              </MobileChartModal>
-            </>
-          ) : (
-            <Suspense fallback={<ChartSkeleton />}>
-              <TrendsStackedShareAreaChart
-                ariaLabel="100 percent stacked area chart showing target-industry composition by filing year."
-                data={industryComposition.data}
-                describedBy={compositionDescriptionId}
-                series={industryComposition.series}
-                tableId={compositionTableId}
-                valueFormatter={
-                  compositionMetric === "deal_count" ? formatCount : formatMoney
-                }
-              />
-            </Suspense>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card variant="subtle">
-        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <CardTitle as="h2" id={pairingsDescriptionId} className="text-xl sm:text-2xl">
-              Top Industry Pairings
-            </CardTitle>
-            <CardDescription className="prose-copy text-sm sm:text-base">
-              Most common target and acquirer industry combinations.
-            </CardDescription>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Heatmap metric
-            </span>
-            <ToggleGroup
-              type="single"
-              value={pairingsMetric}
-              onValueChange={(value) => {
-                if (value === "deal_count" || value === "total_transaction_value") {
-                  setPairingsMetric(value);
-                }
-              }}
-              variant="outline"
-              aria-label="Industry pairing metric"
-              className="justify-start"
-            >
-              <ToggleGroupItem value="deal_count">Deal count</ToggleGroupItem>
-              <ToggleGroupItem value="total_transaction_value">Value</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <TrendsHeatmapTable
-            caption="Target versus acquirer industry pairing heatmap"
-            columns={pairingsHeatmap.columns.map((item) => item.label)}
-            formatterLabel={pairingsMetric === "deal_count" ? "Deal count" : "Value"}
-            getCell={(rowLabel, columnLabel) => {
-              const rowKey = pairingsHeatmap.rows.find((item) => item.label === rowLabel)?.key ?? "";
-              const columnKey =
-                pairingsHeatmap.columns.find((item) => item.label === columnLabel)?.key ?? "";
-              return pairingsHeatmap.getCell(rowKey, columnKey);
-            }}
-            rows={pairingsHeatmap.rows.map((item) => item.label)}
+      <ChartPanel
+        id={compositionDescriptionId}
+        title="Industry Composition Over Time"
+        description={
+          <span className="prose-copy">Share of deals by target industry over time.</span>
+        }
+        controls={
+          <MetricSwitch<OwnershipMetric>
+            label="Metric"
+            value={compositionMetric}
+            onValueChange={setCompositionMetric}
+            options={VALUE_METRIC_OPTIONS}
+            ariaLabel="Industry composition metric"
           />
-        </CardContent>
-      </Card>
+        }
+        mobileExpand={() => compositionChart(true)}
+      >
+        <p id={compositionTableId} className="sr-only">
+          100 percent stacked area chart showing target-industry composition by filing year.
+        </p>
+        {compositionChart(false)}
+      </ChartPanel>
 
-      <Card variant="subtle">
-        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <CardTitle as="h2" id={concentrationDescriptionId} className="text-xl sm:text-2xl">
-              Sector Concentration Trend
-            </CardTitle>
-            <CardDescription className="prose-copy text-sm sm:text-base">
-              Share of annual activity accounted for by the five largest target industries.
-            </CardDescription>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Metric
-            </span>
-            <ToggleGroup
-              type="single"
-              value={concentrationMetric}
-              onValueChange={(value) => {
-                if (value === "deal_count" || value === "total_transaction_value") {
-                  setConcentrationMetric(value);
-                }
-              }}
-              variant="outline"
-              aria-label="Sector concentration metric"
-              className="justify-start"
-            >
-              <ToggleGroupItem value="deal_count">Deal count</ToggleGroupItem>
-              <ToggleGroupItem value="total_transaction_value">Value</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p id={concentrationTableId} className="sr-only">
-            Line chart showing the share of annual activity accounted for by the top five target
-            industries.
-          </p>
-          {isMobile ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => setIsConcentrationChartModalOpen(true)}
-                aria-haspopup="dialog"
-                aria-describedby={concentrationDescriptionId}
-              >
-                Open chart
-              </Button>
-              <MobileChartModal
-                open={isConcentrationChartModalOpen}
-                onOpenChange={setIsConcentrationChartModalOpen}
-                title="Sector Concentration Trend"
-                description="Shows the share of annual activity accounted for by the five largest target industries."
-              >
-                <div className="mx-auto w-full max-w-[980px]">
-                  <h2 className="mb-2 text-base font-semibold">
-                    Sector Concentration Trend
-                  </h2>
-                  <Suspense
-                    fallback={<ChartSkeleton className="h-[220px] sm:h-[280px] lg:h-[320px]" />}
-                  >
-                    <TrendsPercentLineChart
-                      className="border-0 bg-background p-0"
-                      ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
-                      data={concentrationTrend.data}
-                      describedBy={concentrationDescriptionId}
-                      lineColor={SECTOR_CONCENTRATION_LINE_COLOR}
-                      tableId={concentrationTableId}
-                    />
-                  </Suspense>
-                </div>
-              </MobileChartModal>
-            </>
-          ) : (
-            <Suspense fallback={<ChartSkeleton className="h-[220px] sm:h-[280px] lg:h-[320px]" />}>
-              <TrendsPercentLineChart
-                ariaLabel="Line chart showing the share of annual activity accounted for by the top five target industries."
-                data={concentrationTrend.data}
-                describedBy={concentrationDescriptionId}
-                lineColor={SECTOR_CONCENTRATION_LINE_COLOR}
-                tableId={concentrationTableId}
-              />
-            </Suspense>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {concentrationTrend.topIndustries.map((industry) => (
-              <span
-                key={industry}
-                className="rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-medium text-foreground"
-              >
-                {formatIndustryLabel(industry)}
-              </span>
-            ))}
-          </div>
-          <p className="text-sm prose-copy">
+      <ChartPanel
+        id={pairingsDescriptionId}
+        title="Top Industry Pairings"
+        description={
+          <span className="prose-copy">
+            Most common target and acquirer industry combinations.
+          </span>
+        }
+        controls={
+          <MetricSwitch<OwnershipMetric>
+            label="Heatmap metric"
+            value={pairingsMetric}
+            onValueChange={setPairingsMetric}
+            options={VALUE_METRIC_OPTIONS}
+            ariaLabel="Industry pairing metric"
+          />
+        }
+      >
+        <TrendsHeatmapTable
+          caption="Target versus acquirer industry pairing heatmap"
+          columns={pairingsHeatmap.columns.map((item) => item.label)}
+          formatterLabel={pairingsMetric === "deal_count" ? "Deal count" : "Value"}
+          getCell={(rowLabel, columnLabel) => {
+            const rowKey = pairingsHeatmap.rows.find((item) => item.label === rowLabel)?.key ?? "";
+            const columnKey =
+              pairingsHeatmap.columns.find((item) => item.label === columnLabel)?.key ?? "";
+            return pairingsHeatmap.getCell(rowKey, columnKey);
+          }}
+          rows={pairingsHeatmap.rows.map((item) => item.label)}
+        />
+      </ChartPanel>
+
+      <ChartPanel
+        id={concentrationDescriptionId}
+        title="Sector Concentration Trend"
+        description={
+          <span className="prose-copy">
+            Share of annual activity accounted for by the five largest target industries.
+          </span>
+        }
+        controls={
+          <MetricSwitch<OwnershipMetric>
+            label="Metric"
+            value={concentrationMetric}
+            onValueChange={setConcentrationMetric}
+            options={VALUE_METRIC_OPTIONS}
+            ariaLabel="Sector concentration metric"
+          />
+        }
+        mobileExpand={() => concentrationChart(true)}
+        footnote={
+          <>
             Current top-five basket share:{" "}
             <span className="font-mono tabular-nums text-foreground">
               {concentrationTrend.data.length > 0
@@ -1030,68 +771,36 @@ function IndustryDynamicsPanel({
                   )
                 : "—"}
             </span>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p id={concentrationTableId} className="sr-only">
+            Line chart showing the share of annual activity accounted for by the top five target
+            industries.
           </p>
-        </CardContent>
-      </Card>
+          {concentrationChart(false)}
+          <div className="flex flex-wrap gap-2">
+            {concentrationTrend.topIndustries.map((industry) => (
+              <Badge key={industry} variant="metadata">
+                {formatIndustryLabel(industry)}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </ChartPanel>
     </div>
   );
 }
 
 export default function TrendsAnalyses() {
-  const [data, setData] = useState<AgreementTrendsResponse | null>(() =>
-    readSessionCache<AgreementTrendsResponse>(
-      TRENDS_CACHE_KEY,
-      TRENDS_CACHE_TTL_MS,
-    ),
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(data === null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const fetchTrends = async () => {
-      try {
-        // Stale-while-revalidate: `loading` starts true only when there is no
-        // session-cached payload, so revisits keep showing cached content.
-        setError(null);
-        const response = await authFetch(apiUrl("v1/agreement-trends"), {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error(`Agreement trends request failed (${response.status})`);
-        }
-        const nextData = (await response.json()) as AgreementTrendsResponse;
-        if (!cancelled) {
-          setData(nextData);
-          writeSessionCache(TRENDS_CACHE_KEY, nextData);
-        }
-      } catch (err) {
-        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          setError(
-            err instanceof Error ? err.message : "Unable to load trend analyses.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchTrends();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, []);
+  const { data, isLoading: loading, error, apiError, refetch } = useAgreementTrends();
 
   return (
     <PageShell
+      layout="data"
       title="Trends & Analyses"
-      size="xl"
-      subtitle={
+      description={
         <span className="prose-copy">
           A set of deeper cuts on ownership structure and sector composition, built from
           public-eligible agreements and designed to complement the headline leaderboards.
@@ -1101,14 +810,7 @@ export default function TrendsAnalyses() {
       <div className="space-y-6">
         {loading ? <TrendsSkeleton /> : null}
 
-        {!loading && error ? (
-          <Card variant="subtle">
-            <CardHeader>
-              <CardTitle as="h2" className="text-xl">Unavailable</CardTitle>
-              <CardDescription>{error}</CardDescription>
-            </CardHeader>
-          </Card>
-        ) : null}
+        {!loading && error ? <ErrorState error={apiError ?? error} onRetry={() => void refetch()} /> : null}
 
         {!loading && !error && data ? (
           <Tabs defaultValue="ownership" className="space-y-4">

@@ -3,8 +3,11 @@ import ResizeObserverPolyfill from "resize-observer-polyfill";
 import { cn } from "@/lib/utils";
 import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
 import { Badge, badgeVariants } from "@/components/ui/badge";
+import { DocsTableOfContents } from "@/components/DocsTableOfContents";
 import { PageShell } from "@/components/PageShell";
 import { Card } from "@/components/ui/card";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { ExternalLink } from "@/components/ui/external-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   NerEvalData,
@@ -34,14 +37,96 @@ type MetricsData = {
   exhibit: ExhibitEvalData;
 };
 
+// Status quo vs. Pandects comparison, rendered as a two-column table.
+const COMPARISON_ROWS: ReadonlyArray<{
+  problem: string;
+  problemDetail: string;
+  solution: string;
+  solutionDetail: string;
+}> = [
+  {
+    problem: "No Scalable Filtering",
+    problemDetail:
+      "Finding definitive M&A agreements in EDGAR is like finding a needle in a haystack.",
+    solution: "Automated Identification",
+    solutionDetail:
+      "We parse through Exhibit 2 and Exhibit 10 filings at scale and use machine learning to identify those that represent definitive merger agreements.",
+  },
+  {
+    problem: "Messy HTML",
+    problemDetail:
+      "Existing datasets provide only links to raw SEC filings, forcing researchers to build their own parsers to extract text and identify articles and sections.",
+    solution: "Clean, Normalized XML",
+    solutionDetail:
+      "We use machine learning to normalize every agreement into standardized XML, stripping away the HTML mess so researchers don't have to invent their own parsing logic.",
+  },
+  {
+    problem: "A Sea of Sections",
+    problemDetail:
+      "Whether working with raw or structured text, it's challenging to classify sections at scale, and existing datasets don't offer taxonomies.",
+    solution: "Rigorous Taxonomy",
+    solutionDetail:
+      "We use machine learning to classify every section into a specific section taxonomy, making it effortless to query specific section types across thousands of deals.",
+  },
+  {
+    problem: "Missing Deal Context",
+    problemDetail:
+      "Structured text is of limited use without metadata on deal value, industry codes, and buyer types, and existing datasets don't provide this metadata.",
+    solution: "LLM-Enriched Data",
+    solutionDetail:
+      "We use LLMs to extract and incorporate deal-specific context—including consideration amounts, NAICS codes, and PE involvement—directly into the dataset.",
+  },
+  {
+    problem: "Static Snapshots",
+    problemDetail:
+      "Traditional legal corpora are frozen in time, losing relevance within a few years of publication.",
+    solution: "Monthly Updates",
+    solutionDetail:
+      "Our pipeline runs every month, ensuring the Pandects dataset remains in sync with the latest market activity.",
+  },
+];
+
+const markupHighlightClass = "rounded-sm bg-warning/10 px-1 text-warning";
+
+// Reserved heights for the lazy metrics cards (measured at the 720px docs
+// measure and at phone width) so deep links below them do not land short.
+const EXHIBIT_MIN_H = "min-h-[820px] sm:min-h-[380px]";
+const CLASSIFIER_MIN_H = "min-h-[1040px] sm:min-h-[560px]";
+const NER_MIN_H = "min-h-[1270px] sm:min-h-[900px]";
+
+/**
+ * Placeholder for a lazy metrics card. `minHeightClass` reserves roughly the
+ * rendered height so deep links below the metrics land where they should.
+ */
+function MetricsSkeleton({
+  columns,
+  minHeightClass,
+}: {
+  columns: 2 | 3;
+  minHeightClass: string;
+}) {
+  return (
+    <Card className={cn("border-border bg-card p-6", minHeightClass)}>
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-64 w-full" />
+        <div className={cn("grid gap-4", columns === 2 ? "grid-cols-2" : "grid-cols-3")}>
+          {Array.from({ length: columns }, (_, index) => (
+            <Skeleton key={index} className="h-12 w-full" />
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function SourcesMethods() {
-  const [activeSection, setActiveSection] = useState("");
   const firstStepRef = useRef<HTMLDivElement | null>(null);
   const lastStepRef = useRef<HTMLDivElement | null>(null);
   const pipelineRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
   const [pipelineLine, setPipelineLine] = useState({ top: 0, height: 0 });
-  const lastScrollToRef = useRef(0);
+  const pendingHashRef = useRef<string | null>(null);
   const pipelineMetricsRef = useRef<{
     firstCenter: number;
     lastCenter: number;
@@ -74,7 +159,7 @@ export default function SourcesMethods() {
     [],
   );
 
-  const scrollToSection = (id: string) => {
+  const scrollToSection = (id: string, instant = false) => {
     const el = document.getElementById(id);
     if (!el) return;
 
@@ -91,32 +176,66 @@ export default function SourcesMethods() {
 
     window.scrollTo({
       top: targetY,
-      behavior: prefersReducedMotion ? "auto" : "smooth",
+      behavior: instant || prefersReducedMotion ? "auto" : "smooth",
     });
-
-    lastScrollToRef.current = Date.now();
-    setActiveSection(id);
-    window.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
   };
 
   useEffect(() => {
-    const syncFromHash = () => {
+    // A deep link stays "pending" until the reader takes over (wheel, touch,
+    // keys) or a few seconds pass; while pending, layout shifts from the lazy
+    // metrics re-scroll to the target so the link never lands short.
+    let settleTimer = 0;
+    const release = () => {
+      pendingHashRef.current = null;
+      window.clearInterval(settleTimer);
+    };
+    // Re-check the target while pending; cheap, and independent of
+    // ResizeObserver timing in throttled or background tabs.
+    const settle = () => {
+      const pending = pendingHashRef.current;
+      if (!pending) return;
+      const el = document.getElementById(pending);
+      if (!el) return;
+      const margin = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+      if (Math.abs(el.getBoundingClientRect().top - margin) > 2) {
+        scrollToSection(pending, true);
+      }
+    };
+    // The initial deep link jumps; later hash changes (TOC clicks) animate.
+    const syncFromHash = (instant = false) => {
       let id = "";
       try {
         id = decodeURIComponent(window.location.hash.replace(/^#/, ""));
       } catch {
         return;
       }
-      if (!id) return;
-      scrollToSection(id);
+      if (!id || !document.getElementById(id)) return;
+      pendingHashRef.current = id;
+      window.clearTimeout(releaseTimer);
+      window.clearInterval(settleTimer);
+      releaseTimer = window.setTimeout(release, 6000);
+      // Only the initial jump settles; a smooth TOC scroll must not be cut short.
+      if (instant) settleTimer = window.setInterval(settle, 250);
+      // Targets below the metrics need them loaded to settle their offsets.
+      setShouldLoadMetrics(true);
+      scrollToSection(id, instant);
     };
+    const onHashChange = () => syncFromHash();
 
-    const timer = window.setTimeout(syncFromHash, 0);
+    let releaseTimer = 0;
+    const timer = window.setTimeout(() => syncFromHash(true), 0);
+    const inputEvents = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
 
-    window.addEventListener("hashchange", syncFromHash);
+    window.addEventListener("hashchange", onHashChange);
+    inputEvents.forEach((name) =>
+      window.addEventListener(name, release, { passive: true }),
+    );
     return () => {
       window.clearTimeout(timer);
-      window.removeEventListener("hashchange", syncFromHash);
+      window.clearTimeout(releaseTimer);
+      window.clearInterval(settleTimer);
+      window.removeEventListener("hashchange", onHashChange);
+      inputEvents.forEach((name) => window.removeEventListener(name, release));
     };
   }, []);
 
@@ -273,33 +392,6 @@ export default function SourcesMethods() {
     };
   }, [shouldLoadMetrics]);
 
-  useEffect(() => {
-    if (!metricsRef.current) return;
-
-    const handleResize = () => {
-      if (Date.now() - lastScrollToRef.current > 500) {
-        return;
-      }
-      if (
-        ["exhibit-model", "page-classifier-model", "tagging-model"].includes(
-          activeSection,
-        )
-      ) {
-        scrollToSection(activeSection);
-      }
-    };
-
-    const Observer =
-      typeof ResizeObserver !== "undefined"
-        ? ResizeObserver
-        : ResizeObserverPolyfill;
-
-    const observer = new Observer(handleResize);
-    observer.observe(metricsRef.current);
-
-    return () => observer.disconnect();
-  }, [activeSection]);
-
   // Cleanup will-change on unmount
   useEffect(() => {
     return () => {
@@ -314,42 +406,19 @@ export default function SourcesMethods() {
   const formatMetric = (value: number) => `${(value * 100).toFixed(2)}%`;
 
   return (
-    <PageShell size="xl" title="Sources & Methods">
-      <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-        <aside className="hidden lg:block">
-          <div className="sticky top-20">
-            <Card className="border-border bg-background/70 p-3 backdrop-blur">
-              <div className="px-2 pb-2 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                On this page
-              </div>
-              <nav aria-label="Sources and methods page sections">
-                <ul className="space-y-1">
-                  {navItems.map(({ id, label, indent }) => (
-                    <li key={id} className={indent ? "ml-4" : undefined}>
-                      <button
-                        type="button"
-                        onClick={() => scrollToSection(id)}
-                        aria-current={
-                          activeSection === id ? "location" : undefined
-                        }
-                        aria-controls={id}
-                        className={cn(
-                          "w-full rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                          activeSection === id
-                            ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                        )}
-                      >
-                        {label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </Card>
-          </div>
-        </aside>
-
+    <PageShell
+      layout="docs"
+      title="Sources & Methods"
+      toc={
+        <DocsTableOfContents
+          items={navItems.map(({ id, label, indent }) => ({
+            id,
+            label,
+            level: indent ? 1 : 0,
+          }))}
+        />
+      }
+    >
         <article className="space-y-12 min-w-0">
           <section
             id="overview"
@@ -368,176 +437,60 @@ export default function SourcesMethods() {
               text and messy HTML into clean, taxonomized XML. Conceptually, our
               pipeline solves several distinct problems.
             </p>
-            <div className="max-w-4xl rounded-2xl border border-border bg-card/50 p-6 shadow-sm">
-              <div className="grid gap-1 border-b border-border px-4 pb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid-cols-[16px_1fr_1fr]">
-                <div aria-hidden="true" />
-                <div className="px-1 text-left">The Status Quo</div>
-                <div className="px-2 text-left">The Pandects Standard</div>
-              </div>
-              <ol
-                className="space-y-4 pt-4"
-                aria-label="Status quo versus Pandects standard comparisons"
-              >
-                <li className="rounded-xl border border-border bg-background/60 p-4">
-                  <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
-                    <div
-                      aria-hidden="true"
-                      className="text-sm font-semibold text-foreground md:pt-3"
-                    >
-                      1
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg px-1 py-3 md:col-start-2 md:row-span-2">
-                      <span className="sr-only">Status quo:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        No Scalable Filtering
-                      </div>
-                      <p className="text-sm prose-copy">
-                        Finding definitive M&A agreements in EDGAR is like
-                        finding a needle in a haystack.
-                      </p>
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg bg-emerald-500/10 px-2 py-3 md:col-start-3 md:row-span-2">
-                      <span className="sr-only">Pandects standard:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        Automated Identification
-                      </div>
-                      <p className="text-sm text-foreground">
-                        We parse through Exhibit 2 and Exhibit 10 filings at
-                        scale and use machine learning to identify those that
-                        represent definitive merger agreements.
-                      </p>
-                    </div>
+            <table className="hidden w-full border-collapse text-left text-sm sm:table">
+              <caption className="sr-only">
+                Status quo versus Pandects standard comparisons
+              </caption>
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className="w-1/2 pb-2 pr-6 align-bottom">
+                    <Eyebrow asChild>
+                      <span>The Status Quo</span>
+                    </Eyebrow>
+                  </th>
+                  <th scope="col" className="w-1/2 pb-2 align-bottom">
+                    <Eyebrow asChild>
+                      <span>The Pandects Standard</span>
+                    </Eyebrow>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON_ROWS.map((row) => (
+                  <tr key={row.problem} className="border-b border-border last:border-b-0">
+                    <td className="py-4 pr-6 align-top">
+                      <div className="font-semibold text-foreground">{row.problem}</div>
+                      <p className="mt-1 prose-copy">{row.problemDetail}</p>
+                    </td>
+                    <td className="py-4 align-top">
+                      <div className="font-semibold text-foreground">{row.solution}</div>
+                      <p className="mt-1 text-foreground">{row.solutionDetail}</p>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <ol
+              className="divide-y divide-border border-y border-border sm:hidden"
+              aria-label="Status quo versus Pandects standard comparisons"
+            >
+              {COMPARISON_ROWS.map((row) => (
+                <li key={row.problem} className="space-y-3 py-4 text-sm">
+                  <div>
+                    <Eyebrow>Problem</Eyebrow>
+                    <div className="mt-1 font-semibold text-foreground">{row.problem}</div>
+                    <p className="mt-1 prose-copy">{row.problemDetail}</p>
+                  </div>
+                  <div>
+                    <Eyebrow>
+                      <span aria-hidden="true">→ </span>Solution
+                    </Eyebrow>
+                    <div className="mt-1 font-semibold text-foreground">{row.solution}</div>
+                    <p className="mt-1 text-foreground">{row.solutionDetail}</p>
                   </div>
                 </li>
-                <li className="rounded-xl border border-border bg-background/60 p-4">
-                  <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
-                    <div
-                      aria-hidden="true"
-                      className="text-sm font-semibold text-foreground md:pt-3"
-                    >
-                      2
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg px-1 py-3 md:col-start-2 md:row-span-2">
-                      <span className="sr-only">Status quo:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        Messy HTML
-                      </div>
-                      <p className="text-sm prose-copy">
-                        Existing datasets provide only links to raw SEC filings,
-                        forcing researchers to build their own parsers to
-                        extract text and identify articles and sections.
-                      </p>
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg bg-emerald-500/10 px-2 py-3 md:col-start-3 md:row-span-2">
-                      <span className="sr-only">Pandects standard:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        Clean, Normalized XML
-                      </div>
-                      <p className="text-sm text-foreground">
-                        We use machine learning to normalize every agreement
-                        into standardized XML, stripping away the HTML mess so
-                        researchers don't have to invent their own parsing
-                        logic.
-                      </p>
-                    </div>
-                  </div>
-                </li>
-                <li className="rounded-xl border border-border bg-background/60 p-4">
-                  <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
-                    <div
-                      aria-hidden="true"
-                      className="text-sm font-semibold text-foreground md:pt-3"
-                    >
-                      3
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg px-1 py-3 md:col-start-2 md:row-span-2">
-                      <span className="sr-only">Status quo:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        A Sea of Sections
-                      </div>
-                      <p className="text-sm prose-copy">
-                        Whether working with raw or structured text, it's
-                        challenging to classify sections at scale, and existing
-                        datasets don't offer taxonomies.
-                      </p>
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg bg-emerald-500/10 px-2 py-3 md:col-start-3 md:row-span-2">
-                      <span className="sr-only">Pandects standard:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        Rigorous Taxonomy
-                      </div>
-                      <p className="text-sm text-foreground">
-                        We use machine learning to classify every section into a
-                        specific section taxonomy, making it effortless to query
-                        specific section types across thousands of deals.
-                      </p>
-                    </div>
-                  </div>
-                </li>
-                <li className="rounded-xl border border-border bg-background/60 p-4">
-                  <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
-                    <div
-                      aria-hidden="true"
-                      className="text-sm font-semibold text-foreground md:pt-3"
-                    >
-                      4
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg px-1 py-3 md:col-start-2 md:row-span-2">
-                      <span className="sr-only">Status quo:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        Missing Deal Context
-                      </div>
-                      <p className="text-sm prose-copy">
-                        Structured text is of limited use without metadata on
-                        deal value, industry codes, and buyer types, and
-                        existing datasets don't provide this metadata.
-                      </p>
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg bg-emerald-500/10 px-2 py-3 md:col-start-3 md:row-span-2">
-                      <span className="sr-only">Pandects standard:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        LLM-Enriched Data
-                      </div>
-                      <p className="text-sm text-foreground">
-                        We use LLMs to extract and incorporate deal-specific
-                        context—including consideration amounts, NAICS codes,
-                        and PE involvement—directly into the dataset.
-                      </p>
-                    </div>
-                  </div>
-                </li>
-                <li className="rounded-xl border border-border bg-background/60 p-4">
-                  <div className="grid gap-2 md:grid-cols-[16px_1fr_1fr] md:gap-x-2 md:gap-y-0">
-                    <div
-                      aria-hidden="true"
-                      className="text-sm font-semibold text-foreground md:pt-3"
-                    >
-                      5
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg px-1 py-3 md:col-start-2 md:row-span-2">
-                      <span className="sr-only">Status quo:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        Static Snapshots
-                      </div>
-                      <p className="text-sm prose-copy">
-                        Traditional legal corpora are frozen in time, losing
-                        relevance within a few years of publication.
-                      </p>
-                    </div>
-                    <div className="grid content-start gap-2 rounded-lg bg-emerald-500/10 px-2 py-3 md:col-start-3 md:row-span-2">
-                      <span className="sr-only">Pandects standard:</span>
-                      <div className="text-sm font-semibold text-foreground">
-                        Monthly Updates
-                      </div>
-                      <p className="text-sm text-foreground">
-                        Our pipeline runs every month, ensuring the Pandects
-                        dataset remains in sync with the latest market activity.
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              </ol>
-            </div>
+              ))}
+            </ol>
           </section>
 
           <section
@@ -551,30 +504,26 @@ export default function SourcesMethods() {
             >
               Pipeline Architecture
             </h2>
-            <p className="max-w-3xl prose-copy">
+            <p className="prose-copy">
               Our pipeline takes raw EDGAR filings and produces clean XML,
               structured sections, and taxonomy labels. We use three ML models
               plus targeted LLM calls where they are the better tool. We use{" "}
-              <a
+              <ExternalLink
                 href="https://dagster.io/"
-                target="_blank"
-                rel="noopener noreferrer"
                 className="text-primary underline underline-offset-2 hover:underline"
               >
                 Dagster
-              </a>{" "}
+              </ExternalLink>{" "}
               to orchestrate the pipeline, which is defined in full on{" "}
-              <a
+              <ExternalLink
                 href="https://github.com/PlatosTwin/pandects-app/tree/main/etl/"
-                target="_blank"
-                rel="noopener noreferrer"
                 className="text-primary underline underline-offset-2 hover:underline"
               >
                 GitHub
-              </a>
+              </ExternalLink>
               .
             </p>
-            <div ref={pipelineRef} className="relative mt-6 max-w-5xl">
+            <div ref={pipelineRef} className="relative mt-6">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute left-4 -translate-x-1/2 w-[2px]"
@@ -583,7 +532,7 @@ export default function SourcesMethods() {
                 <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(to_bottom,hsl(var(--border)/0.6)_0,hsl(var(--border)/0.6)_6px,transparent_6px,transparent_12px)] bg-[length:2px_12px] bg-repeat-y" />
                 <div
                   ref={progressRef}
-                  className="absolute left-0 top-0 h-full w-full origin-top bg-gradient-to-b from-emerald-300 via-emerald-500 to-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.35)]"
+                  className="absolute left-0 top-0 h-full w-full origin-top bg-gradient-to-b from-success/40 via-success/80 to-success shadow-[0_0_10px_hsl(var(--success)/0.35)]"
                   style={{ transform: "scaleY(0)" }}
                 />
               </div>
@@ -604,7 +553,7 @@ export default function SourcesMethods() {
                         href="#exhibit-model"
                         className={cn(
                           badgeVariants({ variant: "chip" }),
-                          "hover:border-emerald-500/40",
+                          "hover:border-primary/40",
                         )}
                       >
                         Exhibit Model
@@ -651,20 +600,20 @@ export default function SourcesMethods() {
                         tooltipProps={{
                           side: "top",
                           className:
-                            "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
                         }}
                         delayDuration={300}
                         popoverProps={{
                           side: "top",
                           className:
-                            "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
                         }}
                       />
                       <a
                         href="#page-classifier-model"
                         className={cn(
                           badgeVariants({ variant: "chip" }),
-                          "hover:border-emerald-500/40",
+                          "hover:border-primary/40",
                         )}
                       >
                         Page Classifier Model
@@ -694,10 +643,10 @@ export default function SourcesMethods() {
                       </span>
                       .
                     </p>
-                    <div className="rounded-xl border border-border bg-background/60 p-4">
+                    <div className="rounded-xl border border-border bg-muted/30 p-4">
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          <Eyebrow className="flex items-center gap-2">
                             Before
                             <Badge
                               variant="chip"
@@ -705,50 +654,50 @@ export default function SourcesMethods() {
                             >
                               HTML
                             </Badge>
-                          </div>
+                          </Eyebrow>
                           <p className="mt-2 text-xs font-mono text-muted-foreground">
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;p style="margin:0pt;text-align:center;..."&gt;
                             </span>
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;font style="..."&gt;
                             </span>
                             ARTICLE&nbsp;2
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;/font&gt;&lt;/p&gt;
                             </span>
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;p style="..."&gt;&lt;font style="..."&gt;
                             </span>
                             THE ARRANGEMENT
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;/font&gt;&lt;/p&gt;
                             </span>
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;p
                               style="...text-indent:-72pt;..."&gt;&lt;font&gt;
                             </span>
                             Section&nbsp;2.1
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;font&gt;&lt;/font&gt;
                             </span>
                             Arrangement
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;/font&gt;&lt;/p&gt;
                             </span>
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;p
                               style="...text-indent:36pt;..."&gt;&lt;font&gt;
                             </span>
                             The Company, the Parent and the Purchaser agree that
                             the Arrangement will be implemented…
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;/font&gt;&lt;/p&gt;
                             </span>
                           </p>
                         </div>
                         <div>
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          <Eyebrow className="flex items-center gap-2">
                             After
                             <Badge
                               variant="chip"
@@ -756,7 +705,7 @@ export default function SourcesMethods() {
                             >
                               Plain Text
                             </Badge>
-                          </div>
+                          </Eyebrow>
                           <p className="mt-2 text-sm text-foreground">
                             ARTICLE 2<br />
                             <br />
@@ -787,7 +736,7 @@ export default function SourcesMethods() {
                         href="#tagging-model"
                         className={cn(
                           badgeVariants({ variant: "chip" }),
-                          "hover:border-emerald-500/40",
+                          "hover:border-primary/40",
                         )}
                       >
                         Tagging Model
@@ -800,10 +749,10 @@ export default function SourcesMethods() {
                       </span>{" "}
                       pages, marking articles, sections, and page numbers.
                     </p>
-                    <div className="rounded-xl border border-border bg-background/60 p-4">
+                    <div className="rounded-xl border border-border bg-muted/30 p-4">
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          <Eyebrow className="flex items-center gap-2">
                             Before
                             <Badge
                               variant="chip"
@@ -811,7 +760,7 @@ export default function SourcesMethods() {
                             >
                               Plain Text
                             </Badge>
-                          </div>
+                          </Eyebrow>
                           <p className="mt-2 text-sm prose-copy">
                             ARTICLE 2<br />
                             <br />
@@ -826,7 +775,7 @@ export default function SourcesMethods() {
                           </p>
                         </div>
                         <div>
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          <Eyebrow className="flex items-center gap-2">
                             After
                             <Badge
                               variant="chip"
@@ -834,24 +783,24 @@ export default function SourcesMethods() {
                             >
                               Tagged Text
                             </Badge>
-                          </div>
+                          </Eyebrow>
                           <p className="mt-2 text-xs font-mono text-foreground">
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;article&gt;
                             </span>
                             ARTICLE 2<br />
                             <br />
                             THE ARRANGEMENT
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;/article&gt;
                             </span>
                             <br />
                             <br />
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;section&gt;
                             </span>
                             Section 2.1 Arrangement
-                            <span className="rounded-sm bg-amber-100/80 px-1 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">
+                            <span className={markupHighlightClass}>
                               &lt;/section&gt;
                             </span>
                             <br />
@@ -978,13 +927,13 @@ export default function SourcesMethods() {
                 tooltipProps={{
                   side: "top",
                   className:
-                    "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
                 }}
                 delayDuration={300}
                 popoverProps={{
                   side: "top",
                   className:
-                    "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
                 }}
               />{" "}
               still made too many mistakes for us to be comfortable using them
@@ -997,14 +946,12 @@ export default function SourcesMethods() {
               This section describes the three ML models at the heart of our
               data processing pipeline. The full training code for each model is
               available on{" "}
-              <a
+              <ExternalLink
                 href="https://github.com/PlatosTwin/pandects-app/blob/main/etl/src/etl/models/"
-                target="_blank"
-                rel="noopener noreferrer"
                 className="text-primary underline underline-offset-2 hover:underline"
               >
                 GitHub
-              </a>
+              </ExternalLink>
               .
             </p>
             <div id="exhibit-model" className="scroll-mt-32 pt-2 space-y-4">
@@ -1016,14 +963,12 @@ export default function SourcesMethods() {
                 database, and for each filing outputs the probability that that
                 filing represents a definitive merger agreement. To identify
                 filings, we scan the{" "}
-                <a
+                <ExternalLink
                   href="https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data#:~:text=Using%20the%20EDGAR%20index%20files"
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="text-primary underline underline-offset-2 hover:underline"
                 >
                   SEC's daily index files
-                </a>
+                </ExternalLink>
                 , identify all filings that match target form types (all forms
                 except for S-8 and ABS-EE), filter filings by scanning for
                 keywords indicating "Material Definitive Agreement" entries,
@@ -1082,31 +1027,13 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border bg-card/70 p-6">
-                      <div className="space-y-4">
-                        <Skeleton className="h-6 w-48" />
-                        <Skeleton className="h-64 w-full" />
-                        <div className="grid grid-cols-2 gap-4">
-                          <Skeleton className="h-12 w-full" />
-                          <Skeleton className="h-12 w-full" />
-                        </div>
-                      </div>
-                    </Card>
+                    <MetricsSkeleton columns={2} minHeightClass={EXHIBIT_MIN_H} />
                   }
                 >
                   <LazyExhibitEvalMetrics data={metricsData.exhibit} />
                 </Suspense>
               ) : (
-                <Card className="border-border bg-card/70 p-6">
-                  <div className="space-y-4">
-                    <Skeleton className="h-6 w-48" />
-                    <Skeleton className="h-64 w-full" />
-                    <div className="grid grid-cols-2 gap-4">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                    </div>
-                  </div>
-                </Card>
+                <MetricsSkeleton columns={2} minHeightClass={EXHIBIT_MIN_H} />
               )}
             </div>
             <div
@@ -1219,13 +1146,13 @@ export default function SourcesMethods() {
                       tooltipProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
                       }}
                     />{" "}
                     manually labeled pages across 606 agreements, grouped by
@@ -1252,33 +1179,13 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border bg-card/70 p-6">
-                      <div className="space-y-4">
-                        <Skeleton className="h-6 w-48" />
-                        <Skeleton className="h-64 w-full" />
-                        <div className="grid grid-cols-3 gap-4">
-                          <Skeleton className="h-12 w-full" />
-                          <Skeleton className="h-12 w-full" />
-                          <Skeleton className="h-12 w-full" />
-                        </div>
-                      </div>
-                    </Card>
+                    <MetricsSkeleton columns={3} minHeightClass={CLASSIFIER_MIN_H} />
                   }
                 >
                   <LazyClassifierEvalMetrics data={metricsData.classifier} />
                 </Suspense>
               ) : (
-                <Card className="border-border bg-card/70 p-6">
-                  <div className="space-y-4">
-                    <Skeleton className="h-6 w-48" />
-                    <Skeleton className="h-64 w-full" />
-                    <div className="grid grid-cols-3 gap-4">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                    </div>
-                  </div>
-                </Card>
+                <MetricsSkeleton columns={3} minHeightClass={CLASSIFIER_MIN_H} />
               )}
             </div>
             <div id="tagging-model" className="scroll-mt-32 pt-2 space-y-4">
@@ -1297,16 +1204,14 @@ export default function SourcesMethods() {
                 <li className="space-y-2">
                   <div>
                     <strong>Architecture:</strong> The Tagging Model fine-tunes{" "}
-                    <a
+                    <ExternalLink
                       href="https://huggingface.co/blog/modernbert"
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="text-primary underline underline-offset-2 hover:underline"
                     >
                       <span className="font-mono text-sm text-foreground">
                         ModernBERT-base
                       </span>
-                    </a>{" "}
+                    </ExternalLink>{" "}
                     for token-level labeling of Article, Section, and Page
                     entities. The current production recipe uses an independent
                     decoder, a lightweight auxiliary boundary head for Article
@@ -1366,13 +1271,13 @@ export default function SourcesMethods() {
                       tooltipProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-background/95 text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
                       }}
                     />
                     . We split the corpus by <strong>agreement</strong>, not by
@@ -1393,33 +1298,13 @@ export default function SourcesMethods() {
               {metricsData ? (
                 <Suspense
                   fallback={
-                    <Card className="border-border bg-card/70 p-6">
-                      <div className="space-y-4">
-                        <Skeleton className="h-6 w-48" />
-                        <Skeleton className="h-64 w-full" />
-                        <div className="grid grid-cols-3 gap-4">
-                          <Skeleton className="h-12 w-full" />
-                          <Skeleton className="h-12 w-full" />
-                          <Skeleton className="h-12 w-full" />
-                        </div>
-                      </div>
-                    </Card>
+                    <MetricsSkeleton columns={3} minHeightClass={NER_MIN_H} />
                   }
                 >
                   <LazyNerEvalMetrics data={metricsData.ner} />
                 </Suspense>
               ) : (
-                <Card className="border-border bg-card/70 p-6">
-                  <div className="space-y-4">
-                    <Skeleton className="h-6 w-48" />
-                    <Skeleton className="h-64 w-full" />
-                    <div className="grid grid-cols-3 gap-4">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                    </div>
-                  </div>
-                </Card>
+                <MetricsSkeleton columns={3} minHeightClass={NER_MIN_H} />
               )}
             </div>
           </section>
@@ -1601,7 +1486,6 @@ export default function SourcesMethods() {
             </ol>
           </section>
         </article>
-      </div>
     </PageShell>
   );
 }

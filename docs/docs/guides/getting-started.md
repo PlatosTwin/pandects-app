@@ -29,7 +29,7 @@ The API returns JSON and standard HTTP status codes.
 
 - `200`: request succeeded
 - `422`: invalid request shape or unsupported parameters
-- `default`: other server-side error envelopes
+- any other non-`2xx`: an error envelope `{"error": "<code>", "message": "<text>"}`; see [Error Models](./error-model.md) for the codes
 
 ## Data provenance
 

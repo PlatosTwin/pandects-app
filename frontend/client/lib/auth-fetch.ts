@@ -4,34 +4,6 @@ import { authSessionTransport } from "@/lib/auth-transport";
 import { getSessionToken } from "@/lib/auth-session";
 import { apiUrl } from "@/lib/api-config";
 
-export class AuthApiError extends Error {
-  status: number;
-  statusText: string;
-  code: string | null;
-  bodyText: string;
-
-  constructor(params: {
-    message: string;
-    status: number;
-    statusText: string;
-    code: string | null;
-    bodyText: string;
-  }) {
-    super(params.message);
-    this.name = "AuthApiError";
-    this.status = params.status;
-    this.statusText = params.statusText;
-    this.code = params.code;
-    this.bodyText = params.bodyText;
-  }
-}
-
-function ensureTerminalPunctuation(message: string): string {
-  const trimmed = message.trim();
-  if (!trimmed) return trimmed;
-  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
-}
-
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const parts = document.cookie.split(";").map((p) => p.trim());
@@ -109,48 +81,4 @@ export async function authFetch(
   }
 
   return fetch(input, { ...init, headers, credentials: "include" });
-}
-
-export async function authFetchJson<T>(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
-): Promise<T> {
-  const res = await authFetch(input, init);
-  if (!res.ok) {
-    const contentType = res.headers.get("Content-Type") || "";
-    const bodyText = await res.text().catch(() => "");
-    let serverMessage: string | null = null;
-    let serverCode: string | null = null;
-
-    if (contentType.includes("application/json") && bodyText) {
-      try {
-        const body = JSON.parse(bodyText) as unknown;
-        if (body && typeof body === "object") {
-          const message = (body as { message?: unknown }).message;
-          if (typeof message === "string" && message.trim()) {
-            serverMessage = ensureTerminalPunctuation(message);
-          }
-          const errorCode = (body as { error?: unknown }).error;
-          if (typeof errorCode === "string" && errorCode.trim()) {
-            serverCode = errorCode.trim();
-          }
-        }
-      } catch {
-        serverMessage = null;
-        serverCode = null;
-      }
-    }
-    throw new AuthApiError({
-      message:
-        serverMessage ??
-        ensureTerminalPunctuation(
-          `HTTP ${res.status}: ${res.statusText}${bodyText ? ` — ${bodyText}` : ""}`,
-        ),
-      status: res.status,
-      statusText: res.statusText,
-      code: serverCode,
-      bodyText,
-    });
-  }
-  return (await res.json()) as T;
 }

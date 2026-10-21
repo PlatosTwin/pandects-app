@@ -1,17 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AuthApiError } from "@/lib/auth-fetch";
+import { ApiError } from "@/lib/api/client";
 import { isAuthWakeupError, withAuthWakeRetry } from "@/lib/auth-wake";
 
 function wakeupError(
   message = "Auth backend is unavailable",
   bodyText = "remote auth provider is unavailable",
-): AuthApiError {
-  return new AuthApiError({
+): ApiError {
+  return new ApiError({
     message,
     status: 503,
     statusText: "Service Unavailable",
-    code: null,
     bodyText,
   });
 }
@@ -23,11 +22,10 @@ describe("isAuthWakeupError", () => {
   });
 
   it("returns false for non-503 auth errors", () => {
-    const error = new AuthApiError({
+    const error = new ApiError({
       message: "Auth backend is unavailable",
       status: 500,
       statusText: "Internal Server Error",
-      code: null,
       bodyText: "",
     });
 

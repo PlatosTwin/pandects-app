@@ -1,14 +1,21 @@
-import { useState, useEffect } from "react";
-import { Copy, Check } from "lucide-react";
-import { API_BASE_URL, apiUrl } from "@/lib/api-config";
+import type React from "react";
+import { API_BASE_URL } from "@/lib/api-config";
 import { getDocsUrl } from "@/lib/docs-url";
-import { authFetch } from "@/lib/auth-fetch";
+import { formatDumpTimestamp } from "@/lib/dump-timestamp";
+import { useDumps } from "@/hooks/use-insights";
+import type { DumpInfo } from "@shared/insights";
 import { trackEvent } from "@/lib/analytics";
 import { logger } from "@/lib/logger";
 import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { ErrorState } from "@/components/StateMessage";
+import { CodeBlock } from "@/components/ui/code-block";
+import { CopyButton } from "@/components/ui/copy-button";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { ExternalLink } from "@/components/ui/external-link";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -18,25 +25,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { toast } from "@/hooks/use-toast";
-
-function showToast(kind: "success" | "error", message: string) {
-  if (typeof window === "undefined") return;
-  toast({
-    title: message,
-    variant: kind === "error" ? "destructive" : "default",
-  });
-}
-
-interface DumpInfo {
-  manifest: string;
-  sha256: string;
-  sha256_url?: string;
-  sql: string;
-  timestamp: string;
-  size_bytes?: number;
-  warning?: string;
-}
 
 const downloadManifest = async (url: string) => {
   try {
@@ -71,26 +59,6 @@ const downloadManifest = async (url: string) => {
     });
   }
 };
-
-function ShaCopyButton({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={onCopy}
-      className="h-7 w-7"
-      title="Copy SHA256"
-      aria-label="Copy SHA256"
-    >
-      {copied ? (
-        <Check className="w-3 h-3 text-primary" aria-hidden="true" />
-      ) : (
-        <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-      )}
-    </Button>
-  );
-}
 
 function DumpActions({ dump, className }: { dump: DumpInfo; className: string }) {
   const trackDownload = (downloadType: "sql" | "manifest") => {
@@ -138,101 +106,17 @@ function DumpActions({ dump, className }: { dump: DumpInfo; className: string })
 
 export default function BulkData() {
   const docsUrl = getDocsUrl();
-  const [dumps, setDumps] = useState<DumpInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [fetchAttempt, setFetchAttempt] = useState(0);
-  const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>(
-    {},
-  );
-  const [latestSha256, setLatestSha256] = useState<string | null>(null);
-  const [latestSqlUrl, setLatestSqlUrl] = useState<string | null>(null);
+  const {
+    dumps,
+    latestSha256,
+    latestSqlUrl,
+    isLoading: loading,
+    error,
+    apiError,
+    refetch: refetchDumps,
+  } = useDumps();
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchDumps = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await authFetch(apiUrl("v1/dumps"), {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          trackEvent("api_error", {
-            endpoint: "api/dumps",
-            status: response.status,
-            status_text: response.statusText,
-          });
-          throw new Error(`Failed to fetch dumps: ${response.status}`);
-        }
-
-        const data: DumpInfo[] = await response.json();
-
-        // Find the latest version's SHA256
-        const latest = data.find((dump) => dump.timestamp === "latest");
-        const latestHash = latest?.sha256 || null;
-        setLatestSha256(latestHash);
-        setLatestSqlUrl(latest?.sql || null);
-
-        // Sort so 'latest' is always first, then sort others by timestamp
-        const sortedData = data.sort((a, b) => {
-          if (a.timestamp === "latest") return -1;
-          if (b.timestamp === "latest") return 1;
-          // For non-latest items, sort by timestamp descending (newest first)
-          return (
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
-        });
-
-        setDumps(sortedData);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          return;
-        }
-        if (import.meta.env.DEV) {
-          logger.error("Error fetching dumps:", err);
-        }
-        trackEvent("api_error", {
-          endpoint: "api/dumps",
-          kind:
-            err instanceof TypeError && err.message.includes("fetch")
-              ? "network"
-              : "unknown",
-        });
-        setError(err instanceof Error ? err.message : "Failed to load dumps");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDumps();
-    return () => {
-      controller.abort();
-    };
-  }, [fetchAttempt]);
-
-  const formatTimestamp = (timestamp: string): string => {
-    if (timestamp === "latest") {
-      return "Latest";
-    }
-    // Handle timestamp format like "2025-07-18_04-15"
-    const parts = timestamp.split("_");
-    if (parts.length === 2) {
-      const datePart = parts[0];
-      const timePart = parts[1].replace("-", ":");
-      const dateTime = new Date(`${datePart}T${timePart}:00`);
-      return dateTime.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
-    return timestamp;
-  };
+  const formatTimestamp = formatDumpTimestamp;
 
   const formatSize = (bytes?: number): string => {
     if (!bytes) return "—";
@@ -240,356 +124,325 @@ export default function BulkData() {
     return `${megabytes.toFixed(1)} MB`;
   };
 
-  const copyToClipboard = async (text: string, id: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      // Defer state and toast updates to avoid reflow
-      setTimeout(() => {
-        setCopiedStates((prev) => ({ ...prev, [id]: true }));
-        setTimeout(() => {
-          setCopiedStates((prev) => ({ ...prev, [id]: false }));
-        }, 2000);
-        void showToast("success", "Copied to clipboard");
-      }, 0);
-    } catch (err) {
-      setTimeout(() => {
-        void showToast("error", "Copy failed");
-      }, 0);
-    }
-  };
-
   const formatSha256 = (sha256: string) => {
     if (sha256.length <= 24) return sha256;
     return `${sha256.slice(0, 12)}…${sha256.slice(-12)}`;
   };
 
+  const latestDump = dumps.find((dump) => dump.timestamp === "latest") ?? null;
+  // The "latest" alias has no date of its own; its dated twin shares the hash.
+  const latestDatedTwin = latestDump
+    ? dumps.find(
+        (dump) => dump.timestamp !== "latest" && dump.sha256 === latestDump.sha256,
+      ) ?? null
+    : null;
+  const historyDumps = dumps.filter((dump) => dump.timestamp !== "latest");
+
+  const apiCommand = `curl ${API_BASE_URL}/v1/dumps`;
+  const wgetCommand = latestSqlUrl
+    ? `wget ${latestSqlUrl}`
+    : loading
+      ? "Loading latest URL..."
+      : "wget <latest SQL URL>";
+  const checksumCommand = latestSha256
+    ? `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`
+    : loading
+      ? "Loading latest SHA256..."
+      : 'echo "<SHA256>  latest.sql.gz" | sha256sum -c -';
+  const commandsUnavailable = !loading && (!latestSqlUrl || !latestSha256);
+
+  const trackCopy = (copyTarget: string) => () => {
+    trackEvent("bulk_copy_click", { copy_target: copyTarget });
+  };
+
   return (
-      <PageShell
-      size="xl"
-      title="Bulk Data"
-    >
-      {/* Demo Code Blocks */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* API Call Example */}
-        <div className="bg-card rounded-lg border border-border p-6 min-w-0">
-          <h2 className="text-xl font-semibold text-foreground mb-3">
-            Pull metadata for all dumps via API
+    <PageShell layout="data" title="Bulk Data">
+      <div className="space-y-8">
+        {/* Latest dump */}
+        <section
+          aria-labelledby="bulk-latest-heading"
+          className="rounded-xl border border-border bg-card p-4 sm:p-6"
+        >
+          <h2
+            id="bulk-latest-heading"
+            className="text-lg font-semibold tracking-tight text-foreground"
+          >
+            Latest version
           </h2>
-          <div className="rounded-md border border-border bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                trackEvent("bulk_copy_click", { copy_target: "api_call" });
-                void copyToClipboard(
-                  `curl ${API_BASE_URL}/v1/dumps`,
-                  "api-call",
-                );
-              }}
-              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border transition-opacity duration-200 hover:bg-accent/60 z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              title="Copy to clipboard"
-              aria-label="Copy API curl command"
-            >
-              {copiedStates["api-call"] ? (
-                <Check className="w-3 h-3 text-primary" aria-hidden="true" />
-              ) : (
-                <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-              )}
-            </button>
-            <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-              <div>
-                <div className="mb-2 text-foreground/90">
-                  # API call to get dumps info
-                </div>
-                <div className="whitespace-nowrap pr-10">
-                  curl {API_BASE_URL}/v1/dumps
-                </div>
-              </div>
+          {loading ? (
+            <div className="mt-4 space-y-2" role="status" aria-live="polite">
+              <span className="sr-only">Loading dumps...</span>
+              <Skeleton className="h-5 w-64" />
+              <Skeleton className="h-9 w-full max-w-xl" />
             </div>
-          </div>
-        </div>
-
-        {/* Download with wget */}
-        <div className="bg-card rounded-lg border border-border p-6 min-w-0">
-          <h2 className="text-xl font-semibold text-foreground mb-3">
-            Download latest version with wget
-          </h2>
-          <div className="rounded-md border border-border bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                if (!latestSqlUrl) return;
-                trackEvent("bulk_copy_click", { copy_target: "wget_latest" });
-                void copyToClipboard(`wget ${latestSqlUrl}`, "wget-download");
-              }}
-              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent/60 z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              title="Copy to clipboard"
-              aria-label="Copy wget command for latest SQL"
-            >
-              {copiedStates["wget-download"] ? (
-                <Check className="w-3 h-3 text-primary" aria-hidden="true" />
-              ) : (
-                <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-              )}
-            </button>
-            <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div className="mb-2 text-foreground/90">
-                  # Download latest dump
-                </div>
-              <div className="whitespace-nowrap pr-10">
-                {latestSqlUrl
-                  ? `wget ${latestSqlUrl}`
-                  : "Loading latest URL..."}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Verify the checksum */}
-        <div className="bg-card rounded-lg border border-border p-6 min-w-0">
-          <h2 className="text-xl font-semibold text-foreground mb-3">
-            Verify the checksum
-          </h2>
-          <div className="rounded-md border border-border bg-muted/40 p-4 text-xs font-mono relative group min-h-[85px] flex flex-col justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                if (!latestSha256) return;
-                trackEvent("bulk_copy_click", {
-                  copy_target: "checksum_verify_latest",
-                });
-                void copyToClipboard(
-                  `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`,
-                  "checksum-verify",
-                );
-              }}
-              className="absolute top-2 right-2 p-1.5 rounded bg-background shadow-sm border border-border hover:bg-accent/60 z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              title="Copy to clipboard"
-              aria-label="Copy checksum verification command"
-            >
-              {copiedStates["checksum-verify"] ? (
-                <Check className="w-3 h-3 text-primary" aria-hidden="true" />
-              ) : (
-                <Copy className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-              )}
-            </button>
-            <div className="overflow-x-auto pb-2 flex-1 flex flex-col justify-center">
-                <div className="mb-2 text-foreground/90">
-                  # Verify file integrity
-                </div>
-              <div className="whitespace-nowrap pr-10">
-                {latestSha256
-                  ? `echo "${latestSha256}  latest.sql.gz" | sha256sum -c -`
-                  : "Loading latest SHA256..."}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Database Info */}
-      <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-8">
-        <h2 className="text-xl font-semibold text-foreground mb-2">
-          About the SQL Dump
-        </h2>
-        <p className="prose prose-copy max-w-none">
-          The database dumps are in MariaDB SQL format. For installation, setup,
-          and usage instructions, visit the{" "}
-          <a
-            href="https://mariadb.org/documentation/"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="MariaDB Documentation (opens in a new tab)"
-            className="font-medium underline decoration-foreground/60 underline-offset-2"
-          >
-            MariaDB Documentation
-          </a>
-          . For a table-by-table reference of what the dump contains, see the{" "}
-          <a
-            href={`${docsUrl}/docs/guides/bulk-data-schema`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Bulk Data Schema guide (opens in a new tab)"
-            className="font-medium underline decoration-foreground/60 underline-offset-2"
-          >
-            Bulk Data Schema guide
-          </a>
-          ; column-level documentation and an interactive ER diagram are on{" "}
-          <a
-            href="https://dbdocs.io/nmbogdan/Pandects"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Pandects schema on dbdocs.io (opens in a new tab)"
-            className="font-medium underline decoration-foreground/60 underline-offset-2"
-          >
-            dbdocs.io
-          </a>
-          . Schema and data changes between releases are listed in the{" "}
-          <a
-            href={`${docsUrl}/docs/guides/changelog`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Changelog (opens in a new tab)"
-            className="font-medium underline decoration-foreground/60 underline-offset-2"
-          >
-            Changelog
-          </a>
-          , which records the SHA256 of the dump each change shipped in.
-        </p>
-      </div>
-
-      {/* Data Table */}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="px-6 py-4 border-b border-border">
-          <h2 className="text-xl font-semibold text-foreground">
-            Available Downloads
-          </h2>
-          <p className="mt-1 prose-copy">
-            Database dumps hosted on Cloudflare, sorted by date (newest first)
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="p-8 text-center" role="status" aria-live="polite">
-            <LoadingSpinner size="lg" aria-label="Loading dumps" className="mx-auto" />
-            <p className="mt-2 text-foreground/80">Loading dumps...</p>
-          </div>
-        ) : error ? (
-          <div className="p-8 text-center" role="alert">
-            <p className="text-foreground/90">
-              Could not load the list of downloads. Check your connection and
-              try again.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
+          ) : error ? (
+            <ErrorState
               className="mt-4"
-              onClick={() => setFetchAttempt((attempt) => attempt + 1)}
+              variant="inline"
+              error={apiError ?? error}
+              body="Could not load the list of downloads. Check your connection and try again."
+              onRetry={() => void refetchDumps()}
+            />
+          ) : latestDump ? (
+            <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <dl className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-[auto_auto_minmax(0,1fr)]">
+                <div>
+                  <Eyebrow asChild>
+                    <dt>Version</dt>
+                  </Eyebrow>
+                  <dd className="mt-1 text-sm font-medium text-foreground">
+                    {latestDatedTwin
+                      ? formatTimestamp(latestDatedTwin.timestamp)
+                      : formatTimestamp(latestDump.timestamp)}
+                  </dd>
+                </div>
+                <div>
+                  <Eyebrow asChild>
+                    <dt>Download size</dt>
+                  </Eyebrow>
+                  <dd className="mt-1 text-sm text-foreground">
+                    {formatSize(latestDump.size_bytes)}
+                  </dd>
+                </div>
+                <div className="col-span-2 min-w-0 sm:col-span-1">
+                  <Eyebrow asChild>
+                    <dt>SHA256 hash</dt>
+                  </Eyebrow>
+                  <dd className="mt-0.5 flex items-center gap-1">
+                    <span
+                      className="truncate font-mono text-sm text-foreground/80"
+                      title={latestDump.sha256}
+                    >
+                      {formatSha256(latestDump.sha256)}
+                    </span>
+                    <CopyButton value={latestDump.sha256} label="Copy SHA256" />
+                  </dd>
+                </div>
+              </dl>
+              <div className="flex flex-wrap items-center gap-2">
+                <DumpActions dump={latestDump} className="flex flex-wrap gap-2" />
+                <CopyButton
+                  value={`wget ${latestDump.sql}`}
+                  label="Copy wget command for latest SQL"
+                  showLabel
+                  idleText="Copy wget"
+                  variant="outline"
+                  className="h-9 text-foreground"
+                  onCopied={trackCopy("wget_latest")}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">No dumps found.</p>
+          )}
+        </section>
+
+        {/* History */}
+        <section
+          aria-labelledby="bulk-history-heading"
+          className="overflow-hidden rounded-xl border border-border bg-card"
+        >
+          <div className="border-b border-border px-4 py-4 sm:px-6">
+            <h2
+              id="bulk-history-heading"
+              className="text-lg font-semibold tracking-tight text-foreground"
             >
-              Try again
-            </Button>
+              Available Downloads
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Database dumps hosted on Cloudflare, sorted by date (newest first)
+            </p>
           </div>
-        ) : (
-          <>
-            <div className="hidden lg:block overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted">
-                  <TableRow>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
-                    Version
-                  </TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
-                    SHA256 hash
-                  </TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
-                    Download size
-                  </TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-foreground uppercase tracking-wider">
-                    Actions
-                  </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-border">
-                  {dumps.map((dump) => (
-                    <TableRow key={dump.timestamp} className="hover:bg-muted/40">
-                      <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">
-                            {formatTimestamp(dump.timestamp)}
-                          </span>
-                          {dump.timestamp === "latest" && (
-                            <span className="text-xs text-primary font-medium">
-                              Latest version
+
+          {loading ? (
+            <div className="p-8 text-center" role="status" aria-live="polite">
+              <LoadingSpinner size="lg" aria-label="Loading dumps" className="mx-auto" />
+              <p className="mt-2 text-foreground/80">Loading dumps...</p>
+            </div>
+          ) : error ? (
+            <ErrorState
+              variant="inline"
+              error={apiError ?? error}
+              body="Could not load the list of downloads. Check your connection and try again."
+              onRetry={() => void refetchDumps()}
+            />
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="px-6">Version</TableHead>
+                      <TableHead className="px-6">SHA256 hash</TableHead>
+                      <TableHead className="px-6">Download size</TableHead>
+                      <TableHead className="px-6">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historyDumps.map((dump) => (
+                      <TableRow key={dump.timestamp}>
+                        <TableCell className="whitespace-nowrap px-6 py-3">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground">
+                              {formatTimestamp(dump.timestamp)}
                             </span>
-                          )}
-                          {dump.timestamp !== "latest" &&
-                            latestSha256 &&
-                            dump.sha256 === latestSha256 && (
-                              <span className="text-xs text-primary font-medium">
+                            {latestSha256 && dump.sha256 === latestSha256 && (
+                              <span className="text-xs font-medium text-primary">
                                 Same as latest
                               </span>
                             )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="flex items-center space-x-2">
-                          <span className="max-w-xs truncate font-mono text-sm text-foreground/80">
-                            <span title={dump.sha256} aria-label={dump.sha256}>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-3">
+                          <div className="flex items-center gap-1">
+                            <span
+                              className="max-w-xs truncate font-mono text-sm text-foreground/80"
+                              title={dump.sha256}
+                            >
                               {formatSha256(dump.sha256)}
                             </span>
-                          </span>
-                          <ShaCopyButton
-                            copied={!!copiedStates[`sha-${dump.timestamp}`]}
-                            onCopy={() =>
-                              copyToClipboard(dump.sha256, `sha-${dump.timestamp}`)
-                            }
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-foreground/90">
+                            <CopyButton value={dump.sha256} label="Copy SHA256" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap px-6 py-3 text-sm text-foreground/90">
                           {formatSize(dump.size_bytes)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <DumpActions dump={dump} className="flex space-x-2" />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap px-6 py-3">
+                          <DumpActions dump={dump} className="flex gap-2" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-            <div className="lg:hidden p-4 space-y-4">
-              {dumps.map((dump) => (
-                <Card key={dump.timestamp} className="border-border">
-                  <CardContent className="space-y-3 p-4">
+              <ul className="divide-y divide-border lg:hidden">
+                {historyDumps.map((dump) => (
+                  <li key={dump.timestamp} className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold text-foreground">
                           {formatTimestamp(dump.timestamp)}
                         </div>
-                        {dump.timestamp === "latest" && (
+                        {latestSha256 && dump.sha256 === latestSha256 && (
                           <Badge variant="secondary" className="mt-1">
-                            Latest version
+                            Same as latest
                           </Badge>
                         )}
-                        {dump.timestamp !== "latest" &&
-                          latestSha256 &&
-                          dump.sha256 === latestSha256 && (
-                            <Badge variant="secondary" className="mt-1">
-                              Same as latest
-                            </Badge>
-                          )}
                       </div>
                       <div className="text-xs text-foreground/90">
                         {formatSize(dump.size_bytes)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-foreground/90">
-                        SHA256 hash
-                      </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="font-mono text-xs text-foreground/90">
+                      <Eyebrow>SHA256 hash</Eyebrow>
+                      <div className="mt-0.5 flex items-center gap-1">
+                        <span className="truncate font-mono text-xs text-foreground/90">
                           {formatSha256(dump.sha256)}
                         </span>
-                        <ShaCopyButton
-                          copied={!!copiedStates[`sha-${dump.timestamp}`]}
-                          onCopy={() =>
-                            copyToClipboard(dump.sha256, `sha-${dump.timestamp}`)
-                          }
-                        />
+                        <CopyButton value={dump.sha256} label="Copy SHA256" />
                       </div>
                     </div>
                     <DumpActions dump={dump} className="flex flex-wrap gap-2" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </>
-        )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+
+        {/* Usage commands */}
+        <section aria-labelledby="bulk-usage-heading" className="space-y-3">
+          <h2
+            id="bulk-usage-heading"
+            className="text-lg font-semibold tracking-tight text-foreground"
+          >
+            Usage
+          </h2>
+          <Tabs defaultValue="api">
+            <TabsList className="h-auto max-w-full flex-wrap justify-start">
+              <TabsTrigger value="api">API</TabsTrigger>
+              <TabsTrigger value="wget">wget</TabsTrigger>
+              <TabsTrigger value="checksum">Checksum</TabsTrigger>
+            </TabsList>
+            <TabsContent value="api" className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Pull metadata for all dumps via API
+              </p>
+              <CodeBlock
+                label="# API call to get dumps info"
+                code={apiCommand}
+                copyLabel="Copy API curl command"
+                onCopied={trackCopy("api_call")}
+              />
+            </TabsContent>
+            <TabsContent value="wget" className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Download latest version with wget
+              </p>
+              <CodeBlock
+                label="# Download latest dump"
+                code={wgetCommand}
+                copyLabel="Copy wget command for latest SQL"
+                copyDisabled={!latestSqlUrl}
+                onCopied={trackCopy("wget_latest")}
+              />
+            </TabsContent>
+            <TabsContent value="checksum" className="space-y-2">
+              <p className="text-sm text-muted-foreground">Verify the checksum</p>
+              <CodeBlock
+                label="# Verify file integrity"
+                code={checksumCommand}
+                copyLabel="Copy checksum verification command"
+                copyDisabled={!latestSha256}
+                onCopied={trackCopy("checksum_verify_latest")}
+              />
+            </TabsContent>
+          </Tabs>
+          {commandsUnavailable ? (
+            <p className="text-sm text-muted-foreground">
+              Pull metadata for all dumps via API:{" "}
+              <ExternalLink
+                href={`${API_BASE_URL}/v1/dumps`}
+                className="font-mono text-primary underline underline-offset-2"
+              >
+                {`${API_BASE_URL}/v1/dumps`}
+              </ExternalLink>
+            </p>
+          ) : null}
+        </section>
+
+        {/* Database Info */}
+        <section
+          aria-labelledby="bulk-about-heading"
+          className="rounded-xl border border-border bg-card p-4 sm:p-6"
+        >
+          <h2
+            id="bulk-about-heading"
+            className="mb-2 text-lg font-semibold tracking-tight text-foreground"
+          >
+            About the SQL Dump
+          </h2>
+          <p className="prose prose-copy max-w-none">
+            The database dumps are in MariaDB SQL format. For installation, setup,
+            and usage instructions, visit the{" "}
+            <ExternalLink href="https://mariadb.org/documentation/">
+              MariaDB Documentation
+            </ExternalLink>
+            . For a table-by-table reference of what the dump contains, see the{" "}
+            <ExternalLink href={`${docsUrl}/docs/guides/bulk-data-schema`}>
+              Bulk Data Schema guide
+            </ExternalLink>
+            ; column-level documentation and an interactive ER diagram are on{" "}
+            <ExternalLink href="https://dbdocs.io/nmbogdan/Pandects">dbdocs.io</ExternalLink>
+            . Schema and data changes between releases are listed in the{" "}
+            <ExternalLink href={`${docsUrl}/docs/guides/changelog`}>Changelog</ExternalLink>
+            , which records the SHA256 of the dump each change shipped in.
+          </p>
+        </section>
       </div>
     </PageShell>
   );
 }
+
+/** Pulls the HTTP status out of "Failed to fetch dumps: 403" so ErrorState can map it. */

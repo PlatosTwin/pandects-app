@@ -1,22 +1,13 @@
-import * as React from "react";
+import { useMediaQuery } from "@/components/reader/use-media-query";
 
 const MOBILE_BREAKPOINT = 768;
+const MOBILE_QUERY = `(max-width: ${MOBILE_BREAKPOINT - 1}px)`;
 
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth < MOBILE_BREAKPOINT;
-  });
-
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    mql.addEventListener("change", onChange);
-    onChange();
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-
-  return isMobile;
+/**
+ * True below the mobile breakpoint. Prerendered HTML and the hydration pass
+ * use the server value (false); the client value takes over right after, so
+ * phones don't hit a hydration mismatch.
+ */
+export function useIsMobile(): boolean {
+  return useMediaQuery(MOBILE_QUERY);
 }

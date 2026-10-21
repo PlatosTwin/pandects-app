@@ -106,6 +106,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -116,6 +127,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -126,6 +148,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -136,6 +169,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -327,6 +371,30 @@ paths:
           nullable: true
         required: false
       - in: query
+        name: text_query
+        description: Case-insensitive literal section-text query. A single trailing
+          `*` on a word enables prefix matching. Boolean-looking punctuation is tokenized
+          as literal separators rather than interpreted as operators.
+        schema:
+          type: string
+          default: null
+          example: material adverse effect
+          nullable: true
+        required: false
+      - in: query
+        name: text_match_mode
+        description: Text matching behavior. `phrase` preserves term order; `all_terms`
+          requires every term; `any_terms` requires at least one term.
+        schema:
+          type: string
+          default: phrase
+          enum:
+          - phrase
+          - all_terms
+          - any_terms
+          example: phrase
+        required: false
+      - in: query
         name: count_mode
         description: Count strategy for pagination planning. `auto` may return estimates
           for broad or paginated searches; `exact` forces an exact total count.
@@ -406,9 +474,10 @@ paths:
       tags:
       - sections
       operationId: listSections
-      summary: List agreement sections
-      description: Searches sections using structured filters and taxonomy IDs. For
-        list filters, repeat query keys (for example `year=2023&year=2024`).
+      summary: Search agreement sections
+      description: Searches section text with phrase, all-term, or any-term matching
+        and composes it with structured filters and taxonomy IDs. For list filters,
+        repeat query keys (for example `year=2023&year=2024`).
   /v1/agreements:
     get:
       parameters:
@@ -446,6 +515,44 @@ paths:
         explode: true
         style: form
       - in: query
+        name: year_min
+        description: Earliest filing year to include (inclusive).
+        schema:
+          type: integer
+          default: null
+          minimum: 1900
+          maximum: 2100
+          nullable: true
+        required: false
+      - in: query
+        name: year_max
+        description: Latest filing year to include (inclusive).
+        schema:
+          type: integer
+          default: null
+          minimum: 1900
+          maximum: 2100
+          nullable: true
+        required: false
+      - in: query
+        name: filed_after
+        description: Only agreements filed on or after this date (YYYY-MM-DD).
+        schema:
+          type: string
+          default: null
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          nullable: true
+        required: false
+      - in: query
+        name: filed_before
+        description: Only agreements filed before this date (YYYY-MM-DD, exclusive).
+        schema:
+          type: string
+          default: null
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          nullable: true
+        required: false
+      - in: query
         name: target
         schema:
           type: array
@@ -472,6 +579,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -482,6 +600,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -492,6 +621,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -502,6 +642,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -689,7 +840,8 @@ paths:
       operationId: listAgreements
       summary: List agreements with keyset pagination
       description: Lists eligible agreements using a base64 cursor. Supports the same
-        agreement-level filters as `/v1/sections` except clause-type taxonomy filtering.
+        agreement-level filters as `/v1/sections` (including `year_min`/`year_max`
+        and `filed_after`/`filed_before`) except clause-type taxonomy filtering.
   /v1/agreements/{agreement_uuid}:
     get:
       parameters:
@@ -798,7 +950,8 @@ paths:
       - sections
       operationId: getSection
       summary: Retrieve section text by UUID
-      description: Returns one section payload including taxonomy IDs and XML content.
+      description: Returns one section payload including taxonomy IDs (`standard_id`;
+        `section_standard_id` is a deprecated alias) and XML content.
     parameters:
     - in: path
       name: section_uuid
@@ -880,6 +1033,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -890,6 +1054,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -900,6 +1075,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -910,6 +1096,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -1112,6 +1309,14 @@ paths:
           type: integer
           default: 25
         required: false
+      - in: query
+        name: include_dump
+        description: When false, omit `dump_version` from the response body. The `X-Pandects-Dump-Hash`
+          response header is always included.
+        schema:
+          type: boolean
+          default: true
+        required: false
       responses:
         '422':
           $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
@@ -1226,6 +1431,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -1236,6 +1452,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -1246,6 +1473,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -1256,6 +1494,17 @@ paths:
           default: []
           items:
             type: string
+            enum:
+            - 0 - 100M
+            - 100M - 250M
+            - 250M - 500M
+            - 500M - 750M
+            - 750M - 1B
+            - 1B - 2B
+            - 2B - 5B
+            - 5B - 10B
+            - 10B - 20B
+            - 20B+
         required: false
         explode: true
         style: form
@@ -1445,6 +1694,30 @@ paths:
           nullable: true
         required: false
       - in: query
+        name: text_query
+        description: Case-insensitive literal section-text query. A single trailing
+          `*` on a word enables prefix matching. Boolean-looking punctuation is tokenized
+          as literal separators rather than interpreted as operators.
+        schema:
+          type: string
+          default: null
+          example: material adverse effect
+          nullable: true
+        required: false
+      - in: query
+        name: text_match_mode
+        description: Text matching behavior. `phrase` preserves term order; `all_terms`
+          requires every term; `any_terms` requires at least one term.
+        schema:
+          type: string
+          default: phrase
+          enum:
+          - phrase
+          - all_terms
+          - any_terms
+          example: phrase
+        required: false
+      - in: query
         name: count_mode
         description: Count strategy for pagination planning. `auto` may return estimates
           for broad or paginated searches; `exact` forces an exact total count.
@@ -1525,8 +1798,14 @@ paths:
       - agreements_search
       operationId: searchAgreements
       summary: Search agreements with matched section previews
-      description: Searches agreements with the same structured filters as `/v1/sections`,
-        including taxonomy IDs, and returns one row per agreement.
+      description: 'Searches agreements with the same structured filters as `/v1/sections`,
+        including taxonomy IDs and `text_query`, and returns one row per agreement.
+        With `standard_id`, `section_uuid`, or `text_query`, an agreement matches
+        when at least one of its latest sections matches them all; `match_count` counts
+        those sections and `matched_sections` previews the first three in document
+        order (with `text_query`, each snippet is centered on the match and `matched_terms`
+        lists the matched text). `metadata` is rejected: every row already carries
+        the full agreement metadata.'
   /v1/taxonomy:
     get:
       responses:
@@ -1553,8 +1832,26 @@ paths:
       - taxonomy
       operationId: getTaxonomy
       summary: Retrieve clause taxonomy
-      description: Returns the hierarchical Pandects taxonomy tree keyed by standard
-        ID.
+      description: 'Returns the hierarchical Pandects clause taxonomy: nodes keyed
+        by label, each carrying its `id` (standard ID) and, below L3, its `children`.'
+  /v1/taxonomy/counts:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyCountsResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - taxonomy
+      operationId: getTaxonomyCounts
+      summary: Section counts per clause-taxonomy node
+      description: 'Returns, for every clause-taxonomy node, how many sections `GET
+        /v1/sections?standard_id=<id>` matches: a parent node counts the distinct
+        sections tagged with it or any descendant. Nodes with no sections are omitted.'
   /v1/taxonomy/tax-clauses:
     get:
       responses:
@@ -1582,6 +1879,25 @@ paths:
       operationId: getTaxClauseTaxonomy
       summary: Retrieve tax-clause taxonomy
       description: Returns the hierarchical Pandects tax-clause taxonomy tree.
+  /v1/taxonomy/tax-clauses/counts:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyCountsResponse'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      tags:
+      - tax-clause-taxonomy
+      operationId: getTaxClauseTaxonomyCounts
+      summary: Tax-clause counts per tax-clause-taxonomy node
+      description: 'Returns, for every tax-clause-taxonomy node, how many clauses
+        `GET /v1/tax-clauses?tax_standard_id=<id>` matches with default options (rep-and-warranty
+        clauses excluded): a parent node counts the distinct clauses tagged with it
+        or any descendant. Nodes with no clauses are omitted.'
   /v1/naics:
     get:
       responses:
@@ -1640,7 +1956,8 @@ paths:
       - in: query
         name: since
         description: Only return releases strictly newer than this version (release
-          versions are dump dates, e.g. 2026-07-19).
+          versions are dump dates, e.g. 2026-07-19; same-day repushes get a numeric
+          suffix such as 2026-07-19.2, which sorts after its base version).
         schema:
           type: string
           default: null
@@ -1685,7 +2002,7 @@ info:
   version: v1
 tags:
 - name: sections_list
-  description: List merger agreement sections
+  description: Search merger agreement sections
 - name: agreements
   description: Retrieve full text for a given agreement
 - name: sections
@@ -1713,39 +2030,58 @@ components:
     Error:
       type: object
       properties:
-        code:
-          type: integer
-          description: Error code
-        status:
+        error:
           type: string
-          description: Error name
+          description: Stable snake_case machine code, for example `not_found`, `validation_error`,
+            or `rate_limited`.
+          example: not_found
         message:
           type: string
-          description: Error message
-        errors:
-          type: object
-          description: Errors
-          additionalProperties: {}
+          description: Human-readable explanation; wording may change.
+      required:
+      - error
+      - message
+      additionalProperties: false
     PaginationMetadata:
       type: object
       properties:
         total:
           type: integer
+          description: Total number of items.
         total_pages:
           type: integer
+          description: Total number of pages.
         first_page:
           type: integer
+          description: First available page number.
         last_page:
           type: integer
+          description: Last available page number.
         page:
           type: integer
+          description: Current page number.
         previous_page:
           type: integer
+          description: Previous page number.
         next_page:
           type: integer
+          description: Next page number.
+      additionalProperties: false
     SectionsResultMetadata:
       type: object
       properties:
+        target_industry_label:
+          type: string
+          description: NAICS description of `target_industry`. A code with no catalog
+            entry of its own rolls up to its 2-digit sector; null when the value cannot
+            be resolved.
+          nullable: true
+        acquirer_industry_label:
+          type: string
+          description: NAICS description of `acquirer_industry`. A code with no catalog
+            entry of its own rolls up to its 2-digit sector; null when the value cannot
+            be resolved.
+          nullable: true
         filing_date:
           type: string
           nullable: true
@@ -1810,17 +2146,32 @@ components:
           type: string
           nullable: true
         target_pe:
-          type: boolean
+          type: integer
+          enum:
+          - 0
+          - 1
+          description: 1 when PE-backed, 0 when not; null when unknown.
           nullable: true
         acquirer_pe:
-          type: boolean
+          type: integer
+          enum:
+          - 0
+          - 1
+          description: 1 when PE-backed, 0 when not; null when unknown.
           nullable: true
         url:
           type: string
           nullable: true
+      additionalProperties: false
     SectionItem:
       type: object
       properties:
+        standard_id_labels:
+          type: object
+          description: Clause-taxonomy label for each id in `standard_id`, keyed by
+            id.
+          additionalProperties:
+            type: string
         id:
           type: string
         agreement_uuid:
@@ -1850,16 +2201,35 @@ components:
           - type: object
             nullable: true
           - $ref: '#/components/schemas/SectionsResultMetadata'
+      required:
+      - acquirer
+      - agreement_uuid
+      - article_title
+      - id
+      - section_title
+      - section_uuid
+      - standard_id
+      - standard_id_labels
+      - target
+      - verified
+      - year
+      additionalProperties: false
     AccessInfo:
       type: object
       properties:
         tier:
           type: string
+          enum:
+          - anonymous
+          - user
+          - api_key
         message:
           type: string
           nullable: true
       required:
+      - message
       - tier
+      additionalProperties: false
     DumpVersionInfo:
       type: object
       properties:
@@ -1870,6 +2240,7 @@ components:
       required:
       - dump_ts
       - hash
+      additionalProperties: false
     SectionsResponse:
       type: object
       properties:
@@ -1884,6 +2255,8 @@ components:
         page_size:
           type: integer
         total_count:
+          type: integer
+        total_agreement_count:
           type: integer
         total_count_is_approximate:
           type: boolean
@@ -1910,9 +2283,36 @@ components:
           - type: object
             nullable: true
           - $ref: '#/components/schemas/DumpVersionInfo'
+      required:
+      - access
+      - count_metadata
+      - has_next
+      - has_prev
+      - interpretation
+      - next_num
+      - page
+      - page_size
+      - prev_num
+      - results
+      - total_count
+      - total_count_is_approximate
+      - total_pages
+      additionalProperties: false
     AgreementListItem:
       type: object
       properties:
+        target_industry_label:
+          type: string
+          description: NAICS description of `target_industry`. A code with no catalog
+            entry of its own rolls up to its 2-digit sector; null when the value cannot
+            be resolved.
+          nullable: true
+        acquirer_industry_label:
+          type: string
+          description: NAICS description of `acquirer_industry`. A code with no catalog
+            entry of its own rolls up to its 2-digit sector; null when the value cannot
+            be resolved.
+          nullable: true
         agreement_uuid:
           type: string
         year:
@@ -1988,10 +2388,18 @@ components:
           type: string
           nullable: true
         target_pe:
-          type: boolean
+          type: integer
+          enum:
+          - 0
+          - 1
+          description: 1 when PE-backed, 0 when not; null when unknown.
           nullable: true
         acquirer_pe:
-          type: boolean
+          type: integer
+          enum:
+          - 0
+          - 1
+          description: 1 when PE-backed, 0 when not; null when unknown.
           nullable: true
         url:
           type: string
@@ -1999,6 +2407,36 @@ components:
         xml:
           type: string
           nullable: true
+      required:
+      - acquirer
+      - acquirer_industry
+      - acquirer_pe
+      - acquirer_type
+      - agreement_uuid
+      - announce_date
+      - attitude
+      - close_date
+      - deal_status
+      - deal_type
+      - exhibit_type
+      - filing_company_cik
+      - filing_company_name
+      - filing_date
+      - form_type
+      - prob_filing
+      - purpose
+      - target
+      - target_industry
+      - target_pe
+      - target_type
+      - transaction_consideration
+      - transaction_price_assets
+      - transaction_price_cash
+      - transaction_price_stock
+      - transaction_price_total
+      - url
+      - year
+      additionalProperties: false
     AgreementsListResponse:
       type: object
       properties:
@@ -2022,9 +2460,31 @@ components:
           - type: object
             nullable: true
           - $ref: '#/components/schemas/DumpVersionInfo'
+      required:
+      - access
+      - has_next
+      - next_cursor
+      - page_size
+      - results
+      - returned_count
+      additionalProperties: false
     AgreementResponse:
       type: object
       properties:
+        target_industry_label:
+          type: string
+          description: NAICS description of `target_industry`. A code with no catalog
+            entry of its own rolls up to its 2-digit sector; null when the value cannot
+            be resolved.
+          nullable: true
+        acquirer_industry_label:
+          type: string
+          description: NAICS description of `acquirer_industry`. A code with no catalog
+            entry of its own rolls up to its 2-digit sector; null when the value cannot
+            be resolved.
+          nullable: true
+        agreement_uuid:
+          type: string
         year:
           type: integer
         target:
@@ -2095,10 +2555,18 @@ components:
           type: string
           nullable: true
         target_pe:
-          type: boolean
+          type: integer
+          enum:
+          - 0
+          - 1
+          description: 1 when PE-backed, 0 when not; null when unknown.
           nullable: true
         acquirer_pe:
-          type: boolean
+          type: integer
+          enum:
+          - 0
+          - 1
+          description: 1 when PE-backed, 0 when not; null when unknown.
           nullable: true
         url:
           type: string
@@ -2106,9 +2574,46 @@ components:
           type: string
         is_redacted:
           type: boolean
+      required:
+      - acquirer
+      - acquirer_industry
+      - acquirer_pe
+      - acquirer_type
+      - agreement_uuid
+      - announce_date
+      - attitude
+      - close_date
+      - deal_status
+      - deal_type
+      - exhibit_type
+      - filing_company_cik
+      - filing_company_name
+      - filing_date
+      - form_type
+      - prob_filing
+      - purpose
+      - target
+      - target_industry
+      - target_pe
+      - target_type
+      - transaction_consideration
+      - transaction_price_assets
+      - transaction_price_cash
+      - transaction_price_stock
+      - transaction_price_total
+      - url
+      - xml
+      - year
+      additionalProperties: false
     AgreementSectionIndexItem:
       type: object
       properties:
+        standard_id_labels:
+          type: object
+          description: Clause-taxonomy label for each id in `standard_id`, keyed by
+            id.
+          additionalProperties:
+            type: string
         section_uuid:
           type: string
         article_title:
@@ -2128,8 +2633,14 @@ components:
           items:
             type: string
       required:
+      - article_order
+      - article_title
+      - section_order
+      - section_title
       - section_uuid
       - standard_id
+      - standard_id_labels
+      additionalProperties: false
     AgreementSectionIndexResponse:
       type: object
       properties:
@@ -2142,9 +2653,16 @@ components:
       required:
       - agreement_uuid
       - results
+      additionalProperties: false
     TaxClause:
       type: object
       properties:
+        standard_id_labels:
+          type: object
+          description: Tax-clause-taxonomy label for each id in `standard_ids`, keyed
+            by id.
+          additionalProperties:
+            type: string
         clause_uuid:
           type: string
         agreement_uuid:
@@ -2168,10 +2686,27 @@ components:
           type: string
         context_type:
           type: string
+          enum:
+          - operative
+          - rep_warranty
         standard_ids:
           type: array
           items:
             type: string
+      required:
+      - agreement_uuid
+      - anchor_label
+      - article_title
+      - clause_text
+      - clause_uuid
+      - context_type
+      - end_char
+      - section_title
+      - section_uuid
+      - standard_id_labels
+      - standard_ids
+      - start_char
+      additionalProperties: false
     TaxClauseListResponse:
       type: object
       properties:
@@ -2181,15 +2716,27 @@ components:
             $ref: '#/components/schemas/TaxClause'
       required:
       - clauses
+      additionalProperties: false
     SectionResponse:
       type: object
       properties:
+        standard_id_labels:
+          type: object
+          description: Clause-taxonomy label for each id in `standard_id`, keyed by
+            id.
+          additionalProperties:
+            type: string
         agreement_uuid:
           type: string
         section_uuid:
           type: string
+        standard_id:
+          type: array
+          items:
+            type: string
         section_standard_id:
           type: array
+          description: Deprecated alias of `standard_id`.
           items:
             type: string
         xml:
@@ -2198,9 +2745,25 @@ components:
           type: string
         section_title:
           type: string
+      required:
+      - agreement_uuid
+      - article_title
+      - section_standard_id
+      - section_title
+      - section_uuid
+      - standard_id
+      - standard_id_labels
+      - xml
+      additionalProperties: false
     TaxClauseItem:
       type: object
       properties:
+        tax_standard_id_labels:
+          type: object
+          description: Tax-clause-taxonomy label for each id in `tax_standard_ids`,
+            keyed by id.
+          additionalProperties:
+            type: string
         id:
           type: string
         clause_uuid:
@@ -2216,6 +2779,9 @@ components:
           nullable: true
         context_type:
           type: string
+          enum:
+          - operative
+          - rep_warranty
         source_method:
           type: string
           nullable: true
@@ -2252,6 +2818,28 @@ components:
         acquirer_counsel:
           type: string
           nullable: true
+      required:
+      - acquirer
+      - acquirer_counsel
+      - agreement_uuid
+      - anchor_label
+      - clause_text
+      - clause_uuid
+      - context_type
+      - deal_status
+      - deal_type
+      - id
+      - section_uuid
+      - source_method
+      - target
+      - target_counsel
+      - tax_standard_id_labels
+      - tax_standard_ids
+      - transaction_consideration
+      - transaction_price_total
+      - verified
+      - year
+      additionalProperties: false
     TaxClausesResponse:
       type: object
       properties:
@@ -2284,9 +2872,34 @@ components:
         prev_num:
           type: integer
           nullable: true
+        dump_version:
+          anyOf:
+          - type: object
+            nullable: true
+          - $ref: '#/components/schemas/DumpVersionInfo'
+      required:
+      - access
+      - count_metadata
+      - has_next
+      - has_prev
+      - next_num
+      - page
+      - page_size
+      - prev_num
+      - results
+      - total_count
+      - total_count_is_approximate
+      - total_pages
+      additionalProperties: false
     AgreementSearchMatchedSection:
       type: object
       properties:
+        standard_id_labels:
+          type: object
+          description: Clause-taxonomy label for each id in `standard_id`, keyed by
+            id.
+          additionalProperties:
+            type: string
         section_uuid:
           type: string
         article_title:
@@ -2302,12 +2915,36 @@ components:
         snippet:
           type: string
           nullable: true
+        matched_terms:
+          type: array
+          description: 'Present when `text_query` is set: the matched text spans as
+            they appear in the section, for highlighting. `snippet` is centered on
+            the first match.'
+          items:
+            type: string
       required:
+      - article_title
+      - section_title
       - section_uuid
+      - snippet
       - standard_id
+      - standard_id_labels
+      additionalProperties: false
     AgreementSearchResult:
       type: object
       properties:
+        target_industry_label:
+          type: string
+          description: NAICS description of `target_industry`. A code with no catalog
+            entry of its own rolls up to its 2-digit sector; null when the value cannot
+            be resolved.
+          nullable: true
+        acquirer_industry_label:
+          type: string
+          description: NAICS description of `acquirer_industry`. A code with no catalog
+            entry of its own rolls up to its 2-digit sector; null when the value cannot
+            be resolved.
+          nullable: true
         agreement_uuid:
           type: string
         year:
@@ -2383,10 +3020,18 @@ components:
           type: string
           nullable: true
         target_pe:
-          type: boolean
+          type: integer
+          enum:
+          - 0
+          - 1
+          description: 1 when PE-backed, 0 when not; null when unknown.
           nullable: true
         acquirer_pe:
-          type: boolean
+          type: integer
+          enum:
+          - 0
+          - 1
+          description: 1 when PE-backed, 0 when not; null when unknown.
           nullable: true
         url:
           type: string
@@ -2398,9 +3043,37 @@ components:
           items:
             $ref: '#/components/schemas/AgreementSearchMatchedSection'
       required:
+      - acquirer
+      - acquirer_industry
+      - acquirer_pe
+      - acquirer_type
       - agreement_uuid
+      - announce_date
+      - attitude
+      - close_date
+      - deal_status
+      - deal_type
+      - exhibit_type
+      - filing_company_cik
+      - filing_company_name
+      - filing_date
+      - form_type
       - match_count
       - matched_sections
+      - prob_filing
+      - purpose
+      - target
+      - target_industry
+      - target_pe
+      - target_type
+      - transaction_consideration
+      - transaction_price_assets
+      - transaction_price_cash
+      - transaction_price_stock
+      - transaction_price_total
+      - url
+      - year
+      additionalProperties: false
     AgreementSearchResponse:
       type: object
       properties:
@@ -2430,19 +3103,43 @@ components:
         prev_num:
           type: integer
           nullable: true
+        count_metadata:
+          type: object
+          description: 'How total_count was computed: `mode` (exact/estimated), `method`,
+            `planning_reliability`, `exact_count_requested`. With `text_query`, a
+            total too expensive to count in time is reported as a lower bound (`method:
+            filtered_lower_bound`, `total_count_is_approximate: true`).'
+          additionalProperties: {}
         dump_version:
           anyOf:
           - type: object
             nullable: true
           - $ref: '#/components/schemas/DumpVersionInfo'
       required:
+      - access
+      - count_metadata
       - has_next
       - has_prev
+      - next_num
       - page
       - page_size
+      - prev_num
+      - results
       - total_count
       - total_count_is_approximate
       - total_pages
+      additionalProperties: false
+    TaxonomyCountsResponse:
+      type: object
+      properties:
+        counts:
+          type: object
+          description: Count per taxonomy node, keyed by standard ID.
+          additionalProperties:
+            type: integer
+      required:
+      - counts
+      additionalProperties: false
     NaicsSubSector:
       type: object
       properties:
@@ -2453,6 +3150,7 @@ components:
       required:
       - sub_sector_code
       - sub_sector_desc
+      additionalProperties: false
     NaicsSector:
       type: object
       properties:
@@ -2474,6 +3172,7 @@ components:
       - sector_group
       - sub_sectors
       - super_sector
+      additionalProperties: false
     NaicsResponse:
       type: object
       properties:
@@ -2483,6 +3182,7 @@ components:
             $ref: '#/components/schemas/NaicsSector'
       required:
       - sectors
+      additionalProperties: false
     CounselEntry:
       type: object
       properties:
@@ -2493,6 +3193,7 @@ components:
       required:
       - canonical_name
       - counsel_id
+      additionalProperties: false
     CounselResponse:
       type: object
       properties:
@@ -2502,6 +3203,7 @@ components:
             $ref: '#/components/schemas/CounselEntry'
       required:
       - counsel
+      additionalProperties: false
     DumpEntry:
       type: object
       properties:
@@ -2534,6 +3236,7 @@ components:
           nullable: true
       required:
       - timestamp
+      additionalProperties: false
     ChangelogStats:
       type: object
       properties:
@@ -2542,6 +3245,7 @@ components:
           additionalProperties:
             type: integer
           nullable: true
+      additionalProperties: false
     ChangelogChange:
       type: object
       properties:
@@ -2582,6 +3286,7 @@ components:
       - severity
       - summary
       - type
+      additionalProperties: false
     ChangelogRelease:
       type: object
       properties:
@@ -2611,6 +3316,7 @@ components:
       - dump_sha256
       - released
       - version
+      additionalProperties: false
     ChangelogResponse:
       type: object
       properties:
@@ -2626,6 +3332,7 @@ components:
             $ref: '#/components/schemas/ChangelogRelease'
       required:
       - releases
+      additionalProperties: false
   responses:
     UNPROCESSABLE_ENTITY:
       description: Unprocessable Entity

@@ -1,22 +1,32 @@
 # Backend API Architecture
 
 ## Overview
-- `backend/app.py` is the application composition layer.
+- `backend/app.py` is the application composition layer: `create_app`, typed route deps (`_build_route_deps`, `_build_favorites_deps`), request-hook and blueprint registration, and the CLI commands. It holds no request logic. It still re-exports names tests reach for (`backend.app._create_api_key`, `_rate_limit_state`, ...); mutable state is re-exported by identity, but scalar tunables must be patched on the owning module.
 - `backend/routes/*` own HTTP resource wiring and response shaping.
-- `backend/services/*` own query orchestration and side-effect orchestration.
+- `backend/services/*` own query orchestration and side-effect orchestration:
+  - `notifications.py` for maintainer emails (sign-ups, issue reports); the recipient is `ADMIN_NOTIFICATION_EMAIL`
+  - `dumps.py` for the R2 client and the active dump version (`X-Pandects-Dump-Hash`)
+  - `side_effects.py` for the per-app async task runner, usage buffer, and the after-request usage recorder
+  - `favorites_service.py` for favorites, projects, and tags (plus `FavoritesDeps`)
 - `backend/models/*` own ORM/reflection surfaces.
 - `backend/schemas/*` own request/response validation and serialization.
 - `backend/core/*` owns shared runtime plumbing:
   - `config.py` for app/bootstrap config composition
-  - `errors.py` for API error response wiring
+  - `errors.py` for the API error envelope and error handlers
   - `hooks.py` for request hook wiring and header policy
-- `backend/auth/runtime.py` is a compatibility facade only.
-- Auth runtime logic is split by domain:
-  - `backend/auth/session_runtime.py` for session transport, cookies, auth DB/mock store, session tokens, request identity helpers
-  - `backend/auth/email_runtime.py` for email normalization and Resend delivery helpers
-  - `backend/auth/oauth_runtime.py` for provider token exchange / JSON fetch helpers
-  - `backend/auth/captcha_runtime.py` for Turnstile verification helpers
-  - `backend/auth/legal_runtime.py` for legal acceptance validation/persistence and sign-on event logging
+  - `rate_limit.py` for per-tier, per-endpoint, and per-account rate limits
+  - `caching.py` for `ttl_cached`, the in-process TTL cache
+- Auth runtime logic is split by domain in `backend/auth/`:
+  - `session_runtime.py` for session transport, cookies, auth DB/mock store, session tokens, request identity helpers
+  - `access.py` for resolving a request into an `AccessContext`, the `require_user` / `require_verified_user` gates, and the temporary lockdown gate
+  - `api_keys.py` for API key issuance, lookup, and last-used throttling
+  - `account.py` for account self-service (API key listings, usage rollups, issue-report validation, password policy)
+  - `identity_links.py` for linking external (Zitadel) identities to local users and parsing Zitadel notifications
+  - `email_runtime.py` for email normalization and Resend delivery helpers
+  - `oauth_runtime.py` for provider token exchange / JSON fetch helpers
+  - `captcha_runtime.py` for Turnstile verification helpers
+  - `legal_runtime.py` for legal acceptance validation/persistence and sign-on event logging
+  - `mcp_runtime.py` / `mcp_oauth_runtime.py` for MCP bearer-token identity and the MCP OAuth server
 
 ## Runtime Flow
 ```mermaid
@@ -30,46 +40,87 @@ flowchart LR
 ## Auth Flow
 ```mermaid
 flowchart LR
-    R["backend/routes/auth.py"] --> F["backend/auth/runtime.py (facade)"]
-    F --> S["session_runtime"]
-    F --> E["email_runtime"]
-    F --> O["oauth_runtime"]
-    F --> C["captcha_runtime"]
-    F --> L["legal_runtime"]
+    R["backend/routes/auth/"] --> D["AuthDeps (built in backend/app.py)"]
+    R --> I["auth/identity_links"]
+    R --> A["auth/account"]
+    D --> S["session_runtime"]
+    D --> X["auth/access"]
+    D --> K["auth/api_keys"]
+    D --> E["email_runtime"]
+    D --> O["oauth_runtime"]
+    D --> C["captcha_runtime"]
+    D --> L["legal_runtime"]
 ```
 
 ## Route Dependency Injection
 - Route registration is explicit and typed through `backend/routes/deps.py`.
-- `backend.app._build_route_deps()` constructs:
+- `backend.app._build_route_deps()` constructs, once per app:
   - `SectionsDeps`
   - `AgreementsDeps`
   - `ReferenceDataDeps`
+  - `TaxClausesDeps` (defined in `backend/routes/tax_clauses.py`)
   - `AuthDeps`
+- `backend.app._build_favorites_deps()` constructs `FavoritesDeps` (defined in `backend/services/favorites_service.py`).
+- `McpDeps` reuses the sections, agreements, reference-data, and tax-clauses deps.
 - Routes consume these dependency objects rather than dynamic module lookups.
 - `AccessContextProtocol` is the shared typed access-context contract for runtime route/service calls.
 - Keep dependency typing strict for helper call signatures; keep reflected SQLAlchemy model handles pragmatic where strict typing would add fragile casts.
 
 ## Runtime Contracts
-- Public API behavior is unchanged:
-  - no endpoint additions/removals
-  - no response/request schema changes
-  - no auth/session/CORS behavior changes
+- Refactors keep public paths, operationIds, payloads, and status codes stable (`test_route_contracts.py`); an intentional public change gets a `bulk/changelog/changelog.yml` entry.
 - Internal contracts are explicit:
   - `register_sections_routes(*, deps: SectionsDeps) -> Blueprint`
-  - `register_agreements_routes(app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint]`
-  - `register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprint, Blueprint, Blueprint]`
+  - `register_agreements_routes(target_app: Flask, *, deps: AgreementsDeps) -> tuple[Blueprint, Blueprint, Blueprint]`
+  - `register_reference_data_routes(*, deps: ReferenceDataDeps) -> tuple[Blueprint, ...]` (taxonomy, NAICS, counsel, dumps, tax-clause taxonomy, changelog)
+  - `register_tax_clauses_routes(*, deps: TaxClausesDeps) -> Blueprint`
   - `register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint`
+  - `register_favorites_routes(target_app: Flask, *, deps: FavoritesDeps) -> Blueprint`
+
+## API Contract (OpenAPI)
+- The OpenAPI spec is the source of truth for every `/v1` route the web client calls. `backend/scripts/export_openapi.py` writes two committed files from the app (no database):
+  - `frontend/public/openapi.yaml`: the public spec (flask-smorest resources). The docs site renders it.
+  - `backend/openapi/ui-openapi.json`: the public spec plus the internal UI routes. `frontend/shared/api.gen.ts` is generated from it (`npm run gen:api`), and the response types in `frontend/shared/*.ts` alias it.
+- Public routes document their body with `@blp.response(status, Schema)`. Internal routes that are plain Flask views (summaries, filter options, page views, auth, favorites) are listed as `UiOperation`s in `backend/schemas/ui_api.py` (with `ui_auth.py`, `ui_favorites.py`); those schemas are documentation only and never serialize a response.
+- Schemas must match what the route returns: `required=True` when the key is always present, `allow_none=True` when it can be null. Response schemas only dump (marshmallow ignores `required`/`validate` on dump), so these flags change the spec, not the payload. A `@blp.response` schema does drop undeclared keys, so a new response field needs a schema field. When a route returns a `Response` object, flask-smorest passes it through and the schema is documentation only.
+- Errors are documented as `Error` (`backend/schemas/errors.py`, the `{"error", "message"}` envelope) through `PandectsApi.ERROR_SCHEMA` in `backend/extensions.py`; UI operations reference the same `DEFAULT_ERROR` response.
+- Workflow when a response changes: update the schema in `backend/schemas/`, run `backend/venv/bin/python -m backend.scripts.export_openapi`, then `npm run gen:api` in `frontend/`, and commit all three. CI fails otherwise: `export_openapi --check` (Backend Quality) and `npm run check:api` (Frontend Quality).
+- `backend/tests/test_openapi_spec.py` fails when a `/v1` Flask rule is in neither spec (or the short `UNDOCUMENTED_V1_RULES` allowlist: MCP OAuth server endpoints and the Zitadel webhook), or when a `UiOperation` names a route that no longer exists.
+
+## Error Envelope
+- Every `/v1` error body is `{"error": <code>, "message": <text>}` (`backend/core/errors.py`). `error` is a stable snake_case machine code; `message` is human text.
+- Generic errors (`abort(status, description=...)`, routing errors, marshmallow `ValidationError`, webargs 422s, SQLAlchemy failures) get the code for their status from `ERROR_CODES_BY_STATUS`: `bad_request`, `unauthorized`, `forbidden`, `not_found`, `method_not_allowed`, `conflict`, `payload_too_large`, `unsupported_media_type`, `validation_error` (422), `rate_limited`, `internal_error`, `bad_gateway`, `service_unavailable`, `gateway_timeout`; any other status uses its snake_case reason phrase.
+- A route with a more specific condition returns `json_error(status, error=<code>, message=...)` (for example `validation_error` from `load_json`, `rate_limited`, `captcha_required`, `legal_required`, `auth_failed`). Pass the response to `abort(...)` to raise it.
+- `/mcp` keeps JSON-RPC 2.0 error objects; the MCP OAuth metadata endpoints outside `/v1` are not covered.
+- Public docs: `docs/docs/guides/error-model.md`.
+
+## Caching
+- `backend/core/caching.py` provides `ttl_cached(seconds, *, key=None, max_keys=None, retry_none_after=None)`. The decorated function is thread-safe, keyed by its arguments (or `key(...)`), bounded by `max_keys`, and exposes `.cache_clear()`, `.cache_set(value, *args)`, and `.cache_len()`. `clear_all_ttl_caches()` clears every instance.
+- It is bypassed when the current app has `testing = True`, so tests never see a payload cached by an earlier test; a test of caching itself sets `app.config["TTL_CACHE_IN_TESTS"] = True`.
+- `retry_none_after` treats a `None` result as an upstream failure: the last good value keeps serving and the call is not retried for that many seconds (used by `services/dumps.fetch_latest_dump_version`).
+- Route payload caches are module-level `ttl_cached` functions next to the routes that serve them, each with its TTL constant (read from the same env var as before) that also sets the response's `Cache-Control: max-age`: `routes/agreements` (agreements summary, status / deal-types summaries, counsel leaderboards, agreement trends, the default `/v1/filter-options` payload; a `fields=` subset is never cached) and `routes/reference_data.py` (NAICS, counsel, dumps list, dump manifests keyed by key + ETag, changelog with a 60 s `retry_none_after` negative cache). A deps-only payload uses a single slot (`_single_slot` ignores the deps argument). Tests seed one with `.cache_set(value, <any deps>)` under `TTL_CACHE_IN_TESTS`.
+- `services/taxonomy_service.py` keeps its own per-database cache for taxonomy trees and counts (`clear_reference_caches()`); `TAXONOMY_TTL_SECONDS` there also sets the taxonomy routes' `max-age`. `mcp/tools/changelog_info.py` keeps its own cache (it serves null, not stale, after a failed fetch). New caches use `ttl_cached`.
+- The paginated-search exact-count cache (`backend.app._cached_exact_query_count` over `backend/search_counts.py`) is a separate keyed memo scoped to the dump version.
+
+## Agreements Domain
+- `backend/filtering.py` owns the agreement metadata filter chain and the public-eligibility rule:
+  - `agreement_filter_predicates(cols, args, ...)` / `apply_agreement_filters(query, cols, args, ...)` build every agreement metadata filter (year and filing-date ranges, parties, price buckets, types, counsel, industries, deal fields, PE flags, `agreement_uuid`). `cols` is either `agreements` or `latest_sections_search`, which carry the same column names. Every REST route and MCP tool that filters agreements goes through it.
+  - `agreement_is_public_eligible_expr(agreements)` is the gated/unverified rule; `ineligible_agreement_uuids_query(...)` finds gated, unverified agreements that have rows in `latest_sections_search`; section search runs it once per request and adds an `agreement_uuid NOT IN (...)` exclusion only when it returns any, so the normal-case query plan is unchanged.
+- `backend/services/agreements_service.py` owns agreement query logic for REST and MCP: `AGREEMENT_METADATA_COLUMNS` / `agreement_metadata_columns()` / `row_to_agreement_metadata()` (the one metadata projection), list/search/index, single reads, tax-clause reads, summaries, trends, and filter options. `backend/routes/agreements/*` only parses arguments, applies caches, and shapes responses.
+- `backend/services/snippets.py` owns XML text extraction and match-focused snippets shared by agreement search and the MCP snippet tools.
+- `backend/services/sections_service.py` exposes the text-search plan race (`fetch_with_text_plan_race`) and the budgeted exact count (`budgeted_exact_count`) that agreement text search reuses.
+- Services never import route modules.
 
 ## Testing Guardrails
 - `backend/tests/test_route_contracts.py` checks route and operationId stability.
 - `backend/tests/test_auth_dependencies.py` checks auth dependency wiring.
 - `backend/tests/test_runtime_typing_guards.py` blocks broad file-level pyright suppressions in runtime files.
-- `backend/tests/test_runtime_typing_guards.py` also guards:
-  - narrow `Callable[..., Any]` usage in `backend/routes/deps.py` (allowed only where SQLAlchemy expression typing is still dynamic)
-  - `backend/auth/runtime.py` staying facade-sized with no runtime logic definitions
+- `backend/tests/test_runtime_typing_guards.py` also guards narrow `Callable[..., Any]` usage in `backend/routes/deps.py` (allowed only where SQLAlchemy expression typing is still dynamic).
+- `backend/tests/test_core_caching.py` covers `ttl_cached`; `backend/tests/test_api_validation.py` covers the error envelope codes.
 
 ## Where New Code Should Live
 - New endpoint logic: `backend/routes/*` + `backend/services/*`.
 - New request/response schema: `backend/schemas/*`.
 - New DB model/reflection logic: `backend/models/*`.
-- App bootstrap/config-only changes: `backend/app.py`.
+- Request-scoped plumbing shared across routes (limits, caches, error shapes): `backend/core/*`.
+- Auth/account behavior: `backend/auth/*`, wired into routes through `AuthDeps`.
+- App bootstrap/config-only changes and new route deps wiring: `backend/app.py`.
