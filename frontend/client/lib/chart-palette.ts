@@ -82,9 +82,9 @@ export const PROCESSING_STATUS_COLORS = {
 /** Sector-concentration trend line (Trends & Analyses). */
 export const SECTOR_CONCENTRATION_LINE_COLOR = CHART_SERIES_COLORS.coral;
 
-/** Heatmap cell fill: primary series blue at a data-driven opacity. */
+/** Heatmap cell fill: series blue at a data-driven opacity (see --heatmap). */
 export function heatmapCellFill(opacity: number): string {
-  return `hsl(var(--chart-1) / ${opacity})`;
+  return `hsl(var(--heatmap) / ${opacity})`;
 }
 
 // ---------------------------------------------------------------------------
