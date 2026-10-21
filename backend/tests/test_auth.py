@@ -48,6 +48,9 @@ from backend.app import create_test_app  # noqa: E402
 from backend.extensions import db  # noqa: E402
 from backend.models.auth import ApiKey, ApiUsageDaily, AuthExternalSubject, AuthOAuthAuthorizationCode, AuthOAuthClient, AuthOAuthRefreshToken, AuthOAuthUserGrant, AuthUser, LegalAcceptance  # noqa: E402
 import backend.app as backend_app  # noqa: E402
+from backend.auth import api_keys as api_keys_module  # noqa: E402
+from backend.auth import email_runtime as email_runtime_module  # noqa: E402
+from backend.services import side_effects as side_effects_module  # noqa: E402
 import backend.routes.auth as auth_routes  # noqa: E402
 from werkzeug.exceptions import Conflict, NotFound, Unauthorized  # noqa: E402
 
@@ -893,9 +896,9 @@ class AuthFlowTests(unittest.TestCase):
         client = self.app.test_client()
 
         original_oauth_fetch_json = backend_app._oauth_fetch_json
-        original_send_resend_text_email = backend_app._send_resend_text_email
-        original_send_welcome_email = backend_app._send_welcome_email
-        original_async_enabled = backend_app._ASYNC_SIDE_EFFECTS_ENABLED
+        original_send_resend_text_email = email_runtime_module.send_resend_text_email
+        original_send_welcome_email = email_runtime_module.send_welcome_email
+        original_async_enabled = side_effects_module.ASYNC_SIDE_EFFECTS_ENABLED
         sent_notifications: list[dict[str, str]] = []
 
         def _fake_send_resend_text_email(*, to_email: str, subject: str, text: str) -> None:
@@ -942,9 +945,9 @@ class AuthFlowTests(unittest.TestCase):
             self.fail(f"Unexpected ZITADEL API request: {url}")
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
-        backend_app._send_resend_text_email = _fake_send_resend_text_email
-        backend_app._send_welcome_email = lambda **_kwargs: None
-        backend_app._ASYNC_SIDE_EFFECTS_ENABLED = False
+        email_runtime_module.send_resend_text_email = _fake_send_resend_text_email
+        email_runtime_module.send_welcome_email = lambda **_kwargs: None
+        side_effects_module.ASYNC_SIDE_EFFECTS_ENABLED = False
         try:
             start = client.get("/v1/auth/zitadel/google/start?next=/account")
             self.assertEqual(start.status_code, 200)
@@ -959,9 +962,9 @@ class AuthFlowTests(unittest.TestCase):
             self.assertEqual(payload["user"]["email"], "new-google@example.com")
         finally:
             backend_app._oauth_fetch_json = original_oauth_fetch_json
-            backend_app._send_resend_text_email = original_send_resend_text_email
-            backend_app._send_welcome_email = original_send_welcome_email
-            backend_app._ASYNC_SIDE_EFFECTS_ENABLED = original_async_enabled
+            email_runtime_module.send_resend_text_email = original_send_resend_text_email
+            email_runtime_module.send_welcome_email = original_send_welcome_email
+            side_effects_module.ASYNC_SIDE_EFFECTS_ENABLED = original_async_enabled
 
         self.assertEqual(len(sent_notifications), 1)
         self.assertEqual(sent_notifications[0]["to_email"], "nmbogdan@alumni.stanford.edu")
@@ -1532,9 +1535,9 @@ class AuthFlowTests(unittest.TestCase):
         client = self.app.test_client()
 
         original_oauth_fetch_json = backend_app._oauth_fetch_json
-        original_send_resend_text_email = backend_app._send_resend_text_email
-        original_send_welcome_email = backend_app._send_welcome_email
-        original_async_enabled = backend_app._ASYNC_SIDE_EFFECTS_ENABLED
+        original_send_resend_text_email = email_runtime_module.send_resend_text_email
+        original_send_welcome_email = email_runtime_module.send_welcome_email
+        original_async_enabled = side_effects_module.ASYNC_SIDE_EFFECTS_ENABLED
         sent_verification = {"called": False}
         sent_notifications: list[dict[str, str]] = []
         created_signup_payloads: list[dict[str, object]] = []
@@ -1580,9 +1583,9 @@ class AuthFlowTests(unittest.TestCase):
             return {"userId": "zitadel-new-user"}
 
         backend_app._oauth_fetch_json = _fake_oauth_fetch_json
-        backend_app._send_resend_text_email = _fake_send_resend_text_email
-        backend_app._send_welcome_email = lambda **_kwargs: None
-        backend_app._ASYNC_SIDE_EFFECTS_ENABLED = False
+        email_runtime_module.send_resend_text_email = _fake_send_resend_text_email
+        email_runtime_module.send_welcome_email = lambda **_kwargs: None
+        side_effects_module.ASYNC_SIDE_EFFECTS_ENABLED = False
         try:
             res = client.post(
                 "/v1/auth/signup/password",
@@ -1609,9 +1612,9 @@ class AuthFlowTests(unittest.TestCase):
             )
         finally:
             backend_app._oauth_fetch_json = original_oauth_fetch_json
-            backend_app._send_resend_text_email = original_send_resend_text_email
-            backend_app._send_welcome_email = original_send_welcome_email
-            backend_app._ASYNC_SIDE_EFFECTS_ENABLED = original_async_enabled
+            email_runtime_module.send_resend_text_email = original_send_resend_text_email
+            email_runtime_module.send_welcome_email = original_send_welcome_email
+            side_effects_module.ASYNC_SIDE_EFFECTS_ENABLED = original_async_enabled
 
         self.assertEqual(finalize.status_code, 200)
         finalize_payload = finalize.get_json()
@@ -4405,9 +4408,9 @@ class AuthFlowTests(unittest.TestCase):
         api_key = created.get("api_key_plaintext")
         self.assertIsInstance(api_key, str)
 
-        old_touch_seconds = backend_app._API_KEY_LAST_USED_TOUCH_SECONDS
+        old_touch_seconds = api_keys_module.API_KEY_LAST_USED_TOUCH_SECONDS
         try:
-            backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = 300
+            api_keys_module.API_KEY_LAST_USED_TOUCH_SECONDS = 300
             backend_app._api_key_last_used_touch_state.clear()
 
             with patch("backend.app.time.time", return_value=1000.0):
@@ -4438,14 +4441,14 @@ class AuthFlowTests(unittest.TestCase):
                     self.fail("Expected api key row to exist after third touch.")
                 self.assertNotEqual(key_row.last_used_at, first_touched_at)
         finally:
-            backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = old_touch_seconds
+            api_keys_module.API_KEY_LAST_USED_TOUCH_SECONDS = old_touch_seconds
 
     def test_api_key_touch_state_is_bounded_under_high_cardinality_keys(self):
-        old_touch_seconds = backend_app._API_KEY_LAST_USED_TOUCH_SECONDS
-        old_max_keys = backend_app._API_KEY_LAST_USED_MAX_KEYS
+        old_touch_seconds = api_keys_module.API_KEY_LAST_USED_TOUCH_SECONDS
+        old_max_keys = api_keys_module.API_KEY_LAST_USED_MAX_KEYS
         try:
-            backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = 300
-            backend_app._API_KEY_LAST_USED_MAX_KEYS = 5
+            api_keys_module.API_KEY_LAST_USED_TOUCH_SECONDS = 300
+            api_keys_module.API_KEY_LAST_USED_MAX_KEYS = 5
             backend_app._api_key_last_used_touch_state.clear()
 
             for idx in range(40):
@@ -4459,8 +4462,8 @@ class AuthFlowTests(unittest.TestCase):
             self.assertIn("key-39", retained_keys)
             self.assertNotIn("key-0", retained_keys)
         finally:
-            backend_app._API_KEY_LAST_USED_TOUCH_SECONDS = old_touch_seconds
-            backend_app._API_KEY_LAST_USED_MAX_KEYS = old_max_keys
+            api_keys_module.API_KEY_LAST_USED_TOUCH_SECONDS = old_touch_seconds
+            api_keys_module.API_KEY_LAST_USED_MAX_KEYS = old_max_keys
             backend_app._api_key_last_used_touch_state.clear()
 
     def test_usage_endpoint_supports_period_and_api_key_filters(self):
