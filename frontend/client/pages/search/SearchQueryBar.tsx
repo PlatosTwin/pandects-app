@@ -15,6 +15,7 @@ import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { cn } from "@/lib/utils";
 import type { SearchMode, TextMatchMode } from "@shared/search";
+import { ClauseTypeInfo } from "./ClauseTypeInfo";
 import { TEXT_MATCH_MODE_LABELS, validateKeywordQuery, MAX_KEYWORD_CHARS } from "./keyword-query";
 import { MODE_NOUNS } from "./search-ui";
 
@@ -78,6 +79,8 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
   const isTax = mode === "tax";
   const clauseLabel = isTax ? "Tax clause type" : "Clause type";
   const clauseNoun = isTax ? "tax clause types" : "clause types";
+  // The info panel describes the first selected clause type.
+  const infoId = selectedClauseTypes[0] ?? null;
 
   const submit = (nextMatch: TextMatchMode = draftMatch) => {
     const trimmed = draft.trim();
@@ -177,20 +180,29 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
             className="min-w-0 flex-1"
             triggerClassName={selectedClauseTypes.length > 0 ? "border-primary/50 bg-primary/5" : undefined}
           />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                to="/taxonomy"
-                className="tooltip-help-trigger shrink-0"
-                aria-label="About the clause taxonomy"
-              >
-                ?
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-              How clause types are defined: open the Taxonomy page.
-            </TooltipContent>
-          </Tooltip>
+          {infoId ? (
+            <ClauseTypeInfo
+              key={`${mode}:${infoId}`}
+              kind={isTax ? "tax" : "main"}
+              standardId={infoId}
+              label={clauseTypeLabelById[infoId] ?? clauseLabel}
+            />
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/taxonomy"
+                  className="tooltip-help-trigger shrink-0"
+                  aria-label="About the clause taxonomy"
+                >
+                  ?
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                How clause types are defined: open the Taxonomy page.
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2 md:basis-full lg:basis-auto">
           {keywordInput}
