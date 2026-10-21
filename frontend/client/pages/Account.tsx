@@ -462,7 +462,7 @@ export default function Account() {
           </span>
         ) : undefined
       }
-      layout="data"
+      layout="settings"
     >
       {status === "loading" ? (
         <Card className="p-6" role="status" aria-live="polite">

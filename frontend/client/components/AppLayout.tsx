@@ -67,9 +67,12 @@ function FallbackBody({ shell }: { shell: RouteShell }) {
         </div>
       );
     case "form":
+    case "settings":
       return (
         <div className={FALLBACK_FRAME}>
-          <div className="mx-auto max-w-md">
+          <div
+            className={`mx-auto ${shell === "form" ? "max-w-md" : "max-w-4xl"}`}
+          >
             <FallbackTitle />
             <div className="mt-8 h-80 animate-pulse rounded-lg bg-muted/50" />
           </div>

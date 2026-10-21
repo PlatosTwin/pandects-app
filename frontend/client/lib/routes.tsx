@@ -26,7 +26,13 @@ export interface RouteEntry {
 
 /** Mirrors the PageShell layouts, plus the landing card and StatusPage. */
 export type RouteShell =
-  "landing" | "data" | "docs" | "docs-toc" | "form" | "status";
+  | "landing"
+  | "data"
+  | "docs"
+  | "docs-toc"
+  | "form"
+  | "settings"
+  | "status";
 
 const lazyPage = <T extends ComponentType<unknown>>(
   loader: () => Promise<{ default: T }>,
@@ -115,6 +121,7 @@ export const ROUTES: ReadonlyArray<RouteEntry> = [
     path: "/account",
     component: lazyPage(() => import("@/pages/Account")),
     protected: true,
+    shell: "settings",
   },
   {
     path: "/favorites",

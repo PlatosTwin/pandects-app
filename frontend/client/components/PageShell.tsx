@@ -3,10 +3,7 @@ import type { ReactNode } from "react";
 
 import { PageHeader } from "@/components/PageHeader";
 
-/** @deprecated Use `layout` instead. Kept until every page is migrated. */
-type PageShellSize = "md" | "lg" | "xl" | "full";
-
-export type PageShellLayout = "docs" | "data" | "form";
+export type PageShellLayout = "docs" | "data" | "form" | "settings";
 
 export interface PageShellProps {
   /**
@@ -19,22 +16,16 @@ export interface PageShellProps {
    *   block is centered instead.
    * - `data`: full `max-w-7xl` for tables, charts and dashboards.
    * - `form`: a centered `max-w-md` column.
+   * - `settings`: a centered `max-w-4xl` column for account-style pages.
    */
-  layout?: PageShellLayout;
+  layout: PageShellLayout;
   eyebrow?: ReactNode;
   title?: ReactNode;
-  /** Text under the title. Alias: `subtitle` (deprecated name). */
+  /** Text under the title. */
   description?: ReactNode;
-  /** @deprecated Use `description`. */
-  subtitle?: ReactNode;
   actions?: ReactNode;
   /** Docs layout only: table of contents (e.g. `<DocsTableOfContents>`). */
   toc?: ReactNode;
-  /**
-   * @deprecated Use `layout`. Only honored when `layout` is not set; renders
-   * the old centered frame so pages that are not migrated yet keep their look.
-   */
-  size?: PageShellSize;
   className?: string;
   /** Extra classes for the content column (not the header). */
   contentClassName?: string;
@@ -48,32 +39,21 @@ export function PageShell({
   eyebrow,
   title,
   description,
-  subtitle,
   actions,
   toc,
-  size = "lg",
   className,
   contentClassName,
   children,
 }: PageShellProps) {
-  const body = description ?? subtitle;
   const header =
-    title || body || actions || eyebrow ? (
+    title || description || actions || eyebrow ? (
       <PageHeader
         eyebrow={eyebrow}
         title={title}
-        description={body}
+        description={description}
         actions={actions}
       />
     ) : null;
-
-  if (!layout) {
-    return (
-      <LegacyPageShell size={size} className={className} header={header}>
-        {children}
-      </LegacyPageShell>
-    );
-  }
 
   if (layout === "docs") {
     return (
@@ -98,10 +78,12 @@ export function PageShell({
     );
   }
 
-  if (layout === "form") {
+  if (layout === "form" || layout === "settings") {
     return (
       <div className={cn(FRAME, className)}>
-        <div className="mx-auto max-w-md">
+        <div
+          className={cn("mx-auto", layout === "form" ? "max-w-md" : "max-w-4xl")}
+        >
           {header}
           <div className={contentClassName}>{children}</div>
         </div>
@@ -113,40 +95,6 @@ export function PageShell({
     <div className={cn(FRAME, className)}>
       {header}
       <div className={cn("w-full", contentClassName)}>{children}</div>
-    </div>
-  );
-}
-
-function LegacyPageShell({
-  size,
-  className,
-  header,
-  children,
-}: {
-  size: PageShellSize;
-  className?: string;
-  header: ReactNode;
-  children: ReactNode;
-}) {
-  const sizeClass =
-    size === "md"
-      ? "max-w-4xl"
-      : size === "lg"
-        ? "max-w-5xl"
-        : size === "xl"
-          ? "max-w-7xl"
-          : "max-w-none";
-
-  return (
-    <div
-      className={cn(
-        "mx-auto w-full flex-1 px-4 py-8 sm:px-6 lg:px-8",
-        sizeClass,
-        className,
-      )}
-    >
-      {header}
-      {children}
     </div>
   );
 }
