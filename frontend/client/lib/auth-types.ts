@@ -1,29 +1,16 @@
-export interface AuthUser {
-  id: string;
-  email: string;
-  created_at?: string;
-}
+// Response types are generated from the backend spec (shared/api.gen.ts).
+import type { components } from "@shared/api.gen";
 
-export interface ApiKeySummary {
-  id: string;
-  name: string | null;
-  prefix: string;
-  created_at: string;
-  last_used_at: string | null;
-  revoked_at: string | null;
-}
+type Schemas = components["schemas"];
 
-export interface UsageByDay {
-  day: string;
-  count: number;
-}
+export type AuthUser = Schemas["AuthUser"];
 
-export interface ExternalSubjectLink {
-  id: number;
-  issuer: string;
-  subject: string;
-  created_at: string;
-  provider?: string;
-}
+export type ApiKeySummary = Schemas["AuthApiKeySummary"];
+
+export type UsageByDay = Schemas["AuthUsageDay"];
+
+/** A row of `GET /v1/auth/external-subjects`, or the `link` of a link response. */
+export type ExternalSubjectLink = Schemas["AuthExternalSubject"] &
+  Partial<Pick<Schemas["AuthExternalLink"], "provider">>;
 
 export type UsagePeriod = "1w" | "1m" | "1y" | "all";

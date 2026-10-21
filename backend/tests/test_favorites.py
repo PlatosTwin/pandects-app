@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from typing import cast
+from unittest.mock import patch
 
 from flask import Flask
 from sqlalchemy import text
@@ -828,19 +829,23 @@ class FavoritesSectionDetailsTests(unittest.TestCase):
 
     def test_batch_returns_only_latest_verified_sections(self):
         client = self._client_with_bearer()
-        res = client.post(
-            "/v1/me/favorites/section-details",
-            json={
-                "section_uuids": [
-                    "fav-sec-1",
-                    "fav-sec-gold",
-                    "fav-sec-stale",
-                    "fav-sec-unverified",
-                    "fav-sec-missing",
-                    " fav-sec-1 ",
-                ]
-            },
-        )
+        with patch(
+            "backend.services.taxonomy_service.taxonomy_label_by_id",
+            return_value={"802": "Definitions", "803": "Closing"},
+        ):
+            res = client.post(
+                "/v1/me/favorites/section-details",
+                json={
+                    "section_uuids": [
+                        "fav-sec-1",
+                        "fav-sec-gold",
+                        "fav-sec-stale",
+                        "fav-sec-unverified",
+                        "fav-sec-missing",
+                        " fav-sec-1 ",
+                    ]
+                },
+            )
         self.assertEqual(res.status_code, 200)
         sections = cast(dict[str, dict[str, object]], res.get_json()["sections"])
 
@@ -848,12 +853,14 @@ class FavoritesSectionDetailsTests(unittest.TestCase):
         self.assertEqual(row["agreement_uuid"], "fav-sec-ag-1")
         self.assertEqual(row["section_uuid"], "fav-sec-1")
         self.assertEqual(row["section_standard_id"], ["802"])
+        self.assertEqual(row["standard_id_labels"], {"802": "Definitions"})
         self.assertEqual(row["article_title"], "Article I")
         self.assertEqual(row["section_title"], "Definitions")
         self.assertEqual(row["xml"], "<section>Defined terms live here.</section>")
 
         # Gold-label taxonomy ids take precedence, matching /v1/sections/<uuid>.
         self.assertEqual(sections["fav-sec-gold"]["section_standard_id"], ["803"])
+        self.assertEqual(sections["fav-sec-gold"]["standard_id_labels"], {"803": "Closing"})
 
         # Stale xml versions, unverified agreements, and unknown uuids resolve
         # to misses so the UI can show "Details unavailable".

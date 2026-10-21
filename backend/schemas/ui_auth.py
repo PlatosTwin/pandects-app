@@ -7,7 +7,7 @@ responses (the ``{"error", "message"}`` envelope) are added by the exporter.
 
 from __future__ import annotations
 
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
 
 from backend.schemas.auth import (
     AuthApiKeySchema,
@@ -51,6 +51,9 @@ class AuthFlowResponseSchema(Schema):
 
     status = fields.Str(
         required=True,
+        validate=validate.OneOf(
+            ("authenticated", "legal_required", "verification_required", "mcp_token")
+        ),
         metadata={
             "description": (
                 "`authenticated` (session issued), `legal_required` (accept the terms via "
@@ -83,7 +86,9 @@ class AuthAuthorizeUrlResponseSchema(Schema):
 
 # ── Individual routes ─────────────────────────────────────────────────────
 class AuthCsrfResponseSchema(Schema):
-    status = fields.Str(required=True, metadata={"description": "Always `ok`."})
+    status = fields.Str(
+        required=True, validate=validate.OneOf(("ok",)), metadata={"description": "Always `ok`."}
+    )
     csrf_token = fields.Str(
         metadata={"description": "CSRF token; only under cookie session transport."}
     )
@@ -108,7 +113,11 @@ class AuthVerificationResendUserSchema(Schema):
 
 
 class AuthVerificationResendResponseSchema(Schema):
-    status = fields.Str(required=True, metadata={"description": "Always `verification_required`."})
+    status = fields.Str(
+        required=True,
+        validate=validate.OneOf(("verification_required",)),
+        metadata={"description": "Always `verification_required`."},
+    )
     user = fields.Nested(AuthVerificationResendUserSchema, required=True)
 
 
@@ -214,7 +223,11 @@ class AuthExternalLinkSchema(Schema):
 
 
 class AuthExternalLinkResponseSchema(Schema):
-    status = fields.Str(required=True, metadata={"description": "`linked` (201) or `already_linked` (200)."})
+    status = fields.Str(
+        required=True,
+        validate=validate.OneOf(("linked", "already_linked")),
+        metadata={"description": "`linked` (201) or `already_linked` (200)."},
+    )
     link = fields.Nested(AuthExternalLinkSchema, required=True)
 
 
@@ -237,7 +250,11 @@ class AuthOAuthConsentBodySchema(Schema):
 
 
 class AuthOAuthConsentResponseSchema(Schema):
-    status = fields.Str(required=True, metadata={"description": "Always `granted`."})
+    status = fields.Str(
+        required=True,
+        validate=validate.OneOf(("granted",)),
+        metadata={"description": "Always `granted`."},
+    )
     client_id = fields.Str(required=True)
     scope = fields.Str(required=True, metadata={"description": "The full granted scope after merging."})
 

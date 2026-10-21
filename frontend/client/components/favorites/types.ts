@@ -1,3 +1,4 @@
+import type { components } from "@shared/api.gen";
 import type { FavoriteItemType } from "@/lib/favorites-api";
 
 export type Filter = "all" | FavoriteItemType;
@@ -19,24 +20,10 @@ export interface FavoriteFilters {
 }
 
 /** Slim agreement metadata the favorites UI renders and filters on. */
-export interface AgreementMetadata {
-  agreement_uuid: string;
-  year: number | null;
-  target: string | null;
-  acquirer: string | null;
-  transaction_price_total: number | null;
-}
+export type AgreementMetadata = components["schemas"]["FavoriteAgreementMetadata"];
 
-export interface SectionDetails {
-  agreement_uuid: string | null;
-  section_uuid: string;
-  section_standard_id: string[];
-  /** Clause-taxonomy label per id, when the API sends it. */
-  standard_id_labels?: Record<string, string>;
-  xml: string | null;
-  article_title: string | null;
-  section_title: string | null;
-}
+/** One section of `POST /v1/me/favorites/section-details`. */
+export type SectionDetails = components["schemas"]["FavoriteSectionDetail"];
 
 export const EMPTY_FILTERS: FavoriteFilters = {
   tagIds: [],

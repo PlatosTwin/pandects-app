@@ -1893,8 +1893,11 @@ export interface components {
             status: string;
         };
         AuthCsrfResponse: {
-            /** @description Always `ok`. */
-            status: string;
+            /**
+             * @description Always `ok`.
+             * @enum {string}
+             */
+            status: "ok";
             /** @description CSRF token; only under cookie session transport. */
             csrf_token?: string;
         };
@@ -1924,8 +1927,11 @@ export interface components {
             next?: string | null;
         };
         AuthFlowResponse: {
-            /** @description `authenticated` (session issued), `legal_required` (accept the terms via `/v1/auth/zitadel/finalize`), `verification_required` (check email), or `mcp_token` (`/v1/auth/zitadel/complete` in the MCP-token flow only). */
-            status: string;
+            /**
+             * @description `authenticated` (session issued), `legal_required` (accept the terms via `/v1/auth/zitadel/finalize`), `verification_required` (check email), or `mcp_token` (`/v1/auth/zitadel/complete` in the MCP-token flow only).
+             * @enum {string}
+             */
+            status: "authenticated" | "legal_required" | "verification_required" | "mcp_token";
             /** @description Where the client goes next. */
             next_path: string;
             /** @description Present for every status except `mcp_token`. */
@@ -1972,8 +1978,11 @@ export interface components {
             email: string;
         };
         AuthVerificationResendResponse: {
-            /** @description Always `verification_required`. */
-            status: string;
+            /**
+             * @description Always `verification_required`.
+             * @enum {string}
+             */
+            status: "verification_required";
             user: components["schemas"]["AuthVerificationResendUser"];
         };
         AuthAuthorizeUrlResponse: {
@@ -2052,8 +2061,11 @@ export interface components {
             created_at: string;
         };
         AuthExternalLinkResponse: {
-            /** @description `linked` (201) or `already_linked` (200). */
-            status: string;
+            /**
+             * @description `linked` (201) or `already_linked` (200).
+             * @enum {string}
+             */
+            status: "linked" | "already_linked";
             link: components["schemas"]["AuthExternalLink"];
         };
         AuthZitadelLinkCompleteBody: {
@@ -2061,8 +2073,11 @@ export interface components {
             state: string;
         };
         AuthZitadelLinkCompleteResponse: {
-            /** @description `linked` (201) or `already_linked` (200). */
-            status: string;
+            /**
+             * @description `linked` (201) or `already_linked` (200).
+             * @enum {string}
+             */
+            status: "linked" | "already_linked";
             link: components["schemas"]["AuthExternalLink"];
             return_to: string;
         };
@@ -2082,8 +2097,11 @@ export interface components {
             scope: string;
         };
         AuthOAuthConsentResponse: {
-            /** @description Always `granted`. */
-            status: string;
+            /**
+             * @description Always `granted`.
+             * @enum {string}
+             */
+            status: "granted";
             client_id: string;
             /** @description The full granted scope after merging. */
             scope: string;
@@ -2091,7 +2109,8 @@ export interface components {
         FavoriteProject: {
             id: string;
             name: string;
-            color: string;
+            /** @enum {string} */
+            color: "slate" | "red" | "orange" | "amber" | "green" | "teal" | "blue" | "violet";
             is_default: boolean;
             sort_order: number;
             created_at: string | null;
@@ -2125,14 +2144,15 @@ export interface components {
         FavoriteTagRef: {
             id: string;
             name: string;
-            color: string;
+            /** @enum {string} */
+            color: "slate" | "red" | "orange" | "amber" | "green" | "teal" | "blue" | "violet";
         };
         Favorite: {
             id: string;
             project_id: string;
             project_ids: string[];
-            /** @description `section`, `agreement`, or `tax_clause`. */
-            item_type: string;
+            /** @enum {string} */
+            item_type: "section" | "agreement" | "tax_clause";
             item_uuid: string;
             note: string | null;
             /** @description Client-supplied context stored with the favorite. */
@@ -2162,8 +2182,8 @@ export interface components {
             id: string;
             project_id: string;
             project_ids: string[];
-            /** @description `section`, `agreement`, or `tax_clause`. */
-            item_type: string;
+            /** @enum {string} */
+            item_type: "section" | "agreement" | "tax_clause";
             item_uuid: string;
             note: string | null;
             /** @description Client-supplied context stored with the favorite. */
@@ -2210,6 +2230,10 @@ export interface components {
             agreement_uuid: string;
             section_uuid: string;
             section_standard_id: string[];
+            /** @description Clause-taxonomy label for each id in `section_standard_id`, keyed by id. */
+            standard_id_labels: {
+                [key: string]: string;
+            };
             xml: string | null;
             article_title: string | null;
             section_title: string | null;
@@ -2280,12 +2304,13 @@ export interface components {
         FavoriteTag: {
             id: string;
             name: string;
-            color: string;
+            /** @enum {string} */
+            color: "slate" | "red" | "orange" | "amber" | "green" | "teal" | "blue" | "violet";
             created_at: string | null;
         };
         FavoriteTagListResponse: {
             tags: components["schemas"]["FavoriteTag"][];
-            available_colors: string[];
+            available_colors: ("slate" | "red" | "orange" | "amber" | "green" | "teal" | "blue" | "violet")[];
         };
         TagCreate: {
             name: string;

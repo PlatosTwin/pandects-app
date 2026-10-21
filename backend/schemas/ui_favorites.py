@@ -7,9 +7,11 @@ so nothing here runs at request time. Error responses are added by the exporter.
 
 from __future__ import annotations
 
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
 
 from backend.schemas.favorites import (
+    ITEM_TYPES,
+    TAG_COLORS,
     FavoriteCreateSchema,
     FavoriteExistsQuerySchema,
     FavoriteProjectsSetSchema,
@@ -35,7 +37,7 @@ _TAG = "favorites"
 class FavoriteProjectSchema(Schema):
     id = fields.Str(required=True)
     name = fields.Str(required=True)
-    color = fields.Str(required=True)
+    color = fields.Str(required=True, validate=validate.OneOf(TAG_COLORS))
     is_default = fields.Bool(required=True)
     sort_order = fields.Int(required=True)
     created_at = fields.Str(required=True, allow_none=True)
@@ -44,7 +46,7 @@ class FavoriteProjectSchema(Schema):
 class FavoriteTagSchema(Schema):
     id = fields.Str(required=True)
     name = fields.Str(required=True)
-    color = fields.Str(required=True)
+    color = fields.Str(required=True, validate=validate.OneOf(TAG_COLORS))
     created_at = fields.Str(required=True, allow_none=True)
 
 
@@ -53,14 +55,14 @@ class FavoriteTagRefSchema(Schema):
 
     id = fields.Str(required=True)
     name = fields.Str(required=True)
-    color = fields.Str(required=True)
+    color = fields.Str(required=True, validate=validate.OneOf(TAG_COLORS))
 
 
 class FavoriteMinimalSchema(Schema):
     id = fields.Str(required=True)
     project_id = fields.Str(required=True)
     project_ids = fields.List(fields.Str(), required=True)
-    item_type = fields.Str(required=True, metadata={"description": "`section`, `agreement`, or `tax_clause`."})
+    item_type = fields.Str(required=True, validate=validate.OneOf(ITEM_TYPES))
     item_uuid = fields.Str(required=True)
     note = fields.Str(required=True, allow_none=True)
     context = fields.Dict(
@@ -144,6 +146,14 @@ class FavoriteSectionDetailSchema(Schema):
     agreement_uuid = fields.Str(required=True)
     section_uuid = fields.Str(required=True)
     section_standard_id = fields.List(fields.Str(), required=True)
+    standard_id_labels = fields.Dict(
+        keys=fields.Str(),
+        values=fields.Str(),
+        required=True,
+        metadata={
+            "description": "Clause-taxonomy label for each id in `section_standard_id`, keyed by id."
+        },
+    )
     xml = fields.Str(required=True, allow_none=True)
     article_title = fields.Str(required=True, allow_none=True)
     section_title = fields.Str(required=True, allow_none=True)
@@ -222,7 +232,7 @@ class FavoriteProjectIdsResponseSchema(Schema):
 # ── Tags ──────────────────────────────────────────────────────────────────
 class FavoriteTagListResponseSchema(Schema):
     tags = fields.List(fields.Nested(FavoriteTagSchema), required=True)
-    available_colors = fields.List(fields.Str(), required=True)
+    available_colors = fields.List(fields.Str(validate=validate.OneOf(TAG_COLORS)), required=True)
 
 
 class FavoriteTagCreateResponseSchema(Schema):

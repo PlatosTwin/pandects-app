@@ -172,6 +172,7 @@ function SectionRow({ item, variant, props }: SectionRowProps) {
                 article_title: result.article_title,
                 section_title: result.section_title,
                 standard_id: result.standard_id,
+                standard_id_labels: result.standard_id_labels,
                 xml: result.xml,
                 position,
               }}

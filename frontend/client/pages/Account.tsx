@@ -480,12 +480,6 @@ export default function Account() {
                     <dt className={eyebrowClassName}>Email</dt>
                     <dd className="mt-1 break-words text-foreground">{user.email}</dd>
                   </div>
-                  {user.created_at ? (
-                    <div>
-                      <dt className={eyebrowClassName}>Created</dt>
-                      <dd className="mt-1 text-foreground">{formatDate(user.created_at)}</dd>
-                    </div>
-                  ) : null}
                 </dl>
                 <Button variant="outline" onClick={logout} className="w-full sm:w-auto">
                   Sign out

@@ -43,8 +43,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { indexClauseTypeLabels } from "@/lib/clause-type-index";
-import { useTaxonomy } from "@/hooks/use-taxonomy";
 import {
   bulkCopyFavorites as apiBulkCopyFavorites,
   bulkMoveFavorites as apiBulkMoveFavorites,
@@ -61,12 +59,6 @@ const EMPTY_SECTIONS: Record<string, SectionDetails | null> = {};
 export default function FavoritesPage() {
   const { status, user } = useAuth();
   const { toast } = useToast();
-  // Fallback for section favorites whose details carry no labels.
-  const { taxonomyTree } = useTaxonomy();
-  const clauseTypeLabelById = useMemo(
-    () => indexClauseTypeLabels(taxonomyTree ?? {}),
-    [taxonomyTree],
-  );
   const {
     projects,
     ensureProjectsLoaded,
@@ -701,7 +693,6 @@ export default function FavoritesPage() {
                           ? sectionByUuid[fav.item_uuid]
                           : null
                       }
-                      clauseTypeLabelById={clauseTypeLabelById}
                       selected={selectedIds.has(fav.id)}
                       onSelectChange={handleSelectFavorite}
                       onUpdated={handleUpdated}

@@ -22,6 +22,7 @@ import {
 import { formatCompactCurrencyValue, formatDateValue } from "@/lib/format-utils";
 
 import {
+  contextLabels,
   contextString,
   favoriteHeading,
   favoriteHref,
@@ -38,7 +39,6 @@ export function FavoriteRow({
   fav,
   agreement,
   sectionDetails,
-  clauseTypeLabelById,
   selected,
   onSelectChange,
   onUpdated,
@@ -50,7 +50,6 @@ export function FavoriteRow({
   agreement: AgreementMetadata | null;
   /** undefined = fetch pending, null = fetch failed. */
   sectionDetails: SectionDetails | null | undefined;
-  clauseTypeLabelById: Record<string, string>;
   selected: boolean;
   onSelectChange: (id: string, selected: boolean) => void;
   onUpdated: (next: Favorite) => void;
@@ -121,8 +120,15 @@ export function FavoriteRow({
           (value): value is string => typeof value === "string",
         )
       : []);
-  const sectionTypeLabel = (id: string) =>
-    sectionDetails?.standard_id_labels?.[id] ?? clauseTypeLabelById[id] ?? id;
+  // Server labels from the details batch; favorites starred from search also
+  // saved labels in their context, which covers rows whose details are
+  // loading or unavailable. Ids without a label are not shown.
+  const sectionTypeLabels =
+    sectionDetails?.standard_id_labels ?? contextLabels(fav, "standard_id_labels");
+  const labeledSectionTypes = sectionStandardIds.flatMap((id) => {
+    const label = sectionTypeLabels[id];
+    return label ? [{ id, label }] : [];
+  });
   const sectionSnippet = firstWords(
     stripXmlText(sectionDetails?.xml ?? contextString(fav, "xml")),
     25,
@@ -189,18 +195,16 @@ export function FavoriteRow({
 
           {fav.item_type === "section" ? (
             <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-              {sectionStandardIds.length > 0 ? (
+              {labeledSectionTypes.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
-                  {sectionStandardIds.map((id) => (
+                  {labeledSectionTypes.map(({ id, label }) => (
                     <Badge
                       key={id}
                       variant="outline"
                       className="max-w-full rounded-md px-2 py-0.5 text-[11px] font-medium"
-                      title={sectionTypeLabel(id)}
+                      title={label}
                     >
-                      <span className="truncate">
-                        {sectionTypeLabel(id)}
-                      </span>
+                      <span className="truncate">{label}</span>
                     </Badge>
                   ))}
                 </div>
