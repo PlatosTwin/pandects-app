@@ -173,7 +173,7 @@ export default function OAuthConsent() {
         <div className="grid gap-6">
           {!paramsValid || client.status === "rejected" ? (
             <Alert variant="destructive">
-              <AlertTitle>Invalid authorization request</AlertTitle>
+              <AlertTitle as="h2">Invalid authorization request</AlertTitle>
               <AlertDescription>
                 The authorization link is missing required information. Return
                 to the application that sent you here and start the sign-in flow
@@ -183,7 +183,7 @@ export default function OAuthConsent() {
           ) : client.status === "unavailable" ? (
             <>
               <Alert variant="destructive">
-                <AlertTitle>Could not load this request</AlertTitle>
+                <AlertTitle as="h2">Could not load this request</AlertTitle>
                 <AlertDescription>
                   Pandects couldn&apos;t check the application asking for
                   access. Try again, or deny the request.
@@ -273,7 +273,7 @@ function ConsentDetails({
       </dl>
       {identity.kind === "impersonation" ? (
         <Alert variant="destructive">
-          <AlertTitle>This may not be {identity.knownLabel}</AlertTitle>
+          <AlertTitle as="h2">This may not be {identity.knownLabel}</AlertTitle>
           <AlertDescription>
             It calls itself {identity.knownLabel}, but {identity.knownLabel}{" "}
             doesn&apos;t use {identity.foreignHosts.join(", ")}. Deny unless you
@@ -282,7 +282,7 @@ function ConsentDetails({
         </Alert>
       ) : identity.kind === "unknown" ? (
         <Alert variant="warning">
-          <AlertTitle>Unrecognized application</AlertTitle>
+          <AlertTitle as="h2">Unrecognized application</AlertTitle>
           <AlertDescription>
             Pandects doesn&apos;t recognize this application. Allow only if you
             just started connecting it yourself.
@@ -302,7 +302,7 @@ function ConsentDetails({
       </div>
       {error ? (
         <Alert variant="destructive">
-          <AlertTitle>Could not record consent</AlertTitle>
+          <AlertTitle as="h2">Could not record consent</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}

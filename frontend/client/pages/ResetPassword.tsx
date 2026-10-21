@@ -89,7 +89,7 @@ export default function ResetPassword() {
         <div className="grid gap-6">
           {submittedEmail ? (
             <Alert>
-              <AlertTitle>Check your email</AlertTitle>
+              <AlertTitle as="h2">Check your email</AlertTitle>
               <AlertDescription>
                 If an account exists for <span className="font-medium">{submittedEmail}</span>, we sent a password reset link.
               </AlertDescription>
@@ -98,14 +98,14 @@ export default function ResetPassword() {
 
           {error ? (
             <Alert variant="destructive">
-              <AlertTitle>Could not request reset</AlertTitle>
+              <AlertTitle as="h2">Could not request reset</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
 
           {captchaError ? (
             <Alert variant="destructive">
-              <AlertTitle>Captcha problem</AlertTitle>
+              <AlertTitle as="h2">Captcha problem</AlertTitle>
               <AlertDescription>{captchaError}</AlertDescription>
             </Alert>
           ) : null}
@@ -155,7 +155,7 @@ export default function ResetPassword() {
             Remembered it?{" "}
             <Link
               to={`/login?next=${encodeURIComponent(nextPath)}`}
-              className="text-primary hover:underline"
+              className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
               Back to sign in
             </Link>

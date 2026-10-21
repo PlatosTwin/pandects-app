@@ -462,8 +462,7 @@ export default function Account() {
           </span>
         ) : undefined
       }
-      layout="data"
-      contentClassName="max-w-4xl"
+      layout="settings"
     >
       {status === "loading" ? (
         <Card className="p-6" role="status" aria-live="polite">

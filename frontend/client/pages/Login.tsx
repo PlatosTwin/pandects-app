@@ -219,7 +219,7 @@ export default function Login() {
       <div className="grid gap-6">
         {error ? (
           <Alert variant="destructive">
-            <AlertTitle>
+            <AlertTitle as="h2">
               {state.kind === "form" ? "Could not sign in" : "Could not finish sign-in"}
             </AlertTitle>
             <AlertDescription>
@@ -229,7 +229,7 @@ export default function Login() {
                   <div>
                     <Link
                       to={`/signup?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextPath)}`}
-                      className="text-primary hover:underline"
+                      className="text-primary underline underline-offset-4 hover:text-primary/80"
                     >
                       Resume account setup
                     </Link>
@@ -293,14 +293,14 @@ export default function Login() {
                 Need to restart setup?{" "}
                 <Link
                   to={`/signup?email=${encodeURIComponent(state.email)}&next=${encodeURIComponent(nextPath)}`}
-                  className="text-primary hover:underline"
+                  className="text-primary underline underline-offset-4 hover:text-primary/80"
                 >
                   Resume account setup
                 </Link>
                 . Already verified?{" "}
                 <button
                   type="button"
-                  className="text-primary hover:underline"
+                  className="text-primary underline underline-offset-4 hover:text-primary/80"
                   onClick={() => {
                     setEmail(state.email);
                     setPassword("");

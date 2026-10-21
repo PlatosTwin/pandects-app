@@ -33,30 +33,34 @@ export function FactCard({
   className,
   children,
 }: FactCardProps) {
+  // On phones the icon sits beside the text so a stack of cards stays short;
+  // from sm up it sits above the text.
   const body = (
-    <>
+    <div className="flex items-start gap-4 sm:block">
       {Icon ? (
-        <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:mb-3">
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
       ) : null}
-      {eyebrow ? <Eyebrow className="mb-1">{eyebrow}</Eyebrow> : null}
-      <Title className="flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
-        {title}
-        {href ? (
-          <ArrowRight
-            className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-            aria-hidden="true"
-          />
+      <div className="min-w-0">
+        {eyebrow ? <Eyebrow className="mb-1">{eyebrow}</Eyebrow> : null}
+        <Title className="flex items-center gap-1.5 text-base font-semibold tracking-tight text-foreground">
+          {title}
+          {href ? (
+            <ArrowRight
+              className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          ) : null}
+        </Title>
+        {description ? (
+          <div className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+            {description}
+          </div>
         ) : null}
-      </Title>
-      {description ? (
-        <div className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-          {description}
-        </div>
-      ) : null}
-      {children}
-    </>
+        {children}
+      </div>
+    </div>
   );
 
   const frame = cn(

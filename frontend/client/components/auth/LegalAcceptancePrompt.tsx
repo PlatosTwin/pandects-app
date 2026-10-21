@@ -45,7 +45,7 @@ export function LegalAcceptancePrompt({
               to="/terms"
               target="_blank"
               rel="noreferrer"
-              className="text-primary hover:underline"
+              className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
               Terms of Service
             </Link>
@@ -54,7 +54,7 @@ export function LegalAcceptancePrompt({
               to="/privacy-policy"
               target="_blank"
               rel="noreferrer"
-              className="text-primary hover:underline"
+              className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
               Privacy Policy
             </Link>
@@ -63,7 +63,7 @@ export function LegalAcceptancePrompt({
               to="/license"
               target="_blank"
               rel="noreferrer"
-              className="text-primary hover:underline"
+              className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
               License
             </Link>
