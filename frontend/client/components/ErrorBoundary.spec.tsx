@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The default fallback must render with or without a router above it. */
-import { cleanup, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -40,16 +40,25 @@ describe("ErrorBoundary default fallback", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
-  it("renders a router link inside a router", () => {
+  it("navigates client-side inside a router", () => {
     render(
       <MemoryRouter initialEntries={["/about"]}>
-        <ErrorBoundary scope="route:/about">
-          <Boom />
-        </ErrorBoundary>
+        <Routes>
+          <Route path="/" element={<p>Home page</p>} />
+          <Route
+            path="/about"
+            element={
+              <ErrorBoundary scope="route:/about">
+                <Boom />
+              </ErrorBoundary>
+            }
+          />
+        </Routes>
       </MemoryRouter>,
     );
 
-    const home = screen.getByRole("link", { name: "Go home" });
-    expect(home.getAttribute("href")).toBe("/");
+    // A plain <a> would not move the MemoryRouter; only <Link> does.
+    fireEvent.click(screen.getByRole("link", { name: "Go home" }));
+    expect(screen.getByText("Home page")).toBeTruthy();
   });
 });
