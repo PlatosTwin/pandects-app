@@ -10,6 +10,7 @@ from sqlalchemy.dialects.mysql import match as mysql_match
 from sqlalchemy.exc import DatabaseError, SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
+from backend.core.caching import ttl_cached
 from backend.core.pagination import clamp_page_size, search_max_page_size
 from backend.filtering import (
     apply_agreement_filters,
@@ -18,6 +19,7 @@ from backend.filtering import (
 )
 from backend.routes.deps import AccessContextProtocol, SectionsServiceDeps
 from backend.search_counts import build_search_count_cache_key
+from backend.services.dumps import current_dump_version_token
 from backend.schemas.sections import SectionsArgsPayload
 from backend.text_search import (
     TEXT_SEARCH_MAX_STATEMENT_SECONDS,
@@ -75,6 +77,57 @@ _text_plan_cache_lock = threading.Lock()
 # Counts that already blew the budget once. Re-running them on every page of the
 # same search burns the budget again to reach the same verdict.
 _text_count_unaffordable: dict[str, float] = {}
+
+
+# The gated-and-unverified agreements that still have latest_sections_search rows
+# change only when the data is rebuilt, so the probe (a full scan of the wide
+# agreements table: no index covers COALESCE(gated)) is cached per database and
+# data dump instead of running on every /v1/sections request.
+_INELIGIBLE_UUIDS_TTL_SECONDS = 300
+
+
+def _ineligible_cache_scope(db: Any) -> tuple[str, str]:
+    return str(db.engine.url), current_dump_version_token()
+
+
+@ttl_cached(
+    _INELIGIBLE_UUIDS_TTL_SECONDS,
+    key=lambda scope, db, agreements, latest: scope,
+    max_keys=8,
+)
+def _ineligible_section_agreement_uuids(
+    scope: tuple[str, str], db: Any, agreements: Any, latest: Any
+) -> tuple[str, ...]:
+    ineligible_query = ineligible_agreement_uuids_query(latest.agreement_uuid, agreements)
+    if ineligible_query is None:
+        return ()
+    return tuple(row[0] for row in db.session.execute(ineligible_query))
+
+
+def _clause_only_count_query(
+    deps: SectionsServiceDeps,
+    expanded_standard_ids: list[str],
+    *,
+    ineligible_uuids: tuple[str, ...],
+    column: str = "section_uuid",
+) -> Any:
+    """Distinct sections (or ``column="agreement_uuid"``: their agreements) tagged with
+    any of the ids, read from the mapping alone.
+
+    When a clause type is the only filter, the matching sections are exactly the
+    mapping's rows for those ids (the mapping is built from latest_sections_search,
+    as /v1/taxonomy/counts also relies on). Counting through latest_sections_search
+    instead visits all 1.1M of its rows: a correlated EXISTS probe per row read
+    3.3M InnoDB pages, and a materialized IN took 8s for a broad clause type, where
+    this reads a few thousand index pages.
+    """
+    mapping = deps.LatestSectionsSearchStandardId
+    query = deps.db.session.query(getattr(mapping, column)).filter(
+        mapping.standard_id.in_(expanded_standard_ids)
+    )
+    if ineligible_uuids:
+        query = query.filter(mapping.agreement_uuid.notin_(list(ineligible_uuids)))
+    return query.distinct()
 
 
 def _remembered_text_plan(cache_key: str | None) -> str | None:
@@ -704,11 +757,11 @@ def _run_sections(
     # the public gate is enforced here too, as every agreement-level surface does.
     # The ineligible uuids are resolved first so the common case (none present) adds
     # no per-row predicate; see ineligible_agreement_uuids_query.
-    ineligible_query = ineligible_agreement_uuids_query(latest.agreement_uuid, deps.Agreements)
-    if ineligible_query is not None:
-        ineligible_uuids = [row[0] for row in db.session.execute(ineligible_query)]
-        if ineligible_uuids:
-            q = q.filter(latest.agreement_uuid.notin_(ineligible_uuids))
+    ineligible_uuids = _ineligible_section_agreement_uuids(
+        _ineligible_cache_scope(db), db, deps.Agreements, latest
+    )
+    if ineligible_uuids:
+        q = q.filter(latest.agreement_uuid.notin_(list(ineligible_uuids)))
     q = apply_agreement_filters(
         q,
         latest,
@@ -718,6 +771,7 @@ def _run_sections(
     )
 
     standard_ids_expanded = False
+    expanded_standard_ids: list[str] = []
     if standard_ids:
         standard_ids_key = tuple(sorted({value for value in standard_ids if value}))
         expanded_standard_ids = list(expand_taxonomy_cached(standard_ids_key))
@@ -780,6 +834,22 @@ def _run_sections(
     # candidate predicate: counting it means running the phrase REGEXP across the
     # whole corpus instead of across the phrase's candidates.
     count_query = q
+    agreement_count_query = q.order_by(None).with_entities(distinct(latest.agreement_uuid))
+    if (
+        expanded_standard_ids
+        and not text_active
+        and not (section_uuid and section_uuid.strip())
+        and not has_agreement_filters(cast(dict[str, object], cast(object, parsed_args)))
+    ):
+        count_query = _clause_only_count_query(
+            deps, expanded_standard_ids, ineligible_uuids=ineligible_uuids
+        )
+        agreement_count_query = _clause_only_count_query(
+            deps,
+            expanded_standard_ids,
+            ineligible_uuids=ineligible_uuids,
+            column="agreement_uuid",
+        )
     if phrase_mode and date_scan_query is not None:
         page_rows, _page_query = _fetch_phrase_page(
             deps,
@@ -812,9 +882,7 @@ def _run_sections(
         if counted_exactly:
             total_count = cast(int, counted)
             total_agreement_count = deps._cached_exact_query_count(
-                count_query.order_by(None).with_entities(
-                    distinct(latest.agreement_uuid)
-                ),
+                agreement_count_query,
                 cache_key=f"{count_cache_key}:agreements",
             )
             total_count_is_approximate = False

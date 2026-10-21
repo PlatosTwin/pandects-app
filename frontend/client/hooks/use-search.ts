@@ -179,6 +179,18 @@ export type CsvScope = "auto" | "all" | "selected";
 const EMPTY_ACCESS: SearchPageResponse<unknown>["access"] = { tier: "anonymous" };
 
 /**
+ * Only a failure that never reached the API (network error) or a fast proxy
+ * failure (502/503: a machine starting or stopping) is retried. A 500/504 is
+ * usually a query that already ran into the server's statement limit;
+ * retrying it holds a server worker and a database connection for another
+ * minute, and the server keeps running a search after the browser drops it.
+ */
+function isRetryableSearchError(error: Error): boolean {
+  if (!isApiError(error)) return false;
+  return error.isNetworkError || error.status === 502 || error.status === 503;
+}
+
+/**
  * One committed-search hook for every mode (sections, tax clauses, deals).
  *
  * - `filters` / `sortBy` / `sortDirection` are the draft the sidebar edits;
@@ -214,12 +226,8 @@ export function useSearch<TResult>(config: SearchEndpointConfig<TResult>) {
     // Each commit gets a fresh key (see CommittedSearch.nonce); keep the
     // previous commit's results on screen while the next fetch is in flight.
     placeholderData: keepPreviousData,
-    ...(config.silentNotFound
-      ? {
-          retry: (failureCount: number, error: Error) =>
-            !(error instanceof SearchNotFoundError) && failureCount < 1,
-        }
-      : {}),
+    retry: (failureCount: number, error: Error) =>
+      failureCount < 1 && isRetryableSearchError(error),
     queryFn: async ({ signal }) => {
       try {
         return await apiGet<SearchPageResponse<TResult>>(

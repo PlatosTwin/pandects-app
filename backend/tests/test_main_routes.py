@@ -1040,6 +1040,105 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].get("section_uuid"), "00000000-0000-0000-0000-000000000004")
 
+    # -- hot-path query guards ----------------------------------------------------------
+    #
+    # Production runs these searches against a 192MB buffer pool, so a plan that reads
+    # latest_sections_search (1.1M rows, 2.5GB) once per row or per matching section
+    # passes locally in a second and times out in production at the 55s statement cap.
+    # These tests pin the shape and number of statements the hot search paths issue.
+
+    def _capture_statements(self, path: str) -> tuple[object, list[str]]:
+        from sqlalchemy import event
+
+        statements: list[str] = []
+
+        def _record(_conn, _cursor, statement, _params, _context, _executemany):
+            statements.append(" ".join(str(statement).split()))
+
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+        event.listen(engine, "before_cursor_execute", _record)
+        try:
+            res = self.app.test_client().get(path)
+        finally:
+            event.remove(engine, "before_cursor_execute", _record)
+        self.assertEqual(res.status_code, 200, res.get_json())
+        return res.get_json(), statements
+
+    def test_hot_search_paths_stay_within_statement_budget(self):
+        # Every statement crosses regions on a machine away from the database
+        # (~70ms each), so an added round trip on these paths is a regression.
+        # TTL caches are off in tests; with them on, the ineligible-agreement
+        # probe drops out too (see the next test).
+        budgets = {
+            "/v1/sections?page=1&page_size=25": 4,
+            "/v1/sections?standard_id=s1&page=1&page_size=25": 7,
+            "/v1/search/agreements?page=1&page_size=25": 4,
+            "/v1/search/agreements?standard_id=s1&page=1&page_size=25": 8,
+        }
+        for path, budget in budgets.items():
+            with self.subTest(path=path):
+                _, statements = self._capture_statements(path)
+                self.assertLessEqual(len(statements), budget, "\n".join(statements))
+
+    def test_ineligible_agreement_probe_is_cached_between_section_searches(self):
+        self.app.config["TTL_CACHE_IN_TESTS"] = True
+        clear_all_ttl_caches()
+        try:
+            path = "/v1/sections?page=1&page_size=25"
+            _, first = self._capture_statements(path)
+            _, second = self._capture_statements(path)
+        finally:
+            self.app.config.pop("TTL_CACHE_IN_TESTS", None)
+            clear_all_ttl_caches()
+        self.assertTrue(any("gated" in s for s in first))
+        self.assertFalse(any("gated" in s for s in second), "\n".join(second))
+
+    def test_clause_only_section_count_reads_only_the_mapping(self):
+        # Counting through latest_sections_search visits every one of its rows (a
+        # correlated EXISTS per row, or a scan against a materialized IN list).
+        body, statements = self._capture_statements(
+            "/v1/sections?standard_id=s1&page=1&page_size=25"
+        )
+        counts = [s for s in statements if "count(" in s.lower()]
+        self.assertTrue(counts)
+        for statement in counts:
+            self.assertRegex(statement, r"FROM (\w+\.)?latest_sections_search_standard_ids ")
+            self.assertNotIn("latest_sections_search.", statement)
+        self.assertEqual(body["total_count"], 1)
+
+    def test_clause_only_section_count_is_distinct_and_exact_mode_counts_agreements(self):
+        self.test_search_by_standard_id_matches_multi_label_sections()
+        client = self.app.test_client()
+        res = client.get("/v1/sections?standard_id=multi&standard_id=other&page=1&page_size=10")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()["total_count"], 1)
+        res = client.get(
+            "/v1/sections?standard_id=multi&standard_id=other&count_mode=exact&page=1&page_size=10"
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["total_count"], 1)
+        self.assertEqual(body["total_agreement_count"], 1)
+
+    def test_clause_deal_search_by_year_reads_only_the_mapping(self):
+        body, statements = self._capture_statements(
+            "/v1/search/agreements?standard_id=s1&page=1&page_size=25"
+        )
+        aggregate = [s for s in statements if "match_count" in s]
+        self.assertTrue(aggregate)
+        for statement in aggregate:
+            self.assertRegex(statement, r"FROM (\w+\.)?latest_sections_search_standard_ids ")
+            self.assertNotIn("latest_sections_search.", statement)
+        by_target = self.app.test_client().get(
+            "/v1/search/agreements?standard_id=s1&sort_by=target&page=1&page_size=25"
+        ).get_json()
+        self.assertEqual(body["total_count"], by_target["total_count"])
+        self.assertEqual(
+            {r["agreement_uuid"]: r["match_count"] for r in body["results"]},
+            {r["agreement_uuid"]: r["match_count"] for r in by_target["results"]},
+        )
+
     def test_search_returns_exact_total_count_for_filtered_first_page(self):
         with self.app.app_context():
             engine = self.app_module.db.engine
