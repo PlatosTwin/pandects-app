@@ -46,8 +46,9 @@ describe("design system", () => {
     expect(offenders).toEqual([]);
   });
 
-  // The nav, footer, page shells, search and the reader share one frame. A
-  // copied max-width literal is how search and the nav drifted apart.
+  // The nav, footer, page shells and the reader share one frame (Search uses
+  // app-frame-bleed, nav included). A copied max-width literal is how search
+  // and the nav drifted apart.
   it("sizes page frames with app-frame only", () => {
     const offenders = sources
       .filter(({ source }) => /(?<![\w-])max-w-7xl(?![\w-])/.test(source))
@@ -56,5 +57,20 @@ describe("design system", () => {
     for (const file of ["components/Navigation.tsx", "components/Footer.tsx", "components/PageShell.tsx"]) {
       expect(fs.readFileSync(path.join(clientRoot, file), "utf8"), file).toContain("app-frame");
     }
+    for (const file of ["components/Navigation.tsx", "pages/search/SearchQueryBar.tsx"]) {
+      expect(fs.readFileSync(path.join(clientRoot, file), "utf8"), file).toContain("app-frame-bleed");
+    }
+  });
+
+  // Stacked segments touch, so two neighbors of similar lightness (green on
+  // amber) merge for color-blind readers. A card-colored edge separates them
+  // without leaning on the colors' contrast with each other.
+  it("separates stacked chart segments with a card-colored edge", () => {
+    const offenders = sources.flatMap(({ name, source }) =>
+      [...source.matchAll(/<(Bar|Area)\b[^>]*?\bstackId=[^>]*?\/?>/gs)]
+        .filter(([element]) => !/stroke="(hsl\(var\(--card\)\)|transparent)"/.test(element))
+        .map(([element]) => `${name}: ${element.replace(/\s+/g, " ").slice(0, 80)}`),
+    );
+    expect(offenders).toEqual([]);
   });
 });

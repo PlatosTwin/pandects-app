@@ -652,10 +652,9 @@ export default function Search() {
         Skip to results
       </a>
 
-      {/* Same width as the app frame, without its padding: the filter rail
-          stays flush with the frame edge. Once the screen is wider than the
-          frame, side borders close off the workspace. */}
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-screen-2xl border-border min-[1536px]:border-x">
+      {/* A full-bleed workspace, not the app frame: the filter rail sits flush
+          against the screen edge and the results take the rest. */}
+      <div className="flex min-h-[calc(100vh-4rem)]">
         {hydrated ? (
           <Suspense fallback={<SearchSidebarFallback />}>
             <SearchSidebar {...sidebarProps} />

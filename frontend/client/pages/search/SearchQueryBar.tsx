@@ -152,7 +152,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
       ref={ref}
       className="z-20 border-b border-border bg-background/95 py-3 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur lg:sticky lg:top-16"
     >
-      <div className="app-frame">
+      <div className="app-frame-bleed">
         <h1 className="sr-only" id="search-page-title">
           Search {MODE_NOUNS[mode].many}
         </h1>
