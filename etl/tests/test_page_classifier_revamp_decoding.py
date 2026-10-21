@@ -8,9 +8,11 @@ import sklearn_crfsuite
 from etl.models.page_classifier_revamp.crf_pipeline import (
     LABEL_TO_INDEX,
     DecodableCRFProtocol,
+    attachment_after_main_signature,
     build_feature_sequences,
     fit_tfidf_vectorizer,
     guard_back_matter_start,
+    guard_body_after_attachment,
     monotonic_transition_overrides,
     predict_with_transition_overrides,
 )
@@ -243,6 +245,117 @@ class GuardBackMatterStartTests(unittest.TestCase):
         )
 
         self.assertEqual(guarded, labels)
+
+
+# Body's self-transition carries an exhibit that reads like body (an attached services agreement)
+# through to the exhibit's own signature page.
+EXHIBIT_MODEL = _FakeCRF(
+    state_features={
+        ("text", "body"): 1.0,
+        ("text", "back_matter"): 0.6,
+        ("witness", "sig"): 3.5,
+        ("witness", "body"): 1.2,
+        ("exhibit", "back_matter"): 0.5,
+    },
+    transition_features={
+        ("body", "body"): 2.0,
+    },
+)
+EXHIBIT_TEXTS = (
+    ["The parties agree as follows."] * 5
+    + ["IN WITNESS WHEREOF, the parties have executed this Agreement."]
+    + ["Exhibit A Transition Services Agreement"]
+    + ["The provider shall perform the services."] * 2
+    + ["IN WITNESS WHEREOF, the parties have executed this Agreement."]
+)
+EXHIBIT_KINDS = ["text"] * 5 + ["witness", "exhibit", "text", "text", "witness"]
+EXHIBIT_SEQUENCE: list[FeatureDict] = [
+    {**feature_dict, kind: 1.0}
+    for kind, feature_dict in zip(
+        EXHIBIT_KINDS,
+        build_feature_sequences(
+            [AgreementDocument("a", EXHIBIT_TEXTS, [])],
+            fit_tfidf_vectorizer(EXHIBIT_TEXTS, max_features=10),
+        )[0],
+        strict=True,
+    )
+]
+
+
+def _signature_judgments(signature_pages: dict[int, float], attachment_pages: dict[int, float], page_count: int) -> list[PageJudgment]:
+    judgments = _judgments([attachment_pages.get(page_index, 0.0) for page_index in range(page_count)])
+    for page_index, probability in signature_pages.items():
+        judgments[page_index]["main_sig"] = probability
+        judgments[page_index]["part_probs"] = {label: probability if label == "sig" else 0.0 for label in PAGE_LABELS}
+    return judgments
+
+
+class AttachmentAfterMainSignatureTests(unittest.TestCase):
+    def test_finds_body_attachment_after_signature(self) -> None:
+        labels = ["body"] * 9 + ["sig"]
+        judgments = _signature_judgments({5: 0.95}, {6: 0.9}, 10)
+
+        self.assertEqual(attachment_after_main_signature(judgments, labels), 6)
+
+    def test_allows_further_signature_pages_before_the_attachment(self) -> None:
+        labels = ["body"] * 9 + ["sig"]
+        judgments = _signature_judgments({4: 0.95, 5: 0.6}, {6: 0.9}, 10)
+
+        self.assertEqual(attachment_after_main_signature(judgments, labels), 6)
+
+    def test_ignores_attachment_already_outside_body(self) -> None:
+        labels = ["body"] * 5 + ["sig"] + ["back_matter"] * 4
+        judgments = _signature_judgments({5: 0.95}, {6: 0.9}, 10)
+
+        self.assertIsNone(attachment_after_main_signature(judgments, labels))
+
+    def test_ignores_signed_cover_letter_before_the_agreement(self) -> None:
+        labels = ["body"] * 9 + ["sig"]
+        judgments = _signature_judgments({1: 0.95}, {2: 0.9}, 10)
+
+        self.assertIsNone(attachment_after_main_signature(judgments, labels))
+
+    def test_ignores_weak_signature_or_attachment(self) -> None:
+        labels = ["body"] * 9 + ["sig"]
+
+        self.assertIsNone(attachment_after_main_signature(_signature_judgments({5: 0.7}, {6: 0.9}, 10), labels))
+        self.assertIsNone(attachment_after_main_signature(_signature_judgments({5: 0.95}, {6: 0.4}, 10), labels))
+
+
+class GuardBodyAfterAttachmentTests(unittest.TestCase):
+    def test_exhibit_after_main_signature_becomes_back_matter(self) -> None:
+        overrides = monotonic_transition_overrides()
+        decoded, marginals = predict_with_transition_overrides(EXHIBIT_MODEL, [EXHIBIT_SEQUENCE], overrides)
+        self.assertEqual(decoded[0], ["body"] * 9 + ["sig"])
+
+        guarded, _, _ = guard_body_after_attachment(
+            EXHIBIT_MODEL,
+            EXHIBIT_SEQUENCE,
+            _signature_judgments({5: 0.95}, {6: 0.9}, 10),
+            overrides,
+            decoded[0],
+            marginals[0],
+            [False] * 10,
+        )
+
+        self.assertEqual(guarded, ["body"] * 5 + ["sig"] + ["back_matter"] * 4)
+
+    def test_no_trigger_leaves_labels_alone(self) -> None:
+        overrides = monotonic_transition_overrides()
+        decoded, marginals = predict_with_transition_overrides(EXHIBIT_MODEL, [EXHIBIT_SEQUENCE], overrides)
+
+        guarded, guarded_marginals, _ = guard_body_after_attachment(
+            EXHIBIT_MODEL,
+            EXHIBIT_SEQUENCE,
+            _signature_judgments({}, {}, 10),
+            overrides,
+            decoded[0],
+            marginals[0],
+            [False] * 10,
+        )
+
+        self.assertEqual(guarded, decoded[0])
+        self.assertIs(guarded_marginals, marginals[0])
 
 
 if __name__ == "__main__":

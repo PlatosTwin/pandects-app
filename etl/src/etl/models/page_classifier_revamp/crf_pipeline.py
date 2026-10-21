@@ -66,6 +66,10 @@ POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE = 0.75
 DEFAULT_ILLEGAL_TRANSITION_WEIGHT = -1000.0
 BACK_MATTER_EVIDENCE_THRESHOLD = 0.2
 BACK_MATTER_GUARD_MAX_ROUNDS = 3
+MAIN_SIGNATURE_THRESHOLD = 0.8
+SIGNATURE_CONTINUATION_THRESHOLD = 0.5
+ATTACHMENT_START_THRESHOLD = 0.5
+ATTACHMENT_SIGNATURE_GAP = 2
 
 TOC_DOTS_RE = re.compile(r"\.{6,}")
 SIG_BLOCK_RE = re.compile(
@@ -1668,7 +1672,111 @@ def guard_back_matter_start(
     return labels, marginals, modified_mask
 
 
-def guard_back_matter_starts(
+def attachment_after_main_signature(judgments: list[PageJudgment], labels: list[str]) -> int | None:
+    """The page where an attachment starts right after the main signature block, if the labels
+    still call it body.
+
+    The main signature page is one TypeSafe is confident about on both signals. The attachment may
+    follow it after up to ATTACHMENT_SIGNATURE_GAP further signature pages. More body must precede
+    the signature than follows the attachment, so a signed cover letter in front of the agreement
+    ("Exhibit 1: Merger Agreement") does not count.
+    """
+    page_count = len(judgments)
+    for signature_index, judgment in enumerate(judgments):
+        if (
+            judgment["main_sig"] < MAIN_SIGNATURE_THRESHOLD
+            or judgment["part_probs"].get("sig", 0.0) < MAIN_SIGNATURE_THRESHOLD
+        ):
+            continue
+        for page_index in range(signature_index + 1, min(page_count, signature_index + 2 + ATTACHMENT_SIGNATURE_GAP)):
+            candidate = judgments[page_index]
+            if candidate["attachment_start"] >= ATTACHMENT_START_THRESHOLD:
+                if labels[page_index] != "body":
+                    break
+                body_before = sum(label == "body" for label in labels[:signature_index])
+                body_after = sum(label == "body" for label in labels[page_index:])
+                if body_before > body_after:
+                    return page_index
+                break
+            if max(candidate["main_sig"], candidate["part_probs"].get("sig", 0.0)) < SIGNATURE_CONTINUATION_THRESHOLD:
+                break
+    return None
+
+
+def guard_body_after_attachment(
+    crf_model: DecodableCRFProtocol,
+    feature_sequence: list[FeatureDict],
+    judgments: list[PageJudgment],
+    transition_overrides: dict[tuple[str, str], float],
+    labels: list[str],
+    marginals: list[dict[str, float]],
+    modified_mask: list[bool],
+    *,
+    postprocess_parameters: PostprocessParameters | None = None,
+) -> tuple[list[str], list[dict[str, float]], list[bool]]:
+    """Re-decode when body runs on into an attachment that follows the main signature block.
+
+    An exhibit that is itself a full agreement (a transition services or escrow agreement) reads
+    like body, and the CRF tends to end the body at the exhibit's own signature pages. When
+    TypeSafe sees the main signature followed by an attachment start, body and sig are blocked from
+    the attachment on and the sequence is decoded again.
+    """
+    attachment_index = attachment_after_main_signature(judgments, labels)
+    if attachment_index is None:
+        return labels, marginals, modified_mask
+    blocked = [
+        frozenset({"body", "sig"}) if page_index >= attachment_index else frozenset()
+        for page_index in range(len(feature_sequence))
+    ]
+    decoded, decoded_marginals = predict_with_transition_overrides(
+        crf_model,
+        [feature_sequence],
+        transition_overrides,
+        [blocked],
+    )
+    new_labels, new_mask = postprocess_prediction_sequence(
+        decoded[0],
+        feature_sequence,
+        postprocess_parameters=postprocess_parameters,
+    )
+    return new_labels, decoded_marginals[0], new_mask
+
+
+def guard_page_sequence(
+    crf_model: DecodableCRFProtocol,
+    feature_sequence: list[FeatureDict],
+    judgments: list[PageJudgment],
+    transition_overrides: dict[tuple[str, str], float],
+    labels: list[str],
+    marginals: list[dict[str, float]],
+    modified_mask: list[bool],
+    *,
+    postprocess_parameters: PostprocessParameters | None = None,
+) -> tuple[list[str], list[dict[str, float]], list[bool]]:
+    """Both TypeSafe guards in order: back-matter start, then body after an attachment."""
+    labels, marginals, modified_mask = guard_back_matter_start(
+        crf_model,
+        feature_sequence,
+        judgments,
+        transition_overrides,
+        labels,
+        marginals,
+        modified_mask,
+        postprocess_parameters=postprocess_parameters,
+    )
+    return guard_body_after_attachment(
+        crf_model,
+        feature_sequence,
+        judgments,
+        transition_overrides,
+        labels,
+        marginals,
+        modified_mask,
+        postprocess_parameters=postprocess_parameters,
+    )
+
+
+def guard_page_sequences(
     crf_model: DecodableCRFProtocol,
     feature_sequences: list[list[FeatureDict]],
     judgments: list[list[PageJudgment]],
@@ -1678,14 +1786,14 @@ def guard_back_matter_starts(
     *,
     postprocess_parameters: PostprocessParameters | None = None,
 ) -> tuple[list[list[str]], list[list[dict[str, float]]], int]:
-    """`guard_back_matter_start` over a batch; also returns how many sequences it changed."""
+    """`guard_page_sequence` over a batch; also returns how many sequences it changed."""
     guarded_labels: list[list[str]] = []
     guarded_marginals: list[list[dict[str, float]]] = []
     changed_count = 0
     for feature_sequence, document_judgments, labels, marginals in zip(
         feature_sequences, judgments, label_sequences, marginal_sequences, strict=True
     ):
-        new_labels, new_marginals, _ = guard_back_matter_start(
+        new_labels, new_marginals, _ = guard_page_sequence(
             crf_model,
             feature_sequence,
             document_judgments,
@@ -1849,7 +1957,7 @@ def _run_crf_experiment(
             + f"{postprocess_modified_agreement_count} agreements"
         )
     if eval_judgments is not None:
-        y_pred, _, guarded_count = guard_back_matter_starts(
+        y_pred, _, guarded_count = guard_page_sequences(
             decodable_model,
             x_eval,
             eval_judgments,
@@ -1858,7 +1966,7 @@ def _run_crf_experiment(
             y_pred_marginals,
             postprocess_parameters=postprocess_parameters,
         )
-        _log(f"{prefix}[crf] back-matter guard re-decoded {guarded_count} agreements")
+        _log(f"{prefix}[crf] TypeSafe guards re-decoded {guarded_count} agreements")
     y_eval_flat = flatten_label_sequences(y_eval)
     y_pred_flat = flatten_label_sequences(y_pred)
     report_text = crf_metrics.flat_classification_report(

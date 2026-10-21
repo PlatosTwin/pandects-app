@@ -238,6 +238,96 @@ unreleased:
     ("Retail Trade" for "459"). Both surfaces now share one resolver. A
     non-numeric value or a code whose sector is also missing stays null.
   refs: []
+- type: data
+  severity: notable
+  summary: "Adjacent headings of the same type are no longer merged into one section: 1,370 agreements re-sectioned."
+  details: >
+    The tagger printed two back-to-back headings of the same kind (for example
+    "Section 3.5 [Reserved]." directly followed by "Section 3.6 Material
+    Contracts.") as a single tag, so the XML and the sections table held one
+    section where the agreement has two. The 2,261 affected body pages in 1,370
+    agreements were re-tagged, adding 2,436 section, 71 article and 114 page
+    boundaries, and their XML and sections were rebuilt. Of those agreements,
+    1,301 that were verified stay verified and 11 that were invalid now verify;
+    none went from verified to invalid. Three agreements also had typos in the
+    filed section numbers corrected in the source text (cb7e8e4d, 0b3a6ac0,
+    e739fd7e). Rebuilt sections get new section ids, and sections with new ids
+    carry no taxonomy label (standard_id) until the taxonomy is rebuilt, so
+    standard_id coverage is lower in these agreements for now.
+  tables: [xml, sections, latest_sections_search, latest_sections_search_standard_ids]
+  migration: >
+    Section ids for the 1,370 agreements changed; re-fetch them rather than
+    joining on ids saved from the previous dump.
+  refs: ["2e4190bd"]
+- type: data
+  severity: notable
+  summary: "Page boundaries corrected: signature pages, exhibits and tables of contents removed from agreement body text in 93 agreements."
+  details: >
+    Each filing's pages are labeled front matter, table of contents, body,
+    signature or back matter, and only body pages become XML sections. The page
+    classifier was replaced with a more accurate model (see Sources & Methods),
+    and its labels were rechecked for 1,912 agreements whose stored labels looked
+    least reliable. 668 page labels changed across 228 agreements (113 of them
+    in 7 hand-labeled agreements whose labels were wrong). In 93 agreements the
+    body itself changed: typically a signature page or an attached exhibit (a
+    transition services or escrow agreement, for example) had been parsed as
+    the agreement's last sections, or a table-of-contents page as its first.
+    Their XML and sections were rebuilt; 2 agreements that previously failed XML
+    validation now pass. Changes that moved pages only among the non-body
+    classes do not affect the XML or sections.
+  tables: [xml, sections, latest_sections_search, latest_sections_search_standard_ids]
+  refs: ["b5a626a2", "54955dea"]
+- type: data
+  severity: notable
+  summary: "Deal metadata gaps filled: 976 empty fields across 580 agreements."
+  details: >
+    Fills were written only into empty fields; no existing value changed.
+    Missing values dropped for deal_status (647 -> 405), attitude (300 -> 129),
+    acquirer_industry (318 -> 261), target_industry (232 -> 188) and purpose
+    (113 -> 95).
+  tables: [agreements]
+- type: data
+  severity: notable
+  summary: "Deal metadata corrected on about 1,300 agreements, including consideration type on roughly 870 deals previously marked mixed."
+  details: >
+    An audit of 250 deals found systematic errors, which were then corrected
+    across the dataset. 706 agreements were corrected in a first pass: 71 audit
+    findings confirmed by an independent second check (45 deal price totals, 13
+    close dates, 10 consideration types), 113 deals whose SPAC acquirer is
+    listed now recorded as having a public acquirer, 213 deals left as pending
+    long after closing resolved to complete or cancelled, and 309 deals marked
+    mixed consideration corrected (292 of them to all-stock with the price
+    cleaned). A second pass made 631 corrections to deals marked mixed that have
+    only one price component; 571 of those changed consideration type. Deals
+    marked mixed fell from 4,919 to 4,046. Deal price now means the equity value
+    at signing, without earnouts or CVRs, and cash paid in lieu of fractional
+    shares no longer makes a deal mixed.
+  tables: [agreements]
+- type: data
+  severity: minor
+  summary: "Counsel refreshed for 46 agreements."
+  tables: [agreement_counsel, counsel]
+# FILL AT PUSH TIME: the gated-queue load (validation session, 2026-10-20) admitted
+# 2,171 deals filed 2021-01-04 to 2026-10-08, but they are still being paginated,
+# tagged and built. Replace [N] with the number that have verified XML and sections
+# at push time, [M] with their section count, and [R] with the originals actually
+# retired (58 are planned). Their deal metadata is mostly empty until a later fill.
+- type: data
+  severity: notable
+  summary: "[N] agreements added from a review of the previously unadmitted EDGAR filing queue (filings 2021-01 to 2026-10)."
+  details: >
+    3,542 EDGAR filings that the automatic title check could not admit were
+    reviewed against a written rubric, with a second, independent read of every
+    admitted filing: an executed, arm's-length, definitive agreement in which a
+    buyer acquires a company or operating business. 2,171 were admitted and
+    1,371 rejected. [N] of the admitted deals
+    have completed XML and sections in this release, adding [M] searchable
+    sections; the rest will follow. Where an admitted filing is an amended and
+    restated version of an agreement already in the dataset, the newer version
+    replaces the older one ([R] agreements removed). Deal metadata (parties,
+    price, consideration) for the new agreements is mostly empty and will be
+    filled in a later release.
+  tables: [agreements, xml, sections, latest_sections_search]
 releases:
 - version: '2026-09-09'
   released: '2026-09-09T23:37:59Z'

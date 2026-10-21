@@ -33,7 +33,7 @@ from .crf_pipeline import (
     build_feature_sequences,
     build_label_sequences,
     fit_tfidf_vectorizer,
-    guard_back_matter_starts,
+    guard_page_sequences,
     load_or_create_split_manifest,
     load_page_dataframe,
     monotonic_transition_overrides,
@@ -420,7 +420,7 @@ def _train_and_predict_crf(
             + f"{modified_agreement_count} agreements"
         )
     if eval_judgments is not None:
-        predicted_labels, marginal_rows, guarded_count = guard_back_matter_starts(
+        predicted_labels, marginal_rows, guarded_count = guard_page_sequences(
             decodable_model,
             x_eval,
             eval_judgments,
@@ -428,7 +428,7 @@ def _train_and_predict_crf(
             predicted_labels,
             marginal_rows,
         )
-        _log(f"{prefix}[review] back-matter guard re-decoded {guarded_count} agreements")
+        _log(f"{prefix}[review] TypeSafe guards re-decoded {guarded_count} agreements")
     return predicted_labels, marginal_rows
 
 

@@ -20,7 +20,7 @@ from .crf_pipeline import (
     POSTPROCESS_LATE_BACK_TRIGGER_RELATIVE_PAGE,
     PostprocessParameters,
     build_feature_sequences,
-    guard_back_matter_start,
+    guard_page_sequence,
     monotonic_transition_overrides,
     postprocess_prediction_sequence,
     predict_with_transition_overrides,
@@ -643,7 +643,7 @@ class ClassifierInference:
                 postprocess_parameters=self.postprocess_parameters,
             )
             if judgments is not None:
-                processed_labels, marginals[document_index], modified_mask = guard_back_matter_start(
+                processed_labels, marginals[document_index], modified_mask = guard_page_sequence(
                     self.model,
                     feature_sequence,
                     judgments[document_index],
