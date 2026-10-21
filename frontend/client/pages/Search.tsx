@@ -21,6 +21,7 @@ import { useTaxonomy } from "@/hooks/use-taxonomy";
 import { trackEvent } from "@/lib/analytics";
 import { isApiError } from "@/lib/api/client";
 import { buildAccountPathWithNext } from "@/lib/auth-next";
+import { buildAgreementHref } from "@/lib/agreement-links";
 import { indexClauseTypeLabels, indexClauseTypePaths } from "@/lib/clause-type-index";
 import type { ClauseTypeTree } from "@/lib/clause-types";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
@@ -61,7 +62,6 @@ import { buildStarterQueries, SearchEmptyState } from "./search/SearchEmptyState
 import { SearchQueryBar } from "./search/SearchQueryBar";
 import { SearchResultsPanel } from "./search/SearchResultsPanel";
 import {
-  buildAgreementHref,
   countRailFilters,
   describeSearch,
   filtersForModeSwitch,
@@ -443,7 +443,7 @@ export default function Search() {
         : null,
     [keywordApplied, committedFilters?.text_query, committedFilters?.text_match_mode],
   );
-  const chips = useActiveChips(filters, mode, clauseTypeLabelById);
+  const chips = useActiveChips(filters, mode, clauseTypeLabelById, filterOptions.industry_labels);
   const railCount = countRailFilters(filters, mode);
   const isAnonymous = active.hasSearched ? active.access.tier === "anonymous" : authStatus === "anonymous";
   const starters = useMemo(() => buildStarterQueries(mode, sectionTree, taxTree), [mode, sectionTree, taxTree]);
@@ -545,6 +545,7 @@ export default function Search() {
     acquirer_counsels: filterOptions.acquirer_counsels,
     target_industries: filterOptions.target_industries,
     acquirer_industries: filterOptions.acquirer_industries,
+    industry_labels: filterOptions.industry_labels,
     isLoadingFilterOptions: filterOptions.isLoading,
     onToggleFilterValue,
     onPatchFilters: patchFilters,

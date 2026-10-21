@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
-import { useNaics } from "@/hooks/use-naics";
-import { formatNaicsIndustry } from "@/lib/naics";
+import { formatIndustry } from "@/lib/naics";
 import { formatFilterOption } from "@/lib/text-utils";
 import type { SearchMode, SearchQueryFilters } from "@shared/search";
 import {
@@ -60,8 +59,9 @@ export function useActiveChips(
   filters: SearchQueryFilters,
   mode: SearchMode,
   clauseTypeLabelById: Record<string, string>,
+  /** NAICS label per industry code (`industry_labels` from filter options). */
+  industryLabels: Record<string, string> = {},
 ): ActiveChip[] {
-  const { labelByCode } = useNaics();
   const chips: ActiveChip[] = [];
   const keyword = filters.text_query?.trim();
   if (keyword) {
@@ -116,7 +116,7 @@ export function useActiveChips(
     for (const value of values) {
       const display =
         field === "target_industry" || field === "acquirer_industry"
-          ? (formatNaicsIndustry(labelByCode, value) ?? value)
+          ? (formatIndustry(value, industryLabels[value]) ?? value)
           : field === "target_pe" || field === "acquirer_pe"
             ? value === "true"
               ? "Yes"

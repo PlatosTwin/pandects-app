@@ -8,9 +8,8 @@ import { ExternalLink } from "@/components/ui/external-link";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import { StarButton } from "@/components/StarButton";
 import type { ResultsDensity, ResultsSortField } from "@/components/ResultsToolbar";
-import { useNaics } from "@/hooks/use-naics";
 import { formatCompactCurrencyValue, formatDateValue, formatEnumValue } from "@/lib/format-utils";
-import { formatNaicsIndustry } from "@/lib/naics";
+import { formatIndustry } from "@/lib/naics";
 import { cn } from "@/lib/utils";
 import type { TransactionSearchResult } from "@shared/transactions";
 import { Highlight, literalTermsPattern } from "@/pages/search/Highlight";
@@ -21,7 +20,8 @@ export interface TransactionResultsListProps {
   getAgreementHref: (result: TransactionSearchResult, focusSectionUuid?: string | null) => string;
   /** A clause type, section UUID or keyword is active, so matched sections mean something. */
   showMatches: boolean;
-  clauseTypeLabelById: Record<string, string>;
+  /** Fallback labels (the clause taxonomy tree) for ids a matched section doesn't label. */
+  clauseTypeLabelById?: Record<string, string>;
   selectedResults: Set<string>;
   onToggleResultSelection: (agreementUuid: string) => void;
   onToggleSelectAll: () => void;
@@ -93,7 +93,6 @@ function DealDetails({
   result: TransactionSearchResult;
   props: TransactionResultsListProps;
 }) {
-  const { labelByCode } = useNaics();
   const pattern = (terms?: string[]) => literalTermsPattern(terms) ?? props.highlightPattern ?? null;
   return (
     <div className="grid gap-5 px-3 py-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:px-4">
@@ -113,11 +112,11 @@ function DealDetails({
         <Fact label="Cash">{formatCompactCurrencyValue(result.transaction_price_cash)}</Fact>
         <Fact label="Stock">{formatCompactCurrencyValue(result.transaction_price_stock)}</Fact>
         <div className="col-span-full">
-          <Fact label="Target industry">{formatNaicsIndustry(labelByCode, result.target_industry) ?? DASH}</Fact>
+          <Fact label="Target industry">{formatIndustry(result.target_industry, result.target_industry_label) ?? DASH}</Fact>
         </div>
         <div className="col-span-full">
           <Fact label="Acquirer industry">
-            {formatNaicsIndustry(labelByCode, result.acquirer_industry) ?? DASH}
+            {formatIndustry(result.acquirer_industry, result.acquirer_industry_label) ?? DASH}
           </Fact>
         </div>
         {result.url ? (
@@ -138,7 +137,7 @@ function DealDetails({
               {result.matched_sections.map((section) => {
                 const title = section.section_title?.trim() || section.article_title?.trim() || "Matched section";
                 const types = section.standard_id
-                  .map((id) => props.clauseTypeLabelById[id])
+                  .map((id) => section.standard_id_labels?.[id] ?? props.clauseTypeLabelById?.[id])
                   .filter(Boolean)
                   .slice(0, 2);
                 return (

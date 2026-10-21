@@ -44,7 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { indexClauseTypeLabels } from "@/lib/clause-type-index";
-import { useFilterOptions } from "@/hooks/use-filter-options";
+import { useTaxonomy } from "@/hooks/use-taxonomy";
 import {
   bulkCopyFavorites as apiBulkCopyFavorites,
   bulkMoveFavorites as apiBulkMoveFavorites,
@@ -61,10 +61,11 @@ const EMPTY_SECTIONS: Record<string, SectionDetails | null> = {};
 export default function FavoritesPage() {
   const { status, user } = useAuth();
   const { toast } = useToast();
-  const { clause_types } = useFilterOptions({ fields: ["clause_types"] });
+  // Fallback for section favorites whose details carry no labels.
+  const { taxonomyTree } = useTaxonomy();
   const clauseTypeLabelById = useMemo(
-    () => indexClauseTypeLabels(clause_types),
-    [clause_types],
+    () => indexClauseTypeLabels(taxonomyTree ?? {}),
+    [taxonomyTree],
   );
   const {
     projects,
@@ -477,7 +478,7 @@ export default function FavoritesPage() {
             </div>
           </div>
 
-          <div className="border-b border-border bg-muted/20 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-muted/20 sm:px-8">
+          <div className="border-b border-border bg-muted/20 px-4 py-2.5 sm:px-8">
             <div className="grid min-w-0 gap-2 xl:grid-cols-[18rem_minmax(0,1fr)]">
               <TagsManager
                 onTagUpdated={handleTagUpdated}
@@ -575,7 +576,7 @@ export default function FavoritesPage() {
               </div>
 
               {selectedIds.size > 0 ? (
-                <div className="sticky top-16 z-20 flex flex-col gap-2 rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur sm:flex-row sm:items-center">
+                <div className="sticky top-16 z-20 flex flex-col gap-2 rounded-lg border bg-background px-3 py-2 shadow-sm sm:flex-row sm:items-center">
                   <span className="text-sm font-medium text-foreground">
                     {selectedIds.size} selected
                   </span>

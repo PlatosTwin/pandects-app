@@ -1,3 +1,4 @@
+import { buildAgreementHref } from "@/lib/agreement-links";
 import type { Favorite } from "@/lib/favorites-api";
 
 import type { AgreementMetadata, FavoriteFilters } from "./types";
@@ -14,13 +15,15 @@ export function hasActiveFilters(f: FavoriteFilters): boolean {
   );
 }
 
-export function favoriteHref(fav: Favorite): string | null {
+/** Reader link for a favorite; the reader's Back button returns to `from`. */
+export function favoriteHref(fav: Favorite, from: string = "/favorites"): string | null {
   const agreementUuid = fav.agreement_uuid;
   if (!agreementUuid) return null;
-  if (fav.item_type === "section") {
-    return `/agreements/${agreementUuid}?focusSectionUuid=${fav.item_uuid}`;
-  }
-  return `/agreements/${agreementUuid}`;
+  return buildAgreementHref({
+    agreementUuid,
+    sectionUuid: fav.item_type === "section" ? fav.item_uuid : null,
+    from,
+  });
 }
 
 export function favoriteHeading(

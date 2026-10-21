@@ -221,25 +221,6 @@ describe("XMLRenderer agreement mode anchors and structure", () => {
     expect(markup.match(/data-collapse-toggle="true"/g)).toHaveLength(3);
   });
 
-  it("highlights the requested section only", () => {
-    const highlighted = renderToStaticMarkup(
-      createElement(XMLRenderer, {
-        mode: "agreement",
-        xmlContent: AGREEMENT_FIXTURE,
-        highlightedSection: "s-2",
-      }),
-    );
-    const sectionTwo = highlighted.slice(
-      highlighted.indexOf('data-section-uuid="s-2"'),
-    );
-    expect(sectionTwo).toContain("bg-primary/10");
-    const sectionOne = highlighted.slice(
-      highlighted.indexOf('data-section-uuid="s-1"'),
-      highlighted.indexOf('data-section-uuid="s-2"'),
-    );
-    expect(sectionOne).not.toContain("bg-primary/10");
-  });
-
   it("renders only body content when showBodyOnly is set", () => {
     const bodyOnly = renderToStaticMarkup(
       createElement(XMLRenderer, {
@@ -304,7 +285,7 @@ describe("XMLRenderer unparseable content fallback", () => {
 });
 
 describe("XMLRenderer memoized subtree rendering", () => {
-  it("re-renders only affected subtrees on highlight change, and keeps collapse/auto-expand working", () => {
+  it("re-renders only affected subtrees on current-match change, and keeps collapse/auto-expand working", () => {
     (
       globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -323,7 +304,7 @@ describe("XMLRenderer memoized subtree rendering", () => {
     const onRender: ProfilerProps["onRender"] = (_id, _phase, actualDuration) => {
       durations.push(actualDuration);
     };
-    const render = (highlighted: string | null) =>
+    const render = (current: string | null, reveal?: { uuid: string; seq: number }) =>
       act(() => {
         root.render(
           createElement(
@@ -332,7 +313,8 @@ describe("XMLRenderer memoized subtree rendering", () => {
             createElement(XMLRenderer, {
               mode: "agreement",
               xmlContent: xml,
-              highlightedSection: highlighted,
+              currentMatchUuid: current,
+              revealRequest: reveal ?? null,
             }),
           ),
         );
@@ -343,11 +325,11 @@ describe("XMLRenderer memoized subtree rendering", () => {
 
     durations.length = 0;
     render("s-150");
-    expect(container.innerHTML).toContain("bg-primary/10");
+    expect(container.innerHTML).toContain("bg-primary/5");
     const highlightDuration = Math.max(...durations);
 
-    // Memoized subtrees make a highlight change render only the path to the
-    // highlighted section, not the whole 300-section document (~68x cheaper
+    // Memoized subtrees make a current-match change render only the path to
+    // that section, not the whole 300-section document (~68x cheaper
     // when measured; assert a conservative 10x to avoid CI timing flakes).
     expect(highlightDuration).toBeLessThan(mountDuration / 10);
 
@@ -364,8 +346,8 @@ describe("XMLRenderer memoized subtree rendering", () => {
     ).not.toContain("Body text for section 10.");
     expect(container.innerHTML).toContain("Body text for section 11.");
 
-    // Highlighting a section inside a collapsed ancestor auto-expands it.
-    render("s-10");
+    // Revealing a section inside a collapsed ancestor auto-expands it.
+    render("s-10", { uuid: "s-10", seq: 1 });
     expect(
       container.querySelector('[data-section-uuid="s-10"]')?.textContent,
     ).toContain("Body text for section 10.");

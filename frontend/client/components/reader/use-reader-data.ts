@@ -1,67 +1,7 @@
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
-import { logger } from "@/lib/logger";
 import { originSearchParams, type AgreementOrigin } from "@/lib/agreement-links";
-import type {
-  AgreementSectionIndexItem,
-  AgreementSectionIndexResponse,
-} from "@shared/transactions";
-
-/**
- * Section index (uuid, titles, taxonomy ids) for the contents type filter.
- *
- * DATA HOOK PLUG-IN POINT: this is the hand-rolled fetch the shared React
- * Query hook replaces. Swap the body for that hook and keep the return shape
- * ({ sectionIndex, isLoading, error }); nothing else in the reader changes.
- */
-export function useAgreementSectionIndex(agreementUuid: string) {
-  const [sectionIndex, setSectionIndex] = useState<AgreementSectionIndexItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const fetchSectionIndex = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await authFetch(
-          apiUrl(`v1/agreements/${agreementUuid}/sections`),
-          { signal: controller.signal },
-        );
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        const payload = (await response.json()) as AgreementSectionIndexResponse;
-        if (!cancelled) setSectionIndex(payload.results);
-      } catch (fetchError) {
-        if (!cancelled) {
-          logger.error("Failed to fetch agreement sections index:", fetchError);
-          setSectionIndex([]);
-          setError(
-            fetchError instanceof Error
-              ? fetchError.message
-              : "Unable to load agreement sections.",
-          );
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    void fetchSectionIndex();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [agreementUuid]);
-
-  return { sectionIndex, isLoading, error };
-}
 
 /** Params the search page puts in its URL that don't belong in a scoped query. */
 const NON_FILTER_PARAMS = ["mode", "sort_by", "sort_direction", "page", "page_size"];
