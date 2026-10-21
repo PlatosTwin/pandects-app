@@ -30,8 +30,9 @@ from werkzeug.exceptions import ServiceUnavailable
 
 FULLTEXT_SEARCH_SLOTS = max(1, int(os.environ.get("FULLTEXT_SEARCH_SLOTS", "2")))
 # How long a search waits for a slot before answering 503. A slot is held for the
-# whole request; its statements are each capped (2s, 4s and 20s budgets, so up to
-# about 46s for an agreement search), so this bounds the queue, not the search.
+# whole request; its statements are each capped (2s, 4s, 8s and 20s budgets, so
+# up to about 54s for an agreement search whose first try hits a cold cache), so
+# this bounds the queue, not the search.
 FULLTEXT_SLOT_WAIT_SECONDS = max(0, int(os.environ.get("FULLTEXT_SLOT_WAIT_SECONDS", "8")))
 _SLOT_POLL_SECONDS = 0.25
 FULLTEXT_BUSY_MESSAGE = (

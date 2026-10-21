@@ -23,6 +23,7 @@ from backend.services.sections_service import (
     TEXT_PLAN_DATE_SCAN,
     TEXT_PLAN_FULLTEXT,
     TEXT_QUERY_TOO_EXPENSIVE_MESSAGE,
+    _TEXT_PLAN_COLD_RETRY_SECONDS,
     _remember_text_plan,
     _remembered_text_plan,
     apply_section_text_join,
@@ -714,16 +715,61 @@ class PhrasePlanRaceTests(unittest.TestCase):
         self.assertEqual(cast(dict[str, object], result)["results"], [])
         self.assertEqual(query.all.call_count, 3)
         self.assertEqual(deps.db.session.rollback.call_count, 2)
-        budgets = [
-            call.kwargs["max_statement_time"]
-            for call in query.execution_options.call_args_list
-            if "max_statement_time" in call.kwargs
-        ]
-        self.assertIn(TEXT_SEARCH_MAX_STATEMENT_SECONDS, budgets)
+        # The retry runs under its own budget, not the 2s race budget. No count
+        # follows an empty first page, so the last budget set is the retry's.
+        self.assertEqual(
+            query.execution_options.call_args_list[-1].kwargs,
+            {"max_statement_time": _TEXT_PLAN_COLD_RETRY_SECONDS},
+        )
         self.assertEqual(
             _remembered_text_plan(build_search_count_cache_key("sections", parsed_args)),
             TEXT_PLAN_DATE_SCAN,
         )
+
+    def test_no_retry_unless_the_fallback_overflowed_after_a_cut_short_first_try(
+        self,
+    ) -> None:
+        # Only "date scan cut short, then FULLTEXT overflowed" says the phrase is
+        # common and its date-ordered page cheap. Anything else fails as before.
+        for first, second in (
+            (_fts_out_of_memory(), _fts_out_of_memory()),
+            (_statement_timeout(), _statement_timeout()),
+            (_fts_out_of_memory(), _statement_timeout()),
+        ):
+            with self.subTest(first=first, second=second):
+                reset_text_plan_cache()
+                query = _chained_query()
+                query.all.side_effect = [first, second, []]
+                deps = _service_deps(query)
+                with self.assertRaises(ValidationError):
+                    _ = run_sections(
+                        deps,
+                        ctx=cast(Any, _CTX),
+                        parsed_args=_parsed_args(
+                            text_query="material adverse effect",
+                            text_match_mode="phrase",
+                        ),
+                    )
+                self.assertEqual(query.all.call_count, 2)
+
+    def test_unrelated_fallback_error_is_not_retried(self) -> None:
+        query = _chained_query()
+        query.all.side_effect = [
+            _statement_timeout(),
+            InternalError("SELECT 1", {}, Exception(1105, "unknown")),
+            [],
+        ]
+        deps = _service_deps(query)
+        with self.assertRaises(InternalError):
+            _ = run_sections(
+                deps,
+                ctx=cast(Any, _CTX),
+                parsed_args=_parsed_args(
+                    text_query="material adverse effect", text_match_mode="phrase"
+                ),
+            )
+        self.assertEqual(query.all.call_count, 2)
+        deps.db.session.rollback.assert_called_once()
 
     def test_cold_cache_retry_that_still_fails_is_a_client_error(self) -> None:
         query = _chained_query()

@@ -63,6 +63,12 @@ TEXT_PLAN_DATE_SCAN = "date_ordered_scan"
 # budget therefore cuts a wrong guess short, while the FULLTEXT fallback still
 # gets the room it needs for the rare phrases it is good at.
 _TEXT_PLAN_FIRST_ATTEMPT_SECONDS = 2
+# A cold buffer pool (just after a database restart) can make the date-ordered
+# page of a common phrase miss that first budget while still being cheap in page
+# reads. When the FULLTEXT plan then overflows its result cache -- the sign of a
+# common phrase -- the date-ordered plan gets one more, longer try. Kept well
+# under the full text budget: the request still holds a FULLTEXT slot.
+_TEXT_PLAN_COLD_RETRY_SECONDS = 8
 # What this budget really buys is latency, not safety: innodb_ft_result_cache_limit
 # already stops the phrases that threaten the server. Production measured 16.5s
 # average on search_sections at 15s -- the count spending the whole budget only to
@@ -690,21 +696,20 @@ def fetch_with_text_plan_race(
     try:
         rows = cast(list[object], second_query.offset(offset).limit(limit).all())
     except DatabaseError as exc:
-        if not (first_cut_short and is_text_plan_exhausted_error(exc)):
+        # Only a cut-short date scan followed by a FULLTEXT result-cache
+        # overflow earns a retry: the overflow says the phrase is common, so
+        # its date-ordered page is cheap and was only slow from disk. A FULLTEXT
+        # timeout says nothing of the kind, and a retry would grind the table.
+        if not (first_cut_short and is_fts_result_cache_error(exc)):
             raise
         db.session.rollback()
     else:
         _remember_text_plan(cache_key, second_plan)
         return rows, second_query
 
-    # Both failed, but the first only ran out of its short race budget. That is
-    # what a cold buffer pool looks like (just after a database restart): a
-    # common phrase's date-ordered page is cheap in page reads yet slow from
-    # disk, while the FULLTEXT plan cannot hold a common phrase at all. Give the
-    # first plan the full text-search budget instead of failing the search; the
-    # pages it reads stay cached for the requests after it.
+    # The pages this reads stay cached for the requests after it.
     patient = first_query.execution_options(
-        max_statement_time=TEXT_SEARCH_MAX_STATEMENT_SECONDS
+        max_statement_time=_TEXT_PLAN_COLD_RETRY_SECONDS
     )
     rows = cast(list[object], patient.offset(offset).limit(limit).all())
     _remember_text_plan(cache_key, first_plan)
