@@ -2826,6 +2826,35 @@ class MainRoutesTests(unittest.TestCase):
         finally:
             self._clear_text_search_rows()
 
+    def test_text_search_answers_503_when_fulltext_slots_are_busy(self):
+        # Keyword searches share a server-wide cap on concurrent FULLTEXT queries
+        # (prod MariaDB was OOM-killed by several at once); a full cap is a retryable 503.
+        from backend.core.fulltext_slots import FULLTEXT_BUSY_MESSAGE, FulltextSearchBusy
+
+        import contextlib
+
+        @contextlib.contextmanager
+        def busy(_engine):
+            raise FulltextSearchBusy()
+            yield
+
+        client = self.app.test_client()
+        with (
+            patch("backend.services.agreements_service.fulltext_slot", busy),
+            patch("backend.services.sections_service.fulltext_slot", busy),
+        ):
+            for path in (
+                "/v1/search/agreements?text_query=material+adverse+effect",
+                "/v1/sections?text_query=material+adverse+effect",
+            ):
+                res = client.get(path)
+                self.assertEqual(res.status_code, 503, (path, res.get_json()))
+                self.assertEqual(res.headers.get("Retry-After"), "5")
+                self.assertIn(FULLTEXT_BUSY_MESSAGE, json.dumps(res.get_json()))
+            # Searches without a keyword never take a slot.
+            self.assertEqual(client.get("/v1/search/agreements?page_size=1").status_code, 200)
+            self.assertEqual(client.get("/v1/sections?page_size=1").status_code, 200)
+
     # -- Public eligibility on section reads ---------------------------------------------
 
     def test_section_search_and_get_section_exclude_gated_unverified_agreements(self):

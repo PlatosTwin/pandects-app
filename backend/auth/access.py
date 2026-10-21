@@ -21,8 +21,10 @@ from backend.auth.session_runtime import (
     _mock_auth,
     auth_db_is_configured,
     auth_is_mocked,
+    auth_lookup_failed,
     auth_session_transport,
     load_session_token,
+    note_auth_lookup_failed,
 )
 from backend.core.config import temporary_access_lockdown_enabled
 from backend.core.runtime_utils import utc_today
@@ -39,6 +41,7 @@ def user_id_is_verified(user_id: str) -> bool:
     try:
         user = db.session.get(AuthUser, user_id)
     except SQLAlchemyError:
+        note_auth_lookup_failed()
         return False
     if user is None:
         return False
@@ -58,6 +61,7 @@ def _verified_session_user_context(token: str) -> AccessContext | None:
         try:
             user = db.session.get(AuthUser, user_id)
         except SQLAlchemyError:
+            note_auth_lookup_failed()
             user = None
         if user is not None and cast(object, user.email_verified_at) is not None:
             return AccessContext(tier="user", user_id=user_id)
@@ -85,6 +89,7 @@ def _api_key_context(api_key_raw: str) -> AccessContext | None:
     try:
         db_api_key = lookup_api_key(api_key_raw)
     except SQLAlchemyError:
+        note_auth_lookup_failed()
         db_api_key = None
     if db_api_key is None:
         return None
@@ -201,6 +206,7 @@ def access_account_predates_today(ctx: AccessContext) -> bool:
         try:
             user = db.session.get(AuthUser, ctx.user_id)
         except SQLAlchemyError:
+            note_auth_lookup_failed()
             return False
     else:
         return False
@@ -232,6 +238,10 @@ def temporary_access_gate() -> None:
         ctx = current_access_context()
     if access_account_predates_today(ctx):
         return
+    if auth_lookup_failed():
+        # The request carried credentials we could not check; a 403 here would
+        # tell a signed-in user they have no access. 503 lets the client retry.
+        abort(503, description="Auth backend is unavailable right now.")
     abort(403, description=DATA_API_DISABLED_MESSAGE)
 
 

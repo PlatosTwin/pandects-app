@@ -111,6 +111,10 @@ def handle_http_exception(err: HTTPException):
             {"error": error_code_for_status(status), "message": _http_exception_message(err)}
         )
         resp.status_code = status
+        # Keep headers the exception sets (Retry-After on a 503, Allow on a 405).
+        for name, value in err.get_headers():
+            if name.lower() != "content-type":
+                resp.headers[name] = value
         return resp
     return err
 

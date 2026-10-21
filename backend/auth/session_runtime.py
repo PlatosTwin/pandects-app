@@ -12,7 +12,7 @@ from threading import Lock
 from typing import cast
 from urllib.parse import urlsplit
 
-from flask import Flask, abort, current_app, request
+from flask import Flask, abort, current_app, has_request_context, request
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.wrappers.response import Response as WerkzeugResponse
@@ -207,6 +207,30 @@ def auth_db_is_configured() -> bool:
     if AUTH_DATABASE_URI is not None:
         return True
     return not is_running_on_fly()
+
+
+_AUTH_LOOKUP_FAILED_KEY = "pandects.auth_lookup_failed"
+
+
+def note_auth_lookup_failed() -> None:
+    """Record that this request's credentials could not be checked (auth DB error).
+
+    Callers still fall back to anonymous, but gates that would reject an anonymous
+    request answer 503 instead, so a signed-in user is never told they lack access
+    because Postgres was briefly unreachable. The session is rolled back so later
+    lookups in the same request can reconnect instead of raising PendingRollbackError.
+    """
+    try:
+        db.session.rollback()
+    except SQLAlchemyError:
+        pass
+    # Kept on the request, not `g`: an app context can outlive one request.
+    if has_request_context():
+        request.environ[_AUTH_LOOKUP_FAILED_KEY] = True
+
+
+def auth_lookup_failed() -> bool:
+    return has_request_context() and bool(request.environ.get(_AUTH_LOOKUP_FAILED_KEY))
 
 
 def require_auth_db() -> None:
@@ -532,6 +556,7 @@ def load_session_token(token: str) -> str | None:
             ).first(),
         )
     except SQLAlchemyError:
+        note_auth_lookup_failed()
         return None
     if session is None:
         return None
