@@ -19,7 +19,7 @@ import re
 import time
 from pathlib import Path
 from threading import Lock
-from typing import Any, Protocol, TypedDict, cast
+from typing import Any, Protocol, cast
 from urllib.parse import urlencode
 
 import click
@@ -281,59 +281,6 @@ class _ApiExtension(Protocol):
         ...
 
 
-# ── Shared payload caches handed to route deps ────────────────────────────
-# These dicts are the storage behind caches whose logic still lives in
-# `routes/agreements` and `routes/reference_data`. They move behind
-# `backend.core.caching.ttl_cached` when those consumers are converted; see
-# ARCHITECTURE.md ("Caching").
-class _PayloadCache(TypedDict):
-    ts: float
-    payload: object
-
-
-class _ChangelogCache(TypedDict):
-    ts: float
-    payload: object
-    fail_ts: float
-
-
-def _payload_cache() -> _PayloadCache:
-    return {"ts": 0.0, "payload": None}
-
-
-_FILTER_OPTIONS_TTL_SECONDS = int(os.environ.get("FILTER_OPTIONS_TTL_SECONDS", "21600"))
-_TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
-_COUNSEL_TTL_SECONDS = int(os.environ.get("COUNSEL_TTL_SECONDS", "21600"))
-_NAICS_TTL_SECONDS = int(os.environ.get("NAICS_TTL_SECONDS", "21600"))
-_AGREEMENTS_SUMMARY_TTL_SECONDS = int(os.environ.get("AGREEMENTS_SUMMARY_TTL_SECONDS", "60"))
-_DUMPS_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_CACHE_TTL_SECONDS", "300"))
-_CHANGELOG_CACHE_TTL_SECONDS = int(os.environ.get("CHANGELOG_CACHE_TTL_SECONDS", "300"))
-_DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_MANIFEST_CACHE_TTL_SECONDS", "1800"))
-
-_filter_options_cache = _payload_cache()
-_filter_options_lock = Lock()
-_taxonomy_cache = _payload_cache()
-_taxonomy_lock = Lock()
-_tax_clause_taxonomy_cache = _payload_cache()
-_tax_clause_taxonomy_lock = Lock()
-_counsel_cache = _payload_cache()
-_counsel_lock = Lock()
-_naics_cache = _payload_cache()
-_naics_lock = Lock()
-_agreements_summary_cache = _payload_cache()
-_agreements_summary_lock = Lock()
-_dumps_cache = _payload_cache()
-_dumps_cache_lock = Lock()
-_changelog_cache: _ChangelogCache = {"ts": 0.0, "payload": None, "fail_ts": 0.0}
-_changelog_cache_lock = Lock()
-_dumps_manifest_cache: dict[str, object] = {}
-_dumps_manifest_cache_lock = Lock()
-
-
-def _as_cache_dict(cache: object) -> dict[str, object]:
-    return cast(dict[str, object], cache)
-
-
 # ── Cached exact result counts for paginated search ───────────────────────
 # A search's match count depends only on its filter signature, so it is the
 # same on every page. Memoizing it per signature turns one COUNT-per-page into
@@ -500,13 +447,9 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         TaxClauseTaxonomyL2=TaxClauseTaxonomyL2,
         TaxClauseTaxonomyL3=TaxClauseTaxonomyL3,
         XML=XML,
-        _AGREEMENTS_SUMMARY_TTL_SECONDS=_AGREEMENTS_SUMMARY_TTL_SECONDS,
-        _FILTER_OPTIONS_TTL_SECONDS=_FILTER_OPTIONS_TTL_SECONDS,
         _SECTION_ID_RE=_SECTION_ID_RE,
         _agreement_latest_xml_join_condition=_agreement_latest_xml_join_condition,
         _agreement_year_expr=_agreement_year_expr,
-        _agreements_summary_cache=_as_cache_dict(_agreements_summary_cache),
-        _agreements_summary_lock=_agreements_summary_lock,
         _coalesced_section_standard_ids=_coalesced_section_standard_ids,
         _current_access_context=_current_access_context,
         _decode_agreements_cursor=_decode_agreements_cursor,
@@ -514,8 +457,6 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _expand_tax_clause_taxonomy_standard_ids_cached=_expand_tax_clause_taxonomy_standard_ids_cached,
         _tax_clause_standard_id_filter_expr=_tax_clause_standard_id_filter_expr,
         _encode_agreements_cursor=_encode_agreements_cursor,
-        _filter_options_cache=_as_cache_dict(_filter_options_cache),
-        _filter_options_lock=_filter_options_lock,
         _load_query=_load_query,
         _pagination_metadata=_pagination_metadata,
         _parse_section_standard_ids=_parse_section_standard_ids,
@@ -530,7 +471,6 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         _to_int=_to_int,
         _year_from_filing_date_value=_year_from_filing_date_value,
         db=db,
-        time=time,
     )
     reference_data_deps = ReferenceDataDeps(
         Counsel=Counsel,
@@ -544,29 +484,8 @@ def _build_route_deps() -> tuple[SectionsDeps, AgreementsDeps, ReferenceDataDeps
         TaxonomyL1=TaxonomyL1,
         TaxonomyL2=TaxonomyL2,
         TaxonomyL3=TaxonomyL3,
-        _CHANGELOG_CACHE_TTL_SECONDS=_CHANGELOG_CACHE_TTL_SECONDS,
-        _DUMPS_CACHE_TTL_SECONDS=_DUMPS_CACHE_TTL_SECONDS,
-        _DUMPS_MANIFEST_CACHE_TTL_SECONDS=_DUMPS_MANIFEST_CACHE_TTL_SECONDS,
-        _COUNSEL_TTL_SECONDS=_COUNSEL_TTL_SECONDS,
-        _NAICS_TTL_SECONDS=_NAICS_TTL_SECONDS,
-        _TAXONOMY_TTL_SECONDS=_TAXONOMY_TTL_SECONDS,
-        _changelog_cache=_as_cache_dict(_changelog_cache),
-        _changelog_cache_lock=_changelog_cache_lock,
-        _counsel_cache=_as_cache_dict(_counsel_cache),
-        _counsel_lock=_counsel_lock,
-        _dumps_cache=_as_cache_dict(_dumps_cache),
-        _dumps_cache_lock=_dumps_cache_lock,
-        _dumps_manifest_cache=_dumps_manifest_cache,
-        _dumps_manifest_cache_lock=_dumps_manifest_cache_lock,
-        _naics_cache=_as_cache_dict(_naics_cache),
-        _naics_lock=_naics_lock,
-        _tax_clause_taxonomy_cache=_as_cache_dict(_tax_clause_taxonomy_cache),
-        _tax_clause_taxonomy_lock=_tax_clause_taxonomy_lock,
-        _taxonomy_cache=_as_cache_dict(_taxonomy_cache),
-        _taxonomy_lock=_taxonomy_lock,
         client=_r2_client,
         db=db,
-        time=time,
     )
 
     # The three wrappers below resolve their target through this module at

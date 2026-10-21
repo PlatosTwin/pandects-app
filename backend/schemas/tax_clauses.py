@@ -5,7 +5,11 @@ from typing import TypedDict, cast
 from marshmallow import Schema, fields, validate
 
 from backend.schemas.labels import TaxStandardIdLabelsSchema
-from backend.schemas.sections import AccessInfoSchema, DumpVersionInfoSchema
+from backend.schemas.sections import (
+    AccessInfoSchema,
+    DumpVersionInfoSchema,
+    price_bucket_list_field,
+)
 
 
 class TaxClausesArgsPayload(TypedDict):
@@ -54,10 +58,10 @@ class TaxClausesArgsSchema(Schema):
             ),
         },
     )
-    transaction_price_total = fields.List(fields.Str(), load_default=[])
-    transaction_price_stock = fields.List(fields.Str(), load_default=[])
-    transaction_price_cash = fields.List(fields.Str(), load_default=[])
-    transaction_price_assets = fields.List(fields.Str(), load_default=[])
+    transaction_price_total = price_bucket_list_field()
+    transaction_price_stock = price_bucket_list_field()
+    transaction_price_cash = price_bucket_list_field()
+    transaction_price_assets = price_bucket_list_field()
     transaction_consideration = fields.List(fields.Str(), load_default=[])
     target_type = fields.List(fields.Str(), load_default=[])
     acquirer_type = fields.List(fields.Str(), load_default=[])

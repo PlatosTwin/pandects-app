@@ -1,13 +1,22 @@
+"""Reference-data routes: taxonomies, NAICS, counsel, bulk dumps, changelog.
+
+Each read-mostly payload is memoized with ``ttl_cached`` (one slot per payload;
+the dump-manifest cache is keyed by object key + ETag). The taxonomy trees and
+counts are cached per database by ``taxonomy_service`` instead.
+"""
+
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
-from typing import cast
+import os
+from collections.abc import Hashable, Iterable
+from typing import Any, cast
 
 from flask import Response, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
+from backend.core.caching import ttl_cached
 from backend.routes.deps import ReferenceDataDeps
 from backend.services import taxonomy_service
 from backend.schemas.public_api import (
@@ -18,6 +27,271 @@ from backend.schemas.public_api import (
     NaicsResponseSchema,
     TaxonomyCountsResponseSchema,
 )
+
+TAXONOMY_TTL_SECONDS = taxonomy_service.TAXONOMY_TTL_SECONDS
+COUNSEL_TTL_SECONDS = int(os.environ.get("COUNSEL_TTL_SECONDS", "21600"))
+NAICS_TTL_SECONDS = int(os.environ.get("NAICS_TTL_SECONDS", "21600"))
+DUMPS_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_CACHE_TTL_SECONDS", "300"))
+CHANGELOG_CACHE_TTL_SECONDS = int(os.environ.get("CHANGELOG_CACHE_TTL_SECONDS", "300"))
+DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_MANIFEST_CACHE_TTL_SECONDS", "1800"))
+# Negative-cache window after a failed R2 read, so an absent/unreachable
+# changelog.json doesn't turn every request into a live R2 GetObject.
+CHANGELOG_FAIL_TTL_SECONDS = 60
+_DUMPS_MANIFEST_CACHE_MAX_KEYS = 256
+
+
+def _single_slot(_deps: ReferenceDataDeps, /) -> Hashable:
+    """Cache key for a payload that does not vary by argument (the deps handle)."""
+    return ()
+
+
+@ttl_cached(NAICS_TTL_SECONDS, key=_single_slot)
+def naics_payload_cached(deps: ReferenceDataDeps) -> dict[str, object]:
+    db = deps.db
+    naics_sector = deps.NaicsSector
+    naics_sub_sector = deps.NaicsSubSector
+    sector_rows = cast(
+        list[tuple[object, object, object, object]],
+        db.session.query(
+            naics_sector.sector_code,
+            naics_sector.sector_desc,
+            naics_sector.sector_group,
+            naics_sector.super_sector,
+        ).all(),
+    )
+    sub_sector_rows = cast(
+        list[tuple[object, object, object]],
+        db.session.query(
+            naics_sub_sector.sub_sector_code,
+            naics_sub_sector.sub_sector_desc,
+            naics_sub_sector.sector_code,
+        ).all(),
+    )
+
+    sector_by_code: dict[int, dict[str, object]] = {}
+    for sector_code, sector_desc, sector_group, super_sector in sector_rows:
+        if not isinstance(sector_code, int):
+            raise ValueError("naics_sectors.sector_code must be an integer.")
+        if not isinstance(sector_desc, str):
+            raise ValueError("naics_sectors.sector_desc must be a string.")
+        if not isinstance(sector_group, str):
+            raise ValueError("naics_sectors.sector_group must be a string.")
+        if not isinstance(super_sector, str):
+            raise ValueError("naics_sectors.super_sector must be a string.")
+        sector_by_code[sector_code] = {
+            "sector_code": str(sector_code),
+            "sector_desc": sector_desc,
+            "sector_group": sector_group,
+            "super_sector": super_sector,
+            "sub_sectors": [],
+        }
+
+    for sub_sector_code, sub_sector_desc, sector_code in sub_sector_rows:
+        if not isinstance(sector_code, int):
+            raise ValueError("naics_sub_sectors.sector_code must be an integer.")
+        if not isinstance(sub_sector_code, int):
+            raise ValueError("naics_sub_sectors.sub_sector_code must be an integer.")
+        if not isinstance(sub_sector_desc, str):
+            raise ValueError("naics_sub_sectors.sub_sector_desc must be a string.")
+        parent = sector_by_code.get(sector_code)
+        if parent is None:
+            raise ValueError("naics_sub_sectors has sector_code with no matching sector.")
+        parent_sub_sectors = cast(list[dict[str, str]], parent["sub_sectors"])
+        parent_sub_sectors.append(
+            {
+                "sub_sector_code": str(sub_sector_code),
+                "sub_sector_desc": sub_sector_desc,
+            }
+        )
+
+    sorted_sector_codes = sorted(sector_by_code.keys())
+    sectors: list[dict[str, object]] = []
+    for code in sorted_sector_codes:
+        sector = sector_by_code[code]
+        sub_sectors = cast(list[dict[str, str]], sector["sub_sectors"])
+        sector["sub_sectors"] = sorted(
+            sub_sectors,
+            key=lambda sub_sector: int(sub_sector["sub_sector_code"]),
+        )
+        sectors.append(sector)
+
+    return {"sectors": sectors}
+
+
+@ttl_cached(COUNSEL_TTL_SECONDS, key=_single_slot)
+def counsel_payload_cached(deps: ReferenceDataDeps) -> dict[str, object]:
+    db = deps.db
+    counsel = deps.Counsel
+    rows = cast(
+        list[tuple[object, object]],
+        db.session.query(
+            counsel.counsel_id,
+            counsel.canonical_name,
+        )
+        .order_by(counsel.canonical_name.asc(), counsel.counsel_id.asc())
+        .all(),
+    )
+
+    payload_rows: list[dict[str, object]] = []
+    for counsel_id, canonical_name in rows:
+        if not isinstance(counsel_id, int):
+            raise ValueError("counsel.counsel_id must be an integer.")
+        if not isinstance(canonical_name, str):
+            raise ValueError("counsel.canonical_name must be a string.")
+        payload_rows.append(
+            {
+                "counsel_id": counsel_id,
+                "canonical_name": canonical_name,
+            }
+        )
+    return {"counsel": payload_rows}
+
+
+def _dump_manifest_key(_client: object, _bucket: str, key: str, etag: str, /) -> Hashable:
+    return (key, etag)
+
+
+@ttl_cached(
+    DUMPS_MANIFEST_CACHE_TTL_SECONDS,
+    key=_dump_manifest_key,
+    max_keys=_DUMPS_MANIFEST_CACHE_MAX_KEYS,
+)
+def _dump_manifest_cached(client: object, bucket: str, key: str, etag: str) -> dict[str, object]:
+    """A dump manifest's JSON, reused while its ETag is unchanged. Raises on read failure."""
+    del etag  # part of the cache key only
+    return _read_dump_manifest(client, bucket, key)
+
+
+def _read_dump_manifest(client: object, bucket: str, key: str) -> dict[str, object]:
+    body = cast(Any, client).get_object(Bucket=bucket, Key=key)["Body"].read()
+    parsed_data = cast(object, json.loads(body))
+    return cast(dict[str, object], parsed_data) if isinstance(parsed_data, dict) else {}
+
+
+@ttl_cached(DUMPS_CACHE_TTL_SECONDS, key=_single_slot)
+def dump_list_cached(deps: ReferenceDataDeps) -> list[dict[str, object]]:
+    """Newest-first dump entries built from the R2 `dumps/` listing."""
+    client = deps.client
+    if client is None:
+        return []
+    s3_client = client
+    paginator = s3_client.get_paginator("list_objects_v2")
+    pages: Iterable[dict[str, object]] = paginator.paginate(
+        Bucket=deps.R2_BUCKET_NAME, Prefix="dumps/"
+    )
+
+    dumps_map: dict[str, dict[str, str]] = {}
+    for page in pages:
+        for obj in cast(list[dict[str, object]], page.get("Contents", [])):
+            key = obj.get("Key")
+            if not isinstance(key, str):
+                continue
+            etag = obj.get("ETag")
+            filename = key.rsplit("/", 1)[-1]
+            # changelog.json / changelog_<ts>.json live under dumps/
+            # but are not dump artifacts; without this skip they'd be
+            # misread as manifests of nonexistent dumps.
+            if filename == "changelog.json" or filename.startswith("changelog_"):
+                continue
+            files: dict[str, str] | None = None
+
+            if filename.endswith(".sql.gz.manifest.json"):
+                prefix = filename[: -len(".sql.gz.manifest.json")]
+                files = dumps_map.get(prefix)
+                if files is None:
+                    files = {}
+                    dumps_map[prefix] = files
+                files["manifest"] = key
+                if isinstance(etag, str):
+                    files["manifest_etag"] = etag.strip('"')
+
+            elif filename.endswith(".sql.gz.sha256"):
+                prefix = filename[: -len(".sql.gz.sha256")]
+                files = dumps_map.get(prefix)
+                if files is None:
+                    files = {}
+                    dumps_map[prefix] = files
+                files["sha256"] = key
+
+            elif filename.endswith(".sql.gz"):
+                prefix = filename[: -len(".sql.gz")]
+                files = dumps_map.get(prefix)
+                if files is None:
+                    files = {}
+                    dumps_map[prefix] = files
+                files["sql"] = key
+
+            elif filename.endswith(".json"):
+                prefix = filename[: -len(".json")]
+                files = dumps_map.get(prefix)
+                if files is None:
+                    files = {}
+                    dumps_map[prefix] = files
+                files["manifest"] = key
+
+    dump_list: list[dict[str, object]] = []
+    for prefix, files in sorted(dumps_map.items(), reverse=True):
+        label = prefix.replace("db_dump_", "")
+        entry: dict[str, object] = {"timestamp": label}
+
+        if "sql" in files:
+            entry["sql"] = f"{deps.PUBLIC_DEV_BASE}/{files['sql']}"
+
+        if "sha256" in files:
+            entry["sha256_url"] = f"{deps.PUBLIC_DEV_BASE}/{files['sha256']}"
+
+        if "manifest" in files:
+            entry["manifest"] = f"{deps.PUBLIC_DEV_BASE}/{files['manifest']}"
+            manifest_key = files["manifest"]
+            manifest_etag = files.get("manifest_etag")
+            try:
+                if manifest_key and isinstance(manifest_etag, str):
+                    data = _dump_manifest_cached(
+                        s3_client, deps.R2_BUCKET_NAME, manifest_key, manifest_etag
+                    )
+                else:
+                    data = _read_dump_manifest(s3_client, deps.R2_BUCKET_NAME, manifest_key)
+            except Exception as e:
+                entry["warning"] = f"couldn't read manifest: {e}"
+                data = {}
+            if "size_bytes" in data:
+                entry["size_bytes"] = data["size_bytes"]
+            if "sha256" in data:
+                entry["sha256"] = data["sha256"]
+            if "changelog_url" in data:
+                entry["changelog_url"] = data["changelog_url"]
+
+        dump_list.append(entry)
+
+    return dump_list
+
+
+@ttl_cached(
+    CHANGELOG_CACHE_TTL_SECONDS,
+    key=_single_slot,
+    retry_none_after=CHANGELOG_FAIL_TTL_SECONDS,
+)
+def changelog_payload_cached(deps: ReferenceDataDeps) -> dict[str, object] | None:
+    """The published changelog JSON, or None when R2 is unavailable.
+
+    The changelog is served from the published R2 artifact (not the repo
+    file): code deploys continuously while data refreshes ~monthly, so only
+    the R2 copy is guaranteed to describe published dumps. A failed read
+    keeps serving the last good copy for ``CHANGELOG_FAIL_TTL_SECONDS``
+    (``retry_none_after``): a transient R2 blip must never blank the
+    changelog, because {"releases": []} reads as "no new releases".
+    """
+    client = deps.client
+    if client is None:
+        return None
+    try:
+        body = client.get_object(Bucket=deps.R2_BUCKET_NAME, Key="dumps/changelog.json")[
+            "Body"
+        ].read()
+        parsed = cast(object, json.loads(body))
+    except Exception:
+        return None
+    return cast(dict[str, object], parsed) if isinstance(parsed, dict) else None
 
 
 def register_reference_data_routes(
@@ -66,140 +340,6 @@ def register_reference_data_routes(
         description="Dataset, schema, and API change history per bulk release",
     )
 
-    def _naics_tree() -> dict[str, object]:
-        db = deps.db
-        naics_sector = deps.NaicsSector
-        naics_sub_sector = deps.NaicsSubSector
-        sector_rows = cast(
-            list[tuple[object, object, object, object]],
-            db.session.query(
-                naics_sector.sector_code,
-                naics_sector.sector_desc,
-                naics_sector.sector_group,
-                naics_sector.super_sector,
-            ).all(),
-        )
-        sub_sector_rows = cast(
-            list[tuple[object, object, object]],
-            db.session.query(
-                naics_sub_sector.sub_sector_code,
-                naics_sub_sector.sub_sector_desc,
-                naics_sub_sector.sector_code,
-            ).all(),
-        )
-
-        sector_by_code: dict[int, dict[str, object]] = {}
-        for sector_code, sector_desc, sector_group, super_sector in sector_rows:
-            if not isinstance(sector_code, int):
-                raise ValueError("naics_sectors.sector_code must be an integer.")
-            if not isinstance(sector_desc, str):
-                raise ValueError("naics_sectors.sector_desc must be a string.")
-            if not isinstance(sector_group, str):
-                raise ValueError("naics_sectors.sector_group must be a string.")
-            if not isinstance(super_sector, str):
-                raise ValueError("naics_sectors.super_sector must be a string.")
-            sector_by_code[sector_code] = {
-                "sector_code": str(sector_code),
-                "sector_desc": sector_desc,
-                "sector_group": sector_group,
-                "super_sector": super_sector,
-                "sub_sectors": [],
-            }
-
-        for sub_sector_code, sub_sector_desc, sector_code in sub_sector_rows:
-            if not isinstance(sector_code, int):
-                raise ValueError("naics_sub_sectors.sector_code must be an integer.")
-            if not isinstance(sub_sector_code, int):
-                raise ValueError("naics_sub_sectors.sub_sector_code must be an integer.")
-            if not isinstance(sub_sector_desc, str):
-                raise ValueError("naics_sub_sectors.sub_sector_desc must be a string.")
-            parent = sector_by_code.get(sector_code)
-            if parent is None:
-                raise ValueError("naics_sub_sectors has sector_code with no matching sector.")
-            parent_sub_sectors = cast(list[dict[str, str]], parent["sub_sectors"])
-            parent_sub_sectors.append(
-                {
-                    "sub_sector_code": str(sub_sector_code),
-                    "sub_sector_desc": sub_sector_desc,
-                }
-            )
-
-        sorted_sector_codes = sorted(sector_by_code.keys())
-        sectors: list[dict[str, object]] = []
-        for code in sorted_sector_codes:
-            sector = sector_by_code[code]
-            sub_sectors = cast(list[dict[str, str]], sector["sub_sectors"])
-            sector["sub_sectors"] = sorted(
-                sub_sectors,
-                key=lambda sub_sector: int(sub_sector["sub_sector_code"]),
-            )
-            sectors.append(sector)
-
-        return {"sectors": sectors}
-
-    def _get_naics_payload_cached() -> tuple[dict[str, object], bool]:
-        now = deps.time.time()
-        with deps._naics_lock:
-            cached_payload = deps._naics_cache["payload"]
-            cached_ts = deps._naics_cache["ts"]
-            cache_is_valid = cached_payload is not None and (
-                now - cached_ts < deps._NAICS_TTL_SECONDS
-            )
-        if cache_is_valid and cached_payload is not None:
-            return cached_payload, True
-
-        payload = _naics_tree()
-        with deps._naics_lock:
-            deps._naics_cache["payload"] = payload
-            deps._naics_cache["ts"] = now
-
-        return payload, False
-
-    def _counsel_payload() -> dict[str, object]:
-        db = deps.db
-        counsel = deps.Counsel
-        rows = cast(
-            list[tuple[object, object]],
-            db.session.query(
-                counsel.counsel_id,
-                counsel.canonical_name,
-            )
-            .order_by(counsel.canonical_name.asc(), counsel.counsel_id.asc())
-            .all(),
-        )
-
-        payload_rows: list[dict[str, object]] = []
-        for counsel_id, canonical_name in rows:
-            if not isinstance(counsel_id, int):
-                raise ValueError("counsel.counsel_id must be an integer.")
-            if not isinstance(canonical_name, str):
-                raise ValueError("counsel.canonical_name must be a string.")
-            payload_rows.append(
-                {
-                    "counsel_id": counsel_id,
-                    "canonical_name": canonical_name,
-                }
-            )
-        return {"counsel": payload_rows}
-
-    def _get_counsel_payload_cached() -> tuple[dict[str, object], bool]:
-        now = deps.time.time()
-        with deps._counsel_lock:
-            cached_payload = deps._counsel_cache["payload"]
-            cached_ts = deps._counsel_cache["ts"]
-            cache_is_valid = cached_payload is not None and (
-                now - cached_ts < deps._COUNSEL_TTL_SECONDS
-            )
-        if cache_is_valid and cached_payload is not None:
-            return cached_payload, True
-
-        payload = _counsel_payload()
-        with deps._counsel_lock:
-            deps._counsel_cache["payload"] = payload
-            deps._counsel_cache["ts"] = now
-
-        return payload, False
-
     @taxonomy_blp.route("")
     class TaxonomyResource(MethodView):
         @taxonomy_blp.doc(
@@ -230,7 +370,7 @@ def register_reference_data_routes(
         def get(self) -> Response:
             payload = taxonomy_service.taxonomy_tree("clauses")
             resp = jsonify(payload)
-            resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
+            resp.headers["Cache-Control"] = f"public, max-age={TAXONOMY_TTL_SECONDS}"
             return resp
 
     @tax_clause_taxonomy_blp.route("")
@@ -260,7 +400,7 @@ def register_reference_data_routes(
         def get(self) -> Response:
             payload = taxonomy_service.taxonomy_tree("tax_clauses")
             resp = jsonify(payload)
-            resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
+            resp.headers["Cache-Control"] = f"public, max-age={TAXONOMY_TTL_SECONDS}"
             return resp
 
     @taxonomy_blp.route("/counts")
@@ -278,7 +418,7 @@ def register_reference_data_routes(
         @taxonomy_blp.response(200, TaxonomyCountsResponseSchema)
         def get(self) -> Response:
             resp = jsonify({"counts": taxonomy_service.taxonomy_section_counts()})
-            resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
+            resp.headers["Cache-Control"] = f"public, max-age={TAXONOMY_TTL_SECONDS}"
             return resp
 
     @tax_clause_taxonomy_blp.route("/counts")
@@ -297,7 +437,7 @@ def register_reference_data_routes(
         @tax_clause_taxonomy_blp.response(200, TaxonomyCountsResponseSchema)
         def get(self) -> Response:
             resp = jsonify({"counts": taxonomy_service.tax_clause_taxonomy_clause_counts()})
-            resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
+            resp.headers["Cache-Control"] = f"public, max-age={TAXONOMY_TTL_SECONDS}"
             return resp
 
     @naics_blp.route("")
@@ -311,9 +451,9 @@ def register_reference_data_routes(
         )
         @naics_blp.response(200, NaicsResponseSchema)
         def get(self) -> Response:
-            payload, _ = _get_naics_payload_cached()
+            payload = naics_payload_cached(deps)
             resp = jsonify(payload)
-            resp.headers["Cache-Control"] = f"public, max-age={deps._NAICS_TTL_SECONDS}"
+            resp.headers["Cache-Control"] = f"public, max-age={NAICS_TTL_SECONDS}"
             return resp
 
     @counsel_blp.route("")
@@ -327,9 +467,9 @@ def register_reference_data_routes(
         )
         @counsel_blp.response(200, CounselResponseSchema)
         def get(self) -> Response:
-            payload, _ = _get_counsel_payload_cached()
+            payload = counsel_payload_cached(deps)
             resp = jsonify(payload)
-            resp.headers["Cache-Control"] = f"public, max-age={deps._COUNSEL_TTL_SECONDS}"
+            resp.headers["Cache-Control"] = f"public, max-age={COUNSEL_TTL_SECONDS}"
             return resp
 
     @dumps_blp.route("")
@@ -343,180 +483,7 @@ def register_reference_data_routes(
         )
         @dumps_blp.response(200, DumpEntrySchema(many=True))
         def get(self) -> list[dict[str, object]]:
-            now = deps.time.time()
-            with deps._dumps_cache_lock:
-                cached_payload = deps._dumps_cache["payload"]
-                cached_ts = deps._dumps_cache["ts"]
-                cache_is_valid = cached_payload is not None and (
-                    now - cached_ts < deps._DUMPS_CACHE_TTL_SECONDS
-                )
-            if cache_is_valid and cached_payload is not None:
-                return cached_payload
-            client = deps.client
-            if client is None:
-                return []
-            s3_client = client
-            paginator = s3_client.get_paginator("list_objects_v2")
-            pages: Iterable[dict[str, object]] = paginator.paginate(
-                Bucket=deps.R2_BUCKET_NAME, Prefix="dumps/"
-            )
-
-            dumps_map: dict[str, dict[str, str]] = {}
-            for page in pages:
-                for obj in cast(list[dict[str, object]], page.get("Contents", [])):
-                    key = obj.get("Key")
-                    if not isinstance(key, str):
-                        continue
-                    etag = obj.get("ETag")
-                    filename = key.rsplit("/", 1)[-1]
-                    # changelog.json / changelog_<ts>.json live under dumps/
-                    # but are not dump artifacts; without this skip they'd be
-                    # misread as manifests of nonexistent dumps.
-                    if filename == "changelog.json" or filename.startswith("changelog_"):
-                        continue
-                    files: dict[str, str] | None = None
-
-                    if filename.endswith(".sql.gz.manifest.json"):
-                        prefix = filename[: -len(".sql.gz.manifest.json")]
-                        files = dumps_map.get(prefix)
-                        if files is None:
-                            files = {}
-                            dumps_map[prefix] = files
-                        files["manifest"] = key
-                        if isinstance(etag, str):
-                            files["manifest_etag"] = etag.strip('"')
-
-                    elif filename.endswith(".sql.gz.sha256"):
-                        prefix = filename[: -len(".sql.gz.sha256")]
-                        files = dumps_map.get(prefix)
-                        if files is None:
-                            files = {}
-                            dumps_map[prefix] = files
-                        files["sha256"] = key
-
-                    elif filename.endswith(".sql.gz"):
-                        prefix = filename[: -len(".sql.gz")]
-                        files = dumps_map.get(prefix)
-                        if files is None:
-                            files = {}
-                            dumps_map[prefix] = files
-                        files["sql"] = key
-
-                    elif filename.endswith(".json"):
-                        prefix = filename[: -len(".json")]
-                        files = dumps_map.get(prefix)
-                        if files is None:
-                            files = {}
-                            dumps_map[prefix] = files
-                        files["manifest"] = key
-
-            dump_list: list[dict[str, object]] = []
-            for prefix, files in sorted(dumps_map.items(), reverse=True):
-                label = prefix.replace("db_dump_", "")
-                entry: dict[str, object] = {"timestamp": label}
-
-                if "sql" in files:
-                    entry["sql"] = f"{deps.PUBLIC_DEV_BASE}/{files['sql']}"
-
-                if "sha256" in files:
-                    entry["sha256_url"] = f"{deps.PUBLIC_DEV_BASE}/{files['sha256']}"
-
-                if "manifest" in files:
-                    entry["manifest"] = f"{deps.PUBLIC_DEV_BASE}/{files['manifest']}"
-                    manifest_key = files["manifest"]
-                    manifest_etag = files.get("manifest_etag")
-                    cached_manifest = None
-                    now = deps.time.time()
-                    if manifest_key and isinstance(manifest_etag, str):
-                        with deps._dumps_manifest_cache_lock:
-                            cached_manifest = deps._dumps_manifest_cache.get(manifest_key)
-                            if cached_manifest is not None:
-                                cache_age = now - float(cached_manifest.get("ts", 0.0))
-                                if (
-                                    cached_manifest.get("etag") != manifest_etag
-                                    or cache_age >= deps._DUMPS_MANIFEST_CACHE_TTL_SECONDS
-                                ):
-                                    cached_manifest = None
-                    if cached_manifest is not None:
-                        data = cached_manifest.get("payload") or {}
-                    else:
-                        try:
-                            body = s3_client.get_object(
-                                Bucket=deps.R2_BUCKET_NAME, Key=files["manifest"]
-                            )["Body"].read()
-                            parsed_data = cast(object, json.loads(body))
-                            data = (
-                                cast(dict[str, object], parsed_data)
-                                if isinstance(parsed_data, dict)
-                                else {}
-                            )
-                            if manifest_key and isinstance(manifest_etag, str):
-                                with deps._dumps_manifest_cache_lock:
-                                    deps._dumps_manifest_cache[manifest_key] = {
-                                        "etag": manifest_etag,
-                                        "payload": data,
-                                        "ts": now,
-                                    }
-                        except Exception as e:
-                            entry["warning"] = f"couldn't read manifest: {e}"
-                            data = {}
-                    if "size_bytes" in data:
-                        entry["size_bytes"] = data["size_bytes"]
-                    if "sha256" in data:
-                        entry["sha256"] = data["sha256"]
-                    if "changelog_url" in data:
-                        entry["changelog_url"] = data["changelog_url"]
-
-                dump_list.append(entry)
-
-            with deps._dumps_cache_lock:
-                deps._dumps_cache["payload"] = dump_list
-                deps._dumps_cache["ts"] = now
-
-            return dump_list
-
-    # Negative-cache window after a failed R2 read, so an absent/unreachable
-    # changelog.json doesn't turn every request into a live R2 GetObject.
-    _CHANGELOG_FAIL_TTL_SECONDS = 60
-
-    def _get_changelog_payload() -> dict[str, object] | None:
-        # The changelog is served from the published R2 artifact (not the repo
-        # file): code deploys continuously while data refreshes ~monthly, so
-        # only the R2 copy is guaranteed to describe published dumps.
-        now = deps.time.time()
-        with deps._changelog_cache_lock:
-            cached_payload = deps._changelog_cache["payload"]
-            cached_ts = deps._changelog_cache["ts"]
-            if cached_payload is not None and (
-                now - cached_ts < deps._CHANGELOG_CACHE_TTL_SECONDS
-            ):
-                return cast(dict[str, object], cached_payload)
-            if now - float(deps._changelog_cache["fail_ts"]) < _CHANGELOG_FAIL_TTL_SECONDS:
-                # Serve the stale copy (if any) during the negative-cache
-                # window: a transient R2 blip must never blank the changelog,
-                # because {"releases": []} reads as "no new releases".
-                return cast("dict[str, object] | None", cached_payload)
-        client = deps.client
-        payload: dict[str, object] | None = None
-        if client is not None:
-            try:
-                body = client.get_object(
-                    Bucket=deps.R2_BUCKET_NAME, Key="dumps/changelog.json"
-                )["Body"].read()
-                parsed = cast(object, json.loads(body))
-                if isinstance(parsed, dict):
-                    payload = cast(dict[str, object], parsed)
-            except Exception:
-                payload = None
-        with deps._changelog_cache_lock:
-            if payload is not None:
-                deps._changelog_cache["payload"] = payload
-                deps._changelog_cache["ts"] = now
-                return payload
-            # Failed refresh (or no client): arm the negative cache and fall
-            # back to the stale copy if one exists.
-            deps._changelog_cache["fail_ts"] = now
-            return cast("dict[str, object] | None", deps._changelog_cache["payload"])
+            return dump_list_cached(deps)
 
     def _sanitized_changelog_release(release: dict[str, object]) -> dict[str, object]:
         # The payload is external input (an R2 object); anything the response
@@ -573,7 +540,7 @@ def register_reference_data_routes(
         @changelog_blp.arguments(ChangelogArgsSchema, location="query")
         @changelog_blp.response(200, ChangelogResponseSchema)
         def get(self, args: dict[str, object]) -> dict[str, object]:
-            payload = _get_changelog_payload()
+            payload = changelog_payload_cached(deps)
             if payload is None:
                 return {"latest_version": None, "latest_released": None, "releases": []}
             raw_releases = payload.get("releases")

@@ -41,7 +41,7 @@ from backend.models.main_db import (
 
 TaxonomyKind = Literal["clauses", "tax_clauses"]
 
-_TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
+TAXONOMY_TTL_SECONDS = int(os.environ.get("TAXONOMY_TTL_SECONDS", "21600"))
 
 _T = TypeVar("_T")
 
@@ -151,7 +151,7 @@ def cached_reference_value(name: str, build: Callable[[], _T]) -> _T:
     now = time.monotonic()
     with _cache_lock:
         entry = _cache.get(key)
-    if entry is not None and now - entry[0] < _TAXONOMY_TTL_SECONDS:
+    if entry is not None and now - entry[0] < TAXONOMY_TTL_SECONDS:
         return cast(_T, entry[1])
     value = build()
     with _cache_lock:
@@ -333,6 +333,7 @@ def tax_clause_taxonomy_clause_counts() -> dict[str, int]:
 
 
 __all__ = [
+    "TAXONOMY_TTL_SECONDS",
     "TaxonomyKind",
     "build_taxonomy_tree",
     "cached_reference_value",

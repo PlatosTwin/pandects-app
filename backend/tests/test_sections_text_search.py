@@ -265,6 +265,65 @@ class TextMatchSnippetTests(unittest.TestCase):
         self.assertTrue(snippet.startswith("Governing Law."))
 
 
+# A page break as it appears in section XML (from a local `sections.xml_content` row).
+_PAGE_BREAK_XML = (
+    "<section><text>consent to, any such adjournments or postponements that together cause "
+    "the date of the Company Stockholder Meeting to be more than 20</text>\n"
+    "        <page>69</page>\n"
+    "        <pageUUID>66af9b9a-20dc-11f1-ac97-be44a5e954c8</pageUUID>\n"
+    "        <text>Business Days after the date for which the Company Stockholder Meeting "
+    "was originally scheduled</text></section>"
+)
+
+
+class SnippetPageMarkerTests(unittest.TestCase):
+    """Page numbers and page ids never reach snippet text."""
+
+    def test_extracted_text_drops_page_markers(self) -> None:
+        from backend.services.snippets import extract_text_from_xml
+
+        text_content = extract_text_from_xml(_PAGE_BREAK_XML)
+        self.assertIn("to be more than 20 Business Days after the date", text_content)
+        self.assertNotIn("69", text_content)
+        self.assertNotIn("66af9b9a", text_content)
+
+    def test_phrase_across_a_page_break_matches_and_reports_the_span(self) -> None:
+        from backend.services.snippets import extract_text_from_xml, text_match_patterns, text_match_snippet
+
+        snippet, matched = text_match_snippet(
+            extract_text_from_xml(_PAGE_BREAK_XML),
+            patterns=text_match_patterns("more than 20 business days", "phrase"),
+            max_chars=120,
+        )
+        self.assertEqual(matched, ["more than 20 Business Days"])
+        self.assertIn("more than 20 Business Days", snippet)
+        self.assertNotIn("66af9b9a", snippet)
+
+    def test_leading_and_focused_snippets_drop_page_markers(self) -> None:
+        from backend.services.snippets import extract_text_from_xml, focused_snippet, strip_xml_snippet
+
+        leading = strip_xml_snippet(_PAGE_BREAK_XML, max_chars=1000)
+        assert leading is not None
+        self.assertIn("more than 20 Business Days", leading)
+        self.assertNotIn("66af9b9a", leading)
+        focused, terms = focused_snippet(
+            extract_text_from_xml(_PAGE_BREAK_XML), focus_terms=["business days"], max_chars=80
+        )
+        self.assertEqual(terms, ["business days"])
+        self.assertNotIn("69 ", focused)
+        self.assertNotIn("66af9b9a", focused)
+
+    def test_marker_variants_and_lookalike_tags(self) -> None:
+        from backend.services.snippets import extract_text_from_xml
+
+        self.assertEqual(
+            extract_text_from_xml('<text>A</text><page n="4">4</page ><pageUUID/><text>B</text>'),
+            "A B",
+        )
+        # Only the page elements go; a different tag starting with "page" keeps its text.
+        self.assertEqual(extract_text_from_xml("<pages>Kept</pages>"), "Kept")
+
+
 class SectionTextMatchExpressionTests(unittest.TestCase):
     def test_mysql_fulltext_query_is_parameterized(self) -> None:
         metadata = MetaData()

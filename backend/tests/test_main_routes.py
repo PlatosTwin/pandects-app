@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, patch
 from sqlalchemy import text
 from sqlalchemy.dialects import mysql as mysql_dialect
 
+from backend.core.caching import clear_all_ttl_caches
+
 
 def _set_default_env(main_db_uri: str, auth_db_uri: str) -> None:
     os.environ["SKIP_MAIN_DB_REFLECTION"] = "1"
@@ -619,8 +621,7 @@ class MainRoutesTests(unittest.TestCase):
                         "('a3', 2022, 'Target C', 'Acquirer C', 1)"
                     )
                 )
-            self.app_module._filter_options_cache["payload"] = None
-            self.app_module._filter_options_cache["ts"] = 0
+            clear_all_ttl_caches()
 
     def test_agreements_index_pagination(self):
         client = self.app.test_client()
@@ -662,8 +663,7 @@ class MainRoutesTests(unittest.TestCase):
             self.assertEqual(keyed.get_json()["page_size"], 100, path)
 
     def test_agreements_summary_includes_latest_filing_date(self):
-        self.app_module._agreements_summary_cache["payload"] = None
-        self.app_module._agreements_summary_cache["ts"] = 0
+        clear_all_ttl_caches()
         with self.app.app_context():
             engine = self.app_module.db.engine
             with engine.begin() as conn:
@@ -696,8 +696,7 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(body.get("latest_filing_date"), "2023-04-01")
 
     def test_agreements_summary_includes_processed_agreements(self):
-        self.app_module._agreements_summary_cache["payload"] = None
-        self.app_module._agreements_summary_cache["ts"] = 0
+        clear_all_ttl_caches()
         client = self.app.test_client()
         res = client.get("/v1/agreements-summary")
         self.assertEqual(res.status_code, 200)
@@ -1553,8 +1552,7 @@ class MainRoutesTests(unittest.TestCase):
                     conn.execute(text("DELETE FROM sections WHERE agreement_uuid = 'a_gated_hidden'"))
                     conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_gated_hidden'"))
                     conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_gated_hidden'"))
-                self.app_module._filter_options_cache["payload"] = None
-                self.app_module._filter_options_cache["ts"] = 0
+                clear_all_ttl_caches()
 
     def test_section_search_excludes_gated_unverified_rows_in_search_table(self):
         # latest_sections_search should never hold these rows; the search still drops
@@ -1616,8 +1614,7 @@ class MainRoutesTests(unittest.TestCase):
                         conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = :a"), params)
 
     def test_filter_options_include_counsel_lists(self):
-        self.app_module._filter_options_cache["payload"] = None
-        self.app_module._filter_options_cache["ts"] = 0
+        clear_all_ttl_caches()
         client = self.app.test_client()
         res = client.get("/v1/filter-options")
         self.assertEqual(res.status_code, 200)
@@ -1632,8 +1629,7 @@ class MainRoutesTests(unittest.TestCase):
         self.assertIsInstance(body.get("clause_types"), dict)
 
     def test_filter_options_can_limit_fields(self):
-        self.app_module._filter_options_cache["payload"] = None
-        self.app_module._filter_options_cache["ts"] = 0
+        clear_all_ttl_caches()
         client = self.app.test_client()
         res = client.get(
             "/v1/filter-options?fields=target_counsels&fields=acquirer_industries"
@@ -1650,8 +1646,7 @@ class MainRoutesTests(unittest.TestCase):
         self.assertIn("tech", body.get("acquirer_industries", []))
 
     def test_filter_options_can_request_clause_types(self):
-        self.app_module._filter_options_cache["payload"] = None
-        self.app_module._filter_options_cache["ts"] = 0
+        clear_all_ttl_caches()
         client = self.app.test_client()
         res = client.get("/v1/filter-options?fields=clause_types")
         self.assertEqual(res.status_code, 200)
@@ -2405,6 +2400,34 @@ class MainRoutesTests(unittest.TestCase):
                 searched = self._agreement_uuids(f"/v1/search/agreements?{case}&page_size=50")
                 self.assertEqual(listed, searched)
                 self.assertTrue(listed, f"case {case!r} should match at least one agreement")
+
+    def test_unknown_price_bucket_is_rejected_with_valid_values(self):
+        from backend.filtering import TRANSACTION_PRICE_BUCKETS
+
+        client = self.app.test_client()
+        paths = ("/v1/sections", "/v1/search/agreements", "/v1/agreements", "/v1/tax-clauses")
+        fields_ = (
+            "transaction_price_total",
+            "transaction_price_stock",
+            "transaction_price_cash",
+            "transaction_price_assets",
+        )
+        for path in paths:
+            for field in fields_:
+                with self.subTest(path=path, field=field):
+                    res = client.get(f"{path}?{field}=100M - 250M&{field}=1B - 5B&page_size=10")
+                    self.assertEqual(res.status_code, 422)
+                    body = res.get_json()
+                    self.assertEqual(body["error"], "validation_error")
+                    message = body["message"]
+                    self.assertTrue(message.startswith(f"{field}[1]: "), message)
+                    self.assertIn("'1B - 5B'", message)
+                    self.assertNotIn("'100M - 250M'", message)
+                    for bucket in TRANSACTION_PRICE_BUCKETS:
+                        self.assertIn(bucket, message)
+            with self.subTest(path=path, valid=True):
+                res = client.get(f"{path}?transaction_price_total=1B - 2B&page_size=10")
+                self.assertEqual(res.status_code, 200, res.get_json())
 
     def test_agreement_filters_agree_between_sections_and_agreement_search(self):
         # Only a1 has a latest section in the search index, so the section route and the

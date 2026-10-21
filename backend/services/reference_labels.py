@@ -8,6 +8,7 @@ add ``<field>_label`` / ``standard_id_labels`` siblings from these cached maps.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from typing import cast
 
 from backend.extensions import db
@@ -36,23 +37,41 @@ def naics_label_by_code() -> dict[str, str]:
     return cached_reference_value("naics_label_by_code", _build)
 
 
-def naics_industry_label(value: object) -> str | None:
+def resolve_naics_label(value: object, label_by_code: Mapping[str, str]) -> str | None:
     """The NAICS description for an industry code, or null when it cannot be resolved.
 
     A code without its own entry (a 4-digit industry group, or a subsector missing
     from the catalog) rolls up to its 2-digit sector, as the web client always did.
-    Non-numeric values are not codes and get no label.
+    Non-numeric values are not codes and get no label. REST and MCP both label
+    industries through this function, so the same code gets the same label on
+    every surface.
     """
     if not isinstance(value, str):
         return None
     code = value.strip()
     if not code.isdigit():
         return None
-    label_by_code = naics_label_by_code()
     label = label_by_code.get(code)
     if label is None and len(code) > 2:
         label = label_by_code.get(code[:2])
     return label
+
+
+def industry_labels_from(
+    values: Iterable[str], label_by_code: Mapping[str, str]
+) -> dict[str, str]:
+    """``{code: label}`` for the resolvable codes in ``values`` (see ``resolve_naics_label``)."""
+    labels: dict[str, str] = {}
+    for value in values:
+        label = resolve_naics_label(value, label_by_code)
+        if label is not None:
+            labels[value] = label
+    return labels
+
+
+def naics_industry_label(value: object) -> str | None:
+    """``resolve_naics_label`` against the cached catalog of the current database."""
+    return resolve_naics_label(value, naics_label_by_code())
 
 
 def with_industry_labels(payload: dict[str, object]) -> dict[str, object]:
@@ -68,18 +87,15 @@ def with_industry_labels(payload: dict[str, object]) -> dict[str, object]:
 
 def industry_labels_for(values: list[str]) -> dict[str, str]:
     """``{code: label}`` for the resolvable codes in ``values``."""
-    labels: dict[str, str] = {}
-    for value in values:
-        label = naics_industry_label(value)
-        if label is not None:
-            labels[value] = label
-    return labels
+    return industry_labels_from(values, naics_label_by_code())
 
 
 __all__ = [
     "INDUSTRY_FIELDS",
     "industry_labels_for",
+    "industry_labels_from",
     "naics_industry_label",
     "naics_label_by_code",
+    "resolve_naics_label",
     "with_industry_labels",
 ]

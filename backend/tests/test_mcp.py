@@ -1464,6 +1464,18 @@ class McpTests(unittest.TestCase):
         self.assertIn("target_counsels", body["error"]["message"])
         self.assertIn("target_counsels", body["error"]["data"])
 
+    def test_unknown_price_bucket_is_an_invalid_argument_on_every_filter_tool(self):
+        for tool_name in ("search_sections", "search_agreements", "list_agreements", "search_tax_clauses"):
+            with self.subTest(tool=tool_name):
+                res = self._call_tool(tool_name, {"transaction_price_total": ["1B - 5B"]})
+                self.assertEqual(res.status_code, 200)
+                error = res.get_json()["error"]
+                self.assertEqual(error["code"], -32602)
+                self.assertIn("transaction_price_total", error["message"])
+                self.assertIn("'1B - 5B'", error["message"])
+                self.assertIn("Valid values: 0 - 100M, 100M - 250M", error["message"])
+                self.assertIn("transaction_price_total", error["data"])
+
     def test_search_sections_rejects_legacy_query_parameter(self):
         # Agreement-name discovery uses `query`; literal section search deliberately
         # uses the unambiguous `text_query` name.
@@ -1935,6 +1947,23 @@ class McpTests(unittest.TestCase):
         _decorate_industry_labels(null_payload, label_by_code={"334": "Computer Manufacturing"})
         self.assertIsNone(null_payload["target_industry_label"])
         self.assertIsNone(null_payload["acquirer_industry_label"])
+
+        # An unlisted code rolls up to its 2-digit sector, exactly as REST labels it.
+        from backend.services.reference_labels import industry_labels_from, resolve_naics_label
+
+        catalog = {"44": "Retail Trade", "45": "Retail Trade", "111": "Crop Production", "11": "Agriculture"}
+        rollup: dict[str, object] = {"target_industry": "459", "acquirer_industry": "1119"}
+        _decorate_industry_labels(rollup, label_by_code=catalog)
+        self.assertEqual(rollup["target_industry_label"], "Retail Trade")
+        self.assertEqual(rollup["acquirer_industry_label"], "Agriculture")
+        for code in ("459", "1119", "111", " 111 ", "tech", "9", "", "99"):
+            decorated: dict[str, object] = {"target_industry": code}
+            _decorate_industry_labels(decorated, label_by_code=catalog, fields=("target_industry",))
+            self.assertEqual(decorated["target_industry_label"], resolve_naics_label(code, catalog), code)
+        self.assertEqual(
+            industry_labels_from(["459", "111", "tech"], catalog),
+            {"459": "Retail Trade", "111": "Crop Production"},
+        )
 
         self.assertTrue(_year_in_range(2023, year_min=2022, year_max=2024))
         self.assertFalse(_year_in_range(2021, year_min=2022, year_max=None))

@@ -1,18 +1,9 @@
 from __future__ import annotations
 
+from backend.filtering import TRANSACTION_PRICE_BUCKETS
+
 _SECTION_LIST_SORT_FIELDS = ("article_title", "section_title", "section_uuid", "document_order")
-_TRANSACTION_PRICE_BUCKET_OPTIONS = (
-    "0 - 100M",
-    "100M - 250M",
-    "250M - 500M",
-    "500M - 750M",
-    "750M - 1B",
-    "1B - 2B",
-    "2B - 5B",
-    "5B - 10B",
-    "10B - 20B",
-    "20B+",
-)
+_TRANSACTION_PRICE_BUCKET_OPTIONS = TRANSACTION_PRICE_BUCKETS
 _FILTER_OPTIONS_FIELDS = (
     "targets",
     "acquirers",

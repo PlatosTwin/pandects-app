@@ -2,18 +2,21 @@
 
 Each view validates its request, delegates to ``backend.services.agreements_service``,
 and shapes the response (access checks, dump version, cache headers). The summary
-endpoints keep a small in-process TTL cache per payload.
+endpoints and the default filter-options payload keep an in-process
+``ttl_cached`` entry each (one slot per payload, see ``backend/core/caching.py``).
 """
 
 from __future__ import annotations
 
-from threading import Lock
+import os
+from collections.abc import Hashable
 from typing import cast
 
-from flask import Flask, Response, abort, current_app, g, jsonify, request
+from flask import Flask, Response, abort, g, jsonify, request
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
+from backend.core.caching import ttl_cached
 from backend.routes.agreements.helpers import (
     _agreement_is_public_eligible_expr,
     _cacheable_json_response,
@@ -37,10 +40,51 @@ from backend.schemas.sections import SectionsArgsPayload, SectionsArgsSchema
 from backend.services import agreements_service
 
 __all__ = [
+    "AGREEMENTS_SUMMARY_TTL_SECONDS",
+    "FILTER_OPTIONS_TTL_SECONDS",
     "_agreement_is_public_eligible_expr",
     "_to_float_or_none",
     "register_agreements_routes",
 ]
+
+AGREEMENTS_SUMMARY_TTL_SECONDS = int(os.environ.get("AGREEMENTS_SUMMARY_TTL_SECONDS", "60"))
+FILTER_OPTIONS_TTL_SECONDS = int(os.environ.get("FILTER_OPTIONS_TTL_SECONDS", "21600"))
+
+
+def _single_slot(_deps: AgreementsDeps, /) -> Hashable:
+    """Cache key for a payload that does not vary by argument (the deps handle)."""
+    return ()
+
+
+@ttl_cached(AGREEMENTS_SUMMARY_TTL_SECONDS, key=_single_slot)
+def agreements_summary_cached(deps: AgreementsDeps) -> dict[str, object]:
+    return agreements_service.agreements_corpus_summary_payload(deps)
+
+
+@ttl_cached(AGREEMENTS_SUMMARY_TTL_SECONDS, key=_single_slot)
+def agreements_status_summary_cached(deps: AgreementsDeps) -> dict[str, object]:
+    return agreements_service.agreements_status_summary_payload(deps)
+
+
+@ttl_cached(AGREEMENTS_SUMMARY_TTL_SECONDS, key=_single_slot)
+def agreements_deal_types_summary_cached(deps: AgreementsDeps) -> dict[str, object]:
+    return agreements_service.agreements_deal_types_summary_payload(deps)
+
+
+@ttl_cached(AGREEMENTS_SUMMARY_TTL_SECONDS, key=_single_slot)
+def counsel_leaderboards_cached(deps: AgreementsDeps) -> dict[str, object]:
+    return agreements_service.counsel_leaderboards_payload(deps)
+
+
+@ttl_cached(AGREEMENTS_SUMMARY_TTL_SECONDS, key=_single_slot)
+def agreement_trends_cached(deps: AgreementsDeps) -> dict[str, object]:
+    return agreements_service.agreement_trends_payload(deps)
+
+
+@ttl_cached(FILTER_OPTIONS_TTL_SECONDS, key=_single_slot)
+def default_filter_options_cached(deps: AgreementsDeps) -> dict[str, object]:
+    """The full filter-options payload; a `fields=` subset is never cached."""
+    return agreements_service.filter_options_payload(deps, agreements_service.FILTER_OPTION_FIELDS)
 
 
 def _with_dump_version(payload: dict[str, object], args: dict[str, object]) -> dict[str, object]:
@@ -55,15 +99,6 @@ def register_agreements_routes(
     *,
     deps: AgreementsDeps,
 ) -> tuple[Blueprint, Blueprint, Blueprint]:
-    agreement_trends_cache: dict[str, object] = {"ts": 0.0, "payload": None}
-    agreement_trends_lock = Lock()
-    counsel_leaderboards_cache: dict[str, object] = {"ts": 0.0, "payload": None}
-    counsel_leaderboards_lock = Lock()
-    agreement_status_summary_cache: dict[str, object] = {"ts": 0.0, "payload": None}
-    agreement_status_summary_lock = Lock()
-    agreement_deal_types_summary_cache: dict[str, object] = {"ts": 0.0, "payload": None}
-    agreement_deal_types_summary_lock = Lock()
-
     agreements_blp = Blueprint(
         "agreements",
         "agreements",
@@ -239,80 +274,23 @@ def register_agreements_routes(
             query=str(args.get("query") or "").strip(),
         )
 
-    def _cached_summary(
-        cache: dict[str, object],
-        lock: Lock,
-        build: agreements_service.PayloadBuilder,
-    ) -> tuple[Response, int]:
-        cache_enabled = not current_app.testing
-        now = deps.time.time()
-        if cache_enabled:
-            with lock:
-                cached_payload = cache["payload"]
-                cached_ts = cast(float, cache["ts"])
-                cache_is_valid = cached_payload is not None and (
-                    now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
-                )
-            if cache_is_valid and isinstance(cached_payload, dict):
-                return _cacheable_json_response(
-                    cast(dict[str, object], cached_payload),
-                    max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
-                )
-        payload = build(deps)
-        if cache_enabled:
-            with lock:
-                cache["payload"] = payload
-                cache["ts"] = now
-        return _cacheable_json_response(payload, max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS)
+    def _summary_response(payload: dict[str, object]) -> tuple[Response, int]:
+        return _cacheable_json_response(payload, max_age=AGREEMENTS_SUMMARY_TTL_SECONDS)
 
     def get_agreements_status_summary() -> tuple[Response, int]:
-        return _cached_summary(
-            agreement_status_summary_cache,
-            agreement_status_summary_lock,
-            agreements_service.agreements_status_summary_payload,
-        )
+        return _summary_response(agreements_status_summary_cached(deps))
 
     def get_agreements_deal_types_summary() -> tuple[Response, int]:
-        return _cached_summary(
-            agreement_deal_types_summary_cache,
-            agreement_deal_types_summary_lock,
-            agreements_service.agreements_deal_types_summary_payload,
-        )
+        return _summary_response(agreements_deal_types_summary_cached(deps))
 
     def get_counsel_leaderboards() -> tuple[Response, int]:
-        return _cached_summary(
-            counsel_leaderboards_cache,
-            counsel_leaderboards_lock,
-            agreements_service.counsel_leaderboards_payload,
-        )
+        return _summary_response(counsel_leaderboards_cached(deps))
 
     def get_agreement_trends() -> tuple[Response, int]:
-        return _cached_summary(
-            agreement_trends_cache,
-            agreement_trends_lock,
-            agreements_service.agreement_trends_payload,
-        )
+        return _summary_response(agreement_trends_cached(deps))
 
     def get_agreements_summary() -> tuple[Response, int]:
-        # This cache is shared with app-level code, so it stays on deps and also
-        # serves under test.
-        now = deps.time.time()
-        with deps._agreements_summary_lock:
-            cached_payload = deps._agreements_summary_cache["payload"]
-            cached_ts = deps._agreements_summary_cache["ts"]
-            cache_is_valid = cached_payload is not None and (
-                now - cached_ts < deps._AGREEMENTS_SUMMARY_TTL_SECONDS
-            )
-        if cache_is_valid and cached_payload is not None:
-            return _cacheable_json_response(
-                cast(dict[str, object], cached_payload),
-                max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS,
-            )
-        payload = agreements_service.agreements_corpus_summary_payload(deps)
-        with deps._agreements_summary_lock:
-            deps._agreements_summary_cache["payload"] = payload
-            deps._agreements_summary_cache["ts"] = now
-        return _cacheable_json_response(payload, max_age=deps._AGREEMENTS_SUMMARY_TTL_SECONDS)
+        return _summary_response(agreements_summary_cached(deps))
 
     def get_filter_options() -> tuple[Response, int]:
         allowed_fields = set(agreements_service.FILTER_OPTION_FIELDS)
@@ -326,28 +304,11 @@ def register_agreements_routes(
             if unknown_fields:
                 abort(400, description=f"Unsupported filter option fields: {', '.join(unknown_fields)}.")
             requested_fields = tuple(dict.fromkeys(requested_fields_raw))
+            payload = agreements_service.filter_options_payload(deps, requested_fields)
         else:
-            requested_fields = agreements_service.FILTER_OPTION_FIELDS
-
-        now = deps.time.time()
-        with deps._filter_options_lock:
-            cached_payload = deps._filter_options_cache["payload"]
-            cached_ts = deps._filter_options_cache["ts"]
-            cache_is_valid = cached_payload is not None and (
-                now - cached_ts < deps._FILTER_OPTIONS_TTL_SECONDS
-            )
-        if cache_is_valid and not requested_fields_raw:
-            resp = jsonify(cached_payload)
-            resp.headers["Cache-Control"] = f"public, max-age={deps._FILTER_OPTIONS_TTL_SECONDS}"
-            return resp, 200
-
-        payload = agreements_service.filter_options_payload(deps, requested_fields)
-        if not requested_fields_raw:
-            with deps._filter_options_lock:
-                deps._filter_options_cache["payload"] = payload
-                deps._filter_options_cache["ts"] = now
+            payload = default_filter_options_cached(deps)
         resp = jsonify(payload)
-        resp.headers["Cache-Control"] = f"public, max-age={deps._FILTER_OPTIONS_TTL_SECONDS}"
+        resp.headers["Cache-Control"] = f"public, max-age={FILTER_OPTIONS_TTL_SECONDS}"
         return resp, 200
 
     def get_filter_option_values(field_name: str) -> tuple[Response, int]:

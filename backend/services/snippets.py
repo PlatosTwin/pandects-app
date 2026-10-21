@@ -9,13 +9,22 @@ from backend.text_search import parse_text_search_terms
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\s+")
+# Page breaks inside section XML: `<page>69</page>` (the printed page number) and
+# `<pageUUID>66af9b9a-...</pageUUID>` (the page id). Their content is not agreement
+# text, so it is dropped with the element instead of leaking into excerpts as
+# "... 69 66af9b9a-20dc-11f1-ac97-be44a5e954c8 ...".
+_PAGE_MARKER_RE = re.compile(r"<(pageUUID|page)\b[^>]*?(?:/>|>.*?</\1\s*>)", re.DOTALL)
+
+
+def _strip_tags(xml: str) -> str:
+    return _TAG_RE.sub(" ", _PAGE_MARKER_RE.sub(" ", xml))
 
 
 def extract_text_from_xml(xml: object) -> str:
-    """Strip tags and entities from section XML, collapsing whitespace."""
+    """Strip tags, page markers, and entities from section XML, collapsing whitespace."""
     if not isinstance(xml, str):
         return ""
-    text_content = unescape(_TAG_RE.sub(" ", xml))
+    text_content = unescape(_strip_tags(xml))
     return _WHITESPACE_RE.sub(" ", text_content).strip()
 
 
@@ -23,7 +32,7 @@ def strip_xml_snippet(xml_value: object, *, max_chars: int = 220) -> str | None:
     """Leading excerpt of a section, or None when it has no text."""
     if not isinstance(xml_value, str) or not xml_value.strip():
         return None
-    text_only = _TAG_RE.sub(" ", xml_value)
+    text_only = _strip_tags(xml_value)
     normalized = _WHITESPACE_RE.sub(" ", text_only).strip()
     if not normalized:
         return None
