@@ -560,6 +560,56 @@ class XMLVerifyAssetTests(unittest.TestCase):
             self._normalized_text_without_heading_tags(repaired_text),
         )
 
+    def test_safe_xml_tag_repairs_unwraps_disclosure_schedule_reference_tag(self) -> None:
+        tagged_output = self._five_article_text(
+            "".join(
+                [
+                    "<section>1.1 First</section> as set forth in ",
+                    "<section>Section 3.4 of the Company Disclosure Schedule.</section>",
+                    "<section>1.2 Second</section>",
+                ]
+            )
+        )
+        df = self._xml_build_df(tagged_output)
+
+        before_counts, _ = _hard_rule_result_for_df(df)
+        repaired_df = _apply_safe_xml_tag_repairs_to_df(df)
+        after_counts, _ = _hard_rule_result_for_df(repaired_df)
+
+        self.assertGreater(sum(before_counts.values()), 0)
+        self.assertEqual(after_counts, {})
+        repaired_text = cast(str, repaired_df.iloc[0]["tagged_output"])
+        self.assertNotIn("<section>Section 3.4", repaired_text)
+        self.assertEqual(
+            self._normalized_text_without_heading_tags(tagged_output),
+            self._normalized_text_without_heading_tags(repaired_text),
+        )
+
+    def test_safe_xml_tag_repairs_unwraps_repeated_stray_section_number(self) -> None:
+        tagged_output = self._five_article_text(
+            "".join(
+                [
+                    "<section>1.1 First</section>",
+                    "<section>1.2 Second</section>\n\n<section>1.2 .</section> Text",
+                    "<section>1.3 Third</section>",
+                ]
+            )
+        )
+        df = self._xml_build_df(tagged_output)
+
+        before_counts, _ = _hard_rule_result_for_df(df)
+        repaired_df = _apply_safe_xml_tag_repairs_to_df(df)
+        after_counts, _ = _hard_rule_result_for_df(repaired_df)
+
+        self.assertGreater(sum(before_counts.values()), 0)
+        self.assertEqual(after_counts, {})
+        repaired_text = cast(str, repaired_df.iloc[0]["tagged_output"])
+        self.assertIn("<section>1.2 Second</section>\n\n1.2 . Text", repaired_text)
+        self.assertEqual(
+            self._normalized_text_without_heading_tags(tagged_output),
+            self._normalized_text_without_heading_tags(repaired_text),
+        )
+
     def test_safe_xml_tag_repairs_splits_leading_page_number_from_section_tag(self) -> None:
         tagged_output = (
             "<article>ARTICLE I</article><section>1.1 First</section>"
