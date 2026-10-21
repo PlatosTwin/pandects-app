@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useIsLockedOut } from "@/components/NavLinkParts";
 
 import { buildAgreementHref } from "@/lib/agreement-links";
 import { useHydrated } from "@/components/landing/use-hydrated";
@@ -37,10 +38,17 @@ export function FeaturedAgreements({
   className,
 }: FeaturedAgreementsProps) {
   const hydrated = useHydrated();
+  const isLockedOut = useIsLockedOut();
+  const lockedOut = isLockedOut("/agreements/:agreementUuid");
 
-  const { results, isLoading, error } = useRecentAgreements(limit);
+  const { results, isLoading, error } = useRecentAgreements(limit, !lockedOut);
   const loading = !hydrated || isLoading;
 
+  // TEMPORARY (access lockdown): every row opens an agreement page, which a
+  // signed-out visitor can't open, so the section isn't offered at all.
+  if (lockedOut) {
+    return null;
+  }
   if (!loading && (error || results.length === 0)) {
     return null;
   }
@@ -103,7 +111,10 @@ function FeaturedAgreementRow({
 
   return (
     <Link
-      to={buildAgreementHref({ agreementUuid: result.agreement_uuid, from: "/" })}
+      to={buildAgreementHref({
+        agreementUuid: result.agreement_uuid,
+        from: "/",
+      })}
       onClick={() =>
         trackEvent("landing_featured_agreement_click", {
           position,
