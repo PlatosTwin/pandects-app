@@ -107,7 +107,7 @@ export default function XmlSchema() {
                 role="region"
                 aria-label="XML element tree"
                 tabIndex={0}
-                className="overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               >
                 <pre className="w-max whitespace-pre font-mono text-xs text-muted-foreground sm:text-sm">
                   {XML_ELEMENT_TREE}
