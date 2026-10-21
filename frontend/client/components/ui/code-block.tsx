@@ -29,6 +29,12 @@ export function CodeBlock({
   onCopied,
   className,
 }: CodeBlockProps) {
+  // Unique per block where callers give unique copy labels ("Copy X" -> "X").
+  const regionLabel =
+    typeof label === "string"
+      ? label
+      : copyLabel.replace(/^copy\s+/i, "").replace(/^\w/, (c) => c.toUpperCase());
+
   return (
     <div
       className={cn(
@@ -47,9 +53,7 @@ export function CodeBlock({
           // named as a region so screen readers announce what it is.
           tabIndex={wrap ? undefined : 0}
           role={wrap ? undefined : "region"}
-          aria-label={
-            wrap ? undefined : typeof label === "string" ? label : "Code"
-          }
+          aria-label={wrap ? undefined : regionLabel}
           className={cn(
             "min-w-0 flex-1 overflow-x-auto rounded-md px-3 py-2.5 font-mono text-[13px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
             wrap && "whitespace-pre-wrap break-all",
