@@ -203,7 +203,7 @@
 
 @layer components {
   .tooltip-help-trigger {
-    @apply inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-foreground/35 bg-background text-[10px] font-semibold text-foreground/80 transition-colors hover:border-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-foreground/35 bg-background text-[10px] font-semibold text-foreground/80 transition-colors hover:border-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background print:hidden;
   }
 
   .tooltip-help-trigger-compact {
@@ -242,19 +242,24 @@
   }
 }
 
-/* Docs and legal pages on paper: the nav, footer and TOC are hidden by their
-   print: classes; here buttons go, code wraps instead of scrolling out of view,
-   and external prose links show their address. */
+/* Docs and legal pages on paper. The nav, footer, docs TOC, Buttons and "?"
+   help triggers are hidden by their print: classes (text-bearing inline
+   triggers stay, so no sentence loses words); here code wraps instead of being
+   clipped by its scroll region, and the page prints light even from dark mode. */
 @media print {
   @page {
     margin: 18mm 16mm;
+  }
+
+  :root {
+    /* Beats the inline color-scheme the theme script sets on <html>. */
+    color-scheme: light !important;
   }
 
   body {
     background: #fff;
   }
 
-  main button,
   [data-radix-popper-content-wrapper] {
     display: none !important;
   }
@@ -275,11 +280,5 @@
   h2,
   h3 {
     break-after: avoid;
-  }
-
-  .prose a[href^="http"]::after {
-    content: " (" attr(href) ")";
-    font-size: 0.85em;
-    word-break: break-all;
   }
 }

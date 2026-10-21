@@ -1,11 +1,8 @@
 import { Outlet, matchPath, useLocation } from "react-router-dom";
-import { Suspense, useContext, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { LOCKDOWN_ACTIVE } from "@/components/navigation-links";
-import { AuthContext } from "@/contexts/AuthContext";
-import { ACCESS_GATED_PATHS } from "@/lib/lockdown";
 import { ROUTES, type RouteShell } from "@/lib/routes";
 import { applySeoForLocation } from "@/lib/seo";
 import {
@@ -117,34 +114,21 @@ function FallbackBody({ shell }: { shell: RouteShell }) {
   }
 }
 
-type FallbackShell = RouteShell | "blank";
-
-function routeShellFor(pathname: string, authStatus: string): FallbackShell {
+function routeShellFor(pathname: string): RouteShell {
   const match = ROUTES.find(
     (route) => !route.catchAll && matchPath(route.path, pathname),
   );
-  if (!match) return ROUTES.find((route) => route.catchAll)?.shell ?? "data";
-  // TEMPORARY (access lockdown): mirrors <AccessGate>. Signed-out visitors get
-  // the centered lockdown notice, so draw the status frame; while auth is
-  // still resolving, AccessGate renders nothing, so draw nothing either.
-  if (LOCKDOWN_ACTIVE && ACCESS_GATED_PATHS.has(match.path)) {
-    if (authStatus === "anonymous") return "status";
-    if (authStatus === "loading") return "blank";
-  }
-  return match.shell ?? "data";
+  if (match) return match.shell ?? "data";
+  return ROUTES.find((route) => route.catchAll)?.shell ?? "data";
 }
 
 function RouteFallback({ pathname }: { pathname: string }) {
-  const authStatus = useContext(AuthContext)?.status ?? "loading";
-  const shell = routeShellFor(pathname, authStatus);
   return (
     <div role="status" aria-live="polite">
       <span className="sr-only">Loading page</span>
-      {shell === "blank" ? null : (
-        <div aria-hidden="true">
-          <FallbackBody shell={shell} />
-        </div>
-      )}
+      <div aria-hidden="true">
+        <FallbackBody shell={routeShellFor(pathname)} />
+      </div>
     </div>
   );
 }
