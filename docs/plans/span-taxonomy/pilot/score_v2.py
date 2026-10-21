@@ -1,6 +1,6 @@
 """Score M2 extractions (schema_v2.md, ten concepts) against gold.
 
-Usage: python3 score_v2.py D ARM GOLD [--split dev|test] [--disagreements OUT.json]
+Usage: python3 score_v2.py D ARM GOLD [--split dev|test|holdout] [--disagreements OUT.json] [--concepts C1,C2]
 Reuses score.py's text matching and span anchoring; only the concept list and the
 comparable key fields differ.
 """
@@ -107,8 +107,8 @@ def show(v):
     return sorted(map(str, v)) if isinstance(v, frozenset) else v
 
 
-def main(D, arm, gold, split=None, dis_path=None):
-    """split=None scores every agreement in the manifest."""
+def main(D, arm, gold, split=None, dis_path=None, concepts=None):
+    """split=None scores every agreement in the manifest; concepts=None scores all ten."""
     uuids = [m["uuid"] for m in json.load(open(f"{D}/manifest.json")) if split in (None, m["split"])]
     q_ok = q_all = 0
     det = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0, "tn": 0})
@@ -125,7 +125,7 @@ def main(D, arm, gold, split=None, dis_path=None):
         for q in quotes(P):
             q_all += 1
             q_ok += layer.find(q) is not None
-        for c in CONCEPTS:
+        for c in concepts or CONCEPTS:
             g, p = G.get(c) or {}, P.get(c) or {}
             gp, pp = g.get("finding") == "present", p.get("finding") == "present"
             det[c]["tp" if gp and pp else "fn" if gp else "fp" if pp else "tn"] += 1
@@ -167,4 +167,5 @@ def main(D, arm, gold, split=None, dis_path=None):
 if __name__ == "__main__":
     a = sys.argv[1:]
     opts = dict(zip(a[3::2], a[4::2]))
-    print(json.dumps(main(a[0], a[1], a[2], opts.get("--split"), opts.get("--disagreements")), indent=1))
+    print(json.dumps(main(a[0], a[1], a[2], opts.get("--split"), opts.get("--disagreements"),
+                          opts["--concepts"].split(",") if "--concepts" in opts else None), indent=1))

@@ -1,6 +1,6 @@
 # M1, M2 and M2 holdout pilots (span taxonomy)
 
-Results and discussion: [section 7.4](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21) (M1, 3 concepts, 50 agreements) and [section 7.5](../../span-taxonomy.md#75-m2-pilot-results-2026-10-21) (M2, 10 concepts, 150 agreements) and [section 7.6](../../span-taxonomy.md#76-m2-holdout-results-2026-10-21) (M2 holdout, 50 fresh agreements) of the plan.
+Results and discussion: [section 7.4](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21) (M1, 3 concepts, 50 agreements) and [section 7.5](../../span-taxonomy.md#75-m2-pilot-results-2026-10-21) (M2, 10 concepts, 150 agreements) and [section 7.6](../../span-taxonomy.md#76-m2-holdout-results-2026-10-21) (M2 holdout, 50 fresh agreements) and [section 7.7](../../span-taxonomy.md#77-definition-resolution-re-check-2026-10-21) (definition-resolution re-check on the same holdout) of the plan.
 
 ## Rebuild the inputs
 
@@ -30,6 +30,8 @@ M2 uses the same query with three changes: the seed is `'m2'` instead of `'m1pil
 
 The M2 holdout uses the seed `'m2holdout'`, excludes the M1 and M2 agreements, and filters on `WHERE t.rn <= IF(t.era = 'a', 7, 6)` for both target types, giving 50 agreements. Then `python3 prepare_v3.py holdout.tsv OUT` writes the views with defined-terms exhibits admitted and the stage 1 fixes from section 7.5; every agreement is in the `holdout` split.
 
+The definition-resolution re-check reuses that dump: `python3 prepare_v4.py holdout.tsv OUT` adds page-blob exhibits and definition resolution, and `python3 score_v2.py D ARM GOLD --split holdout --concepts ma.termination.fee.target,ma.termination.fee.reverse,ma.indemn.cap,ma.mae.definition` scores the four concepts.
+
 ## Files
 
 - `text_layer.py`: the canonical text layer (body `<text>` elements, unstripped, one per line).
@@ -45,6 +47,9 @@ The M2 holdout uses the seed `'m2holdout'`, excludes the M1 and M2 agreements, a
 - `prepare_v3.py`: holdout stage 1 (funds reps, indemnity-limit titles, bare-number titles, trimming only for definitions sections).
 - `schema_v2_2.md`: v2.1 plus 13 clarifications, run on the holdout and used for its adjudication.
 - `m2_holdout_results.json`: holdout numbers, as run and with the exhibit continuation fix.
+- `prepare_v4.py`: definition resolution (adds the defining paragraphs of relevant terms that candidate sections use) on top of `prepare_v3.py`; uses `text_layer.project(page_blobs=True)` for exhibits stored one page per `<text>`.
+- `schema_v2_3.md`: v2.2 plus 14 clarifications, run on the re-check and used for its adjudication.
+- `m2_defres_results.json`: re-check numbers for both arms (v3 candidates and v4 definition resolution).
 
 ## How it ran
 
