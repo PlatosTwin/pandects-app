@@ -1948,6 +1948,23 @@ class McpTests(unittest.TestCase):
         self.assertIsNone(null_payload["target_industry_label"])
         self.assertIsNone(null_payload["acquirer_industry_label"])
 
+        # An unlisted code rolls up to its 2-digit sector, exactly as REST labels it.
+        from backend.services.reference_labels import industry_labels_from, resolve_naics_label
+
+        catalog = {"44": "Retail Trade", "45": "Retail Trade", "111": "Crop Production", "11": "Agriculture"}
+        rollup: dict[str, object] = {"target_industry": "459", "acquirer_industry": "1119"}
+        _decorate_industry_labels(rollup, label_by_code=catalog)
+        self.assertEqual(rollup["target_industry_label"], "Retail Trade")
+        self.assertEqual(rollup["acquirer_industry_label"], "Agriculture")
+        for code in ("459", "1119", "111", " 111 ", "tech", "9", "", "99"):
+            decorated: dict[str, object] = {"target_industry": code}
+            _decorate_industry_labels(decorated, label_by_code=catalog, fields=("target_industry",))
+            self.assertEqual(decorated["target_industry_label"], resolve_naics_label(code, catalog), code)
+        self.assertEqual(
+            industry_labels_from(["459", "111", "tech"], catalog),
+            {"459": "Retail Trade", "111": "Crop Production"},
+        )
+
         self.assertTrue(_year_in_range(2023, year_min=2022, year_max=2024))
         self.assertFalse(_year_in_range(2021, year_min=2022, year_max=None))
         self.assertFalse(_year_in_range(2025, year_min=None, year_max=2024))

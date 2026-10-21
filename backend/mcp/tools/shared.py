@@ -22,6 +22,7 @@ from backend.services.agreements_service import (
     ownership_trends,
     target_industries_by_year,
 )
+from backend.services.reference_labels import resolve_naics_label
 from backend.services.snippets import extract_text_from_xml, focused_snippet
 from backend.services.taxonomy_service import build_taxonomy_tree
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps
@@ -791,6 +792,10 @@ def _decorate_industry_labels(
 ) -> None:
     """Add a ``<field>_label`` sibling for every present field, null when undecodable.
 
+    Labels resolve like REST (``resolve_naics_label``): a code with no catalog entry
+    of its own (a 4-digit industry group, an unlisted subsector such as "459") rolls
+    up to its 2-digit sector.
+
     A field whose base key is present but the code is null or has no catalog entry
     still gets the ``_label`` key, null rather than omitted: a real export hit 9/326
     rows missing the key entirely, which breaks strict schema validation downstream
@@ -803,11 +808,9 @@ def _decorate_industry_labels(
     for field_name in fields:
         if field_name not in payload:
             continue
-        raw = payload.get(field_name)
-        label: str | None = None
-        if isinstance(raw, str) and raw.strip():
-            label = label_by_code.get(raw.strip())
-        payload[f"{field_name}_label"] = label
+        payload[f"{field_name}_label"] = resolve_naics_label(
+            payload.get(field_name), label_by_code
+        )
 
 
 def _counsel_names_by_agreement(

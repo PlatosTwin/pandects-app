@@ -212,6 +212,18 @@ unreleased:
     focus term that spans a page break is found. monetary_values is extracted
     from the same cleaned text.
   refs: []
+- type: mcp
+  severity: minor
+  summary: "MCP industry labels roll an unlisted NAICS code up to its sector, as REST does."
+  details: >
+    target_industry_label / acquirer_industry_label (list_agreements,
+    get_agreement, get_agreements_batch, search_sections
+    metadata) and the list_filter_options industry_labels map used to match the
+    code exactly, so a code with no catalog entry of its own (for example "459",
+    "513", "922") was null in MCP while REST labeled it with its 2-digit sector
+    ("Retail Trade" for "459"). Both surfaces now share one resolver. A
+    non-numeric value or a code whose sector is also missing stays null.
+  refs: []
 releases:
 - version: '2026-09-09'
   released: '2026-09-09T23:37:59Z'

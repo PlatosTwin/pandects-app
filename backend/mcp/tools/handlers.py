@@ -86,6 +86,7 @@ from backend.services.agreements_service import (
     tax_clause_count,
     tax_clause_rows,
 )
+from backend.services.reference_labels import industry_labels_from
 from backend.services.sections_service import run_sections
 from backend.text_search import text_query_focus_terms
 from backend.services.tax_clauses_service import TaxClausesServiceDeps, run_tax_clauses
@@ -1952,20 +1953,11 @@ def _list_filter_options(
         for _field_key in industry_fields_present:
             all_industry_codes.update(cast(list[str], payload_out.get(_field_key, [])))
         if all_industry_codes:
-            sector_rows = db.session.execute(
-                text(f"SELECT CAST(sector_code AS CHAR), sector_desc FROM {schema_prefix()}naics_sectors")
-            ).fetchall()
-            sub_sector_rows = db.session.execute(
-                text(f"SELECT CAST(sub_sector_code AS CHAR), sub_sector_desc FROM {schema_prefix()}naics_sub_sectors")
-            ).fetchall()
-            industry_labels: dict[str, str] = {}
-            for _code, _desc in sector_rows:
-                if str(_code) in all_industry_codes and _desc:
-                    industry_labels[str(_code)] = str(_desc)
-            for _code, _desc in sub_sector_rows:
-                if str(_code) in all_industry_codes and _desc:
-                    industry_labels[str(_code)] = str(_desc)
-            payload_out["industry_labels"] = industry_labels
+            # Same rollup as REST /v1/filter-options: an unlisted code gets its sector's label.
+            payload_out["industry_labels"] = industry_labels_from(
+                sorted(all_industry_codes),
+                _naics_label_map(db=db, schema_prefix=schema_prefix()),
+            )
 
     filter_metadata = _filter_option_metadata()
     response = {
