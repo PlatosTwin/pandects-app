@@ -710,6 +710,16 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["resource"], self.mcp_runtime.mcp_resource_url())
         self.assertIn("http://localhost:5000/v1/auth/oauth", payload["authorization_servers"])
 
+    def test_pathed_authorization_server_metadata_unknown_path_uses_error_envelope(self):
+        client = self.app.test_client()
+        with patch("backend.mcp.routes.mcp_oauth_issuer", return_value="https://api.example.com/v1/auth/oauth"):
+            res = client.get("/.well-known/oauth-authorization-server/some/other/path")
+        self.assertEqual(res.status_code, 404)
+        self.assertEqual(
+            res.get_json(),
+            {"error": "not_found", "message": "Unknown authorization server path."},
+        )
+
     def test_protected_resource_metadata_hides_runtime_details(self):
         client = self.app.test_client()
         with patch(
@@ -720,7 +730,7 @@ class McpTests(unittest.TestCase):
                 res = client.get("/.well-known/oauth-protected-resource")
         self.assertEqual(res.status_code, 503)
         payload = res.get_json()
-        self.assertEqual(payload["error"], "Service Unavailable")
+        self.assertEqual(payload["error"], "service_unavailable")
         self.assertEqual(
             payload["message"],
             "Protected resource metadata is unavailable right now.",

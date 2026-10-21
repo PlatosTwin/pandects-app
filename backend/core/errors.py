@@ -15,7 +15,9 @@ from backend.extensions import db
 # is human-readable and may change wording. Routes with a more specific
 # condition pass their own code through `json_error` (for example
 # `captcha_required`, `legal_required`, `rate_limited`); everything else gets
-# the code for its HTTP status. `/mcp` keeps JSON-RPC error objects.
+# the code for its HTTP status. `/mcp` keeps JSON-RPC error objects, and the
+# OAuth token and client-registration endpoints use `oauth_error`, whose
+# `error` values are the codes those RFCs define.
 ERROR_CODES_BY_STATUS: dict[int, str] = {
     400: "bad_request",
     401: "unauthorized",
@@ -175,3 +177,20 @@ def json_error(
 
 def status_response(status: str, *, code: int = 200) -> Response:
     return make_response(jsonify({"status": status}), code)
+
+
+def oauth_error(status: int, *, error: str, description: str) -> Response:
+    """Error body for the OAuth token (RFC 6749 §5.2) and client-registration
+    (RFC 7591 §3.2.2) endpoints.
+
+    `error` is the code the RFC defines (`invalid_grant`, `invalid_client_metadata`,
+    ...) and `error_description` its text; `message` repeats the text so the
+    body is still a /v1 envelope.
+    """
+    resp = make_response(
+        jsonify({"error": error, "error_description": description, "message": description}),
+        status,
+    )
+    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Pragma"] = "no-cache"
+    return resp

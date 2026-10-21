@@ -21,6 +21,26 @@
 # minor = additive/cosmetic.
 
 unreleased:
+- type: mcp
+  severity: minor
+  summary: "MCP OAuth token and client-registration errors now use the codes the OAuth RFCs define."
+  details: >
+    POST /v1/auth/oauth/token errors return {"error", "error_description",
+    "message"} with the RFC 6749 codes invalid_request, invalid_client,
+    invalid_grant, unauthorized_client and unsupported_grant_type, plus
+    Cache-Control: no-store and Pragma: no-cache. POST /v1/auth/oauth/register
+    errors use the RFC 7591 codes invalid_redirect_uri and
+    invalid_client_metadata. Both used to return the generic bad_request
+    code. A code or refresh token whose Pandects account is not verified is
+    now 400 invalid_grant instead of 403. `message` still carries the same
+    text. The /.well-known OAuth discovery endpoints now return the standard
+    error envelope codes (not_found, service_unavailable) instead of HTTP
+    reason phrases.
+  migration: >
+    MCP clients that follow the OAuth RFCs need no change. Code that matched
+    `error == "bad_request"` on these two endpoints should match the RFC code
+    or the status.
+  refs: []
 - type: docs
   severity: minor
   summary: "The published OpenAPI spec now matches what the API returns."

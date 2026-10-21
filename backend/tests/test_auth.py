@@ -3155,6 +3155,7 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(reuse.status_code, 400)
+        self.assertEqual(reuse.get_json()["error"], "invalid_grant")
 
         # The rotated token must now also be rejected because the family was
         # revoked when reuse of v1 was detected.
@@ -3531,6 +3532,85 @@ class AuthFlowTests(unittest.TestCase):
                     },
                 )
                 self.assertEqual(register.status_code, 400)
+                self.assertEqual(register.get_json()["error"], "invalid_redirect_uri")
+
+    def test_oauth_register_errors_use_rfc7591_codes(self):
+        client = self.app.test_client()
+        res = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "token_endpoint_auth_method": "client_secret_basic",
+            },
+        )
+        self.assertEqual(res.status_code, 400)
+        message = "Only public clients with token_endpoint_auth_method=none are supported."
+        self.assertEqual(
+            res.get_json(),
+            {"error": "invalid_client_metadata", "error_description": message, "message": message},
+        )
+        self.assertEqual(res.headers.get("Cache-Control"), "no-store")
+
+    def test_oauth_token_errors_use_rfc6749_codes(self):
+        client = self.app.test_client()
+        cases = [
+            ({"grant_type": "password"}, "unsupported_grant_type", "Unsupported grant_type."),
+            (
+                {"grant_type": "authorization_code", "client_id": "x"},
+                "invalid_request",
+                "Missing OAuth token exchange fields.",
+            ),
+            (
+                {
+                    "grant_type": "authorization_code",
+                    "client_id": "no-such-client",
+                    "code": "c",
+                    "redirect_uri": "https://codex.example.com/callback",
+                    "code_verifier": "v",
+                },
+                "invalid_client",
+                "Invalid OAuth client or redirect URI.",
+            ),
+            (
+                {"grant_type": "refresh_token", "client_id": "no-such-client", "refresh_token": "r"},
+                "invalid_client",
+                "Invalid OAuth client.",
+            ),
+        ]
+        for form, code, message in cases:
+            with self.subTest(code=code, form=form):
+                res = client.post("/v1/auth/oauth/token", data=form)
+                self.assertEqual(res.status_code, 400)
+                self.assertEqual(
+                    res.get_json(),
+                    {"error": code, "error_description": message, "message": message},
+                )
+                self.assertEqual(res.headers.get("Cache-Control"), "no-store")
+                self.assertEqual(res.headers.get("Pragma"), "no-cache")
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={"redirect_uris": ["https://codex.example.com/callback"]},
+        )
+        client_id = register.get_json()["client_id"]
+        bad_code = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client_id,
+                "code": "not-a-real-code",
+                "redirect_uri": "https://codex.example.com/callback",
+                "code_verifier": "v",
+            },
+        )
+        self.assertEqual(bad_code.status_code, 400)
+        self.assertEqual(bad_code.get_json()["error"], "invalid_grant")
+        no_refresh = client.post(
+            "/v1/auth/oauth/token",
+            data={"grant_type": "refresh_token", "client_id": client_id, "refresh_token": "r"},
+        )
+        self.assertEqual(no_refresh.status_code, 400)
+        self.assertEqual(no_refresh.get_json()["error"], "unauthorized_client")
 
     def test_oauth_authorize_redirect_preserves_registered_query_string(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
