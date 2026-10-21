@@ -190,6 +190,28 @@ unreleased:
     Send one of the listed labels; list_filter_options (MCP) returns them under
     transaction_price_totals.
   refs: []
+- type: api
+  severity: minor
+  summary: "Search snippets no longer contain page numbers and page ids."
+  details: >
+    A section that crosses a page break carries <page> and <pageUUID> markers in
+    its XML, and their contents leaked into /v1/search/agreements
+    matched_sections[].snippet as text ("... more than 20 69
+    66af9b9a-20dc-11f1-ac97-be44a5e954c8 Business Days ..."). Snippets are now
+    built from the agreement text only, so a text_query phrase that spans a
+    page break also matches and is reported in matched_terms. The XML returned
+    by the section and agreement endpoints is unchanged.
+  refs: []
+- type: mcp
+  severity: minor
+  summary: "Snippets and monetary_values ignore page numbers and page ids."
+  details: >
+    get_section_snippet, get_section_snippets_batch, get_sections_batch, and
+    search_sections / search_agreements with snippets now drop the <page> and
+    <pageUUID> markers before excerpting, so snippets read as clean text and a
+    focus term that spans a page break is found. monetary_values is extracted
+    from the same cleaned text.
+  refs: []
 releases:
 - version: '2026-09-09'
   released: '2026-09-09T23:37:59Z'
