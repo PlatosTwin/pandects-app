@@ -1542,12 +1542,26 @@ def agreements_corpus_summary_payload(deps: AgreementsDeps) -> dict[str, object]
         ).mappings().first()
     except SQLAlchemyError:
         overview_row = None
+    # Agreements a user can browse and search (eligible, latest XML verified);
+    # `agreements` counts every eligible agreement ingested.
+    try:
+        processed_agreements = deps._to_int(
+            cast(
+                object,
+                db.session.execute(
+                    text(f"SELECT COUNT(*) FROM {deps._schema_prefix()}agreement_index_summary")
+                ).scalar(),
+            )
+        )
+    except SQLAlchemyError:
+        processed_agreements = None
     row_dict = deps._row_mapping_as_dict(cast(object, row)) if row is not None else {}
     overview = (
         deps._row_mapping_as_dict(cast(object, overview_row)) if overview_row is not None else {}
     )
     return {
         "agreements": deps._to_int(row_dict.get("agreements")),
+        "processed_agreements": processed_agreements,
         "sections": deps._to_int(row_dict.get("sections")),
         "pages": deps._to_int(row_dict.get("pages")),
         "latest_filing_date": _iso_date_or_none(overview.get("latest_filing_date")),

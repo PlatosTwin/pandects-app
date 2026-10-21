@@ -82,6 +82,16 @@ unreleased:
   refs: []
 - type: api
   severity: minor
+  summary: "/v1/agreements-summary now reports processed_agreements alongside agreements."
+  details: >
+    The new processed_agreements field counts the agreements that have been
+    processed and can be browsed and searched (the rows behind
+    /v1/agreements-index). The existing agreements field is unchanged and still
+    counts every agreement ingested, including those pending processing or
+    verification.
+  refs: []
+- type: api
+  severity: minor
   summary: "An out-of-range page_size now returns the largest allowed page instead of 25 rows."
   details: >
     On /v1/sections, /v1/tax-clauses, /v1/agreements, /v1/search/agreements, and
