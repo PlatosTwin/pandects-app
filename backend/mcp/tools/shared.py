@@ -4,7 +4,6 @@ import base64
 import binascii
 import json
 import re
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
 from difflib import SequenceMatcher
@@ -24,6 +23,7 @@ from backend.services.agreements_service import (
     target_industries_by_year,
 )
 from backend.services.snippets import extract_text_from_xml, focused_snippet
+from backend.services.taxonomy_service import build_taxonomy_tree
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps
 from backend.schemas.public_api import AgreementsBulkArgsPayload
 
@@ -700,56 +700,10 @@ def _extract_monetary_values_with_truncation(text: str) -> tuple[list[str], bool
 
 
 def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object, deps: ReferenceDataDeps) -> dict[str, object]:
-    db = deps.db
-    l1_rows = cast(
-        list[tuple[object, object]],
-        db.session.query(
-            cast(Any, l1_model).standard_id,
-            cast(Any, l1_model).label,
-        ).all(),
+    """The same tree as GET /v1/taxonomy (one builder: ``taxonomy_service``)."""
+    return build_taxonomy_tree(
+        deps.db.session, l1_model=l1_model, l2_model=l2_model, l3_model=l3_model
     )
-    l2_rows = cast(
-        list[tuple[object, object, object]],
-        db.session.query(
-            cast(Any, l2_model).standard_id,
-            cast(Any, l2_model).label,
-            cast(Any, l2_model).parent_id,
-        ).all(),
-    )
-    l3_rows = cast(
-        list[tuple[object, object, object]],
-        db.session.query(
-            cast(Any, l3_model).standard_id,
-            cast(Any, l3_model).label,
-            cast(Any, l3_model).parent_id,
-        ).all(),
-    )
-
-    l2_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for standard_id, label, parent_id in l2_rows:
-        if isinstance(standard_id, str) and isinstance(label, str) and isinstance(parent_id, str):
-            l2_by_parent[parent_id].append((standard_id, label))
-
-    l3_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for standard_id, label, parent_id in l3_rows:
-        if isinstance(standard_id, str) and isinstance(label, str) and isinstance(parent_id, str):
-            l3_by_parent[parent_id].append((standard_id, label))
-
-    validated_l1_rows: list[tuple[str, str]] = []
-    for standard_id, label in l1_rows:
-        if isinstance(standard_id, str) and isinstance(label, str):
-            validated_l1_rows.append((standard_id, label))
-
-    tree: dict[str, object] = {}
-    for l1_standard_id, l1_label in sorted(validated_l1_rows, key=lambda row: row[1]):
-        l2_children: dict[str, object] = {}
-        for l2_standard_id, l2_label in sorted(l2_by_parent.get(l1_standard_id, []), key=lambda row: row[1]):
-            l3_children: dict[str, object] = {}
-            for l3_standard_id, l3_label in sorted(l3_by_parent.get(l2_standard_id, []), key=lambda row: row[1]):
-                l3_children[l3_label] = {"id": l3_standard_id}
-            l2_children[l2_label] = {"id": l2_standard_id, "children": l3_children}
-        tree[l1_label] = {"id": l1_standard_id, "children": l2_children}
-    return tree
 
 
 def _naics_payload(deps: ReferenceDataDeps) -> dict[str, object]:

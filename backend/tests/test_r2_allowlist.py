@@ -17,6 +17,15 @@ _PUBLIC_API_SOURCE_PATHS = (
     _REPO_ROOT / "backend" / "services" / "agreements_service.py",
     _REPO_ROOT / "backend" / "services" / "sections_service.py",
 )
+# Reference-data services read the models directly (cached, no deps), so the tables
+# they touch are the models they import from backend.models.main_db.
+_DIRECT_MODEL_SOURCE_PATHS = (
+    _REPO_ROOT / "backend" / "services" / "taxonomy_service.py",
+    _REPO_ROOT / "backend" / "services" / "reference_labels.py",
+)
+_MAIN_DB_IMPORT_PATTERN = re.compile(
+    r"from backend\.models\.main_db import \(?([^)]*?)\)?\n(?!\s)", re.DOTALL
+)
 _ORM_DEP_TO_TABLE = {
     "AgreementCounsel": "agreement_counsel",
     "Agreements": "agreements",
@@ -63,6 +72,13 @@ def _derive_expected_api_tables() -> set[str]:
             tables.add(_ORM_DEP_TO_TABLE[dep_name])
         for pattern in _SQL_TABLE_PATTERNS:
             tables.update(pattern.findall(source))
+    for path in _DIRECT_MODEL_SOURCE_PATHS:
+        for imported in _MAIN_DB_IMPORT_PATTERN.findall(path.read_text()):
+            for name in re.split(r"[\s,]+", imported):
+                if name in _ORM_DEP_TO_TABLE:
+                    tables.add(_ORM_DEP_TO_TABLE[name])
+                elif name == "LatestSectionsSearchStandardId":
+                    tables.add("latest_sections_search_standard_ids")
     sections_service_source = sources[_REPO_ROOT / "backend" / "services" / "sections_service.py"]
     if "standard_id_filter_expr(" in sections_service_source:
         model_source = _MAIN_DB_MODELS_PATH.read_text()

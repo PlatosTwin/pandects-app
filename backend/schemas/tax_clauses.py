@@ -4,6 +4,7 @@ from typing import TypedDict, cast
 
 from marshmallow import Schema, fields, validate
 
+from backend.schemas.labels import TaxStandardIdLabelsSchema
 from backend.schemas.sections import AccessInfoSchema, DumpVersionInfoSchema
 
 
@@ -116,7 +117,7 @@ class TaxClausesQueryArgsSchema(TaxClausesArgsSchema):
     )
 
 
-class TaxClauseItemSchema(Schema):
+class TaxClauseItemSchema(TaxStandardIdLabelsSchema):
     id = fields.Str()
     clause_uuid = fields.Str()
     agreement_uuid = fields.Str()

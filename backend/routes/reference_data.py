@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import json
-from collections import defaultdict
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import cast
 
 from flask import Response, jsonify
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
 from backend.routes.deps import ReferenceDataDeps
+from backend.services import taxonomy_service
 from backend.schemas.public_api import (
     ChangelogArgsSchema,
     ChangelogResponseSchema,
     CounselResponseSchema,
     DumpEntrySchema,
     NaicsResponseSchema,
+    TaxonomyCountsResponseSchema,
 )
 
 
@@ -64,84 +65,6 @@ def register_reference_data_routes(
         url_prefix="/v1/changelog",
         description="Dataset, schema, and API change history per bulk release",
     )
-
-    def _build_taxonomy_tree(*, l1_model: object, l2_model: object, l3_model: object) -> dict[str, object]:
-        db = deps.db
-        l1_rows = cast(
-            list[tuple[object, object]],
-            db.session.query(
-                cast(Any, l1_model).standard_id,
-                cast(Any, l1_model).label,
-            ).all(),
-        )
-        l2_rows = cast(
-            list[tuple[object, object, object]],
-            db.session.query(
-                cast(Any, l2_model).standard_id,
-                cast(Any, l2_model).label,
-                cast(Any, l2_model).parent_id,
-            ).all(),
-        )
-        l3_rows = cast(
-            list[tuple[object, object, object]],
-            db.session.query(
-                cast(Any, l3_model).standard_id,
-                cast(Any, l3_model).label,
-                cast(Any, l3_model).parent_id,
-            ).all(),
-        )
-
-        l2_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
-        for standard_id, label, parent_id in l2_rows:
-            if (
-                not isinstance(standard_id, str)
-                or not isinstance(parent_id, str)
-                or not isinstance(label, str)
-            ):
-                raise ValueError("taxonomy_l2 has invalid parent_id or label.")
-            l2_by_parent[parent_id].append((standard_id, label))
-
-        l3_by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
-        for standard_id, label, parent_id in l3_rows:
-            if (
-                not isinstance(standard_id, str)
-                or not isinstance(parent_id, str)
-                or not isinstance(label, str)
-            ):
-                raise ValueError("taxonomy_l3 has invalid parent_id or label.")
-            l3_by_parent[parent_id].append((standard_id, label))
-
-        validated_l1_rows: list[tuple[str, str]] = []
-        for standard_id, label in l1_rows:
-            if not isinstance(standard_id, str) or not isinstance(label, str):
-                raise ValueError("taxonomy_l1 has invalid standard_id or label.")
-            validated_l1_rows.append((standard_id, label))
-
-        tree: dict[str, object] = {}
-        for l1_standard_id, l1_label in sorted(validated_l1_rows, key=lambda r: r[1]):
-            l2_children: dict[str, object] = {}
-            for l2_standard_id, l2_label in sorted(l2_by_parent.get(l1_standard_id, []), key=lambda r: r[1]):
-                l3_children: dict[str, object] = {}
-                for l3_standard_id, l3_label in sorted(l3_by_parent.get(l2_standard_id, []), key=lambda r: r[1]):
-                    l3_children[l3_label] = {"id": l3_standard_id}
-                l2_children[l2_label] = {"id": l2_standard_id, "children": l3_children}
-            tree[l1_label] = {"id": l1_standard_id, "children": l2_children}
-
-        return tree
-
-    def _taxonomy_tree() -> dict[str, object]:
-        return _build_taxonomy_tree(
-            l1_model=deps.TaxonomyL1,
-            l2_model=deps.TaxonomyL2,
-            l3_model=deps.TaxonomyL3,
-        )
-
-    def _tax_clause_taxonomy_tree() -> dict[str, object]:
-        return _build_taxonomy_tree(
-            l1_model=deps.TaxClauseTaxonomyL1,
-            l2_model=deps.TaxClauseTaxonomyL2,
-            l3_model=deps.TaxClauseTaxonomyL3,
-        )
 
     def _naics_tree() -> dict[str, object]:
         db = deps.db
@@ -277,49 +200,14 @@ def register_reference_data_routes(
 
         return payload, False
 
-    def _get_taxonomy_payload_cached() -> tuple[dict[str, object], bool]:
-        now = deps.time.time()
-        with deps._taxonomy_lock:
-            cached_payload = deps._taxonomy_cache["payload"]
-            cached_ts = deps._taxonomy_cache["ts"]
-            cache_is_valid = cached_payload is not None and (
-                now - cached_ts < deps._TAXONOMY_TTL_SECONDS
-            )
-        if cache_is_valid and cached_payload is not None:
-            return cached_payload, True
-
-        payload = _taxonomy_tree()
-        with deps._taxonomy_lock:
-            deps._taxonomy_cache["payload"] = payload
-            deps._taxonomy_cache["ts"] = now
-
-        return payload, False
-
-    def _get_tax_clause_taxonomy_payload_cached() -> tuple[dict[str, object], bool]:
-        now = deps.time.time()
-        with deps._tax_clause_taxonomy_lock:
-            cached_payload = deps._tax_clause_taxonomy_cache["payload"]
-            cached_ts = deps._tax_clause_taxonomy_cache["ts"]
-            cache_is_valid = cached_payload is not None and (
-                now - cached_ts < deps._TAXONOMY_TTL_SECONDS
-            )
-        if cache_is_valid and cached_payload is not None:
-            return cached_payload, True
-
-        payload = _tax_clause_taxonomy_tree()
-        with deps._tax_clause_taxonomy_lock:
-            deps._tax_clause_taxonomy_cache["payload"] = payload
-            deps._tax_clause_taxonomy_cache["ts"] = now
-
-        return payload, False
-
     @taxonomy_blp.route("")
     class TaxonomyResource(MethodView):
         @taxonomy_blp.doc(
             operationId="getTaxonomy",
             summary="Retrieve clause taxonomy",
             description=(
-                "Returns the hierarchical Pandects taxonomy tree keyed by standard ID."
+                "Returns the hierarchical Pandects clause taxonomy: nodes keyed by label, "
+                "each carrying its `id` (standard ID) and, below L3, its `children`."
             ),
         )
         @taxonomy_blp.response(
@@ -340,7 +228,7 @@ def register_reference_data_routes(
             },
         )
         def get(self) -> Response:
-            payload, _ = _get_taxonomy_payload_cached()
+            payload = taxonomy_service.taxonomy_tree("clauses")
             resp = jsonify(payload)
             resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
             return resp
@@ -370,8 +258,45 @@ def register_reference_data_routes(
             },
         )
         def get(self) -> Response:
-            payload, _ = _get_tax_clause_taxonomy_payload_cached()
+            payload = taxonomy_service.taxonomy_tree("tax_clauses")
             resp = jsonify(payload)
+            resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
+            return resp
+
+    @taxonomy_blp.route("/counts")
+    class TaxonomyCountsResource(MethodView):
+        @taxonomy_blp.doc(
+            operationId="getTaxonomyCounts",
+            summary="Section counts per clause-taxonomy node",
+            description=(
+                "Returns, for every clause-taxonomy node, how many sections "
+                "`GET /v1/sections?standard_id=<id>` matches: a parent node counts the "
+                "distinct sections tagged with it or any descendant. Nodes with no "
+                "sections are omitted."
+            ),
+        )
+        @taxonomy_blp.response(200, TaxonomyCountsResponseSchema)
+        def get(self) -> Response:
+            resp = jsonify({"counts": taxonomy_service.taxonomy_section_counts()})
+            resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
+            return resp
+
+    @tax_clause_taxonomy_blp.route("/counts")
+    class TaxClauseTaxonomyCountsResource(MethodView):
+        @tax_clause_taxonomy_blp.doc(
+            operationId="getTaxClauseTaxonomyCounts",
+            summary="Tax-clause counts per tax-clause-taxonomy node",
+            description=(
+                "Returns, for every tax-clause-taxonomy node, how many clauses "
+                "`GET /v1/tax-clauses?tax_standard_id=<id>` matches with default "
+                "options (rep-and-warranty clauses excluded): a parent node counts the "
+                "distinct clauses tagged with it or any descendant. Nodes with no "
+                "clauses are omitted."
+            ),
+        )
+        @tax_clause_taxonomy_blp.response(200, TaxonomyCountsResponseSchema)
+        def get(self) -> Response:
+            resp = jsonify({"counts": taxonomy_service.tax_clause_taxonomy_clause_counts()})
             resp.headers["Cache-Control"] = f"public, max-age={deps._TAXONOMY_TTL_SECONDS}"
             return resp
 
