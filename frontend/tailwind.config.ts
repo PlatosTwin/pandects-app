@@ -3,7 +3,8 @@ import typography from "@tailwindcss/typography";
 import animate from "tailwindcss-animate";
 
 export default {
-  darkMode: ["class"],
+  // Dark styles apply on screen only, so printing from dark mode gives a light page.
+  darkMode: ["variant", "@media not print { &:is(.dark *) }"],
   content: ["./client/**/*.{ts,tsx}"],
   prefix: "",
   theme: {

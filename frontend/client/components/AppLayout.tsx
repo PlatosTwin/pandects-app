@@ -1,8 +1,11 @@
 import { Outlet, matchPath, useLocation } from "react-router-dom";
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useContext, useEffect, useRef } from "react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { LOCKDOWN_ACTIVE } from "@/components/navigation-links";
+import { AuthContext } from "@/contexts/AuthContext";
+import { ACCESS_GATED_PATHS } from "@/lib/lockdown";
 import { ROUTES, type RouteShell } from "@/lib/routes";
 import { applySeoForLocation } from "@/lib/seo";
 import {
@@ -114,21 +117,34 @@ function FallbackBody({ shell }: { shell: RouteShell }) {
   }
 }
 
-function routeShellFor(pathname: string): RouteShell {
+type FallbackShell = RouteShell | "blank";
+
+function routeShellFor(pathname: string, authStatus: string): FallbackShell {
   const match = ROUTES.find(
     (route) => !route.catchAll && matchPath(route.path, pathname),
   );
-  if (match) return match.shell ?? "data";
-  return ROUTES.find((route) => route.catchAll)?.shell ?? "data";
+  if (!match) return ROUTES.find((route) => route.catchAll)?.shell ?? "data";
+  // TEMPORARY (access lockdown): mirrors <AccessGate>. Signed-out visitors get
+  // the centered lockdown notice, so draw the status frame; while auth is
+  // still resolving, AccessGate renders nothing, so draw nothing either.
+  if (LOCKDOWN_ACTIVE && ACCESS_GATED_PATHS.has(match.path)) {
+    if (authStatus === "anonymous") return "status";
+    if (authStatus === "loading") return "blank";
+  }
+  return match.shell ?? "data";
 }
 
 function RouteFallback({ pathname }: { pathname: string }) {
+  const authStatus = useContext(AuthContext)?.status ?? "loading";
+  const shell = routeShellFor(pathname, authStatus);
   return (
     <div role="status" aria-live="polite">
       <span className="sr-only">Loading page</span>
-      <div aria-hidden="true">
-        <FallbackBody shell={routeShellFor(pathname)} />
-      </div>
+      {shell === "blank" ? null : (
+        <div aria-hidden="true">
+          <FallbackBody shell={shell} />
+        </div>
+      )}
     </div>
   );
 }
@@ -207,7 +223,7 @@ export function AppLayout() {
         // At least a viewport tall (minus the h-16 nav), so the footer starts
         // below the fold whether the route fallback or the page is showing and
         // never jumps when a lazy page arrives (it was most of each route's CLS).
-        className="min-h-[calc(100svh-4rem)] flex-1 outline-none"
+        className="min-h-[calc(100svh-4rem)] flex-1 outline-none print:min-h-0"
       >
         <ErrorBoundary
           key={location.pathname}
