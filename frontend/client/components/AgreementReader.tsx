@@ -455,7 +455,9 @@ export function AgreementReader({
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
         <ErrorState
-          error={errorFromMessage(error)}
+          // The query's own error keeps its status, so a missing agreement
+          // reads as "not found" and an outage as retryable.
+          error={agreementQuery.error ?? errorFromMessage(error)}
           title="Agreement unavailable"
           onRetry={() => void agreementQuery.refetch()}
           action={

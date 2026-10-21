@@ -107,7 +107,7 @@ export default function Taxonomy() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab: TaxonomyKind = searchParams.get("tab") === "tax" ? "tax" : "main";
   const selectedId = searchParams.get("node");
-  const { taxonomyTree, isLoading, error } = useTaxonomy({ kind: currentTab });
+  const { taxonomyTree, isLoading, error, rawError, retry } = useTaxonomy({ kind: currentTab });
   const { counts } = useTaxonomyCounts({ kind: currentTab });
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
@@ -565,7 +565,7 @@ export default function Taxonomy() {
 
             <div className="mt-4" aria-busy={isLoading}>
               {error ? (
-                <ErrorState variant="card" error={error} />
+                <ErrorState variant="card" error={rawError} onRetry={retry} />
               ) : isLoading || (taxonomyEntries.length > 0 && !shouldRenderTree) ? (
                 <div className="min-h-[28rem] space-y-4" role="status" aria-live="polite">
                   <Skeleton className="h-32 w-full" />

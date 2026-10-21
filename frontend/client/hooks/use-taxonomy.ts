@@ -11,6 +11,9 @@ interface UseTaxonomyReturn {
   taxonomyTree: ClauseTypeTree | null;
   isLoading: boolean;
   error: string | null;
+  /** The failure itself, for `ErrorState` (status-aware copy and retry). */
+  rawError: Error | null;
+  retry: () => void;
 }
 
 interface UseTaxonomyOptions {
@@ -65,6 +68,8 @@ export function useTaxonomy(
     taxonomyTree: query.data ?? null,
     isLoading: enabled && query.isLoading,
     error: query.error ? errorMessage(query.error, "Unable to load the taxonomy.") : null,
+    rawError: query.error,
+    retry: () => void query.refetch(),
   };
 }
 

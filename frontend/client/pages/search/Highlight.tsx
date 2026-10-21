@@ -50,7 +50,12 @@ export function Highlight({ text, pattern }: { text: string; pattern: RegExp | n
     if (match[0].length === 0) continue;
     if (start > last) parts.push(text.slice(last, start));
     parts.push(
-      <mark key={start} className="rounded-sm bg-primary/20 px-0.5 text-foreground">
+      <mark
+        key={start}
+        // Same treatment as the reader's find highlight, so a hit reads the
+        // same in results and in the agreement.
+        className="rounded-sm bg-warning/25 px-0.5 text-foreground ring-1 ring-warning/40"
+      >
         {match[0]}
       </mark>,
     );

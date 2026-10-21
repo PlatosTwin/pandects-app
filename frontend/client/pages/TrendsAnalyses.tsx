@@ -172,6 +172,11 @@ function ChartSkeleton({ className = "h-[260px] sm:h-[320px] lg:h-[360px]" }: { 
   );
 }
 
+// The segment column stays put while the cells scroll sideways, so each row
+// keeps its label on narrow screens.
+const STICKY_SEGMENT_CELL =
+  "sticky left-0 z-10 w-40 bg-background px-3 text-left text-foreground shadow-[1px_0_0_hsl(var(--border))] sm:w-64";
+
 function TrendsHeatmapTable({
   caption,
   className,
@@ -193,7 +198,7 @@ function TrendsHeatmapTable({
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-border">
-            <th className="w-64 px-3 py-2 text-left font-semibold text-foreground">
+            <th className={cn(STICKY_SEGMENT_CELL, "py-2 font-semibold")}>
               Segment
             </th>
             {columns.map((column) => (
@@ -212,7 +217,7 @@ function TrendsHeatmapTable({
         <tbody>
           {rows.map((row) => (
             <tr key={row} className="border-b border-border/50 last:border-0">
-              <th className="w-64 px-3 py-3 text-left font-medium text-foreground" title={row}>
+              <th className={cn(STICKY_SEGMENT_CELL, "py-3 font-medium")} title={row}>
                 <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
                   {row}
                 </span>

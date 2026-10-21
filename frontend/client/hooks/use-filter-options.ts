@@ -21,6 +21,8 @@ interface UseFilterOptionsReturn {
   industry_labels: Record<string, string>;
   isLoading: boolean;
   error: string | null;
+  /** Refetch whichever of the options or the taxonomy failed. */
+  retry: () => void;
 }
 
 interface UseFilterOptionsOptions {
@@ -49,6 +51,7 @@ const EMPTY: UseFilterOptionsReturn = {
   industry_labels: {},
   isLoading: false,
   error: null,
+  retry: () => {},
 };
 
 async function fetchFilterOptions(
@@ -121,6 +124,10 @@ export function useFilterOptions(
     industry_labels: data?.industry_labels ?? EMPTY_LABELS,
     isLoading: (needsServer && query.isLoading) || (wantsClauseTypes && taxonomy.isLoading),
     error: errorValue,
+    retry: () => {
+      if (query.error) void query.refetch();
+      if (taxonomy.rawError) taxonomy.retry();
+    },
   };
 }
 
