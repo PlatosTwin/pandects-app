@@ -2452,6 +2452,140 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(payload["status"], "verification_required")
         self.assertEqual(payload["user"]["email"], "resend-verify@example.com")
 
+    def test_email_verify_resend_unknown_email_returns_same_shape_without_zitadel_calls(self):
+        client = self.app.test_client()
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+
+        def _fail_oauth_fetch_json(url: str, **_kwargs: object):
+            self.fail(f"Unexpected ZITADEL call: {url}")
+
+        backend_app._oauth_fetch_json = _fail_oauth_fetch_json
+        try:
+            res = client.post(
+                "/v1/auth/email/verify/resend",
+                json={"email": "nobody-here@example.com"},
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(
+            res.get_json(),
+            {"status": "verification_required", "user": {"email": "nobody-here@example.com"}},
+        )
+
+    def _verify_confirm_fake_fetch(self, *, subject: str, email: str, verify_error: Exception | None = None):
+        calls: list[tuple[str, str | None]] = []
+
+        def _fake_oauth_fetch_json(
+            url: str,
+            *,
+            data: dict[str, str] | None = None,
+            json_body: dict[str, object] | None = None,
+            headers: dict[str, str] | None = None,
+            method: str | None = None,
+        ):
+            self.assertEqual(headers, {"Authorization": "Bearer test-zitadel-api-token"})
+            self.assertIsNone(data)
+            calls.append((url, method))
+            base = f"https://pandects-test-zitadel.example.com/v2/users/{subject}"
+            if url == f"{base}/email/verify":
+                self.assertEqual(method, "POST")
+                self.assertEqual(json_body, {"verificationCode": "123456"})
+                if verify_error is not None:
+                    raise verify_error
+                return {"details": {}}
+            if url == base:
+                self.assertEqual(method, "GET")
+                return {
+                    "user": {
+                        "human": {
+                            "email": {"email": email, "isVerified": True},
+                            "profile": {"displayName": "Verify Confirm"},
+                        }
+                    }
+                }
+            self.fail(f"Unexpected URL: {url}")
+
+        return _fake_oauth_fetch_json, calls
+
+    def test_email_verify_confirm_authenticates_linked_user(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        client = self.app.test_client()
+        with self.app.app_context():
+            user_id = self._create_local_user(
+                email="verify-confirm@example.com", verified=False, legal=True
+            )
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="zitadel-verify-confirm-user",
+                )
+            )
+            db.session.commit()
+
+        fake_fetch, calls = self._verify_confirm_fake_fetch(
+            subject="zitadel-verify-confirm-user", email="verify-confirm@example.com"
+        )
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+        backend_app._oauth_fetch_json = fake_fetch
+        try:
+            res = client.post(
+                "/v1/auth/email/verify/confirm",
+                json={
+                    "user_id": " zitadel-verify-confirm-user ",
+                    "code": " 123456 ",
+                    "next": "/search",
+                },
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers.get("Cache-Control"), "no-store")
+        payload = res.get_json()
+        self.assertEqual(payload["status"], "authenticated")
+        self.assertEqual(payload["next_path"], "/search")
+        self.assertEqual(payload["user"], {"id": user_id, "email": "verify-confirm@example.com"})
+        self.assertIsInstance(payload.get("session_token"), str)
+        self.assertEqual([method for _url, method in calls], ["POST", "GET"])
+
+    def test_email_verify_confirm_propagates_zitadel_rejection(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        os.environ["AUTH_ZITADEL_API_TOKEN"] = "test-zitadel-api-token"
+        client = self.app.test_client()
+        fake_fetch, calls = self._verify_confirm_fake_fetch(
+            subject="zitadel-bad-code-user",
+            email="bad-code@example.com",
+            verify_error=Conflict(description="Code is invalid."),
+        )
+        original_oauth_fetch_json = backend_app._oauth_fetch_json
+        backend_app._oauth_fetch_json = fake_fetch
+        try:
+            res = client.post(
+                "/v1/auth/email/verify/confirm",
+                json={"user_id": "zitadel-bad-code-user", "code": "123456"},
+            )
+        finally:
+            backend_app._oauth_fetch_json = original_oauth_fetch_json
+
+        self.assertEqual(res.status_code, 409)
+        self.assertEqual(res.get_json(), {"error": "conflict", "message": "Code is invalid."})
+        self.assertEqual(len(calls), 1)
+        with self.app.app_context():
+            self.assertIsNone(AuthUser.query.filter_by(email="bad-code@example.com").first())
+
+    def test_email_verify_confirm_requires_user_id_and_code(self):
+        client = self.app.test_client()
+        missing_user = client.post("/v1/auth/email/verify/confirm", json={"code": "123456"})
+        self.assertEqual(missing_user.status_code, 400)
+        self.assertEqual(missing_user.get_json()["message"], "User ID is required.")
+        missing_code = client.post("/v1/auth/email/verify/confirm", json={"user_id": "abc"})
+        self.assertEqual(missing_code.status_code, 400)
+        self.assertEqual(missing_code.get_json()["message"], "Verification code is required.")
+
     def test_zitadel_email_notification_verification_uses_pandects_email_sender(self):
         client = self.app.test_client()
         payload = {
