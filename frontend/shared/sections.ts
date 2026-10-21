@@ -1,4 +1,7 @@
 // M&A Search Types
+import type { components } from "./api.gen";
+
+type Schemas = components["schemas"];
 
 export interface SearchFilters {
   year?: string[];
@@ -29,61 +32,21 @@ export interface SearchFilters {
   page_size?: number;
 }
 
-export interface SearchResult {
-  id: string;
-  year: string;
-  target: string;
-  acquirer: string;
-  article_title: string;
-  section_title: string;
-  standard_id: string[];
-  /** Clause-taxonomy label per id in `standard_id`. */
-  standard_id_labels?: Record<string, string>;
-  xml: string;
-  section_uuid: string;
-  agreement_uuid: string;
-  verified: boolean;
-  /** Deal fields requested via `metadata=` (see SECTION_RESULT_METADATA_FIELDS). */
-  metadata?: SectionResultMetadata | null;
-}
+// Response types below are generated from the backend spec (shared/api.gen.ts).
 
-export interface SectionResultMetadata {
-  transaction_price_total?: number | null;
-  deal_status?: string | null;
-  deal_type?: string | null;
-  purpose?: string | null;
-}
+/** One `GET /v1/sections` result. */
+export type SearchResult = Schemas["SectionItem"];
 
-export interface SearchResponse {
-  results: SearchResult[];
-  access: {
-    tier: "anonymous" | "user" | "api_key";
-    message?: string | null;
-  };
-  total_count: number;
-  total_count_is_approximate: boolean;
-  page: number;
-  page_size: number;
-  total_pages: number;
-  has_next: boolean;
-  has_prev: boolean;
-  next_num: number | null;
-  prev_num: number | null;
-}
+/** Deal fields requested via `metadata=` (see SECTION_RESULT_METADATA_FIELDS). */
+export type SectionResultMetadata = Schemas["SectionsResultMetadata"];
 
-// Filter options response from API
-export interface FilterOptionsResponse {
-  targets: string[];
-  acquirers: string[];
-  target_counsels: string[];
-  acquirer_counsels: string[];
-  target_industries: string[];
-  acquirer_industries: string[];
-  /**
-   * @deprecated The `GET /v1/taxonomy` tree; read it through `useTaxonomy`.
-   * `useFilterOptions` already serves `clause_types` from that cache.
-   */
-  clause_types?: Record<string, unknown>;
-  /** NAICS label per code in `target_industries`/`acquirer_industries`. */
-  industry_labels?: Record<string, string>;
-}
+/** `GET /v1/sections`. */
+export type SearchResponse = Schemas["SectionsResponse"];
+
+/**
+ * `GET /v1/filter-options`. Each list is present only when requested through
+ * `fields` (default: all). `clause_types` is deprecated: read `GET /v1/taxonomy`
+ * through `useTaxonomy`; `useFilterOptions` already serves `clause_types` from
+ * that cache.
+ */
+export type FilterOptionsResponse = Schemas["FilterOptionsResponse"];

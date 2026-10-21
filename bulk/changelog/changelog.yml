@@ -21,6 +21,20 @@
 # minor = additive/cosmetic.
 
 unreleased:
+- type: docs
+  severity: minor
+  summary: "The published OpenAPI spec now matches what the API returns."
+  details: >
+    The spec at /openapi.yaml is regenerated from the API on every change (CI
+    fails when it is stale), so it now documents the endpoints and parameters
+    added since the last manual export, including /v1/taxonomy/counts and
+    /v1/taxonomy/tax-clauses/counts. The `Error` schema now describes the real
+    error body, {"error": <code>, "message": <text>}, instead of
+    flask-smorest's {code, status, message, errors}. Response fields that are
+    always present are marked required, and target_pe / acquirer_pe are
+    documented as the 0/1 integers (or null) the API returns. Responses
+    themselves are unchanged.
+  refs: []
 - type: api
   severity: notable
   summary: "Error responses now carry a machine code in `error` instead of the HTTP reason phrase."

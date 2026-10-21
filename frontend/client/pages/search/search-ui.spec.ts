@@ -30,12 +30,13 @@ import {
 function section(overrides: Partial<SearchResult>): SearchResult {
   return {
     id: overrides.section_uuid ?? "s",
-    year: "2023",
+    year: 2023,
     target: "Target Co",
     acquirer: "Acquirer Co",
     article_title: "Article VII",
     section_title: "Section 7.1 Efforts",
     standard_id: [],
+    standard_id_labels: {},
     xml: "<text>Body text.</text>",
     section_uuid: "s",
     agreement_uuid: "a",

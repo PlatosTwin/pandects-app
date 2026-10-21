@@ -827,17 +827,7 @@ def init_auth_db():
     click.echo(f"Auth DB migrated ({url}).")
 
 
-# ── CLI command for OpenAPI spec generation ──────────────────────────────
-@app.cli.command("gen-openapi")
-def gen_openapi():
-    """Generate an OpenAPI3 YAML spec for your Flask-Smorest API."""
-    with app.test_request_context():
-        spec = api.spec
-        if spec is None:
-            raise click.ClickException("OpenAPI spec is unavailable.")
-        yaml_spec = spec.to_yaml()
-        _ = Path("openapi.yaml").write_text(yaml_spec)
-        click.echo("Wrote openapi.yaml")
+# OpenAPI specs: `python -m backend.scripts.export_openapi` (see ARCHITECTURE.md, "API Contract").
 
 
 if __name__ == "__main__":

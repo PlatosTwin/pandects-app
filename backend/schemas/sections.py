@@ -4,7 +4,7 @@ from typing import TypedDict, cast
 
 from marshmallow import Schema, ValidationError, fields, post_dump, validate, validates_schema
 
-from backend.schemas.labels import IndustryLabelsSchema, StandardIdLabelsSchema
+from backend.schemas.labels import IndustryLabelsSchema, StandardIdLabelsSchema, pe_flag_field
 from backend.text_search import compile_boolean_text_query, validate_text_query_syntax
 
 
@@ -295,23 +295,23 @@ class SectionsResultMetadataSchema(IndustryLabelsSchema):
     attitude = fields.Str(allow_none=True)
     deal_type = fields.Str(allow_none=True)
     purpose = fields.Str(allow_none=True)
-    target_pe = fields.Bool(allow_none=True)
-    acquirer_pe = fields.Bool(allow_none=True)
+    target_pe = pe_flag_field()
+    acquirer_pe = pe_flag_field()
     url = fields.Str(allow_none=True)
 
 
 class SectionItemSchema(StandardIdLabelsSchema):
-    id = fields.Str()
-    agreement_uuid = fields.Str()
-    section_uuid = fields.Str()
-    standard_id = fields.List(fields.Str())
+    id = fields.Str(required=True)
+    agreement_uuid = fields.Str(required=True)
+    section_uuid = fields.Str(required=True)
+    standard_id = fields.List(fields.Str(), required=True)
     xml = fields.Str()
-    article_title = fields.Str()
-    section_title = fields.Str()
-    acquirer = fields.Str()
-    target = fields.Str()
-    year = fields.Int()
-    verified = fields.Bool()
+    article_title = fields.Str(required=True)
+    section_title = fields.Str(required=True)
+    acquirer = fields.Str(required=True)
+    target = fields.Str(required=True)
+    year = fields.Int(required=True)
+    verified = fields.Bool(required=True)
     metadata = fields.Nested(
         lambda: SectionsResultMetadataSchema(),
         required=False,
@@ -326,8 +326,8 @@ class SectionItemSchema(StandardIdLabelsSchema):
 
 
 class AccessInfoSchema(Schema):
-    tier = fields.Str(required=True)
-    message = fields.Str(required=False, allow_none=True)
+    tier = fields.Str(required=True, validate=validate.OneOf(("anonymous", "user", "api_key")))
+    message = fields.Str(required=True, allow_none=True)
 
 
 class DumpVersionInfoSchema(Schema):
@@ -340,21 +340,22 @@ class SectionsResponseSchema(Schema):
         object,
         fields.List(
             fields.Nested(SectionItemSchema),
+            required=True,
         ),
     )
-    access = fields.Nested(AccessInfoSchema)
-    page = fields.Int()
-    page_size = fields.Int()
-    total_count = fields.Int()
+    access = fields.Nested(AccessInfoSchema, required=True)
+    page = fields.Int(required=True)
+    page_size = fields.Int(required=True)
+    total_count = fields.Int(required=True)
     total_agreement_count = fields.Int(required=False)
-    total_count_is_approximate = fields.Bool()
-    count_metadata = fields.Dict()
-    interpretation = fields.Dict()
-    total_pages = fields.Int()
-    has_next = fields.Bool()
-    has_prev = fields.Bool()
-    next_num = fields.Int(allow_none=True)
-    prev_num = fields.Int(allow_none=True)
+    total_count_is_approximate = fields.Bool(required=True)
+    count_metadata = fields.Dict(required=True)
+    interpretation = fields.Dict(required=True)
+    total_pages = fields.Int(required=True)
+    has_next = fields.Bool(required=True)
+    has_prev = fields.Bool(required=True)
+    next_num = fields.Int(allow_none=True, required=True)
+    prev_num = fields.Int(allow_none=True, required=True)
     dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 

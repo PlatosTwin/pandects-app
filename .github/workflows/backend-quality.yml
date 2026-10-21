@@ -80,6 +80,11 @@ jobs:
           )
           PY
 
+      - name: Check committed OpenAPI specs are current
+        # Regenerates frontend/public/openapi.yaml and backend/openapi/ui-openapi.json
+        # from the app (no database) and fails when either differs from the commit.
+        run: backend/venv/bin/python -m backend.scripts.export_openapi --check
+
       - name: Run backend unit tests
         run: backend/venv/bin/python -m unittest discover backend/tests -v
 

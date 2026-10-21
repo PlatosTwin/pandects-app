@@ -52,6 +52,18 @@ Run a production build:
 caffeinate -i npm run build
 ```
 
+## API types
+
+`shared/api.gen.ts` is generated from the backend's UI OpenAPI spec (`backend/openapi/ui-openapi.json`); never edit it by hand. API response types in `shared/*.ts` (`Agreement`, `SearchResponse`, `TransactionSearchResult`, the insights types, ...) are aliases of its `components["schemas"]` entries, so a backend response change reaches the client as a type error instead of a runtime surprise.
+
+To change a response:
+
+1. Change the marshmallow schema in `backend/schemas/` (public routes: the `@blp.response` schema; internal UI routes: `backend/schemas/ui_api.py`, `ui_auth.py`, `ui_favorites.py`).
+2. From the repository root: `backend/venv/bin/python -m backend.scripts.export_openapi`.
+3. Here: `npm run gen:api`, then `npm run typecheck`.
+
+CI runs `npm run check:api` (and the backend's `export_openapi --check`) and fails when a generated file is stale.
+
 ## Environment variables
 
 See:

@@ -8,6 +8,7 @@ from backend.schemas.labels import (
     IndustryLabelsSchema,
     StandardIdLabelsSchema,
     TaxClauseStandardIdLabelsSchema,
+    pe_flag_field,
 )
 from backend.schemas.sections import AccessInfoSchema, DumpVersionInfoSchema
 
@@ -204,67 +205,67 @@ class AgreementsBulkArgsPayload(TypedDict):
 
 
 class AgreementResponseSchema(IndustryLabelsSchema):
-    agreement_uuid = fields.Str()
-    year = fields.Int()
-    target = fields.Str()
-    acquirer = fields.Str()
-    filing_date = fields.Str(allow_none=True)
-    prob_filing = fields.Float(allow_none=True)
-    filing_company_name = fields.Str(allow_none=True)
-    filing_company_cik = fields.Str(allow_none=True)
-    form_type = fields.Str(allow_none=True)
-    exhibit_type = fields.Str(allow_none=True)
-    transaction_price_total = fields.Float(allow_none=True)
-    transaction_price_stock = fields.Float(allow_none=True)
-    transaction_price_cash = fields.Float(allow_none=True)
-    transaction_price_assets = fields.Float(allow_none=True)
-    transaction_consideration = fields.Str(allow_none=True)
-    target_type = fields.Str(allow_none=True)
-    acquirer_type = fields.Str(allow_none=True)
-    target_industry = fields.Str(allow_none=True)
-    acquirer_industry = fields.Str(allow_none=True)
-    announce_date = fields.Str(allow_none=True)
-    close_date = fields.Str(allow_none=True)
-    deal_status = fields.Str(allow_none=True)
-    attitude = fields.Str(allow_none=True)
-    deal_type = fields.Str(allow_none=True)
-    purpose = fields.Str(allow_none=True)
-    target_pe = fields.Bool(allow_none=True)
-    acquirer_pe = fields.Bool(allow_none=True)
-    url = fields.Str()
-    xml = fields.Str()
+    agreement_uuid = fields.Str(required=True)
+    year = fields.Int(required=True)
+    target = fields.Str(required=True)
+    acquirer = fields.Str(required=True)
+    filing_date = fields.Str(allow_none=True, required=True)
+    prob_filing = fields.Float(allow_none=True, required=True)
+    filing_company_name = fields.Str(allow_none=True, required=True)
+    filing_company_cik = fields.Str(allow_none=True, required=True)
+    form_type = fields.Str(allow_none=True, required=True)
+    exhibit_type = fields.Str(allow_none=True, required=True)
+    transaction_price_total = fields.Float(allow_none=True, required=True)
+    transaction_price_stock = fields.Float(allow_none=True, required=True)
+    transaction_price_cash = fields.Float(allow_none=True, required=True)
+    transaction_price_assets = fields.Float(allow_none=True, required=True)
+    transaction_consideration = fields.Str(allow_none=True, required=True)
+    target_type = fields.Str(allow_none=True, required=True)
+    acquirer_type = fields.Str(allow_none=True, required=True)
+    target_industry = fields.Str(allow_none=True, required=True)
+    acquirer_industry = fields.Str(allow_none=True, required=True)
+    announce_date = fields.Str(allow_none=True, required=True)
+    close_date = fields.Str(allow_none=True, required=True)
+    deal_status = fields.Str(allow_none=True, required=True)
+    attitude = fields.Str(allow_none=True, required=True)
+    deal_type = fields.Str(allow_none=True, required=True)
+    purpose = fields.Str(allow_none=True, required=True)
+    target_pe = pe_flag_field(required=True)
+    acquirer_pe = pe_flag_field(required=True)
+    url = fields.Str(required=True)
+    xml = fields.Str(required=True)
     is_redacted = fields.Bool(required=False)
 
 
 class AgreementListItemSchema(IndustryLabelsSchema):
-    agreement_uuid = fields.Str()
-    year = fields.Int(allow_none=True)
-    target = fields.Str(allow_none=True)
-    acquirer = fields.Str(allow_none=True)
-    filing_date = fields.Str(allow_none=True)
-    prob_filing = fields.Float(allow_none=True)
-    filing_company_name = fields.Str(allow_none=True)
-    filing_company_cik = fields.Str(allow_none=True)
-    form_type = fields.Str(allow_none=True)
-    exhibit_type = fields.Str(allow_none=True)
-    transaction_price_total = fields.Float(allow_none=True)
-    transaction_price_stock = fields.Float(allow_none=True)
-    transaction_price_cash = fields.Float(allow_none=True)
-    transaction_price_assets = fields.Float(allow_none=True)
-    transaction_consideration = fields.Str(allow_none=True)
-    target_type = fields.Str(allow_none=True)
-    acquirer_type = fields.Str(allow_none=True)
-    target_industry = fields.Str(allow_none=True)
-    acquirer_industry = fields.Str(allow_none=True)
-    announce_date = fields.Str(allow_none=True)
-    close_date = fields.Str(allow_none=True)
-    deal_status = fields.Str(allow_none=True)
-    attitude = fields.Str(allow_none=True)
-    deal_type = fields.Str(allow_none=True)
-    purpose = fields.Str(allow_none=True)
-    target_pe = fields.Bool(allow_none=True)
-    acquirer_pe = fields.Bool(allow_none=True)
-    url = fields.Str(allow_none=True)
+    agreement_uuid = fields.Str(required=True)
+    year = fields.Int(allow_none=True, required=True)
+    target = fields.Str(allow_none=True, required=True)
+    acquirer = fields.Str(allow_none=True, required=True)
+    filing_date = fields.Str(allow_none=True, required=True)
+    prob_filing = fields.Float(allow_none=True, required=True)
+    filing_company_name = fields.Str(allow_none=True, required=True)
+    filing_company_cik = fields.Str(allow_none=True, required=True)
+    form_type = fields.Str(allow_none=True, required=True)
+    exhibit_type = fields.Str(allow_none=True, required=True)
+    transaction_price_total = fields.Float(allow_none=True, required=True)
+    transaction_price_stock = fields.Float(allow_none=True, required=True)
+    transaction_price_cash = fields.Float(allow_none=True, required=True)
+    transaction_price_assets = fields.Float(allow_none=True, required=True)
+    transaction_consideration = fields.Str(allow_none=True, required=True)
+    target_type = fields.Str(allow_none=True, required=True)
+    acquirer_type = fields.Str(allow_none=True, required=True)
+    target_industry = fields.Str(allow_none=True, required=True)
+    acquirer_industry = fields.Str(allow_none=True, required=True)
+    announce_date = fields.Str(allow_none=True, required=True)
+    close_date = fields.Str(allow_none=True, required=True)
+    deal_status = fields.Str(allow_none=True, required=True)
+    attitude = fields.Str(allow_none=True, required=True)
+    deal_type = fields.Str(allow_none=True, required=True)
+    purpose = fields.Str(allow_none=True, required=True)
+    target_pe = pe_flag_field(required=True)
+    acquirer_pe = pe_flag_field(required=True)
+    url = fields.Str(allow_none=True, required=True)
     xml = fields.Str(allow_none=True, required=False)
 
 
@@ -273,22 +274,23 @@ class AgreementsListResponseSchema(Schema):
         object,
         fields.List(
             fields.Nested(AgreementListItemSchema),
+            required=True,
         ),
     )
-    access = fields.Nested(AccessInfoSchema)
-    page_size = fields.Int()
-    returned_count = fields.Int()
-    has_next = fields.Bool()
-    next_cursor = fields.Str(allow_none=True)
+    access = fields.Nested(AccessInfoSchema, required=True)
+    page_size = fields.Int(required=True)
+    returned_count = fields.Int(required=True)
+    has_next = fields.Bool(required=True)
+    next_cursor = fields.Str(allow_none=True, required=True)
     dump_version = fields.Nested(DumpVersionInfoSchema, allow_none=True)
 
 
 class AgreementSearchMatchedSectionSchema(StandardIdLabelsSchema):
     section_uuid = fields.Str(required=True)
-    article_title = fields.Str(allow_none=True)
-    section_title = fields.Str(allow_none=True)
+    article_title = fields.Str(allow_none=True, required=True)
+    section_title = fields.Str(allow_none=True, required=True)
     standard_id = fields.List(fields.Str(), required=True)
-    snippet = fields.Str(allow_none=True)
+    snippet = fields.Str(allow_none=True, required=True)
     matched_terms = fields.List(
         fields.Str(),
         required=False,
@@ -303,33 +305,33 @@ class AgreementSearchMatchedSectionSchema(StandardIdLabelsSchema):
 
 class AgreementSearchResultSchema(IndustryLabelsSchema):
     agreement_uuid = fields.Str(required=True)
-    year = fields.Int(allow_none=True)
-    target = fields.Str(allow_none=True)
-    acquirer = fields.Str(allow_none=True)
-    filing_date = fields.Str(allow_none=True)
-    prob_filing = fields.Float(allow_none=True)
-    filing_company_name = fields.Str(allow_none=True)
-    filing_company_cik = fields.Str(allow_none=True)
-    form_type = fields.Str(allow_none=True)
-    exhibit_type = fields.Str(allow_none=True)
-    transaction_price_total = fields.Float(allow_none=True)
-    transaction_price_stock = fields.Float(allow_none=True)
-    transaction_price_cash = fields.Float(allow_none=True)
-    transaction_price_assets = fields.Float(allow_none=True)
-    transaction_consideration = fields.Str(allow_none=True)
-    target_type = fields.Str(allow_none=True)
-    acquirer_type = fields.Str(allow_none=True)
-    target_industry = fields.Str(allow_none=True)
-    acquirer_industry = fields.Str(allow_none=True)
-    announce_date = fields.Str(allow_none=True)
-    close_date = fields.Str(allow_none=True)
-    deal_status = fields.Str(allow_none=True)
-    attitude = fields.Str(allow_none=True)
-    deal_type = fields.Str(allow_none=True)
-    purpose = fields.Str(allow_none=True)
-    target_pe = fields.Bool(allow_none=True)
-    acquirer_pe = fields.Bool(allow_none=True)
-    url = fields.Str(allow_none=True)
+    year = fields.Int(allow_none=True, required=True)
+    target = fields.Str(allow_none=True, required=True)
+    acquirer = fields.Str(allow_none=True, required=True)
+    filing_date = fields.Str(allow_none=True, required=True)
+    prob_filing = fields.Float(allow_none=True, required=True)
+    filing_company_name = fields.Str(allow_none=True, required=True)
+    filing_company_cik = fields.Str(allow_none=True, required=True)
+    form_type = fields.Str(allow_none=True, required=True)
+    exhibit_type = fields.Str(allow_none=True, required=True)
+    transaction_price_total = fields.Float(allow_none=True, required=True)
+    transaction_price_stock = fields.Float(allow_none=True, required=True)
+    transaction_price_cash = fields.Float(allow_none=True, required=True)
+    transaction_price_assets = fields.Float(allow_none=True, required=True)
+    transaction_consideration = fields.Str(allow_none=True, required=True)
+    target_type = fields.Str(allow_none=True, required=True)
+    acquirer_type = fields.Str(allow_none=True, required=True)
+    target_industry = fields.Str(allow_none=True, required=True)
+    acquirer_industry = fields.Str(allow_none=True, required=True)
+    announce_date = fields.Str(allow_none=True, required=True)
+    close_date = fields.Str(allow_none=True, required=True)
+    deal_status = fields.Str(allow_none=True, required=True)
+    attitude = fields.Str(allow_none=True, required=True)
+    deal_type = fields.Str(allow_none=True, required=True)
+    purpose = fields.Str(allow_none=True, required=True)
+    target_pe = pe_flag_field(required=True)
+    acquirer_pe = pe_flag_field(required=True)
+    url = fields.Str(allow_none=True, required=True)
     match_count = fields.Int(required=True)
     matched_sections = fields.List(
         fields.Nested(AgreementSearchMatchedSectionSchema),
@@ -342,9 +344,10 @@ class AgreementSearchResponseSchema(Schema):
         object,
         fields.List(
             fields.Nested(AgreementSearchResultSchema),
+            required=True,
         ),
     )
-    access = fields.Nested(AccessInfoSchema)
+    access = fields.Nested(AccessInfoSchema, required=True)
     page = fields.Int(required=True)
     page_size = fields.Int(required=True)
     total_count = fields.Int(required=True)
@@ -352,10 +355,10 @@ class AgreementSearchResponseSchema(Schema):
     total_pages = fields.Int(required=True)
     has_next = fields.Bool(required=True)
     has_prev = fields.Bool(required=True)
-    next_num = fields.Int(allow_none=True)
-    prev_num = fields.Int(allow_none=True)
+    next_num = fields.Int(allow_none=True, required=True)
+    prev_num = fields.Int(allow_none=True, required=True)
     count_metadata = fields.Dict(
-        required=False,
+        required=True,
         metadata={
             "description": (
                 "How total_count was computed: `mode` (exact/estimated), `method`, "
@@ -369,30 +372,33 @@ class AgreementSearchResponseSchema(Schema):
 
 
 class SectionResponseSchema(StandardIdLabelsSchema):
-    agreement_uuid = fields.Str()
-    section_uuid = fields.Str()
-    standard_id = fields.List(fields.Str())
+    agreement_uuid = fields.Str(required=True)
+    section_uuid = fields.Str(required=True)
+    standard_id = fields.List(fields.Str(), required=True)
     section_standard_id = fields.List(
         fields.Str(),
+        required=True,
         metadata={"description": "Deprecated alias of `standard_id`."},
     )
-    xml = fields.Str()
-    article_title = fields.Str()
-    section_title = fields.Str()
+    xml = fields.Str(required=True)
+    article_title = fields.Str(required=True)
+    section_title = fields.Str(required=True)
 
 
 class TaxClauseSchema(TaxClauseStandardIdLabelsSchema):
-    clause_uuid = fields.Str()
-    agreement_uuid = fields.Str()
-    section_uuid = fields.Str()
-    article_title = fields.Str(allow_none=True)
-    section_title = fields.Str(allow_none=True)
-    anchor_label = fields.Str(allow_none=True)
-    start_char = fields.Int()
-    end_char = fields.Int()
-    clause_text = fields.Str()
-    context_type = fields.Str()
-    standard_ids = fields.List(fields.Str())
+    clause_uuid = fields.Str(required=True)
+    agreement_uuid = fields.Str(required=True)
+    section_uuid = fields.Str(required=True)
+    article_title = fields.Str(allow_none=True, required=True)
+    section_title = fields.Str(allow_none=True, required=True)
+    anchor_label = fields.Str(allow_none=True, required=True)
+    start_char = fields.Int(required=True)
+    end_char = fields.Int(required=True)
+    clause_text = fields.Str(required=True)
+    context_type = fields.Str(
+        required=True, validate=validate.OneOf(("operative", "rep_warranty"))
+    )
+    standard_ids = fields.List(fields.Str(), required=True)
 
 
 class TaxClauseListResponseSchema(Schema):
@@ -407,10 +413,10 @@ class TaxClauseListResponseSchema(Schema):
 
 class AgreementSectionIndexItemSchema(StandardIdLabelsSchema):
     section_uuid = fields.Str(required=True)
-    article_title = fields.Str(allow_none=True)
-    section_title = fields.Str(allow_none=True)
-    article_order = fields.Int(allow_none=True)
-    section_order = fields.Int(allow_none=True)
+    article_title = fields.Str(allow_none=True, required=True)
+    section_title = fields.Str(allow_none=True, required=True)
+    article_order = fields.Int(allow_none=True, required=True)
+    section_order = fields.Int(allow_none=True, required=True)
     standard_id = fields.List(fields.Str(), required=True)
 
 

@@ -1,44 +1,12 @@
-// Tax clause precedent search types
+// Tax clause precedent search types (generated from the backend spec).
+import type { components } from "./api.gen";
 
-export type TaxClauseContextType = "operative" | "rep_warranty";
+type Schemas = components["schemas"];
 
-export interface TaxClauseSearchResult {
-  id: string;
-  clause_uuid: string;
-  agreement_uuid: string;
-  section_uuid: string;
-  clause_text: string;
-  anchor_label: string | null;
-  context_type: TaxClauseContextType;
-  source_method: string | null;
-  tax_standard_ids: string[];
-  /** Tax-taxonomy label per id in `tax_standard_ids`. */
-  tax_standard_id_labels?: Record<string, string>;
-  year: string;
-  target: string;
-  acquirer: string;
-  verified: boolean;
-  transaction_price_total?: string | null;
-  transaction_consideration?: string | null;
-  deal_status?: string | null;
-  deal_type?: string | null;
-  target_counsel?: string | null;
-  acquirer_counsel?: string | null;
-}
+/** One `GET /v1/tax-clauses` result. */
+export type TaxClauseSearchResult = Schemas["TaxClauseItem"];
 
-export interface TaxClauseSearchResponse {
-  results: TaxClauseSearchResult[];
-  access: {
-    tier: "anonymous" | "user" | "api_key";
-    message?: string | null;
-  };
-  total_count: number;
-  total_count_is_approximate: boolean;
-  page: number;
-  page_size: number;
-  total_pages: number;
-  has_next: boolean;
-  has_prev: boolean;
-  next_num: number | null;
-  prev_num: number | null;
-}
+export type TaxClauseContextType = TaxClauseSearchResult["context_type"];
+
+/** `GET /v1/tax-clauses`. */
+export type TaxClauseSearchResponse = Schemas["TaxClausesResponse"];

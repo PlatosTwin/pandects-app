@@ -86,12 +86,13 @@ describe("SearchSidebar", () => {
 function section(overrides: Partial<SearchResult>): SearchResult {
   return {
     id: overrides.section_uuid ?? "s",
-    year: "2023",
+    year: 2023,
     target: "Custom Health, Inc.",
     acquirer: "Berenson Acquisition Corp.",
     article_title: "Article VII",
     section_title: "Section 7.08 Further Action",
     standard_id: ["mae"],
+    standard_id_labels: {},
     xml: "<text>(a) Upon the terms.</text>",
     section_uuid: "s",
     agreement_uuid: "A",
@@ -192,6 +193,7 @@ function deal(overrides: Partial<TransactionSearchResult>): TransactionSearchRes
         article_title: "Article VIII",
         section_title: "Section 8.3 Termination Fee",
         standard_id: [],
+        standard_id_labels: {},
         snippet: "...the Reverse Termination Fee shall be paid...",
         matched_terms: ["Reverse Termination Fee"],
       },

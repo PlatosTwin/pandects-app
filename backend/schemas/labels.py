@@ -18,10 +18,27 @@ _INDUSTRY_LABEL_DESCRIPTION = (
 
 
 def _labels_dict_field(description: str) -> fields.Dict:
+    # Always present: the pre_dump hooks below set it on every payload.
     return fields.Dict(
         keys=fields.Str(),
         values=fields.Str(),
+        required=True,
         metadata={"description": description},
+    )
+
+
+def pe_flag_field(*, required: bool = False) -> fields.Bool:
+    """`target_pe` / `acquirer_pe`: the database stores a 0/1 flag, and marshmallow's
+    Boolean field passes it through unchanged on dump, so the documented type is the
+    integer the response actually carries."""
+    return fields.Bool(
+        required=required,
+        allow_none=True,
+        metadata={
+            "type": "integer",
+            "enum": [0, 1],
+            "description": "1 when PE-backed, 0 when not; null when unknown.",
+        },
     )
 
 
@@ -104,4 +121,5 @@ __all__ = [
     "StandardIdLabelsSchema",
     "TaxClauseStandardIdLabelsSchema",
     "TaxStandardIdLabelsSchema",
+    "pe_flag_field",
 ]
