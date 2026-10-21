@@ -8,18 +8,21 @@ const globalCss = fs.readFileSync(path.join(frontendRoot, "client/global.css"), 
 
 /** Body declarations of the app's scroll-lock override. */
 function overrideDeclarations(): Map<string, string> {
-  const match = globalCss.match(/html body\[data-scroll-locked\]\s*\{([^}]*)\}/);
-  expect(match, "Missing `html body[data-scroll-locked]` override in global.css").not.toBeNull();
+  const match = globalCss.match(
+    /html body\[data-scroll-locked\]:not\(:has\(\[role="dialog"\], \[role="alertdialog"\]\)\)\s*\{([^}]*)\}/,
+  );
+  expect(match, "Missing the menu-only scroll-lock override in global.css").not.toBeNull();
   return new Map(
     [...(match?.[1] ?? "").matchAll(/([a-z-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]),
   );
 }
 
 describe("scroll lock", () => {
-  // Radix menus, dialogs and sheets lock scroll through react-remove-scroll-bar.
-  // Its body rule hides the scrollbar and adds a scrollbar-width margin, which
-  // shifts the page sideways under our stable scrollbar gutter.
-  it("keeps the page scrollbar and body box unchanged while a layer is open", () => {
+  // Radix menus and selects lock scroll through react-remove-scroll-bar. Its
+  // body rule hides the scrollbar and adds a scrollbar-width margin, which can
+  // shift the page sideways under our stable scrollbar gutter. The override is
+  // scoped away from dialogs and sheets, which need the full lock.
+  it("keeps the page scrollbar and body box unchanged while a menu is open", () => {
     const declarations = overrideDeclarations();
     expect(declarations.get("overflow-x")).toBe("hidden !important");
     expect(declarations.get("overflow-y")).toBe("visible !important");

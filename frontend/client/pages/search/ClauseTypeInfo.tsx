@@ -43,7 +43,7 @@ export function ClauseTypeInfo({ kind, standardId, label }: ClauseTypeInfoProps)
       />
       <ReferenceLink
         to="/taxonomy"
-        className="mt-4 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        className="mt-4 inline-block text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
       >
         Open the Taxonomy page
       </ReferenceLink>

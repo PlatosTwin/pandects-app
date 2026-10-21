@@ -105,7 +105,7 @@ function DealDetails({
           showPanel && "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]",
         )}
       >
-        <dl className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-6 gap-y-3 self-start">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 self-start sm:grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))]">
           <Fact label="Filed">{formatDateValue(result.filing_date)}</Fact>
           <Fact label="Announced">{formatDateValue(result.announce_date)}</Fact>
           <Fact label="Closed">{formatDateValue(result.close_date)}</Fact>
@@ -142,7 +142,7 @@ function DealDetails({
                       .filter(Boolean)
                       .slice(0, 2);
                     return (
-                      <li key={section.section_uuid} className="surface-interactive rounded-md border border-border bg-background p-3">
+                      <li key={section.section_uuid} className="rounded-md border border-border bg-background p-3 transition-colors duration-150 hover:border-primary/30">
                         <Link
                           to={props.getAgreementHref(result, section.section_uuid)}
                           className="text-sm font-medium text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

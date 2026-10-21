@@ -147,14 +147,17 @@
     scrollbar-gutter: stable;
   }
 
-  /* Radix menus, dialogs and sheets lock scroll through react-remove-scroll,
-     which hides the page scrollbar and pads the body by its width. With the
-     stable gutter above that moves the whole page sideways by a scrollbar
-     width whenever a menu opens. Keep the scrollbar and the body exactly as
-     they are unlocked; the lock still blocks wheel and touch scrolling outside
-     the open layer. The extra `html` beats the library's injected rule, which
-     has the same !important and is inserted later. */
-  html body[data-scroll-locked] {
+  /* Radix menus and selects lock scroll through react-remove-scroll, which
+     hides the page scrollbar and pads the body by its width. With the stable
+     gutter above that can move the whole page sideways by a scrollbar width
+     whenever a menu opens (seen with macOS "always show scrollbars"). For
+     menus and selects, keep the scrollbar and the body exactly as they are;
+     wheel and touch scrolling outside the layer stay blocked. Dialogs, alert
+     dialogs and sheets keep the library's full lock, so keyboard and
+     scrollbar scrolling can't move the page behind them. The extra `html`
+     beats the library's injected rule, which has the same !important and is
+     inserted later. */
+  html body[data-scroll-locked]:not(:has([role="dialog"], [role="alertdialog"])) {
     overflow-x: hidden !important;
     overflow-y: visible !important;
     margin-right: 0 !important;
@@ -312,8 +315,9 @@
     @apply mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8;
   }
 
-  /* A surface you can click (result card, starter tile, list row): it rises
-     a pixel and picks up the primary border on hover, settles on press. Pair
+  /* A surface that is itself one link or button (starter tile, linked fact
+     card): it rises a pixel and picks up the primary border on hover, settles on press. Its
+     hover beats plain utilities, so don't use it on selectable surfaces. Pair
      with a resting shadow-raised. Motion is dropped for reduced-motion users;
      the shadow and border still change. */
   .surface-interactive {

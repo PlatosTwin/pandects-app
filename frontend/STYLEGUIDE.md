@@ -195,10 +195,12 @@ on them, and on any bordered, rounded `bg-card` surface with no shadow.
 | `shadow-lifted` | Hovered or selected surfaces; `Card variant="elevated"`. |
 | `shadow-overlay` | Popovers, menus, selects, tooltips, dialogs, sheets, floating cards. |
 
-- Anything clickable that looks like a card (result rows, starter tiles, linked
-  `FactCard`s, matched-section items) also gets `surface-interactive`: on hover
-  the border picks up primary, the shadow lifts and the card rises 1px; it
-  settles on press. Motion is skipped under `prefers-reduced-motion`.
+- A card that is itself one link or button (starter tiles, linked
+  `FactCard`s) also gets `surface-interactive`: on hover the border picks up
+  primary, the shadow lifts and the card rises 1px; it settles on press.
+  Motion is skipped under `prefers-reduced-motion`. Cards that only contain
+  links or are selectable (result rows, matched sections) don't rise; they
+  take `hover:border-primary/30` (and `hover:shadow-lifted`) instead.
 - New content fades up with `motion-safe:animate-enter` (220ms): result cards,
   an expanded deal row, the landing card. Use it for content that arrives,
   not for every re-render.
@@ -213,10 +215,11 @@ on them, and on any bordered, rounded `bg-card` surface with no shadow.
   XML schema, legal pages) uses `ReferenceLink`, which opens a new tab so the
   user keeps their results. `lib/reference-links.spec.ts` enforces this.
   Other sites use `ExternalLink`.
-- **Scroll lock.** Radix menus, dialogs and sheets lock page scroll. The
-  `html body[data-scroll-locked]` rule in `global.css` keeps the scrollbar and
-  body box unchanged while they are open, so nothing shifts sideways. Don't
-  remove it; `lib/scroll-lock.spec.ts` checks it against the library.
+- **Scroll lock.** Radix menus, selects, dialogs and sheets lock page scroll.
+  For menus and selects, the `html body[data-scroll-locked]` rule in
+  `global.css` keeps the scrollbar and body box unchanged, so nothing shifts
+  sideways; dialogs and sheets keep the full lock. Don't remove it;
+  `lib/scroll-lock.spec.ts` checks it against the library.
 - **Tooltip copy** describes what the control does, in the third person:
   "Opens the Taxonomy page in a new tab", not "open the Taxonomy page".
   Button labels stay imperative ("Open agreement").

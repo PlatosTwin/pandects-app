@@ -813,8 +813,17 @@ export function AgreementReader({
         ) : null}
 
         <div className="min-w-0">
-          {/* One measure for facts, notice and text. */}
-          <div className="mx-auto w-full max-w-[calc(72ch+4rem)]">
+          {/* One measure for facts, notice and text. Next to the contents
+              panel the text keeps at most a 6rem gap from it, so a wide frame
+              leaves its spare width on the right instead of a gutter. */}
+          <div
+            className={cn(
+              "w-full max-w-[calc(72ch+4rem)]",
+              showContentsPanel
+                ? "ml-[min(6rem,max(0px,calc((100%-72ch-4rem)/2)))]"
+                : "mx-auto",
+            )}
+          >
             <div className="mb-4 space-y-1.5 print:hidden">
               {showAcquirer ? (
                 <p className="text-sm text-muted-foreground lg:hidden">

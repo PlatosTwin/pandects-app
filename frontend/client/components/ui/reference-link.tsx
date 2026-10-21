@@ -2,8 +2,6 @@ import * as React from "react";
 import { Link, type LinkProps } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 
-import { cn } from "@/lib/utils";
-
 export interface ReferenceLinkProps extends Omit<LinkProps, "target" | "rel"> {
   /** Hide the trailing glyph (e.g. when the link is an icon-only trigger). */
   hideIcon?: boolean;
@@ -21,12 +19,13 @@ export const ReferenceLink = React.forwardRef<HTMLAnchorElement, ReferenceLinkPr
       ref={ref}
       target="_blank"
       rel="noopener"
-      className={cn(!hideIcon && "inline-flex items-baseline gap-0.5", className)}
+      className={className}
       {...props}
     >
       {children}
       {hideIcon ? null : (
-        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 self-center opacity-70" aria-hidden="true" />
+        // Inline, not flex, so the link text can wrap inside running prose.
+        <ArrowUpRight className="ml-0.5 inline-block h-3.5 w-3.5 align-[-0.125em] opacity-70" aria-hidden="true" />
       )}
       <span className="sr-only"> (opens in a new tab)</span>
     </Link>

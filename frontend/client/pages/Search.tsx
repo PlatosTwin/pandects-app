@@ -647,7 +647,7 @@ export default function Search() {
           users jump past its ~60 controls. */}
       <a
         href="#search-results"
-        className="sr-only z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:hidden lg:focus:not-sr-only lg:focus:fixed lg:focus:left-4 lg:focus:top-4"
+        className="sr-only z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:hidden lg:focus:not-sr-only lg:focus:fixed lg:focus:left-4 lg:focus:top-4"
       >
         Skip to results
       </a>

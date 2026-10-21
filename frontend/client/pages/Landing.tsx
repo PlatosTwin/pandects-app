@@ -44,7 +44,7 @@ export default function Landing() {
         className="pointer-events-none absolute inset-0 -z-10"
         style={GRID_TEXTURE_STYLE}
       />
-      <Card className="mx-auto w-full max-w-[960px] border-border bg-background/80 motion-safe:animate-enter px-5 py-10 shadow-overlay backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-14">
+      <Card className="mx-auto w-full max-w-[960px] border-border bg-background/80 px-5 py-10 shadow-overlay backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-14">
         <section
           aria-labelledby="landing-heading"
           className="flex flex-col items-center text-center"

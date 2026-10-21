@@ -20,8 +20,10 @@ describe("design system", () => {
   // flat; the scale keeps depth consistent in both themes.
   it("uses the elevation scale instead of raw shadow sizes", () => {
     const offenders = sources.flatMap(({ name, source }) =>
-      [...source.matchAll(/(?<![\w-])shadow-(sm|md|lg|xl|2xl)(?![\w-])/g)].map(
-        (match) => `${name}: ${match[0]}`,
+      classStrings(source).flatMap((classes) =>
+        [...classes.matchAll(/(?<![\w-])shadow(-(sm|md|lg|xl|2xl))?(?![\w/[-])/g)].map(
+          (match) => `${name}: ${match[0]}`,
+        ),
       ),
     );
     expect(offenders).toEqual([]);

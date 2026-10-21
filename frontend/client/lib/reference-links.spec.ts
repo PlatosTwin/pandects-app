@@ -14,6 +14,7 @@ const WORKING_SURFACES = [
   "pages/Search.tsx",
   "pages/Favorites.tsx",
   "components/AgreementReader.tsx",
+  "components/reader",
   "components/SearchResultsTable.tsx",
   "components/taxonomy/TaxonomyNodePanel.tsx",
   "components/auth",
