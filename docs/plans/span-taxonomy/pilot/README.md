@@ -1,6 +1,6 @@
-# M1 pilot (span taxonomy)
+# M1 and M2 pilots (span taxonomy)
 
-Results and discussion: [section 7.4 of the plan](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21).
+Results and discussion: [section 7.4](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21) (M1, 3 concepts, 50 agreements) and [section 7.5](../../span-taxonomy.md#75-m2-pilot-results-2026-10-21) (M2, 10 concepts, 150 agreements) of the plan.
 
 ## Rebuild the inputs
 
@@ -26,6 +26,8 @@ WHERE (t.target_type = 'public' AND t.rn <= 9)
 
 Then `python3 prepare.py m1.tsv OUT` writes the text layers, reading views and stage 1 candidates. The sample depends on the corpus at query time, so it drifts as agreements are added.
 
+M2 uses the same query with three changes: the seed is `'m2'` instead of `'m1pilot'`, the M1 agreements are excluded (`AND a.agreement_uuid NOT IN (...)`), and the final filter is `WHERE t.rn <= IF(t.era = 'd', 18, 19)` for both target types, giving 150 agreements. Then `python3 prepare_v2.py m2.tsv OUT` writes the same three views plus `manifest.json`, which assigns every third agreement (sorted by target type, era and uuid) to dev and the rest to test. `python3 prepare_v2.py --rebuild OUT [split]` re-runs stage 1 from the saved layers.
+
 ## Files
 
 - `text_layer.py`: the canonical text layer (body `<text>` elements, unstripped, one per line).
@@ -33,7 +35,11 @@ Then `python3 prepare.py m1.tsv OUT` writes the text layers, reading views and s
 - `schema_m1.md`: the extraction schema as run. Schema v2 changes are in section 7.4 of the plan.
 - `score.py`: quote validation, span anchoring, detection, span and field metrics.
 - `report.py`: final numbers against adjudicated gold; output in `m1_results.json`.
+- `prepare_v2.py`: M2 stage 1 for four concept groups, with long definitions sections trimmed to relevant terms.
+- `schema_v2.md`: the ten-concept schema run on the dev split. `schema_v2_1.md`: the same with 14 clarifications from dev, run on the test split and used for all adjudication.
+- `score_v2.py`: M2 detection, span and key-field metrics (`python3 score_v2.py D ARM GOLD [--split dev|test] [--disagreements OUT]`).
+- `report_v2.py`: final M2 numbers for both splits, stage 1 recall, verdicts and fee percentages; output in `m2_results.json`.
 
 ## How it ran
 
-Extraction (Sonnet and Haiku arms), gold (Opus) and adjudication (Opus) ran as subagents in a Claude Code session, with no API calls. The per-agreement JSON was scratch and was deleted after scoring.
+Extraction (Sonnet, plus a Haiku arm in M1), gold (Opus), adjudication (Opus) and the M2 equity-value lookups (Sonnet with web search) ran as subagents in a Claude Code session, with no API calls. The per-agreement JSON was scratch and was deleted after scoring.

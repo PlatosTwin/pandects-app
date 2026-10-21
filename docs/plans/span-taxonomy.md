@@ -520,6 +520,97 @@ Two rules follow. Store the percentage against both equity value and enterprise 
 
 **Next step.** Detection, retrieval and the core values meet the bar, and the failures trace to the seven schema rules above rather than to model limits. So M2 should start with schema v2. Its 50-agreement dev split re-checks these three concepts under v2 before the other seven concepts are scored.
 
+### 7.5 M2 pilot results (2026-10-21)
+
+**Setup.** 150 new verified agreements, none from M1, stratified as 75 public and 75 private targets across the same four eras (18 or 19 per cell). Every third agreement went to dev (50); the other 100 are the sealed test split. All 10 concepts of [7.2](#72-the-concepts), as subagents with no API calls:
+- **Stage 1 (code):** four concept groups (termination, deal risk, indemnification, tax). Long definitions sections are trimmed to relevant terms. Median 19 sections and 67K characters per agreement, about 30% of the body.
+- **Extractor:** Sonnet, seeing only the stage 1 candidates.
+- **Gold:** Opus, independently, searching the full body.
+- **Adjudication:** Opus judged every field where gold and Sonnet disagreed, and fixed gold where it was wrong.
+
+The dev split ran under schema v2. Its disputes became 14 clarifications (schema v2.1, `pilot/schema_v2_1.md`), which governed the test labels and all adjudication. Stage 1 was also fixed on dev (inline MAE definitions) before test candidates were built; nothing was changed after the test split was labeled.
+
+One test agreement (GovDelivery) was dropped: its XML has text but no sections, so the text layer projected an empty body. The test numbers below cover 99 agreements.
+
+**Test split, Sonnet against adjudicated gold.**
+
+| Concept | Present / 99 | Precision | Recall | Key fields (exact match) |
+|---|---|---|---|---|
+| Target fee | 53 | 1.00 | 0.98 | amounts 49/52, payor 51/52, triggers 40/52 (set F1 0.95), remedy 45/52 |
+| Reverse fee | 27 | 0.93 | 0.96 | amounts 25/26, kind 24/26, triggers 22/26 (set F1 0.95), remedy 26/26 |
+| Expense reimbursement | 26 | 1.00 | 0.92 | cap 23/24, payor 24/24 |
+| Outside date | 96 | 1.00 | 0.98 | initial date 92/94, effect 91/94, extensions 92/94, breach-bar causation 84/94 |
+| MAE definition | 99 | 1.00 | 0.96 | carve-out categories 72/95 (set F1 0.96), ability-to-consummate prong 89/95, disproportionate-effect exception 90/95 |
+| Financing structure | 77 | 0.98 | **0.70** | committed sources 40/54, financing condition 51/54, efforts 53/54 |
+| Indemnity cap | 42 | 1.00 | 0.98 | cap amounts **25/41**, escrow sole recourse 33/41 |
+| Indemnity basket | 35 | 1.00 | 0.94 | baskets 30/33, de minimis 32/33 |
+| Survival | 97 | 1.00 | 0.99 | general reps **75/96**, fundamental reps 90/96 |
+| 338(h)(10) / 338(g) | 15 | 1.00 | 1.00 | election 15/15, who decides 11/15, tax cost payer 11/15 |
+
+- Quotes were found verbatim in 99.8% of 4,808 (99.3% of 2,360 on dev).
+- False positives: 3 instances in 99 agreements (0.03 per agreement).
+- Span recall by concept was 0.73–0.94, precision 0.85–1.00.
+- Cost: about 60K Sonnet subagent tokens per agreement for all 10 concepts, and a similar amount of Opus for gold.
+
+**Adjudication.** 210 disputed test fields were judged:
+- 138 times gold was right;
+- 34 times the two said the same thing in different encodings;
+- 23 times the schema was ambiguous;
+- 13 times the extractor was right, and twice neither was.
+
+So gold was corrected in 15 of the 2,082 compared fields. Schema ambiguity fell from 41% of disputes in M1 to 11% here, so schema v2 and v2.1 did their job.
+
+**Where the extractor's errors come from.** Of 140 test fields the extractor got wrong:
+
+| Cause | Fields |
+|---|---|
+| Retrieval gap: the text was not in the stage 1 candidates | 83 |
+| Wrong code | 17 |
+| Wrong value | 16 |
+| A v2.1 rule not applied | 12 |
+| Text was in the candidates but missed | 7 |
+| Over-inclusion | 5 |
+
+**Retrieval is now the bottleneck.** Stage 1 kept 94.1% of gold spans on test (89.9% on dev, before the inline-MAE fix), and the misses explain most of the failing rows above:
+- **Financing (50 of 118 missed spans).** v2.1 rule 3 makes a "sufficient funds" or "financial capability" rep enough for financing to be present. Stage 1 does not look for those titles, so most of the 23 missed financing instances never reached the extractor.
+- **Indemnity limits (21).** Caps and baskets often sit in sections titled "Limitations", "Limits on Claims", "Maximum liability" or "Minimum Claims", which no pattern matched. That explains 6 of the 16 wrong cap amounts; the rest are coding errors (percentage-of-price caps, special-indemnity caps) spread across v2.1 rules.
+- **A trimming bug.** The rule that trims long definitions sections also fired on 10 sections that merely contain five or more inline definitions, including three termination sections whose trigger lists were cut. It should apply only to sections titled as definitions.
+- **Small misses:** "Section 4.05Financing." (no space, so `\bfinancing` fails); numbered titles with no words (one Dutch agreement kept 1 of 72 sections); MAE definitions in an annex outside the body.
+
+Survival general reps (75/96) is not a real failure. In 19 of its 21 disputes both sides set `no_survival: true`, and one also added a redundant `all_reps` period of kind `none` or `until_closing`; adjudicators called these equivalent. The fix is a normalization rule (rule 6 below), not a better model.
+
+**Against the acceptance bar** ([section 9](#9-evaluation-plan)), on test:
+- **Passes on detection** (precision and recall ≥ 0.95, at most 0.1 false positives per agreement): target fee, outside date, MAE definition, indemnity cap, survival and 338.
+- **Narrowly fails detection:** reverse fee (precision 0.93: a ticking fee and a merger-of-equals fee were counted as reverse fees), basket (recall 0.94) and expense reimbursement (recall 0.92). These rest on two or three agreements each.
+- **Fails:** financing (recall 0.70, almost all retrieval).
+- **Key fields at ≥ 0.97:** outside-date initial date, the 338 election, reverse-fee remedy and payor, and expense payor pass. Target-fee payor (0.98) passes and amount (0.94) is close. Fee triggers (set F1 0.95, exact set 0.77) and cap amounts (0.61) fail.
+
+**Schema v2.2: the open rules.** The 23 ambiguous disputes reduce to these:
+1. A general "remedies are cumulative" or "no further liability" clause that does not mention the fee does not set the fee's `remedy`; it stays `not_stated`. (Adjudicators ruled this way every time, but the rule is unwritten.)
+2. When a 338 election is prohibited, `decides` is `not_applicable`.
+3. Reverse-fee `kind` gets `mixed` for one fee with financing, regulatory and breach triggers.
+4. `breach_bar` becomes a list, so an outside date with two bars records both. "Proximately caused" or "contributed" maps to `cause_or_result`.
+5. `none` means the provision exists without that element; `not_stated` means the element exists but is defined outside the text. This settles de minimis, breach bar and survival.
+6. Survival merges `none` and `until_closing`, and when `no_survival` is true the reps are not listed again in `periods`.
+7. A buyer deposit kept as liquidated damages is a reverse fee (`kind: deposit`). A "ticking" payment owed while the deal is pending is not a fee.
+8. A fee of a fixed amount plus capped expenses is one fee amount plus an expense reimbursement with `credited_against_fee: false`.
+9. In a de-SPAC, the trust account with a minimum-cash condition is `cash_on_hand`, and a PIPE is committed equity.
+10. A fee trigger keyed to a defined term outside the text is `other`, with the term recorded.
+
+**Equity value and fee percentages (test).** Equity value was found for 49 of the 50 deals with a target fee: 11 from the agreement and 38 from web sources with URLs. On the 45 deals with a USD fee and a USD equity value:
+- The target fee was a median **3.5%** of equity value, with the 10th to 90th percentile at 2.8–4.1%.
+- None was above 8%, and the full range was 1.3–5.0%.
+
+That matches M1 (median 3.5%) on an independent sample, so the 8% review flag stands.
+
+**Next step.** The extractor is no longer the main problem; stage 1 is. Before a corpus pass:
+1. Fix stage 1: add the funds-rep and indemnity-limit title patterns, restrict trimming to definitions sections, and fall back to text patterns when titles are bare numbers.
+2. Admit defined-terms exhibits and annexes into the text layer, as [7.4](#74-m1-pilot-results-2026-10-21) proposed. Several MAE definitions and outside dates sat there.
+3. Write the ten v2.2 rules.
+4. Re-run stage 1 and the extractor on the test split and re-score against the same gold, which isolates the retrieval gain. Some of these fixes were found by reading test errors, so that score is optimistic. The pass/fail call for M3 should come from a fresh holdout of about 50 agreements, gold-labeled the same way.
+
+Only concepts that then pass the bar go into the M3 corpus pass.
+
 
 ## 8. Extraction pipeline
 
@@ -712,7 +803,7 @@ GROUP BY yr;
 |---|---|---|
 | **M0: Decisions** (about 1 week) | Answer the [open questions](#15-open-questions-for-you); agree the text-layer spec with the smart-reader plan; YAML skeleton for `ma` and `tax` with the first 10 value concepts; DDL drafted | Spec merged as docs; loader validates the YAML in CI |
 | **M1: Pilot** (run 2026-10-21, [7.4](#74-m1-pilot-results-2026-10-21)) | Text layer; stages 1–3 for **3 concepts** (target fee, reverse fee, outside date) on **50 agreements**; Opus gold with model adjudication; metrics report | Met for detection, retrieval and core values. Coded fields diagnosed as schema gaps, and schema v2 written. Cost: about 30K Sonnet tokens per agreement for 3 concepts |
-| **M2: v1 concepts** (3–4 weeks) | All 10 value concepts; 150-agreement gold (50 dev / 100 test); review UI hardened; stage 2 model choice settled by measurement | Bar met per concept on the sealed test split |
+| **M2: v1 concepts** (run 2026-10-21, [7.5](#75-m2-pilot-results-2026-10-21)) | All 10 value concepts; 150-agreement gold (50 dev / 100 test); review UI hardened; stage 2 model choice settled by measurement | Detection bar met on test for 6 of 10 concepts; financing fails on retrieval. Next: stage 1 fixes, defined-terms exhibits and schema v2.2, then a fresh 50-agreement holdout. Not done in this run: the review UI and a stage 2 model comparison. Cost: about 60K Sonnet tokens per agreement for 10 concepts |
 | **M3: Corpus and serving** (2–3 weeks) | Full pass for the passing concepts; serving tables, REST and MCP endpoints, bulk docs and changelog; reader span highlighting behind a flag | Live calls in prod return instances; distributions show n and coverage |
 | **M4: Tax and breadth** | Migrate tax clauses to spans; label concepts toward roughly 140-leaf coverage; derived `section_concepts`; deprecate old filters | Old taxonomy tables unused for one push cycle |
 | **M5: Distill and maintain** | Span tagger trained on accepted spans; incremental per-ingest runs; monthly checks | Stage 2 LLM spend cut by at least 80% with no recall loss on test |
@@ -738,5 +829,5 @@ GROUP BY yr;
 ## Appendix A. Pilot artifacts
 
 - `docs/plans/span-taxonomy/anchor_pilot.py`: the text-layer projection and re-anchoring measurement. It reads an XML dump, writes nothing, and is not wired into the ETL.
-- `docs/plans/span-taxonomy/pilot/`: the M1 pilot code. `text_layer.py` (projection), `prepare.py` (stage 1 retrieval and reading views), `schema_m1.md` (the extraction schema as run), `score.py` and `report.py` (scoring), `m1_results.json` (the numbers in 7.4).
+- `docs/plans/span-taxonomy/pilot/`: the M1 pilot code. `text_layer.py` (projection), `prepare.py` (stage 1 retrieval and reading views), `schema_m1.md` (the extraction schema as run), `score.py` and `report.py` (scoring), `m1_results.json` (the numbers in 7.4). For M2: `prepare_v2.py` (four-group stage 1), `schema_v2.md` and `schema_v2_1.md` (the schemas as run on dev and test), `score_v2.py` and `report_v2.py` (scoring), `m2_results.json` (the numbers in 7.5).
 - The pilots used read-only queries on the local database. No taxonomy LLM step was run over the corpus. Extraction, gold and adjudication ran as subagents in a Claude Code session, with no separate API calls (decision Q6). The per-agreement JSON (extractions, gold, verdicts) was scratch and was deleted after scoring; `prepare.py` with the sample SQL in `pilot/README.md` rebuilds the inputs.
