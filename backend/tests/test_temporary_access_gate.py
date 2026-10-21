@@ -82,6 +82,12 @@ class TemporaryAccessGateTests(unittest.TestCase):
         self.assertEqual(res.status_code, 401)
 
     @patch.dict(os.environ, _LOCKDOWN_ON)
+    def test_healthz_is_not_gated(self):
+        res = self.app.test_client().get("/healthz")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_data(as_text=True), "ok")
+
+    @patch.dict(os.environ, _LOCKDOWN_ON)
     def test_unknown_bearer_token_still_blocked(self):
         client = self.app.test_client()
         res = client.get("/v1/agreements", headers={"Authorization": "Bearer not-a-session"})

@@ -706,7 +706,14 @@ def _configure_app(
     )
 
 
+def _healthz() -> tuple[str, int]:
+    # Liveness only: Fly's deploy check. Stays off both DBs so a DB blip can't
+    # mark every machine unhealthy; /v1/auth/health is the deeper check.
+    return "ok", 200
+
+
 def _register_app(target_app: Flask) -> None:
+    _ = target_app.add_url_rule("/healthz", "healthz", _healthz, methods=["GET"])
     _register_error_handlers(target_app)
     _register_request_hooks(target_app)
     _register_blueprints(target_app)
