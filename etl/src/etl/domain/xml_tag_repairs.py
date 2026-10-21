@@ -57,6 +57,49 @@ INLINE_SECTION_REFERENCE_TAG_RE = re.compile(
     ),
     re.IGNORECASE | re.DOTALL,
 )
+STRAY_DECIMAL_INNER = r"\s*(?:Section\s+)?\d{1,3}\s*\.\s*\d{1,3}[\s.(]*"
+STRAY_DECIMAL_AFTER_SECTION_TAG_RE = re.compile(
+    (
+        r"<section>(?P<prev_title>[^<]*)(?P<prev></section>\s*)"
+        + rf"<section>(?P<inner>{STRAY_DECIMAL_INNER})</section>(?!\s*<section>)"
+        + r"(?P<after>\s*\w*)"
+    ),
+    re.IGNORECASE,
+)
+STRAY_DECIMAL_FRAGMENT_RE = re.compile(r"\d\s+\.|\.\s*\(")
+NUMBER_ONLY_SECTION_BEFORE_TITLE_RE = re.compile(
+    (
+        rf"<section>(?P<number>{STRAY_DECIMAL_INNER})</section>"
+        + r"(?P<gap>\s*)<section>(?P<title>[^<]*?)</section>"
+    ),
+    re.IGNORECASE,
+)
+SECTION_OF_REFERENCE_TAG_RE = re.compile(
+    r"<section>(?P<inner>\s*(?:Section\s+)?\d{1,2}\s*\.\s*\d{1,3}\s+of\s[^<]*?)</section>",
+    re.IGNORECASE,
+)
+ADJACENT_SAME_TYPE_HEADING_PAIR_RE = re.compile(
+    (
+        r"<(?P<tag>section|article)>(?P<first>[^<]*?)</(?P=tag)>"
+        + r"(?P<gap>\s*)<(?P=tag)>(?P<second>[^<]*?)</(?P=tag)>"
+    ),
+    re.IGNORECASE,
+)
+SAME_LINE_SECTION_PAIR_RE = re.compile(
+    r"(?P<first><section>[^<]*?</section>)(?P<gap>[ \t]+)<section>(?P<second>[^<]*?)</section>",
+    re.IGNORECASE,
+)
+BARE_ARTICLE_TAG_BEFORE_SECTION_RE = re.compile(
+    (
+        r"<article>(?P<inner>\s*ARTICLE\s+(?P<number>[IVXLCDM]+|\d+)\s*\.?\s*)</article>"
+        + r"(?P<gap>\s*)(?=<section>(?P<next>[^<]*))"
+    ),
+    re.IGNORECASE,
+)
+ARTICLE_TITLE_NUMBER_RE = re.compile(
+    r"^\s*ARTICLE\s+(?P<number>[IVXLCDM]+|\d+)\b",
+    re.IGNORECASE,
+)
 ARTICLE_HEADING_SCAN_RE = re.compile(
     r"(?<![A-Za-z0-9])ARTICLE\s+(?P<number>[IVXLCDM]+|\d+)\s*\.?\s+",
     re.IGNORECASE,
@@ -500,3 +543,148 @@ def wrap_untagged_article_headings_before_first_sections(
         stats.applied["wrap_untagged_article_headings_before_first_sections"] += 1
     pieces.append(tagged_text[last:])
     return "".join(pieces), stats
+
+
+def _section_title_decimal(title: str) -> tuple[int, int] | None:
+    match = SECTION_DECIMAL_TITLE_RE.match(title)
+    if match is None:
+        return None
+    return int(match.group("article")), int(match.group("section"))
+
+
+def _article_title_number(title: str) -> int | None:
+    match = ARTICLE_TITLE_NUMBER_RE.match(title)
+    if match is None:
+        return None
+    return _article_heading_number(match)
+
+
+def _heading_number(tag_name: str, title: str) -> tuple[int, ...] | None:
+    if tag_name.lower() == "article":
+        number = _article_title_number(title)
+        return None if number is None else (number,)
+    return _section_title_decimal(title)
+
+
+def unwrap_section_of_reference_tags(tagged_text: str) -> tuple[str, XMLTagRepairStats]:
+    """Unwrap cross-references such as "Section 4.21 of the Disclosure Schedule"."""
+    stats = XMLTagRepairStats()
+
+    def repl(match: re.Match[str]) -> str:
+        stats.attempts["unwrap_section_of_reference_tags"] += 1
+        stats.applied["unwrap_section_of_reference_tags"] += 1
+        return match.group("inner")
+
+    return SECTION_OF_REFERENCE_TAG_RE.sub(repl, tagged_text), stats
+
+
+def merge_number_only_section_titles(tagged_text: str) -> tuple[str, XMLTagRepairStats]:
+    """Merge a number-only section tag into the next tag when that tag is its title.
+
+    The next tag counts as a title when it does not open with a section number of
+    the same article, e.g. "Section 10.6" + "Section 56.4 Election." or
+    "6.8" + "Section 16(b) Exemption.".
+    """
+    stats = XMLTagRepairStats()
+
+    def repl(match: re.Match[str]) -> str:
+        stats.attempts["merge_number_only_section_titles"] += 1
+        number = _section_title_decimal(match.group("number"))
+        title_number = _section_title_decimal(match.group("title"))
+        if number is None or (title_number is not None and title_number[0] == number[0]):
+            return match.group(0)
+        stats.applied["merge_number_only_section_titles"] += 1
+        return f"<section>{match.group('number')}{match.group('gap')}{match.group('title')}</section>"
+
+    return NUMBER_ONLY_SECTION_BEFORE_TITLE_RE.sub(repl, tagged_text), stats
+
+
+def unwrap_stray_decimal_section_tags(tagged_text: str) -> tuple[str, XMLTagRepairStats]:
+    """Unwrap a bare section number ("4.6 .", "2.1", "4.1.(") that follows a section tag.
+
+    The number is unwrapped only when it is a cross-reference ("Section 2.24 of
+    the ..."), a fragment ("4.6 ."), or cannot be the next clause after the
+    previous section, so a real number-only clause such as "4 Completion" +
+    "4.1" or "2.1 ..." + "2.2" stays.
+    """
+    stats = XMLTagRepairStats()
+
+    def repl(match: re.Match[str]) -> str:
+        number = _section_title_decimal(match.group("inner"))
+        previous = _section_title_decimal(match.group("prev_title"))
+        if number is None or previous is None:
+            return match.group(0)
+        stats.attempts["unwrap_stray_decimal_section_tags"] += 1
+        is_reference = match.group("after").strip().lower() == "of"
+        # "4.6 ." or "4.1.(" is a split-off fragment, never a clause number of its own.
+        is_fragment = STRAY_DECIMAL_FRAGMENT_RE.search(match.group("inner")) is not None
+        next_numbers = {(previous[0], previous[1] + 1), (previous[0] + 1, 1)}
+        if not (is_reference or is_fragment) and number in next_numbers:
+            return match.group(0)
+        stats.applied["unwrap_stray_decimal_section_tags"] += 1
+        return (
+            f"<section>{match.group('prev_title')}{match.group('prev')}"
+            + f"{match.group('inner')}{match.group('after')}"
+        )
+
+    return STRAY_DECIMAL_AFTER_SECTION_TAG_RE.sub(repl, tagged_text), stats
+
+
+def dedupe_adjacent_same_number_headings(tagged_text: str) -> tuple[str, XMLTagRepairStats]:
+    """Unwrap the first of two adjacent same-type headings that carry the same number.
+
+    Covers headings the source prints twice ("ARTICLE VIII" + "ARTICLE VIII
+    TERMINATION", or an inline copy followed by an underlined copy).
+    """
+    stats = XMLTagRepairStats()
+
+    def repl(match: re.Match[str]) -> str:
+        tag_name = match.group("tag")
+        first_number = _heading_number(tag_name, match.group("first"))
+        if first_number is None:
+            return match.group(0)
+        stats.attempts["dedupe_adjacent_same_number_headings"] += 1
+        if _heading_number(tag_name, match.group("second")) != first_number:
+            return match.group(0)
+        stats.applied["dedupe_adjacent_same_number_headings"] += 1
+        return f"{match.group('first')}{match.group('gap')}<{tag_name}>{match.group('second')}</{tag_name}>"
+
+    return ADJACENT_SAME_TYPE_HEADING_PAIR_RE.sub(repl, tagged_text), stats
+
+
+def unwrap_same_line_cross_article_section_tags(tagged_text: str) -> tuple[str, XMLTagRepairStats]:
+    """Unwrap a section tag on the same line as the previous one when it belongs to another article."""
+    stats = XMLTagRepairStats()
+
+    def repl(match: re.Match[str]) -> str:
+        first_number = _section_title_decimal(SECTION_TAG_RE.sub(r"\1", match.group("first")))
+        second_number = _section_title_decimal(match.group("second"))
+        if first_number is None or second_number is None:
+            return match.group(0)
+        stats.attempts["unwrap_same_line_cross_article_section_tags"] += 1
+        if first_number[0] == second_number[0]:
+            return match.group(0)
+        stats.applied["unwrap_same_line_cross_article_section_tags"] += 1
+        return f"{match.group('first')}{match.group('gap')}{match.group('second')}"
+
+    return SAME_LINE_SECTION_PAIR_RE.sub(repl, tagged_text), stats
+
+
+def unwrap_bare_article_tags_before_other_article_sections(
+    tagged_text: str,
+) -> tuple[str, XMLTagRepairStats]:
+    """Unwrap a bare "ARTICLE N" tag that sits directly before a section of another article."""
+    stats = XMLTagRepairStats()
+
+    def repl(match: re.Match[str]) -> str:
+        article_number = _article_heading_number(match)
+        next_number = _section_title_decimal(match.group("next"))
+        if article_number is None or next_number is None:
+            return match.group(0)
+        stats.attempts["unwrap_bare_article_tags_before_other_article_sections"] += 1
+        if next_number[0] == article_number:
+            return match.group(0)
+        stats.applied["unwrap_bare_article_tags_before_other_article_sections"] += 1
+        return f"{match.group('inner')}{match.group('gap')}"
+
+    return BARE_ARTICLE_TAG_BEFORE_SECTION_RE.sub(repl, tagged_text), stats

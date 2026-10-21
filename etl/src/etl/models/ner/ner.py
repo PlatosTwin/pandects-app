@@ -1158,6 +1158,45 @@ class NERInference:
             collapsed_logits,
         )
 
+    def _decode_first_subwords(
+        self, avg_logits: torch.Tensor, word_ids: list[int | None]
+    ) -> list[int]:
+        """
+        Run constrained Viterbi over first-subword positions only, then copy each
+        word's label onto its continuation subwords.
+
+        Training masks continuation subwords (-100) and never scores transitions
+        through them, so decoding over every subword lets untrained emissions
+        force spurious E->B splits inside a heading.
+        """
+        o_id = self.label2id["O"]
+        first_idxs: list[int] = []
+        word_pos: list[int] = []  # per token: index into first_idxs, or -1
+        last_wid: int | None = None
+        for tok_idx, wid in enumerate(word_ids):
+            if wid is None:
+                word_pos.append(-1)
+            elif wid != last_wid:
+                first_idxs.append(tok_idx)
+                word_pos.append(len(first_idxs) - 1)
+            else:
+                word_pos.append(len(first_idxs) - 1)
+            last_wid = wid
+
+        if not first_idxs:
+            return [o_id] * len(word_ids)
+
+        index_tensor = torch.tensor(first_idxs, dtype=torch.long)
+        word_logits = avg_logits.index_select(0, index_tensor)
+        word_preds = cast(
+            list[int],
+            self.model.decode_constrained_doc(word_logits.to(self.device))
+            .detach()
+            .cpu()
+            .tolist(),
+        )
+        return [word_preds[pos] if pos >= 0 else o_id for pos in word_pos]
+
     def _predict_tokens(
         self, text: str
     ) -> tuple[list[int], list[float], list[tuple[int, int]], list[str], torch.Tensor]:
@@ -1273,13 +1312,7 @@ class NERInference:
         avg_logits = sum_logits / counts.unsqueeze(-1).clamp(min=1.0)
         probs = torch.softmax(avg_logits, dim=-1)
         confidences = cast(list[float], probs.max(dim=-1)[0].tolist())
-        preds = cast(
-            list[int],
-            self.model.decode_constrained_doc(avg_logits.to(self.device))
-            .detach()
-            .cpu()
-            .tolist(),
-        )
+        preds = self._decode_first_subwords(avg_logits, word_ids)
         preds, confidences, offsets, toks, avg_logits = self._collapse_to_word_level(
             text,
             preds,
