@@ -21,6 +21,21 @@
 # minor = additive/cosmetic.
 
 unreleased:
+- type: api
+  severity: minor
+  summary: "Keyword searches are capped server-wide and answer 503 with Retry-After when busy; an auth database outage answers 503, not the access-lockdown 403."
+  details: >
+    Text searches (text_query on /v1/sections and /v1/search/agreements, and
+    the MCP search_sections tool) share a server-wide limit on concurrent
+    full-text queries. A search that cannot start within a few seconds gets
+    503 with a Retry-After header and the message "Keyword search is busy
+    right now. Please try again in a few seconds."; the MCP tool returns a
+    -32004 error marked retryable with the same message. /v1 JSON error
+    responses now keep the headers the error sets (Retry-After, Allow). When
+    the auth database fails while checking a request's session or API key,
+    the temporary access lockdown answers 503 "Auth backend is unavailable
+    right now." instead of 403; requests without credentials still get 403.
+  refs: []
 - type: mcp
   severity: minor
   summary: "MCP OAuth hardening: client_name is validated, consent requires a registered redirect URI, and Deny goes through /authorize."
