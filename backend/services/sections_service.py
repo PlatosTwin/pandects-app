@@ -682,13 +682,33 @@ def fetch_with_text_plan_race(
             raise
         # The abort leaves the session unusable; the fallback needs a clean one.
         db.session.rollback()
+        first_cut_short = is_statement_timeout_error(exc)
     else:
         _remember_text_plan(cache_key, first_plan)
         return rows, first_query
 
-    rows = cast(list[object], second_query.offset(offset).limit(limit).all())
-    _remember_text_plan(cache_key, second_plan)
-    return rows, second_query
+    try:
+        rows = cast(list[object], second_query.offset(offset).limit(limit).all())
+    except DatabaseError as exc:
+        if not (first_cut_short and is_text_plan_exhausted_error(exc)):
+            raise
+        db.session.rollback()
+    else:
+        _remember_text_plan(cache_key, second_plan)
+        return rows, second_query
+
+    # Both failed, but the first only ran out of its short race budget. That is
+    # what a cold buffer pool looks like (just after a database restart): a
+    # common phrase's date-ordered page is cheap in page reads yet slow from
+    # disk, while the FULLTEXT plan cannot hold a common phrase at all. Give the
+    # first plan the full text-search budget instead of failing the search; the
+    # pages it reads stay cached for the requests after it.
+    patient = first_query.execution_options(
+        max_statement_time=TEXT_SEARCH_MAX_STATEMENT_SECONDS
+    )
+    rows = cast(list[object], patient.offset(offset).limit(limit).all())
+    _remember_text_plan(cache_key, first_plan)
+    return rows, first_query
 
 
 def run_sections(

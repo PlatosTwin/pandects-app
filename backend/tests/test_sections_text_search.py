@@ -24,6 +24,7 @@ from backend.services.sections_service import (
     TEXT_PLAN_FULLTEXT,
     TEXT_QUERY_TOO_EXPENSIVE_MESSAGE,
     _remember_text_plan,
+    _remembered_text_plan,
     apply_section_text_join,
     is_fts_result_cache_error,
     is_text_plan_exhausted_error,
@@ -696,6 +697,52 @@ class PhrasePlanRaceTests(unittest.TestCase):
         self.assertEqual(cast(dict[str, object], result)["results"], [])
         self.assertEqual(query.all.call_count, 2, "both plans should be attempted")
         deps.db.session.rollback.assert_called_once()
+
+    def test_cold_cache_retries_the_first_plan_with_the_full_budget(self) -> None:
+        # Just after a database restart: the date-ordered page misses its short
+        # race budget, the FULLTEXT plan overflows its result cache on a common
+        # phrase, and the date-ordered plan then succeeds given the full budget.
+        parsed_args = _parsed_args(
+            text_query="material adverse effect means", text_match_mode="phrase"
+        )
+        query = _chained_query()
+        query.all.side_effect = [_statement_timeout(), _fts_out_of_memory(), []]
+        deps = _service_deps(query)
+
+        result = run_sections(deps, ctx=cast(Any, _CTX), parsed_args=parsed_args)
+
+        self.assertEqual(cast(dict[str, object], result)["results"], [])
+        self.assertEqual(query.all.call_count, 3)
+        self.assertEqual(deps.db.session.rollback.call_count, 2)
+        budgets = [
+            call.kwargs["max_statement_time"]
+            for call in query.execution_options.call_args_list
+            if "max_statement_time" in call.kwargs
+        ]
+        self.assertIn(TEXT_SEARCH_MAX_STATEMENT_SECONDS, budgets)
+        self.assertEqual(
+            _remembered_text_plan(build_search_count_cache_key("sections", parsed_args)),
+            TEXT_PLAN_DATE_SCAN,
+        )
+
+    def test_cold_cache_retry_that_still_fails_is_a_client_error(self) -> None:
+        query = _chained_query()
+        query.all.side_effect = [_statement_timeout(), _fts_out_of_memory(), _statement_timeout()]
+        deps = _service_deps(query)
+
+        with self.assertRaises(ValidationError) as caught:
+            _ = run_sections(
+                deps,
+                ctx=cast(Any, _CTX),
+                parsed_args=_parsed_args(
+                    text_query="material adverse effect means", text_match_mode="phrase"
+                ),
+            )
+
+        self.assertEqual(
+            caught.exception.messages, {"text_query": [TEXT_QUERY_TOO_EXPENSIVE_MESSAGE]}
+        )
+        self.assertEqual(query.all.call_count, 3)
 
     def test_remembered_plan_skips_the_race_on_later_pages(self) -> None:
         parsed_args = _parsed_args(
