@@ -143,12 +143,16 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
     <section
       id="search-results"
       tabIndex={-1}
-      aria-labelledby="search-results-heading"
-      className="flex min-w-0 flex-1 flex-col outline-none"
+      aria-labelledby={hasSearched ? "search-results-heading" : "search-page-title"}
+      // The skip link scrolls here; keep the top clear of the sticky bars.
+      className="flex min-w-0 flex-1 flex-col outline-none lg:scroll-mt-[calc(4rem+var(--search-bar-h,0px))]"
     >
-      <h2 id="search-results-heading" className="sr-only">
-        Results
-      </h2>
+      {/* Before a search the empty state brings its own h2. */}
+      {hasSearched ? (
+        <h2 id="search-results-heading" className="sr-only">
+          Results
+        </h2>
+      ) : null}
       <div className="z-10 border-b border-border bg-background/95 px-4 py-2 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur sm:px-6 lg:sticky lg:top-[calc(4rem+var(--search-bar-h,0px))] lg:px-6">
         <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-2">
           {props.mobileFilters}

@@ -716,7 +716,10 @@ export default function Search() {
           // to the Filters button by hand.
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            mobileFiltersButtonRef.current?.focus();
+            // If the viewport crossed lg while open, the button is hidden.
+            const button = mobileFiltersButtonRef.current;
+            if (button?.offsetParent) button.focus();
+            else document.getElementById("search-results")?.focus();
           }}
         >
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
