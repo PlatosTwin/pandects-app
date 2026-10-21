@@ -7436,6 +7436,9 @@
         "properties": {
           "status": {
             "type": "string",
+            "enum": [
+              "ok"
+            ],
             "description": "Always `ok`."
           },
           "csrf_token": {
@@ -7542,6 +7545,12 @@
         "properties": {
           "status": {
             "type": "string",
+            "enum": [
+              "authenticated",
+              "legal_required",
+              "verification_required",
+              "mcp_token"
+            ],
             "description": "`authenticated` (session issued), `legal_required` (accept the terms via `/v1/auth/zitadel/finalize`), `verification_required` (check email), or `mcp_token` (`/v1/auth/zitadel/complete` in the MCP-token flow only)."
           },
           "next_path": {
@@ -7701,6 +7710,9 @@
         "properties": {
           "status": {
             "type": "string",
+            "enum": [
+              "verification_required"
+            ],
             "description": "Always `verification_required`."
           },
           "user": {
@@ -8007,6 +8019,10 @@
         "properties": {
           "status": {
             "type": "string",
+            "enum": [
+              "linked",
+              "already_linked"
+            ],
             "description": "`linked` (201) or `already_linked` (200)."
           },
           "link": {
@@ -8040,6 +8056,10 @@
         "properties": {
           "status": {
             "type": "string",
+            "enum": [
+              "linked",
+              "already_linked"
+            ],
             "description": "`linked` (201) or `already_linked` (200)."
           },
           "link": {
@@ -8125,6 +8145,9 @@
         "properties": {
           "status": {
             "type": "string",
+            "enum": [
+              "granted"
+            ],
             "description": "Always `granted`."
           },
           "client_id": {
@@ -8152,7 +8175,17 @@
             "type": "string"
           },
           "color": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "slate",
+              "red",
+              "orange",
+              "amber",
+              "green",
+              "teal",
+              "blue",
+              "violet"
+            ]
           },
           "is_default": {
             "type": "boolean"
@@ -8302,7 +8335,17 @@
             "type": "string"
           },
           "color": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "slate",
+              "red",
+              "orange",
+              "amber",
+              "green",
+              "teal",
+              "blue",
+              "violet"
+            ]
           }
         },
         "required": [
@@ -8329,7 +8372,11 @@
           },
           "item_type": {
             "type": "string",
-            "description": "`section`, `agreement`, or `tax_clause`."
+            "enum": [
+              "section",
+              "agreement",
+              "tax_clause"
+            ]
           },
           "item_uuid": {
             "type": "string"
@@ -8445,7 +8492,11 @@
           },
           "item_type": {
             "type": "string",
-            "description": "`section`, `agreement`, or `tax_clause`."
+            "enum": [
+              "section",
+              "agreement",
+              "tax_clause"
+            ]
           },
           "item_uuid": {
             "type": "string"
@@ -8619,6 +8670,13 @@
               "type": "string"
             }
           },
+          "standard_id_labels": {
+            "type": "object",
+            "description": "Clause-taxonomy label for each id in `section_standard_id`, keyed by id.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
           "xml": {
             "type": "string",
             "nullable": true
@@ -8638,6 +8696,7 @@
           "section_standard_id",
           "section_title",
           "section_uuid",
+          "standard_id_labels",
           "xml"
         ],
         "additionalProperties": false
@@ -8928,7 +8987,17 @@
             "type": "string"
           },
           "color": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "slate",
+              "red",
+              "orange",
+              "amber",
+              "green",
+              "teal",
+              "blue",
+              "violet"
+            ]
           },
           "created_at": {
             "type": "string",
@@ -8955,7 +9024,17 @@
           "available_colors": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "slate",
+                "red",
+                "orange",
+                "amber",
+                "green",
+                "teal",
+                "blue",
+                "violet"
+              ]
             }
           }
         },

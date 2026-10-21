@@ -1,3 +1,4 @@
+import type { components } from "@shared/api.gen";
 import { apiPost } from "@/lib/api/client";
 
 import type { AgreementMetadata, SectionDetails } from "./types";
@@ -20,9 +21,7 @@ export async function fetchAgreementMetadataBatch(
     const chunk = unique.slice(i, i + BATCH_LIMIT);
     let agreements: Record<string, AgreementMetadata> = {};
     try {
-      const body = await apiPost<{
-        agreements: Record<string, AgreementMetadata>;
-      }>("v1/me/favorites/agreement-metadata", { agreement_uuids: chunk });
+      const body = await apiPost<components["schemas"]["FavoritesAgreementMetadataResponse"]>("v1/me/favorites/agreement-metadata", { agreement_uuids: chunk });
       agreements = body.agreements ?? {};
     } catch {
       // fall through: chunk resolves to nulls
@@ -49,9 +48,7 @@ export async function fetchSectionDetailsBatch(
     const chunk = unique.slice(i, i + BATCH_LIMIT);
     let sections: Record<string, SectionDetails> = {};
     try {
-      const body = await apiPost<{
-        sections: Record<string, SectionDetails>;
-      }>("v1/me/favorites/section-details", { section_uuids: chunk });
+      const body = await apiPost<components["schemas"]["FavoritesSectionDetailsResponse"]>("v1/me/favorites/section-details", { section_uuids: chunk });
       sections = body.sections ?? {};
     } catch {
       // fall through: chunk resolves to nulls

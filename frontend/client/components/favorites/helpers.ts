@@ -50,6 +50,17 @@ export function contextString(fav: Favorite, key: string): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+/** A `{id: label}` map saved in the favorite's context; non-string labels are dropped. */
+export function contextLabels(fav: Favorite, key: string): Record<string, string> {
+  const value = fav.context?.[key];
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const labels: Record<string, string> = {};
+  for (const [id, label] of Object.entries(value)) {
+    if (typeof label === "string" && label.trim()) labels[id] = label;
+  }
+  return labels;
+}
+
 export function stripXmlText(xml: string | null | undefined): string {
   if (!xml) return "";
   if (typeof DOMParser !== "undefined") {

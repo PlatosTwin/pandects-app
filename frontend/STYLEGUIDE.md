@@ -122,6 +122,9 @@ declares its own. The module has three groups:
    `global.css` with dark variants (Tailwind: `bg-chart-1`...). Max 8 series
    (`CHART_MAX_CATEGORICAL_SERIES`); fold the tail into an "Other" series
    colored `--chart-neutral` instead of cycling hues.
+   Every light-mode series color, `--chart-neutral` included, keeps at least
+   3:1 contrast against `--card` and `--background` (WCAG non-text
+   contrast); change `critical.css` in step with `global.css`.
 2. **Semantic assignments** (`OWNERSHIP_SERIES_COLORS`, `DEAL_TYPE_COLORS`,
    `PROCESSING_STATUS_COLORS`, `SECTOR_CONCENTRATION_LINE_COLOR`,
    `CHART_NEUTRAL_SERIES_COLOR` for unknown/other).

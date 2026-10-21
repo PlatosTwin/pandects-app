@@ -5,8 +5,8 @@ existing auth blueprint, plus the helpers that back them (PKCE / scope /
 redirect-URI validation, refresh-token rotation, signing-key rollover,
 stale-client sweep). The DB-coupled helpers that bridge MCP identity to local
 accounts (``ensure_linked_zitadel_subject_for_user``,
-``linked_zitadel_subject_for_email``) live in routes/auth/__init__.py and are
-injected at registration time.
+``linked_zitadel_subject_for_email``) live on WebsiteAuthService in
+routes/auth/website_auth.py and are injected at registration time.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ from backend.auth.mcp_oauth_runtime import (
     public_jwk_from_private_pem,
 )
 from backend.auth.mcp_runtime import mcp_resource_url, mcp_supported_scopes
+from backend.core.errors import oauth_error
 from backend.routes.auth.cookies import (
     _clear_oauth_authorize_cookie,
     _clear_oauth_browser_cookie,
@@ -63,7 +64,7 @@ def register_mcp_oauth_routes(
     """Attach the MCP OAuth routes and their private helpers to ``auth_blp``.
 
     The two ``*_subject_*`` callables are the DB-coupled bridge helpers from
-    routes/auth/__init__.py, passed in so the OAuth code never has to touch
+    routes/auth/website_auth.py, passed in so the OAuth code never has to touch
     Zitadel state directly.
     """
 
@@ -378,7 +379,7 @@ window.location.replace({json.dumps(login_url)});
         _sweep_stale_oauth_clients()
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
-            abort(400, description="Invalid client registration payload.")
+            return oauth_error(400, error="invalid_client_metadata", description="Invalid client registration payload.")
         unsupported_keys = {
             "jwks",
             "jwks_uri",
@@ -388,49 +389,49 @@ window.location.replace({json.dumps(login_url)});
             "client_secret",
         }.intersection(data.keys())
         if unsupported_keys:
-            abort(400, description="Unsupported OAuth client metadata.")
+            return oauth_error(400, error="invalid_client_metadata", description="Unsupported OAuth client metadata.")
         redirect_uris = data.get("redirect_uris")
         if not isinstance(redirect_uris, list) or not redirect_uris:
-            abort(400, description="redirect_uris must be a non-empty array.")
+            return oauth_error(400, error="invalid_redirect_uri", description="redirect_uris must be a non-empty array.")
         normalized_redirect_uris: list[str] = []
         for raw_uri in redirect_uris:
             if not isinstance(raw_uri, str) or not raw_uri.strip():
-                abort(400, description="redirect_uris must contain only non-empty strings.")
+                return oauth_error(400, error="invalid_redirect_uri", description="redirect_uris must contain only non-empty strings.")
             normalized = raw_uri.strip()
             if not _valid_oauth_redirect_uri(normalized):
-                abort(400, description="redirect_uris must be HTTPS URLs or HTTP loopback URLs without fragments.")
+                return oauth_error(400, error="invalid_redirect_uri", description="redirect_uris must be HTTPS URLs or HTTP loopback URLs without fragments.")
             if normalized in normalized_redirect_uris:
                 continue
             normalized_redirect_uris.append(normalized)
         token_endpoint_auth_method = data.get("token_endpoint_auth_method", "none")
         if token_endpoint_auth_method != "none":
-            abort(400, description="Only public clients with token_endpoint_auth_method=none are supported.")
+            return oauth_error(400, error="invalid_client_metadata", description="Only public clients with token_endpoint_auth_method=none are supported.")
         grant_types = data.get("grant_types", ["authorization_code"])
         if not isinstance(grant_types, list) or not all(
             isinstance(item, str) and item.strip() for item in grant_types
         ):
-            abort(400, description="grant_types must be a non-empty array of strings.")
+            return oauth_error(400, error="invalid_client_metadata", description="grant_types must be a non-empty array of strings.")
         normalized_grant_types = {
             item.strip() for item in grant_types if isinstance(item, str) and item.strip()
         }
         if not normalized_grant_types or "authorization_code" not in normalized_grant_types:
-            abort(400, description="OAuth clients must support the authorization_code grant.")
+            return oauth_error(400, error="invalid_client_metadata", description="OAuth clients must support the authorization_code grant.")
         unsupported_grant_types = normalized_grant_types.difference(
             {"authorization_code", "refresh_token"}
         )
         if unsupported_grant_types:
-            abort(400, description="Only authorization_code clients are supported.")
+            return oauth_error(400, error="invalid_client_metadata", description="Only authorization_code clients are supported.")
 
         response_types = data.get("response_types", ["code"])
         if not isinstance(response_types, list) or not all(
             isinstance(item, str) and item.strip() for item in response_types
         ):
-            abort(400, description="response_types must be a non-empty array of strings.")
+            return oauth_error(400, error="invalid_client_metadata", description="response_types must be a non-empty array of strings.")
         normalized_response_types = {
             item.strip() for item in response_types if isinstance(item, str) and item.strip()
         }
         if normalized_response_types != {"code"}:
-            abort(400, description="Only code response types are supported.")
+            return oauth_error(400, error="invalid_client_metadata", description="Only code response types are supported.")
         client = deps.AuthOAuthClient(
             client_id=secrets.token_urlsafe(24),
             client_name=(data.get("client_name") or None) if isinstance(data.get("client_name"), str) else None,
@@ -675,27 +676,33 @@ window.location.replace({json.dumps(login_url)});
             redirect_uri = request.form.get("redirect_uri", "").strip()
             code_verifier = request.form.get("code_verifier", "").strip()
             if not code or not client_id or not redirect_uri or not code_verifier:
-                abort(400, description="Missing OAuth token exchange fields.")
+                return oauth_error(400, error="invalid_request", description="Missing OAuth token exchange fields.")
             client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
-            if client is None or not _oauth_redirect_uri_allowed(client, redirect_uri):
-                abort(400, description="Invalid OAuth client or redirect URI.")
+            if client is None:
+                return oauth_error(
+                    400, error="invalid_client", description="Invalid OAuth client or redirect URI."
+                )
+            if not _oauth_redirect_uri_allowed(client, redirect_uri):
+                return oauth_error(
+                    400, error="invalid_grant", description="Invalid OAuth client or redirect URI."
+                )
             if not _oauth_client_supports_grant_type(client, "authorization_code"):
-                abort(400, description="OAuth client does not support the authorization_code grant.")
+                return oauth_error(400, error="unauthorized_client", description="OAuth client does not support the authorization_code grant.")
             auth_code = deps.AuthOAuthAuthorizationCode.query.filter_by(
                 code_hash=_oauth_code_hash(code),
                 client_id=client.client_id,
             ).first()
             now = deps._utc_now()
             if auth_code is None or auth_code.used_at is not None or auth_code.expires_at < now:
-                abort(400, description="Invalid or expired OAuth code.")
+                return oauth_error(400, error="invalid_grant", description="Invalid or expired OAuth code.")
             if auth_code.redirect_uri != redirect_uri:
-                abort(400, description="OAuth redirect URI mismatch.")
+                return oauth_error(400, error="invalid_grant", description="OAuth redirect URI mismatch.")
             expected_challenge = _build_pkce_challenge(code_verifier)
             if not secrets.compare_digest(expected_challenge, auth_code.code_challenge):
-                abort(400, description="OAuth PKCE verification failed.")
+                return oauth_error(400, error="invalid_grant", description="OAuth PKCE verification failed.")
             user = deps.db.session.get(deps.AuthUser, auth_code.user_id)
             if user is None or cast(object, user.email_verified_at) is None:
-                abort(403, description="Linked Pandects account is not verified.")
+                return oauth_error(400, error="invalid_grant", description="Linked Pandects account is not verified.")
             # Atomic claim: only succeeds if used_at IS NULL. Prevents two concurrent
             # token exchanges from minting parallel tokens for the same code.
             claim_result = deps.db.session.execute(
@@ -708,7 +715,7 @@ window.location.replace({json.dumps(login_url)});
             )
             if claim_result.rowcount != 1:
                 deps.db.session.rollback()
-                abort(400, description="Invalid or expired OAuth code.")
+                return oauth_error(400, error="invalid_grant", description="Invalid or expired OAuth code.")
             token_payload = _issue_token_pair(
                 user_id=user.id,
                 client_id=client.client_id,
@@ -723,19 +730,19 @@ window.location.replace({json.dumps(login_url)});
         if grant_type == "refresh_token":
             raw_refresh = request.form.get("refresh_token", "").strip()
             if not raw_refresh or not client_id:
-                abort(400, description="Missing OAuth refresh token fields.")
+                return oauth_error(400, error="invalid_request", description="Missing OAuth refresh token fields.")
             client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
             if client is None:
-                abort(400, description="Invalid OAuth client.")
+                return oauth_error(400, error="invalid_client", description="Invalid OAuth client.")
             if not _oauth_client_supports_grant_type(client, "refresh_token"):
-                abort(400, description="OAuth client does not support the refresh_token grant.")
+                return oauth_error(400, error="unauthorized_client", description="OAuth client does not support the refresh_token grant.")
             refresh_record = deps.AuthOAuthRefreshToken.query.filter_by(
                 token_hash=_oauth_code_hash(raw_refresh),
                 client_id=client.client_id,
             ).first()
             now = deps._utc_now()
             if refresh_record is None or refresh_record.expires_at < now:
-                abort(400, description="Invalid or expired refresh token.")
+                return oauth_error(400, error="invalid_grant", description="Invalid or expired refresh token.")
             # Reuse detection: a presented token that has already been rotated or
             # revoked indicates theft. Revoke the entire token family (RFC 6819 §5.2.2.3).
             if refresh_record.used_at is not None or refresh_record.revoked_at is not None:
@@ -748,10 +755,10 @@ window.location.replace({json.dumps(login_url)});
                     .values(revoked_at=now)
                 )
                 deps.db.session.commit()
-                abort(400, description="Invalid or expired refresh token.")
+                return oauth_error(400, error="invalid_grant", description="Invalid or expired refresh token.")
             user = deps.db.session.get(deps.AuthUser, refresh_record.user_id)
             if user is None or cast(object, user.email_verified_at) is None:
-                abort(403, description="Linked Pandects account is not verified.")
+                return oauth_error(400, error="invalid_grant", description="Linked Pandects account is not verified.")
             # Atomic rotation: only succeeds if used_at IS NULL. A concurrent rotation
             # losing this race is treated as reuse and revokes the family.
             rotate_result = deps.db.session.execute(
@@ -773,7 +780,7 @@ window.location.replace({json.dumps(login_url)});
                     .values(revoked_at=now)
                 )
                 deps.db.session.commit()
-                abort(400, description="Invalid or expired refresh token.")
+                return oauth_error(400, error="invalid_grant", description="Invalid or expired refresh token.")
             token_payload = _issue_token_pair(
                 user_id=user.id,
                 client_id=client.client_id,
@@ -786,4 +793,4 @@ window.location.replace({json.dumps(login_url)});
             resp.headers["Cache-Control"] = "no-store"
             return resp
 
-        abort(400, description="Unsupported grant_type.")
+        return oauth_error(400, error="unsupported_grant_type", description="Unsupported grant_type.")

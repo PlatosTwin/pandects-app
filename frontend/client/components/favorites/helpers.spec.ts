@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { favoriteHref } from "@/components/favorites/helpers";
+import { contextLabels, favoriteHref } from "@/components/favorites/helpers";
 import { parseAgreementOrigin } from "@/lib/agreement-links";
 import type { Favorite } from "@/lib/favorites-api";
 
@@ -24,5 +24,22 @@ describe("favoriteHref", () => {
     expect(
       favoriteHref({ ...base, agreement_uuid: null, item_type: "section", item_uuid: "s" } as Favorite),
     ).toBeNull();
+  });
+});
+
+describe("contextLabels", () => {
+  it("returns the string labels saved in the favorite's context", () => {
+    const fav = {
+      ...base,
+      context: { standard_id_labels: { "802": "Definitions", "803": 7, "804": " " } },
+    } as Favorite;
+    expect(contextLabels(fav, "standard_id_labels")).toEqual({ "802": "Definitions" });
+  });
+
+  it("returns an empty map when the context has no label map", () => {
+    expect(contextLabels({ ...base, context: null } as Favorite, "standard_id_labels")).toEqual({});
+    expect(
+      contextLabels({ ...base, context: { standard_id_labels: ["802"] } } as Favorite, "standard_id_labels"),
+    ).toEqual({});
   });
 });

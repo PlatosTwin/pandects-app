@@ -1,7 +1,11 @@
+import type { components } from "@shared/api.gen";
 import { apiUrl } from "@/lib/api-config";
 import { apiFetchJson } from "@/lib/api/client";
 
-export type FavoriteItemType = "section" | "agreement" | "tax_clause";
+// Response types are generated from the backend spec (shared/api.gen.ts).
+type Schemas = components["schemas"];
+
+export type FavoriteItemType = Schemas["FavoriteCreate"]["item_type"];
 
 export const TAG_COLORS = [
   "slate",
@@ -12,63 +16,29 @@ export const TAG_COLORS = [
   "teal",
   "blue",
   "violet",
-] as const;
+] as const satisfies readonly Schemas["FavoriteTag"]["color"][];
 export type TagColor = (typeof TAG_COLORS)[number];
 
-export interface FavoriteTag {
-  id: string;
-  name: string;
-  color: TagColor;
-  created_at?: string | null;
-}
+/** A tag as attached to a favorite; `created_at` only comes with `GET /v1/me/tags`. */
+export type FavoriteTag = Schemas["FavoriteTagRef"] &
+  Partial<Pick<Schemas["FavoriteTag"], "created_at">>;
 
-export interface Favorite {
-  id: string;
-  project_id: string;
-  project_ids: string[];
-  item_type: FavoriteItemType;
-  item_uuid: string;
-  agreement_uuid: string | null;
-  note: string | null;
-  context: Record<string, unknown> | null;
-  tags: FavoriteTag[];
-  created_at: string | null;
-  updated_at: string | null;
-}
+export type Favorite = Schemas["Favorite"];
 
-export interface FavoriteProject {
-  id: string;
-  name: string;
-  color: TagColor;
-  is_default: boolean;
-  sort_order: number;
-  created_at: string | null;
-}
+export type FavoriteProject = Schemas["FavoriteProject"];
 
-export interface FavoritesListResponse {
-  favorites: Favorite[];
-}
+export type FavoritesListResponse = Schemas["FavoritesListResponse"];
 
-export interface FavoritesExistsResponse {
-  favorites: Record<string, string>;
-}
+export type FavoritesExistsResponse = Schemas["FavoritesExistsResponse"];
 
-export interface FavoriteProjectsResponse {
-  projects: FavoriteProject[];
-}
+export type FavoriteProjectsResponse = Schemas["FavoriteProjectsResponse"];
 
-export interface FavoriteCreateInput {
-  item_type: FavoriteItemType;
-  item_uuid: string;
-  project_id?: string | null;
-  note?: string | null;
-  context?: Record<string, unknown> | null;
-}
+export type FavoriteCreateInput = Schemas["FavoriteCreate"];
 
-export interface FavoriteUpsertResponse {
+/** `FavoriteCreateResponse` with the minimal favorite filled out to a full `Favorite`. */
+export type FavoriteUpsertResponse = Omit<Schemas["FavoriteCreateResponse"], "favorite"> & {
   favorite: Favorite;
-  created: boolean;
-}
+};
 
 export async function listFavorites(): Promise<Favorite[]> {
   const res = await apiFetchJson<FavoritesListResponse>(apiUrl("v1/me/favorites"));
@@ -92,14 +62,10 @@ export async function listFavoriteProjects(): Promise<FavoriteProject[]> {
   return res.projects;
 }
 
-export async function createProject(input: {
-  name: string;
-  color?: TagColor;
-}): Promise<FavoriteProject> {
-  const res = await apiFetchJson<{
-    project: FavoriteProject;
-    created: boolean;
-  }>(apiUrl("v1/me/favorite-projects"), {
+export async function createProject(
+  input: Schemas["ProjectCreate"],
+): Promise<FavoriteProject> {
+  const res = await apiFetchJson<Schemas["FavoriteProjectCreateResponse"]>(apiUrl("v1/me/favorite-projects"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -109,9 +75,9 @@ export async function createProject(input: {
 
 export async function patchProject(
   id: string,
-  input: { name?: string; color?: TagColor; sort_order?: number },
+  input: Schemas["ProjectUpdate"],
 ): Promise<FavoriteProject> {
-  const res = await apiFetchJson<{ project: FavoriteProject }>(
+  const res = await apiFetchJson<Schemas["FavoriteProjectResponse"]>(
     apiUrl(`v1/me/favorite-projects/${id}`),
     {
       method: "PATCH",
@@ -125,19 +91,11 @@ export async function patchProject(
 export async function deleteProject(
   id: string,
   reassignProjectId?: string,
-): Promise<{
-  deleted: boolean;
-  reassigned_to_project_id: string;
-  moved: number;
-}> {
+): Promise<Schemas["FavoriteProjectDeleteResponse"]> {
   const params = reassignProjectId
     ? `?${new URLSearchParams({ reassign_project_id: reassignProjectId }).toString()}`
     : "";
-  return apiFetchJson<{
-    deleted: boolean;
-    reassigned_to_project_id: string;
-    moved: number;
-  }>(apiUrl(`v1/me/favorite-projects/${id}${params}`), {
+  return apiFetchJson<Schemas["FavoriteProjectDeleteResponse"]>(apiUrl(`v1/me/favorite-projects/${id}${params}`), {
     method: "DELETE",
   });
 }
@@ -145,12 +103,8 @@ export async function deleteProject(
 export async function bulkMoveFavorites(
   favoriteIds: string[],
   projectId: string,
-): Promise<{ project_id: string; favorite_ids: string[]; moved: number }> {
-  return apiFetchJson<{
-    project_id: string;
-    favorite_ids: string[];
-    moved: number;
-  }>(apiUrl("v1/me/favorites/bulk-move"), {
+): Promise<Schemas["FavoritesBulkMoveResponse"]> {
+  return apiFetchJson<Schemas["FavoritesBulkMoveResponse"]>(apiUrl("v1/me/favorites/bulk-move"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ favorite_ids: favoriteIds, project_id: projectId }),
@@ -160,12 +114,8 @@ export async function bulkMoveFavorites(
 export async function bulkCopyFavorites(
   favoriteIds: string[],
   projectIds: string[],
-): Promise<{ project_ids: string[]; favorite_ids: string[]; copied: number }> {
-  return apiFetchJson<{
-    project_ids: string[];
-    favorite_ids: string[];
-    copied: number;
-  }>(apiUrl("v1/me/favorites/bulk-copy"), {
+): Promise<Schemas["FavoritesBulkCopyResponse"]> {
+  return apiFetchJson<Schemas["FavoritesBulkCopyResponse"]>(apiUrl("v1/me/favorites/bulk-copy"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ favorite_ids: favoriteIds, project_ids: projectIds }),
@@ -175,21 +125,9 @@ export async function bulkCopyFavorites(
 export async function bulkUpdateFavoriteTags(
   favoriteIds: string[],
   tagIds: string[],
-  action: "add" | "remove",
-): Promise<{
-  action: "add" | "remove";
-  tag_ids: string[];
-  favorite_ids: string[];
-  tags_by_favorite: Record<string, FavoriteTag[]>;
-  updated: number;
-}> {
-  return apiFetchJson<{
-    action: "add" | "remove";
-    tag_ids: string[];
-    favorite_ids: string[];
-    tags_by_favorite: Record<string, FavoriteTag[]>;
-    updated: number;
-  }>(apiUrl("v1/me/favorites/bulk-tags"), {
+  action: Schemas["FavoritesBulkTags"]["action"],
+): Promise<Schemas["FavoritesBulkTagsResponse"]> {
+  return apiFetchJson<Schemas["FavoritesBulkTagsResponse"]>(apiUrl("v1/me/favorites/bulk-tags"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -204,7 +142,7 @@ export async function setFavoriteProjects(
   favoriteId: string,
   projectIds: string[],
 ): Promise<string[]> {
-  const res = await apiFetchJson<{ project_ids: string[] }>(
+  const res = await apiFetchJson<Schemas["FavoriteProjectIdsResponse"]>(
     apiUrl(`v1/me/favorites/${favoriteId}/projects`),
     {
       method: "PUT",
@@ -233,7 +171,7 @@ export async function favoritesExists(
 export async function upsertFavorite(
   input: FavoriteCreateInput,
 ): Promise<FavoriteUpsertResponse> {
-  const response = await apiFetchJson<FavoriteUpsertResponse>(
+  const response = await apiFetchJson<Schemas["FavoriteCreateResponse"]>(
     apiUrl("v1/me/favorites?view=minimal"),
     {
       method: "POST",
@@ -254,9 +192,9 @@ export async function upsertFavorite(
 
 export async function patchFavorite(
   id: string,
-  input: { note?: string | null; project_id?: string | null },
-): Promise<{ favorite: Favorite }> {
-  return apiFetchJson<{ favorite: Favorite }>(apiUrl(`v1/me/favorites/${id}`), {
+  input: Schemas["FavoriteUpdate"],
+): Promise<Schemas["FavoriteResponse"]> {
+  return apiFetchJson<Schemas["FavoriteResponse"]>(apiUrl(`v1/me/favorites/${id}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -264,21 +202,20 @@ export async function patchFavorite(
 }
 
 export async function deleteFavorite(id: string): Promise<void> {
-  await apiFetchJson<{ deleted: boolean }>(apiUrl(`v1/me/favorites/${id}`), {
+  await apiFetchJson<Schemas["FavoriteDeletedResponse"]>(apiUrl(`v1/me/favorites/${id}`), {
     method: "DELETE",
   });
 }
 
 export async function listTags(): Promise<FavoriteTag[]> {
-  const res = await apiFetchJson<{ tags: FavoriteTag[] }>(apiUrl("v1/me/tags"));
+  const res = await apiFetchJson<Schemas["FavoriteTagListResponse"]>(apiUrl("v1/me/tags"));
   return res.tags;
 }
 
-export async function createTag(input: {
-  name: string;
-  color?: TagColor;
-}): Promise<{ tag: FavoriteTag; created: boolean }> {
-  return apiFetchJson<{ tag: FavoriteTag; created: boolean }>(
+export async function createTag(
+  input: Schemas["TagCreate"],
+): Promise<Schemas["FavoriteTagCreateResponse"]> {
+  return apiFetchJson<Schemas["FavoriteTagCreateResponse"]>(
     apiUrl("v1/me/tags"),
     {
       method: "POST",
@@ -290,9 +227,9 @@ export async function createTag(input: {
 
 export async function patchTag(
   id: string,
-  input: { name?: string; color?: TagColor },
+  input: Schemas["TagUpdate"],
 ): Promise<FavoriteTag> {
-  const res = await apiFetchJson<{ tag: FavoriteTag }>(
+  const res = await apiFetchJson<Schemas["FavoriteTagResponse"]>(
     apiUrl(`v1/me/tags/${id}`),
     {
       method: "PATCH",
@@ -304,7 +241,7 @@ export async function patchTag(
 }
 
 export async function deleteTag(id: string): Promise<void> {
-  await apiFetchJson<{ deleted: boolean }>(apiUrl(`v1/me/tags/${id}`), {
+  await apiFetchJson<Schemas["FavoriteDeletedResponse"]>(apiUrl(`v1/me/tags/${id}`), {
     method: "DELETE",
   });
 }
@@ -313,7 +250,7 @@ export async function setFavoriteTags(
   favoriteId: string,
   tagIds: string[],
 ): Promise<FavoriteTag[]> {
-  const res = await apiFetchJson<{ tags: FavoriteTag[] }>(
+  const res = await apiFetchJson<Schemas["FavoriteTagsResponse"]>(
     apiUrl(`v1/me/favorites/${favoriteId}/tags`),
     {
       method: "PUT",
@@ -325,7 +262,7 @@ export async function setFavoriteTags(
 }
 
 export async function getFavoriteTags(favoriteId: string): Promise<FavoriteTag[]> {
-  const res = await apiFetchJson<{ tags: FavoriteTag[] }>(
+  const res = await apiFetchJson<Schemas["FavoriteTagsResponse"]>(
     apiUrl(`v1/me/favorites/${favoriteId}/tags`),
   );
   return res.tags;

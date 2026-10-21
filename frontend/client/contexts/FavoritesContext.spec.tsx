@@ -233,7 +233,7 @@ describe("FavoritesContext catalogs", () => {
     await waitFor(() => expect(result.current.tags).toHaveLength(1));
 
     api.createTag.mockResolvedValue({
-      tag: makeTag({ id: "tag-a", name: "alpha" }),
+      tag: { ...makeTag({ id: "tag-a", name: "alpha" }), created_at: null },
       created: true,
     });
     await act(async () => {

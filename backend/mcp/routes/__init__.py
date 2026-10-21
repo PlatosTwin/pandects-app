@@ -18,6 +18,7 @@ from backend.auth.mcp_runtime import (
     mcp_server_name,
     mcp_server_version,
 )
+from backend.core.errors import error_code_for_status, json_error
 from backend.mcp.routes.deps import McpDeps
 from backend.mcp.routes.helpers import (
     AUTHORIZATION_ERROR_MESSAGE,
@@ -58,14 +59,10 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
             payload = cast(dict[str, object], dict(mcp_oauth_metadata()))
         except RuntimeError as exc:
             logger.warning("mcp_oauth_metadata_unavailable", exc_info=exc)
-            return make_response(
-                jsonify(
-                    {
-                        "error": "Service Unavailable",
-                        "message": PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE,
-                    }
-                ),
+            return json_error(
                 503,
+                error=error_code_for_status(503),
+                message=PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE,
             )
         response = make_response(jsonify(payload), 200)
         response.headers["Cache-Control"] = "no-store"
@@ -85,9 +82,10 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
     def oauth_authorization_server_pathed_metadata(suffix: str) -> Response:
         expected = _issuer_path_suffix()
         if expected and suffix.strip("/") != expected:
-            return make_response(
-                jsonify({"error": "Not Found", "message": "Unknown authorization server path."}),
+            return json_error(
                 404,
+                error=error_code_for_status(404),
+                message="Unknown authorization server path.",
             )
         return _oauth_authorization_server_metadata_response()
 
@@ -101,14 +99,10 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
             payload = mcp_protected_resource_metadata()
         except RuntimeError as exc:
             logger.warning("mcp_protected_resource_metadata_unavailable", exc_info=exc)
-            return make_response(
-                jsonify(
-                    {
-                        "error": "Service Unavailable",
-                        "message": PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE,
-                    }
-                ),
+            return json_error(
                 503,
+                error=error_code_for_status(503),
+                message=PROTECTED_RESOURCE_UNAVAILABLE_MESSAGE,
             )
         return make_response(jsonify(payload), 200)
 

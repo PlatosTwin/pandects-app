@@ -25,6 +25,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from backend.filtering import agreement_is_public_eligible_expr
 from backend.routes.deps import AccessContextProtocol, UserLikeProtocol
 from backend.services.agreements_service import to_float_or_none
+from backend.services.taxonomy_service import standard_id_labels
 
 DEFAULT_PROJECT_NAME = "Scratchpad"
 
@@ -401,10 +402,12 @@ def load_section_details(
         article_title,
         section_title,
     ) in rows:
+        section_standard_id = deps._parse_section_standard_ids(section_standard_ids_raw)
         out[section_uuid] = {
             "agreement_uuid": agreement_uuid,
             "section_uuid": section_uuid,
-            "section_standard_id": deps._parse_section_standard_ids(section_standard_ids_raw),
+            "section_standard_id": section_standard_id,
+            "standard_id_labels": standard_id_labels(section_standard_id),
             "xml": xml_content,
             "article_title": article_title,
             "section_title": section_title,
