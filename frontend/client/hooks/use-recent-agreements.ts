@@ -22,11 +22,14 @@ function fetchRecentAgreements(
   );
 }
 
-export function useRecentAgreements(limit: number = 4) {
+export function useRecentAgreements(
+  limit: number = 4,
+  enabled: boolean = true,
+) {
   const query = useQuery({
     queryKey: keys.agreements.recent(limit),
     queryFn: ({ signal }) => fetchRecentAgreements(limit, signal),
-    enabled: !IS_SERVER_RENDER,
+    enabled: enabled && !IS_SERVER_RENDER,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

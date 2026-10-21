@@ -5,6 +5,7 @@ import logo256Webp from "../../assets/logo-256.webp";
 import logo128Png from "../../assets/logo-128.png";
 import logo256Png from "../../assets/logo-256.png";
 import { FeaturedAgreements } from "@/components/FeaturedAgreements";
+import { useIsLockedOut } from "@/components/NavLinkParts";
 import { LandingSearchForm } from "@/components/landing/LandingSearchForm";
 import { LandingStats } from "@/components/landing/LandingStats";
 import { DOCS_MCP_URL, GITHUB_URL } from "@/components/navigation-links";
@@ -13,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { ExternalLink } from "@/components/ui/external-link";
 import { Eyebrow, eyebrowClassName } from "@/components/ui/eyebrow";
 import { trackEvent } from "@/lib/analytics";
+import { cn } from "@/lib/utils";
 
 const API_EXAMPLES_URL = `${GITHUB_URL}/tree/main/examples`;
 
@@ -37,6 +39,11 @@ const DEV_LINK =
   "inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-medium text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0";
 
 export default function Landing() {
+  const isLockedOut = useIsLockedOut();
+  // TEMPORARY (access lockdown): only offer pages this visitor can open. The
+  // search box stays: Search's lockdown notice is where visitors sign in.
+  const browseLinks = BROWSE_LINKS.filter((link) => !isLockedOut(link.to));
+
   return (
     <div className="relative isolate overflow-hidden px-4 py-8 sm:py-12 lg:py-16">
       <div
@@ -116,45 +123,52 @@ export default function Landing() {
         when the agreements list drops out (API locked or down) nothing above
         the footer moves. At md+ the grid puts the list beside the browse
         links; both columns have the same height, so its absence moves nothing
-        there either.
+        there either. During the lockdown a visitor who isn't signed in gets
+        neither column (both lead to gated pages), only the developer links.
       */}
         <div className="mt-10 grid grid-cols-1 gap-8 md:mt-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] md:gap-x-6 md:gap-y-10">
-          <nav
-            aria-labelledby="landing-browse-heading"
-            className="min-w-0 md:col-start-1 md:row-start-1"
-          >
-            <div className="mb-2 flex h-6 items-center">
-              <h2 id="landing-browse-heading" className={eyebrowClassName}>
-                Browse
-              </h2>
-            </div>
-            <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-raised">
-              {BROWSE_LINKS.map((link) => (
-                <li key={link.to}>
-                  <Link
-                    to={link.to}
-                    onClick={() =>
-                      trackEvent("landing_cta_click", {
-                        cta: link.label,
-                        to_path: link.to,
-                      })
-                    }
-                    className="group flex min-h-[3.75rem] items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                  >
-                    {link.label}
-                    <ArrowRight
-                      className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,transform] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          {browseLinks.length > 0 && (
+            <nav
+              aria-labelledby="landing-browse-heading"
+              className="min-w-0 md:col-start-1 md:row-start-1"
+            >
+              <div className="mb-2 flex h-6 items-center">
+                <h2 id="landing-browse-heading" className={eyebrowClassName}>
+                  Browse
+                </h2>
+              </div>
+              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-raised">
+                {browseLinks.map((link) => (
+                  <li key={link.to}>
+                    <Link
+                      to={link.to}
+                      onClick={() =>
+                        trackEvent("landing_cta_click", {
+                          cta: link.label,
+                          to_path: link.to,
+                        })
+                      }
+                      className="group flex min-h-[3.75rem] items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    >
+                      {link.label}
+                      <ArrowRight
+                        className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,transform] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
 
           <section
             aria-labelledby="landing-developers-heading"
-            className="flex flex-col items-center gap-x-6 gap-y-1 border-t border-border pt-6 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-y-2 md:col-span-2 md:row-start-2"
+            className={cn(
+              "flex flex-col items-center gap-x-6 gap-y-1 border-t border-border pt-6 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-y-2 md:col-span-2",
+              // With no browse column, nothing sits in the first row.
+              browseLinks.length > 0 && "md:row-start-2",
+            )}
           >
             <Eyebrow asChild>
               <h2 id="landing-developers-heading">For developers</h2>

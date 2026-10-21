@@ -1,5 +1,5 @@
 import { forwardRef, useContext, type ComponentPropsWithoutRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, matchPath } from "react-router-dom";
 import { ExternalLink, Lock } from "lucide-react";
 import { AuthContext } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import {
   isGatedLink,
   type NavLinkItem,
 } from "@/components/navigation-links";
+import { ACCESS_GATED_PATHS } from "@/lib/lockdown";
 
 // Reads auth state the way <AccessGate> does, but tolerates a missing
 // provider (static renders, tests) by treating it as still loading.
@@ -26,6 +27,25 @@ export function useShowLock(): (link: NavLinkItem) => boolean {
   const { status } = useNavAuth();
   const locked = LOCKDOWN_ACTIVE && status === "anonymous";
   return (link) => locked && isGatedLink(link);
+}
+
+// True when `to` would show this visitor the lockdown notice. For browse
+// links and calls to action, which are hidden rather than marked with a lock.
+// "Still resolving" counts as locked out: prerendered pages render that way,
+// so a signed-out visitor never sees a link appear and then vanish, and a
+// member sees it appear once their account is confirmed.
+export function useIsLockedOut(): (to: string) => boolean {
+  const { status } = useNavAuth();
+  const locked = LOCKDOWN_ACTIVE && status !== "authenticated";
+  return (to) => locked && isGatedPath(to);
+}
+
+/** Whether a URL ("/agreements/abc?from=/") opens a gated route pattern. */
+export function isGatedPath(to: string): boolean {
+  const pathname = to.split(/[?#]/)[0] || "/";
+  return [...ACCESS_GATED_PATHS].some(
+    (pattern) => matchPath({ path: pattern, end: true }, pathname) !== null,
+  );
 }
 
 export function NavLinkContent({
@@ -70,7 +90,10 @@ type NavItemLinkProps = Omit<ComponentPropsWithoutRef<"a">, "href"> & {
 // Renders an internal route as <Link> and an external URL as a new-tab <a>.
 // Forwards refs and props so it works under Radix `asChild` slots.
 export const NavItemLink = forwardRef<HTMLAnchorElement, NavItemLinkProps>(
-  function NavItemLink({ link, active = false, locked = false, children, ...rest }, ref) {
+  function NavItemLink(
+    { link, active = false, locked = false, children, ...rest },
+    ref,
+  ) {
     const content = children ?? <NavLinkContent link={link} locked={locked} />;
     if (link.kind === "external") {
       return (
