@@ -56,6 +56,12 @@ def build_transaction_price_bucket_filter(
 ) -> ColumnElement[bool] | None:
     predicates: list[ColumnElement[bool]] = []
     column_type = getattr(column, "type", None)
+    # The price columns are DECIMAL(18,2) in MariaDB. Reflected, they are Numeric and
+    # compare bare. Under SKIP_MAIN_DB_REFLECTION the static models declare TEXT, so
+    # this CASTs; SQLAlchemy's MySQL compiler drops a CAST to FLOAT (with an
+    # SAWarning), so MariaDB still gets a bare, index-backed `col >= n AND col < m`
+    # range (idx_lss_txn_price_*). The CAST only takes effect on SQLite, where a
+    # TEXT-affinity column would otherwise compare as text.
     numeric_column = (
         column
         if isinstance(column_type, _NUMERIC_SQL_TYPES)
