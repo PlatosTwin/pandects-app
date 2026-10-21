@@ -1693,6 +1693,13 @@ class MainRoutesTests(unittest.TestCase):
                         ),
                         {"a": agreement_uuid, "s": section_uuid, "v": verified},
                     )
+                    conn.execute(
+                        text(
+                            "INSERT INTO latest_sections_search_standard_ids "
+                            "(standard_id, section_uuid, agreement_uuid) VALUES ('s-gate', :s, :a)"
+                        ),
+                        {"a": agreement_uuid, "s": section_uuid},
+                    )
 
         try:
             client = self.app.test_client()
@@ -1702,12 +1709,35 @@ class MainRoutesTests(unittest.TestCase):
             returned = [row["section_uuid"] for row in body.get("results", [])]
             self.assertEqual(returned, [visible_section])
             self.assertEqual(body.get("total_count"), 1)
+            # The clause-only paths count from the mapping; they must drop it too.
+            for count_mode in ("auto", "exact"):
+                with self.subTest(count_mode=count_mode):
+                    res = client.get(
+                        f"/v1/sections?standard_id=s-gate&count_mode={count_mode}&page=1&page_size=10"
+                    )
+                    self.assertEqual(res.status_code, 200)
+                    body = res.get_json()
+                    self.assertEqual(
+                        [row["section_uuid"] for row in body["results"]], [visible_section]
+                    )
+                    self.assertEqual(body["total_count"], 1)
+            res = client.get("/v1/search/agreements?standard_id=s-gate&page=1&page_size=10")
+            self.assertEqual(res.status_code, 200)
+            body = res.get_json()
+            self.assertEqual(
+                [row["agreement_uuid"] for row in body["results"]], ["a_lss_gated_verified"]
+            )
+            self.assertEqual(body["total_count"], 1)
         finally:
             with self.app.app_context():
                 engine = self.app_module.db.engine
                 with engine.begin() as conn:
                     for agreement_uuid, _, _ in seeded:
                         params = {"a": agreement_uuid}
+                        conn.execute(
+                            text("DELETE FROM latest_sections_search_standard_ids WHERE agreement_uuid = :a"),
+                            params,
+                        )
                         conn.execute(text("DELETE FROM latest_sections_search WHERE agreement_uuid = :a"), params)
                         conn.execute(text("DELETE FROM sections WHERE agreement_uuid = :a"), params)
                         conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = :a"), params)

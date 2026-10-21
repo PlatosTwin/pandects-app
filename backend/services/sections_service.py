@@ -82,8 +82,11 @@ _text_count_unaffordable: dict[str, float] = {}
 # The gated-and-unverified agreements that still have latest_sections_search rows
 # change only when the data is rebuilt, so the probe (a full scan of the wide
 # agreements table: no index covers COALESCE(gated)) is cached per database and
-# data dump instead of running on every /v1/sections request.
-_INELIGIBLE_UUIDS_TTL_SECONDS = 300
+# data dump instead of running on every /v1/sections request. The dump hash tracks
+# the published dump, not the live tables, so a direct data fix is picked up
+# within the TTL; latest_sections_search is built from eligible agreements, so
+# this exclusion is defense in depth.
+_INELIGIBLE_UUIDS_TTL_SECONDS = 60
 
 
 def _ineligible_cache_scope(db: Any) -> tuple[str, str]:
