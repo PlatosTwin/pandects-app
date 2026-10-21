@@ -114,7 +114,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
         disabled={!keywordSupported}
         placeholder={
           keywordSupported
-            ? `Keyword or phrase in ${mode === "transactions" ? "deal sections" : "section text"}`
+            ? "Keyword or phrase"
             : "Keyword search isn't available for tax clauses"
         }
         aria-label="Keyword"
@@ -163,7 +163,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
           className="w-full shrink-0 md:w-auto [&>*]:flex-1 md:[&>*]:flex-none"
           options={MODE_ORDER.map((value) => ({ value, label: MODE_NOUNS[value].title }))}
         />
-        <div className="flex min-w-0 items-center gap-1 md:w-64 lg:w-72">
+        <div className="flex min-w-0 items-center gap-1 md:w-64 lg:w-56 xl:w-72">
           <NestedCheckboxFilter
             label={clauseLabel}
             placeholder={`All ${clauseNoun}`}
@@ -203,7 +203,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
                 if (keyword || draft.trim()) submit(next);
               }}
             >
-              <SelectTrigger className="h-10 w-[8.5rem] shrink-0 text-sm" aria-label="Keyword match">
+              <SelectTrigger className="h-10 w-[6.75rem] shrink-0 text-sm sm:w-[8.5rem]" aria-label="Keyword match">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -215,14 +215,16 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
               </SelectContent>
             </Select>
           ) : null}
-          <Button type="submit" className="h-10 shrink-0 gap-2 px-4" aria-describedby="search-results-status">
+          <Button type="submit" className="h-10 w-10 shrink-0 gap-2 px-0 sm:w-auto sm:px-4" aria-label="Search" aria-describedby="search-results-status">
             {isSearching ? (
               <span
                 className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"
                 aria-hidden="true"
               />
-            ) : null}
-            Search
+            ) : (
+              <SearchIcon className="h-4 w-4 sm:hidden" aria-hidden="true" />
+            )}
+            <span className="hidden sm:inline">Search</span>
           </Button>
         </div>
       </form>

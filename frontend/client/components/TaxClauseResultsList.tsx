@@ -18,12 +18,20 @@ export interface TaxClauseResultsListProps {
   density?: ResultsDensity;
   isAnonymous: boolean;
   signInHref: string;
+  /** Clause types searched for; a matching type is named first. */
+  preferredTypeIds?: readonly string[];
 }
 
-function clauseTitle(result: TaxClauseSearchResult, labels: Record<string, string>): string {
-  const named = result.tax_standard_ids.map((id) => labels[id]).filter(Boolean);
-  if (named.length === 0) return "Unclassified tax clause";
-  return named.length > 1 ? `${named[0]} +${named.length - 1}` : named[0];
+/** Clause-type labels for a result, the searched-for types first. Never raw ids. */
+function clauseLabels(
+  result: TaxClauseSearchResult,
+  labels: Record<string, string>,
+  preferred: readonly string[],
+): string[] {
+  const ids = [...result.tax_standard_ids].sort(
+    (a, b) => Number(!preferred.includes(a)) - Number(!preferred.includes(b)),
+  );
+  return [...new Set(ids.map((id) => labels[id]).filter(Boolean))];
 }
 
 /** Tax clause results: clause type first, then the clause text, in the shared row shell. */
@@ -36,16 +44,14 @@ export function TaxClauseResultsList({
   density = "comfy",
   isAnonymous,
   signInHref,
+  preferredTypeIds = [],
 }: TaxClauseResultsListProps) {
   return (
     <ul aria-label="Tax clause results" className={density === "compact" ? "space-y-2" : "space-y-3"}>
       {results.map((result) => {
         const href = getAgreementHref(result);
-        const title = clauseTitle(result, clauseTypeLabelById);
-        const otherLabels = result.tax_standard_ids
-          .map((id) => clauseTypeLabelById[id])
-          .filter(Boolean)
-          .slice(1);
+        const [primary, ...otherLabels] = clauseLabels(result, clauseTypeLabelById, preferredTypeIds);
+        const title = primary ?? "Unclassified tax clause";
         const price = result.transaction_price_total != null ? Number(result.transaction_price_total) : null;
         const text = result.clause_text?.trim() ?? "";
         return (
@@ -74,7 +80,6 @@ export function TaxClauseResultsList({
               title={
                 <h3
                   className={cn("text-base font-semibold leading-snug", density === "compact" && "text-sm")}
-                  title={otherLabels.length > 0 ? [title.replace(/ \+\d+$/, ""), ...otherLabels].join(", ") : undefined}
                 >
                   <Link
                     to={href}
@@ -84,7 +89,20 @@ export function TaxClauseResultsList({
                   </Link>
                 </h3>
               }
-              subtitle={result.anchor_label ? `Clause ${result.anchor_label}` : null}
+              subtitle={
+                result.anchor_label || otherLabels.length > 0 ? (
+                  <span title={otherLabels.length > 0 ? `Also: ${otherLabels.join("; ")}` : undefined}>
+                    {[
+                      result.anchor_label ? `Clause ${result.anchor_label}` : null,
+                      otherLabels.length > 0
+                        ? `+${otherLabels.length} more ${otherLabels.length === 1 ? "type" : "types"}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                ) : null
+              }
               actions={
                 <RowActions
                   star={

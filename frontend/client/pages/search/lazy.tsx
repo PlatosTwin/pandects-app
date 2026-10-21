@@ -35,7 +35,7 @@ export function SearchSidebarFallback({ variant = "rail" }: { variant?: "rail" |
   );
   if (variant === "sheet") return content;
   return (
-    <div className="sticky top-[calc(4rem+var(--search-bar-h,0px))] hidden h-[calc(100vh-4rem-var(--search-bar-h,0px))] w-72 shrink-0 self-start border-r border-border bg-card lg:block xl:w-80">
+    <div className="sticky top-[calc(4rem+var(--search-bar-h,0px))] hidden h-[calc(100vh-4rem-var(--search-bar-h,0px))] w-64 shrink-0 self-start border-r border-border bg-card lg:block xl:w-72 2xl:w-80">
       {content}
     </div>
   );

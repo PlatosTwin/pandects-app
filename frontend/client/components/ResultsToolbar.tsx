@@ -52,13 +52,14 @@ export function ResultsToolbar({
         onValueChange={(value) => onSortResults(value as ResultsSortField)}
         disabled={disabled}
       >
-        <SelectTrigger className="h-9 w-[8.5rem] text-sm sm:h-8" aria-label={sortSelectLabel}>
+        <SelectTrigger className="h-9 w-[6.5rem] text-sm sm:h-8 sm:w-[8.5rem]" aria-label={sortSelectLabel}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {(Object.keys(SORT_FIELD_LABELS) as ResultsSortField[]).map((field) => (
             <SelectItem key={field} value={field}>
-              Sort: {SORT_FIELD_LABELS[field]}
+              <span className="hidden sm:inline">Sort: </span>
+              {SORT_FIELD_LABELS[field]}
             </SelectItem>
           ))}
         </SelectContent>

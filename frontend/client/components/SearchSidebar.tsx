@@ -88,11 +88,11 @@ function FacetGroup({
             className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")}
             aria-hidden="true"
           />
-          <span>{title}</span>
+          <span>{title}</span>{" "}
           {activeCount > 0 ? (
             <span className="rounded-full bg-primary/10 px-1.5 text-xs font-medium tabular-nums text-primary">
               {activeCount}
-              <span className="sr-only"> active</span>
+              {" "}<span className="sr-only">active</span>
             </span>
           ) : null}
         </CollapsibleTrigger>
@@ -361,7 +361,7 @@ export function SearchSidebar({
     <aside
       aria-label="Filters"
       className={cn(
-        "sticky top-[calc(4rem+var(--search-bar-h,0px))] hidden h-[calc(100vh-4rem-var(--search-bar-h,0px))] w-72 shrink-0 self-start overflow-y-auto overscroll-contain border-r border-border bg-card pb-8 pt-2 lg:block xl:w-80",
+        "sticky top-[calc(4rem+var(--search-bar-h,0px))] hidden h-[calc(100vh-4rem-var(--search-bar-h,0px))] w-64 shrink-0 self-start overflow-y-auto overscroll-contain border-r border-border bg-card pb-8 pt-2 lg:block xl:w-72 2xl:w-80",
         className,
       )}
     >

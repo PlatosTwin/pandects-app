@@ -39,6 +39,8 @@ export interface SearchResultsTableProps {
   /** Keyword matches to highlight in section text. */
   highlightPattern?: RegExp | null;
   signInHref: string;
+  /** Clause types searched for; a matching type's path is shown first. */
+  preferredTypeIds?: readonly string[];
 }
 
 function sectionTitleOf(result: SearchResult): string {
@@ -96,7 +98,10 @@ function SectionRow({ item, variant, props }: SectionRowProps) {
   const href = props.getAgreementHref(result);
   const title = sectionTitleOf(result);
   const deal = result.metadata ?? {};
-  const pathId = result.standard_id.find((id) => clauseTypePathByStandardId[id]);
+  const preferred = props.preferredTypeIds ?? [];
+  const pathId =
+    result.standard_id.find((id) => preferred.includes(id) && clauseTypePathByStandardId[id]) ??
+    result.standard_id.find((id) => clauseTypePathByStandardId[id]);
   const path = collapseTaxonomyPath(pathId ? clauseTypePathByStandardId[pathId] : undefined);
   const extraTypes = result.standard_id.filter((id) => clauseTypePathByStandardId[id]).length - 1;
   const onOpen = () => props.onOpenAgreement(result, position);

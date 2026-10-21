@@ -149,14 +149,14 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
               checked={props.selectPage.checked}
               onCheckedChange={props.selectPage.onToggle}
               aria-label={props.selectPage.label}
-              className="h-5 w-5 sm:h-4 sm:w-4"
+              className="hidden sm:inline-flex"
             />
           ) : null}
           <p
             id="search-results-status"
             role="status"
             aria-live="polite"
-            className="flex items-center gap-2 text-sm font-medium text-foreground"
+            className="flex min-w-0 flex-1 items-center gap-2 text-xs font-medium leading-tight text-foreground sm:flex-none sm:text-sm"
           >
             {isSearching ? (
               <span
@@ -173,10 +173,10 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
             </span>
           </p>
           <div className="hidden min-w-0 flex-1 lg:block">{props.chips}</div>
-          <div className={cn("ml-auto flex items-center gap-1", !hasSearched && "hidden")}>
+          <div className={cn("ml-auto flex shrink-0 items-center gap-1", !hasSearched && "hidden")}>
             {props.sortControls}
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <DropdownMenuTrigger asChild className="hidden sm:inline-flex">
                 <Button
                   variant="ghost"
                   size="sm"

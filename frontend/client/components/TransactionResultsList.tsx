@@ -242,7 +242,7 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
             <th scope="col" className="w-8 px-0">
               <span className="sr-only">Details</span>
             </th>
-            <SortHeader field="year" label="Year" {...{ sortBy, sortDirection, onSort }} className="w-16" />
+            <SortHeader field="year" label="Year" {...{ sortBy, sortDirection, onSort }} className="w-[4.25rem]" />
             <SortHeader field="target" label="Target" {...{ sortBy, sortDirection, onSort }} />
             <SortHeader
               field="acquirer"
@@ -269,7 +269,7 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
                 Matches
               </th>
             ) : null}
-            <th scope="col" className="hidden w-[8.5rem] px-2 py-2 text-right font-medium md:table-cell">
+            <th scope="col" className="hidden w-20 px-2 py-2 text-right font-medium md:table-cell xl:w-[8.5rem]">
               <span className="sr-only">Actions</span>
             </th>
           </tr>
@@ -354,13 +354,15 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
                   ) : null}
                   <td className={cn("hidden px-2 md:table-cell", cellY)}>
                     <div className="-my-1 flex items-center justify-end gap-0.5" data-row-ignore>
-                      <StarButton
-                        itemType="agreement"
-                        itemUuid={id}
-                        context={{ target: result.target, acquirer: result.acquirer, filing_date: result.filing_date }}
-                        className="shrink-0"
-                      />
-                      <FlagAsInaccurateButton source="search_result" agreement_uuid={id} className="shrink-0" />
+                      <span className="hidden items-center gap-0.5 xl:flex">
+                        <StarButton
+                          itemType="agreement"
+                          itemUuid={id}
+                          context={{ target: result.target, acquirer: result.acquirer, filing_date: result.filing_date }}
+                          className="shrink-0"
+                        />
+                        <FlagAsInaccurateButton source="search_result" agreement_uuid={id} className="shrink-0" />
+                      </span>
                       <Button asChild size="sm" variant="outline" className="ml-1 h-8 px-3">
                         <Link
                           to={props.getAgreementHref(result, showMatches ? result.matched_sections[0]?.section_uuid : null)}
@@ -375,7 +377,7 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
                 {isOpen ? (
                   <tr id={detailsId} className="border-b border-border bg-muted/20 last:border-b-0">
                     <td colSpan={columnCount} className="p-0">
-                      <div className="flex items-center gap-1 border-b border-border/60 px-3 py-2 md:hidden">
+                      <div className="flex items-center gap-1 border-b border-border/60 px-3 py-2 xl:hidden">
                         <StarButton
                           itemType="agreement"
                           itemUuid={id}

@@ -44,6 +44,7 @@ import type { TaxClauseSearchResult } from "@shared/tax-clauses";
 import type { TransactionSearchResult } from "@shared/transactions";
 
 import { keywordHighlightPattern } from "./search/Highlight";
+import { validateKeywordQuery } from "./search/keyword-query";
 import {
   SearchPagination,
   SearchPaginationFallback,
@@ -457,6 +458,11 @@ export default function Search() {
   const error = active.error;
   const errorStatus = isApiError(error) ? error.status : undefined;
   const isClientError = errorStatus !== undefined && errorStatus >= 400 && errorStatus < 500 && errorStatus !== 429;
+  // The API rejects a bad keyword with a generic 422; explain it the way the query bar would.
+  const keywordProblem =
+    error && keywordApplied && committedFilters?.text_query
+      ? validateKeywordQuery(committedFilters.text_query, committedFilters.text_match_mode ?? "phrase")
+      : null;
 
   const pageSelection = (() => {
     if (mode === "transactions" || active.results.length === 0) return undefined;
@@ -484,6 +490,7 @@ export default function Search() {
           density={density}
           highlightPattern={highlightPattern}
           signInHref={signInHref}
+          preferredTypeIds={committedFilters?.clauseType ?? []}
         />
       ),
     },
@@ -499,6 +506,7 @@ export default function Search() {
           density={density}
           isAnonymous={isAnonymous}
           signInHref={signInHref}
+          preferredTypeIds={committedFilters?.clauseType ?? []}
         />
       ),
     },
@@ -629,7 +637,7 @@ export default function Search() {
           isFirstLoad={active.isSearching && active.results.length === 0}
           error={error}
           errorTitle={isClientError ? "This search couldn't run" : undefined}
-          errorBody={error ? describeSearchError(error) : undefined}
+          errorBody={error ? (keywordProblem ?? describeSearchError(error)) : undefined}
           onRetry={isClientError ? undefined : () => runSearch(mode, filters)}
           signInHref={signInHref}
           totalCount={active.totalCount}
