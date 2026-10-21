@@ -71,18 +71,41 @@ def register_mcp_oauth_routes(
     def _oauth_code_hash(code: str) -> str:
         return sha256(code.encode("utf-8")).hexdigest()
 
-    def _oauth_scope_string(raw: str | None) -> str:
+    def _oauth_parse_scope(raw: str | None) -> tuple[str, str | None]:
+        """Normalize a requested scope string.
+
+        Returns ``(scope, unsupported)``: the deduplicated scope (all supported
+        scopes when none were requested), and the first unsupported scope name,
+        if any, in which case ``scope`` is empty.
+        """
         allowed = set(mcp_supported_scopes())
         requested = [part.strip() for part in (raw or "").split() if part.strip()]
         if not requested:
-            return " ".join(mcp_supported_scopes())
+            return " ".join(mcp_supported_scopes()), None
         deduped: list[str] = []
         for scope_name in requested:
             if scope_name not in allowed:
-                abort(400, description=f"Unsupported OAuth scope: {scope_name}")
+                return "", scope_name
             if scope_name not in deduped:
                 deduped.append(scope_name)
-        return " ".join(deduped)
+        return " ".join(deduped), None
+
+    def _oauth_scope_error_description(scope_name: str) -> str:
+        # error_description is limited to %x20-21 / %x23-5B / %x5D-7E (RFC 6749
+        # 4.1.2.1). Name the scope only when it is a well-formed, short scope
+        # token, so a crafted request can't put arbitrary text in a client's UI.
+        if (
+            len(scope_name) <= 64
+            and all(0x21 <= ord(ch) <= 0x7E and ch not in '"\\' for ch in scope_name)
+        ):
+            return f"Unsupported OAuth scope: {scope_name}"
+        return "Requested scope is not supported."
+
+    def _oauth_scope_string(raw: str | None) -> str:
+        scope, unsupported = _oauth_parse_scope(raw)
+        if unsupported is not None:
+            abort(400, description=f"Unsupported OAuth scope: {unsupported}")
+        return scope
 
     def _oauth_redirect_uri_allowed(client, redirect_uri: str) -> bool:
         raw_uris = getattr(client, "redirect_uris", None)
@@ -280,8 +303,16 @@ def register_mcp_oauth_routes(
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
-    def _oauth_redirect_error(redirect_uri: str, *, error: str, state: str | None = None):
+    def _oauth_redirect_error(
+        redirect_uri: str,
+        *,
+        error: str,
+        state: str | None = None,
+        description: str | None = None,
+    ):
         params = {"error": error}
+        if description:
+            params["error_description"] = description
         if isinstance(state, str) and state.strip():
             params["state"] = state.strip()
         return redirect(_oauth_redirect_location(redirect_uri, params), code=302)
@@ -540,7 +571,9 @@ window.location.replace({json.dumps(login_url)});
         redirect_uri = request.args.get("redirect_uri", "").strip()
         response_type = request.args.get("response_type", "").strip()
         state = (request.args.get("state", "") or "").strip() or None
-        scope = _oauth_scope_string(request.args.get("scope"))
+        # Scope errors are reported to the client by redirect (RFC 6749 §4.1.2.1),
+        # so they are only checked once the redirect URI is known to be valid.
+        scope, unsupported_scope = _oauth_parse_scope(request.args.get("scope"))
         code_challenge = request.args.get("code_challenge", "").strip()
         code_challenge_method = request.args.get("code_challenge_method", "").strip()
         if not client_id or not redirect_uri:
@@ -550,6 +583,14 @@ window.location.replace({json.dumps(login_url)});
             return _oauth_error_response("Invalid OAuth client or redirect URI.")
         if response_type != "code":
             return _oauth_redirect_error(redirect_uri, error="unsupported_response_type", state=state)
+        if unsupported_scope is not None:
+            return _oauth_redirect_error(
+                redirect_uri,
+                error="invalid_scope",
+                state=state,
+                description=_oauth_scope_error_description(unsupported_scope),
+            )
+        # Guard: only reachable if the server advertises no scopes at all.
         if not scope:
             return _oauth_redirect_error(redirect_uri, error="invalid_scope", state=state)
         if not code_challenge or code_challenge_method != "S256":

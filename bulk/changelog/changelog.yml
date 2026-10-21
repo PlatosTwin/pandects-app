@@ -23,6 +23,20 @@
 unreleased:
 - type: mcp
   severity: minor
+  summary: "MCP OAuth /authorize reports an unsupported scope to the client as an invalid_scope redirect."
+  details: >
+    GET /v1/auth/oauth/authorize used to answer a request for a scope the
+    server does not support with a JSON 400 shown in the browser, before it had
+    checked the client or redirect URI. It now validates the client and
+    redirect URI first and, as RFC 6749 section 4.1.2.1 requires, redirects
+    back to the client with error=invalid_scope, the original state, and an
+    error_description that names the scope when it is a well-formed scope token
+    of at most 64 characters. A request with an unknown client or
+    unregistered redirect URI still gets an error page and is never
+    redirected. The consent endpoint keeps its 400 for unsupported scopes.
+  refs: []
+- type: mcp
+  severity: minor
   summary: "MCP OAuth token and client-registration errors now use the codes the OAuth RFCs define."
   details: >
     POST /v1/auth/oauth/token errors return {"error", "error_description",
