@@ -18,6 +18,7 @@ or, if the process dies, when the server drops the connection. Other databases
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -28,10 +29,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import ServiceUnavailable
 
 FULLTEXT_SEARCH_SLOTS = max(1, int(os.environ.get("FULLTEXT_SEARCH_SLOTS", "2")))
-# How long a search waits for a slot before answering 503. A slot is held for at
-# most the text-search statement budgets (about 26s), so this bounds the queue,
-# not the wait for a well-behaved search.
+# How long a search waits for a slot before answering 503. A slot is held for the
+# whole request; its statements are each capped (2s, 4s and 20s budgets, so up to
+# about 46s for an agreement search), so this bounds the queue, not the search.
 FULLTEXT_SLOT_WAIT_SECONDS = max(0, int(os.environ.get("FULLTEXT_SLOT_WAIT_SECONDS", "8")))
+_SLOT_POLL_SECONDS = 0.25
 FULLTEXT_BUSY_MESSAGE = (
     "Keyword search is busy right now. Please try again in a few seconds."
 )
@@ -41,6 +43,8 @@ class FulltextSearchBusy(ServiceUnavailable):
     """503: every FULLTEXT slot stayed taken for the whole wait."""
 
     description = FULLTEXT_BUSY_MESSAGE
+    # MCP passes the message through and tells the agent to retry.
+    retryable = True
 
     def get_headers(self, environ: Any = None, scope: Any = None) -> list[tuple[str, str]]:
         return [*super().get_headers(environ, scope), ("Retry-After", "5")]
@@ -71,16 +75,13 @@ def fulltext_slot(engine: Any) -> Iterator[None]:
     schema = current_app.config.get("MAIN_DB_SCHEMA") if has_app_context() else None
     names = _slot_names(schema.strip() if isinstance(schema, str) and schema.strip() else "default")
     with engine.connect() as conn:
+        # Poll every slot rather than block on one: a blocking GET_LOCK on a single
+        # name would sit out its whole wait while another slot was already free.
+        deadline = time.monotonic() + FULLTEXT_SLOT_WAIT_SECONDS
         acquired = _try_any_slot(conn, names)
-        if acquired is None and FULLTEXT_SLOT_WAIT_SECONDS > 0:
-            # Queue on one slot, chosen by connection id so waiters spread out.
-            connection_id = int(conn.execute(text("SELECT CONNECTION_ID()")).scalar() or 0)
-            queued = names[connection_id % len(names)]
-            got = conn.execute(
-                text("SELECT GET_LOCK(:n, :w)"),
-                {"n": queued, "w": FULLTEXT_SLOT_WAIT_SECONDS},
-            ).scalar()
-            acquired = queued if got == 1 else None
+        while acquired is None and time.monotonic() < deadline:
+            time.sleep(_SLOT_POLL_SECONDS)
+            acquired = _try_any_slot(conn, names)
         if acquired is None:
             raise FulltextSearchBusy()
         try:
@@ -89,8 +90,9 @@ def fulltext_slot(engine: Any) -> Iterator[None]:
             try:
                 _ = conn.execute(text("SELECT RELEASE_LOCK(:n)"), {"n": acquired})
             except SQLAlchemyError:
-                # A dead connection has already lost the lock server-side.
-                pass
+                # The lock may still be held on this connection; never hand it back
+                # to the pool, or the slot stays taken until the connection recycles.
+                conn.invalidate()
 
 
 __all__ = [

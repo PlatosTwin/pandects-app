@@ -17,6 +17,10 @@ class _FakeConn:
         self.connection_id = connection_id
         self.mine: set[str] = set()
         self.statements: list[str] = []
+        self.invalidated = False
+
+    def invalidate(self) -> None:
+        self.invalidated = True
 
     def __enter__(self) -> "_FakeConn":
         return self
@@ -99,13 +103,16 @@ class FulltextSlotTests(unittest.TestCase):
     def test_all_slots_taken_answers_busy(self):
         held = {f"pandects:default:fulltext:{i}" for i in range(fulltext_slots.FULLTEXT_SEARCH_SLOTS)}
         engine = _FakeEngine(set(held))
-        with self.assertRaises(FulltextSearchBusy) as caught:
+        with (
+            patch.object(fulltext_slots, "FULLTEXT_SLOT_WAIT_SECONDS", 0.3),
+            self.assertRaises(FulltextSearchBusy) as caught,
+        ):
             with fulltext_slot(engine):
                 self.fail("ran without a slot")
         self.assertEqual(caught.exception.code, 503)
         self.assertIn(("Retry-After", "5"), caught.exception.get_headers())
-        # It queued on one slot (GET_LOCK with a wait) before giving up.
-        self.assertTrue(any("GET_LOCK(:n, :w)" in sql for sql in engine.conns[0].statements))
+        # It kept polling every slot until the wait ran out.
+        self.assertGreater(len(engine.conns[0].statements), 1)
 
     def test_no_wait_configured_fails_fast(self):
         held = {f"pandects:default:fulltext:{i}" for i in range(fulltext_slots.FULLTEXT_SEARCH_SLOTS)}
@@ -114,7 +121,39 @@ class FulltextSlotTests(unittest.TestCase):
             with self.assertRaises(FulltextSearchBusy):
                 with fulltext_slot(engine):
                     self.fail("ran without a slot")
-        self.assertFalse(any("CONNECTION_ID" in sql for sql in engine.conns[0].statements))
+        self.assertEqual(len(engine.conns[0].statements), 1)
+
+    def test_waiter_takes_whichever_slot_frees_first(self):
+        # Slot 1 frees while slot 0 stays held; the waiter must not sit on slot 0.
+        held = {"pandects:default:fulltext:0", "pandects:default:fulltext:1"}
+        engine = _FakeEngine(held)
+        sleeps = []
+
+        def fake_sleep(seconds: float) -> None:
+            sleeps.append(seconds)
+            held.discard("pandects:default:fulltext:1")
+
+        with patch.object(fulltext_slots.time, "sleep", fake_sleep):
+            with fulltext_slot(engine):
+                self.assertIn("pandects:default:fulltext:1", engine.conns[0].mine)
+        self.assertEqual(len(sleeps), 1)
+
+    def test_failed_release_invalidates_the_connection(self):
+        from sqlalchemy.exc import OperationalError
+
+        held: set[str] = set()
+        engine = _FakeEngine(held)
+        with fulltext_slot(engine):
+            conn = engine.conns[0]
+            original = conn.execute
+
+            def failing(statement, params=None):
+                if "RELEASE_LOCK" in str(statement):
+                    raise OperationalError("RELEASE_LOCK", {}, Exception("interrupted"))
+                return original(statement, params)
+
+            conn.execute = failing
+        self.assertTrue(engine.conns[0].invalidated)
 
 
 if __name__ == "__main__":

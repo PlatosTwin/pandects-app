@@ -100,6 +100,7 @@ class TemporaryAccessGateTests(unittest.TestCase):
 
     @patch.dict(os.environ, _LOCKDOWN_ON)
     def test_account_age_lookup_error_answers_503(self):
+        # The session and user resolve; only the gate's own account-age read fails.
         user_id = "00000000-0000-0000-0000-0000000000e3"
         self._seed_user(
             user_id=user_id,
@@ -107,13 +108,39 @@ class TemporaryAccessGateTests(unittest.TestCase):
             created_at=backend_app._utc_now() - timedelta(days=3),
         )
         outage = OperationalError("SELECT auth_users", {}, Exception("connection refused"))
+        tiers: list[str] = []
+        real_predates = backend_app._access_account_predates_today
+
+        def predates_during_outage(ctx):
+            tiers.append(ctx.tier)
+            with patch("backend.auth.access.db.session.get", side_effect=outage):
+                return real_predates(ctx)
+
         client = self.app.test_client()
         with (
             patch("backend.auth.access.load_session_token", return_value=user_id),
-            patch("backend.auth.access.db.session.get", side_effect=outage),
+            patch(
+                "backend.auth.access.access_account_predates_today",
+                side_effect=predates_during_outage,
+            ),
         ):
             res = client.get("/v1/agreements", headers={"Authorization": "Bearer some-session"})
+        self.assertEqual(tiers, ["user"])
         self.assertEqual(res.status_code, 503)
+
+    @patch.dict(os.environ, _LOCKDOWN_ON)
+    def test_auth_db_error_without_credentials_still_403(self):
+        # Nothing to look up, so an outage must not turn the lockdown 403 into a retry.
+        outage = OperationalError("SELECT auth_users", {}, Exception("connection refused"))
+        client = self.app.test_client()
+        with (
+            patch("backend.auth.session_runtime.session_token_hash", side_effect=outage),
+            patch("backend.auth.access.db.session.get", side_effect=outage),
+        ):
+            res = client.get("/v1/agreements")
+            self.assertEqual(res.status_code, 403)
+            res = client.get("/v1/agreements", headers={"Authorization": "Bearer "})
+            self.assertEqual(res.status_code, 403)
 
     def test_predates_today_helper(self):
         now = backend_app._utc_now()
