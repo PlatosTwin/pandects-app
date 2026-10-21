@@ -27,10 +27,11 @@ unreleased:
   details: >
     POST /v1/auth/oauth/token errors return {"error", "error_description",
     "message"} with the RFC 6749 codes invalid_request, invalid_client,
-    invalid_grant, unauthorized_client and unsupported_grant_type, plus
-    Cache-Control: no-store and Pragma: no-cache. POST /v1/auth/oauth/register
-    errors use the RFC 7591 codes invalid_redirect_uri and
-    invalid_client_metadata. Both used to return the generic bad_request
+    invalid_grant, unauthorized_client and unsupported_grant_type.
+    POST /v1/auth/oauth/register errors use the RFC 7591 codes
+    invalid_redirect_uri and invalid_client_metadata. Errors from both
+    endpoints carry Cache-Control: no-store and Pragma: no-cache. Both used to
+    return the generic bad_request
     code. A code or refresh token whose Pandects account is not verified is
     now 400 invalid_grant instead of 403. `message` still carries the same
     text. The /.well-known OAuth discovery endpoints now return the standard

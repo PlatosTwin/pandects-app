@@ -1,6 +1,6 @@
 import { CSS } from "@dnd-kit/utilities";
 import { useDraggable } from "@dnd-kit/core";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ExternalLink, GripVertical, Trash2 } from "lucide-react";
 
@@ -11,7 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { TagEditor } from "@/components/favorites/TagEditor";
 import { TagPill } from "@/components/favorites/TagPill";
+import { useTaxonomy } from "@/hooks/use-taxonomy";
 import { useToast } from "@/hooks/use-toast";
+import { indexClauseTypeLabels } from "@/lib/clause-type-index";
 import {
   deleteFavorite as apiDeleteFavorite,
   patchFavorite as apiPatchFavorite,
@@ -19,7 +21,10 @@ import {
   type Favorite,
   type FavoriteTag,
 } from "@/lib/favorites-api";
-import { formatCompactCurrencyValue, formatDateValue } from "@/lib/format-utils";
+import {
+  formatCompactCurrencyValue,
+  formatDateValue,
+} from "@/lib/format-utils";
 
 import {
   contextLabels,
@@ -122,11 +127,21 @@ export function FavoriteRow({
       : []);
   // Server labels from the details batch; favorites starred from search also
   // saved labels in their context, which covers rows whose details are
-  // loading or unavailable. Ids without a label are not shown.
+  // loading or unavailable. Older favorites saved no labels, so only when an
+  // id is still unlabeled does the row fall back to the (cached) taxonomy tree.
   const sectionTypeLabels =
-    sectionDetails?.standard_id_labels ?? contextLabels(fav, "standard_id_labels");
+    sectionDetails?.standard_id_labels ??
+    contextLabels(fav, "standard_id_labels");
+  const needsTreeLabels = sectionStandardIds.some(
+    (id) => !sectionTypeLabels[id],
+  );
+  const { taxonomyTree } = useTaxonomy({ enabled: needsTreeLabels });
+  const treeLabels = useMemo(
+    () => (taxonomyTree ? indexClauseTypeLabels(taxonomyTree) : {}),
+    [taxonomyTree],
+  );
   const labeledSectionTypes = sectionStandardIds.flatMap((id) => {
-    const label = sectionTypeLabels[id];
+    const label = sectionTypeLabels[id] ?? treeLabels[id];
     return label ? [{ id, label }] : [];
   });
   const sectionSnippet = firstWords(
