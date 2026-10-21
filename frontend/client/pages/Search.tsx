@@ -562,14 +562,20 @@ export default function Search() {
     loadAcquirerOptions,
     notice: filterOptions.error ? (
       <p role="alert" className="py-2 text-sm text-destructive">
-        Some filter options couldn't load. {filterOptions.error}{" "}
-        <button
-          type="button"
-          onClick={filterOptions.retry}
-          className="font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Try again
-        </button>
+        Some filter options couldn't load. {filterOptions.error}
+        {filterOptions.canRetry ? (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={filterOptions.retry}
+              disabled={filterOptions.isRetrying}
+              className="font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60"
+            >
+              {filterOptions.isRetrying ? "Retrying…" : "Try again"}
+            </button>
+          </>
+        ) : null}
       </p>
     ) : null,
   };

@@ -100,8 +100,9 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
   };
 
   const keywordInput = (
-    // Its own row on phones, so a long phrase stays readable.
-    <div className="relative min-w-0 flex-1 basis-full sm:basis-0">
+    // Its own row on phones (above the match select), so a long phrase stays
+    // readable. Without the select (tax mode) it shares the row with Search.
+    <div className={cn("relative min-w-0 flex-1", keywordSupported && "basis-full sm:basis-0")}>
       <SearchIcon
         className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden="true"

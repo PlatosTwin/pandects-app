@@ -52,8 +52,8 @@ export function Highlight({ text, pattern }: { text: string; pattern: RegExp | n
     parts.push(
       <mark
         key={start}
-        // Same treatment as the reader's find highlight, so a hit reads the
-        // same in results and in the agreement.
+        // The reader's amber find treatment, a step stronger because result
+        // snippets are skimmed rather than read.
         className="rounded-sm bg-warning/25 px-0.5 text-foreground ring-1 ring-warning/40"
       >
         {match[0]}
