@@ -61,8 +61,8 @@ export function PageShell({
         {toc ? (
           <div className="mx-auto max-w-[1008px]">
             {header}
-            <div className="lg:grid lg:grid-cols-[240px_minmax(0,720px)] lg:gap-12">
-              <aside className="mb-6 lg:mb-0">
+            <div className="lg:grid lg:grid-cols-[240px_minmax(0,720px)] lg:gap-12 print:block">
+              <aside className="mb-6 lg:mb-0 print:hidden">
                 <div className="lg:sticky lg:top-24">{toc}</div>
               </aside>
               <div className={cn("min-w-0", contentClassName)}>{children}</div>

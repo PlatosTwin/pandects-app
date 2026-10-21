@@ -21,8 +21,16 @@ export interface StatusPageProps {
 }
 
 /**
+ * Frame shared with the route skeleton. At least a viewport tall (minus the
+ * h-16 nav), with the message centered in it, so a short status page reads as
+ * deliberate rather than a strip at the top of an empty screen.
+ */
+export const STATUS_FRAME =
+  "mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-7xl flex-1 flex-col justify-center px-4 py-16 sm:px-6 lg:px-8";
+
+/**
  * Full-page status message: 404, crash fallback, temporary lockdown. Centered
- * in the frame, like the other pages narrower than the navigation.
+ * in the frame horizontally and vertically.
  */
 export function StatusPage({
   code,
@@ -36,14 +44,8 @@ export function StatusPage({
   className,
 }: StatusPageProps) {
   return (
-    <div
-      role={role}
-      className={cn(
-        "mx-auto w-full max-w-7xl flex-1 px-4 py-16 sm:px-6 sm:py-24 lg:px-8",
-        className,
-      )}
-    >
-      <div className="mx-auto max-w-xl text-center">
+    <div role={role} className={cn(STATUS_FRAME, className)}>
+      <div className="mx-auto w-full max-w-xl text-center">
         {code ? (
           <p className="font-mono text-sm font-medium text-primary">{code}</p>
         ) : null}
