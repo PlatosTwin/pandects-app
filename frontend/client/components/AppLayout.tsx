@@ -204,7 +204,10 @@ export function AppLayout() {
         id="main-content"
         role="main"
         tabIndex={-1}
-        className="flex-1 outline-none"
+        // At least a viewport tall (minus the h-16 nav), so the footer starts
+        // below the fold whether the route fallback or the page is showing and
+        // never jumps when a lazy page arrives (it was most of each route's CLS).
+        className="min-h-[calc(100svh-4rem)] flex-1 outline-none"
       >
         <ErrorBoundary
           key={location.pathname}
