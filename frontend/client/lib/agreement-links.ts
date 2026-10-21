@@ -61,16 +61,48 @@ export function buildSectionHref(agreementUuid: string, sectionUuid: string): st
   return buildAgreementHref({ agreementUuid, sectionUuid });
 }
 
+/** Base used to resolve `from` when there is no window (prerender, tests). */
+const FALLBACK_ORIGIN = "https://pandects.invalid";
+/**
+ * Control characters (U+0000-U+001F, U+007F) and backslashes. Browsers strip tab/CR/LF from URLs and
+ * treat `\` as `/`, so `/\t/evil.test` would navigate off-site.
+ */
+function hasUnsafePathChar(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x1f || code === 0x7f || code === 0x5c) return true;
+  }
+  return false;
+}
+
+function currentOrigin(): string {
+  if (typeof window !== "undefined" && window.location?.origin && window.location.origin !== "null") {
+    return window.location.origin;
+  }
+  return FALLBACK_ORIGIN;
+}
+
 /** Returns `value` when it is a same-origin app path, otherwise null. */
 export function safeOriginPath(value: string | null | undefined): string | null {
   if (!value) return null;
   const trimmed = value.trim();
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.startsWith("/\\")) {
+  if (hasUnsafePathChar(trimmed)) return null;
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  const origin = currentOrigin();
+  let resolved: URL;
+  try {
+    resolved = new URL(trimmed, origin);
+  } catch {
     return null;
   }
+  if (resolved.origin !== origin) return null;
+  // `/%2F/host` and `/%5C/host` are same-origin paths, but a router or server
+  // that decodes them could see `//host`; refuse them outright.
+  if (/^\/(?:%2f|%5c)/i.test(resolved.pathname)) return null;
+  const path = `${resolved.pathname}${resolved.search}${resolved.hash}`;
   // Never point "back" at the reader itself.
-  if (/^\/agreements\//.test(trimmed)) return null;
-  return trimmed;
+  if (/^\/agreements\//.test(path)) return null;
+  return path;
 }
 
 const ORIGIN_RULES: Array<{ test: RegExp; kind: AgreementOriginKind; label: string }> = [

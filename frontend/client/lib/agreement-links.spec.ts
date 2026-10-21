@@ -66,6 +66,45 @@ describe("parseAgreementOrigin", () => {
   });
 });
 
+describe("safeOriginPath", () => {
+  it.each([
+    ["/\t/example.com"],
+    ["/\n/example.com"],
+    ["/\r/example.com"],
+    ["\t//example.com"],
+    ["/\u0000/example.com"],
+    ["/\u007F/example.com"],
+    [decodeURIComponent("%2F%09%2Fexample.com")],
+    ["/\\example.com"],
+    ["/search\\x"],
+    ["/%2F/example.com"],
+    ["/%5c/example.com"],
+    ["//example.com"],
+    ["https://example.com/search"],
+    ["javascript:alert(1)"],
+    ["search"],
+    ["/agreements/abc"],
+    ["/agreements/abc?from=/search"],
+  ])("rejects %j", (value) => {
+    expect(safeOriginPath(value)).toBeNull();
+  });
+
+  it.each([
+    ["/search"],
+    ["/search?standard_id=a&q=Parent#top"],
+    ["/favorites?project=p1"],
+    ["/compare/tax"],
+    ["/leaderboards"],
+  ])("accepts %s", (value) => {
+    expect(safeOriginPath(value)).toBe(value);
+  });
+
+  it("returns a resolved, same-origin path", () => {
+    expect(safeOriginPath("  /search?q=a b  ")).toBe("/search?q=a%20b");
+    expect(safeOriginPath("/search/../favorites")).toBe("/favorites");
+  });
+});
+
 describe("originSearchParams", () => {
   it("returns the search query of a /search origin only", () => {
     const params = originSearchParams(parseAgreementOrigin("/search?standard_id=a&standard_id=b#top"));

@@ -4,6 +4,7 @@ import { formatFilterOption } from "@/lib/text-utils";
 import type { SearchMode, SearchQueryFilters } from "@shared/search";
 import {
   PRICE_FIELDS,
+  activeKeyword,
   formatBucketRange,
   summarizeBucketRange,
   summarizeYearRange,
@@ -63,7 +64,7 @@ export function useActiveChips(
   industryLabels: Record<string, string> = {},
 ): ActiveChip[] {
   const chips: ActiveChip[] = [];
-  const keyword = filters.text_query?.trim();
+  const keyword = activeKeyword(filters, mode);
   if (keyword) {
     const match = filters.text_match_mode && filters.text_match_mode !== "phrase"
       ? ` (${TEXT_MATCH_MODE_LABELS[filters.text_match_mode].toLowerCase()})`

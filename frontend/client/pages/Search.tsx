@@ -33,7 +33,7 @@ import {
   SECTIONS_SEARCH_CONFIG,
   TAX_CLAUSES_SEARCH_CONFIG,
 } from "@/lib/search-configs";
-import { stashCompareClauses } from "@/lib/tax-compare-handoff";
+import { buildCompareHref, stashCompareClauses } from "@/lib/tax-compare-handoff";
 import {
   buildSearchStateParams,
   createEmptySearchFilters,
@@ -161,8 +161,15 @@ export default function Search() {
   const { hydrateFilters, setSortBy, setSortDirection, toggleFilterValue } = sectionSearch.actions;
   const currentSort: SortField = sortBy ?? "year";
 
-  const [density, setDensity] = useState<ResultsDensity>(readDensity);
-  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>(loadRecentSearches);
+  // Stored preferences load after hydration: the prerendered HTML has the
+  // defaults, and reading storage in the initializer would mismatch it.
+  // Until the user changes them, they are read from storage once hydrated.
+  const [densityChoice, setDensity] = useState<ResultsDensity | null>(null);
+  const storedDensity = useMemo<ResultsDensity>(() => (hydrated ? readDensity() : "comfy"), [hydrated]);
+  const density = densityChoice ?? storedDensity;
+  const [savedRecentSearches, setRecentSearches] = useState<RecentSearch[] | null>(null);
+  const storedRecentSearches = useMemo(() => (hydrated ? loadRecentSearches() : []), [hydrated]);
+  const recentSearches = savedRecentSearches ?? storedRecentSearches;
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [barHeight, setBarHeight] = useState(0);
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -430,7 +437,7 @@ export default function Search() {
     const clauses = taxSearch.results.filter((r) => taxSearch.selectedResults.has(r.id));
     stashCompareClauses(clauses);
     trackEvent("tax_clauses_compare_click", { selected_count: clauses.length });
-    navigate("/compare/tax");
+    navigate(buildCompareHref(currentUrl));
   };
 
   // --- Derived view data -------------------------------------------------------

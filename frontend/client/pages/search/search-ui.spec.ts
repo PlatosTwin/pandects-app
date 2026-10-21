@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useActiveChips } from "./SearchActiveFilters";
 import { afterEach, describe, expect, it } from "vitest";
 import type { SearchResult } from "@shared/sections";
 import { createEmptySearchFilters } from "@/lib/url-params";
@@ -85,6 +86,15 @@ describe("facet group counts and reset", () => {
     expect(hasAnySearchFilter(createEmptySearchFilters(), "sections")).toBe(false);
     expect(hasAnySearchFilter({ ...createEmptySearchFilters(), text_query: "fee" }, "sections")).toBe(true);
     expect(hasAnySearchFilter({ ...createEmptySearchFilters(), clauseType: ["x"] }, "tax")).toBe(true);
+  });
+
+  it("ignores the keyword in modes without keyword search", () => {
+    const keywordOnly = { ...createEmptySearchFilters(), text_query: "indemnification" };
+    expect(hasAnySearchFilter(keywordOnly, "tax")).toBe(false);
+    expect(hasAnySearchFilter(keywordOnly, "transactions")).toBe(true);
+    expect(describeSearch("tax", keywordOnly, {})).toBe("Tax · No filters");
+    expect(useActiveChips(keywordOnly, "tax", {})).toEqual([]);
+    expect(useActiveChips(keywordOnly, "sections", {}).map((chip) => chip.key)).toEqual(["q"]);
   });
 
   it("drops the clause type only when crossing into or out of Tax", () => {

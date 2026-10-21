@@ -7,6 +7,51 @@ export interface SectionTypeOption {
   value: string;
   label: string;
   count: number;
+  /** Full taxonomy path ("Parent › Leaf"), for the chip tooltip. */
+  title?: string;
+}
+
+const PATH_SEPARATOR = " › ";
+
+/**
+ * One chip per standard id in the section index. Leaf labels can repeat
+ * across parents, so the tooltip always carries the taxonomy path and, when
+ * two chips share a leaf label, the visible label adds the parent.
+ */
+export function buildSectionTypeOptions(
+  sectionIndex: ReadonlyArray<{
+    standard_id: readonly string[];
+    standard_id_labels?: Record<string, string> | null;
+  }>,
+  pathById: Record<string, readonly string[]> = {},
+): SectionTypeOption[] {
+  const counts = new Map<string, number>();
+  const leafLabels = new Map<string, string>();
+  for (const item of sectionIndex) {
+    for (const id of item.standard_id) {
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+      const label = item.standard_id_labels?.[id];
+      if (label && !leafLabels.has(id)) leafLabels.set(id, label);
+    }
+  }
+  const leafOf = (id: string) => leafLabels.get(id) ?? pathById[id]?.at(-1) ?? id;
+  const leafUses = new Map<string, number>();
+  for (const id of counts.keys()) {
+    const leaf = leafOf(id);
+    leafUses.set(leaf, (leafUses.get(leaf) ?? 0) + 1);
+  }
+  return Array.from(counts.entries()).map(([value, count]) => {
+    const leaf = leafOf(value);
+    const path = pathById[value];
+    const parent = path && path.length > 1 ? path[path.length - 2] : null;
+    const collides = (leafUses.get(leaf) ?? 0) > 1;
+    return {
+      value,
+      label: collides && parent ? `${parent}${PATH_SEPARATOR}${leaf}` : leaf,
+      count,
+      title: path && path.length > 1 ? path.join(PATH_SEPARATOR) : leaf,
+    };
+  });
 }
 
 interface ReaderContentsProps {
@@ -93,7 +138,7 @@ export function ReaderContents({
                 className={chipClass(active)}
                 aria-pressed={active}
                 onClick={() => onSectionTypeChange(active ? "all" : option.value)}
-                title={option.label}
+                title={option.title ?? option.label}
               >
                 <span className="min-w-0 truncate">{option.label}</span>
                 <span className="shrink-0 tabular-nums opacity-70">{option.count}</span>

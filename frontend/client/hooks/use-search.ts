@@ -296,15 +296,14 @@ export function useSearch<TResult>(config: SearchEndpointConfig<TResult>) {
     });
   }, [response, committed, config, query.isPlaceholderData]);
 
-  // Mirror the fetched page/page_size into the draft so pagination controls,
-  // URL sync and CSV use what was actually fetched (the API clamps page_size).
+  // Mirror the fetched page into the draft so pagination controls and URL
+  // sync follow what was actually fetched. The page size is not mirrored: the
+  // API clamps it to the caller's tier, and writing that clamp into the draft
+  // would put it in shareable URLs. The requested size stays in the draft
+  // (and URL); `pageSize` below reports the size the API actually used.
   useEffect(() => {
     if (!response || query.isPlaceholderData) return;
-    setFilters((prev) =>
-      prev.page === response.page && prev.page_size === response.page_size
-        ? prev
-        : { ...prev, page: response.page, page_size: response.page_size },
-    );
+    setFilters((prev) => (prev.page === response.page ? prev : { ...prev, page: response.page }));
   }, [response, query.isPlaceholderData]);
 
   // Every commit hides the error modal and clears the row selection.
@@ -524,7 +523,8 @@ export function useSearch<TResult>(config: SearchEndpointConfig<TResult>) {
     sortBy,
     sortDirection,
     currentPage: filters.page || DEFAULT_PAGE,
-    pageSize: filters.page_size || DEFAULT_PAGE_SIZE,
+    /** Rows per page as fetched (tier-clamped), else the requested size. */
+    pageSize: response?.page_size || filters.page_size || DEFAULT_PAGE_SIZE,
     // Committed search + results
     committed,
     hasSearched: committed !== null,

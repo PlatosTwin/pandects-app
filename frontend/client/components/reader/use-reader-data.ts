@@ -2,11 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/api-config";
 import { authFetch } from "@/lib/auth-fetch";
 import { originSearchParams, type AgreementOrigin } from "@/lib/agreement-links";
+import { KEYWORD_SEARCH_SUPPORT } from "@/lib/search-configs";
+import { KEYWORD_MATCH_URL_PARAM, KEYWORD_URL_PARAM } from "@/lib/url-params";
+import { parseTextMatchMode } from "@shared/search";
 
 /** Params the search page puts in its URL that don't belong in a scoped query. */
 const NON_FILTER_PARAMS = ["mode", "sort_by", "sort_direction", "page", "page_size"];
-/** A search only "matches sections" when it filters on sections. */
-const SECTION_FILTER_PARAMS = ["standard_id", "section_uuid"];
+/** A search only "matches sections" when it filters on sections (or a keyword). */
+const SECTION_FILTER_PARAMS = ["standard_id", "section_uuid", KEYWORD_URL_PARAM];
 const MATCH_PAGE_SIZE = 100;
 
 export interface ReaderMatchesQuery {
@@ -27,17 +30,33 @@ export function buildReaderMatchesQuery(
   if (!source) return null;
   const mode = source.get("mode");
   const endpoint = mode === "tax" ? "tax-clauses" : "sections";
-  if (endpoint === "sections" && !SECTION_FILTER_PARAMS.some((key) => source.has(key))) {
+  const keyword = source.get(KEYWORD_URL_PARAM)?.trim() ?? "";
+  if (
+    endpoint === "sections" &&
+    !SECTION_FILTER_PARAMS.some((key) =>
+      key === KEYWORD_URL_PARAM ? keyword !== "" : source.has(key),
+    )
+  ) {
     return null;
   }
   const params = new URLSearchParams();
   source.forEach((value, key) => {
     if (NON_FILTER_PARAMS.includes(key) || key === "agreement_uuid") return;
+    // The search URL carries the keyword as `q`/`match`; the API takes
+    // `text_query`/`text_match_mode`, and only in modes with keyword support.
+    if (key === KEYWORD_URL_PARAM || key === KEYWORD_MATCH_URL_PARAM) return;
     // The search URL keeps tax taxonomy ids under `standard_id`; the tax
     // endpoint takes them as `tax_standard_id` (see use-tax-clauses).
     const apiKey = endpoint === "tax-clauses" && key === "standard_id" ? "tax_standard_id" : key;
     params.append(apiKey, value);
   });
+  const keywordMode = endpoint === "tax-clauses" ? "tax" : "sections";
+  if (keyword && KEYWORD_SEARCH_SUPPORT[keywordMode]) {
+    params.set("text_query", keyword);
+    const match = source.get(KEYWORD_MATCH_URL_PARAM);
+    const matchMode = match ? parseTextMatchMode(match) : "phrase";
+    if (matchMode !== "phrase") params.set("text_match_mode", matchMode);
+  }
   params.set("agreement_uuid", agreementUuid);
   params.set("page_size", String(MATCH_PAGE_SIZE));
   if (endpoint === "sections") params.set("include_dump", "false");

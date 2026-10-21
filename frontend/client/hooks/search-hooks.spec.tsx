@@ -468,7 +468,7 @@ describe("useSearch (sections)", () => {
     expect(lastFetchUrl().searchParams.get("page")).toBe("2");
   });
 
-  it("changePageSize resets to page 1 and mirrors the server-clamped page size", async () => {
+  it("changePageSize resets to page 1 and reports the server-clamped page size", async () => {
     mockAuthFetch.mockResolvedValue(
       okResponse(sectionsResponse([sectionResult()], { page: 1, page_size: 10 })),
     );
@@ -483,6 +483,8 @@ describe("useSearch (sections)", () => {
     expect(lastFetchUrl().searchParams.get("page")).toBe("1");
     // The API clamped 50 -> 10 for an anonymous caller.
     await waitFor(() => expect(result.current.pageSize).toBe(10));
+    // The draft (and so the shareable URL) keeps the requested size.
+    expect(result.current.filters.page_size).toBe(50);
   });
 
   it("fires performed + results_loaded telemetry once per Search commit", async () => {

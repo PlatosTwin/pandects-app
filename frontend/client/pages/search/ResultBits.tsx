@@ -18,19 +18,22 @@ export function Parties({ target, acquirer }: { target?: string | null; acquirer
   );
 }
 
-/** Joins meta-line items with a middle dot, skipping empty ones. */
+/**
+ * Joins meta-line items with a middle dot, skipping empty ones. The dot
+ * trails the item before it, so a wrapped line never starts with a dot.
+ */
 export function MetaLine({ items }: { items: ReactNode[] }) {
   const present = items.filter((item) => item !== null && item !== undefined && item !== false && item !== "");
   return (
     <>
       {present.map((item, index) => (
         <span key={index} className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-          {index > 0 ? (
-            <span aria-hidden="true" className="text-muted-foreground/60">
+          {item}
+          {index < present.length - 1 ? (
+            <span aria-hidden="true" className="shrink-0 text-muted-foreground/60">
               ·
             </span>
           ) : null}
-          {item}
         </span>
       ))}
     </>

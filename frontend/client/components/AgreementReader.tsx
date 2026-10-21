@@ -50,7 +50,9 @@ import { useCopyToClipboard } from "@/components/ui/copy-button";
 import { FindBar } from "@/components/reader/FindBar";
 import { MatchStrip } from "@/components/reader/MatchStrip";
 import { ReaderBackLink } from "@/components/reader/ReaderBackLink";
-import { ReaderContents } from "@/components/reader/ReaderContents";
+import { ReaderContents, buildSectionTypeOptions } from "@/components/reader/ReaderContents";
+import { useTaxonomy } from "@/hooks/use-taxonomy";
+import { indexClauseTypePaths } from "@/lib/clause-type-index";
 import { ReaderDetails } from "@/components/reader/ReaderDetails";
 import { SectionActions } from "@/components/reader/SectionActions";
 import { readContentsOpen, writeContentsOpen } from "@/components/reader/reader-preferences";
@@ -154,6 +156,8 @@ export function AgreementReader({
   } = useAgreementQuery(agreementUuid, focusSectionUuid);
   const { sections: sectionIndex, error: sectionIndexError } =
     useAgreementSections(agreementUuid);
+  // Parent labels for the section-type chips (the index only has leaf labels).
+  const { taxonomyTree } = useTaxonomy({ enabled: sectionIndex.length > 0 });
 
   const origin = useMemo(() => parseAgreementOrigin(backTo), [backTo]);
   const matchesQuery = useReaderMatches(origin, agreementUuid);
@@ -238,22 +242,14 @@ export function AgreementReader({
     [xml],
   );
 
-  const sectionTypeOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    const labels = new Map<string, string>();
-    for (const item of sectionIndex) {
-      for (const id of item.standard_id) {
-        counts.set(id, (counts.get(id) ?? 0) + 1);
-        const label = item.standard_id_labels?.[id];
-        if (label && !labels.has(id)) labels.set(id, label);
-      }
-    }
-    return Array.from(counts.entries()).map(([value, count]) => ({
-      value,
-      label: labels.get(value) ?? value,
-      count,
-    }));
-  }, [sectionIndex]);
+  const clauseTypePathById = useMemo(
+    () => (taxonomyTree ? indexClauseTypePaths(taxonomyTree) : {}),
+    [taxonomyTree],
+  );
+  const sectionTypeOptions = useMemo(
+    () => buildSectionTypeOptions(sectionIndex, clauseTypePathById),
+    [sectionIndex, clauseTypePathById],
+  );
 
   const visibleSectionUuids = useMemo(() => {
     if (sectionType === "all") return null;

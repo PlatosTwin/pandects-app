@@ -2,6 +2,35 @@ import { describe, expect, it } from "vitest";
 import { buildFindRegex, splitFindSegments } from "./find-highlight";
 import { extractSectionPlainText, sectionShortLabel } from "./section-text";
 import { buildReaderMatchesQuery } from "./use-reader-data";
+import { buildSectionTypeOptions } from "./ReaderContents";
+
+describe("buildSectionTypeOptions", () => {
+  const index = [
+    { standard_id: ["a", "b"], standard_id_labels: { a: "Notice", b: "Notice" } },
+    { standard_id: ["a", "c"], standard_id_labels: { a: "Notice", c: "Survival" } },
+  ];
+  const paths = {
+    a: ["Termination", "Notice"],
+    b: ["Indemnification", "Notice"],
+    c: ["Indemnification", "Survival"],
+  };
+
+  it("adds the parent to colliding leaf labels and the path to every tooltip", () => {
+    expect(buildSectionTypeOptions(index, paths)).toEqual([
+      { value: "a", label: "Termination › Notice", count: 2, title: "Termination › Notice" },
+      { value: "b", label: "Indemnification › Notice", count: 1, title: "Indemnification › Notice" },
+      { value: "c", label: "Survival", count: 1, title: "Indemnification › Survival" },
+    ]);
+  });
+
+  it("falls back to leaf labels before the taxonomy loads", () => {
+    expect(buildSectionTypeOptions(index).map((option) => option.label)).toEqual([
+      "Notice",
+      "Notice",
+      "Survival",
+    ]);
+  });
+});
 import { parseAgreementOrigin } from "@/lib/agreement-links";
 
 describe("buildFindRegex / splitFindSegments", () => {
@@ -83,6 +112,42 @@ describe("buildReaderMatchesQuery", () => {
     expect(query?.endpoint).toBe("tax-clauses");
     expect(query?.params.getAll("tax_standard_id")).toEqual(["t1"]);
     expect(query?.params.has("mode")).toBe(false);
+  });
+
+  it("sends the keyword as text_query / text_match_mode", () => {
+    const query = buildReaderMatchesQuery(
+      parseAgreementOrigin("/search?standard_id=x&q=Parent&match=all_terms"),
+      "agr-1",
+    );
+    expect(query?.params.get("text_query")).toBe("Parent");
+    expect(query?.params.get("text_match_mode")).toBe("all_terms");
+    expect(query?.params.has("q")).toBe(false);
+    expect(query?.params.has("match")).toBe(false);
+  });
+
+  it("leaves the default phrase match mode out", () => {
+    const query = buildReaderMatchesQuery(parseAgreementOrigin("/search?q=Parent"), "agr-1");
+    expect(query?.params.get("text_query")).toBe("Parent");
+    expect(query?.params.has("text_match_mode")).toBe(false);
+  });
+
+  it("treats a keyword-only search as section-level", () => {
+    const query = buildReaderMatchesQuery(parseAgreementOrigin("/search?q=indemnification"), "agr-1");
+    expect(query?.endpoint).toBe("sections");
+    expect(query?.params.get("text_query")).toBe("indemnification");
+    expect(buildReaderMatchesQuery(parseAgreementOrigin("/search?q=%20"), "agr-1")).toBeNull();
+  });
+
+  it("drops the keyword in tax mode", () => {
+    const query = buildReaderMatchesQuery(
+      parseAgreementOrigin("/search?mode=tax&standard_id=t1&q=Parent&match=any_terms"),
+      "agr-1",
+    );
+    expect(query?.endpoint).toBe("tax-clauses");
+    expect(query?.params.has("text_query")).toBe(false);
+    expect(query?.params.has("text_match_mode")).toBe(false);
+    expect(query?.params.has("q")).toBe(false);
+    expect(query?.params.has("match")).toBe(false);
   });
 
   it("skips searches without section filters and non-search origins", () => {

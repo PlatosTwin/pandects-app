@@ -7,6 +7,7 @@ import type { SearchResult } from "@shared/sections";
 import type { SearchMode, SearchQueryFilters } from "@shared/search";
 import type { ClauseTypeNode, ClauseTypeTree } from "@/lib/clause-types";
 import { AVAILABLE_YEARS, TRANSACTION_PRICE_OPTIONS } from "@/lib/constants";
+import { KEYWORD_SEARCH_SUPPORT } from "@/lib/search-configs";
 import { decodeXmlEntities } from "@/lib/text-utils";
 
 // ---------------------------------------------------------------------------
@@ -105,10 +106,19 @@ export function resetFieldsPatch(fields: readonly FacetField[]): Partial<SearchQ
   return patch as Partial<SearchQueryFilters>;
 }
 
+/**
+ * The keyword this mode actually searches, or "". Modes without keyword
+ * support keep it in the draft (and URL) so switching back restores it, but
+ * it is not an active filter there.
+ */
+export function activeKeyword(filters: SearchQueryFilters, mode: SearchMode): string {
+  return KEYWORD_SEARCH_SUPPORT[mode] ? (filters.text_query?.trim() ?? "") : "";
+}
+
 /** True when anything narrows the search (any facet, clause type, keyword or UUID). */
 export function hasAnySearchFilter(filters: SearchQueryFilters, mode: SearchMode): boolean {
   if ((filters.clauseType?.length ?? 0) > 0) return true;
-  if (filters.text_query?.trim()) return true;
+  if (activeKeyword(filters, mode)) return true;
   return facetGroupsForMode(mode).some(
     (group) => countActiveFilters(filters, FACET_GROUP_FIELDS[group]) > 0,
   );
@@ -409,7 +419,7 @@ export function describeSearch(
   clauseTypeLabelById: Record<string, string>,
 ): string {
   const parts: string[] = [MODE_NOUNS[mode].title];
-  const keyword = filters.text_query?.trim();
+  const keyword = activeKeyword(filters, mode);
   if (keyword) parts.push(`“${keyword}”`);
   const clauseTypes = filters.clauseType ?? [];
   if (clauseTypes.length > 0) {

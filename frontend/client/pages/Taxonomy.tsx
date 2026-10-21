@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMediaQuery } from "@/components/reader/use-media-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTaxonomy, useTaxonomyCounts } from "@/hooks/use-taxonomy";
 import { scheduleWhenBrowserIdle } from "@/lib/analytics";
@@ -53,20 +54,9 @@ const VIEW_OPTIONS = [
 const DOCKED_PANEL_QUERY = "(min-width: 1024px)";
 
 function useDockedPanel(): boolean {
-  const [docked, setDocked] = useState(() =>
-    typeof window === "undefined" || typeof window.matchMedia !== "function"
-      ? true
-      : window.matchMedia(DOCKED_PANEL_QUERY).matches,
-  );
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const mql = window.matchMedia(DOCKED_PANEL_QUERY);
-    const onChange = () => setDocked(mql.matches);
-    mql.addEventListener("change", onChange);
-    onChange();
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-  return docked;
+  // Prerendered HTML has the docked panel; phones switch to the sheet after
+  // hydration instead of mismatching on the first render.
+  return useMediaQuery(DOCKED_PANEL_QUERY, true);
 }
 
 /**
