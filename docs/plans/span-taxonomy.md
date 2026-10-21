@@ -866,7 +866,109 @@ What remains is rule application, so the next step is not more retrieval.
 **Next step.**
 1. **M3 scope:** serve target fee, expense reimbursement and survival, plus the outside date and the MAE definition's presence and prongs. Hold the other coded fields until they pass.
 2. **Financing retrieval:** select funds representations, trust-account and deposit provisions, and financing-related closing conditions in stage 1. Add a rule that a capital raise without a commitment is not committed financing.
-3. **Settle the open questions above in v2.5,** then re-measure reverse fee, cap and basket on a fresh holdout.
+3. **Settle the open questions above in v2.5,** then re-measure reverse fee, cap and basket on a fresh holdout. Done in 7.9.
+
+### 7.9 Financing-retrieval round (2026-10-21)
+
+Steps 2 and 3 of the 7.8 next step, measured on four concepts: financing, reverse fee, cap and basket.
+
+**What was fixed before the run.**
+- **Stage 1 (`pilot/prepare_v5.py`):** `prepare_v4` plus the selections that 7.8's financing misses called for:
+  - funds representations worded "the funds necessary", "adequate (cash) resources", "access to sufficient" or "financing sufficient";
+  - SPAC trust accounts, PIPE and subscription investors, and buyer deposits (including those named in the recitals);
+  - financing conditions and covenants: lenders' consent, financing letters, cooperation with the buyer's banks or lenders;
+  - a buyer's guarantee of its own or an affiliate's obligations;
+  - every section of an indemnification article, whatever its title;
+  - a definition whose opening words name a relevant term, even when the layer did not parse the term.
+- **Its effect on the M3 sample (not blind, since the fixes came from those misses):** stage 1 gold-span recall for all ten concepts went from 96.1% to 98.5%. Financing went from 97 to 111 of 116 spans, cap from 106 to 111 of 114, reverse fee from 84 to 87 of 87. The candidates grew from 36.1% to 38.2% of the text.
+- **Schema v2.5 (`pilot/schema_v2_5.md`):** v2.4 plus 12 rulings, covering the 7.8 open questions and the financing over-inclusion:
+  - committed financing only when committed or in hand (an uncommitted raise goes in notes);
+  - funds-representation phrasings;
+  - a lenders'-consent condition makes `financing_condition` true;
+  - reverse-fee triggers for auction losses, outside dates and reciprocal liquidated damages;
+  - per-seller caps;
+  - `escrow_sole_recourse` when the escrow is the sole recourse only for general reps, or only "first";
+  - deductible only with "only in excess" wording;
+  - the three outside-date extension questions;
+  - MAE carve-outs from the definition only, and capitalized versus passing MAE mentions;
+  - codes for the buyer's-identity and cyber-attack carve-outs;
+  - an election that needs the other party's consent.
+
+**How it was measured.**
+- **Sample:** 50 fresh agreements (seed `m4holdout`), drawn the same way as 7.6 and 7.8. None appears in M1, M2, the M2 holdout or the M3 holdout. The corpus had drifted since M3: re-running the M3 query reproduced 49 of its 50 agreements, so the exclusion used the M3 manifest itself.
+- **Blindness:** stage 1 and v2.5 were frozen before any gold or extraction existed.
+- **Labels:** Opus wrote gold for the four concepts from the full text. Sonnet extracted from the candidates, which were a median 35% of the text.
+- **Adjudication:** Opus judged every disputed field (32 in 20 agreements) and corrected gold in 1 field (a financing-cooperation covenant gold had missed).
+- **Post-checks:** they changed nothing on this sample, so the post-checked arm is identical to the raw one.
+
+**Results, against adjudicated gold.**
+- **False positives:** none in 200 concept decisions.
+- **Quotes:** every non-empty quote is verbatim (two empty strings count as misses in the scorer's 99.7%).
+- **Stage 1 retrieval:** 96.5% of gold spans fall in a candidate section (386 of 400). 8 of the 14 misses are financing.
+- **Cap and basket detection:** the one miss for each is the same agreement (4c30a132), whose indemnification section stage 1 did not select.
+
+| Concept | Present | Precision | Recall | M3 recall |
+|---|---|---|---|---|
+| Financing | 42 | 1.00 | **0.93** | 0.83 |
+| Reverse fee | 16 | 1.00 | 1.00 | 1.00 |
+| Cap | 22 | 1.00 | 0.955 | 1.00 |
+| Basket | 20 | 1.00 | 0.95 | 1.00 |
+
+| Field | Exact | Set F1 | M3 |
+|---|---|---|---|
+| Financing committed types | 35/39 | 0.95 | 27/35 (0.88) |
+| Financing efforts, condition | 38/39, 37/39 | | 33/35 each |
+| Financing cooperation, marketing period | 39/39 each | | |
+| Reverse-fee triggers | 13/16 | 0.95 | 11/15 (0.86) |
+| Reverse-fee kind, payor | 16/16 each | | 13/15 kind |
+| Reverse-fee amounts | 15/16 (16/16 on the percentage) | 0.95 | 13/15 |
+| Cap amounts | 14/21 (18/21 on the percentage) | 0.78 (0.94) | 16/22 (0.90) |
+| Cap escrow sole recourse | 21/21 | | 18/22 |
+| Basket type and amount | 14/19 (17/19 on the percentage) | 0.78 (0.91) | 19/21 (0.93) |
+| De minimis | 18/19 | | 21/21 |
+
+"On the percentage" compares a percentage-of-price amount by its percentage alone (`score_v2.PCT_FIRST`). It matters because of the main open question below. The scorer also now treats percentages 1 and 1.0 as equal; that changed no M3 number.
+
+**What went wrong.**
+- **Verdicts:** gold right 21, extractor right 1, schema ambiguous 9, equivalent 1.
+- **Extractor errors (21):**
+  - retrieval gaps 7;
+  - wrong codes 5;
+  - missed rules 4;
+  - wrong values 3;
+  - missed in candidates 2.
+- **Financing retrieval is better but not closed.** The three missed financing agreements, and most of its 8 missed spans, use wordings the new patterns do not cover:
+  - "access to … the financial resources to consummate the Merger";
+  - "will have available funds, or immediately available capacity under committed credit facilities";
+  - a covenant "to maintain sufficient liquid accounts or borrowing capacity";
+  - a recital naming a sponsor's "Cash Equity Capitalization".
+- **Financing over-inclusion is gone.** None of the 4 committed-type errors lists an uncommitted raise. Two miss a funds representation's `cash_on_hand`, one codes a defined "Equity Funds" as equity, and one is ambiguous (below).
+- **Cap and basket amounts fall mostly to one unsettled question.** In 6 of the 9 ambiguous verdicts, both sides agree on the percentage of a single stated price, and the extractor also fills in the dollar figure it computes. v2.3 rule 2 allows that only for a cap equal to 100% of the price. Compared on the percentage, cap amounts are 18/21 and baskets 17/19. The rest are real errors: a missed second cap (two escrows summed), a per-seller tax cap, and "in excess of (but not including)" coded as tipping instead of a deductible.
+
+**Against the acceptance bar.**
+- **Meets it on this holdout:** reverse fee (detection 1.00; triggers set F1 0.95; kind, payor and amounts on the percentage all exact).
+- **Still short even if computed amounts are allowed:** cap amounts (0.94) and basket (0.91), compared on the percentage.
+- **Does not meet it:**
+  - financing detection (recall 0.93; all three misses are retrieval gaps);
+  - cap amounts (0.78 as scored);
+  - basket (0.78 as scored).
+- **Improved from 7.8:**
+  - financing recall 0.83 → 0.93;
+  - committed types 0.88 → 0.95;
+  - reverse-fee triggers 0.86 → 0.95.
+
+**Open schema questions from adjudication.**
+- **Computed amounts.** May a fee, cap or basket stated as a percentage of a price given as one number also carry the computed dollar amount? This is 6 verdicts.
+- **Words against numerals:** "three percent (6.0%)".
+- **Commitments named only in a funds representation:** does "sufficient cash, or commitments from the Guarantors", with no commitment letter, add `equity`?
+- **A "cumulative remedies" clause scoped to the fee's section:** does it count as language about the fee?
+- **Two indemnitors with different de minimis thresholds:** `de_minimis` holds one value.
+- **Kind of a reverse fee:** every route needs a regulatory condition, but one route is a buyer breach. Is that `regulatory` or `mixed`?
+
+**Next step.**
+1. **Settle computed amounts in v2.6.** The simplest rule is that `amount` holds only a figure the text states, with the percentage kept, so that scoring and serving compare percentages. Then re-score this holdout. No new labels are needed, since both sides already agree on the percentage.
+2. **Add the four financing wordings above to stage 1,** and check them against the M3 and M4 samples. That check is not blind, so the next fresh holdout gives the real number.
+3. **Serve reverse fee** alongside the 7.8 set. Hold financing, cap and basket until the next holdout clears the bar.
 
 
 ## 8. Extraction pipeline
@@ -1060,7 +1162,7 @@ GROUP BY yr;
 |---|---|---|
 | **M0: Decisions** (about 1 week) | Answer the [open questions](#15-open-questions-for-you); agree the text-layer spec with the smart-reader plan; YAML skeleton for `ma` and `tax` with the first 10 value concepts; DDL drafted | Spec merged as docs; loader validates the YAML in CI |
 | **M1: Pilot** (run 2026-10-21, [7.4](#74-m1-pilot-results-2026-10-21)) | Text layer; stages 1–3 for **3 concepts** (target fee, reverse fee, outside date) on **50 agreements**; Opus gold with model adjudication; metrics report | Met for detection, retrieval and core values. Coded fields diagnosed as schema gaps, and schema v2 written. Cost: about 30K Sonnet tokens per agreement for 3 concepts |
-| **M2: v1 concepts** (run 2026-10-21, [7.5](#75-m2-pilot-results-2026-10-21)) | All 10 value concepts; 150-agreement gold (50 dev / 100 test); review UI hardened; stage 2 model choice settled by measurement | Detection bar met on test for 6 of 10 concepts; financing fails on retrieval. After stage 1 fixes, defined-terms exhibits and schema v2.2, a fresh 50-agreement holdout ([7.6](#76-m2-holdout-results-2026-10-21)) meets the detection bar for all 10 (financing at 0.95). Fee triggers and cap amounts failed on missed definitions and one unwritten rule. Definition resolution and schema v2.3 ([7.7](#77-definition-resolution-re-check-2026-10-21)) cut retrieval gaps from 17 to 3 and lift target-fee triggers to set F1 0.96 and MAE carve-outs to 0.97; cap amounts (0.92) still fail, now on rule application. A blind 50-agreement holdout with schema v2.4 and post-checks ([7.8](#78-m3-holdout-2026-10-21)) meets the bar for target fee, expense reimbursement and survival, is close for outside date and MAE, and fails for reverse fee, cap, basket and financing (recall 0.83, mostly retrieval). Not done in this run: the review UI and a stage 2 model comparison. Cost: about 60K Sonnet tokens per agreement for 10 concepts |
+| **M2: v1 concepts** (run 2026-10-21, [7.5](#75-m2-pilot-results-2026-10-21)) | All 10 value concepts; 150-agreement gold (50 dev / 100 test); review UI hardened; stage 2 model choice settled by measurement | Detection bar met on test for 6 of 10 concepts; financing fails on retrieval. After stage 1 fixes, defined-terms exhibits and schema v2.2, a fresh 50-agreement holdout ([7.6](#76-m2-holdout-results-2026-10-21)) meets the detection bar for all 10 (financing at 0.95). Fee triggers and cap amounts failed on missed definitions and one unwritten rule. Definition resolution and schema v2.3 ([7.7](#77-definition-resolution-re-check-2026-10-21)) cut retrieval gaps from 17 to 3 and lift target-fee triggers to set F1 0.96 and MAE carve-outs to 0.97; cap amounts (0.92) still fail, now on rule application. A blind 50-agreement holdout with schema v2.4 and post-checks ([7.8](#78-m3-holdout-2026-10-21)) meets the bar for target fee, expense reimbursement and survival, is close for outside date and MAE, and fails for reverse fee, cap, basket and financing (recall 0.83, mostly retrieval). Stage 1 financing patterns and schema v2.5, on a further fresh holdout ([7.9](#79-financing-retrieval-round-2026-10-21)), bring the reverse fee to the bar and financing recall to 0.93; cap and basket amounts still fail, mostly on whether a percentage of the price may also carry its computed dollar figure. Not done in this run: the review UI and a stage 2 model comparison. Cost: about 60K Sonnet tokens per agreement for 10 concepts |
 | **M3: Corpus and serving** (2–3 weeks) | Full pass for the passing concepts; serving tables, REST and MCP endpoints, bulk docs and changelog; reader span highlighting behind a flag | Live calls in prod return instances; distributions show n and coverage |
 | **M4: Tax and breadth** | Migrate tax clauses to spans; label concepts toward roughly 140-leaf coverage; derived `section_concepts`; deprecate old filters | Old taxonomy tables unused for one push cycle |
 | **M5: Distill and maintain** | Span tagger trained on accepted spans; incremental per-ingest runs; monthly checks | Stage 2 LLM spend cut by at least 80% with no recall loss on test |
@@ -1086,5 +1188,5 @@ GROUP BY yr;
 ## Appendix A. Pilot artifacts
 
 - `docs/plans/span-taxonomy/anchor_pilot.py`: the text-layer projection and re-anchoring measurement. It reads an XML dump, writes nothing, and is not wired into the ETL.
-- `docs/plans/span-taxonomy/pilot/`: the M1 pilot code. `text_layer.py` (projection), `prepare.py` (stage 1 retrieval and reading views), `schema_m1.md` (the extraction schema as run), `score.py` and `report.py` (scoring), `m1_results.json` (the numbers in 7.4). For M2: `prepare_v2.py` (four-group stage 1), `schema_v2.md` and `schema_v2_1.md` (the schemas as run on dev and test), `score_v2.py` and `report_v2.py` (scoring), `m2_results.json` (the numbers in 7.5). For the M2 holdout: `prepare_v3.py` (stage 1 fixes), `text_layer.project(exhibits=True)` (defined-terms exhibits and section-less body text), `schema_v2_2.md` (the schema as run), and `m2_holdout_results.json` (the numbers in 7.6, both arms). For the definition-resolution re-check: `prepare_v4.py` (definition resolution), `text_layer.project(page_blobs=True)` (page-blob exhibits), `schema_v2_3.md`, `score_v2.py --concepts` (score a subset of concepts) and `m2_defres_results.json` (the numbers in 7.7, both arms). For the M3 holdout: `schema_v2_4.md`, `postchecks.py` and `test_postchecks.py`, `report_m3.py`, and `m3_holdout_results.json` (the numbers in 7.8, both arms).
+- `docs/plans/span-taxonomy/pilot/`: the M1 pilot code. `text_layer.py` (projection), `prepare.py` (stage 1 retrieval and reading views), `schema_m1.md` (the extraction schema as run), `score.py` and `report.py` (scoring), `m1_results.json` (the numbers in 7.4). For M2: `prepare_v2.py` (four-group stage 1), `schema_v2.md` and `schema_v2_1.md` (the schemas as run on dev and test), `score_v2.py` and `report_v2.py` (scoring), `m2_results.json` (the numbers in 7.5). For the M2 holdout: `prepare_v3.py` (stage 1 fixes), `text_layer.project(exhibits=True)` (defined-terms exhibits and section-less body text), `schema_v2_2.md` (the schema as run), and `m2_holdout_results.json` (the numbers in 7.6, both arms). For the definition-resolution re-check: `prepare_v4.py` (definition resolution), `text_layer.project(page_blobs=True)` (page-blob exhibits), `schema_v2_3.md`, `score_v2.py --concepts` (score a subset of concepts) and `m2_defres_results.json` (the numbers in 7.7, both arms). For the M3 holdout: `schema_v2_4.md`, `postchecks.py` and `test_postchecks.py`, `report_m3.py`, and `m3_holdout_results.json` (the numbers in 7.8, both arms). For the financing-retrieval round: `prepare_v5.py` (stage 1 financing and indemnification selection), `schema_v2_5.md`, `report_m3.py D C1,C2,...` (a subset of concepts), `score_v2.PCT_FIRST` (the percentage-only comparison) and `m4_holdout_results.json` (the numbers in 7.9).
 - The pilots used read-only queries on the local database. No taxonomy LLM step was run over the corpus. Extraction, gold and adjudication ran as subagents in a Claude Code session, with no separate API calls (decision Q6). The per-agreement JSON (extractions, gold, verdicts) was scratch and was deleted after scoring; `prepare.py` with the sample SQL in `pilot/README.md` rebuilds the inputs.

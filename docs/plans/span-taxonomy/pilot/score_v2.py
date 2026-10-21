@@ -14,14 +14,22 @@ CONCEPTS = ["ma.termination.fee.target", "ma.termination.fee.reverse", "ma.termi
             "ma.indemn.basket", "ma.indemn.survival", "tax.election.338h10"]
 
 
+# True compares a percentage-of-price amount on its percentage alone, so a dollar figure
+# computed from it does not count as a difference (the open question in plan section 7.9).
+PCT_FIRST = False
+
+
 def money(m):
     if not isinstance(m, dict):
         return m if isinstance(m, str) else None
-    a = m.get("amount")
+    a, pct = m.get("amount"), m.get("pct")
+    pct_key = f"{m.get('basis')}:{float(pct):g}" if isinstance(pct, (int, float)) else f"{m.get('basis')}:{pct}"
+    if PCT_FIRST and pct is not None and str(m.get("basis", "")).startswith("pct_of"):
+        return pct_key
     if isinstance(a, (int, float)):
         return round(float(a), -3)
-    if m.get("pct") is not None:
-        return f"{m.get('basis')}:{m.get('pct')}"
+    if pct is not None:
+        return pct_key
     return a
 
 
