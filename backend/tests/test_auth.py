@@ -3653,6 +3653,59 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
 
+    def test_oauth_authorize_redirects_unsupported_scope_as_invalid_scope(self):
+        """RFC 6749 §4.1.2.1: once the redirect URI is valid, scope errors go back by redirect."""
+        os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
+        client = self.app.test_client()
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        client_id = register.get_json()["client_id"]
+
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read%20admin:everything"
+            "&state=test-state"
+            "&code_challenge=test-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(authorize.status_code, 302)
+        parsed = urlparse(authorize.headers["Location"])
+        self.assertEqual(f"{parsed.scheme}://{parsed.netloc}{parsed.path}", "https://codex.example.com/callback")
+        self.assertEqual(
+            parse_qs(parsed.query),
+            {
+                "error": ["invalid_scope"],
+                "error_description": ["Unsupported OAuth scope: admin:everything"],
+                "state": ["test-state"],
+            },
+        )
+
+        # With an unregistered redirect URI the error must not be redirected anywhere.
+        bad_redirect = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://attacker.example.com/callback"
+            "&response_type=code"
+            "&scope=admin:everything"
+            "&code_challenge=test-challenge"
+            "&code_challenge_method=S256"
+        )
+        self.assertEqual(bad_redirect.status_code, 400)
+        self.assertNotIn("Location", bad_redirect.headers)
+        self.assertIn("text/html", bad_redirect.headers["Content-Type"])
+
     def test_oauth_authorize_defaults_scope_when_client_omits_it(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
         client = self.app.test_client()
