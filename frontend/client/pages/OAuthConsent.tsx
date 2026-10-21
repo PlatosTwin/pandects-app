@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { apiUrl } from "@/lib/api-config";
+import { ApiError } from "@/lib/api/client";
 import { fetchOAuthConsentClient, grantOAuthConsent } from "@/lib/auth-api";
 import {
   classifyOAuthClient,
@@ -60,12 +61,25 @@ export default function OAuthConsent() {
     !!codeChallengeMethod;
 
   // Anyone can link to this page with any query string, so who the client is
-  // comes from its registration on the server, not from the URL.
-  const [client, setClient] = useState<
-    | { status: "loading" }
-    | { status: "error" }
-    | { status: "ready"; name: string | null; identity: OAuthClientIdentity }
-  >({ status: "loading" });
+  // comes from its registration on the server, not from the URL. The result is
+  // keyed by request so a new request (or a retry) shows as loading at once.
+  const [attempt, setAttempt] = useState(0);
+  const requestKey = `${clientId}\n${redirectUri}\n${attempt}`;
+  const [lookup, setLookup] = useState<
+    | { key: string; status: "rejected" }
+    | { key: string; status: "unavailable" }
+    | {
+        key: string;
+        status: "ready";
+        name: string | null;
+        identity: OAuthClientIdentity;
+      }
+    | null
+  >(null);
+  const client =
+    lookup && lookup.key === requestKey
+      ? lookup
+      : { status: "loading" as const };
 
   useEffect(() => {
     if (!paramsValid) return;
@@ -73,7 +87,8 @@ export default function OAuthConsent() {
     fetchOAuthConsentClient({ client_id: clientId, redirect_uri: redirectUri })
       .then((registration) => {
         if (cancelled) return;
-        setClient({
+        setLookup({
+          key: requestKey,
           status: "ready",
           name: registration.client_name ?? null,
           identity: classifyOAuthClient(
@@ -83,13 +98,21 @@ export default function OAuthConsent() {
           ),
         });
       })
-      .catch(() => {
-        if (!cancelled) setClient({ status: "error" });
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // 400 means the server rejected the client or redirect URI; anything
+        // else (signed out, outage, network) is worth retrying.
+        const rejected = err instanceof ApiError && err.status === 400;
+        setLookup(
+          rejected
+            ? { key: requestKey, status: "rejected" }
+            : { key: requestKey, status: "unavailable" },
+        );
       });
     return () => {
       cancelled = true;
     };
-  }, [paramsValid, clientId, redirectUri]);
+  }, [paramsValid, clientId, redirectUri, requestKey]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +171,7 @@ export default function OAuthConsent() {
     >
       <Card className="w-full p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
-          {!paramsValid || client.status === "error" ? (
+          {!paramsValid || client.status === "rejected" ? (
             <Alert variant="destructive">
               <AlertTitle>Invalid authorization request</AlertTitle>
               <AlertDescription>
@@ -157,8 +180,28 @@ export default function OAuthConsent() {
                 again.
               </AlertDescription>
             </Alert>
+          ) : client.status === "unavailable" ? (
+            <>
+              <Alert variant="destructive">
+                <AlertTitle>Could not load this request</AlertTitle>
+                <AlertDescription>
+                  Pandects couldn&apos;t check the application asking for
+                  access. Try again, or deny the request.
+                </AlertDescription>
+              </Alert>
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <Button variant="outline" onClick={handleDeny}>
+                  Deny
+                </Button>
+                <Button onClick={() => setAttempt((n) => n + 1)}>
+                  Try again
+                </Button>
+              </div>
+            </>
           ) : client.status === "loading" ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <p className="text-sm text-muted-foreground" role="status">
+              Loading…
+            </p>
           ) : (
             <ConsentDetails
               clientName={client.name}

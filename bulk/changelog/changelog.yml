@@ -39,9 +39,11 @@ unreleased:
     only when every registered redirect URI is on that application's host,
     lists any other hosts that can receive access, and warns about
     unrecognized applications and names that claim a known client. GET
-    /v1/auth/oauth/authorize accepts deny=1: after validating the client and
-    redirect URI it redirects to the registered callback with
-    error=access_denied and the state. The consent screen's Deny button uses
+    /v1/auth/oauth/authorize accepts deny=1: once the client and redirect URI
+    match the registration, it redirects to that redirect URI with
+    error=access_denied and the state. A loopback redirect URI that differs
+    from the registered one only by port must otherwise be well formed (no
+    backslash, userinfo, or fragment), as at registration. The consent screen's Deny button uses
     it instead of sending the browser to the redirect URI in the page address.
   refs: []
 - type: mcp

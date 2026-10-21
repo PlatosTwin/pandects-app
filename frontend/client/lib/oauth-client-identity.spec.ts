@@ -75,6 +75,9 @@ describe("classifyOAuthClient", () => {
     expect(classifyOAuthClient("OpenAI Helper", uri, [uri]).kind).toBe(
       "impersonation",
     );
+    for (const name of ["ClaudeAI", "Claude_Connector", "my-chatgpt-bridge"]) {
+      expect(classifyOAuthClient(name, uri, [uri]).kind).toBe("impersonation");
+    }
   });
 
   it("labels loopback-only redirects as a local app, whatever the name", () => {

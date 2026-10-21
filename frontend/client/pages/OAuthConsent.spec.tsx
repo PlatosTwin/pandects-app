@@ -16,6 +16,7 @@ const authApi = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/auth-api", () => authApi);
 
+import { ApiError } from "@/lib/api/client";
 import OAuthConsent from "./OAuthConsent";
 
 const baseParams = {
@@ -124,13 +125,31 @@ describe("OAuthConsent", () => {
 
   it("shows the invalid-request alert when the server rejects the client or redirect", async () => {
     authApi.fetchOAuthConsentClient.mockRejectedValue(
-      new Error("Invalid OAuth client or redirect URI."),
+      new ApiError({
+        status: 400,
+        message: "Invalid OAuth client or redirect URI.",
+      }),
     );
     renderConsent();
     expect(
       await screen.findByText("Invalid authorization request"),
     ).toBeTruthy();
     expect(screen.queryByText("Allow")).toBeNull();
+  });
+
+  it("offers a retry and Deny when the lookup fails for another reason", async () => {
+    authApi.fetchOAuthConsentClient.mockRejectedValueOnce(
+      new ApiError({ status: 503, message: "down" }),
+    );
+    registration("Codex MCP", ["https://codex.example.com/callback"]);
+    renderConsent();
+    expect(await screen.findByText("Could not load this request")).toBeTruthy();
+    expect(screen.queryByText("Invalid authorization request")).toBeNull();
+    expect(screen.getByText("Deny")).toBeTruthy();
+    fireEvent.click(screen.getByText("Try again"));
+    expect(screen.getByRole("status").textContent).toBe("Loading…");
+    expect(await screen.findByText("Codex MCP")).toBeTruthy();
+    expect(authApi.fetchOAuthConsentClient).toHaveBeenCalledTimes(2);
   });
 
   it("shows an invalid-request alert when required OAuth params are missing", () => {

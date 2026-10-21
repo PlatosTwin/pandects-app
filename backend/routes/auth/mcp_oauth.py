@@ -138,6 +138,11 @@ def register_mcp_oauth_routes(
         registered = [str(item).strip() for item in raw_uris if str(item).strip()]
         if redirect_uri in registered:
             return True
+        # The any-port match below parses the requested URI, so hold it to the
+        # same shape rules registration applies (no backslash, userinfo, or
+        # fragment) before trusting its parsed hostname.
+        if not _valid_oauth_redirect_uri(redirect_uri):
+            return False
         # RFC 8252 §7.3: loopback redirect URIs must allow any port.
         try:
             req = urlparse(redirect_uri)

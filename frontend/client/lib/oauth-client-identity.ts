@@ -18,12 +18,12 @@ const KNOWN_CLIENTS: readonly KnownClient[] = [
   {
     label: "Claude",
     hosts: ["claude.ai", "claude.com"],
-    namePattern: /\b(claude|anthropic)\b/i,
+    namePattern: /(?<![a-z])(claude|anthropic)(?![a-z])/i,
   },
   {
     label: "ChatGPT",
     hosts: ["chatgpt.com", "chat.openai.com"],
-    namePattern: /\b(chatgpt|openai)\b/i,
+    namePattern: /(?<![a-z])(chatgpt|openai)(?![a-z])/i,
   },
 ];
 
@@ -123,9 +123,13 @@ export function classifyOAuthClient(
     return { ...base, kind: "local" };
   }
 
-  const claimed = clientName
-    ? KNOWN_CLIENTS.find((client) => client.namePattern.test(clientName))
-    : undefined;
+  // Also try the name split at camelCase ("ClaudeAI"), so a glued-on word
+  // still reads as a claim while a longer word ("Claudette") does not.
+  const name = clientName ?? "";
+  const split = name.replace(/([a-z])([A-Z])/g, "$1 $2");
+  const claimed = KNOWN_CLIENTS.find(
+    (client) => client.namePattern.test(name) || client.namePattern.test(split),
+  );
   if (claimed) {
     const foreignHosts = [
       ...new Set(

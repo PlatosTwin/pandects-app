@@ -4064,6 +4064,36 @@ class AuthFlowTests(unittest.TestCase):
         )
         self.assertEqual(ok.status_code, 200)
 
+    def test_oauth_loopback_any_port_match_rejects_malformed_uris(self):
+        client = self.app.test_client()
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Local MCP",
+                "redirect_uris": ["http://127.0.0.1/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        client_id = register.get_json()["client_id"]
+        for redirect_uri in (
+            "http://evil.example\\@127.0.0.1/callback",
+            "http://user@127.0.0.1:5000/callback",
+            "http://127.0.0.1:5000/callback#frag",
+        ):
+            res = client.get(
+                "/v1/auth/oauth/authorize",
+                query_string={"client_id": client_id, "redirect_uri": redirect_uri, "deny": "1"},
+            )
+            self.assertEqual(res.status_code, 400, redirect_uri)
+            self.assertNotIn("Location", res.headers)
+        ok = client.get(
+            "/v1/auth/oauth/authorize",
+            query_string={"client_id": client_id, "redirect_uri": "http://127.0.0.1:5000/callback", "deny": "1"},
+        )
+        self.assertEqual(ok.status_code, 302)
+
     def test_oauth_consent_client_describes_registration(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()
