@@ -24,7 +24,11 @@ export interface RouteEntry {
   shell?: RouteShell;
 }
 
-/** Mirrors the PageShell layouts, plus the landing card and StatusPage. */
+/**
+ * Mirrors the PageShell layouts, plus the landing card and StatusPage. `none`
+ * draws no placeholder, for full-bleed app pages (search, the reader) whose
+ * frame a boxed skeleton would not match.
+ */
 export type RouteShell =
   | "landing"
   | "data"
@@ -32,7 +36,8 @@ export type RouteShell =
   | "docs-toc"
   | "form"
   | "settings"
-  | "status";
+  | "status"
+  | "none";
 
 const lazyPage = <T extends ComponentType<unknown>>(
   loader: () => Promise<{ default: T }>,
@@ -44,7 +49,11 @@ export const ROUTES: ReadonlyArray<RouteEntry> = [
     component: lazyPage(() => import("@/pages/Landing")),
     shell: "landing",
   },
-  { path: "/search", component: lazyPage(() => import("@/pages/Search")) },
+  {
+    path: "/search",
+    component: lazyPage(() => import("@/pages/Search")),
+    shell: "none",
+  },
   {
     path: "/compare/tax",
     component: lazyPage(() => import("@/pages/TaxClauseCompare")),
@@ -52,6 +61,7 @@ export const ROUTES: ReadonlyArray<RouteEntry> = [
   {
     path: "/agreements/:agreementUuid",
     component: lazyPage(() => import("@/pages/Agreement")),
+    shell: "none",
   },
   { path: "/bulk-data", component: lazyPage(() => import("@/pages/BulkData")) },
   {

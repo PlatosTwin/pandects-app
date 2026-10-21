@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef } from "react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { STATUS_FRAME } from "@/components/StatusPage";
 import { ROUTES, type RouteShell } from "@/lib/routes";
 import { applySeoForLocation } from "@/lib/seo";
 import {
@@ -45,7 +46,7 @@ function FallbackLines() {
   );
 }
 
-function FallbackBody({ shell }: { shell: RouteShell }) {
+function FallbackBody({ shell }: { shell: Exclude<RouteShell, "none"> }) {
   switch (shell) {
     case "landing":
       return (
@@ -55,8 +56,8 @@ function FallbackBody({ shell }: { shell: RouteShell }) {
       );
     case "status":
       return (
-        <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-          <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
+        <div className={STATUS_FRAME}>
+          <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4">
             <div className={`h-4 w-10 ${fallbackBar}`} />
             <div className="h-8 w-64 animate-pulse rounded-md bg-muted sm:h-9" />
             <div className="mt-4 flex gap-3">
@@ -123,12 +124,15 @@ function routeShellFor(pathname: string): RouteShell {
 }
 
 function RouteFallback({ pathname }: { pathname: string }) {
+  const shell = routeShellFor(pathname);
   return (
     <div role="status" aria-live="polite">
       <span className="sr-only">Loading page</span>
-      <div aria-hidden="true">
-        <FallbackBody shell={routeShellFor(pathname)} />
-      </div>
+      {shell === "none" ? null : (
+        <div aria-hidden="true">
+          <FallbackBody shell={shell} />
+        </div>
+      )}
     </div>
   );
 }

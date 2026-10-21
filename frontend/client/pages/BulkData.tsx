@@ -24,7 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 const downloadManifest = async (url: string) => {
   try {
@@ -170,10 +169,37 @@ export default function BulkData() {
             Latest version
           </h2>
           {loading ? (
-            <div className="mt-4 space-y-2" role="status" aria-live="polite">
+            // Same layout as the loaded block below (three facts, then the
+            // action buttons) so nothing shifts when the list arrives.
+            <div
+              className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+              role="status"
+              aria-live="polite"
+            >
+              <div
+                aria-hidden="true"
+                className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-[auto_auto_minmax(0,1fr)]"
+              >
+                <div>
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="mt-1 h-5 w-24" />
+                </div>
+                <div>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="mt-1 h-5 w-20" />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="mt-0.5 h-8 w-56 max-w-full" />
+                </div>
+              </div>
+              <div aria-hidden="true" className="flex flex-wrap items-center gap-2">
+                <Skeleton className="h-9 w-32" />
+                <Skeleton className="h-9 w-28" />
+                <Skeleton className="h-9 w-28" />
+              </div>
+              {/* Last, so React reuses the button row's node in place. */}
               <span className="sr-only">Loading dumps...</span>
-              <Skeleton className="h-5 w-64" />
-              <Skeleton className="h-9 w-full max-w-xl" />
             </div>
           ) : error ? (
             <ErrorState
@@ -255,9 +281,51 @@ export default function BulkData() {
           </div>
 
           {loading ? (
-            <div className="p-8 text-center" role="status" aria-live="polite">
-              <LoadingSpinner size="lg" aria-label="Loading dumps" className="mx-auto" />
-              <p className="mt-2 text-foreground/80">Loading dumps...</p>
+            // Two placeholder rows shaped like the loaded table (lg) and list
+            // (below lg), so the sections underneath barely move on arrival.
+            <div role="status" aria-live="polite">
+              <span className="sr-only">Loading dumps...</span>
+              <div aria-hidden="true" className="hidden lg:block">
+                <div className="h-12 border-b border-border" />
+                {[0, 1].map((row) => (
+                  <div
+                    key={row}
+                    className="flex items-center gap-12 border-b border-border px-6 py-3 last:border-b-0"
+                  >
+                    <div className="w-40">
+                      <Skeleton className="h-5 w-32" />
+                      {row === 0 ? <Skeleton className="h-4 w-24" /> : null}
+                    </div>
+                    <Skeleton className="h-8 w-56" />
+                    <Skeleton className="h-5 w-16" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-9 w-32" />
+                      <Skeleton className="h-9 w-28" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <ul aria-hidden="true" className="divide-y divide-border lg:hidden">
+                {[0, 1].map((row) => (
+                  <li key={row} className="space-y-3 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Skeleton className="h-5 w-32" />
+                        {row === 0 ? <Skeleton className="mt-1 h-[22px] w-28" /> : null}
+                      </div>
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                    <div>
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="mt-0.5 h-8 w-48 max-w-full" />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Skeleton className="h-9 w-32" />
+                      <Skeleton className="h-9 w-28" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : error ? (
             <ErrorState
