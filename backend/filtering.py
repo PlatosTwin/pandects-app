@@ -42,6 +42,9 @@ _TRANSACTION_PRICE_BUCKETS: dict[str, tuple[Decimal, Decimal | None]] = {
     "10B - 20B": (Decimal("10000000000"), Decimal("20000000000")),
     "20B+": (Decimal("20000000000"), None),
 }
+# The canonical price-bucket labels, in ascending order. Every price filter
+# (`transaction_price_total` / `_stock` / `_cash` / `_assets`) accepts only these.
+TRANSACTION_PRICE_BUCKETS: tuple[str, ...] = tuple(_TRANSACTION_PRICE_BUCKETS)
 
 
 _NUMERIC_SQL_TYPES = (Float, Integer, Numeric)
@@ -246,7 +249,8 @@ def agreement_filter_predicates(
     - ``year_min`` / ``year_max``: inclusive filing-year bounds.
     - ``filed_after`` (inclusive) / ``filed_before`` (exclusive): ISO dates.
     - list filters (``target``, ``deal_type``, ...): exact match on any value.
-    - price buckets: any of the named buckets (unknown bucket names are ignored).
+    - price buckets: any of the named buckets. The request schemas reject names
+      outside ``TRANSACTION_PRICE_BUCKETS``; one that still reaches here is ignored.
     - ``target_counsel`` / ``acquirer_counsel``: canonical firm on that side;
       ``any_counsel``: canonical firm on either side.
     - ``target_pe`` / ``acquirer_pe``: ``"true"``/``"false"``.
@@ -391,6 +395,7 @@ __all__ = [
     "AGREEMENT_LIST_FILTER_FIELDS",
     "AGREEMENT_PE_FILTER_FIELDS",
     "AGREEMENT_PRICE_FILTER_FIELDS",
+    "TRANSACTION_PRICE_BUCKETS",
     "AGREEMENT_RANGE_FILTER_FIELDS",
     "agreement_filter_predicates",
     "agreement_is_public_eligible_expr",

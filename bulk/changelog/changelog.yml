@@ -171,6 +171,25 @@ unreleased:
     alias, and sort_direction wins when both are sent. /v1/tax-clauses returns
     dump_version and accepts include_dump=false to omit it, as /v1/sections does.
   refs: []
+- type: api
+  severity: notable
+  summary: "An unknown price bucket is a 422 instead of being ignored."
+  details: >
+    transaction_price_total, transaction_price_stock, transaction_price_cash,
+    and transaction_price_assets accept only the canonical bucket labels
+    (0 - 100M, 100M - 250M, 250M - 500M, 500M - 750M, 750M - 1B, 1B - 2B,
+    2B - 5B, 5B - 10B, 10B - 20B, 20B+). Any other value (for example
+    "1B - 5B") used to be dropped silently, so the request returned results
+    unfiltered by price. /v1/sections, /v1/search/agreements, /v1/agreements,
+    and /v1/tax-clauses now answer 422 validation_error, and the message names
+    the field, the rejected value, and the valid labels. The MCP
+    search_sections, search_agreements, list_agreements, and
+    search_tax_clauses tools return the same detail as a -32602 invalid-arguments
+    error. The OpenAPI spec lists the labels as an enum.
+  migration: >
+    Send one of the listed labels; list_filter_options (MCP) returns them under
+    transaction_price_totals.
+  refs: []
 releases:
 - version: '2026-09-09'
   released: '2026-09-09T23:37:59Z'

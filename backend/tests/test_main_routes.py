@@ -2401,6 +2401,34 @@ class MainRoutesTests(unittest.TestCase):
                 self.assertEqual(listed, searched)
                 self.assertTrue(listed, f"case {case!r} should match at least one agreement")
 
+    def test_unknown_price_bucket_is_rejected_with_valid_values(self):
+        from backend.filtering import TRANSACTION_PRICE_BUCKETS
+
+        client = self.app.test_client()
+        paths = ("/v1/sections", "/v1/search/agreements", "/v1/agreements", "/v1/tax-clauses")
+        fields_ = (
+            "transaction_price_total",
+            "transaction_price_stock",
+            "transaction_price_cash",
+            "transaction_price_assets",
+        )
+        for path in paths:
+            for field in fields_:
+                with self.subTest(path=path, field=field):
+                    res = client.get(f"{path}?{field}=100M - 250M&{field}=1B - 5B&page_size=10")
+                    self.assertEqual(res.status_code, 422)
+                    body = res.get_json()
+                    self.assertEqual(body["error"], "validation_error")
+                    message = body["message"]
+                    self.assertTrue(message.startswith(f"{field}[1]: "), message)
+                    self.assertIn("'1B - 5B'", message)
+                    self.assertNotIn("'100M - 250M'", message)
+                    for bucket in TRANSACTION_PRICE_BUCKETS:
+                        self.assertIn(bucket, message)
+            with self.subTest(path=path, valid=True):
+                res = client.get(f"{path}?transaction_price_total=1B - 2B&page_size=10")
+                self.assertEqual(res.status_code, 200, res.get_json())
+
     def test_agreement_filters_agree_between_sections_and_agreement_search(self):
         # Only a1 has a latest section in the search index, so the section route and the
         # clause-scoped agreement search must both keep or both drop it.

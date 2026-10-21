@@ -1464,6 +1464,18 @@ class McpTests(unittest.TestCase):
         self.assertIn("target_counsels", body["error"]["message"])
         self.assertIn("target_counsels", body["error"]["data"])
 
+    def test_unknown_price_bucket_is_an_invalid_argument_on_every_filter_tool(self):
+        for tool_name in ("search_sections", "search_agreements", "list_agreements", "search_tax_clauses"):
+            with self.subTest(tool=tool_name):
+                res = self._call_tool(tool_name, {"transaction_price_total": ["1B - 5B"]})
+                self.assertEqual(res.status_code, 200)
+                error = res.get_json()["error"]
+                self.assertEqual(error["code"], -32602)
+                self.assertIn("transaction_price_total", error["message"])
+                self.assertIn("'1B - 5B'", error["message"])
+                self.assertIn("Valid values: 0 - 100M, 100M - 250M", error["message"])
+                self.assertIn("transaction_price_total", error["data"])
+
     def test_search_sections_rejects_legacy_query_parameter(self):
         # Agreement-name discovery uses `query`; literal section search deliberately
         # uses the unambiguous `text_query` name.

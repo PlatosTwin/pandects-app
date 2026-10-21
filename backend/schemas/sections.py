@@ -4,6 +4,7 @@ from typing import TypedDict, cast
 
 from marshmallow import Schema, ValidationError, fields, post_dump, validate, validates_schema
 
+from backend.filtering import TRANSACTION_PRICE_BUCKETS
 from backend.schemas.labels import IndustryLabelsSchema, StandardIdLabelsSchema
 from backend.text_search import compile_boolean_text_query, validate_text_query_syntax
 
@@ -35,6 +36,23 @@ SECTIONS_RESULT_METADATA_FIELDS = (
     "url",
 )
 MAX_TEXT_SEARCH_PAGE = 100
+
+
+def price_bucket_list_field() -> fields.List[str]:
+    """A price-range filter: repeatable, each value one of `TRANSACTION_PRICE_BUCKETS`.
+
+    An unknown label is a 422 naming the field, the value, and the valid labels;
+    it used to be dropped silently, which returned unfiltered results.
+    """
+    return fields.List(
+        fields.Str(
+            validate=validate.OneOf(
+                TRANSACTION_PRICE_BUCKETS,
+                error="Unknown price bucket {input!r}. Valid values: {choices}.",
+            )
+        ),
+        load_default=[],
+    )
 
 
 def _validate_nonblank_text_query(value: str) -> None:
@@ -128,10 +146,10 @@ class SectionsArgsSchema(Schema):
             "example": ["4207f2e8f6698935", "fe2f63338a1eaf30"],
         },
     )
-    transaction_price_total = fields.List(fields.Str(), load_default=[])
-    transaction_price_stock = fields.List(fields.Str(), load_default=[])
-    transaction_price_cash = fields.List(fields.Str(), load_default=[])
-    transaction_price_assets = fields.List(fields.Str(), load_default=[])
+    transaction_price_total = price_bucket_list_field()
+    transaction_price_stock = price_bucket_list_field()
+    transaction_price_cash = price_bucket_list_field()
+    transaction_price_assets = price_bucket_list_field()
     transaction_consideration = fields.List(fields.Str(), load_default=[])
     target_type = fields.List(fields.Str(), load_default=[])
     acquirer_type = fields.List(fields.Str(), load_default=[])
