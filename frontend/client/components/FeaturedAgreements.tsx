@@ -39,7 +39,7 @@ export function FeaturedAgreements({
 }: FeaturedAgreementsProps) {
   const hydrated = useHydrated();
   const isLockedOut = useIsLockedOut();
-  const lockedOut = isLockedOut("/agreements/:agreementUuid");
+  const lockedOut = isLockedOut("/agreements/any");
 
   const { results, isLoading, error } = useRecentAgreements(limit, !lockedOut);
   const loading = !hydrated || isLoading;

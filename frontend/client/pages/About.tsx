@@ -194,15 +194,17 @@ export default function About() {
               ))}
             </div>
 
-            <div className="mt-4 rounded-xl border border-border bg-card shadow-raised p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <Eyebrow>Agreement Index</Eyebrow>
-                  <p className="mt-1 text-sm prose-copy">
-                    Browse the corpus by year, party, and processing status.
-                  </p>
-                </div>
-                {!isLockedOut("/agreement-index") && (
+            {/* TEMPORARY (access lockdown): the index and its counts are gated,
+                so a visitor who isn't signed in doesn't get this card. */}
+            {!isLockedOut("/agreement-index") && (
+              <div className="mt-4 rounded-xl border border-border bg-card shadow-raised p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <Eyebrow>Agreement Index</Eyebrow>
+                    <p className="mt-1 text-sm prose-copy">
+                      Browse the corpus by year, party, and processing status.
+                    </p>
+                  </div>
                   <Link
                     to="/agreement-index"
                     className="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/50 hover:bg-primary/15"
@@ -210,49 +212,49 @@ export default function About() {
                     Browse the index
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
+                </div>
+
+                {!summaryError && (
+                  <div
+                    className="mt-4 grid gap-3 sm:grid-cols-3"
+                    aria-busy={summaryLoading}
+                    aria-live="polite"
+                  >
+                    {corpusMetrics.map(({ key, icon: Icon, label, detail }) => (
+                      <div
+                        key={key}
+                        className="flex min-h-[5.5rem] items-center gap-3 rounded-lg border border-border bg-background p-3"
+                      >
+                        <div className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-primary/10 text-primary">
+                          <Icon className="h-4 w-4" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0">
+                          <Eyebrow>{label}</Eyebrow>
+                          <div className="flex min-h-7 items-center text-xl font-semibold tabular-nums text-foreground">
+                            {summaryLoading ? (
+                              <>
+                                <Skeleton className="h-6 w-20" />
+                                <span className="sr-only">Loading {label}</span>
+                              </>
+                            ) : (
+                              (
+                                (key === "processed_agreements"
+                                  ? (summary?.processed_agreements ??
+                                    summary?.agreements)
+                                  : summary?.[key]) ?? 0
+                              ).toLocaleString("en-US")
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {detail}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-
-              {!summaryError && (
-                <div
-                  className="mt-4 grid gap-3 sm:grid-cols-3"
-                  aria-busy={summaryLoading}
-                  aria-live="polite"
-                >
-                  {corpusMetrics.map(({ key, icon: Icon, label, detail }) => (
-                    <div
-                      key={key}
-                      className="flex min-h-[5.5rem] items-center gap-3 rounded-lg border border-border bg-background p-3"
-                    >
-                      <div className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <Icon className="h-4 w-4" aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0">
-                        <Eyebrow>{label}</Eyebrow>
-                        <div className="flex min-h-7 items-center text-xl font-semibold tabular-nums text-foreground">
-                          {summaryLoading ? (
-                            <>
-                              <Skeleton className="h-6 w-20" />
-                              <span className="sr-only">Loading {label}</span>
-                            </>
-                          ) : (
-                            (
-                              (key === "processed_agreements"
-                                ? (summary?.processed_agreements ??
-                                  summary?.agreements)
-                                : summary?.[key]) ?? 0
-                            ).toLocaleString("en-US")
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {detail}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
 
             <p className="prose-copy mt-6">
               Pandects is an <strong>open-source M&A research platform</strong>{" "}

@@ -1,5 +1,5 @@
 import { forwardRef, useContext, type ComponentPropsWithoutRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, matchPath } from "react-router-dom";
 import { ExternalLink, Lock } from "lucide-react";
 import { AuthContext } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -37,7 +37,15 @@ export function useShowLock(): (link: NavLinkItem) => boolean {
 export function useIsLockedOut(): (to: string) => boolean {
   const { status } = useNavAuth();
   const locked = LOCKDOWN_ACTIVE && status !== "authenticated";
-  return (to) => locked && ACCESS_GATED_PATHS.has(to);
+  return (to) => locked && isGatedPath(to);
+}
+
+/** Whether a URL ("/agreements/abc?from=/") opens a gated route pattern. */
+export function isGatedPath(to: string): boolean {
+  const pathname = to.split(/[?#]/)[0] || "/";
+  return [...ACCESS_GATED_PATHS].some(
+    (pattern) => matchPath({ path: pattern, end: true }, pathname) !== null,
+  );
 }
 
 export function NavLinkContent({

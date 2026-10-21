@@ -7,12 +7,14 @@ import {
   LEGAL_LINKS,
   linkKey,
 } from "@/components/navigation-links";
-import { NavItemLink } from "@/components/NavLinkParts";
+import { NavItemLink, useShowLock } from "@/components/NavLinkParts";
 
 const focusRing =
   "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function FooterComponent() {
+  // Same signal as the header menus: a lock on pages that need sign-in.
+  const showLock = useShowLock();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -32,6 +34,7 @@ function FooterComponent() {
                   <li key={linkKey(link)}>
                     <NavItemLink
                       link={link}
+                      locked={showLock(link)}
                       className={`inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground ${focusRing}`}
                     />
                   </li>

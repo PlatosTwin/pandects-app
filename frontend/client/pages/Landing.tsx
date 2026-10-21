@@ -40,7 +40,8 @@ const DEV_LINK =
 
 export default function Landing() {
   const isLockedOut = useIsLockedOut();
-  // TEMPORARY (access lockdown): only offer pages this visitor can open.
+  // TEMPORARY (access lockdown): only offer pages this visitor can open. The
+  // search box stays: Search's lockdown notice is where visitors sign in.
   const browseLinks = BROWSE_LINKS.filter((link) => !isLockedOut(link.to));
 
   return (
