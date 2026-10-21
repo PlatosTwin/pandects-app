@@ -2156,13 +2156,13 @@ class NERTagger(pl.LightningModule):
         for doc_id, sum_logits in self._tok_sum.items():
             cnt = self._tok_cnt[doc_id].clamp(min=1.0).unsqueeze(-1)
             avg_logits = sum_logits / cnt
-            pred_ids = self._viterbi_constrained_doc(avg_logits)
             gold_ids = self._tok_gold[doc_id]
             mask = gold_ids != self.ignore_index
             if not mask.any():
                 continue
 
-            pred_ids = pred_ids[mask].tolist()
+            # Decode over first-subword positions only, as in training.
+            pred_ids = self._viterbi_constrained_doc(avg_logits[mask]).tolist()
             gold_ids = gold_ids[mask].tolist()
 
             pred_tags = [self.id2label[i] for i in pred_ids]
