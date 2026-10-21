@@ -103,6 +103,13 @@ function DumpActions({ dump, className }: { dump: DumpInfo; className: string })
   );
 }
 
+const DUMP_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
 export default function BulkData() {
   const docsUrl = getDocsUrl();
   const {
@@ -119,19 +126,17 @@ export default function BulkData() {
     if (timestamp === "latest") {
       return "Latest";
     }
-    // Handle timestamp format like "2025-07-18_04-15"
-    const parts = timestamp.split("_");
-    if (parts.length === 2) {
-      const datePart = parts[0];
-      const timePart = parts[1].replace("-", ":");
-      const dateTime = new Date(`${datePart}T${timePart}:00`);
-      return dateTime.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    // Dump versions look like "public_2026-09-09_16-08-00": the push script's
+    // local wall-clock time with no zone. Show the calendar date only, built
+    // in UTC so the viewer's offset can't move it a day.
+    const match = /(\d{4})-(\d{2})-(\d{2})(?:_\d{2}-\d{2}(?:-\d{2})?)?$/.exec(
+      timestamp,
+    );
+    if (match) {
+      const [, year, month, day] = match;
+      return DUMP_DATE_FORMATTER.format(
+        new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))),
+      );
     }
     return timestamp;
   };

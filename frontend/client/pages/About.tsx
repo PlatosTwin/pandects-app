@@ -84,10 +84,10 @@ const quickFacts = [
 
 const corpusMetrics = [
   {
-    key: "agreements",
+    key: "processed_agreements",
     icon: FileText,
     label: "Agreements",
-    detail: "Ingested",
+    detail: "Processed and searchable",
   },
   {
     key: "sections",
@@ -228,7 +228,12 @@ export default function About() {
                               <span className="sr-only">Loading {label}</span>
                             </>
                           ) : (
-                            (summary?.[key] ?? 0).toLocaleString("en-US")
+                            (
+                              (key === "processed_agreements"
+                                ? (summary?.processed_agreements ??
+                                  summary?.agreements)
+                                : summary?.[key]) ?? 0
+                            ).toLocaleString("en-US")
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">

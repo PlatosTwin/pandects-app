@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 const LATEST_FILING_FORMATTER = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
   month: "short",
+  // `latest_filing_date` is date-only ("2026-10-01"), which parses as UTC
+  // midnight; format in UTC so viewers west of UTC don't see the prior month.
+  timeZone: "UTC",
 });
 
 function formatLatestFiling(value: string | null): string | null {
@@ -42,6 +45,13 @@ export function LandingStats({ className }: { className?: string }) {
   const latestFiling = summary
     ? formatLatestFiling(summary.latest_filing_date)
     : null;
+  // Count what users can browse and search, the same basis as the Agreement
+  // Index cards. Older APIs without `processed_agreements` fall back to the
+  // ingested total, labeled as such.
+  const processed = summary?.processed_agreements ?? null;
+  const agreementCount = processed ?? summary?.agreements ?? null;
+  const agreementLabel =
+    processed !== null ? "searchable agreements" : "agreements ingested";
 
   return (
     <ul
@@ -65,12 +75,14 @@ export function LandingStats({ className }: { className?: string }) {
         </>
       ) : summary ? (
         <>
-          <StatPill>
-            <span className="mr-1 font-medium text-foreground">
-              {formatNumber(summary.agreements)}
-            </span>
-            agreements indexed
-          </StatPill>
+          {agreementCount !== null ? (
+            <StatPill>
+              <span className="mr-1 font-medium text-foreground">
+                {formatNumber(agreementCount)}
+              </span>
+              {agreementLabel}
+            </StatPill>
+          ) : null}
           {latestFiling ? (
             <StatPill>Latest filing {latestFiling}</StatPill>
           ) : null}

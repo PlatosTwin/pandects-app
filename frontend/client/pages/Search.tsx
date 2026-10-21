@@ -553,7 +553,7 @@ export default function Search() {
     loadTargetOptions,
     loadAcquirerOptions,
     notice: filterOptions.error ? (
-      <p role="alert" className="py-2 text-sm text-destructive dark:text-red-400">
+      <p role="alert" className="py-2 text-sm text-destructive">
         Some filter options couldn't load. {filterOptions.error}
       </p>
     ) : null,

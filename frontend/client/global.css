@@ -172,21 +172,6 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-
-  @keyframes fade-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-fade-in-up {
-    animation: fade-in-up 0.8s ease-out;
-  }
 }
 
 @layer utilities {
@@ -245,7 +230,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .animate-spin,
-  .animate-fade-in-up,
   .animate-pulse {
     animation: none !important;
   }

@@ -18,7 +18,11 @@ import {
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCounselLeaderboards } from "@/hooks/use-insights";
-import { CHART_SERIES_PALETTE } from "@/lib/chart-palette";
+import {
+  CHART_MAX_CATEGORICAL_SERIES,
+  CHART_NEUTRAL_SERIES_COLOR,
+  CHART_SERIES_PALETTE,
+} from "@/lib/chart-palette";
 import { formatCompactCurrencyValue } from "@/lib/format-utils";
 import type { CounselLeaderboardSide } from "@shared/insights";
 
@@ -31,7 +35,20 @@ type CounselSectionProps = {
   title: string;
 };
 
-const LEADERBOARD_COLORS = CHART_SERIES_PALETTE;
+const OTHER_SERIES_KEY = "firm_other";
+
+/**
+ * The response ranks up to 15 firms, but the categorical palette has 8 hues.
+ * When there are more firms than hues, the top 7 keep their own colors and
+ * the rest fold into one neutral "Other" band, so no two firms share a color.
+ */
+function splitChartFirms<T>(rows: readonly T[]) {
+  if (rows.length <= CHART_MAX_CATEGORICAL_SERIES) {
+    return { named: rows, other: [] as T[] };
+  }
+  const namedCount = CHART_MAX_CATEGORICAL_SERIES - 1;
+  return { named: rows.slice(0, namedCount), other: rows.slice(namedCount) };
+}
 
 function formatDealCount(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -80,15 +97,24 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
         ? selectedAnnual?.top_by_count ?? []
         : selectedAnnual?.top_by_value ?? [];
   const chartRows = metric === "deal_count" ? side.top_by_count : side.top_by_value;
-  const chartSeries = useMemo(
-    () =>
-      chartRows.map((row, index) => ({
-        key: `firm_${index}`,
-        label: row.counsel,
-        color: LEADERBOARD_COLORS[index % LEADERBOARD_COLORS.length],
-      })),
-    [chartRows],
-  );
+  const chartFirms = useMemo(() => splitChartFirms(chartRows), [chartRows]);
+  const chartSeries = useMemo(() => {
+    const series = chartFirms.named.map((row, index) => ({
+      key: `firm_${index}`,
+      label: row.counsel,
+      color: CHART_SERIES_PALETTE[index],
+    }));
+    if (chartFirms.other.length > 0) {
+      const firstRank = chartFirms.named.length + 1;
+      const lastRank = firstRank + chartFirms.other.length - 1;
+      series.push({
+        key: OTHER_SERIES_KEY,
+        label: `Other (ranks ${firstRank}–${lastRank})`,
+        color: CHART_NEUTRAL_SERIES_COLOR,
+      });
+    }
+    return series;
+  }, [chartFirms]);
   const chartData = useMemo(() => {
     const years = new Set<number>();
     chartRows.forEach((row) => {
@@ -96,18 +122,25 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
         years.add(yearRow.year);
       });
     });
+    const valueFor = (row: (typeof chartRows)[number], year: number) =>
+      row.years.find((item) => item.year === year)?.[metric] ?? 0;
 
     return Array.from(years)
       .sort((a, b) => a - b)
       .map((year) => {
         const nextRow: { year: number } & Record<string, number> = { year };
-        chartRows.forEach((row, index) => {
-          const yearRow = row.years.find((item) => item.year === year);
-          nextRow[`firm_${index}`] = yearRow ? yearRow[metric] : 0;
+        chartFirms.named.forEach((row, index) => {
+          nextRow[`firm_${index}`] = valueFor(row, year);
         });
+        if (chartFirms.other.length > 0) {
+          nextRow[OTHER_SERIES_KEY] = chartFirms.other.reduce(
+            (sum, row) => sum + valueFor(row, year),
+            0,
+          );
+        }
         return nextRow;
       });
-  }, [chartRows, metric]);
+  }, [chartRows, chartFirms, metric]);
   const activeView: LeaderboardView = isMobile ? "table" : view;
 
   const metricOptions = [
@@ -204,7 +237,10 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
           <>
             <p id={tableId} className="sr-only">
               100 percent stacked area chart showing yearly share of the selected metric across the
-              current top 15 firms.
+              current top {chartRows.length} firms.
+              {chartFirms.other.length > 0
+                ? ` The top ${chartFirms.named.length} are shown individually; the rest are combined as Other.`
+                : null}
             </p>
             <CounselLeaderboardChart
               data={chartData}
