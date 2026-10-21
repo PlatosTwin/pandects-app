@@ -170,9 +170,10 @@ export default function BulkData() {
           </h2>
           {loading ? (
             // Same layout as the loaded block below (three facts, then the
-            // action buttons) so nothing shifts when the list arrives.
+            // action buttons) so nothing shifts when the list arrives. Side by
+            // side only from xl: at lg the loaded buttons would wrap.
             <div
-              className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+              className="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
               role="status"
               aria-live="polite"
             >
@@ -210,7 +211,7 @@ export default function BulkData() {
               onRetry={() => void refetchDumps()}
             />
           ) : latestDump ? (
-            <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <dl className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-[auto_auto_minmax(0,1fr)]">
                 <div>
                   <Eyebrow asChild>
@@ -282,7 +283,8 @@ export default function BulkData() {
 
           {loading ? (
             // Two placeholder rows shaped like the loaded table (lg) and list
-            // (below lg), so the sections underneath barely move on arrival.
+            // (below lg). Exact for two dated dumps; with more, the extra rows
+            // load below the cards above, so the visible shift stays small.
             <div role="status" aria-live="polite">
               <span className="sr-only">Loading dumps...</span>
               <div aria-hidden="true" className="hidden lg:block">
