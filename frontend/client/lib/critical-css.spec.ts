@@ -38,23 +38,37 @@ function readFontFamily(rule: string): string {
   return (match?.[1] ?? "").replace(/\s+/g, " ").trim();
 }
 
-/** WCAG relative luminance of an `H S% L%` token value. */
-function hslTokenLuminance(value: string): number {
+/** sRGB channels (0-1) of an `H S% L%` token value. */
+function hslTokenRgb(value: string): [number, number, number] {
   const [h, sPct, lPct] = value.replace(/%/g, "").split(/\s+/).map(Number);
   const sat = sPct / 100;
   const light = lPct / 100;
   const a = sat * Math.min(light, 1 - light);
   const channel = (n: number) => {
     const k = (n + h / 30) % 12;
-    const c = light - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
-    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    return light - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
   };
-  return 0.2126 * channel(0) + 0.7152 * channel(8) + 0.0722 * channel(4);
+  return [channel(0), channel(8), channel(4)];
+}
+
+/** WCAG relative luminance of sRGB channels (0-1). */
+function rgbLuminance([r, g, b]: [number, number, number]): number {
+  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/** WCAG relative luminance of an `H S% L%` token value. */
+function hslTokenLuminance(value: string): number {
+  return rgbLuminance(hslTokenRgb(value));
+}
+
+function luminanceContrast(x: number, y: number): number {
+  const [hi, lo] = [x, y].sort((p, q) => q - p);
+  return (hi + 0.05) / (lo + 0.05);
 }
 
 function contrastRatio(a: string, b: string): number {
-  const [hi, lo] = [hslTokenLuminance(a), hslTokenLuminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
+  return luminanceContrast(hslTokenLuminance(a), hslTokenLuminance(b));
 }
 
 describe("chart palette", () => {
@@ -66,6 +80,27 @@ describe("chart palette", () => {
       for (const token of chartTokens) {
         const ratio = contrastRatio(tokens.get(token) ?? "", tokens.get(surface) ?? "");
         expect(ratio, `${token} on ${surface}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it("keeps heatmap cell text at 4.5:1 or more at every fill opacity in both themes", () => {
+    // TrendsAnalyses fills cells with hsl(var(--heatmap) / 0.1 + intensity * 0.75)
+    // over an opaque card, and draws foreground text on top.
+    for (const selector of [":root", ".dark"]) {
+      const tokens = readDeclarations(readRule(globalCss, selector));
+      const fill = hslTokenRgb(tokens.get("--heatmap") ?? "");
+      const card = hslTokenRgb(tokens.get("--card") ?? "");
+      const text = hslTokenLuminance(tokens.get("--foreground") ?? "");
+      for (let step = 0; step <= 20; step += 1) {
+        const opacity = 0.1 + (step / 20) * 0.75;
+        const cell = fill.map((c, i) => c * opacity + card[i] * (1 - opacity)) as [
+          number,
+          number,
+          number,
+        ];
+        const ratio = luminanceContrast(text, rgbLuminance(cell));
+        expect(ratio, `${selector} at opacity ${opacity.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
       }
     }
   });

@@ -125,6 +125,8 @@ declares its own. The module has three groups:
    Every light-mode series color, `--chart-neutral` included, keeps at least
    3:1 contrast against `--card` and `--background` (WCAG non-text
    contrast); change `critical.css` in step with `global.css`.
+   Heatmap cells (`heatmapCellFill`) use `--heatmap`, not `--chart-1`: its
+   dark value stays darker so foreground text keeps 4.5:1 at every opacity.
 2. **Semantic assignments** (`OWNERSHIP_SERIES_COLORS`, `DEAL_TYPE_COLORS`,
    `PROCESSING_STATUS_COLORS`, `SECTOR_CONCENTRATION_LINE_COLOR`,
    `CHART_NEUTRAL_SERIES_COLOR` for unknown/other).

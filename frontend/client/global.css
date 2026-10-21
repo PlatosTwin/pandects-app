@@ -66,6 +66,8 @@
     --chart-7: 135 70% 24%;
     --chart-8: 28 95% 40%;
     --chart-neutral: 220 9% 58%;
+    /* Heatmap cell fill; text on it stays foreground at every opacity. */
+    --heatmap: 212 93% 50%;
 
     /* App background (used via bg-cream) — cool near-white */
     --cream: 220 20% 98.5%;
@@ -120,6 +122,8 @@
     --chart-7: 142 60% 52%;
     --chart-8: 24 95% 60%;
     --chart-neutral: 220 9% 52%;
+    /* Darker than chart-1 so foreground text clears 4.5:1 at full intensity. */
+    --heatmap: 212 93% 50%;
 
     /* App background (used via bg-cream) */
     --cream: 222 10% 6.5%;
