@@ -125,6 +125,8 @@ declares its own. The module has three groups:
    Every light-mode series color, `--chart-neutral` included, keeps at least
    3:1 contrast against `--card` and `--background` (WCAG non-text
    contrast); change `critical.css` in step with `global.css`.
+   Stacked bars and areas draw a `hsl(var(--card))` 1px stroke so touching
+   segments never depend on their contrast with each other.
    Heatmap cells (`heatmapCellFill`) use `--heatmap`, not `--chart-1`: its
    dark value stays darker so foreground text keeps 4.5:1 at every opacity.
 2. **Semantic assignments** (`OWNERSHIP_SERIES_COLORS`, `DEAL_TYPE_COLORS`,
@@ -169,8 +171,10 @@ frame is the `app-frame` class (`global.css`: `max-w-screen-2xl` plus the
 and the reader use, so the title always lines up with the logo. Change
 the width there only; `lib/design-system.spec.ts` fails on a copied
 `max-w-7xl`. Search is the exception: a full-bleed workspace with the
-filter rail flush against the screen edge, like most search UIs. Pick one `layout`; it sets the page's
-single reading measure. Never add per-paragraph `max-w-NNch` caps inside it.
+filter rail flush against the screen edge, like most search UIs. Its query
+bar and, on Search, the navigation bar use `app-frame-bleed` (`global.css`),
+so the logo and the controls share edges at every width. Pick one `layout`;
+it sets the page's single reading measure. Never add per-paragraph `max-w-NNch` caps inside it.
 
 | `layout` | Content width | Use for |
 |----------|---------------|---------|

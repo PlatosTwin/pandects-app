@@ -296,7 +296,8 @@ export function TrendsStackedShareAreaChart({
               dataKey={item.key}
               type="monotone"
               stackId="share"
-              stroke={chartColorVar(item.key)}
+              stroke="hsl(var(--card))"
+              strokeWidth={1}
               fill={chartColorVar(item.key)}
               fillOpacity={0.95}
               name={item.label}

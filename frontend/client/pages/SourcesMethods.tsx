@@ -453,6 +453,7 @@ export default function SourcesMethods() {
                 <Eyebrow className="px-3">The Pandects Standard</Eyebrow>
               </div>
               <ol
+                role="list"
                 className="space-y-3 pt-3"
                 aria-label="Status quo versus Pandects standard comparisons"
               >
@@ -463,11 +464,11 @@ export default function SourcesMethods() {
                   >
                     <span
                       aria-hidden="true"
-                      className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums text-muted-foreground md:mt-0.5"
+                      className="hidden h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums text-muted-foreground md:mt-2 md:flex"
                     >
                       {index + 1}
                     </span>
-                    <div className="min-w-0">
+                    <div className="min-w-0 md:py-2.5">
                       <Eyebrow className="mb-1 md:hidden" aria-hidden="true">
                         The Status Quo
                       </Eyebrow>

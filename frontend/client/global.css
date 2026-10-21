@@ -315,6 +315,13 @@
     @apply mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8;
   }
 
+  /* The Search workspace's frame: full-bleed, with lg:pl-5 lining content up
+     with the filter rail's and lg:pr-8 with the results' edge. The nav uses
+     it on Search too, so the header and the workspace share edges. */
+  .app-frame-bleed {
+    @apply w-full px-4 sm:px-6 lg:pl-5 lg:pr-8;
+  }
+
   /* A surface that is itself one link or button (starter tile, linked fact
      card): it rises a pixel and picks up the primary border on hover, settles on press. Its
      hover beats plain utilities, so don't use it on selectable surfaces. Pair

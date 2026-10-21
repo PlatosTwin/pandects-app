@@ -31,6 +31,6 @@ primary_region = 'iad'
   destination = '/data'
 
 [[vm]]
-  memory = 768
+  memory = 1024
   cpu_kind = 'shared'
   cpus = 1
