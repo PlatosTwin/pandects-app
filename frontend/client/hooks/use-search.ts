@@ -174,6 +174,8 @@ type ArrayFilterField = {
 }[keyof SearchFilters];
 type TextFilterField = "agreement_uuid" | "section_uuid";
 
+export type CsvScope = "auto" | "all" | "selected";
+
 const EMPTY_ACCESS: SearchPageResponse<unknown>["access"] = { tier: "anonymous" };
 
 /**
@@ -449,8 +451,13 @@ export function useSearch<TResult>(config: SearchEndpointConfig<TResult>) {
     setSelectedResults(new Set());
   }, []);
 
-  const downloadCSV = useCallback(async () => {
-    const isSelection = selectedResults.size > 0;
+  /**
+   * Build a CSV. `"auto"` (the default) exports the selection when rows are
+   * selected, else every result; `"all"` / `"selected"` force one or the other.
+   */
+  const downloadCSV = useCallback(async (scope: CsvScope = "auto") => {
+    if (scope === "selected" && selectedResults.size === 0) return;
+    const isSelection = scope === "selected" || (scope === "auto" && selectedResults.size > 0);
     let rows: TResult[] = [];
     let exportedFrom: CsvExportRows<TResult> | null = null;
 
@@ -487,7 +494,7 @@ export function useSearch<TResult>(config: SearchEndpointConfig<TResult>) {
       const exportedFilters = getLoadedCommitted()?.filters ?? filters;
       trackEvent(csvDownload.event, {
         mode: isSelection ? "selected" : "all",
-        selected_count: selectedResults.size,
+        selected_count: isSelection ? selectedResults.size : 0,
         downloaded_count: rows.length,
         truncated: exportedFrom?.truncated ?? false,
         ...(csvDownload.payload?.(exportedFilters) ?? {}),

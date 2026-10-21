@@ -1,112 +1,163 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import {
-  TRANSACTION_CONSIDERATION_OPTIONS,
-  TRANSACTION_PRICE_OPTIONS,
-  TARGET_TYPE_OPTIONS,
   ACQUIRER_TYPE_OPTIONS,
-  DEAL_STATUS_OPTIONS,
   ATTITUDE_OPTIONS,
+  DEAL_STATUS_OPTIONS,
   DEAL_TYPE_OPTIONS,
-  PURPOSE_OPTIONS,
   PE_OPTIONS,
+  PURPOSE_OPTIONS,
+  TARGET_TYPE_OPTIONS,
+  TRANSACTION_CONSIDERATION_OPTIONS,
 } from "@/lib/constants";
-import { RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CheckboxFilter } from "@/components/CheckboxFilter";
-import { NestedCheckboxFilter } from "@/components/NestedCheckboxFilter";
+import { CheckboxFilter, CheckboxList } from "@/components/CheckboxFilter";
 import { TextFilter } from "@/components/TextFilter";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNaics } from "@/hooks/use-naics";
 import { formatNaicsIndustry } from "@/lib/naics";
-import { Button } from "@/components/ui/button";
-import { AdaptiveTooltip } from "@/components/ui/adaptive-tooltip";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import type { ClauseTypeTree } from "@/lib/clause-types";
+import type { SearchMode, SearchQueryFilters } from "@shared/search";
+import { ValueRangeFilter, YearRangeFilter } from "@/pages/search/RangeFacets";
+import {
+  FACET_GROUP_FIELDS,
+  countActiveFilters,
+  facetGroupsForMode,
+  resetFieldsPatch,
+  type FacetGroupId,
+  type PriceField,
+} from "@/pages/search/search-ui";
 
-interface SearchSidebarProps {
-  filters: {
-    year?: string[];
-    target?: string[];
-    acquirer?: string[];
-    clauseType?: string[];
-    transaction_price_total?: string[];
-    transaction_price_stock?: string[];
-    transaction_price_cash?: string[];
-    transaction_price_assets?: string[];
-    transaction_consideration?: string[];
-    target_type?: string[];
-    acquirer_type?: string[];
-    target_counsel?: string[];
-    acquirer_counsel?: string[];
-    target_industry?: string[];
-    acquirer_industry?: string[];
-    deal_status?: string[];
-    attitude?: string[];
-    deal_type?: string[];
-    purpose?: string[];
-    target_pe?: string[];
-    acquirer_pe?: string[];
-    agreement_uuid?: string;
-    section_uuid?: string;
-  };
-  years: string[];
+export interface SearchSidebarProps {
+  mode: SearchMode;
+  filters: SearchQueryFilters;
   target_counsels: string[];
   acquirer_counsels: string[];
   target_industries: string[];
   acquirer_industries: string[];
-  clauseTypesNested: ClauseTypeTree;
-  clauseTypeLabelById: Record<string, string>;
-  clauseTypeSectionLabel?: string;
   isLoadingFilterOptions: boolean;
-  isLoadingTaxonomy: boolean;
+  /** Toggle one value of an array filter. */
   onToggleFilterValue: (field: string, value: string) => void;
-  onTextFilterChange: (field: string, value: string) => void;
-  onClearFilters: () => void;
+  /** Replace several fields at once (ranges, group resets). */
+  onPatchFilters: (patch: Partial<SearchQueryFilters>) => void;
+  /** Set (or clear, with "") a UUID filter. */
+  onTextFilterChange: (field: "agreement_uuid" | "section_uuid", value: string) => void;
   loadTargetOptions?: (query: string) => Promise<string[]>;
   loadAcquirerOptions?: (query: string) => Promise<string[]>;
-  onToggleCollapse?: () => void;
-  isCollapsed?: boolean;
-  variant?: "sidebar" | "sheet";
+  /** "rail": sticky desktop column with its own scroll; "sheet": inside the mobile sheet. */
+  variant?: "rail" | "sheet";
+  /** Shown above the groups (e.g. a filter-options load error). */
+  notice?: ReactNode;
   className?: string;
 }
 
+const GROUP_TITLES: Record<FacetGroupId, string> = {
+  tax: "Tax clauses",
+  deal: "Deal",
+  parties: "Parties",
+  counsel: "Counsel",
+  advanced: "Advanced",
+};
+
+const PE_LABELS: Record<string, string> = { true: "PE-backed", false: "Not PE-backed" };
+
+function FacetGroup({
+  id,
+  title,
+  activeCount,
+  open,
+  onOpenChange,
+  onReset,
+  children,
+}: {
+  id: FacetGroupId;
+  title: string;
+  activeCount: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onReset: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange} className="border-b border-border last:border-b-0">
+      <div className="flex items-center gap-2 py-1">
+        <CollapsibleTrigger
+          className="flex min-h-10 flex-1 items-center gap-2 rounded-md px-1 text-left text-sm font-semibold text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-controls={`facet-group-${id}`}
+        >
+          <ChevronDown
+            className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")}
+            aria-hidden="true"
+          />
+          <span>{title}</span>{" "}
+          {activeCount > 0 ? (
+            <span className="rounded-full bg-primary/10 px-1.5 text-xs font-medium tabular-nums text-primary">
+              {activeCount}
+              {" "}<span className="sr-only">active</span>
+            </span>
+          ) : null}
+        </CollapsibleTrigger>
+        {activeCount > 0 ? (
+          <button
+            type="button"
+            onClick={onReset}
+            className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`Reset ${title} filters`}
+          >
+            Reset
+          </button>
+        ) : null}
+      </div>
+      <CollapsibleContent id={`facet-group-${id}`} className="space-y-5 px-1 pb-5 pt-1">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+/**
+ * Faceted filters, grouped (Deal · Parties · Counsel · Advanced; Tax mode
+ * adds a Tax clauses group). Each group header shows how many of its
+ * filters are active and resets just that group.
+ */
 export function SearchSidebar({
+  mode,
   filters,
-  years,
   target_counsels,
   acquirer_counsels,
   target_industries,
   acquirer_industries,
-  clauseTypesNested,
-  clauseTypeLabelById,
-  clauseTypeSectionLabel = "Section Type",
   isLoadingFilterOptions,
-  isLoadingTaxonomy,
   onToggleFilterValue,
+  onPatchFilters,
   onTextFilterChange,
-  onClearFilters,
   loadTargetOptions,
   loadAcquirerOptions,
-  onToggleCollapse,
-  isCollapsed = false,
-  variant = "sidebar",
+  variant = "rail",
+  notice,
   className,
 }: SearchSidebarProps) {
-  const filterLoadingStatusId = React.useId();
-  const toggleCollapse = onToggleCollapse ?? (() => {});
-  const showContent = variant === "sheet" || !isCollapsed;
-  const { labelByCode: naicsLabelByCode } = useNaics();
+  const groups = facetGroupsForMode(mode);
+  const counts = Object.fromEntries(
+    groups.map((group) => [group, countActiveFilters(filters, FACET_GROUP_FIELDS[group])]),
+  ) as Record<FacetGroupId, number>;
+  // Deal (and the Tax group) start open; other groups start open only when
+  // they already hold an active filter (e.g. from a shared link).
+  const [openGroups, setOpenGroups] = useState<Record<FacetGroupId, boolean>>(() => ({
+    tax: true,
+    deal: true,
+    parties: counts.parties > 0,
+    counsel: counts.counsel > 0,
+    advanced: counts.advanced > 0,
+  }));
 
-  // Industry filter values stay raw NAICS codes on the wire; CheckboxFilter
-  // toggles the option string itself, so options and selected values are
-  // mapped to "Label (code)" display strings and toggles are mapped back to
-  // the code before reaching the filter state. A code the lookup cannot
-  // resolve keeps its raw form so the option stays selectable/removable.
-  const industryDisplay = React.useCallback(
+  const { labelByCode: naicsLabelByCode } = useNaics();
+  // Industry values stay NAICS codes on the wire; the picker shows
+  // "Label (code)" and maps toggles back to the code.
+  const industryDisplay = useCallback(
     (code: string) => formatNaicsIndustry(naicsLabelByCode, code) ?? code,
     [naicsLabelByCode],
   );
-  const industryCodeByDisplay = React.useMemo(() => {
+  const industryCodeByDisplay = useMemo(() => {
     const map = new Map<string, string>();
     for (const code of [
       ...target_industries,
@@ -117,431 +168,204 @@ export function SearchSidebar({
       map.set(industryDisplay(code), code);
     }
     return map;
-  }, [
-    target_industries,
-    acquirer_industries,
-    filters.target_industry,
-    filters.acquirer_industry,
-    industryDisplay,
-  ]);
-  const onToggleIndustryDisplay = (field: string, display: string) =>
+  }, [target_industries, acquirer_industries, filters.target_industry, filters.acquirer_industry, industryDisplay]);
+  const toggleIndustry = (field: string, display: string) =>
     onToggleFilterValue(field, industryCodeByDisplay.get(display) ?? display);
 
-  const filtersContent = (
-    <div
-      className="space-y-8"
-      role="region"
-      aria-label="Search filters"
-      aria-busy={isLoadingFilterOptions}
-      aria-describedby={isLoadingFilterOptions ? filterLoadingStatusId : undefined}
-    >
-      {isLoadingFilterOptions ? (
-        <div
-          id={filterLoadingStatusId}
-          className="sr-only"
-          role="status"
-          aria-live="polite"
-        >
-          Loading search filter options.
-        </div>
-      ) : null}
-      {/* Year Filter */}
-      <div>
-        <CheckboxFilter
-          label="Year"
-          options={years}
-          selectedValues={filters.year || []}
-          onToggle={(value) => onToggleFilterValue("year", value)}
-        />
-      </div>
+  const toggle = (field: string) => (value: string) => onToggleFilterValue(field, value);
 
-      {/* Target Filter */}
-      <div className="relative">
-        {/* Options come from the async search; the static list is unused. */}
+  const groupContent: Record<FacetGroupId, ReactNode> = {
+    tax: (
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={Boolean(filters.include_rep_warranty)}
+          onChange={(event) =>
+            onPatchFilters({ include_rep_warranty: event.target.checked ? true : undefined })
+          }
+          className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+        />
+        <span>
+          Include reps &amp; warranties clauses
+          <span className="block text-xs text-muted-foreground">Excluded by default.</span>
+        </span>
+      </label>
+    ),
+    deal: (
+      <>
+        <YearRangeFilter years={filters.year ?? []} onChange={(year) => onPatchFilters({ year })} />
+        <ValueRangeFilter
+          filters={filters}
+          onChange={(field: PriceField, buckets) => onPatchFilters({ [field]: buckets })}
+        />
+        <CheckboxList
+          label="Status"
+          options={DEAL_STATUS_OPTIONS}
+          selectedValues={filters.deal_status ?? []}
+          onToggle={toggle("deal_status")}
+        />
+        <CheckboxList
+          label="Deal type"
+          options={DEAL_TYPE_OPTIONS}
+          selectedValues={filters.deal_type ?? []}
+          onToggle={toggle("deal_type")}
+        />
+        <CheckboxList
+          label="Consideration"
+          options={TRANSACTION_CONSIDERATION_OPTIONS}
+          selectedValues={filters.transaction_consideration ?? []}
+          onToggle={toggle("transaction_consideration")}
+        />
+        <CheckboxList
+          label="Attitude"
+          options={ATTITUDE_OPTIONS}
+          selectedValues={filters.attitude ?? []}
+          onToggle={toggle("attitude")}
+        />
+        <CheckboxList
+          label="Purpose"
+          options={PURPOSE_OPTIONS}
+          selectedValues={filters.purpose ?? []}
+          onToggle={toggle("purpose")}
+        />
+      </>
+    ),
+    parties: (
+      <>
         <CheckboxFilter
           label="Target"
           options={[]}
-          selectedValues={filters.target || []}
-          onToggle={(value) => onToggleFilterValue("target", value)}
-          asyncSearch={
-            loadTargetOptions
-              ? {
-                  loadOptions: loadTargetOptions,
-                }
-              : undefined
-          }
+          selectedValues={filters.target ?? []}
+          onToggle={toggle("target")}
+          asyncSearch={loadTargetOptions ? { loadOptions: loadTargetOptions } : undefined}
         />
-      </div>
-
-      {/* Acquirer Filter */}
-      <div className="relative">
         <CheckboxFilter
           label="Acquirer"
           options={[]}
-          selectedValues={filters.acquirer || []}
-          onToggle={(value) => onToggleFilterValue("acquirer", value)}
-          asyncSearch={
-            loadAcquirerOptions
-              ? {
-                  loadOptions: loadAcquirerOptions,
-                }
-              : undefined
-          }
+          selectedValues={filters.acquirer ?? []}
+          onToggle={toggle("acquirer")}
+          asyncSearch={loadAcquirerOptions ? { loadOptions: loadAcquirerOptions } : undefined}
         />
-      </div>
-
-      {/* Section Type Filter */}
-      <div className="relative">
-        <NestedCheckboxFilter
-          label={clauseTypeSectionLabel}
-          labelAddon={
-            <AdaptiveTooltip
-              trigger={
-                <button
-                  type="button"
-                  className="tooltip-help-trigger"
-                  aria-label="Learn more about the taxonomy"
-                >
-                  ?
-                </button>
-              }
-              content={
-                <>
-                  Learn more about the taxonomy on the{" "}
-                  <Link
-                    to="/taxonomy"
-                    className="font-medium text-primary underline underline-offset-2"
-                  >
-                    Taxonomy page
-                  </Link>
-                  .
-                </>
-              }
-              tooltipProps={{
-                side: "top",
-                className: "max-w-[220px] text-xs",
-              }}
-              delayDuration={0}
-              popoverProps={{
-                side: "top",
-                className: "w-auto max-w-[220px] p-2 text-xs",
-              }}
-            />
-          }
-          data={clauseTypesNested}
-          selectedValues={filters.clauseType || []}
-          onToggle={(value) => onToggleFilterValue("clauseType", value)}
-          labelById={clauseTypeLabelById}
-          useModal={true}
-        />
-        {isLoadingTaxonomy && (
-          <div
-            className="absolute inset-0 flex items-center justify-center rounded bg-background/70"
-            role="status"
-            aria-live="polite"
-          >
-            <LoadingSpinner size="sm" aria-label="Loading taxonomy" />
-          </div>
-        )}
-      </div>
-
-      {/* Transaction Price Filters */}
-      <div className="space-y-4">
-        <div className="text-xs font-normal text-muted-foreground tracking-[0.15px]">
-          Transaction Price
-        </div>
-        <div className="ml-4 space-y-3">
-          <CheckboxFilter
-            label="Total"
-            options={TRANSACTION_PRICE_OPTIONS}
-            selectedValues={filters.transaction_price_total || []}
-            onToggle={(value) => onToggleFilterValue("transaction_price_total", value)}
-            hideSearch={true}
-          />
-          <CheckboxFilter
-            label="Stock"
-            options={TRANSACTION_PRICE_OPTIONS}
-            selectedValues={filters.transaction_price_stock || []}
-            onToggle={(value) => onToggleFilterValue("transaction_price_stock", value)}
-            hideSearch={true}
-          />
-          <CheckboxFilter
-            label="Cash"
-            options={TRANSACTION_PRICE_OPTIONS}
-            selectedValues={filters.transaction_price_cash || []}
-            onToggle={(value) => onToggleFilterValue("transaction_price_cash", value)}
-            hideSearch={true}
-          />
-          <CheckboxFilter
-            label="Assets"
-            options={TRANSACTION_PRICE_OPTIONS}
-            selectedValues={filters.transaction_price_assets || []}
-            onToggle={(value) => onToggleFilterValue("transaction_price_assets", value)}
-            hideSearch={true}
-          />
-        </div>
-      </div>
-
-      {/* Transaction Consideration Filter */}
-      <div>
-        <CheckboxFilter
-          label="Transaction Consideration"
-          options={TRANSACTION_CONSIDERATION_OPTIONS}
-          selectedValues={filters.transaction_consideration || []}
-          onToggle={(value) => onToggleFilterValue("transaction_consideration", value)}
-          hideSearch={true}
-          formatValues={true}
-        />
-      </div>
-
-      {/* Target Type Filter */}
-      <div>
-        <CheckboxFilter
-          label="Target Type"
-          options={TARGET_TYPE_OPTIONS}
-          selectedValues={filters.target_type || []}
-          onToggle={(value) => onToggleFilterValue("target_type", value)}
-          hideSearch={true}
-          formatValues={true}
-        />
-      </div>
-
-      {/* Acquirer Type Filter */}
-      <div>
-        <CheckboxFilter
-          label="Acquirer Type"
-          options={ACQUIRER_TYPE_OPTIONS}
-          selectedValues={filters.acquirer_type || []}
-          onToggle={(value) => onToggleFilterValue("acquirer_type", value)}
-          hideSearch={true}
-          formatValues={true}
-        />
-      </div>
-
-      {/* Target Counsel Filter */}
-      <div>
-        <CheckboxFilter
-          label="Target Counsel"
-          options={target_counsels}
-          selectedValues={filters.target_counsel || []}
-          onToggle={(value) => onToggleFilterValue("target_counsel", value)}
-          hideSearch={false}
-        />
-      </div>
-
-      {/* Acquirer Counsel Filter */}
-      <div>
-        <CheckboxFilter
-          label="Acquirer Counsel"
-          options={acquirer_counsels}
-          selectedValues={filters.acquirer_counsel || []}
-          onToggle={(value) => onToggleFilterValue("acquirer_counsel", value)}
-          hideSearch={false}
-        />
-      </div>
-
-      {/* Target Industry Filter */}
-      <div>
         <CheckboxFilter
           label="Target Industry"
           options={target_industries.map(industryDisplay)}
-          selectedValues={(filters.target_industry || []).map(industryDisplay)}
-          onToggle={(value) => onToggleIndustryDisplay("target_industry", value)}
-          hideSearch={false}
+          selectedValues={(filters.target_industry ?? []).map(industryDisplay)}
+          onToggle={(value) => toggleIndustry("target_industry", value)}
+          disabled={isLoadingFilterOptions && target_industries.length === 0}
         />
-      </div>
-
-      {/* Acquirer Industry Filter */}
-      <div>
         <CheckboxFilter
           label="Acquirer Industry"
           options={acquirer_industries.map(industryDisplay)}
-          selectedValues={(filters.acquirer_industry || []).map(industryDisplay)}
-          onToggle={(value) => onToggleIndustryDisplay("acquirer_industry", value)}
-          hideSearch={false}
+          selectedValues={(filters.acquirer_industry ?? []).map(industryDisplay)}
+          onToggle={(value) => toggleIndustry("acquirer_industry", value)}
+          disabled={isLoadingFilterOptions && acquirer_industries.length === 0}
         />
-      </div>
-
-      {/* Deal Status Filter */}
-      <div>
-        <CheckboxFilter
-          label="Deal Status"
-          options={DEAL_STATUS_OPTIONS}
-          selectedValues={filters.deal_status || []}
-          onToggle={(value) => onToggleFilterValue("deal_status", value)}
-          hideSearch={true}
-          formatValues={true}
+        <CheckboxList
+          label="Target type"
+          options={TARGET_TYPE_OPTIONS}
+          selectedValues={filters.target_type ?? []}
+          onToggle={toggle("target_type")}
         />
-      </div>
-
-      {/* Attitude Filter */}
-      <div>
-        <CheckboxFilter
-          label="Attitude"
-          options={ATTITUDE_OPTIONS}
-          selectedValues={filters.attitude || []}
-          onToggle={(value) => onToggleFilterValue("attitude", value)}
-          hideSearch={true}
-          formatValues={true}
+        <CheckboxList
+          label="Acquirer type"
+          options={ACQUIRER_TYPE_OPTIONS}
+          selectedValues={filters.acquirer_type ?? []}
+          onToggle={toggle("acquirer_type")}
         />
-      </div>
-
-      {/* Deal Type Filter */}
-      <div>
-        <CheckboxFilter
-          label="Deal Type"
-          options={DEAL_TYPE_OPTIONS}
-          selectedValues={filters.deal_type || []}
-          onToggle={(value) => onToggleFilterValue("deal_type", value)}
-          hideSearch={true}
-          formatValues={true}
-        />
-      </div>
-
-      {/* Purpose Filter */}
-      <div>
-        <CheckboxFilter
-          label="Purpose"
-          options={PURPOSE_OPTIONS}
-          selectedValues={filters.purpose || []}
-          onToggle={(value) => onToggleFilterValue("purpose", value)}
-          hideSearch={true}
-          formatValues={true}
-        />
-      </div>
-
-      {/* Target PE Filter */}
-      <div>
-        <CheckboxFilter
-          label="Target PE"
+        <CheckboxList
+          label="Target private equity"
           options={PE_OPTIONS}
-          selectedValues={filters.target_pe || []}
-          onToggle={(value) => onToggleFilterValue("target_pe", value)}
-          hideSearch={true}
-          formatValues={true}
+          selectedValues={filters.target_pe ?? []}
+          onToggle={toggle("target_pe")}
+          formatOption={(value) => PE_LABELS[value] ?? value}
         />
-      </div>
-
-      {/* Acquirer PE Filter */}
-      <div>
-        <CheckboxFilter
-          label="Acquirer PE"
+        <CheckboxList
+          label="Acquirer private equity"
           options={PE_OPTIONS}
-          selectedValues={filters.acquirer_pe || []}
-          onToggle={(value) => onToggleFilterValue("acquirer_pe", value)}
-          hideSearch={true}
-          formatValues={true}
+          selectedValues={filters.acquirer_pe ?? []}
+          onToggle={toggle("acquirer_pe")}
+          formatOption={(value) => PE_LABELS[value] ?? value}
         />
-      </div>
-
-      {/* Agreement UUID Filter */}
-      <div>
+      </>
+    ),
+    counsel: (
+      <>
+        <CheckboxFilter
+          label="Target Counsel"
+          options={target_counsels}
+          selectedValues={filters.target_counsel ?? []}
+          onToggle={toggle("target_counsel")}
+          disabled={isLoadingFilterOptions && target_counsels.length === 0}
+        />
+        <CheckboxFilter
+          label="Acquirer Counsel"
+          options={acquirer_counsels}
+          selectedValues={filters.acquirer_counsel ?? []}
+          onToggle={toggle("acquirer_counsel")}
+          disabled={isLoadingFilterOptions && acquirer_counsels.length === 0}
+        />
+      </>
+    ),
+    advanced: (
+      <>
         <TextFilter
+          key={`agreement:${filters.agreement_uuid ?? ""}`}
           label="Agreement UUID"
-          value={filters.agreement_uuid || ""}
-          onChange={(value) => onTextFilterChange("agreement_uuid", value)}
-          placeholder="Enter agreement UUID"
+          value={filters.agreement_uuid ?? ""}
+          onCommit={(value) => onTextFilterChange("agreement_uuid", value)}
+          placeholder="e.g. 4e1e8fda-2492-…"
         />
-      </div>
-
-      {/* Section UUID Filter */}
-      <div>
         <TextFilter
+          key={`section:${filters.section_uuid ?? ""}`}
           label="Section UUID"
-          value={filters.section_uuid || ""}
-          onChange={(value) => onTextFilterChange("section_uuid", value)}
-          placeholder="Enter section UUID"
+          value={filters.section_uuid ?? ""}
+          onCommit={(value) => onTextFilterChange("section_uuid", value)}
+          placeholder="e.g. ffcce93b-1257-…"
         />
-      </div>
+      </>
+    ),
+  };
+
+  const body = (
+    <div
+      role="region"
+      aria-label="Search filters"
+      aria-busy={isLoadingFilterOptions}
+      className="px-4"
+    >
+      {notice}
+      {groups.map((group) => (
+        <FacetGroup
+          key={group}
+          id={group}
+          title={GROUP_TITLES[group]}
+          activeCount={counts[group]}
+          open={openGroups[group]}
+          onOpenChange={(open) => setOpenGroups((prev) => ({ ...prev, [group]: open }))}
+          onReset={() => onPatchFilters(resetFieldsPatch(FACET_GROUP_FIELDS[group]))}
+        >
+          {groupContent[group]}
+        </FacetGroup>
+      ))}
     </div>
   );
 
   if (variant === "sheet") {
-    return (
-        <div className={cn("flex h-full flex-col", className)}>
-          <div className="border-b border-border bg-muted/20 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-foreground">Filters</h2>
-            </div>
-            <Button
-              onClick={onClearFilters}
-            variant="outline"
-            size="sm"
-            className="w-full justify-center gap-2"
-          >
-            <RotateCcw className="h-4 w-4" aria-hidden="true" />
-            Clear Filters
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch]">
-          {filtersContent}
-        </div>
-      </div>
-    );
+    return <div className={cn("pb-[calc(1rem+env(safe-area-inset-bottom))]", className)}>{body}</div>;
   }
 
   return (
-    <>
-      {/* The sidebar variant renders only at lg+ (smaller screens use the sheet).
-          It sticks under the 4rem site header and scrolls its own filter list. */}
-      <div
-        className={cn(
-          "sticky top-16 h-[calc(100vh-4rem)] flex-shrink-0 self-start border-r border-border bg-card transition-[width] duration-300 ease-in-out",
-          isCollapsed ? "w-16" : "w-80",
-          className,
-        )}
-      >
-        {/* Sidebar Content */}
-        {showContent && (
-          <div className="h-full flex flex-col">
-            {/* Header */}
-            <div className="border-b border-border bg-muted/20 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-medium text-foreground">
-                  Search Filters
-                </h2>
-                <button
-                  type="button"
-                  onClick={toggleCollapse}
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  title="Collapse sidebar"
-                  aria-label="Collapse sidebar"
-                >
-                  <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-                </button>
-              </div>
-              <Button
-                onClick={onClearFilters}
-                variant="outline"
-                size="sm"
-                className="w-full justify-center gap-2"
-              >
-                <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                Clear Filters
-              </Button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-4">{filtersContent}</div>
-          </div>
-        )}
-
-        {/* Collapsed State Content */}
-        {isCollapsed && (
-          <div className="h-full pt-4 flex justify-center">
-            <button
-              type="button"
-              onClick={toggleCollapse}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              title="Expand sidebar"
-              aria-label="Expand sidebar"
-            >
-              <ChevronRight className="w-4 h-4" aria-hidden="true" />
-            </button>
-          </div>
-        )}
-      </div>
-    </>
+    // Sticks under the site header plus the sticky query bar and scrolls on
+    // its own. The page wrapper uses overflow-x-clip (not -hidden), which
+    // would make it a scroll container and break `sticky`.
+    <aside
+      aria-label="Filters"
+      className={cn(
+        "sticky top-[calc(4rem+var(--search-bar-h,0px))] hidden h-[calc(100vh-4rem-var(--search-bar-h,0px))] w-64 shrink-0 self-start overflow-y-auto overscroll-contain border-r border-border bg-card pb-8 pt-2 lg:block xl:w-72 2xl:w-80",
+        className,
+      )}
+    >
+      {body}
+    </aside>
   );
 }

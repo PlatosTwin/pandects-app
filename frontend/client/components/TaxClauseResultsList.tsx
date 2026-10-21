@@ -1,171 +1,151 @@
 import { Link } from "react-router-dom";
-import { ExternalLink, Tag } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ResultsToolbar } from "@/components/ResultsToolbar";
 import { FlagAsInaccurateButton } from "@/components/FlagAsInaccurateButton";
 import { StarButton } from "@/components/StarButton";
+import type { ResultsDensity } from "@/components/ResultsToolbar";
+import { formatCompactCurrencyValue, formatEnumValue } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
 import type { TaxClauseSearchResult } from "@shared/tax-clauses";
+import { ClampedText, MetaLine, Parties, VerifiedBadge } from "@/pages/search/ResultBits";
+import { ResultRow, RowActions } from "@/pages/search/ResultRow";
 
-interface TaxClauseResultsListProps {
+export interface TaxClauseResultsListProps {
   results: TaxClauseSearchResult[];
   getAgreementHref: (result: TaxClauseSearchResult) => string;
   clauseTypeLabelById: Record<string, string>;
   selectedResults: Set<string>;
   onToggleResultSelection: (id: string) => void;
-  onToggleSelectAll: () => void;
-  sortBy: "year" | "target" | "acquirer";
-  sortDirection: "asc" | "desc";
-  onSortResults: (field: "year" | "target" | "acquirer") => void;
-  onToggleSortDirection: () => void;
-  density?: "comfy" | "compact";
-  onDensityChange?: (density: "comfy" | "compact") => void;
-  className?: string;
+  density?: ResultsDensity;
+  isAnonymous: boolean;
+  signInHref: string;
+  /** Clause types searched for; a matching type is named first. */
+  preferredTypeIds?: readonly string[];
 }
 
+/** Clause-type labels for a result, the searched-for types first. Never raw ids. */
+function clauseLabels(
+  result: TaxClauseSearchResult,
+  labels: Record<string, string>,
+  preferred: readonly string[],
+): string[] {
+  const ids = [...result.tax_standard_ids].sort(
+    (a, b) => Number(!preferred.includes(a)) - Number(!preferred.includes(b)),
+  );
+  return [...new Set(ids.map((id) => labels[id]).filter(Boolean))];
+}
+
+/** Tax clause results: clause type first, then the clause text, in the shared row shell. */
 export function TaxClauseResultsList({
   results,
   getAgreementHref,
   clauseTypeLabelById,
   selectedResults,
   onToggleResultSelection,
-  onToggleSelectAll,
-  sortBy,
-  sortDirection,
-  onSortResults,
-  onToggleSortDirection,
   density = "comfy",
-  onDensityChange,
-  className,
+  isAnonymous,
+  signInHref,
+  preferredTypeIds = [],
 }: TaxClauseResultsListProps) {
-  const allSelected =
-    results.length > 0 && results.every((r) => selectedResults.has(r.id));
-  const someSelected =
-    !allSelected && results.some((r) => selectedResults.has(r.id));
-
-  const isCompact = density === "compact";
-
   return (
-    <div className={cn("space-y-4", className)}>
-      <ResultsToolbar
-        variant="inline"
-        selection={{
-          allSelected,
-          someSelected,
-          onToggleSelectAll,
-          selectAllLabel: "Select all tax clauses on this page",
-          countLabel:
-            selectedResults.size > 0
-              ? `${selectedResults.size} selected`
-              : "Select all on page",
-        }}
-        sortBy={sortBy}
-        sortDirection={sortDirection}
-        onSortResults={onSortResults}
-        onToggleSortDirection={onToggleSortDirection}
-        sortSelectLabel="Sort tax clause results by"
-        density={density}
-        onDensityChange={onDensityChange}
-      />
-
-      <ul className="space-y-3" role="list">
-        {results.map((result) => {
-          const isSelected = selectedResults.has(result.id);
-          const target = result.target?.trim() || "Unknown target";
-          const acquirer = result.acquirer?.trim() || "Unknown acquirer";
-          const year = result.year ?? "—";
-          return (
-            <li
-              key={result.id}
-              className={cn(
-                "rounded-lg border border-l-4 bg-card shadow-sm transition-colors hover:border-l-primary/60",
-                isSelected
-                  ? "border-primary/40 border-l-primary ring-2 ring-primary/30"
-                  : "border-border border-l-primary/35",
-                isCompact ? "p-3" : "p-4",
-              )}
-            >
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => onToggleResultSelection(result.id)}
-                  className="mt-1 h-5 w-5 data-[state=checked]:bg-primary data-[state=checked]:border-primary sm:h-4 sm:w-4"
-                  aria-label={`Select tax clause for ${target} acquired by ${acquirer}`}
+    <ul aria-label="Tax clause results" className={density === "compact" ? "space-y-2" : "space-y-3"}>
+      {results.map((result) => {
+        const href = getAgreementHref(result);
+        const [primary, ...otherLabels] = clauseLabels(result, clauseTypeLabelById, preferredTypeIds);
+        const title = primary ?? "Unclassified tax clause";
+        const price = result.transaction_price_total != null ? Number(result.transaction_price_total) : null;
+        const text = result.clause_text?.trim() ?? "";
+        return (
+          <li key={result.id}>
+            <ResultRow
+              density={density}
+              selected={selectedResults.has(result.id)}
+              onToggleSelected={() => onToggleResultSelection(result.id)}
+              selectLabel={`Select ${title} clause from ${result.target || "unknown target"}`}
+              meta={
+                <MetaLine
+                  items={[
+                    result.year ? <span className="tabular-nums">{result.year}</span> : null,
+                    <Parties target={result.target} acquirer={result.acquirer} />,
+                    price != null && Number.isFinite(price) ? (
+                      <span className="tabular-nums">{formatCompactCurrencyValue(price)}</span>
+                    ) : null,
+                    result.deal_status ? <Badge variant="muted">{formatEnumValue(result.deal_status)}</Badge> : null,
+                    result.context_type === "rep_warranty" ? (
+                      <Badge variant="metadata">Reps &amp; warranties</Badge>
+                    ) : null,
+                    result.verified ? <VerifiedBadge /> : null,
+                  ]}
                 />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">{year}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="min-w-0 max-w-full truncate">
-                      <span className="text-muted-foreground">Target:</span>{" "}
-                      <span className="font-medium text-foreground">{target}</span>
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span className="min-w-0 max-w-full truncate">
-                      <span className="text-muted-foreground">Acquirer:</span>{" "}
-                      <span className="font-medium text-foreground">{acquirer}</span>
-                    </span>
-                    {result.context_type === "rep_warranty" && (
-                      <Badge variant="outline" className="border-amber-300/70 bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-                        Reps & warranties
-                      </Badge>
-                    )}
-                  </div>
-
-                  {result.tax_standard_ids.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {result.tax_standard_ids.map((sid) => (
-                        <Badge key={sid} variant="secondary" className="gap-1 text-xs">
-                          <Tag className="h-3 w-3" aria-hidden="true" />
-                          {clauseTypeLabelById[sid] ?? sid}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  <p
-                    className={cn(
-                      "mt-3 whitespace-pre-wrap text-sm text-foreground",
-                      isCompact && "line-clamp-4",
-                    )}
+              }
+              title={
+                <h3
+                  className={cn("text-base font-semibold leading-snug", density === "compact" && "text-sm")}
+                >
+                  <Link
+                    to={href}
+                    className="text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    {result.clause_text}
-                  </p>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <Button asChild size="sm" variant="outline" className="h-11 min-w-0 flex-1 gap-1.5 sm:h-9 sm:flex-none">
-                      <Link
-                        to={getAgreementHref(result)}
-                        aria-label={`Open agreement for tax clause from ${target} acquired by ${acquirer}`}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                        Open agreement
-                      </Link>
-                    </Button>
+                    {title}
+                  </Link>
+                </h3>
+              }
+              subtitle={
+                result.anchor_label || otherLabels.length > 0 ? (
+                  <span title={otherLabels.length > 0 ? `Also: ${otherLabels.join("; ")}` : undefined}>
+                    {[
+                      result.anchor_label ? `Clause ${result.anchor_label}` : null,
+                      otherLabels.length > 0
+                        ? `+${otherLabels.length} more ${otherLabels.length === 1 ? "type" : "types"}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                ) : null
+              }
+              actions={
+                <RowActions
+                  star={
                     <StarButton
                       itemType="tax_clause"
                       itemUuid={result.clause_uuid}
                       context={{
                         agreement_uuid: result.agreement_uuid,
-                        target,
-                        acquirer,
+                        target: result.target,
+                        acquirer: result.acquirer,
                       }}
                       className="shrink-0"
                     />
+                  }
+                  flag={
                     <FlagAsInaccurateButton
                       source="search_result"
                       agreement_uuid={result.agreement_uuid}
+                      section_uuid={result.section_uuid}
                       className="shrink-0"
                     />
-                  </div>
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+                  }
+                  openHref={href}
+                  openLabel={`Open the agreement for this ${title} clause (${result.target || "unknown target"})`}
+                />
+              }
+            >
+              {text ? (
+                <ClampedText text={text} lines={density === "compact" ? 3 : 6} moreLabel="Show full clause" />
+              ) : isAnonymous ? (
+                <p className="text-sm text-muted-foreground">
+                  <Link to={signInHref} className="font-medium text-primary hover:underline">
+                    Sign in
+                  </Link>{" "}
+                  to read this clause.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">No stored text.</p>
+              )}
+            </ResultRow>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

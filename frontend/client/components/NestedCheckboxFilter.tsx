@@ -1,538 +1,362 @@
-import { useEffect, useMemo, useRef, useState, useId } from "react";
-import { ChevronDown, ChevronRight, Check, Search } from "lucide-react";
+import { useId, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Check, ChevronDown, ChevronRight, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { truncateText, pluralizeLabel, formatFilterOption, pluralize } from "@/lib/text-utils";
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import type { ClauseTypeNode, ClauseTypeTree } from "@/lib/clause-types";
 
-interface NestedCheckboxFilterProps {
-  label: string;
+type TreeValue = ClauseTypeTree[string];
+
+function isNode(value: TreeValue): value is ClauseTypeNode {
+  return typeof value === "object" && value !== null && Object.prototype.hasOwnProperty.call(value, "id");
+}
+
+function childrenOf(value: TreeValue): ClauseTypeTree | null {
+  if (typeof value === "string") return null;
+  if (isNode(value)) return value.children ?? null;
+  return value;
+}
+
+function nodeIdOf(value: TreeValue): string | null {
+  if (typeof value === "string") return value;
+  if (isNode(value)) return value.id;
+  return null;
+}
+
+function isLeaf(value: TreeValue): boolean {
+  const children = childrenOf(value);
+  return children === null || Object.keys(children).length === 0;
+}
+
+/** Selectable ids under a tree value (the value itself when it is a leaf). */
+export function leafIdsOf(value: TreeValue): string[] {
+  if (isLeaf(value)) {
+    const id = nodeIdOf(value);
+    return id ? [id] : [];
+  }
+  return Object.values(childrenOf(value) ?? {}).flatMap(leafIdsOf);
+}
+
+interface LeafMatch {
+  key: string;
+  id: string;
+  path: string[];
+}
+
+function searchLeaves(tree: ClauseTypeTree, query: string, path: string[] = []): LeafMatch[] {
+  const needle = query.toLowerCase();
+  const matches: LeafMatch[] = [];
+  for (const [key, value] of Object.entries(tree)) {
+    if (isLeaf(value)) {
+      const id = nodeIdOf(value);
+      if (id && (key.toLowerCase().includes(needle) || path.join(" ").toLowerCase().includes(needle))) {
+        matches.push({ key, id, path });
+      }
+    } else {
+      const children = childrenOf(value);
+      if (children) matches.push(...searchLeaves(children, query, [...path, key]));
+    }
+  }
+  return matches;
+}
+
+export interface NestedCheckboxTreeProps {
   data: ClauseTypeTree;
   selectedValues: string[];
   onToggle: (value: string) => void;
   labelById?: Record<string, string>;
-  labelAddon?: React.ReactNode;
+  /** Plural noun for placeholders, e.g. "clause types" or "tax clause types". */
+  noun: string;
+  /** Clears the whole selection. */
+  onClear?: () => void;
   className?: string;
-  useModal?: boolean;
 }
 
-interface ExpandState {
-  [key: string]: boolean;
-}
-
-type SearchResult = {
-  key: string;
-  id: string;
-  path: string[];
-};
-
-type ClauseTypeValue = ClauseTypeTree[keyof ClauseTypeTree];
-
-export function NestedCheckboxFilter({
-  label,
+/**
+ * Searchable taxonomy tree: a type-ahead over leaf labels, a browsable tree
+ * with tri-state category checkboxes, and the current selection as chips.
+ */
+export function NestedCheckboxTree({
   data,
   selectedValues,
   onToggle,
   labelById,
-  labelAddon,
+  noun,
+  onClear,
   className,
-  useModal = false,
-}: NestedCheckboxFilterProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [expandState, setExpandState] = useState<ExpandState>({});
+}: NestedCheckboxTreeProps) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(-1);
-  const labelId = useId();
+  const [highlighted, setHighlighted] = useState(0);
   const listId = useId();
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  const isClauseTypeNode = (
-    value: ClauseTypeValue,
-  ): value is ClauseTypeNode =>
-    typeof value === "object" &&
-    value !== null &&
-    Object.prototype.hasOwnProperty.call(value, "id");
-
-  const getChildren = (value: ClauseTypeValue): ClauseTypeTree | null => {
-    if (typeof value === "string") return null;
-    if (isClauseTypeNode(value)) {
-      return value.children ?? null;
-    }
-    return value;
-  };
-
-  const getNodeId = (value: ClauseTypeValue): string | null => {
-    if (typeof value === "string") return value;
-    if (isClauseTypeNode(value)) return value.id;
-    return null;
-  };
-
-  const isLeafNode = (value: ClauseTypeValue): boolean => {
-    if (typeof value === "string") return true;
-    const children = getChildren(value);
-    return children === null || Object.keys(children).length === 0;
-  };
-
-  const getLeafIds = (value: ClauseTypeValue): string[] => {
-    if (isLeafNode(value)) {
-      const nodeId = getNodeId(value);
-      return nodeId ? [nodeId] : [];
-    }
-    const children = getChildren(value);
-    if (!children) return [];
-    return Object.values(children).flatMap(getLeafIds);
-  };
-
-  const getAllSelectableIds = useMemo(() => {
-    const values: string[] = [];
-    const traverse = (obj: ClauseTypeTree) => {
-      for (const value of Object.values(obj)) {
-        values.push(...getLeafIds(value));
-      }
-    };
-    traverse(data);
-    return values;
-  }, [data]);
-
-  const totalSelected = selectedValues.length;
-  const totalOptions = getAllSelectableIds.length;
-
-  const selectedLabel = useMemo(() => {
-    if (totalSelected === 0) return `All ${pluralizeLabel(label)}`;
-    if (totalSelected === 1) {
-      const selected = selectedValues[0];
-      const displayLabel = labelById?.[selected] ?? selected;
-      const { truncated } = truncateText(displayLabel);
-      return truncated;
-    }
-    if (totalSelected === totalOptions) return `All ${pluralizeLabel(label)}`;
-    return `${totalSelected} selected`;
-  }, [label, labelById, selectedValues, totalSelected, totalOptions]);
-
-  const searchLeafValues = useMemo(() => {
-    // Hoisted declaration so the recursive self-reference resolves without
-    // reading the const binding before it is initialized.
-    function walk(
-      obj: ClauseTypeTree,
-      query: string,
-      path: string[] = [],
-    ): SearchResult[] {
-      const results: SearchResult[] = [];
-      for (const [key, value] of Object.entries(obj)) {
-        if (isLeafNode(value)) {
-          if (key.toLowerCase().includes(query.toLowerCase())) {
-            const id = getNodeId(value);
-            if (id) {
-              results.push({ key, id, path: [...path] });
-            }
-          }
-        } else {
-          const children = getChildren(value);
-          if (children) {
-            results.push(...walk(children, query, [...path, key]));
-          }
-        }
-      }
-      return results;
-    }
-    return walk;
-  }, []);
-
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setSearchResults([]);
-      setHighlightedSearchIndex(-1);
-      return;
-    }
-    const results = searchLeafValues(data, searchTerm);
-    setSearchResults(results);
-    setHighlightedSearchIndex(results.length > 0 ? 0 : -1);
-  }, [data, searchLeafValues, searchTerm]);
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (searchResults.length === 0) return;
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        setHighlightedSearchIndex((prev) =>
-          prev < searchResults.length - 1 ? prev + 1 : 0,
-        );
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        setHighlightedSearchIndex((prev) =>
-          prev > 0 ? prev - 1 : searchResults.length - 1,
-        );
-        break;
-      case "Enter":
-        e.preventDefault();
-        if (highlightedSearchIndex >= 0) {
-          const selectedResult = searchResults[highlightedSearchIndex];
-          onToggle(selectedResult.id);
-        }
-        break;
-      case "Escape":
-        setSearchTerm("");
-        setHighlightedSearchIndex(-1);
-        break;
-    }
-  };
-
-  const getDescendantIdsUnderPath = (
-    obj: ClauseTypeTree,
-    path: string[],
-  ): string[] => {
-    let current: ClauseTypeTree | null = obj;
-    for (const pathPart of path) {
-      if (!current) {
-        return [];
-      }
-      const nextValue = current[pathPart];
-      if (!nextValue) {
-        return [];
-      }
-      const nextChildren = getChildren(nextValue);
-      if (!nextChildren) {
-        return [];
-      }
-      current = nextChildren;
-    }
-    const values: string[] = [];
-    const collect = (node: ClauseTypeTree) => {
-      for (const value of Object.values(node)) {
-        values.push(...getLeafIds(value));
-      }
-    };
-    if (current) {
-      collect(current);
-    }
-    return values;
-  };
-
-  const selectedLeafIds = useMemo(
-    () => new Set(selectedValues),
-    [selectedValues],
+  const selected = useMemo(() => new Set(selectedValues), [selectedValues]);
+  const matches = useMemo(
+    () => (searchTerm.trim() ? searchLeaves(data, searchTerm.trim()) : []),
+    [data, searchTerm],
   );
 
-  const handleCategoryToggle = (path: string[]) => {
-    let current: ClauseTypeTree | null = data;
-    let currentValue: ClauseTypeValue | null = null;
-    for (const pathPart of path) {
-      if (!current) return;
-      currentValue = current[pathPart];
-      if (!currentValue) return;
-      current = getChildren(currentValue);
-    }
-    if (!currentValue) return;
-    const leafIds = getLeafIds(currentValue);
-    if (leafIds.length === 0) return;
-    const allSelected = leafIds.every((id) => selectedLeafIds.has(id));
-    if (allSelected) {
-      leafIds.forEach((id) => {
-        if (selectedLeafIds.has(id)) {
-          onToggle(id);
-        }
-      });
+  const toggleCategory = (value: TreeValue) => {
+    const ids = leafIdsOf(value);
+    if (ids.length === 0) return;
+    const allSelected = ids.every((id) => selected.has(id));
+    ids.forEach((id) => {
+      if (allSelected ? selected.has(id) : !selected.has(id)) onToggle(id);
+    });
+  };
+
+  const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape" && searchTerm) {
+      // Clear the query first; a second Escape closes the popover.
+      event.stopPropagation();
+      setSearchTerm("");
       return;
     }
-    leafIds.forEach((id) => {
-      if (!selectedLeafIds.has(id)) {
-        onToggle(id);
-      }
-    });
+    if (matches.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlighted((prev) => (prev + 1) % matches.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlighted((prev) => (prev - 1 + matches.length) % matches.length);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const match = matches[Math.min(highlighted, matches.length - 1)];
+      if (match) onToggle(match.id);
+    }
   };
 
-  const toggleExpand = (key: string) => {
-    setExpandState((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const renderNestedItems = (
-    obj: ClauseTypeTree,
-    level: number = 0,
-    path: string[] = [],
-  ): JSX.Element[] => {
-    const sortedKeys = Object.keys(obj).sort();
-    return sortedKeys.map((key) => {
-      const value = obj[key];
-      const currentPath = [...path, key];
-      const indentClass = level === 0 ? "" : level === 1 ? "ml-4" : "ml-8";
-      const expandKey = currentPath.join(".");
-
-      if (isLeafNode(value)) {
-        const leafId = getNodeId(value);
-        if (!leafId) {
-          return null;
-        }
-        return (
-          <label
-            key={key}
-            className={cn(
-              "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/60 focus-within:bg-accent/60",
-              indentClass,
-            )}
-          >
-            <input
-              type="checkbox"
-              checked={selectedLeafIds.has(leafId)}
-              onChange={() => onToggle(leafId)}
-              className="h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
-            />
-            <span className="text-foreground">{key}</span>
-          </label>
-        );
-      }
-
-      const isExpanded = expandState[expandKey];
-      const descendantIds = getDescendantIdsUnderPath(data, currentPath);
-      const allSelected =
-        descendantIds.length > 0 &&
-        descendantIds.every((id) => selectedLeafIds.has(id));
-      const someSelected = descendantIds.some((id) =>
-        selectedLeafIds.has(id),
-      );
-      const children = getChildren(value);
-
-      return (
-        <div key={key} className={indentClass}>
-          <div className="flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-accent/50">
-            <button
-              type="button"
-              onClick={() => toggleExpand(expandKey)}
-              className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
-              aria-label={isExpanded ? `Collapse ${key}` : `Expand ${key}`}
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+  const renderTree = (tree: ClauseTypeTree, level: number, path: string[]): ReactNode[] =>
+    Object.keys(tree)
+      .sort()
+      .map((key) => {
+        const value = tree[key];
+        const expandKey = [...path, key].join(".");
+        const indent = level === 0 ? "" : "ml-5";
+        if (isLeaf(value)) {
+          const id = nodeIdOf(value);
+          if (!id) return null;
+          return (
+            <label
+              key={expandKey}
+              className={cn(
+                "flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/60 focus-within:bg-accent/60",
+                indent,
               )}
-            </button>
-
-            <label className="flex items-center gap-2 cursor-pointer flex-1">
+            >
               <input
                 type="checkbox"
-                checked={allSelected}
-                ref={(input) => {
-                  if (input) {
-                    input.indeterminate = someSelected && !allSelected;
-                  }
-                }}
-                onChange={() => handleCategoryToggle(currentPath)}
-                className="h-4 w-4 rounded border-input text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
+                checked={selected.has(id)}
+                onChange={() => onToggle(id)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-input accent-primary"
               />
-              <span className="text-foreground font-medium">{key}</span>
+              <span className="text-foreground">{key}</span>
             </label>
-          </div>
-
-          {isExpanded && children && (
-            <div className="ml-2">
-              {renderNestedItems(children, level + 1, currentPath)}
+          );
+        }
+        const ids = leafIdsOf(value);
+        const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
+        const someSelected = ids.some((id) => selected.has(id));
+        const isOpen = Boolean(expanded[expandKey]);
+        const children = childrenOf(value);
+        return (
+          <div key={expandKey} className={indent}>
+            <div className="flex items-center gap-1 rounded-md px-1 py-1 text-sm hover:bg-accent/50">
+              <button
+                type="button"
+                onClick={() => setExpanded((prev) => ({ ...prev, [expandKey]: !prev[expandKey] }))}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-expanded={isOpen}
+                aria-label={isOpen ? `Collapse ${key}` : `Expand ${key}`}
+              >
+                {isOpen ? (
+                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+              <label className="flex flex-1 cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(input) => {
+                    if (input) input.indeterminate = someSelected && !allSelected;
+                  }}
+                  onChange={() => toggleCategory(value)}
+                  className="h-4 w-4 shrink-0 rounded border-input accent-primary"
+                />
+                <span className="font-medium text-foreground">{key}</span>
+              </label>
             </div>
-          )}
-        </div>
-      );
-    });
-  };
+            {isOpen && children ? <div>{renderTree(children, level + 1, [...path, key])}</div> : null}
+          </div>
+        );
+      });
 
-  const searchResultsList = searchTerm.trim() ? (
-    <div className="rounded-md border border-border bg-popover">
-      <Command shouldFilter={false}>
-        <CommandList id={listId}>
-          {searchResults.length === 0 ? (
-            <CommandEmpty>
-              No {pluralize(formatFilterOption(label.toLowerCase()))} found matching "{searchTerm}"
-            </CommandEmpty>
-          ) : (
-            <CommandGroup heading="Search results">
-              {searchResults.map((result, index) => (
-                <CommandItem
-                  key={`${result.path.join(".")}.${result.key}`}
-                  value={`${result.key} ${result.path.join(" ")}`}
-                  onSelect={() => onToggle(result.id)}
-                  className={cn(
-                    "min-w-0",
-                    index === highlightedSearchIndex && "bg-accent",
-                  )}
-                >
-                  {selectedValues.includes(result.id) ? (
-                    <Check className="mr-2 h-4 w-4 text-primary" aria-hidden="true" />
-                  ) : (
-                    <span className="mr-2 h-4 w-4" aria-hidden="true" />
-                  )}
-                  <div className="flex min-w-0 flex-col">
-                    <span className="break-words">{result.key}</span>
-                    {result.path.length > 0 && (
-                      <span className="break-words text-xs text-muted-foreground">
-                        {result.path.join(" › ")}
-                      </span>
-                    )}
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-        </CommandList>
-      </Command>
-    </div>
-  ) : null;
-
-  const content = (
-    <div className="flex flex-col gap-4">
+  return (
+    <div className={cn("flex min-h-0 flex-col gap-3", className)}>
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-          <Search className="h-4 w-4" aria-hidden="true" />
-        </div>
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
         <input
-          ref={searchInputRef}
           type="text"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          onKeyDown={handleSearchKeyDown}
-          aria-label={`Search ${label}`}
-          placeholder="Search section types..."
-          className="block w-full rounded-md border border-input bg-background py-2 pl-10 pr-3 text-base leading-5 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent sm:text-sm"
+          onChange={(event) => {
+            setSearchTerm(event.target.value);
+            setHighlighted(0);
+          }}
+          onKeyDown={onSearchKeyDown}
+          aria-label={`Search ${noun}`}
+          aria-controls={listId}
+          placeholder={`Search ${noun}…`}
+          className="block h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-base placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
         />
       </div>
 
-      {searchResultsList}
-
-      <div className="rounded-lg border border-border bg-background p-3">
-        <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
-          Browse categories
-        </div>
-        <div className="max-h-[50vh] overflow-y-auto pr-1">
-          {renderNestedItems(data)}
-        </div>
+      <div id={listId} className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+        {searchTerm.trim() ? (
+          matches.length === 0 ? (
+            <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+              No {noun} match “{searchTerm.trim()}”.
+            </p>
+          ) : (
+            <ul aria-label={`Matching ${noun}`}>
+              {matches.map((match, index) => {
+                const isSelected = selected.has(match.id);
+                return (
+                  <li key={`${match.path.join(".")}.${match.key}`}>
+                    <button
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => onToggle(match.id)}
+                      onMouseEnter={() => setHighlighted(index)}
+                      className={cn(
+                        "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        index === highlighted && "bg-accent",
+                      )}
+                    >
+                      <Check
+                        className={cn("mt-0.5 h-4 w-4 shrink-0 text-primary", !isSelected && "invisible")}
+                        aria-hidden="true"
+                      />
+                      <span className="flex min-w-0 flex-col">
+                        <span className="break-words text-foreground">{match.key}</span>
+                        {match.path.length > 0 ? (
+                          <span className="break-words text-xs text-muted-foreground">
+                            {match.path.join(" › ")}
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : (
+          renderTree(data, 0, [])
+        )}
       </div>
 
-      {selectedValues.length > 0 && (
-        <div className="rounded-lg border border-border bg-muted/30 p-3">
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Selected ({selectedValues.length})
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {selectedValues.map((value) => (
-              <Button
-                key={`chip-${value}`}
-                variant="outline"
-                size="sm"
-                onClick={() => onToggle(value)}
-                className="h-7"
+      {selectedValues.length > 0 ? (
+        <div className="border-t border-border pt-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              Selected ({selectedValues.length})
+            </span>
+            {onClear ? (
+              <button
+                type="button"
+                onClick={onClear}
+                className="text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {labelById?.[value] ?? value}
-              </Button>
-            ))}
+                Clear
+              </button>
+            ) : null}
+          </div>
+          <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+            {selectedValues.map((value) => {
+              const label = labelById?.[value] ?? "Unknown clause type";
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onToggle(value)}
+                  className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Remove ${label}`}
+                >
+                  <span className="truncate">{label}</span>
+                  <X className="h-3 w-3 shrink-0" aria-hidden="true" />
+                </button>
+              );
+            })}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
+}
+
+export interface NestedCheckboxFilterProps extends Omit<NestedCheckboxTreeProps, "className"> {
+  /** Accessible name and visible label of the trigger. */
+  label: string;
+  /** Text when nothing is selected, e.g. "All clause types". */
+  placeholder: string;
+  isLoading?: boolean;
+  disabled?: boolean;
+  className?: string;
+  triggerClassName?: string;
+}
+
+/** Trigger button + popover around `NestedCheckboxTree`. */
+export function NestedCheckboxFilter({
+  label,
+  placeholder,
+  isLoading = false,
+  disabled = false,
+  className,
+  triggerClassName,
+  ...treeProps
+}: NestedCheckboxFilterProps) {
+  const [open, setOpen] = useState(false);
+  const { selectedValues, labelById } = treeProps;
+  const summary =
+    selectedValues.length === 0
+      ? placeholder
+      : selectedValues.length === 1
+        ? (labelById?.[selectedValues[0]] ?? "1 selected")
+        : `${labelById?.[selectedValues[0]] ?? "1 type"} +${selectedValues.length - 1}`;
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      <div className="flex items-center justify-between gap-2">
-        <span
-          id={labelId}
-          className="text-xs font-normal text-muted-foreground tracking-[0.15px]"
-        >
-          {label}
-        </span>
-        {labelAddon ? <div className="flex items-center">{labelAddon}</div> : null}
-      </div>
-
-      {useModal ? (
-        <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
-          <DialogTrigger asChild>
-            <button
-              type="button"
-              role="combobox"
-              aria-expanded={isExpanded}
-              aria-controls={listId}
-              aria-labelledby={labelId}
-              aria-haspopup="listbox"
-              className={cn(
-                "flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-foreground transition-colors",
-                "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              )}
-            >
-              <span className="truncate">{selectedLabel}</span>
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 text-muted-foreground transition-transform",
-                  isExpanded && "rotate-180",
-                )}
-                aria-hidden="true"
-              />
-            </button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] gap-4 overflow-hidden sm:w-full sm:max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Select {label}s</DialogTitle>
-              <DialogDescription>
-                Browse the tree or search for specific section types.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="max-h-[65dvh] overflow-y-auto pr-1 pb-1 pt-1 pl-1">
-              {content}
-            </div>
-            <div className="flex justify-end">
-              <Button type="button" onClick={() => setIsExpanded(false)}>
-                Done
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      ) : (
-        <Popover open={isExpanded} onOpenChange={setIsExpanded}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              role="combobox"
-              aria-expanded={isExpanded}
-              aria-controls={listId}
-              aria-labelledby={labelId}
-              aria-haspopup="listbox"
-              className={cn(
-                "flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-foreground transition-colors",
-                "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              )}
-            >
-              <span className="truncate">{selectedLabel}</span>
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 text-muted-foreground transition-transform",
-                  isExpanded && "rotate-180",
-                )}
-                aria-hidden="true"
-              />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            aria-labelledby={labelId}
-            className="w-[420px] p-4"
+    <div className={className}>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label={`${label}: ${summary}`}
+            className={cn(
+              "flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-foreground transition-colors",
+              "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+              selectedValues.length === 0 && "text-muted-foreground",
+              triggerClassName,
+            )}
           >
-            {content}
-          </PopoverContent>
-        </Popover>
-      )}
+            <span className="truncate">{isLoading && selectedValues.length === 0 ? "Loading…" : summary}</span>
+            <ChevronDown
+              className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
+              aria-hidden="true"
+            />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          aria-label={label}
+          className="flex max-h-[min(32rem,var(--radix-popover-content-available-height))] w-[min(28rem,calc(100vw-2rem))] flex-col p-3"
+        >
+          <NestedCheckboxTree {...treeProps} className="min-h-0 flex-1" />
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

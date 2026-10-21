@@ -6,6 +6,8 @@ export interface TransactionSearchMatchedSection {
   /** Clause-taxonomy label per id in `standard_id`. */
   standard_id_labels?: Record<string, string>;
   snippet: string | null;
+  /** Distinct matched spans as they appear in the text (keyword searches only). */
+  matched_terms?: string[];
 }
 
 export interface TransactionSearchResult {
@@ -41,6 +43,8 @@ export interface TransactionSearchResult {
   target_pe: boolean | null;
   acquirer_pe: boolean | null;
   url: string | null;
+  /** Not returned by the API yet; the deals table shows the column when present. */
+  target_counsel?: string | null;
   match_count: number;
   matched_sections: TransactionSearchMatchedSection[];
 }

@@ -1,45 +1,59 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
 interface TextFilterProps {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  /** Called with the trimmed value on Enter or blur (not on every keystroke). */
+  onCommit: (value: string) => void;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
 }
 
+/**
+ * Free-text filter (agreement / section UUID). Edits stay local until Enter
+ * or blur, so a half-typed UUID never runs a search. Remount with a `key` to
+ * pick up an outside change to `value`.
+ */
 export function TextFilter({
   label,
   value,
-  onChange,
+  onCommit,
   placeholder,
   className,
   disabled = false,
 }: TextFilterProps) {
-  const labelId = useId();
   const inputId = useId();
+  const [draft, setDraft] = useState(value);
+  const commit = () => {
+    const next = draft.trim();
+    if (next !== value.trim()) onCommit(next);
+  };
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      <label
-        id={labelId}
-        htmlFor={inputId}
-        className="text-xs font-normal text-muted-foreground tracking-[0.15px]"
-      >
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <label htmlFor={inputId} className="text-sm font-medium text-foreground">
         {label}
       </label>
       <Input
         id={inputId}
         type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          }
+        }}
         placeholder={placeholder}
         disabled={disabled}
-        className="h-10"
-        aria-labelledby={labelId}
+        spellCheck={false}
+        autoComplete="off"
+        className="h-9 font-mono text-sm"
       />
     </div>
   );
