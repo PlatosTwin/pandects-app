@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
-import json
 import os
 import secrets
 import uuid
 from hashlib import sha256
 from datetime import datetime, timedelta
-from collections import defaultdict
+from functools import partial
 from typing import cast
 from urllib.parse import urlencode
 
-from flask import Blueprint, Flask, abort, jsonify, make_response, redirect, request, current_app
+from flask import Blueprint, Flask, abort, jsonify, make_response, request, current_app
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
+from backend.auth import account, identity_links
+from backend.auth.account import AccountInputError
 from backend.auth.email_runtime import send_pandects_auth_email, verify_zitadel_signature
 from backend.auth.session_runtime import load_session_token as _load_session_token
 from backend.auth.mcp_runtime import (
@@ -41,7 +42,7 @@ from backend.routes.auth.zitadel_api import (
     ZitadelApiClient,
     ZitadelEmailVerificationRequiredError,
 )
-from backend.routes.auth.zitadel_api import _TOKEN_CACHE as _ZITADEL_API_TOKEN_CACHE
+from backend.routes.auth.zitadel_api import _TOKEN_CACHE
 from backend.routes.auth.zitadel_config import (
     _build_pkce_challenge,
     _decode_zitadel_id_token,
@@ -58,92 +59,31 @@ from backend.routes.auth.zitadel_config import (
 from backend.routes.deps import AuthDeps
 
 
-# Server-side password policy. Zitadel enforces its own complexity rules;
-# these bounds are defense-in-depth: a floor for new credentials and a cap
-# so arbitrarily long inputs can't inflate password-hashing cost.
-_PASSWORD_MIN_LENGTH = 8
-_PASSWORD_MAX_LENGTH = 128
-_PASSWORD_LENGTH_MESSAGE = (
-    f"Password must be between {_PASSWORD_MIN_LENGTH} and "
-    f"{_PASSWORD_MAX_LENGTH} characters."
-)
-_PASSWORD_MAX_LENGTH_MESSAGE = (
-    f"Password must be at most {_PASSWORD_MAX_LENGTH} characters."
-)
+# Re-export: tests clear the Zitadel API token cache through this module.
+_ZITADEL_API_TOKEN_CACHE = _TOKEN_CACHE
+
+# Password policy lives in backend.auth.account; local aliases keep call sites short.
+_PASSWORD_MIN_LENGTH = account.PASSWORD_MIN_LENGTH
+_PASSWORD_MAX_LENGTH = account.PASSWORD_MAX_LENGTH
+_PASSWORD_LENGTH_MESSAGE = account.PASSWORD_LENGTH_MESSAGE
+_PASSWORD_MAX_LENGTH_MESSAGE = account.PASSWORD_MAX_LENGTH_MESSAGE
 
 
 def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
     auth_blp = Blueprint("auth", "auth", url_prefix="/v1/auth")
 
-    def _notification_dict(obj: object, *keys: str) -> dict[str, object] | None:
-        if not isinstance(obj, dict):
-            return None
-        for key in keys:
-            value = obj.get(key)
-            if isinstance(value, dict):
-                return value
-        return None
-
-    def _notification_string(obj: object, *keys: str) -> str | None:
-        if not isinstance(obj, dict):
-            return None
-        for key in keys:
-            value = obj.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-        return None
-
-    def _parse_auth_notification(payload: dict[str, object]) -> tuple[str, str, str, str | None] | None:
-        template_data = _notification_dict(payload, "templateData", "template_data")
-        context_info = _notification_dict(payload, "contextInfo", "context_info")
-        args = _notification_dict(payload, "args")
-
-        action_url = _notification_string(template_data, "url", "link")
-        recipient = _notification_string(
-            payload,
-            "recipientEmail",
-            "recipient_email",
-            "recipient",
-        ) or _notification_string(context_info, "recipientEmailAddress", "recipient_email_address")
-        code = _notification_string(args, "code", "Code")
-
-        if not isinstance(action_url, str) or not isinstance(recipient, str):
-            return None
-
-        if "/verify-email" in action_url:
-            return ("verify-email", recipient, action_url, code)
-        if "/reset-password/confirm" in action_url:
-            return ("reset-password", recipient, action_url, code)
-        return None
-
-    def _external_link_payload(*, link, provider_name: str) -> dict[str, object]:
-        return {
-            "id": link.id,
-            "provider": provider_name,
-            "issuer": link.issuer,
-            "subject": link.subject,
-            "created_at": link.created_at.isoformat(),
-        }
-
-    def _link_external_identity_for_user(*, user, provider_name: str, external_identity):
-        existing = deps.AuthExternalSubject.query.filter_by(
-            issuer=external_identity.issuer,
-            subject=external_identity.subject,
-        ).first()
-        if existing is not None:
-            if existing.user_id != user.id:
-                abort(409, description="External identity is already linked to another account.")
-            return ("already_linked", existing, 200)
-
-        link = deps.AuthExternalSubject(
-            user_id=user.id,
-            issuer=external_identity.issuer,
-            subject=external_identity.subject,
-        )
-        deps.db.session.add(link)
-        deps._record_signon_event(user_id=user.id, provider=provider_name, action="link")
-        deps.db.session.commit()
-        return ("linked", link, 201)
+    _parse_auth_notification = identity_links.parse_auth_notification
+    _external_link_payload = identity_links.external_link_payload
+    _full_name_from_parts = identity_links.full_name_from_parts
+    _link_external_identity_for_user = partial(identity_links.link_external_identity_for_user, deps)
+    _local_user_by_email = partial(identity_links.local_user_by_email, deps)
+    _external_identity_verified_email = partial(
+        identity_links.external_identity_verified_email, deps
+    )
+    _resolve_user_from_external_identity = partial(
+        identity_links.resolve_user_from_external_identity, deps
+    )
+    _linked_user_for_subject = partial(identity_links.linked_user_for_subject, deps)
 
     def _website_auth_error_payload(message: str, *, code: int = 400):
         resp = make_response(jsonify({"message": message, "error": "auth_failed"}), code)
@@ -151,9 +91,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         return resp
 
     zitadel_api = ZitadelApiClient(deps)
-
-    def _local_user_by_email(*, email: str):
-        return deps.AuthUser.query.filter_by(email=email).first()
 
     def _ensure_zitadel_user_for_local_password_user(*, user, password: str):
         existing_link = deps.AuthExternalSubject.query.filter_by(
@@ -213,82 +150,6 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
             deps.db.session.commit()
             return migrated.subject
         return None
-
-    def _external_identity_verified_email(external_identity) -> str | None:
-        claims = getattr(external_identity, "claims", None)
-        if not isinstance(claims, dict):
-            return None
-        email = claims.get("email")
-        email_verified = claims.get("email_verified")
-        if not isinstance(email, str) or not email.strip():
-            return None
-        if email_verified is not True:
-            return None
-        normalized = deps._normalize_email(email)
-        if not deps._is_email_like(normalized):
-            return None
-        return normalized
-
-    def _resolve_user_from_external_identity(*, external_identity):
-        existing_link = deps.AuthExternalSubject.query.filter_by(
-            issuer=external_identity.issuer,
-            subject=external_identity.subject,
-        ).first()
-        if existing_link is not None:
-            user = deps.db.session.get(deps.AuthUser, existing_link.user_id)
-            if user is None:
-                abort(401, description="Linked account no longer exists.")
-            if user.email_verified_at is None:
-                user.email_verified_at = deps._utc_now()
-            return ("login", user)
-
-        email = _external_identity_verified_email(external_identity)
-        if email is None:
-            abort(400, description="Auth provider did not return a verified email address.")
-
-        user = deps.AuthUser.query.filter_by(email=email).first()
-        action = "login"
-        if user is None:
-            user = deps.AuthUser(
-                email=email,
-                password_hash=None,
-                email_verified_at=deps._utc_now(),
-            )
-            deps.db.session.add(user)
-            deps.db.session.flush()
-            action = "register"
-        elif user.email_verified_at is None:
-            user.email_verified_at = deps._utc_now()
-
-        existing_for_user = deps.AuthExternalSubject.query.filter_by(
-            user_id=user.id,
-            issuer=external_identity.issuer,
-            subject=external_identity.subject,
-        ).first()
-        if existing_for_user is None:
-            deps.db.session.add(
-                deps.AuthExternalSubject(
-                    user_id=user.id,
-                    issuer=external_identity.issuer,
-                    subject=external_identity.subject,
-                )
-            )
-        return (action, user)
-
-    def _linked_user_for_subject(*, issuer: str, subject: str):
-        existing_link = deps.AuthExternalSubject.query.filter_by(
-            issuer=issuer,
-            subject=subject,
-        ).first()
-        if existing_link is None:
-            return None
-        return deps.db.session.get(deps.AuthUser, existing_link.user_id)
-
-    def _full_name_from_parts(*parts: object) -> str | None:
-        full_name = " ".join(
-            part.strip() for part in parts if isinstance(part, str) and part.strip()
-        )
-        return full_name or None
 
     def _user_created_at_or_now(*, user) -> datetime:
         created_at = getattr(user, "created_at", None)
@@ -1844,107 +1705,43 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
+    def _no_store_json(payload: object, *, status: int = 200):
+        resp = make_response(jsonify(payload), status)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    def _no_store_status(status: str):
+        resp = deps._status_response(status)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     @auth_blp.route("/api-keys", methods=["GET"])
     def auth_list_api_keys():
         deps._require_auth_db()
         user, _ctx = deps._require_verified_user()
-        if deps._auth_is_mocked():
-            keys = deps._mock_auth.list_api_keys(user_id=user.id)
-            resp = make_response(
-                jsonify(
-                    {
-                        "keys": [
-                            {
-                                "id": k.id,
-                                "name": k.name,
-                                "prefix": k.prefix,
-                                "created_at": k.created_at.isoformat(),
-                                "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
-                                "revoked_at": k.revoked_at.isoformat() if k.revoked_at else None,
-                            }
-                            for k in keys
-                        ]
-                    }
-                )
-            )
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
         try:
-            keys = (
-                deps.ApiKey.query.filter_by(user_id=user.id, deleted_at=None)
-                .order_by(deps.ApiKey.created_at.desc())
-                .all()
-            )
+            keys = account.list_api_keys(deps, user_id=user.id)
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
-        resp = make_response(
-            jsonify(
-                {
-                    "keys": [
-                        {
-                            "id": k.id,
-                            "name": k.name,
-                            "prefix": k.prefix,
-                            "created_at": k.created_at.isoformat(),
-                            "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
-                            "revoked_at": k.revoked_at.isoformat() if k.revoked_at else None,
-                        }
-                        for k in keys
-                    ]
-                }
-            )
-        )
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
+        return _no_store_json({"keys": keys})
 
     @auth_blp.route("/api-keys", methods=["POST"])
     def auth_create_api_key():
         deps._require_auth_db()
         user, _ctx = deps._require_verified_user()
         data = deps._load_json(deps.AuthApiKeySchema())
-        name = data.get("name")
-        if name is not None and not isinstance(name, str):
-            abort(400, description="Key name must be a string.")
-        if isinstance(name, str):
-            name = name.strip() or None
-            if name is not None and len(name) > 120:
-                abort(400, description="Key name is too long.")
+        try:
+            name = account.normalize_api_key_name(data.get("name"))
+        except AccountInputError as exc:
+            abort(400, description=exc.message)
         if deps._auth_is_mocked():
             key, plaintext = deps._mock_auth.create_api_key(user_id=user.id, name=name)
-            resp = make_response(
-                jsonify(
-                    {
-                        "api_key": {
-                            "id": key.id,
-                            "name": key.name,
-                            "prefix": key.prefix,
-                            "created_at": key.created_at.isoformat(),
-                        },
-                        "api_key_plaintext": plaintext,
-                    }
-                )
-            )
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
+            return _no_store_json(account.created_api_key_payload(key, plaintext))
         try:
             key, plaintext = deps._create_api_key(user_id=user.id, name=name)
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
-        resp = make_response(
-            jsonify(
-                {
-                    "api_key": {
-                        "id": key.id,
-                        "name": key.name,
-                        "prefix": key.prefix,
-                        "created_at": key.created_at.isoformat(),
-                    },
-                    "api_key_plaintext": plaintext,
-                }
-            )
-        )
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
+        return _no_store_json(account.created_api_key_payload(key, plaintext))
 
     @auth_blp.route("/api-keys/<string:key_id>", methods=["DELETE"])
     def auth_revoke_api_key(key_id: str):
@@ -1952,24 +1749,13 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         user, _ctx = deps._require_verified_user()
         if not deps._UUID_RE.match(key_id):
             abort(404)
-        if deps._auth_is_mocked():
-            if not deps._mock_auth.revoke_api_key(user_id=user.id, key_id=key_id):
-                abort(404)
-            resp = deps._status_response("revoked")
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
         try:
-            key = deps.ApiKey.query.filter_by(id=key_id, user_id=user.id).first()
-            if key is None:
-                abort(404)
-            if key.revoked_at is None:
-                key.revoked_at = deps._utc_now()
-                deps.db.session.commit()
-            resp = deps._status_response("revoked")
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
+            revoked = account.revoke_api_key(deps, user_id=user.id, key_id=key_id)
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
+        if not revoked:
+            abort(404)
+        return _no_store_status("revoked")
 
     @auth_blp.route("/api-keys/<string:key_id>/permanent", methods=["DELETE"])
     def auth_permanently_delete_api_key(key_id: str):
@@ -1977,92 +1763,40 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         user, _ctx = deps._require_verified_user()
         if not deps._UUID_RE.match(key_id):
             abort(404)
-        if deps._auth_is_mocked():
-            if not deps._mock_auth.permanently_delete_api_key(user_id=user.id, key_id=key_id):
-                abort(404)
-            resp = deps._status_response("deleted")
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
         try:
-            if not deps._permanently_delete_api_key(user_id=user.id, key_id=key_id):
-                abort(404)
-            resp = deps._status_response("deleted")
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
+            deleted = account.permanently_delete_api_key(deps, user_id=user.id, key_id=key_id)
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
+        if not deleted:
+            abort(404)
+        return _no_store_status("deleted")
 
     @auth_blp.route("/usage", methods=["GET"])
     def auth_usage():
         deps._require_auth_db()
         user, _ctx = deps._require_verified_user()
         period = (request.args.get("period") or "1m").strip().lower()
-        period_cutoffs = {
-            "1w": 6,
-            "1m": 29,
-            "1y": 364,
-            "all": None,
-        }
-        if period not in period_cutoffs:
+        if period not in account.USAGE_PERIOD_CUTOFF_DAYS:
             abort(400, description="period must be one of: 1w, 1m, 1y, all.")
-        cutoff_days = period_cutoffs[period]
+        cutoff_days = account.USAGE_PERIOD_CUTOFF_DAYS[period]
         cutoff = deps._utc_today() - timedelta(days=cutoff_days) if cutoff_days is not None else None
         raw_api_key_id = (request.args.get("api_key_id") or "").strip()
         api_key_id = raw_api_key_id or None
         if api_key_id is not None and not deps._UUID_RE.match(api_key_id):
             abort(400, description="api_key_id must be a UUID.")
-        if deps._auth_is_mocked():
-            if api_key_id is not None:
-                key_ids = {k.id for k in deps._mock_auth.list_api_keys(user_id=user.id)}
-                if api_key_id not in key_ids:
-                    abort(404)
-            by_day, total = deps._mock_auth.usage_for_user(
+        try:
+            usage = account.usage_by_day(
+                deps,
                 user_id=user.id,
                 period=period,
+                cutoff=cutoff,
                 api_key_id=api_key_id,
             )
-            resp = make_response(jsonify({"by_day": by_day, "total": total}))
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
-        try:
-            if api_key_id is not None:
-                key = deps.ApiKey.query.filter_by(
-                    user_id=user.id,
-                    id=api_key_id,
-                    deleted_at=None,
-                ).first()
-                if key is None:
-                    abort(404)
-                key_ids = [key.id]
-            else:
-                keys = deps.ApiKey.query.filter_by(user_id=user.id).all()
-                key_ids = [k.id for k in keys]
-            if not key_ids:
-                return jsonify({"by_day": [], "total": 0})
-
-            rows_query = deps.ApiUsageDaily.query.filter(deps.ApiUsageDaily.api_key_id.in_(key_ids))
-            if cutoff is not None:
-                rows_query = rows_query.filter(deps.ApiUsageDaily.day >= cutoff)
-            rows = rows_query.order_by(deps.ApiUsageDaily.day.asc()).all()
-            by_day: dict[str, int] = defaultdict(int)
-            total = 0
-            for row in rows:
-                day_str = row.day.isoformat()
-                by_day[day_str] += int(row.count)
-                total += int(row.count)
-
-            resp = make_response(
-                jsonify(
-                    {
-                        "by_day": [{"day": day, "count": by_day[day]} for day in sorted(by_day)],
-                        "total": total,
-                    }
-                )
-            )
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")
+        if usage is None:
+            abort(404)
+        return _no_store_json(usage)
 
     @auth_blp.route("/account/delete", methods=["POST"])
     def auth_delete_account():
@@ -2167,70 +1901,28 @@ def register_auth_routes(app: Flask, *, deps: AuthDeps) -> Blueprint:
         deps._require_auth_db()
         user, _ctx = deps._require_verified_user()
         data = deps._load_json(deps.AuthFlagInaccurateSchema())
-        source_raw = data.get("source")
-        source = source_raw.strip() if isinstance(source_raw, str) else ""
-        agreement_uuid_raw = data.get("agreement_uuid")
-        agreement_uuid = (
-            agreement_uuid_raw.strip() if isinstance(agreement_uuid_raw, str) else ""
-        )
-        raw_message = data.get("message")
-        message = raw_message.strip() if isinstance(raw_message, str) else None
-        section_uuid = data.get("section_uuid")
-        section_uuid = section_uuid.strip() if isinstance(section_uuid, str) else None
-        request_follow_up = data.get("request_follow_up")
-        if request_follow_up is None:
-            request_follow_up = False
-        if not isinstance(request_follow_up, bool):
-            abort(400, description="request_follow_up must be a boolean.")
-        issue_types = data.get("issue_types")
-        if issue_types is None:
-            issue_types = []
-        if not isinstance(issue_types, list) or not all(
-            isinstance(item, str) for item in issue_types
-        ):
-            abort(400, description="issue_types must be a list of strings.")
-        issue_types = [item.strip() for item in issue_types if item and item.strip()]
-        if not issue_types:
-            abort(400, description="issue_types is required.")
-        allowed_issue_types = {
-            "Incorrect tagging (Article/Section)",
-            "Corrupted formatting",
-            "Incorrect taxonomy class",
-            "Incorrect metadata",
-            "Not an M&A agreement",
-            "Something else",
-        }
-        if any(item not in allowed_issue_types for item in issue_types):
-            abort(400, description="issue_types contains an invalid value.")
-        if source not in ("search_result", "agreement_view"):
-            abort(400, description="Invalid source. Use 'search_result' or 'agreement_view'.")
-        if not agreement_uuid:
-            abort(400, description="agreement_uuid is required.")
-        if source == "search_result" and not section_uuid:
-            abort(400, description="section_uuid is required when source is 'search_result'.")
-        if source == "agreement_view":
-            section_uuid = None
+        try:
+            report = account.parse_flag_report(data)
+        except AccountInputError as exc:
+            abort(400, description=exc.message)
         if not current_app.testing and not deps._is_agreement_section_eligible(
-            agreement_uuid, section_uuid
+            report.agreement_uuid, report.section_uuid
         ):
             abort(
                 400,
                 description="Agreement or section not found or not eligible for flagging.",
             )
-        submitted_at = deps._utc_now()
         deps._send_flag_notification_email(
             user_email=user.email,
-            submitted_at=submitted_at,
-            source=source,
-            agreement_uuid=agreement_uuid,
-            section_uuid=section_uuid,
-            message=message,
-            request_follow_up=request_follow_up,
-            issue_types=issue_types,
+            submitted_at=deps._utc_now(),
+            source=report.source,
+            agreement_uuid=report.agreement_uuid,
+            section_uuid=report.section_uuid,
+            message=report.message,
+            request_follow_up=report.request_follow_up,
+            issue_types=report.issue_types,
         )
-        resp = make_response(jsonify({"status": "ok"}), 200)
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
+        return _no_store_json({"status": "ok"})
 
     app.register_blueprint(auth_blp)
     return auth_blp
