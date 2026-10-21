@@ -355,18 +355,28 @@ Three sibling label concepts keep other reimbursements out of this one: `ma.fina
 
 ### 7.3 Pilot findings on the schemas
 
-A subagent annotated agreements against a draft (v0) of these schemas, working on the text layer. Offsets were computed in code, and every quote was checked against the text. The run stopped after 3 of the 6 planned agreements:
-- W. R. Grace / Standard Industries: public merger, 2021;
-- Cerner / Oracle: public tender offer and merger, 2021;
-- Atlantic Southeast Airlines / SkyWest: private stock purchase with a 338(h)(10) election.
+A subagent annotated six agreements against a draft (v0) of these schemas, working on the text layer. Offsets were computed in code, and a validator checked every quote against the text.
 
-The other three (Kadmon / Sanofi, Danka / Konica Minolta, Conexant / Synaptics) were not reached, so private-deal indemnity is thinly tested.
+| Agreement | Kind | Instances | Spans | Multi-section instances |
+|---|---|---|---|---|
+| Atlantic Southeast Airlines / SkyWest | private stock purchase, 338(h)(10) | 11 | 14 | 0 |
+| Cerner / Oracle (2021) | public tender offer and merger | 6 | 20 | 2 |
+| W. R. Grace / Standard Industries (2021) | public merger | 7 | 27 | 4 |
+| Conexant / Synaptics | private membership-interest purchase | 18 | 28 | 2 |
+| Kadmon / Sanofi (2021) | public merger | 4 | 11 | 1 |
+| Danka / Konica Minolta | private stock purchase | 9 | 19 | 3 |
+| **Total** | | **55** | **119** | **12** |
 
-**Totals:** 61 spans and 24 instances. All 61 quotes matched the text exactly.
+- 12 sections held more than one concept.
+- 27 carve-out ranges were nested inside the 6 MAE definition spans.
+- Exactly 2 span pairs overlapped, both in Danka: one clause is both a fee trigger and the outside date.
+- A careful pass took about 15,000–25,000 model tokens per agreement for these concepts. That is consistent with the stage 3 estimate in [section 8.3](#83-cost-per-corpus-pass).
+
+The annotation files themselves were lost: the scratch folder was cleaned up while the run was still finishing. The counts and findings here come from the subagent's report, written before that. The pilot is cheap to redo on these six agreements in M1.
 
 **What the pilot showed**, and the changes already folded into [section 7.2](#72-the-concepts):
 
-1. **Provisions cross sections routinely.** 6 of 24 instances span more than one section, including every fee and reverse-fee instance in the public deals. The worst instance took 9 spans (the Grace termination fee: amount, three triggers, two exclusivity statements, a tail, a deeming rule). The multi-span instance model is required, not optional.
+1. **Provisions cross sections routinely.** 12 of 55 instances span more than one section, including every fee and reverse-fee instance in the public deals. Values also sit in other sections as defined terms: in Synaptics the indemnity cap is the "Indemnification Escrow Amount", and "Fundamental Representations" are defined in the closing conditions. Value evidence therefore needs a `resolves` link from the usage to the definition span. The worst instance took 9 spans (the Grace termination fee: amount, three triggers, two exclusivity statements, a tail, a deeming rule). The multi-span instance model is required, not optional.
 2. **Triggers are not independent enum values.**
    - Tail windows differ by termination ground (Grace: 6 months after an End Date termination, 12 months after a vote failure or breach).
    - Remedy exclusivity differs by trigger (Grace: the fee is exclusive for a recommendation change, but on the tail trigger Parent may elect the fee *or* willful-breach damages).
@@ -378,8 +388,13 @@ The other three (Kadmon / Sanofi, Danka / Konica Minolta, Conexant / Synaptics) 
    - Cerner's tender-offer conditions, which are where any financing condition would be (Exhibit B).
 
    Body-only text is not enough for value concepts. [Open question 3](#15-open-questions-for-you) now recommends exhibits in v1.
-4. **Equity value is never stated as one number.** In both public deals the fee percentage had to come from the price per share and a share count stated in different sections, and the count is a basic count as of a stated date. This confirms that `pct_of_equity_value_computed` is a derived field, computed in code, with its source recorded ([open question 5](#15-open-questions-for-you)).
-5. **The text layer contains duplicates and artifacts.** In two agreements the MAE definition appears twice in a row, and one copy has a page-footer line (a page number plus a GUID) inside it. This is why the anchoring steps for context and nearest position matter. The projection should also strip page-footer leftovers and report repeated blocks as an XML quality signal.
+4. **Equity value is never stated as one number**, in any of the six agreements.
+   - Cerner's fee works out to about 3.4% and Kadmon's to about 3.65%, using basic share counts from the capitalization representation.
+   - Grace's cannot be computed without Exhibit A.
+   - Danka's fee is 2.08% of purchase price, a different basis.
+
+   A `ma.deal.value` concept (price per share, share basis, stated purchase price) should feed the derived percentage. This confirms that `pct_of_equity_value_computed` is a derived field, computed in code, with its source recorded ([open question 5](#15-open-questions-for-you)).
+5. **The text layer contains duplicates and artifacts.** In 4 of the 6 agreements every definition appears twice in a row, and the first copy has page-footer lines (a page number plus a GUID) inside it. This looks like a systematic XML build issue in definitions articles, worth checking separately. This is why the anchoring steps for context and nearest position matter. The projection should also strip page-footer leftovers and report repeated blocks as an XML quality signal.
 6. **"Expense reimbursement" conflated four things:** fee reimbursement on termination, reimbursement of financing-cooperation costs (payable whether or not the deal closes), costs of collecting an unpaid fee, and a split of HSR filing fees. They are now separate concepts: `ma.termination.expense_reimbursement`, `ma.financing.cooperation_costs`, `ma.termination.collection_costs`, `ma.regulatory.filing_fee_allocation`.
 7. **Booleans hide structure.** These booleans became structured fields:
    - the reverse fee's cap on buyer liability: a formula, not a yes/no (Grace: the fee *plus* uncapped reimbursements);
@@ -393,10 +408,18 @@ The other three (Kadmon / Sanofi, Danka / Konica Minolta, Conexant / Synaptics) 
    - MAE carve-outs: `categories[]` rather than one category, since one clause often bundles economic, political and regulatory changes;
    - indemnity cap: `applies_to` plus `excludes` lists ("all reps, but not covenants or the tax indemnity");
    - de minimis: a flag for when the threshold decides whether a breach exists at all, not just whether it counts toward the basket;
-   - reverse fee: a `failure_to_close` trigger. Financing failure is never named as a trigger; it shows up as the buyer's failure to close.
-10. **Overlap stayed rare at this grain.** No two annotated spans overlapped. Nesting appears when carve-outs are annotated as children of the MAE definition, which this run mostly did not do. Overlap support stays in the model, but it is not the hard part. Cross-section instances are.
+   - reverse fee: a `failure_to_close` trigger. Financing failure is never named as a trigger; it shows up as the buyer's failure to close;
+   - payor: joint payors (Danka: Seller and Parent);
+   - fee amounts: alternative amounts, as distinct from tiers;
+   - Money `basis`: `pct_of_market_cap`;
+   - MAE carve-outs: `stockholder_litigation`, `credit_rating` and `disclosure_schedule_items`, plus room for exceptions to carve-outs and alias defined terms;
+   - survival: a fixed calendar date;
+   - outside date: a second, conditional long-stop date (Danka), and breach bars that differ by party;
+   - indemnity: a `materiality_scrape` field and a tax-indemnity cap tier;
+   - 338(h)(10): which entities the election covers (Synaptics elects for one subsidiary only).
+10. **Overlap stays modest at this grain, and nesting is common.** Only 2 span pairs overlapped. Nesting appeared 27 times (carve-outs inside MAE definitions). Both are supported by the model, but neither is the hard part. Cross-section instances and value resolution through defined terms are.
 
-The annotations reached the role vocabulary through use. 15 roles appeared; the common ones were `primary`, `trigger`, `extension`, `exclusive_remedy`, `carve_out`, `cap`, `guarantee` and `sources`. Roles become a small controlled list per concept in the YAML, not free text.
+The annotations reached the role vocabulary through use. In the first three agreements alone, 15 roles appeared; the common ones were `primary`, `trigger`, `extension`, `exclusive_remedy`, `carve_out`, `cap`, `guarantee` and `sources`. Roles become a small controlled list per concept in the YAML, not free text.
 
 ## 8. Extraction pipeline
 
