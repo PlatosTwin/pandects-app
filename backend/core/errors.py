@@ -6,8 +6,41 @@ from flask import Flask, Response, current_app, jsonify, make_response, request
 from marshmallow import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException, InternalServerError
+from werkzeug.http import HTTP_STATUS_CODES
 
 from backend.extensions import db
+
+# Every /v1 error response has the envelope {"error": <code>, "message": <text>}.
+# `error` is a stable snake_case machine code clients may branch on; `message`
+# is human-readable and may change wording. Routes with a more specific
+# condition pass their own code through `json_error` (for example
+# `captcha_required`, `legal_required`, `rate_limited`); everything else gets
+# the code for its HTTP status. `/mcp` keeps JSON-RPC error objects.
+ERROR_CODES_BY_STATUS: dict[int, str] = {
+    400: "bad_request",
+    401: "unauthorized",
+    403: "forbidden",
+    404: "not_found",
+    405: "method_not_allowed",
+    409: "conflict",
+    413: "payload_too_large",
+    415: "unsupported_media_type",
+    422: "validation_error",
+    429: "rate_limited",
+    500: "internal_error",
+    502: "bad_gateway",
+    503: "service_unavailable",
+    504: "gateway_timeout",
+}
+
+
+def error_code_for_status(status: int) -> str:
+    known = ERROR_CODES_BY_STATUS.get(status)
+    if known is not None:
+        return known
+    reason = HTTP_STATUS_CODES.get(status, "")
+    slug = "_".join(reason.lower().replace("-", " ").replace("'", "").split())
+    return slug or ("internal_error" if status >= 500 else "bad_request")
 
 
 def _flatten_validation_messages(messages: object) -> str:
@@ -25,7 +58,7 @@ def handle_validation_error(err: ValidationError):
     if request.path.startswith("/v1/"):
         resp = jsonify(
             {
-                "error": "Unprocessable Entity",
+                "error": error_code_for_status(422),
                 "message": _flatten_validation_messages(err.messages),
             }
         )
@@ -34,10 +67,48 @@ def handle_validation_error(err: ValidationError):
     raise err
 
 
+def _http_exception_message(err: HTTPException) -> str:
+    # flask-smorest's request-argument parser aborts 422 with the field errors
+    # in `data["messages"]` and a generic description; surface the fields.
+    data = cast(object, getattr(err, "data", None))
+    if isinstance(data, dict):
+        messages = cast(dict[str, object], data).get("messages")
+        if isinstance(messages, dict) and messages:
+            return _field_validation_messages(cast(dict[object, object], messages))
+    return err.description or (err.name or "")
+
+
+_REQUEST_LOCATIONS = frozenset({"query", "json", "form", "headers", "cookies", "files", "view_args", "path"})
+
+
+def _field_validation_messages(messages: dict[object, object], *, prefix: str = "") -> str:
+    """`{"query": {"page_size": ["Not a valid integer."]}}` -> `page_size: Not a valid integer.`"""
+    parts: list[str] = []
+    for key, value in messages.items():
+        name = str(key)
+        if not prefix and name in _REQUEST_LOCATIONS and isinstance(value, dict):
+            parts.append(_field_validation_messages(cast(dict[object, object], value)))
+            continue
+        if not prefix:
+            field = name
+        elif isinstance(key, int):
+            field = f"{prefix}[{name}]"
+        else:
+            field = f"{prefix}.{name}"
+        if isinstance(value, dict):
+            parts.append(_field_validation_messages(cast(dict[object, object], value), prefix=field))
+        else:
+            parts.append(f"{field}: {_flatten_validation_messages(value)}")
+    return " ".join(part for part in parts if part)
+
+
 def handle_http_exception(err: HTTPException):
     if request.path.startswith("/v1/"):
-        resp = jsonify({"error": err.name, "message": err.description})
-        resp.status_code = err.code or 500
+        status = err.code or 500
+        resp = jsonify(
+            {"error": error_code_for_status(status), "message": _http_exception_message(err)}
+        )
+        resp.status_code = status
         return resp
     return err
 
@@ -46,7 +117,7 @@ def handle_internal_server_error(err: InternalServerError):
     if request.path.startswith("/v1/"):
         current_app.logger.exception("Unhandled API exception: %s", err)
         resp = jsonify(
-            {"error": "Internal Server Error", "message": "Unexpected server error."}
+            {"error": error_code_for_status(500), "message": "Unexpected server error."}
         )
         resp.status_code = 500
         return resp
@@ -58,7 +129,7 @@ def handle_sqlalchemy_error(err: SQLAlchemyError):
     if request.path.startswith("/v1/"):
         current_app.logger.exception("Database error: %s", err)
         resp = jsonify(
-            {"error": "Service Unavailable", "message": "Database is unavailable."}
+            {"error": error_code_for_status(503), "message": "Database is unavailable."}
         )
         resp.status_code = 503
         return resp

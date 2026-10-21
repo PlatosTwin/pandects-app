@@ -50,7 +50,7 @@ class ApiValidationTests(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
         body = res.get_json()
         self.assertIsInstance(body, dict)
-        self.assertEqual(body.get("error"), "Bad Request")
+        self.assertEqual(body.get("error"), "bad_request")
 
     def test_zitadel_start_rejects_unsupported_prompt(self):
         client = self.app.test_client()
@@ -58,12 +58,38 @@ class ApiValidationTests(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
         body = res.get_json()
         self.assertIsInstance(body, dict)
-        self.assertEqual(body.get("error"), "Bad Request")
+        self.assertEqual(body.get("error"), "bad_request")
 
     def test_legacy_register_route_is_not_registered(self):
         client = self.app.test_client()
         res = client.post("/v1/auth/register", json={})
         self.assertEqual(res.status_code, 404)
+        self.assertEqual((res.get_json() or {}).get("error"), "not_found")
+
+    def test_generic_errors_use_machine_codes_in_envelope(self):
+        client = self.app.test_client()
+        cases = [
+            (client.get("/v1/does-not-exist"), 404, "not_found"),
+            (client.post("/v1/taxonomy"), 405, "method_not_allowed"),
+            (client.get("/v1/agreements?page_size=abc"), 422, "validation_error"),
+        ]
+        for res, status, code in cases:
+            body = res.get_json()
+            self.assertEqual(res.status_code, status)
+            self.assertIsInstance(body, dict)
+            self.assertEqual(set(body), {"error", "message"})
+            self.assertEqual(body["error"], code)
+            self.assertTrue(body["message"])
+        validation_body = cases[2][0].get_json()
+        self.assertEqual(validation_body["message"], "page_size: Not a valid integer.")
+
+    def test_error_code_for_status_covers_unlisted_statuses(self):
+        from backend.core.errors import error_code_for_status
+
+        self.assertEqual(error_code_for_status(429), "rate_limited")
+        self.assertEqual(error_code_for_status(500), "internal_error")
+        self.assertEqual(error_code_for_status(410), "gone")
+        self.assertEqual(error_code_for_status(418), "im_a_teapot")
 
     def test_dumps_cache_returns_cached_payload(self):
         payload: list[dict[str, object]] = [{"timestamp": "2025-01-01"}]
