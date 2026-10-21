@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import Any, cast
 
 from marshmallow import ValidationError
-from sqlalchemy import and_, asc, bindparam, desc, false, func, text
+from sqlalchemy import and_, asc, bindparam, desc, distinct, false, func, text
 from sqlalchemy.exc import DatabaseError, SQLAlchemyError
 
 from backend.core.pagination import (
@@ -22,7 +22,11 @@ from backend.core.pagination import (
     clamp_page_size,
     search_max_page_size,
 )
-from backend.filtering import agreement_is_public_eligible_expr, apply_agreement_filters
+from backend.filtering import (
+    agreement_is_public_eligible_expr,
+    apply_agreement_filters,
+    has_agreement_filters,
+)
 from backend.routes.deps import AccessContextProtocol, AgreementsDeps
 from backend.schemas.public_api import AgreementsBulkArgsPayload
 from backend.schemas.sections import SectionsArgsPayload
@@ -436,6 +440,48 @@ def _build_agreement_search_match_query(
     return q
 
 
+def _taxonomy_only_aggregated_query(
+    deps: AgreementsDeps, *, parsed_args: SectionsArgsPayload
+) -> Any | None:
+    """Per-agreement matches read from the standard-id mapping alone, when it suffices.
+
+    A clause-type search sorted by filing date with no other filter needs, per
+    agreement, only the matching section count and the filing date. The mapping
+    holds (standard_id, section_uuid, agreement_uuid) behind a
+    ``(standard_id, section_uuid)`` primary key, and ``agreements.filing_date``
+    equals the ``latest_sections_search`` copy, so this plan never reads the
+    2.5GB ``latest_sections_search`` rows. The general plan reads one of those
+    rows per matching section (126k random reads for the broadest clause type);
+    on the production database that ran past the 55s statement cap. Returns None
+    when another filter or sort needs ``latest_sections_search``.
+    """
+    if parsed_args["sort_by"] != "year":
+        return None
+    section_uuid = parsed_args["section_uuid"]
+    if section_uuid and section_uuid.strip():
+        return None
+    if has_agreement_filters(_args_mapping(parsed_args)):
+        return None
+    expanded = _expanded_standard_ids(deps, parsed_args["standard_id"])
+    if not expanded:
+        return None
+    mapping = deps.LatestSectionsSearchStandardId
+    agreements = deps.Agreements
+    return (
+        deps.db.session.query(
+            mapping.agreement_uuid.label("agreement_uuid"),
+            func.count(distinct(mapping.section_uuid)).label("match_count"),
+            func.min(agreements.filing_date).label("sort_filing_date"),
+        )
+        .join(agreements, agreements.agreement_uuid == mapping.agreement_uuid)
+        .filter(
+            agreement_is_public_eligible_expr(agreements),
+            mapping.standard_id.in_(expanded),
+        )
+        .group_by(mapping.agreement_uuid)
+    )
+
+
 def _search_agreements_by_clause(
     deps: AgreementsDeps,
     *,
@@ -448,15 +494,17 @@ def _search_agreements_by_clause(
     sections = deps.Sections
     db = deps.db
     match_query = _build_agreement_search_match_query(deps, parsed_args=parsed_args)
-    aggregated_query = match_query.with_entities(
-        latest.agreement_uuid.label("agreement_uuid"),
-        func.count().label("match_count"),
-        func.min(latest.filing_date).label("sort_filing_date"),
-        func.min(latest.target).label("sort_target"),
-        func.min(latest.acquirer).label("sort_acquirer"),
-    ).group_by(latest.agreement_uuid)
-
     sort_by = parsed_args["sort_by"]
+    aggregated_query = _taxonomy_only_aggregated_query(deps, parsed_args=parsed_args)
+    if aggregated_query is None:
+        aggregated_query = match_query.with_entities(
+            latest.agreement_uuid.label("agreement_uuid"),
+            func.count().label("match_count"),
+            func.min(latest.filing_date).label("sort_filing_date"),
+            func.min(latest.target).label("sort_target"),
+            func.min(latest.acquirer).label("sort_acquirer"),
+        ).group_by(latest.agreement_uuid)
+
     sort_label = {"year": "sort_filing_date", "target": "sort_target"}.get(sort_by, "sort_acquirer")
     aggregated_query = _ordered(
         aggregated_query,

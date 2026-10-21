@@ -177,6 +177,7 @@ class SectionsServiceDeps:
     Agreements: Any
     Counsel: Any
     LatestSectionsSearch: Any
+    LatestSectionsSearchStandardId: Any
     SectionTextSearch: Any
     Sections: Any
     _SEARCH_EXPLAIN_ESTIMATE_ENABLED: bool
@@ -206,6 +207,7 @@ class AgreementsDeps:
     Clauses: Any
     Counsel: Any
     LatestSectionsSearch: Any
+    LatestSectionsSearchStandardId: Any
     SectionTextSearch: Any
     Sections: Any
     TaxonomyL1: Any
