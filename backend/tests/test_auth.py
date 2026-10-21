@@ -3653,6 +3653,60 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
 
+    def test_oauth_register_validates_client_name(self):
+        client = self.app.test_client()
+        base = {
+            "redirect_uris": ["https://codex.example.com/callback"],
+            "grant_types": ["authorization_code"],
+            "response_types": ["code"],
+            "token_endpoint_auth_method": "none",
+        }
+        ok = client.post("/v1/auth/oauth/register", json={**base, "client_name": "  Codex MCP  "})
+        self.assertEqual(ok.status_code, 201)
+        self.assertEqual(ok.get_json()["client_name"], "Codex MCP")
+        unnamed = client.post("/v1/auth/oauth/register", json=base)
+        self.assertEqual(unnamed.status_code, 201)
+        self.assertNotIn("client_name", unnamed.get_json())
+        for bad_name in ("A" * 256, "Claude\u202egnp.live", "Claude\nAdmin", 42):
+            res = client.post("/v1/auth/oauth/register", json={**base, "client_name": bad_name})
+            self.assertEqual(res.status_code, 400, bad_name)
+            self.assertEqual(res.get_json()["error"], "invalid_client_metadata")
+        boundary = client.post("/v1/auth/oauth/register", json={**base, "client_name": "A" * 255})
+        self.assertEqual(boundary.status_code, 201)
+
+    def test_oauth_authorize_deny_redirects_only_to_registered_uri(self):
+        client = self.app.test_client()
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        client_id = register.get_json()["client_id"]
+        denied = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code&scope=agreements:read&state=st"
+            "&code_challenge=x&code_challenge_method=S256&deny=1"
+        )
+        self.assertEqual(denied.status_code, 302)
+        parsed = urlparse(denied.headers["Location"])
+        self.assertEqual(f"{parsed.scheme}://{parsed.netloc}{parsed.path}", "https://codex.example.com/callback")
+        self.assertEqual(parse_qs(parsed.query), {"error": ["access_denied"], "state": ["st"]})
+
+        hijacked = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://evil.example/callback&deny=1"
+        )
+        self.assertEqual(hijacked.status_code, 400)
+        self.assertNotIn("Location", hijacked.headers)
+
     def test_oauth_authorize_redirects_unsupported_scope_as_invalid_scope(self):
         """RFC 6749 §4.1.2.1: once the redirect URI is valid, scope errors go back by redirect."""
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

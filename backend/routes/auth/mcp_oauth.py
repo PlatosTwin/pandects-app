@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import unicodedata
 import uuid
 from datetime import timedelta
 from hashlib import sha256
@@ -52,6 +53,8 @@ _OAUTH_LOOPBACK_REDIRECT_HOSTS = {"localhost", "127.0.0.1", "::1"}
 # in this long — keeps the table from accumulating abandoned/spammed entries.
 _DCR_UNUSED_GRACE_HOURS = 24
 _DCR_INACTIVE_DAYS = 90
+# Matches the auth_oauth_clients.client_name column.
+_DCR_CLIENT_NAME_MAX_LENGTH = 255
 
 
 def register_mcp_oauth_routes(
@@ -434,6 +437,27 @@ window.location.replace({json.dumps(login_url)});
             if normalized in normalized_redirect_uris:
                 continue
             normalized_redirect_uris.append(normalized)
+        raw_client_name = data.get("client_name")
+        client_name: str | None = None
+        if raw_client_name is not None:
+            if not isinstance(raw_client_name, str):
+                return oauth_error(400, error="invalid_client_metadata", description="client_name must be a string.")
+            client_name = raw_client_name.strip() or None
+        if client_name is not None:
+            if len(client_name) > _DCR_CLIENT_NAME_MAX_LENGTH:
+                return oauth_error(
+                    400,
+                    error="invalid_client_metadata",
+                    description=f"client_name must be at most {_DCR_CLIENT_NAME_MAX_LENGTH} characters.",
+                )
+            # Control and format characters (including bidi overrides) would let a
+            # client disguise its name on the consent screen.
+            if any(unicodedata.category(ch) in {"Cc", "Cf"} for ch in client_name):
+                return oauth_error(
+                    400,
+                    error="invalid_client_metadata",
+                    description="client_name must not contain control or formatting characters.",
+                )
         token_endpoint_auth_method = data.get("token_endpoint_auth_method", "none")
         if token_endpoint_auth_method != "none":
             return oauth_error(400, error="invalid_client_metadata", description="Only public clients with token_endpoint_auth_method=none are supported.")
@@ -465,7 +489,7 @@ window.location.replace({json.dumps(login_url)});
             return oauth_error(400, error="invalid_client_metadata", description="Only code response types are supported.")
         client = deps.AuthOAuthClient(
             client_id=secrets.token_urlsafe(24),
-            client_name=(data.get("client_name") or None) if isinstance(data.get("client_name"), str) else None,
+            client_name=client_name,
             redirect_uris=normalized_redirect_uris,
             token_endpoint_auth_method="none",
             grant_types=sorted(normalized_grant_types),
@@ -581,6 +605,10 @@ window.location.replace({json.dumps(login_url)});
         client = deps.AuthOAuthClient.query.filter_by(client_id=client_id).first()
         if client is None or not _oauth_redirect_uri_allowed(client, redirect_uri):
             return _oauth_error_response("Invalid OAuth client or redirect URI.")
+        # The consent screen's Deny button comes back through here, so denial is
+        # only ever redirected to a redirect URI registered for this client.
+        if request.args.get("deny") == "1":
+            return _oauth_redirect_error(redirect_uri, error="access_denied", state=state)
         if response_type != "code":
             return _oauth_redirect_error(redirect_uri, error="unsupported_response_type", state=state)
         if unsupported_scope is not None:

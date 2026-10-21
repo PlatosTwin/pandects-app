@@ -37,6 +37,54 @@ describe("OAuthConsent", () => {
     expect(markup).toContain("(sections:search)");
     expect(markup).toContain(">Allow<");
     expect(markup).toContain(">Deny<");
+    // The self-reported name never becomes the headline for an unknown host.
+    expect(markup).toContain(
+      "An external application wants to access your Pandects account.",
+    );
+    expect(markup).toContain("Unrecognized application");
+  });
+
+  function consentQuery(overrides: Record<string, string>): string {
+    const params = new URLSearchParams(validQuery);
+    for (const [k, v] of Object.entries(overrides)) params.set(k, v);
+    return params.toString();
+  }
+
+  it("names a known client from its redirect host, with no warning", () => {
+    const markup = renderAt(
+      `/oauth/consent?${consentQuery({
+        client_name: "Claude",
+        redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+      })}`,
+    );
+    expect(markup).toContain("Claude wants to access your Pandects account.");
+    expect(markup).not.toContain("Unrecognized application");
+    expect(markup).not.toContain("This may not be");
+  });
+
+  it("warns when a client claims a known name but redirects elsewhere", () => {
+    const markup = renderAt(
+      `/oauth/consent?${consentQuery({
+        client_name: "Claude",
+        redirect_uri: "https://claude-login.evil.example/cb",
+      })}`,
+    );
+    expect(markup).toContain("This may not be Claude");
+    expect(markup).toContain("claude-login.evil.example");
+    expect(markup).not.toContain("Claude wants to access");
+  });
+
+  it("labels loopback redirects as a local app without a warning", () => {
+    const markup = renderAt(
+      `/oauth/consent?${consentQuery({
+        client_name: "Claude Code",
+        redirect_uri: "http://127.0.0.1:53682/callback",
+      })}`,
+    );
+    expect(markup).toContain("127.0.0.1:53682");
+    expect(markup).toContain("(an app on this computer)");
+    expect(markup).not.toContain("Unrecognized application");
+    expect(markup).not.toContain("This may not be");
   });
 
   it("shows an invalid-request alert when required OAuth params are missing", () => {
@@ -55,6 +103,8 @@ describe("OAuthConsent", () => {
       code_challenge_method: "S256",
     }).toString();
     const markup = renderAt(`/oauth/consent?${params}`);
-    expect(markup).toContain("An external application wants to access your Pandects account.");
+    expect(markup).toContain(
+      "An external application wants to access your Pandects account.",
+    );
   });
 });
