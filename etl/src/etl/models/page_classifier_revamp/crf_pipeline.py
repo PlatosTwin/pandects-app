@@ -1719,13 +1719,14 @@ def guard_body_after_attachment(
     An exhibit that is itself a full agreement (a transition services or escrow agreement) reads
     like body, and the CRF tends to end the body at the exhibit's own signature pages. When
     TypeSafe sees the main signature followed by an attachment start, body and sig are blocked from
-    the attachment on and the sequence is decoded again.
+    the attachment on, back matter is blocked before it (so signature pages between the main
+    signature and the attachment stay sig), and the sequence is decoded again.
     """
     attachment_index = attachment_after_main_signature(judgments, labels)
     if attachment_index is None:
         return labels, marginals, modified_mask
     blocked = [
-        frozenset({"body", "sig"}) if page_index >= attachment_index else frozenset()
+        frozenset({"body", "sig"}) if page_index >= attachment_index else frozenset({"back_matter"})
         for page_index in range(len(feature_sequence))
     ]
     decoded, decoded_marginals = predict_with_transition_overrides(

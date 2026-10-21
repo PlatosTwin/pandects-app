@@ -340,6 +340,45 @@ class GuardBodyAfterAttachmentTests(unittest.TestCase):
 
         self.assertEqual(guarded, ["body"] * 5 + ["sig"] + ["back_matter"] * 4)
 
+    def test_signature_page_before_the_attachment_stays_sig(self) -> None:
+        # A guarantor's signature page between the main signature and the exhibit reads more like
+        # back matter than sig, but back matter may not start before the attachment.
+        model = _FakeCRF(
+            state_features={
+                **EXHIBIT_MODEL.state_features_,
+                ("guarantor", "sig"): 1.5,
+                ("guarantor", "back_matter"): 2.0,
+                ("guarantor", "body"): -2.0,
+            },
+            transition_features=EXHIBIT_MODEL.transition_features_,
+        )
+        texts = EXHIBIT_TEXTS[:6] + ["Solely for purposes of the guarantee: GUARANTOR"] + EXHIBIT_TEXTS[6:]
+        kinds = EXHIBIT_KINDS[:6] + ["guarantor"] + EXHIBIT_KINDS[6:]
+        sequence: list[FeatureDict] = [
+            {**feature_dict, kind: 1.0}
+            for kind, feature_dict in zip(
+                kinds,
+                build_feature_sequences(
+                    [AgreementDocument("a", texts, [])],
+                    fit_tfidf_vectorizer(texts, max_features=10),
+                )[0],
+                strict=True,
+            )
+        ]
+        labels = ["body"] * 10 + ["sig"]
+
+        guarded, _, _ = guard_body_after_attachment(
+            model,
+            sequence,
+            _signature_judgments({5: 0.95, 6: 0.6}, {7: 0.9}, 11),
+            monotonic_transition_overrides(),
+            labels,
+            [{label: 0.0 for label in PAGE_LABELS}] * 11,
+            [False] * 11,
+        )
+
+        self.assertEqual(guarded, ["body"] * 5 + ["sig", "sig"] + ["back_matter"] * 4)
+
     def test_no_trigger_leaves_labels_alone(self) -> None:
         overrides = monotonic_transition_overrides()
         decoded, marginals = predict_with_transition_overrides(EXHIBIT_MODEL, [EXHIBIT_SEQUENCE], overrides)
