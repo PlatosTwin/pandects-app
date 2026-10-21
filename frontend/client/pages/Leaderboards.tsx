@@ -1,6 +1,5 @@
-import { useId, useMemo, useState } from "react";
+import { lazy, Suspense, useId, useMemo, useState } from "react";
 
-import { CounselLeaderboardChart } from "@/components/CounselLeaderboardChart";
 import { PageShell } from "@/components/PageShell";
 import { ChartPanel } from "@/components/ChartPanel";
 import { EmptyState, ErrorState } from "@/components/StateMessage";
@@ -25,6 +24,13 @@ import {
 } from "@/lib/chart-palette";
 import { formatCompactCurrencyValue } from "@/lib/format-utils";
 import type { CounselLeaderboardSide } from "@shared/insights";
+
+// The charting library is ~105 kB gzipped; load it only when the chart view
+// is shown, like the Trends and Agreement Index charts.
+const CounselLeaderboardChart = lazy(async () => {
+  const module = await import("@/components/CounselLeaderboardChart");
+  return { default: module.CounselLeaderboardChart };
+});
 
 type LeaderboardMetric = "deal_count" | "total_transaction_value";
 type LeaderboardView = "table" | "chart";
@@ -242,6 +248,12 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
                 ? ` The top ${chartFirms.named.length} are shown individually; the rest are combined as Other.`
                 : null}
             </p>
+            <Suspense
+              fallback={
+                // Same height as the chart, so it swaps in without a shift.
+                <Skeleton className="h-[260px] w-full sm:h-[320px] lg:h-[380px]" />
+              }
+            >
             <CounselLeaderboardChart
               data={chartData}
               describedBy={descriptionId}
@@ -252,6 +264,7 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
                 metric === "deal_count" ? formatDealCount : formatTransactionValue
               }
             />
+            </Suspense>
           </>
         )}
       </div>

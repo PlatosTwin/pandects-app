@@ -404,6 +404,8 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
       node.tagName === "article"
         ? "text-lg font-semibold"
         : "text-base font-medium";
+    // Articles sit under the agreement's h1, and their sections under them.
+    const HeadingTag = node.tagName === "article" ? "h2" : "h3";
     const isMatched = sectionUuid != null && matchedSectionUuids.has(sectionUuid);
     const isCurrentMatch = sectionUuid != null && currentMatchUuid === sectionUuid;
 
@@ -461,9 +463,9 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
               </button>
             )}
 
-            <h3 className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
+            <HeadingTag className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
               {renderFindHighlights(title, findRegex)}
-            </h3>
+            </HeadingTag>
             {headingExtras}
           </div>
 
@@ -503,9 +505,9 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
               className="group/heading mb-2 flex items-start gap-2"
               data-section-heading=""
             >
-              <h3 className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
+              <HeadingTag className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
                 {renderFindHighlights(title, findRegex)}
-              </h3>
+              </HeadingTag>
               {headingExtras}
             </div>
 
