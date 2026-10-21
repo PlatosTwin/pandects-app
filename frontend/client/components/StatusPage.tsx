@@ -21,8 +21,8 @@ export interface StatusPageProps {
 }
 
 /**
- * Full-page status message: 404, crash fallback, temporary lockdown. Aligned
- * to the navigation's left edge like every other page title.
+ * Full-page status message: 404, crash fallback, temporary lockdown. Centered
+ * in the frame, like the other pages narrower than the navigation.
  */
 export function StatusPage({
   code,
@@ -43,12 +43,15 @@ export function StatusPage({
         className,
       )}
     >
-      <div className="max-w-xl">
+      <div className="mx-auto max-w-xl text-center">
         {code ? (
           <p className="font-mono text-sm font-medium text-primary">{code}</p>
         ) : null}
         {Icon ? (
-          <Icon className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+          <Icon
+            className="mx-auto h-8 w-8 text-muted-foreground"
+            aria-hidden="true"
+          />
         ) : null}
         <Title
           className={cn(
@@ -59,10 +62,16 @@ export function StatusPage({
           {title}
         </Title>
         {description ? (
-          <div className="mt-3 text-base text-muted-foreground">{description}</div>
+          <div className="mt-3 text-base text-muted-foreground">
+            {description}
+          </div>
         ) : null}
-        {actions ? <div className="mt-8 flex flex-wrap gap-3">{actions}</div> : null}
-        {children}
+        {actions ? (
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            {actions}
+          </div>
+        ) : null}
+        {children ? <div className="text-left">{children}</div> : null}
       </div>
     </div>
   );
