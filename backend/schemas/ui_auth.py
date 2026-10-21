@@ -246,7 +246,27 @@ class AuthZitadelStartQuerySchema(AuthNextQuerySchema):
 
 class AuthOAuthConsentBodySchema(Schema):
     client_id = fields.Str(required=True)
+    redirect_uri = fields.Str(required=True)
     scope = fields.Str(required=True)
+
+
+class AuthOAuthConsentClientQuerySchema(Schema):
+    client_id = fields.Str(required=True)
+    redirect_uri = fields.Str(required=True)
+
+
+class AuthOAuthConsentClientResponseSchema(Schema):
+    client_id = fields.Str(required=True)
+    client_name = fields.Str(
+        required=True,
+        allow_none=True,
+        metadata={"description": "The name the client gave itself at registration."},
+    )
+    redirect_uris = fields.List(
+        fields.Str(),
+        required=True,
+        metadata={"description": "Every redirect URI the client registered."},
+    )
 
 
 class AuthOAuthConsentResponseSchema(Schema):
@@ -538,6 +558,15 @@ AUTH_OPERATIONS: tuple[UiOperation, ...] = (
         extra_responses={
             200: ("HTML page that sends the browser to sign in first", None),
         },
+    ),
+    UiOperation(
+        path="/v1/auth/oauth/consent/client",
+        method="get",
+        operation_id="getAuthOAuthConsentClient",
+        tag=_TAG,
+        summary="Describe an MCP OAuth client for the consent screen",
+        response=AuthOAuthConsentClientResponseSchema,
+        query=AuthOAuthConsentClientQuerySchema,
     ),
     UiOperation(
         path="/v1/auth/oauth/consent",

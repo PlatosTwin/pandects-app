@@ -3653,6 +3653,73 @@ class AuthFlowTests(unittest.TestCase):
             },
         )
 
+    def test_oauth_register_validates_client_name(self):
+        client = self.app.test_client()
+        base = {
+            "redirect_uris": ["https://codex.example.com/callback"],
+            "grant_types": ["authorization_code"],
+            "response_types": ["code"],
+            "token_endpoint_auth_method": "none",
+        }
+        ok = client.post("/v1/auth/oauth/register", json={**base, "client_name": "  Codex MCP  "})
+        self.assertEqual(ok.status_code, 201)
+        self.assertEqual(ok.get_json()["client_name"], "Codex MCP")
+        unnamed = client.post("/v1/auth/oauth/register", json=base)
+        self.assertEqual(unnamed.status_code, 201)
+        self.assertNotIn("client_name", unnamed.get_json())
+        for bad_name in (
+            "A" * 256,
+            "Claude\u202egnp.live",
+            "Claude\nAdmin",
+            "Claude\u2028Admin",
+            "Clau\ud800de",
+            "\u3164",
+            "Claude" + "\u0301" * 4,
+            42,
+        ):
+            # Registration is rate-limited to 10 per window; reset between attempts.
+            backend_app._endpoint_rate_limit_state.clear()
+            res = client.post("/v1/auth/oauth/register", json={**base, "client_name": bad_name})
+            self.assertEqual(res.status_code, 400, bad_name)
+            self.assertEqual(res.get_json()["error"], "invalid_client_metadata")
+        boundary = client.post("/v1/auth/oauth/register", json={**base, "client_name": "A" * 255})
+        self.assertEqual(boundary.status_code, 201)
+        accented = client.post("/v1/auth/oauth/register", json={**base, "client_name": "Ca\u0300fe\u0301 Ti\u1ebfng Vi\u1ec7t"})
+        self.assertEqual(accented.status_code, 201)
+
+    def test_oauth_authorize_deny_redirects_only_to_registered_uri(self):
+        client = self.app.test_client()
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        client_id = register.get_json()["client_id"]
+        denied = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code&scope=agreements:read&state=st"
+            "&code_challenge=x&code_challenge_method=S256&deny=1"
+        )
+        self.assertEqual(denied.status_code, 302)
+        parsed = urlparse(denied.headers["Location"])
+        self.assertEqual(f"{parsed.scheme}://{parsed.netloc}{parsed.path}", "https://codex.example.com/callback")
+        self.assertEqual(parse_qs(parsed.query), {"error": ["access_denied"], "state": ["st"]})
+
+        hijacked = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://evil.example/callback&deny=1"
+        )
+        self.assertEqual(hijacked.status_code, 400)
+        self.assertNotIn("Location", hijacked.headers)
+
     def test_oauth_authorize_redirects_unsupported_scope_as_invalid_scope(self):
         """RFC 6749 §4.1.2.1: once the redirect URI is valid, scope errors go back by redirect."""
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"
@@ -3823,7 +3890,8 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(location.path, "/oauth/consent")
         query = parse_qs(location.query)
         self.assertEqual(query["client_id"], [client_id])
-        self.assertEqual(query["client_name"], ["Codex MCP"])
+        # The page asks the server who the client is instead of trusting its URL.
+        self.assertNotIn("client_name", query)
         self.assertEqual(query["redirect_uri"], ["https://codex.example.com/callback"])
         self.assertEqual(query["response_type"], ["code"])
         self.assertEqual(query["scope"], ["agreements:read"])
@@ -3866,7 +3934,7 @@ class AuthFlowTests(unittest.TestCase):
         # a code instead of redirecting.
         consent = client.post(
             "/v1/auth/oauth/consent",
-            json={"client_id": client_id, "scope": "agreements:read"},
+            json={"client_id": client_id, "redirect_uri": "https://codex.example.com/callback", "scope": "agreements:read"},
             headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
         )
         self.assertEqual(consent.status_code, 200)
@@ -3913,14 +3981,14 @@ class AuthFlowTests(unittest.TestCase):
 
         bad_scope = client.post(
             "/v1/auth/oauth/consent",
-            json={"client_id": client_id, "scope": "totally:made-up"},
+            json={"client_id": client_id, "redirect_uri": "https://codex.example.com/callback", "scope": "totally:made-up"},
             headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
         )
         self.assertEqual(bad_scope.status_code, 400)
 
         unknown_client = client.post(
             "/v1/auth/oauth/consent",
-            json={"client_id": "does-not-exist", "scope": "agreements:read"},
+            json={"client_id": "does-not-exist", "redirect_uri": "https://codex.example.com/callback", "scope": "agreements:read"},
             headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
         )
         self.assertEqual(unknown_client.status_code, 400)
@@ -3948,20 +4016,123 @@ class AuthFlowTests(unittest.TestCase):
 
         first = client.post(
             "/v1/auth/oauth/consent",
-            json={"client_id": client_id, "scope": "agreements:read"},
+            json={"client_id": client_id, "redirect_uri": "https://codex.example.com/callback", "scope": "agreements:read"},
             headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
         )
         self.assertEqual(first.status_code, 200)
 
         second = client.post(
             "/v1/auth/oauth/consent",
-            json={"client_id": client_id, "scope": "agreements:search"},
+            json={"client_id": client_id, "redirect_uri": "https://codex.example.com/callback", "scope": "agreements:search"},
             headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
         )
         self.assertEqual(second.status_code, 200)
         merged_scope = second.get_json()["scope"].split(" ")
         self.assertIn("agreements:read", merged_scope)
         self.assertIn("agreements:search", merged_scope)
+
+    def test_oauth_consent_requires_a_registered_redirect_uri(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        self._create_local_user(email="consent-redirect@example.com")
+        self._set_cookie_session(client, email="consent-redirect@example.com")
+        client.get("/v1/auth/csrf")
+        csrf = self._csrf_cookie_value(client)
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Claude",
+                "redirect_uris": ["https://evil.example/cb"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+            headers={"X-CSRF-Token": csrf},
+        )
+        client_id = register.get_json()["client_id"]
+        headers = {"X-CSRF-Token": csrf, "Content-Type": "application/json"}
+        for payload in (
+            {"client_id": client_id, "scope": "agreements:read"},
+            {"client_id": client_id, "redirect_uri": "https://claude.ai/api/mcp/auth_callback", "scope": "agreements:read"},
+        ):
+            res = client.post("/v1/auth/oauth/consent", json=payload, headers=headers)
+            self.assertEqual(res.status_code, 400, payload)
+        ok = client.post(
+            "/v1/auth/oauth/consent",
+            json={"client_id": client_id, "redirect_uri": "https://evil.example/cb", "scope": "agreements:read"},
+            headers=headers,
+        )
+        self.assertEqual(ok.status_code, 200)
+
+    def test_oauth_loopback_any_port_match_rejects_malformed_uris(self):
+        client = self.app.test_client()
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Local MCP",
+                "redirect_uris": ["http://127.0.0.1/callback"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        client_id = register.get_json()["client_id"]
+        for redirect_uri in (
+            "http://evil.example\\@127.0.0.1/callback",
+            "http://user@127.0.0.1:5000/callback",
+            "http://127.0.0.1:5000/callback#frag",
+        ):
+            res = client.get(
+                "/v1/auth/oauth/authorize",
+                query_string={"client_id": client_id, "redirect_uri": redirect_uri, "deny": "1"},
+            )
+            self.assertEqual(res.status_code, 400, redirect_uri)
+            self.assertNotIn("Location", res.headers)
+        ok = client.get(
+            "/v1/auth/oauth/authorize",
+            query_string={"client_id": client_id, "redirect_uri": "http://127.0.0.1:5000/callback", "deny": "1"},
+        )
+        self.assertEqual(ok.status_code, 302)
+
+    def test_oauth_consent_client_describes_registration(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Claude",
+                "redirect_uris": ["https://claude.ai/api/mcp/auth_callback", "https://evil.example/cb"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        client_id = register.get_json()["client_id"]
+        url = (
+            "/v1/auth/oauth/consent/client"
+            f"?client_id={client_id}&redirect_uri=https://claude.ai/api/mcp/auth_callback"
+        )
+        self.assertEqual(client.get(url).status_code, 401)
+
+        self._create_local_user(email="consent-client@example.com")
+        self._set_cookie_session(client, email="consent-client@example.com")
+        res = client.get(url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers["Cache-Control"], "no-store")
+        self.assertEqual(
+            res.get_json(),
+            {
+                "client_id": client_id,
+                "client_name": "Claude",
+                "redirect_uris": ["https://claude.ai/api/mcp/auth_callback", "https://evil.example/cb"],
+            },
+        )
+        for bad in (
+            f"?client_id={client_id}&redirect_uri=https://other.example/cb",
+            f"?client_id={client_id}",
+            "?client_id=missing&redirect_uri=https://claude.ai/api/mcp/auth_callback",
+        ):
+            self.assertEqual(client.get("/v1/auth/oauth/consent/client" + bad).status_code, 400, bad)
 
     def test_login_per_account_throttle_blocks_after_repeated_failures(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "bearer"

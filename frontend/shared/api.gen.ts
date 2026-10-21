@@ -987,6 +987,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/oauth/consent/client": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Describe an MCP OAuth client for the consent screen */
+        get: operations["getAuthOAuthConsentClient"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/oauth/consent": {
         parameters: {
             query?: never;
@@ -2092,8 +2109,16 @@ export interface components {
         AuthDeleteAccount: {
             confirm: string;
         };
+        AuthOAuthConsentClientResponse: {
+            client_id: string;
+            /** @description The name the client gave itself at registration. */
+            client_name: string | null;
+            /** @description Every redirect URI the client registered. */
+            redirect_uris: string[];
+        };
         AuthOAuthConsentBody: {
             client_id: string;
+            redirect_uri: string;
             scope: string;
         };
         AuthOAuthConsentResponse: {
@@ -3869,6 +3894,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["DEFAULT_ERROR"];
+        };
+    };
+    getAuthOAuthConsentClient: {
+        parameters: {
+            query: {
+                client_id: string;
+                redirect_uri: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthOAuthConsentClientResponse"];
+                };
             };
             default: components["responses"]["DEFAULT_ERROR"];
         };

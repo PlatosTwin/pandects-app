@@ -1,11 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { apiUrl } from "@/lib/api-config";
-import { grantOAuthConsent } from "@/lib/auth-api";
+import { ApiError } from "@/lib/api/client";
+import { fetchOAuthConsentClient, grantOAuthConsent } from "@/lib/auth-api";
+import {
+  classifyOAuthClient,
+  type OAuthClientIdentity,
+} from "@/lib/oauth-client-identity";
 
 // Human-readable labels for the scope identifiers the MCP server publishes.
 // Keep in sync with mcp_supported_scopes() on the backend.
@@ -29,18 +34,14 @@ function isHttpOrHttps(value: string): boolean {
   }
 }
 
-function buildClientCallbackUrl(redirectUri: string, params: Record<string, string>): string {
-  const url = new URL(redirectUri);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  return url.toString();
-}
-
 export default function OAuthConsent() {
   const location = useLocation();
-  const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const params = useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search],
+  );
 
   const clientId = params.get("client_id") ?? "";
-  const clientName = params.get("client_name")?.trim() || null;
   const redirectUri = params.get("redirect_uri") ?? "";
   const responseType = params.get("response_type") ?? "";
   const scope = params.get("scope") ?? "";
@@ -59,35 +60,92 @@ export default function OAuthConsent() {
     !!codeChallenge &&
     !!codeChallengeMethod;
 
-  const redirectHost = useMemo(() => {
-    try {
-      return new URL(redirectUri).host;
-    } catch {
-      return redirectUri;
-    }
-  }, [redirectUri]);
+  // Anyone can link to this page with any query string, so who the client is
+  // comes from its registration on the server, not from the URL. The result is
+  // keyed by request so a new request (or a retry) shows as loading at once.
+  const [attempt, setAttempt] = useState(0);
+  const requestKey = `${clientId}\n${redirectUri}\n${attempt}`;
+  const [lookup, setLookup] = useState<
+    | { key: string; status: "rejected" }
+    | { key: string; status: "unavailable" }
+    | {
+        key: string;
+        status: "ready";
+        name: string | null;
+        identity: OAuthClientIdentity;
+      }
+    | null
+  >(null);
+  const client =
+    lookup && lookup.key === requestKey
+      ? lookup
+      : { status: "loading" as const };
+
+  useEffect(() => {
+    if (!paramsValid) return;
+    let cancelled = false;
+    fetchOAuthConsentClient({ client_id: clientId, redirect_uri: redirectUri })
+      .then((registration) => {
+        if (cancelled) return;
+        setLookup({
+          key: requestKey,
+          status: "ready",
+          name: registration.client_name ?? null,
+          identity: classifyOAuthClient(
+            registration.client_name ?? null,
+            redirectUri,
+            registration.redirect_uris,
+          ),
+        });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // 400 means the server rejected the client or redirect URI; anything
+        // else (signed out, outage, network) is worth retrying.
+        const rejected = err instanceof ApiError && err.status === 400;
+        setLookup(
+          rejected
+            ? { key: requestKey, status: "rejected" }
+            : { key: requestKey, status: "unavailable" },
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [paramsValid, clientId, redirectUri, requestKey]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Both buttons go back through /v1/auth/oauth/authorize, which checks the
+  // redirect URI against the client's registration before sending the browser
+  // anywhere; this page's own query string is never trusted as a destination.
+  const authorizeHref = (deny: boolean): string => {
+    const authorizeUrl = new URL(apiUrl("v1/auth/oauth/authorize"));
+    authorizeUrl.searchParams.set("client_id", clientId);
+    authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+    authorizeUrl.searchParams.set("response_type", responseType);
+    authorizeUrl.searchParams.set("scope", scope);
+    authorizeUrl.searchParams.set("code_challenge", codeChallenge);
+    authorizeUrl.searchParams.set("code_challenge_method", codeChallengeMethod);
+    if (state) authorizeUrl.searchParams.set("state", state);
+    if (deny) authorizeUrl.searchParams.set("deny", "1");
+    return authorizeUrl.toString();
+  };
 
   const handleAllow = async () => {
     if (!paramsValid) return;
     setSubmitting(true);
     setError(null);
     try {
-      await grantOAuthConsent({ client_id: clientId, scope });
-      // Re-navigate to /v1/auth/oauth/authorize. The new grant means the
-      // gate passes and the backend 302s the browser to the client's
-      // redirect_uri with the auth code.
-      const authorizeUrl = new URL(apiUrl("v1/auth/oauth/authorize"));
-      authorizeUrl.searchParams.set("client_id", clientId);
-      authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-      authorizeUrl.searchParams.set("response_type", responseType);
-      authorizeUrl.searchParams.set("scope", scope);
-      authorizeUrl.searchParams.set("code_challenge", codeChallenge);
-      authorizeUrl.searchParams.set("code_challenge_method", codeChallengeMethod);
-      if (state) authorizeUrl.searchParams.set("state", state);
-      window.location.href = authorizeUrl.toString();
+      await grantOAuthConsent({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope,
+      });
+      // The new grant means the gate passes and the backend 302s the browser
+      // to the client's redirect_uri with the auth code.
+      window.location.href = authorizeHref(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setSubmitting(false);
@@ -96,67 +154,166 @@ export default function OAuthConsent() {
 
   const handleDeny = () => {
     if (!paramsValid) return;
-    // RFC 6749 §4.1.2.1: signal denial to the relying party by redirecting
-    // back to its callback with error=access_denied and the original state.
-    const errorParams: Record<string, string> = { error: "access_denied" };
-    if (state) errorParams.state = state;
-    window.location.href = buildClientCallbackUrl(redirectUri, errorParams);
+    // RFC 6749 §4.1.2.1: the backend redirects to the registered callback with
+    // error=access_denied and the original state.
+    window.location.href = authorizeHref(true);
   };
 
   return (
     <PageShell
       title="Authorize access"
       description={
-        clientName
-          ? `${clientName} wants to access your Pandects account.`
+        client.status === "ready" && client.identity.kind === "known"
+          ? `${client.identity.knownLabel} wants to access your Pandects account.`
           : "An external application wants to access your Pandects account."
       }
       layout="form"
     >
       <Card className="w-full p-6 shadow-sm sm:p-8">
         <div className="grid gap-6">
-          {!paramsValid ? (
+          {!paramsValid || client.status === "rejected" ? (
             <Alert variant="destructive">
               <AlertTitle>Invalid authorization request</AlertTitle>
               <AlertDescription>
-                The authorization link is missing required information. Return to the application that sent you here and start the sign-in flow again.
+                The authorization link is missing required information. Return
+                to the application that sent you here and start the sign-in flow
+                again.
               </AlertDescription>
             </Alert>
-          ) : (
+          ) : client.status === "unavailable" ? (
             <>
-              <p className="text-sm text-muted-foreground">
-                After allowing, you will be redirected to{" "}
-                <span className="font-medium text-foreground">{redirectHost}</span>.
-              </p>
-              <div>
-                <div className="text-sm font-medium">Requested permissions</div>
-                <ul className="mt-2 space-y-1 pl-5 text-sm text-muted-foreground list-disc">
-                  {scopes.map((s) => (
-                    <li key={s}>
-                      <span className="text-foreground">{describeScope(s)}</span>{" "}
-                      <span className="text-muted-foreground">({s})</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              {error ? (
-                <Alert variant="destructive">
-                  <AlertTitle>Could not record consent</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              ) : null}
+              <Alert variant="destructive">
+                <AlertTitle>Could not load this request</AlertTitle>
+                <AlertDescription>
+                  Pandects couldn&apos;t check the application asking for
+                  access. Try again, or deny the request.
+                </AlertDescription>
+              </Alert>
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <Button variant="outline" onClick={handleDeny} disabled={submitting}>
+                <Button variant="outline" onClick={handleDeny}>
                   Deny
                 </Button>
-                <Button onClick={handleAllow} disabled={submitting}>
-                  {submitting ? "Allowing…" : "Allow"}
+                <Button onClick={() => setAttempt((n) => n + 1)}>
+                  Try again
                 </Button>
               </div>
             </>
+          ) : client.status === "loading" ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              Loading…
+            </p>
+          ) : (
+            <ConsentDetails
+              clientName={client.name}
+              identity={client.identity}
+              scopes={scopes}
+              error={error}
+              submitting={submitting}
+              onAllow={handleAllow}
+              onDeny={handleDeny}
+            />
           )}
         </div>
       </Card>
     </PageShell>
+  );
+}
+
+function ConsentDetails({
+  clientName,
+  identity,
+  scopes,
+  error,
+  submitting,
+  onAllow,
+  onDeny,
+}: {
+  clientName: string | null;
+  identity: OAuthClientIdentity;
+  scopes: string[];
+  error: string | null;
+  submitting: boolean;
+  onAllow: () => void;
+  onDeny: () => void;
+}) {
+  return (
+    <>
+      <dl className="grid gap-3 text-sm">
+        <div>
+          <dt className="text-muted-foreground">
+            After you allow, you will be sent to
+          </dt>
+          <dd className="mt-0.5 break-all font-mono text-base font-medium text-foreground">
+            {identity.host}
+            {identity.kind === "local" ? (
+              <span className="ml-2 font-sans text-sm font-normal text-muted-foreground">
+                (an app on this computer)
+              </span>
+            ) : null}
+          </dd>
+        </div>
+        {identity.otherHosts.length > 0 ? (
+          <div>
+            <dt className="text-muted-foreground">
+              Allowing also lets this application sign in through
+            </dt>
+            <dd className="mt-0.5 break-all font-mono text-foreground">
+              {identity.otherHosts.join(", ")}
+            </dd>
+          </div>
+        ) : null}
+        {clientName ? (
+          <div>
+            <dt className="text-muted-foreground">
+              Name the application gave itself
+            </dt>
+            <dd className="mt-0.5 break-words text-foreground">{clientName}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {identity.kind === "impersonation" ? (
+        <Alert variant="destructive">
+          <AlertTitle>This may not be {identity.knownLabel}</AlertTitle>
+          <AlertDescription>
+            It calls itself {identity.knownLabel}, but {identity.knownLabel}{" "}
+            doesn&apos;t use {identity.foreignHosts.join(", ")}. Deny unless you
+            are sure.
+          </AlertDescription>
+        </Alert>
+      ) : identity.kind === "unknown" ? (
+        <Alert variant="warning">
+          <AlertTitle>Unrecognized application</AlertTitle>
+          <AlertDescription>
+            Pandects doesn&apos;t recognize this application. Allow only if you
+            just started connecting it yourself.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <div>
+        <div className="text-sm font-medium">Requested permissions</div>
+        <ul className="mt-2 space-y-1 pl-5 text-sm text-muted-foreground list-disc">
+          {scopes.map((s) => (
+            <li key={s}>
+              <span className="text-foreground">{describeScope(s)}</span>{" "}
+              <span className="text-muted-foreground">({s})</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Could not record consent</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+        <Button variant="outline" onClick={onDeny} disabled={submitting}>
+          Deny
+        </Button>
+        <Button onClick={onAllow} disabled={submitting}>
+          {submitting ? "Allowing…" : "Allow"}
+        </Button>
+      </div>
+    </>
   );
 }
