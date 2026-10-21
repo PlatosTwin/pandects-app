@@ -939,6 +939,16 @@ export function AgreementIndexOverview() {
     </div>
   );
 
+  // Footnotes and chart controls describe a drawn chart, so they wait for one.
+  const stagedChartShown =
+    !statusSummaryLoading && !statusSummaryError && stagedChartData.length > 0;
+  const dealTypeChartShown =
+    !dealTypeSummaryLoading &&
+    dealTypeSummaryLoaded &&
+    !dealTypeSummaryError &&
+    dealTypeChartData.length > 0 &&
+    dealTypeSeries.length > 0;
+
   return (
     <div className="space-y-6">
       <ChartPanel
@@ -955,7 +965,11 @@ export function AgreementIndexOverview() {
             routes.
           </span>
         }
-        footnote="The dashed divider marks the 2020/2021 boundary: from 2000 through 2020 the data comes from the DMA Corpus; from 2021 we source it from EDGAR."
+        footnote={
+          stagedChartShown
+            ? "The dashed divider marks the 2020/2021 boundary: from 2000 through 2020 the data comes from the DMA Corpus; from 2021 we source it from EDGAR."
+            : undefined
+        }
         mobileExpand={stagedChartData.length > 0 ? () => renderStagedChart() : false}
       >
         {statusSummaryLoading ? (
@@ -1030,6 +1044,7 @@ export function AgreementIndexOverview() {
             </span>
           }
           controls={
+            dealTypeChartShown ? (
             <SegmentedControl<DealTypeChartMode>
               value={dealTypeChartMode}
               onValueChange={setDealTypeChartMode}
@@ -1037,8 +1052,13 @@ export function AgreementIndexOverview() {
               aria-label="Deal type chart mode"
               size="sm"
             />
+            ) : undefined
           }
-          footnote="The dashed divider marks the 2020/2021 boundary between DMA Corpus and EDGAR-sourced data."
+          footnote={
+            dealTypeChartShown
+              ? "The dashed divider marks the 2020/2021 boundary between DMA Corpus and EDGAR-sourced data."
+              : undefined
+          }
           mobileExpand={
             dealTypeChartData.length > 0 && dealTypeSeries.length > 0
               ? () => renderDealTypeChart()

@@ -100,7 +100,9 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
   };
 
   const keywordInput = (
-    <div className="relative min-w-0 flex-1">
+    // Its own row on phones (above the match select), so a long phrase stays
+    // readable. Without the select (tax mode) it shares the row with Search.
+    <div className={cn("relative min-w-0 flex-1", keywordSupported && "basis-full sm:basis-0")}>
       <SearchIcon
         className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden="true"
@@ -204,7 +206,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
             </Tooltip>
           )}
         </div>
-        <div className="flex min-w-0 flex-1 items-center gap-2 md:basis-full lg:basis-auto">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap md:basis-full lg:basis-auto">
           {keywordInput}
           {keywordSupported ? (
             <Select
@@ -215,7 +217,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
                 if (keyword || draft.trim()) submit(next);
               }}
             >
-              <SelectTrigger className="h-10 w-[6.75rem] shrink-0 text-sm sm:w-[8.5rem]" aria-label="Keyword match">
+              <SelectTrigger className="h-10 flex-1 text-sm sm:w-[8.5rem] sm:flex-none sm:shrink-0" aria-label="Keyword match">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

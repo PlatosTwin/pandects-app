@@ -196,6 +196,8 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
             </DropdownMenu>
           </div>
         </div>
+        {/* Below lg the chips get their own row; the sheet hides what's applied. */}
+        <div className="mt-2 empty:hidden lg:hidden">{props.chips}</div>
       </div>
 
       <div className="flex-1 px-4 py-4 sm:px-6">

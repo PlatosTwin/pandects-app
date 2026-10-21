@@ -64,12 +64,18 @@ afterEach(() => {
 });
 
 function renderPage(
-  state: { taxonomyTree: ClauseTypeTree | null; isLoading: boolean } = {
+  state: {
+    taxonomyTree: ClauseTypeTree | null;
+    isLoading: boolean;
+    error?: string | null;
+    rawError?: unknown;
+    retry?: () => void;
+  } = {
     taxonomyTree: tree,
     isLoading: false,
   },
 ) {
-  useTaxonomyMock.mockReturnValue({ ...state, error: null });
+  useTaxonomyMock.mockReturnValue({ error: null, rawError: null, retry: vi.fn(), ...state });
   useTaxonomyCountsMock.mockReturnValue({
     counts: { "L1-CORP": 1500, "L2-CAP": 1500, "L3-AUTH": 1234 },
     isLoading: false,
@@ -165,5 +171,20 @@ describe("Taxonomy page", () => {
     expect(
       screen.getByRole("link", { name: "Open in agreement" }).getAttribute("href"),
     ).toBe("/agreements/agr-1?from=%2Ftaxonomy%3Fnode%3DL3-AUTH&focusSectionUuid=sec-1");
+  });
+
+  it("offers Try again when the taxonomy fails to load", () => {
+    const retry = vi.fn();
+    renderPage({
+      taxonomyTree: null,
+      isLoading: false,
+      error: "Unable to load the taxonomy.",
+      rawError: Object.assign(new TypeError("Failed to fetch"), { status: 0 }),
+      retry,
+    });
+
+    expect(screen.getByText("Couldn't reach the server")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 });

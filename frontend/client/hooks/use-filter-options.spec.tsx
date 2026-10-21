@@ -78,4 +78,30 @@ describe("useFilterOptions", () => {
     expect(filterOptionsUrl).toContain("fields=target_industries");
     expect(filterOptionsUrl).not.toContain("clause_types");
   });
+
+  it("retries a failed filter-options load", async () => {
+    let failOptions = true;
+    mockAuthFetch.mockImplementation(async (input) => {
+      if (!String(input).includes("v1/filter-options")) return okResponse(TREE);
+      if (failOptions) {
+        return {
+          ok: false,
+          status: 503,
+          statusText: "Service Unavailable",
+          headers: new Headers(),
+          json: async () => ({}),
+          text: async () => "",
+        } as Response;
+      }
+      return okResponse({ target_counsels: ["Wachtell"] });
+    });
+
+    const { result } = renderHook(() => useFilterOptions(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    failOptions = false;
+    result.current.retry();
+    await waitFor(() => expect(result.current.target_counsels).toEqual(["Wachtell"]));
+    expect(result.current.error).toBeNull();
+  });
 });
