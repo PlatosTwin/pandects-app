@@ -376,3 +376,54 @@ describe("XMLRenderer memoized subtree rendering", () => {
     container.remove();
   });
 });
+
+describe("XMLRenderer reader markers", () => {
+  const xml =
+    '<document><body><article title="ARTICLE I" uuid="a1">' +
+    '<section title="1.1 First" uuid="s1"><text>Alpha text.</text></section>' +
+    '<section title="1.2 Second" uuid="s2"><text>Beta text.</text></section>' +
+    '<section title="1.3 Third" uuid="s3"><text>Gamma text.</text></section>' +
+    "</article></body></document>";
+
+  it("marks matched sections persistently and the current one distinctly", () => {
+    const html = renderToStaticMarkup(
+      createElement(XMLRenderer, {
+        xmlContent: xml,
+        mode: "agreement",
+        matchedSectionUuids: new Set(["s1", "s3"]),
+        currentMatchUuid: "s3",
+      }),
+    );
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const marker = (uuid: string) =>
+      doc.querySelector(`[data-section-uuid="${uuid}"]`)?.getAttribute("data-matched");
+    expect(marker("s1")).toBe("true");
+    expect(marker("s2")).toBeNull();
+    expect(marker("s3")).toBe("current");
+    expect(doc.querySelectorAll("[data-matched]")).toHaveLength(2);
+    expect(html.match(/>Matched</g)).toHaveLength(2);
+  });
+
+  it("renders per-section actions only for sections", () => {
+    const seen: string[] = [];
+    renderToStaticMarkup(
+      createElement(XMLRenderer, {
+        xmlContent: xml,
+        mode: "agreement",
+        renderSectionActions: ({ uuid }) => {
+          seen.push(uuid);
+          return null;
+        },
+      }),
+    );
+    expect(seen).toEqual(["s1", "s2", "s3"]);
+  });
+
+  it("highlights find hits only where the query occurs", () => {
+    const html = renderToStaticMarkup(
+      createElement(XMLRenderer, { xmlContent: xml, mode: "agreement", findQuery: "beta" }),
+    );
+    expect(html.match(/<mark /g)).toHaveLength(1);
+    expect(html).toContain(">Beta</mark>");
+  });
+});
