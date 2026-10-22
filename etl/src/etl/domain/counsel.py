@@ -7,6 +7,17 @@ _MULTI_COUNSEL_SPLIT_RE = re.compile(r"\s*;\s*|\s*\n+\s*|\s+/\s+")
 _AND_SUFFIX_CONNECTOR_RE = re.compile(
     r"(?i)\b(?:llp|l\.l\.p\.|pc|p\.c\.|professional corporation|pllc|plc|llc|ltd|lp|l\.p\.|n\.v\.|a\.p\.c\.|corp\.|corporation)\b\s+and\s+"
 )
+# Joined-firm splitting ("RC Law LLP, Loeb & Loeb LLP"): see _is_firm_boundary.
+_JOINED_FIRM_CONNECTOR_RE = re.compile(r",\s+|\s+and\s+|\s+&\s+", re.I)
+_JOINED_FIRM_SUFFIX_END_RE = re.compile(
+    r"(?i)(?:,\s*|\s+)(?:llp|l\.l\.p\.?|pc|p\.c\.?|pllc|p\.l\.l\.c\.?|llc|l\.l\.c\.?|pa|p\.a\.?|plc|ltd\.?)$"
+)
+_FIRM_TYPE_TAIL_RE = re.compile(r"(?i)\b(?:solicitors|law offices|law firm|advocates)$")
+_NON_FIRM_TOKENS = {
+    "a", "the", "at", "of", "law", "attorneys", "associates", "affiliates", "partners", "co",
+    "company", "professional", "association", "corporation", "limited", "llp", "llc", "pllc",
+    "lllp", "llo", "pll", "pllp", "lc", "pa", "pc", "plc", "ltd", "inc", "corp", "nv", "apc", "sc",
+}
 _TRAILING_GEO_PAREN_RE = re.compile(r"\s*\((?:us|u\.s\.|usa|ny|delaware|uk)\)\s*$", re.I)
 _TRAILING_SUFFIX_RE = re.compile(
     "".join(
@@ -97,6 +108,8 @@ _EXACT_DISPLAY_OVERRIDES = {
     "Bryan Cave HRO": "Bryan Cave",
     "Buchalter, a": "Buchalter",
     "Clifford Chance Prague": "Clifford Chance",
+    "McCann FitzGerald Solicitors": "McCann FitzGerald",
+    "Studio Legale Associato in association with Clifford Chance": "Clifford Chance",
     "Clifford Chance US": "Clifford Chance",
     "Cooley HK": "Cooley",
     "Crowe & Dunlevy, A": "Crowe & Dunlevy",
@@ -155,6 +168,10 @@ _EXACT_DISPLAY_OVERRIDES = {
 }
 _EXACT_MULTI_FIRM_SPLITS = {
     "Ropes & Gray LLP, Hogan Lovells US": ["Ropes & Gray", "Hogan Lovells"],
+    "Erdinast, Ben Nathan, Toledano & Co. with Hamburger Evron": [
+        "Erdinast, Ben Nathan, Toledano & Co.",
+        "Hamburger Evron",
+    ],
     "Smith Mackinnon, PA & Smith Gambrell & Russell, LLLP": [
         "Smith Mackinnon, PA",
         "Smith Gambrell & Russell",
@@ -435,6 +452,44 @@ def _split_after_legal_suffix_connector(value: str) -> list[str]:
     return parts
 
 
+def _looks_like_firm(value: str) -> bool:
+    if not value or not value[0].isupper():
+        return False
+    tokens = _normalized_counsel_key(_clean_display_candidate(value) or value).split(" ")
+    return any(len(token) > 1 and token not in _NON_FIRM_TOKENS for token in tokens)
+
+
+def _ends_with_legal_suffix(value: str) -> bool:
+    return bool(_JOINED_FIRM_SUFFIX_END_RE.search(value))
+
+
+def _is_firm_boundary(left: str, connector: str, right: str) -> bool:
+    """True when `left` is a complete firm name and `right` starts another firm.
+
+    Only splits on evidence that the left side is finished: a legal suffix, a firm-type
+    word ("Solicitors", "Law Offices"), or a complete "X & Y" name followed by another
+    suffixed "X & Y" name. A comma inside one firm's name ("Weil, Gotshal & Manges")
+    has none of these, so it never splits.
+    """
+    if not _looks_like_firm(right):
+        return False
+    right_has_firm_shape = " & " in right or " and " in right.lower() or _ends_with_legal_suffix(right)
+    if _ends_with_legal_suffix(left):
+        return right_has_firm_shape
+    if connector != "&" and " & " in left and " & " in right and _ends_with_legal_suffix(right):
+        return True
+    return connector != "," and bool(_FIRM_TYPE_TAIL_RE.search(left)) and right_has_firm_shape
+
+
+def _split_joined_firms(value: str) -> list[str]:
+    for match in _JOINED_FIRM_CONNECTOR_RE.finditer(value):
+        left, right = value[: match.start()].strip(), value[match.end() :].strip()
+        connector = match.group(0).strip().lower()
+        if _is_firm_boundary(left, connector, right):
+            return [left, *_split_joined_firms(right)]
+    return [value]
+
+
 def split_counsel_names(value: object | None) -> list[str]:
     if value is None:
         return []
@@ -462,7 +517,7 @@ def split_counsel_names(value: object | None) -> list[str]:
                 normalized_key = _normalized_counsel_key(cleaned)
                 split_names = _MULTI_FIRM_SPLITS_BY_NORMALIZED.get(normalized_key)
                 if split_names is None:
-                    segments.append(normalized)
+                    segments.extend(_split_joined_firms(normalized))
                     continue
                 segments.extend(split_names)
     return segments
