@@ -362,11 +362,6 @@ def fetch_active_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[s
     return _hydrate_logical_run_row(job_name, dict(row))
 
 
-def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[str, Any] | None:
-    rows = _resumable_logical_runs(conn, schema=schema, job_name=job_name)
-    return rows[0] if rows else None
-
-
 def _resumable_logical_runs(conn: Any, *, schema: str, job_name: str) -> list[dict[str, Any]]:
     """Unfinished logical runs for a job, the one furthest along first."""
     completed_stages_expr = _job_runs_completed_stages_expr(conn, schema=schema)
@@ -529,6 +524,11 @@ def _owned_by_other_live_dagster_run(context: AssetExecutionContext, logical_run
     )
 
 
+# (Dagster run id, logical run id) pairs already warned about, so each step's
+# several progress lookups don't repeat the same warning.
+_warned_live_owner_pairs: set[tuple[str | None, str]] = set()
+
+
 def _warn_owned_by_other_live_dagster_run(
     context: AssetExecutionContext,
     *,
@@ -538,13 +538,60 @@ def _warn_owned_by_other_live_dagster_run(
     log = getattr(context, "log", None)
     if log is None:
         return
+    warned_pair = (_current_dagster_run_id(context), str(logical_run["logical_run_id"]))
+    if warned_pair in _warned_live_owner_pairs:
+        return
+    _warned_live_owner_pairs.add(warned_pair)
     log.warning(
         "%s: logical run %s belongs to Dagster run %s, which is still running; "
-        + "this run will not take it over or touch its progress.",
+        + "this run will not take it over or touch its progress. If that Dagster run is "
+        + "actually dead, terminate it in the Dagster UI.",
         job_name,
         str(logical_run["logical_run_id"]),
         logical_run.get("dagster_run_id"),
     )
+
+
+def _claim_logical_run_row(
+    conn: Any,
+    *,
+    schema: str,
+    logical_run: dict[str, Any],
+    dagster_run_id: str,
+) -> bool:
+    """Point a logical run at a Dagster run and mark it RUNNING.
+
+    The update only applies if the row still has the owner it was read with,
+    so two runs claiming the same row at once cannot both win.
+    """
+    expected_owner = logical_run.get("dagster_run_id")
+    params: dict[str, Any] = {
+        "logical_run_id": str(logical_run["logical_run_id"]),
+        "dagster_run_id": dagster_run_id,
+        "running_status": LOGICAL_RUN_STATUS_RUNNING,
+    }
+    if expected_owner is None:
+        owner_condition = "dagster_run_id IS NULL"
+    else:
+        owner_condition = "dagster_run_id = :expected_owner"
+        params["expected_owner"] = str(expected_owner)
+    result = conn.execute(
+        text(
+            f"""
+            UPDATE {_job_runs_table(schema, conn)}
+            SET dagster_run_id = :dagster_run_id,
+                status = :running_status,
+                updated_at = CURRENT_TIMESTAMP,
+                finished_at = NULL
+            WHERE logical_run_id = :logical_run_id
+              AND {owner_condition}
+            """
+        ),
+        params,
+    )
+    # Re-claiming our own row may change no column values, which some MySQL
+    # drivers report as zero affected rows.
+    return result.rowcount == 1 or str(expected_owner) == dagster_run_id
 
 
 def _claim_logical_run_for_context(
@@ -586,23 +633,9 @@ def _claim_logical_run_for_context(
             _warn_owned_by_other_live_dagster_run(context, job_name=job_name, logical_run=logical_run)
             return None
     if current_run_id is not None:
-        _ = conn.execute(
-            text(
-                f"""
-                UPDATE {_job_runs_table(schema, conn)}
-                SET dagster_run_id = :dagster_run_id,
-                    status = :running_status,
-                    updated_at = CURRENT_TIMESTAMP,
-                    finished_at = NULL
-                WHERE logical_run_id = :logical_run_id
-                """
-            ),
-            {
-                "logical_run_id": str(logical_run["logical_run_id"]),
-                "dagster_run_id": current_run_id,
-                "running_status": LOGICAL_RUN_STATUS_RUNNING,
-            },
-        )
+        if not _claim_logical_run_row(conn, schema=schema, logical_run=logical_run, dagster_run_id=current_run_id):
+            # Another Dagster run claimed it between our read and our update.
+            return None
         logical_run = {
             **logical_run,
             "dagster_run_id": current_run_id,
@@ -783,9 +816,11 @@ def _fetch_resumable_logical_run_for_context(
 
     Prefers the logical run this Dagster run already owns, then (for a
     "re-execute from failure" run) the one it retries, then the unfinished
-    run furthest along. A logical run owned by another Dagster run that is
-    still alive is never resumed: taking it over would leave that run
-    recording progress on a row it no longer owns.
+    run furthest along. If another Dagster run that is still alive owns an
+    unfinished logical run of this job, this raises instead: taking that row
+    over would leave the other run recording progress on a row it no longer
+    owns, and starting a second logical run would strand the first one's
+    scope and re-pay batches already submitted under its batch keys.
     """
     owned_run = _fetch_running_run_for_dagster_run(
         conn,
@@ -795,12 +830,16 @@ def _fetch_resumable_logical_run_for_context(
     ) or _fetch_unfinished_run_for_reexecuted_dagster_run(context, conn, schema=schema, job_name=job_name)
     if owned_run is not None:
         return owned_run
-    for logical_run in _resumable_logical_runs(conn, schema=schema, job_name=job_name):
+    resumable_runs = _resumable_logical_runs(conn, schema=schema, job_name=job_name)
+    for logical_run in resumable_runs:
         if _owned_by_other_live_dagster_run(context, logical_run):
-            _warn_owned_by_other_live_dagster_run(context, job_name=job_name, logical_run=logical_run)
-            continue
-        return logical_run
-    return None
+            raise RuntimeError(
+                f"{job_name}: unfinished logical run {logical_run['logical_run_id']} belongs to Dagster run "
+                + f"{logical_run.get('dagster_run_id')}, which is still running. Wait for that run to finish; "
+                + "if it is actually dead, terminate it in the Dagster UI and relaunch (this run will then "
+                + "resume it), or relaunch with pipeline_config force_new_logical_run=true to abandon it."
+            )
+    return resumable_runs[0] if resumable_runs else None
 
 
 def _log_resume_banner(
@@ -936,23 +975,17 @@ def start_or_resume_logical_run(
                 resumed_scope=resumed_scope,
                 continuing_reexecuted_run=continuing_reexecuted_run,
             )
-            _ = conn.execute(
-                text(
-                    f"""
-                    UPDATE {_job_runs_table(schema, conn)}
-                    SET dagster_run_id = :dagster_run_id,
-                        status = :running_status,
-                        updated_at = CURRENT_TIMESTAMP,
-                        finished_at = NULL
-                    WHERE logical_run_id = :logical_run_id
-                    """
-                ),
-                {
-                    "logical_run_id": logical_run_id,
-                    "dagster_run_id": _current_dagster_run_id(context),
-                    "running_status": LOGICAL_RUN_STATUS_RUNNING,
-                },
-            )
+            current_run_id = _current_dagster_run_id(context)
+            if current_run_id is not None and not _claim_logical_run_row(
+                conn,
+                schema=schema,
+                logical_run=existing_run,
+                dagster_run_id=current_run_id,
+            ):
+                raise RuntimeError(
+                    f"{job_name}: logical run {logical_run_id} was claimed by another Dagster run while this "
+                    + "run was resuming it; relaunch once that run finishes."
+                )
             return LogicalJobRun(
                 logical_run_id=logical_run_id,
                 job_name=job_name,

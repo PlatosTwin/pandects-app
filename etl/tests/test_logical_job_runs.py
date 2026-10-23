@@ -19,6 +19,7 @@ from etl.utils.logical_job_runs import (
     LOGICAL_RUN_STATUS_FAILED,
     LOGICAL_RUN_STATUS_RUNNING,
     MANAGED_JOB_STAGE_SEQUENCE,
+    _claim_logical_run_row,  # pyright: ignore[reportPrivateUsage]
     load_active_logical_run,
     load_active_scope_for_job,
     mark_logical_run_failed,
@@ -1036,10 +1037,23 @@ class LogicalJobRunTests(unittest.TestCase):
         call_count = 0
         for path in sorted(defs_dir.rglob("*.py")):
             for node in ast.walk(ast.parse(path.read_text())):
-                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in helper_names:
-                    call_count += 1
-                    if not any(keyword.arg == "context" for keyword in node.keywords):
-                        missing.append(f"{path.name}:{node.lineno}")
+                if not isinstance(node, ast.Call):
+                    continue
+                func_name = (
+                    node.func.id
+                    if isinstance(node.func, ast.Name)
+                    else node.func.attr
+                    if isinstance(node.func, ast.Attribute)
+                    else None
+                )
+                if func_name not in helper_names:
+                    continue
+                call_count += 1
+                if not any(
+                    keyword.arg == "context" and isinstance(keyword.value, ast.Name) and keyword.value.id == "context"
+                    for keyword in node.keywords
+                ):
+                    missing.append(f"{path.name}:{node.lineno}")
         self.assertGreater(call_count, 0)
         self.assertEqual(missing, [])
 
@@ -1205,7 +1219,7 @@ class LogicalJobRunTests(unittest.TestCase):
         assert resumed_run is not None
         self.assertEqual(resumed_run.logical_run_id, retried_run.logical_run_id)
 
-    def test_resume_does_not_take_over_logical_run_of_live_dagster_run(self) -> None:
+    def test_resume_refuses_to_start_beside_logical_run_of_live_dagster_run(self) -> None:
         db = _FakeDB()
         live_run = start_or_resume_logical_run(
             cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
@@ -1217,28 +1231,47 @@ class LogicalJobRunTests(unittest.TestCase):
         )
         assert live_run is not None
 
-        log = _FakeLog()
         second_context = SimpleNamespace(
             run_id="dagster-2",
             instance=_FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-1", "dagster-2"}),
-            log=log,
+            log=_FakeLog(),
         )
-        second_run = start_or_resume_logical_run(
-            cast(AssetExecutionContext, cast(object, second_context)),
-            db=cast(DBResource, cast(object, db)),
-            pipeline_config=_pipeline_config(),
-            job_name="ingestion_cleanup_b",
-            initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
-            selected_agreement_uuids=["agreement-2"],
-        )
+        with self.assertRaisesRegex(RuntimeError, "terminate it in the Dagster UI"):
+            _ = start_or_resume_logical_run(
+                cast(AssetExecutionContext, cast(object, second_context)),
+                db=cast(DBResource, cast(object, db)),
+                pipeline_config=_pipeline_config(),
+                job_name="ingestion_cleanup_b",
+                initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+                selected_agreement_uuids=["agreement-2"],
+            )
 
-        assert second_run is not None
-        self.assertNotEqual(second_run.logical_run_id, live_run.logical_run_id)
-        self.assertFalse(second_run.resumed_existing)
-        self.assertEqual(second_run.agreement_uuids, ["agreement-2"])
         self.assertEqual(_owner_for_run(db, live_run.logical_run_id), "dagster-1")
         self.assertEqual(_status_for_run(db, live_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
-        self.assertTrue(any("still running" in warning for warning in log.warnings))
+        with db.get_engine().begin() as conn:
+            run_count = conn.execute(text("SELECT COUNT(*) FROM pipeline_job_runs")).scalar()
+        self.assertEqual(run_count, 1)
+
+    def test_claim_does_not_overwrite_row_claimed_by_another_run_since_it_was_read(self) -> None:
+        db = _FakeDB()
+        orphan_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-dead"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_c",
+            initial_stage="ingestion_cleanup_c_sections",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert orphan_run is not None
+        stale_read = {"logical_run_id": orphan_run.logical_run_id, "dagster_run_id": "dagster-dead"}
+        with db.get_engine().begin() as conn:
+            self.assertTrue(
+                _claim_logical_run_row(conn, schema="pdx", logical_run=stale_read, dagster_run_id="dagster-2")
+            )
+            self.assertFalse(
+                _claim_logical_run_row(conn, schema="pdx", logical_run=stale_read, dagster_run_id="dagster-3")
+            )
+        self.assertEqual(_owner_for_run(db, orphan_run.logical_run_id), "dagster-2")
 
     def test_start_resumes_failed_run_instead_of_starting_fresh(self) -> None:
         db = _FakeDB()
