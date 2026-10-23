@@ -18,7 +18,9 @@ Rule of thumb throughout: a wrong link is worse than no link.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
+import json
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -767,4 +769,26 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         "uses": uses,
         "xrefs": xrefs,
         "stats": stats,
+    }
+
+
+def reader_index_row(xml: str, *, agreement_uuid: str, xml_version: int) -> dict[str, Any]:
+    """One `reader_index` table row. The payload is stored gzip-compressed (about
+    40 KB instead of 190 KB per agreement) so the API can serve the bytes as-is
+    with Content-Encoding: gzip."""
+    payload = build_reader_index(xml, agreement_uuid=agreement_uuid, xml_version=xml_version)
+    stats = payload["stats"]
+    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return {
+        "agreement_uuid": agreement_uuid,
+        "xml_version": xml_version,
+        "enricher_version": ENRICHER_VERSION,
+        "text_hash": text_hash(xml),
+        "payload_gz": gzip.compress(body, mtime=0),
+        "n_terms": stats["n_terms"],
+        "n_term_uses": stats["n_term_uses"],
+        "n_xrefs": stats["n_xrefs"],
+        "n_xrefs_resolved": stats["n_xrefs_resolved"],
+        "n_xrefs_unresolved": stats["n_xrefs_unresolved"],
+        "body_section_level_rate": stats["body_section_level_rate"],
     }

@@ -86,6 +86,7 @@ class DagsterAssetGraphTests(unittest.TestCase):
             "10-09_ingestion_cleanup_d_tx_metadata_offline_asset",
             "10-10_ingestion_cleanup_d_tx_metadata_web_search_asset",
             "11_embed_sections",
+            "12_reader_index",
             "99_gating",
         }
 
