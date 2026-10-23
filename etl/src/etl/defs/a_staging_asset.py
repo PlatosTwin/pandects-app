@@ -980,6 +980,9 @@ def regular_ingest_staging_asset(
         return resumed_scope
 
     _, scoped_agreement_uuids = _run_staging(context, db, pipeline_config)
+    # Staging already committed these agreements, and a relaunch would not
+    # select them again, so they get their own logical run even if a
+    # concurrent run started one meanwhile.
     logical_run = start_or_resume_logical_run(
         context,
         db=db,
@@ -987,6 +990,7 @@ def regular_ingest_staging_asset(
         job_name="regular_ingest",
         initial_stage="regular_ingest_staging",
         selected_agreement_uuids=scoped_agreement_uuids,
+        start_beside_live_runs=True,
     )
     final_scope = logical_run.agreement_uuids if logical_run is not None else sorted(set(scoped_agreement_uuids))
     if final_scope:

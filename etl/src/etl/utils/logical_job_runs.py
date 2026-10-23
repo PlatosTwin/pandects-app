@@ -589,9 +589,9 @@ def _claim_logical_run_row(
         ),
         params,
     )
-    # Re-claiming our own row may change no column values, which some MySQL
-    # drivers report as zero affected rows.
-    return result.rowcount == 1 or str(expected_owner) == dagster_run_id
+    # SQLite and the mysqldb dialect (which sets CLIENT_FOUND_ROWS) both
+    # report matched rows, so re-claiming our own row unchanged still counts.
+    return result.rowcount == 1
 
 
 def _claim_logical_run_for_context(
@@ -724,12 +724,9 @@ def _dagster_run_is_alive(context: AssetExecutionContext, dagster_run_id: Any) -
     liveness cannot be determined (no instance available, e.g. unit tests). A
     run the instance has no record of is treated as not alive.
     """
-    return _instance_run_is_alive(getattr(context, "instance", None), dagster_run_id)
-
-
-def _instance_run_is_alive(instance: Any, dagster_run_id: Any) -> bool | None:
     if not dagster_run_id:
         return None
+    instance = getattr(context, "instance", None)
     if instance is None:
         return None
     get_run_by_id = getattr(instance, "get_run_by_id", None)
@@ -811,6 +808,7 @@ def _fetch_resumable_logical_run_for_context(
     *,
     schema: str,
     job_name: str,
+    start_beside_live_runs: bool = False,
 ) -> dict[str, Any] | None:
     """The logical run a resuming Dagster run should continue.
 
@@ -821,6 +819,8 @@ def _fetch_resumable_logical_run_for_context(
     over would leave the other run recording progress on a row it no longer
     owns, and starting a second logical run would strand the first one's
     scope and re-pay batches already submitted under its batch keys.
+    With start_beside_live_runs, such rows are skipped instead (see
+    start_or_resume_logical_run).
     """
     owned_run = _fetch_running_run_for_dagster_run(
         conn,
@@ -831,15 +831,20 @@ def _fetch_resumable_logical_run_for_context(
     if owned_run is not None:
         return owned_run
     resumable_runs = _resumable_logical_runs(conn, schema=schema, job_name=job_name)
+    resumable_runs_not_live: list[dict[str, Any]] = []
     for logical_run in resumable_runs:
-        if _owned_by_other_live_dagster_run(context, logical_run):
+        if not _owned_by_other_live_dagster_run(context, logical_run):
+            resumable_runs_not_live.append(logical_run)
+        elif start_beside_live_runs:
+            _warn_owned_by_other_live_dagster_run(context, job_name=job_name, logical_run=logical_run)
+        else:
             raise RuntimeError(
                 f"{job_name}: unfinished logical run {logical_run['logical_run_id']} belongs to Dagster run "
                 + f"{logical_run.get('dagster_run_id')}, which is still running. Wait for that run to finish; "
                 + "if it is actually dead, terminate it in the Dagster UI and relaunch (this run will then "
                 + "resume it), or relaunch with pipeline_config force_new_logical_run=true to abandon it."
             )
-    return resumable_runs[0] if resumable_runs else None
+    return resumable_runs_not_live[0] if resumable_runs_not_live else None
 
 
 def _log_resume_banner(
@@ -928,7 +933,16 @@ def start_or_resume_logical_run(
     job_name: str,
     initial_stage: str,
     selected_agreement_uuids: list[str],
+    start_beside_live_runs: bool = False,
 ) -> LogicalJobRun | None:
+    """Start, resume or continue the logical run for a managed job's step.
+
+    In resume mode this raises if another live Dagster run owns an unfinished
+    logical run of the job. A caller that has already done irreversible
+    scoping work since an earlier call found nothing to resume (regular
+    ingest staging) passes start_beside_live_runs=True, so the work it just
+    did gets its own logical run instead of being stranded.
+    """
     if job_name not in MANAGED_LOGICAL_JOB_NAMES:
         raise ValueError(f"Unsupported logical job name: {job_name}")
 
@@ -946,6 +960,7 @@ def start_or_resume_logical_run(
                 conn,
                 schema=schema,
                 job_name=job_name,
+                start_beside_live_runs=start_beside_live_runs,
             )
         else:
             # Every managed step of a Dagster run calls this. Starting fresh
@@ -1108,7 +1123,6 @@ def mark_logical_run_failed(
     job_name: str,
     stage_name: str | None,
     dagster_run_id: str | None = None,
-    instance: Any = None,
 ) -> None:
     engine = db.get_engine()
     schema = db.database
@@ -1142,14 +1156,12 @@ def mark_logical_run_failed(
             if active_run is None:
                 return
             owner_run_id = active_run.get("dagster_run_id")
-            if (
-                dagster_run_id
-                and owner_run_id
-                and str(owner_run_id) != dagster_run_id
-                and _instance_run_is_alive(instance, owner_run_id) is True
-            ):
-                # The failing run never owned a logical run, and the active one
-                # belongs to another Dagster run that is still executing.
+            if dagster_run_id and owner_run_id and str(owner_run_id) != dagster_run_id:
+                # The failing run never owned a logical run; the active one
+                # belongs to another Dagster run. If that run is alive it is
+                # still making progress, and if it is dead the next start
+                # step reconciles it, so recording our stage on it would only
+                # mislabel where it stopped.
                 return
             logical_run_id = str(active_run["logical_run_id"])
 

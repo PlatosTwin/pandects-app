@@ -911,7 +911,7 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertNotEqual(rerun.logical_run_id, original_run.logical_run_id)
         self.assertEqual(_status_for_run(db, original_run.logical_run_id), LOGICAL_RUN_STATUS_ABANDONED)
 
-    def test_mark_failed_does_not_fail_logical_run_owned_by_live_dagster_run(self) -> None:
+    def test_mark_failed_does_not_touch_logical_run_owned_by_another_dagster_run(self) -> None:
         db = _FakeDB()
         owner_run = start_or_resume_logical_run(
             cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
@@ -928,10 +928,15 @@ class LogicalJobRunTests(unittest.TestCase):
             job_name="ingestion_cleanup_c",
             stage_name="ingestion_cleanup_c_sections",
             dagster_run_id="dagster-2",
-            instance=_FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-1", "dagster-2"}),
         )
 
         self.assertEqual(_status_for_run(db, owner_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
+        with db.get_engine().begin() as conn:
+            current_stage = conn.execute(
+                text("SELECT current_stage FROM pipeline_job_runs WHERE logical_run_id = :id"),
+                {"id": owner_run.logical_run_id},
+            ).scalar()
+        self.assertEqual(current_stage, "ingestion_cleanup_c_sections")
 
     def test_force_new_reexecution_does_not_adopt_unrelated_failed_run(self) -> None:
         db = _FakeDB()
@@ -1251,6 +1256,48 @@ class LogicalJobRunTests(unittest.TestCase):
         with db.get_engine().begin() as conn:
             run_count = conn.execute(text("SELECT COUNT(*) FROM pipeline_job_runs")).scalar()
         self.assertEqual(run_count, 1)
+
+    def test_staging_scope_gets_own_logical_run_beside_concurrent_live_run(self) -> None:
+        db = _FakeDB()
+        instance = _FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-a", "dagster-b"})
+        run_b_context = SimpleNamespace(run_id="dagster-b", instance=instance, log=_FakeLog())
+        # Run B's first staging call finds nothing to resume.
+        self.assertIsNone(
+            start_or_resume_logical_run(
+                cast(AssetExecutionContext, cast(object, run_b_context)),
+                db=cast(DBResource, cast(object, db)),
+                pipeline_config=_pipeline_config(),
+                job_name="regular_ingest",
+                initial_stage="regular_ingest_staging",
+                selected_agreement_uuids=[],
+            )
+        )
+        # Meanwhile run A, also staging, records its logical run.
+        run_a = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-a", instance=instance))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-a"],
+            start_beside_live_runs=True,
+        )
+        assert run_a is not None
+
+        run_b = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, run_b_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-b"],
+            start_beside_live_runs=True,
+        )
+
+        assert run_b is not None
+        self.assertNotEqual(run_b.logical_run_id, run_a.logical_run_id)
+        self.assertEqual(run_b.agreement_uuids, ["agreement-b"])
+        self.assertEqual(_owner_for_run(db, run_a.logical_run_id), "dagster-a")
 
     def test_claim_does_not_overwrite_row_claimed_by_another_run_since_it_was_read(self) -> None:
         db = _FakeDB()

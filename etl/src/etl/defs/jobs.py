@@ -111,7 +111,6 @@ def _managed_logical_run_failure_hook(context: dg.HookContext) -> None:
         job_name=context.job_name,
         stage_name=context.step_key,
         dagster_run_id=context.run_id,
-        instance=context.instance,
     )
 
 xml_fresh_pipeline = dg.define_asset_job(
