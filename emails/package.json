@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@react-email/components": "1.0.12",
-    "@react-email/render": "^1.0.5",
+    "@react-email/render": "^2.1.1",
     "dotenv": "^17.4.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

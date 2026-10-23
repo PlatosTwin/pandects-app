@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import React from 'react';
-import { renderAsync } from '@react-email/render';
+import { render } from '@react-email/render';
 
 type TemplateComponent = (props: Record<string, unknown>) => JSX.Element & {
   PreviewProps?: Record<string, unknown>;
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
     throw new Error(`Template ${templateId} does not have a default export.`);
   }
 
-  const html = await renderAsync(React.createElement(Template, props));
+  const html = await render(React.createElement(Template, props));
   process.stdout.write(html);
 }
 
