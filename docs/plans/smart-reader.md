@@ -257,8 +257,9 @@ New table `reader_index` in `pdx`:
 | xml_version | int | PK part; matches `xml.version` |
 | enricher_version | varchar(16) | |
 | text_hash | char(64) | Staleness guard |
-| payload | longtext (JSON) | Section 6.3 |
+| payload_gz | longblob | Section 6.3 JSON, gzip-compressed (about 40 KB vs 190 KB raw); the API can serve it as-is with `Content-Encoding: gzip` |
 | n_terms, n_term_uses, n_xrefs, n_xrefs_resolved, n_xrefs_unresolved | int | Health metrics without parsing the JSON |
+| body_section_level_rate | decimal(5,4) | Ranks agreements for the health report |
 | created_date | datetime(3) | |
 
 Keep the latest row per agreement, and keep old rows until the next push, for rollback. The table has to be added to the serving schema, the prod push and restore path, and `bulk/schema_docs/table_docs.yml`, since `push_to_r2.sh` enforces doc coverage. Prod's serving schema is narrower than local, so check that the table exists there and call the live endpoint after deploy.
@@ -349,7 +350,7 @@ The data pages are being polished by another session tonight. None of this shoul
 - **Re-runs** are triggered by an enricher version bump, not by XML rebuilds. They don't re-trigger verify, sections, taxonomy or embeddings.
 - **Prod:** follows the usual monthly push. The table is computed locally and shipped with the push, so nothing is written to prod directly.
 - **Section uuid churn:** an XML rebuild makes a new version, and the index is recomputed for it. Old deep links that use uuids may break, which is why label-based hashes are the public format.
-- **Storage:** about 10k rows × about 80 KB is roughly 0.8 GB uncompressed in MariaDB. Consider storing the payload gzip-compressed (`longblob`) if that matters.
+- **Storage:** measured on the corpus: 11,790 rows × about 40 KB gzipped is roughly 470 MB (about 2.2 GB if stored raw), so the payload is stored compressed.
 
 ## 9. Evaluation
 
@@ -420,12 +421,40 @@ Measured on 13 latest verified agreements (12 drawn by hash plus `053261a1`), bo
 
 The prototype's 93.5% counted inline enumerations as resolved; v0.1.0 leaves them unlinked until paragraph-level targets exist. About 61 ms per agreement. The payload is about 190 KB raw and 40 KB gzipped, larger than the Section 6.3 estimate, mostly because `uses` keys repeat section uuids. Shortening those keys is a Phase 2 option if it matters.
 
+### 10.2 Table, asset and corpus run (2026-10-22, overnight)
+
+Landed on this branch:
+
+- `etl/sql/migrations/20261022_reader_index.sql`: the `reader_index` table (Section 6.2, with `payload_gz`). **Not applied anywhere.** Creating it locally waits for Phase 2, because `push_to_r2.sh` enforces bulk schema-doc coverage, and an undocumented table could break the next push.
+- `etl/src/etl/defs/l_reader_index_asset.py`: the manual asset `12_reader_index`, which depends on verify like `06_sections_asset` and belongs to no job. It picks latest verified XMLs that have no row for their version at the current `ENRICHER_VERSION` and upserts rows built by `reader_index_row()`. It asserts the table exists and issues no DDL. It does not yet re-check `text_hash` against stored rows; in-place rewrites of one version are rare, and a version bump catches them.
+- Tests: `etl/tests/test_l_reader_index_asset.py` (row builder, queue SQL, paging with a fake engine, missing-table guard) and the asset-graph test. All 622 ETL tests pass, and `import etl.definitions` loads 78 assets.
+
+Two rules were added after the first corpus pass surfaced a cluster of agreements resolving 0%:
+
+- **UK numbered clauses:** "clause 9.4" resolves like "Section 9.4", and "clause 5" resolves to the top-level clause. Numbered "paragraph 9.1" stays unlinked, because in UK deals it usually points into a schedule.
+- **Named attachments:** "Section 2.1 of Exhibit B", "paragraph 3 of Schedule 2" and "Part", "Annex" or "Appendix" tails are `unresolved` with detail `attachment_local`, never linked to the body.
+
+**Corpus run (read-only, all 11,790 latest verified XMLs):**
+
+- **Errors and speed:** 0 parse errors. 67 ms mean and 135 ms p95 per agreement, 13 minutes single-process.
+- **Volume:** 1.82M terms, 36.8M term uses, 4.42M references.
+- **Reference statuses:**
+  - resolved: 2.49M
+  - section fallback: 77k
+  - ambiguous: 17k
+  - unresolved: 628k (of which 219k are inline enumerations and 232k are exhibit-local)
+  - unlocated attachment: 90k
+  - external: 638k
+  - disclosure schedule: 478k
+- **Per-agreement rates** (body text, in-document references, inline enumerations counted as misses): median 87.0% exact and 88.9% section level; mean 84.5% and 86.8%.
+- **Health tail** (decision 11.6): 251 agreements below 50% section level, 443 below 70% and 1,433 below 80%. Also 154 agreements with duplicate section numbers, 70 with no numbered sections and 38 with no defined terms. Spot checks of the lowest group found broken structure (definitions parsed as sections) and UK drafting; the remaining 14 agreements at 0% have very few references each.
+- **The per-agreement CSV** (`reader_index_health_2026-10-22.csv`) is in the session notes folder, not in the repo. It is the first input for the validation-queue report.
+
 Remaining for Phase 1:
 
-1. Gold set of about 30 agreements (Section 9.1, decision 11.4) and the precision/recall eval harness. Precision is unmeasured until then; the rates above only say that a target was found.
-2. `reader_index` table migration and a Dagster asset after verify, with staleness by `xml_version`, `enricher_version` and `text_hash`. Verify with `import etl.definitions` before committing.
-3. Full local corpus run and the health report (decision 11.6).
-4. Known gaps to score against the gold set: "this Section" with no number, ALL-CAPS term uses, "§" heads, paragraph-level targets for inline enumerations, and statute-number plausibility ("Section 1300 et seq.").
+1. Gold set of about 30 agreements (Section 9.1, decision 11.4) and the precision/recall eval harness. Precision is unmeasured until then; the rates above only say that a target was found. This step spends model tokens, so it should start when the user is around to rule on disagreements.
+2. Turning the health CSV into the validation-queue report format.
+3. Known gaps to score against the gold set: "this Section" with no number, ALL-CAPS term uses, "§" heads, paragraph-level targets for inline enumerations, and statute-number plausibility ("Section 1300 et seq.").
 
 ## 11. Decisions (2026-10-22)
 

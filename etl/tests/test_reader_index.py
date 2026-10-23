@@ -188,6 +188,22 @@ class XrefTests(unittest.TestCase):
         self.assertEqual(x["status"], "unresolved")
         self.assertNotIn("target", x)
 
+    def test_uk_numbered_clauses_resolve_but_paragraphs_do_not(self) -> None:
+        xml = _doc(
+            _article("c9", "9 WARRANTIES", _section("s94", "9.4 Limits", "x"))
+            + _section("s95", "9.5 Refs", "Subject to clause 9.4 and clause 9, see paragraph 9.4.")
+        )
+        x = _xrefs(build_reader_index(xml))
+        self.assertEqual(x["clause 9.4"]["target"], "s9.4")
+        self.assertEqual(x["clause 9"]["target"], "a9")
+        self.assertEqual(x["paragraph 9.4"]["status"], "unresolved")
+
+    def test_references_into_a_named_attachment_are_not_linked(self) -> None:
+        xml = _doc(_section("s1", "Section 2.1 A", "Under Section 2.1 of Exhibit B and clause 2.1 of Schedule 3."))
+        x = _xrefs(build_reader_index(xml))
+        self.assertEqual(x["Section 2.1"]["status"], "unresolved")
+        self.assertEqual(x["clause 2.1"]["status"], "unresolved")
+
     def test_local_clause_resolves_within_current_section(self) -> None:
         xml = _doc(_section("s1", "Section 7.2 Conditions", "(a) first.", "(b) second, subject to clause (a) above."))
         x = _xrefs(build_reader_index(xml))["clause (a)"]

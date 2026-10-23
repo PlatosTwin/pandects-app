@@ -452,6 +452,7 @@ STATUTE = re.compile(
 DISCLOSURE = re.compile(
     r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?:[A-Z][\w\-]*\s+){0,4}Disclosure\s+(?:Schedules?|Letter)\b",
 )
+ATTACHMENT_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Schedules?|Part|Annex|Appendix|Exhibit)\s+[A-Z0-9IVX]")
 SELF_DOC = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+Agreement\b")
 SELF_DOC_FROM_EXHIBIT = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+(?:Merger\s+)?Agreement\b")
 OTHER_DOC = re.compile(
@@ -533,13 +534,18 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             STATUTE.match(tail) or OTHER_DOC.match(tail) or re.search(r"\bof\s+(?:the\s+)?[A-Z][\w .\-]{2,60}\bAct\b", tail[:70])
         ):
             status = "external"
+        elif ATTACHMENT_TAIL.match(tail):
+            # "paragraph 3 of Schedule 2", "Section 2 of Exhibit B": the attachment's own numbering
+            status = "unresolved"
+            for r in run:
+                r.detail = "attachment_local"
         elif in_exhibit and not self_doc:
             # an exhibit's bare "Section 2.1" usually means its own paragraphs; those
             # need attachment segmentation (Phase 4), so do not guess
             status = "unresolved"
         for r in run:
             r.status = status
-            if status == "unresolved":
+            if status == "unresolved" and not r.detail:
                 r.detail = "exhibit_local"
         qm = QUALIFIED.match(tail)
         if qm and run[0].head in ("clause", "paragraph"):
@@ -569,7 +575,10 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
     if ref.status:
         return ref.status, None, None
     t = ref.target
-    if ref.head == "section":
+    # UK drafting: "clause 9.4" is a section and "clause 5" a top-level clause.
+    # Numbered "paragraph" references usually point into schedules, so they stay unlinked.
+    numbered_clause = ref.head == "clause" and t[:1].isdigit()
+    if ref.head == "section" or numbered_clause:
         m = SECTION_TARGET.match(t)
         if not m:
             return "unresolved", None, None
