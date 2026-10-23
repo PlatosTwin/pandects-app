@@ -555,6 +555,34 @@ class LogicalJobRunTests(unittest.TestCase):
             run_count = conn.execute(text("SELECT COUNT(*) FROM pipeline_job_runs")).scalar()
         self.assertEqual(run_count, 2)
 
+    def test_resume_disabled_still_continues_run_started_earlier_in_same_dagster_run(self) -> None:
+        db = _FakeDB()
+        context = SimpleNamespace(run_id="dagster-1")
+
+        first_step_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(resume_logical_runs=False),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        later_step_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(resume_logical_runs=False),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_pre_processing",
+            selected_agreement_uuids=["agreement-1"],
+        )
+
+        assert first_step_run is not None
+        assert later_step_run is not None
+        self.assertEqual(later_step_run.logical_run_id, first_step_run.logical_run_id)
+        with db.get_engine().begin() as conn:
+            run_count = conn.execute(text("SELECT COUNT(*) FROM pipeline_job_runs")).scalar()
+        self.assertEqual(run_count, 1)
+
     def test_start_resumes_failed_run_instead_of_starting_fresh(self) -> None:
         db = _FakeDB()
         first_context = SimpleNamespace(run_id="dagster-1")
