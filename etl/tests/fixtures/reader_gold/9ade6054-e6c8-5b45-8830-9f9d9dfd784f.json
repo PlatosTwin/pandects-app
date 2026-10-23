@@ -353,28 +353,5 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": {
-    "term": "Federal False Claims Act",
-    "para": "P10",
-    "kind": "means"
-   },
-   "checker": null,
-   "type": "remove",
-   "reason": "\"Federal False Claims Act\" is the statute's own title described as commonly referred to, not a term this agreement declares."
-  },
-  {
-   "section": "declarations",
-   "draft": {
-    "term": "Health Insurance Portability and Accountability Act of 1996",
-    "para": "P10",
-    "kind": "means"
-   },
-   "checker": null,
-   "type": "remove",
-   "reason": "\"Health Insurance Portability and Accountability Act of 1996\" is a statute title, not a declaration."
-  }
- ]
+ "rulings": "2026-10-23: user accepted the checker on every dispute"
 }

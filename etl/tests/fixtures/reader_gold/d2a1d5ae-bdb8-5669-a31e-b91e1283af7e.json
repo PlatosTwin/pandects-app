@@ -242,6 +242,12 @@
    "term": "Outside Date",
    "para": "P53",
    "kind": "paren"
+  },
+  {
+   "term": "Principal",
+   "para": "P48",
+   "kind": "pointer",
+   "pointer": "external"
   }
  ],
  "xrefs": [
@@ -702,6 +708,11 @@
    "term": "Closing Date",
    "para": "P42",
    "count": 1
+  },
+  {
+   "term": "Carveout Financial Information",
+   "para": "P41",
+   "count": 3
   }
  ],
  "excluded_xrefs": [],
@@ -990,33 +1001,5 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "term_uses",
-   "draft": {
-    "term": "Carveout Financial Information",
-    "para": "P41",
-    "count": 4
-   },
-   "checker": {
-    "term": "Carveout Financial Information",
-    "para": "P41",
-    "count": 3
-   },
-   "type": "disagree",
-   "reason": "P41 has 4 occurrences of Carveout Financial Information but the first is the parenthetical declaration itself; uses are 3."
-  },
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "Principal",
-    "para": "P48",
-    "kind": "pointer",
-    "pointer": "external"
-   },
-   "type": "missing",
-   "reason": "Capitalized term defined inline by reference in a sampled section: “Principal” (as defined in FAR 2.101); low-confidence, adjudicator may reject as a non-declaration."
-  }
- ]
+ "rulings": "2026-10-23: user accepted the checker on every dispute"
 }

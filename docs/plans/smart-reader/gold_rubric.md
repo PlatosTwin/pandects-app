@@ -16,7 +16,7 @@ Used to label the gold set in docs/plans/smart-reader.md Section 9. A drafter la
 - Attachment: `x-exhibit-b`, `x-schedule-2`, `x-annex-i`, `x-appendix-a`, all lowercase. Use this **only** when the outline lists that attachment's heading; an exhibit or annex that is mentioned but not filed is `not_in_filing`. *(ruling 2026-10-23)*
 - When there is no target in this filing, use one of these instead of an id:
   - `external`: a statute, regulation, rule, SEC form or schedule, or a section of another document (credit agreement, voting agreement, charter, bylaws, "the Original Agreement"). "Section 409A of the Code" is external.
-  - `disclosure_schedule`: a section of a disclosure letter or schedule ("Section 3.4 of the Company Disclosure Letter", "Section 3.2(a) of the Company Schedules"), or a "Schedule 12.2" whose number mirrors the agreement's sections, as disclosure schedules do. *(ruling 2026-10-23)*
+  - `disclosure_schedule`: a section of a disclosure letter or schedule ("Section 3.4 of the Company Disclosure Letter", "Section 3.2(a) of the Company Schedules"), or a "Schedule 12.2" whose number mirrors the agreement's sections, as disclosure schedules do., or a "Schedule 1" that is itself the disclosure schedules. *(rulings 2026-10-23)*
   - `attachment_local`: a paragraph or section inside an exhibit or schedule, referred to by its own numbering ("paragraph 3 of Schedule 2").
   - `inline`: a clause or item enumerated inline within the same sentence or paragraph ("clauses (i) and (ii) above", meaning items in the same paragraph).
   - `not_in_filing`: an internal reference whose target does not exist in the outline (for example, a section number missing from the filing).
@@ -31,7 +31,7 @@ Every term declared in the definitions excerpt, and every parenthetical or inlin
 - `(the "Company")`, `(each, a "Party")` → kind `paren`.
 - `"Closing Date" has the meaning set forth in Section 2.2` → kind `pointer`, with `pointer` set to the target id (`s2.2`). A pointer target is always a target id or a no-target value from the list above, never a paragraph id like `P18`. When a pointer names another term ("has the meaning given in the definition of Environmental Laws"), point to the section holding that definition. *(ruling 2026-10-23)*
 - The term is the text inside the quotes, exactly as printed (case, punctuation). If one parenthetical declares two terms (`("Parent" or "Buyer")`), list two entries.
-- Do not label quoted words that are not declarations (`the word "including"`, titles of other documents).
+- Do not label quoted words that are not declarations (`the word "including"`, titles of other documents, a statute's official title after "commonly referred to as").
 - A term starts with a capital letter, a digit or a symbol such as `$`. Lowercase correlatives ("control", "controlled", "controlling") are not declarations. *(ruling 2026-10-23)*
 - Single-letter formula variables (`Where "N" is the aggregate amount...`) are not declarations. *(ruling 2026-10-23)*
 

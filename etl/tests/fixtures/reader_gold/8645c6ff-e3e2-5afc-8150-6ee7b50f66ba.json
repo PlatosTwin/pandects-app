@@ -412,6 +412,11 @@
    "term": "Company",
    "para": "P51",
    "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P50",
+   "count": 2
   }
  ],
  "excluded_xrefs": [],
@@ -685,21 +690,5 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "term_uses",
-   "draft": {
-    "term": "Agreement",
-    "para": "P50",
-    "count": 1
-   },
-   "checker": {
-    "term": "Agreement",
-    "para": "P50",
-    "count": 2
-   },
-   "type": "disagree",
-   "reason": "P50 uses 'this Agreement' twice: 'For purposes of this Agreement' and 'prior to the date of this Agreement'."
-  }
- ]
+ "rulings": "2026-10-23: user accepted the checker on every dispute"
 }

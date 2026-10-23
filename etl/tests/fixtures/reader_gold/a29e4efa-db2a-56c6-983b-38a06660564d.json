@@ -372,6 +372,11 @@
    "term": "Substantially Equivalent Transaction",
    "para": "P41",
    "kind": "means"
+  },
+  {
+   "term": "$",
+   "para": "P25",
+   "kind": "means"
   }
  ],
  "xrefs": [
@@ -826,17 +831,5 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "$",
-    "para": "P25",
-    "kind": "means"
-   },
-   "type": "missing",
-   "reason": "All references to \"$\" ... are to U.S. dollars declares the symbol term \"$\" (rubric allows terms starting with $); \"dollar\" is lowercase and excluded."
-  }
- ]
+ "rulings": "2026-10-23: user accepted the checker on every dispute"
 }

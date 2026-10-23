@@ -530,13 +530,13 @@ UK (4 agreements): 92.3% precision (36/39) and 39% recall. Not tuned.
 
 **Not yet analyzed:** low declaration recall in `9d022d6c` (45%), `59653f66` (57%) and `df342ced` (78%), and low term-use recall in `e2468cb7` and `d2a1d5ae` (31%).
 
-**Pending disputes (US)** awaiting the user:
+**US disputes, settled (2026-10-23).** The user accepted the checker's side on all five:
 
-- `9ade6054`: remove 2 xrefs to statute official titles after "commonly referred to as".
-- `d2a1d5ae`: a term-use count of 4 should be 3. Missing "Principal" (as defined in FAR 2.101), a pointer to an external source.
-- `fc8cf572`: Schedule 1 and Schedule 2 are the disclosure schedules themselves (`not_in_filing` → `disclosure_schedule`).
-- `8645c6ff`: "Agreement" use count in P50 should be 2, not 1.
-- `a29e4efa`: missing the `"$"` declaration.
+- `9ade6054`: two statute titles after "commonly referred to as" are not declarations.
+- `d2a1d5ae`: the Carveout Financial Information count is 3, and "Principal" (as defined in FAR 2.101) is an external pointer.
+- `fc8cf572`: a Schedule 1 or 2 that is itself the disclosure schedules is `disclosure_schedule`.
+- `8645c6ff`: the "Agreement" count in P50 is 2.
+- `a29e4efa`: `"$"` is a declaration.
 
 UK-only disputes (`1b8f3f3c`, `98444543`, `5d15a253`) are listed in their fixtures.
 

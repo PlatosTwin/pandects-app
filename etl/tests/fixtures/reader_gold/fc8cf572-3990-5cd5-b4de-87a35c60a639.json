@@ -484,6 +484,20 @@
    "mention": "7.22",
    "context": "listed on Section 7.22 of the Buyer Disclosure Schedules",
    "target": "disclosure_schedule"
+  },
+  {
+   "para": "P21",
+   "head": "schedule",
+   "mention": "2",
+   "context": "attached as Schedule 2 to this Agreement",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P34",
+   "head": "schedule",
+   "mention": "1",
+   "context": "attached as Schedule 1 to this Agreement",
+   "target": "disclosure_schedule"
   }
  ],
  "term_uses": [
@@ -533,22 +547,7 @@
    "count": 2
   }
  ],
- "excluded_xrefs": [
-  {
-   "para": "P21",
-   "head": "schedule",
-   "mention": "2",
-   "context": "attached as Schedule 2 to this Agreement",
-   "target": "not_in_filing"
-  },
-  {
-   "para": "P34",
-   "head": "schedule",
-   "mention": "1",
-   "context": "attached as Schedule 1 to this Agreement",
-   "target": "not_in_filing"
-  }
- ],
+ "excluded_xrefs": [],
  "xml_version": 1,
  "set": "heldout-v1",
  "stratum": "2015+/html",
@@ -864,44 +863,5 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P21",
-    "head": "schedule",
-    "mention": "2",
-    "context": "attached as Schedule 2 to this Agreement",
-    "target": "not_in_filing"
-   },
-   "checker": {
-    "para": "P21",
-    "head": "schedule",
-    "mention": "2",
-    "context": "attached as Schedule 2 to this Agreement",
-    "target": "disclosure_schedule"
-   },
-   "type": "disagree",
-   "reason": "Schedule 2 is the Buyer Disclosure Schedules themselves (P21), so it is a disclosure-schedule reference, not a missing attachment; judgment call."
-  },
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P34",
-    "head": "schedule",
-    "mention": "1",
-    "context": "attached as Schedule 1 to this Agreement",
-    "target": "not_in_filing"
-   },
-   "checker": {
-    "para": "P34",
-    "head": "schedule",
-    "mention": "1",
-    "context": "attached as Schedule 1 to this Agreement",
-    "target": "disclosure_schedule"
-   },
-   "type": "disagree",
-   "reason": "Schedule 1 is the Company Disclosure Schedules themselves (P34), so it is a disclosure-schedule reference, not a missing attachment; judgment call."
-  }
- ]
+ "rulings": "2026-10-23: user accepted the checker on every dispute"
 }
