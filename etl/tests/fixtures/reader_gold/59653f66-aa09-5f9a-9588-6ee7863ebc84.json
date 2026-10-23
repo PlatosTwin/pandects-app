@@ -1,0 +1,116 @@
+{
+ "agreement_uuid": "59653f66-aa09-5f9a-9588-6ee7863ebc84",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Current Target Group",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Past Target Group",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Target Affiliated Group",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Taxes",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Subsidiaries",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Significant Subsidiaries",
+   "para": "P8",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "4.14",
+   "context": "Except as set forth in Section 4.14, (a) all",
+   "target": "s4.14"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "4.5",
+   "context": "Except as set forth on Schedule 4.5, neither Target",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "4.10",
+   "context": "or as set forth in Schedule 4.10, and except",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "599ea235-eae5-5ccc-889c-75c0feddf586",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "599ea235-eae5-5ccc-889c-75c0feddf586",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "599ea235-eae5-5ccc-889c-75c0feddf586",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "82a3538e-a75a-5ba2-8c89-f29697011585",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P5": {
+   "s": "7c339a32-5261-5f9d-9883-f108b5863bf0",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P6": {
+   "s": "7c339a32-5261-5f9d-9883-f108b5863bf0",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "7c339a32-5261-5f9d-9883-f108b5863bf0",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "c231c9a4-1579-5699-a7af-aa8ca1427cce",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "6469a102-bed8-5783-be6a-2e5296e35813",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

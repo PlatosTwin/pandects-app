@@ -1,0 +1,424 @@
+{
+ "agreement_uuid": "a4f68407-bc72-552a-94a6-9bd7df91b46b",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "EMPLOYEE",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "COMPAQ RETIREMENT PLAN",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "COMPAQ STOCK OPTION PLANS",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "COMPAQ BROAD PLANS",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "BENEFIT PLANS",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "COMPAQ BENEFIT PLANS",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "ERISA",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "APPROVAL",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "RETIREMENT PLAN",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "RETIREMENT BENEFIT RIGHTS",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "FUNDED RETIREMENT PLAN",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "CONTROLLED GROUP AFFILIATE",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "KNOWLEDGE",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "MATERIAL ADVERSE EFFECT",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "EFFECT",
+   "para": "P20",
+   "kind": "paren"
+  },
+  {
+   "term": "PERSON",
+   "para": "P22",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "2.12(a)",
+   "context": "DOCUMENTS. Section 2.12(a) of the Compaq Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "2.12(c)",
+   "context": "Retirement Plan (as defined in Section 2.12(c)) of Compaq",
+   "target": "s2.12(c)"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "2.12(a)",
+   "context": "items listed on Section 2.12(a) of the Compaq",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "2.12(a)",
+   "context": "Section 2.12(a) of the Compaq Disclosure Letter also identifies whether",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "312.04(h)",
+   "context": "as defined in Section 312.04(h) of the NYSE",
+   "target": "external"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "2.12(a)",
+   "context": "(as identified on Section 2.12(a) of the Compaq Disclosure Letter)",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "414(b)",
+   "context": "meaning of Section 414(b), (c), (m) or (o)",
+   "target": "external"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "(c)",
+   "context": "meaning of Section 414(b), (c), (m) or (o)",
+   "target": "external"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "(m)",
+   "context": "meaning of Section 414(b), (c), (m) or (o)",
+   "target": "external"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "(o)",
+   "context": "meaning of Section 414(b), (c), (m) or (o)",
+   "target": "external"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "3(37)",
+   "context": "within the meaning of Section 3(37) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "280G",
+   "context": "deductible pursuant to Section 280G of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "6.3(a)",
+   "context": "conditions set forth in Section 6.3(a) or 6.3(b) would",
+   "target": "s6.3(a)"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "6.3(b)",
+   "context": "Section 6.3(a) or 6.3(b) would not be satisfied",
+   "target": "s6.3(b)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "6.2(a)",
+   "context": "conditions set forth in Section 6.2(a) or 6.2(b) would",
+   "target": "s6.2(a)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "6.2(b)",
+   "context": "Section 6.2(a) or 6.2(b) would not be satisfied",
+   "target": "s6.2(b)"
+  },
+  {
+   "para": "P20",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "for purposes of clause (i) above, in no event",
+   "target": "inline"
+  },
+  {
+   "para": "P20",
+   "head": "clause",
+   "mention": "(B)",
+   "context": "the exception in this clause (B) shall not apply",
+   "target": "inline"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "6.2(a)",
+   "context": "Effect\" in Sections 6.2(a) and",
+   "target": "s6.2(a)"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "6.3(a)",
+   "context": "Sections 6.2(a) and 6.3(a) with respect to",
+   "target": "s6.3(a)"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "2.3",
+   "context": "warranties contained in Section 2.3, Section 2.7(b)",
+   "target": "s2.3"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "2.7(b)",
+   "context": "Section 2.3, Section 2.7(b), Section 2.14,",
+   "target": "s2.7(b)"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "2.14",
+   "context": "Section 2.7(b), Section 2.14, Section 3.3",
+   "target": "s2.14"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "3.3",
+   "context": "Section 2.14, Section 3.3 and Section 3.13",
+   "target": "s3.3"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "3.13",
+   "context": "Section 3.3 and Section 3.13), (C) any",
+   "target": "s3.13"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "5.11",
+   "context": "following the Effective Time, in Section 5.11",
+   "target": "s5.11"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "5.9(d)",
+   "context": "Sections 5.9(d), 5.9(e), 5.12(b) and 5.12(c) are",
+   "target": "s5.9(d)"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "5.9(e)",
+   "context": "Sections 5.9(d), 5.9(e), 5.12(b) and 5.12(c) are",
+   "target": "s5.9(e)"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "5.12(b)",
+   "context": "Sections 5.9(d), 5.9(e), 5.12(b) and 5.12(c) are",
+   "target": "s5.12(b)"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "5.12(c)",
+   "context": "Sections 5.9(d), 5.9(e), 5.12(b) and 5.12(c) are",
+   "target": "s5.12(c)"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "para_map": {
+  "P1": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "c20d013b-69cb-5c19-9f64-3fd36f552fc2",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "37306b32-2b06-56f4-b54d-7abe20991cba",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "37306b32-2b06-56f4-b54d-7abe20991cba",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "e3653dc1-ffd5-5fe6-9113-0907b387665e",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "f9c4dc3a-cdaf-5592-bdc6-c67f01e31f42",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "f9c4dc3a-cdaf-5592-bdc6-c67f01e31f42",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "f9c4dc3a-cdaf-5592-bdc6-c67f01e31f42",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "f9c4dc3a-cdaf-5592-bdc6-c67f01e31f42",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "f9c4dc3a-cdaf-5592-bdc6-c67f01e31f42",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "f9c4dc3a-cdaf-5592-bdc6-c67f01e31f42",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "5c54ecb2-520e-51b2-8fff-bd957e99774c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "5c54ecb2-520e-51b2-8fff-bd957e99774c",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ },
+ "rulings": "2026-10-23: user accepted recommended rulings 1-5 (gold_rubric.md v1.2)"
+}

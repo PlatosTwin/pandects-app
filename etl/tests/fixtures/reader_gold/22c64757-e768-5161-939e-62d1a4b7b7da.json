@@ -1,0 +1,257 @@
+{
+ "agreement_uuid": "22c64757-e768-5161-939e-62d1a4b7b7da",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Company Letter",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Permit",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Paying Agent",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "Code",
+   "para": "P19",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "8.03(d)",
+   "context": "listed in Section 8.03(d) of the Company Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "2.01(c)",
+   "context": "payment of the Merger Consideration pursuant to Section 2.01(c) upon",
+   "target": "s2.1(c)"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "2.01(c)",
+   "context": "right to receive pursuant to Section 2.01(c), and",
+   "target": "s2.1(c)"
+  },
+  {
+   "para": "P15",
+   "head": "article",
+   "mention": "II",
+   "context": "with the terms of this Article II shall",
+   "target": "a2"
+  },
+  {
+   "para": "P15",
+   "head": "article",
+   "mention": "II",
+   "context": "exchanged as provided in this Article II.",
+   "target": "a2"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "8.02",
+   "context": "given in accordance with this Section 8.02):",
+   "target": "s8.2"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v1",
+ "stratum": "2005-14/txt",
+ "para_map": {
+  "P1": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "c34bc3ba-a746-5972-baf8-7beb1f5ceb58",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "819e7f1e-6b56-5c07-b78e-4f6309097b3c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "819e7f1e-6b56-5c07-b78e-4f6309097b3c",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "819e7f1e-6b56-5c07-b78e-4f6309097b3c",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "819e7f1e-6b56-5c07-b78e-4f6309097b3c",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "819e7f1e-6b56-5c07-b78e-4f6309097b3c",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "819e7f1e-6b56-5c07-b78e-4f6309097b3c",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "819e7f1e-6b56-5c07-b78e-4f6309097b3c",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "819e7f1e-6b56-5c07-b78e-4f6309097b3c",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "b03d5050-fba5-5440-85d8-96e2ba671110",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "5934619d-02e5-5152-8609-c58971ef808a",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "5934619d-02e5-5152-8609-c58971ef808a",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "5934619d-02e5-5152-8609-c58971ef808a",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "bcc90d4b-44eb-5be4-8170-a7f4fc26a249",
+   "t": 10,
+   "excerpt": "sampled"
+  }
+ }
+}

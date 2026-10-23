@@ -1,0 +1,570 @@
+{
+ "agreement_uuid": "82badd49-5426-58d3-bb7f-934fa2270dcb",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "SELLERS' AND COMPANY MUTUAL RELEASE",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "RETENTION AND NONCOMPETITION AGREEMENTS",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "PROPRIETARY INFORMATION AND INVENTIONS AGREEMENT",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "MASTER ESCROW AMOUNT",
+   "para": "P32",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P4",
+   "head": "exhibit",
+   "mention": "2.4(a)(ii)",
+   "context": "in the form of Exhibit 2.4(a)(ii) attached hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P5",
+   "head": "exhibit",
+   "mention": "2.4(a)(iii)",
+   "context": "in the form of Exhibit 2.4(a)(iii) attached hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "I",
+   "context": "identified on Schedule I attached hereto (collectively,",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P6",
+   "head": "exhibit",
+   "mention": "2.4(a)(iv)",
+   "context": "in the form of Exhibit 2.4(a)(iv) attached hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "6.9",
+   "context": "in accordance with Section 6.9, a written schedule",
+   "target": "s6.9"
+  },
+  {
+   "para": "P7",
+   "head": "exhibit",
+   "mention": "2.2",
+   "context": "outline on Exhibit 2.2, against delivery by",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P7",
+   "head": "exhibit",
+   "mention": "2.2(Exh A)",
+   "context": "identified on Exhibit 2.2(Exh A) thereto of",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P7",
+   "head": "exhibit",
+   "mention": "2.2(Exh D)",
+   "context": "in the form of Exhibit 2.2(Exh D) attached thereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P8",
+   "head": "exhibit",
+   "mention": "2.4(a)(vi)",
+   "context": "attached hereto as Exhibit 2.4(a)(vi), executed by TERA",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "7",
+   "context": "conditions set forth in Section 7 of this Agreement",
+   "target": "a7"
+  },
+  {
+   "para": "P21",
+   "head": "exhibit",
+   "mention": "2.4(a)(xix)",
+   "context": "in the form of Exhibit 2.4(a)(xix) attached hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P23",
+   "head": "exhibit",
+   "mention": "2.4(a)(xxi)",
+   "context": "in the form of Exhibit 2.4(a)(xxi) attached hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "3.2(b)",
+   "context": "required pursuant to Section 3.2(b) of this Agreement",
+   "target": "s3.2(b)"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "3.20",
+   "context": "information requested in Section 3.20; and",
+   "target": "s3.20"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "2.4(b)(ii)",
+   "context": "amounts set forth in Sections 2.4(b)(ii) through (iv)",
+   "target": "s2.4(b)(ii)"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "(iv)",
+   "context": "(b)(ii) through (iv) and Section 2.4(e)",
+   "target": "s2.4(b)(iv)"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "2.4(e)",
+   "context": "through (iv) and Section 2.4(e), if applicable",
+   "target": "s2.4(e)"
+  },
+  {
+   "para": "P31",
+   "head": "schedule",
+   "mention": "II",
+   "context": "as specified in Schedule II attached hereto,",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "6.9",
+   "context": "may be adjusted pursuant to Section 6.9)",
+   "target": "s6.9"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2 (Exh A)",
+   "context": "specified on Exhibit 2.2 (Exh A) and Exhibit",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2 (Exh B)",
+   "context": "and Exhibit 2.2 (Exh B) attached to",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2",
+   "context": "attached to Exhibit 2.2 hereof, and the",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh A)",
+   "context": "individuals set forth on Exhibit 2.2(Exh A) attached to",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2",
+   "context": "attached to Exhibit 2.2 hereof, in each case",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh A)",
+   "context": "identified on Exhibit 2.2(Exh A) of a Share",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh D)",
+   "context": "in the form of Exhibit 2.2(Exh D) attached to",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2",
+   "context": "attached to Exhibit 2.2 hereof. Sellers may change",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh A)",
+   "context": "individuals set forth on Exhibit 2.2(Exh A) and",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh B)",
+   "context": "A) and Exhibit 2.2(Exh B) attached to",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2",
+   "context": "attached to Exhibit 2.2 hereof, by delivering",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh A)",
+   "context": "an amended Exhibit 2.2(Exh A) or Exhibit",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh B)",
+   "context": "A) or Exhibit 2.2(Exh B), as the case",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2",
+   "context": "to be attached to Exhibit 2.2 hereof no later",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh A)",
+   "context": "add any individual to Exhibit 2.2(Exh A) or",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh B)",
+   "context": "A) or Exhibit 2.2(Exh B), or (ii) remove",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "schedule",
+   "mention": "I",
+   "context": "identified on Schedule I attached hereto from",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "2.2(Exh A)",
+   "context": "attached hereto from Exhibit 2.2(Exh A) or eliminate",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P34",
+   "head": "exhibit",
+   "mention": "2.2(Exh A)",
+   "context": "as set forth on Exhibit 2.2(Exh A), without the",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "3.29",
+   "context": "indebtedness listed in Section 3.29 of the Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "8",
+   "context": "conditions set forth in Section 8 of this Agreement",
+   "target": "a8"
+  },
+  {
+   "para": "P40",
+   "head": "exhibit",
+   "mention": "2.4(b)(ix)",
+   "context": "in the form of Exhibit 2.4(b)(ix) attached hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "3.21",
+   "context": "set forth in Section 3.21 of the Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "10.4",
+   "context": "matters described in Section 10.4 until the total",
+   "target": "s10.4"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "10.7",
+   "context": "However, this Section 10.7 will not apply",
+   "target": "s10.7"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "10",
+   "context": "due to Buyer under this Section 10.",
+   "target": "a10"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v1",
+ "stratum": "2005-14/txt",
+ "para_map": {
+  "P1": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "d0506a06-81da-5784-ab81-1766bd369352",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "88792db0-b256-5720-af19-e66020401e9c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "6d46f9c7-ba67-56f7-87a5-3f870c24e53f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "29e921cd-8b74-5535-bbf9-b291806c11df",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "15386090-98e4-59a9-9d7a-c749ca5e09a8",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}
