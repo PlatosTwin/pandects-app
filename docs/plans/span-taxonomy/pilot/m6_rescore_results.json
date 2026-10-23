@@ -317,5 +317,32 @@
    "helping": 3,
    "hurting": []
   }
+ },
+ "cash_on_hand_on_earlier_holdouts_after_adjudication": {
+  "adjudicated": {
+   "m3holdout/d1bc88a8": "add_cash_on_hand",
+   "m4holdout/cd25cee3": "add_cash_on_hand",
+   "m4holdout/5c8bc13b": "add_cash_on_hand"
+  },
+  "m3holdout": {
+   "before": "27/35",
+   "after": "28/35",
+   "hurting": []
+  },
+  "m4holdout": {
+   "before": "33/39",
+   "after": "36/39",
+   "hurting": []
+  },
+  "m5holdout": {
+   "before": "25/30",
+   "after": "27/30",
+   "hurting": []
+  },
+  "m6holdout": {
+   "before": "27/34",
+   "after": "30/34",
+   "hurting": []
+  }
  }
 }
