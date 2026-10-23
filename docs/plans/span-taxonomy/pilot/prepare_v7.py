@@ -12,6 +12,10 @@ covered, so v7 adds whole sections by where they sit:
 It also resolves and keeps definitions of cap and limit terms ("Maximum Individual Amount",
 "Cap Amount", "Liability Limit"), which a cap often names without stating.
 
+Definition resolution also reads the colon forms '"General Indemnity Holdback Amount:" $37,700,000'
+and '"Special Indemnity Holdback Amount": means $18,850,000' (plan section 7.14), which hid the
+cap figures in one M6 agreement.
+
 Usage: python3 prepare_v7.py holdout.tsv OUT
        python3 prepare_v7.py --rebuild D OUT   (stage 1 again from D/layer, candidates to OUT)
 """
@@ -32,6 +36,8 @@ FINANCING = re.compile(r"\bfinancing\b", re.I)
 CAP_TERMS = r"|maximum|\blimit|\bcap\b|cap amount"
 v4.TERMS = re.compile(v4.TERMS.pattern + CAP_TERMS, re.I)
 v4.RESOLVE = re.compile(v4.RESOLVE.pattern + CAP_TERMS, re.I)
+v4.DEFINED = re.compile(r"[\"“]([^\"”:]{2,80})(?::[\"”]|[\"”]\s*:\s|[\"”](\s+of any \w+)?\s*(shall\s+)?"
+                        r"(means?|has the meaning|shall have the meaning|is defined|(shall|will) be deemed))")
 
 
 def select(layer):

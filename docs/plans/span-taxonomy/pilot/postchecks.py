@@ -11,6 +11,10 @@ saw the text for but did not apply in the definition-resolution re-check (sectio
   (up to a stated maximum) is expense reimbursement, not a fee (v2.1 rule 10).
 - v2.6 rule 1: an amount stated as a percentage of a price keeps a dollar figure only when the
   text states that figure; one the extractor computed becomes `"not_stated"`.
+- v2.5 rule 3: a buyer funds representation that counts the buyer's own cash ("together with
+  any available cash", "cash on hand", "marketable securities") adds `cash_on_hand` to committed
+  financing (plan section 7.14). Contingency covenants ("In the event ... becomes unavailable",
+  substitute financing) are not representations and are left alone.
 
 Each check reads only the candidates file the extractor saw, so every quote it adds is
 verbatim from one of its lines. Changed entries carry "postcheck": "<rule>".
@@ -108,6 +112,36 @@ def check_cap_equals_price(inst, lines, log):
                 break
 
 
+SUFFICIENT = re.compile(r"\b(?:sufficient|necessary|adequate|enough)\b", re.I)
+OWN_CASH = re.compile(r"cash on hand|available cash|cash and cash equivalents|cash resources|marketable securities|existing cash"
+                      r"|own (?:cash|funds)|available funds|together with[^.;]{0,80}\bcash\b|\bcash\b[^.;]{0,40}\bon hand\b", re.I)
+BUYER = re.compile(r"\b(?:Parent|Buyer|Purchaser|Acquir\w*|Merger Sub|Pubco|SPAC)\b")
+PAYABLE = re.compile(r"\b(?:consummate|pay|payment|amounts? payable|Merger Consideration|Purchase Price|obligations)\b", re.I)
+CONTINGENCY = re.compile(r"^\s*(?:\(\w{1,4}\)\s*)?(?:in the event|if|provided)\b|becomes? unavailable|\bdeposit|substitut", re.I)
+
+
+def funds_rep_with_cash(cand):
+    """The first candidate sentence in which the buyer represents its own cash is sufficient."""
+    for line in lines_of(cand):
+        if line.startswith("@@"):
+            continue
+        for sent in re.split(r"(?<=[.;])\s+", line):
+            if (SUFFICIENT.search(sent) and OWN_CASH.search(sent) and BUYER.search(sent) and PAYABLE.search(sent)
+                    and not CONTINGENCY.search(sent)):
+                return sent[:300]
+    return None
+
+
+def check_cash_on_hand(inst, cand, log):
+    committed = inst.get("committed_financing")
+    if not isinstance(committed, list) or any(isinstance(c, dict) and c.get("code") == "cash_on_hand" for c in committed):
+        return
+    quote = funds_rep_with_cash(cand)
+    if quote:
+        committed.append({"code": "cash_on_hand", "sources": [], "quote": quote, "postcheck": "v2.5 rule 3"})
+        log.append({"concept": inst["concept"], "rule": "v2.5 rule 3", "added": quote[:120]})
+
+
 # "$3,400,000", "3.4 million", "$1.29 billion", "105,000"
 FIGURE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s*(million|billion))?", re.I)
 SCALE = {None: 1, "million": 1e6, "billion": 1e9}
@@ -200,6 +234,8 @@ def apply(doc, cand):
             check_recommendation_failure(inst, lines, log)
         if inst["concept"] == "ma.indemn.cap":
             check_cap_equals_price(inst, lines, log)
+        if inst["concept"] == "ma.financing.structure":
+            check_cash_on_hand(inst, cand, log)
         check_stated_amounts(inst, figures, log)
     return doc, log
 

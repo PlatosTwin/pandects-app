@@ -198,3 +198,48 @@ class StatedAmounts(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def financing(*codes):
+    return {"agreement": "x", "instances": [{"concept": "ma.financing.structure", "finding": "present",
+            "committed_financing": [{"code": c, "sources": [], "quote": ""} for c in codes]}]}
+
+
+def committed(doc):
+    return [c["code"] for c in doc["instances"][0]["committed_financing"]]
+
+
+# 019d7ad0: the Financing proceeds "together with any available cash of Parent" are sufficient
+F019 = """@@ S53 | ARTICLE IV REPRESENTATIONS AND WARRANTIES OF PARENT | Section 4.6 Financing | groups=deal_risk
+(b) Assuming the accuracy of the representations and warranties set forth in Article III, the proceeds of the Financing, if funded, together with any available cash of Parent, the Company and their respective Subsidiaries, shall constitute sufficient funds to pay the Merger Consideration and all other amounts payable by Parent hereunder."""
+
+# the same wording inside a covenant about replacing unavailable financing
+COVENANT = """@@ S74 | ARTICLE VI COVENANTS | Section 6.10 Financing | groups=deal_risk
+(c) In the event that all or any portion of the Financing becomes unavailable, Parent shall use reasonable best efforts to obtain alternative financing in an amount that, together with any available cash of Parent, is sufficient to pay the Merger Consideration."""
+
+
+class CashOnHand(unittest.TestCase):
+    def test_funds_rep_counting_buyer_cash(self):
+        out, log = apply(financing("debt"), F019)
+        self.assertEqual(committed(out), ["debt", "cash_on_hand"])
+        self.assertIn("together with any available cash", out["instances"][0]["committed_financing"][1]["quote"])
+
+    def test_covenant_is_left_alone(self):
+        out, log = apply(financing("debt"), COVENANT)
+        self.assertEqual((committed(out), log), (["debt"], []))
+
+    def test_debt_only_rep_is_left_alone(self):
+        rep = "@@ S53 | x | y | groups=deal_risk\n(b) The net proceeds of the Debt Financing will be sufficient to pay the Merger Consideration."
+        out, log = apply(financing("debt"), rep)
+        self.assertEqual(log, [])
+
+    def test_already_coded(self):
+        out, log = apply(financing("debt", "cash_on_hand"), F019)
+        self.assertEqual((committed(out), log), (["debt", "cash_on_hand"], []))
+
+    def test_substitute_financing_covenant_is_left_alone(self):  # 0d305abd
+        cov = ("@@ S74 | x | y | groups=deal_risk\nParent shall have the right to substitute commitments for all or any portion of "
+               "the Debt Financing so long as the Debt Financing, together with other cash and cash equivalents available to Parent, "
+               "is sufficient to pay the Merger Consideration.")
+        out, log = apply(financing("debt"), cov)
+        self.assertEqual(log, [])
