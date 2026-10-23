@@ -1,6 +1,6 @@
-# Span-taxonomy pilots (M1, M2, M2 holdout, M3 holdout, financing-retrieval round)
+# Span-taxonomy pilots (M1, M2, M2 holdout, M3 holdout, financing-retrieval round, v2.6 re-score)
 
-Results and discussion: [section 7.4](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21) (M1, 3 concepts, 50 agreements) and [section 7.5](../../span-taxonomy.md#75-m2-pilot-results-2026-10-21) (M2, 10 concepts, 150 agreements) and [section 7.6](../../span-taxonomy.md#76-m2-holdout-results-2026-10-21) (M2 holdout, 50 fresh agreements) and [section 7.7](../../span-taxonomy.md#77-definition-resolution-re-check-2026-10-21) (definition-resolution re-check on the same holdout) and [section 7.8](../../span-taxonomy.md#78-m3-holdout-2026-10-21) (M3 holdout, 50 fresh agreements) and [section 7.9](../../span-taxonomy.md#79-financing-retrieval-round-2026-10-21) (financing-retrieval round, 50 fresh agreements, four concepts) of the plan.
+Results and discussion: [section 7.4](../../span-taxonomy.md#74-m1-pilot-results-2026-10-21) (M1, 3 concepts, 50 agreements) and [section 7.5](../../span-taxonomy.md#75-m2-pilot-results-2026-10-21) (M2, 10 concepts, 150 agreements) and [section 7.6](../../span-taxonomy.md#76-m2-holdout-results-2026-10-21) (M2 holdout, 50 fresh agreements) and [section 7.7](../../span-taxonomy.md#77-definition-resolution-re-check-2026-10-21) (definition-resolution re-check on the same holdout) and [section 7.8](../../span-taxonomy.md#78-m3-holdout-2026-10-21) (M3 holdout, 50 fresh agreements) and [section 7.9](../../span-taxonomy.md#79-financing-retrieval-round-2026-10-21) (financing-retrieval round, 50 fresh agreements, four concepts) and [section 7.10](../../span-taxonomy.md#710-schema-v26-and-the-holdout-re-score-2026-10-22) (schema v2.6, the same holdout re-scored) of the plan.
 
 ## Rebuild the inputs
 
@@ -36,6 +36,8 @@ The M3 holdout uses the seed `'m3holdout'`, excludes the M1, M2 and M2 holdout a
 
 The financing-retrieval round uses the seed `'m4holdout'`, excludes the M1, M2, M2 holdout and M3 holdout agreements (use the M3 manifest itself: the corpus has drifted, and its query now reproduces 49 of 50), and filters on `WHERE t.rn <= IF(t.era = 'a', 7, 6)`, giving 50 agreements. `python3 prepare_v5.py m4.tsv OUT` writes the views. After extraction and post-checks, `python3 report_m3.py OUT ma.financing.structure,ma.termination.fee.reverse,ma.indemn.cap,ma.indemn.basket` reports the four concepts, with a percentage-only comparison of amounts under `pct_first_sonnet`.
 
+The v2.6 re-score reuses that run: `python3 postchecks.py OUT sonnet sonnet_pc` with the v2.6 check, the same check applied to adjudicated gold against the full text (5 amounts in 2 agreements), then the same `report_m3.py` command. `python3 prepare_v6.py --rebuild OUT CAND` re-runs stage 1 from the saved layers for the not-blind retrieval check.
+
 ## Files
 
 - `text_layer.py`: the canonical text layer (body `<text>` elements, unstripped, one per line).
@@ -60,6 +62,9 @@ The financing-retrieval round uses the seed `'m4holdout'`, excludes the M1, M2, 
 - `prepare_v5.py`: stage 1 with financing, deposit, trust-account and guarantee patterns and whole indemnification articles, on top of `prepare_v4.py`.
 - `schema_v2_5.md`: v2.4 plus 12 rulings (committed financing, funds representations, reverse-fee triggers, escrow recourse, deductibles, outside-date extensions, MAE carve-outs), run on the financing-retrieval round and used for its adjudication.
 - `m4_holdout_results.json`: financing-retrieval round numbers for the four concepts.
+- `prepare_v6.py`: stage 1 with the financing wordings the financing-retrieval round missed, on top of `prepare_v5.py`.
+- `schema_v2_6.md`: v2.5 plus 2 rulings (amounts hold only stated figures; three more funds-representation wordings).
+- `m4_holdout_v26_results.json`: the financing-retrieval round re-scored under v2.6, with the gold corrections and the not-blind stage 1 check.
 
 ## How it ran
 

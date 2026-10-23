@@ -147,5 +147,42 @@ class ExpenseLabeledFee(unittest.TestCase):
         self.assertEqual(log, [])
 
 
+# 6498472c: the price is stated as one number, the cap and basket only as percentages of it
+P64 = """@@ S12 | ARTICLE II PURCHASE AND SALE | Section 2.2 Purchase Price. | groups=indemnification
+The aggregate purchase price shall be $340,000,000 (the “Purchase Price”), as adjusted pursuant to Section 2.4.
+@@ S80 | ARTICLE IX INDEMNIFICATION | Section 9.4 Limitations. | groups=indemnification
+(a) Sellers shall not be liable unless Losses exceed three percent (3%) of the unadjusted Purchase Price (the “Deductible”), and then only in excess of the Deductible.
+(b) In no event shall Sellers’ aggregate liability exceed twenty percent (20%) of the unadjusted Purchase Price."""
+
+
+class StatedAmounts(unittest.TestCase):
+    def test_computed_amount_dropped(self):
+        out, log = apply(cap("twenty percent (20%) of the unadjusted Purchase Price", "pct_of_purchase_price", 68e6, 20), P64)
+        a = cap_amount(out)
+        self.assertEqual((a["amount"], a["pct"]), ("not_stated", 20))
+        self.assertEqual(log[0]["rule"], "v2.6 rule 1")
+
+    def test_basket_computed_amount_dropped(self):
+        doc = {"agreement": "x", "instances": [{"concept": "ma.indemn.basket", "finding": "present", "baskets": [
+            {"type": "deductible", "amount": {"amount": 10.2e6, "currency": "USD", "basis": "pct_of_purchase_price",
+                                              "pct": 3, "quote": "three percent (3%)"}}], "de_minimis": "none"}]}
+        out, log = apply(doc, P64)
+        self.assertEqual(out["instances"][0]["baskets"][0]["amount"]["amount"], "not_stated")
+
+    def test_stated_price_kept(self):  # v2.3 rule 2: a cap equal to a price stated as one number
+        out, log = apply(cap("shall not exceed the Purchase Price", "pct_of_purchase_price", 340e6, 100), P64)
+        self.assertEqual(cap_amount(out)["amount"], 340e6)
+        self.assertEqual(log, [])
+
+    def test_stated_in_words_kept(self):
+        out, log = apply(cap("ten percent (10%) of the Purchase Price", "pct_of_purchase_price", 34e6, 10),
+                         "Sellers' liability shall not exceed $34.0 million (ten percent (10%) of the Purchase Price).")
+        self.assertEqual(cap_amount(out)["amount"], 34e6)
+
+    def test_fixed_amount_left_alone(self):
+        out, log = apply(cap("shall not exceed $35,000,000"), "")
+        self.assertEqual(log, [])
+
+
 if __name__ == "__main__":
     unittest.main()

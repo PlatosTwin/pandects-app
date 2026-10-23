@@ -8,6 +8,8 @@ saw the text for but did not apply in the definition-resolution re-check (sectio
   or 100% of the price) is `pct_of_purchase_price` 100.
 - An amount labeled a termination fee that is defined as the payee's out-of-pocket expenses
   (up to a stated maximum) is expense reimbursement, not a fee (v2.1 rule 10).
+- v2.6 rule 1: an amount stated as a percentage of a price keeps a dollar figure only when the
+  text states that figure; one the extractor computed becomes `"not_stated"`.
 
 Each check reads only the candidates file the extractor saw, so every quote it adds is
 verbatim from one of its lines. Changed entries carry "postcheck": "<rule>".
@@ -104,6 +106,40 @@ def check_cap_equals_price(inst, lines, log):
                 break
 
 
+# "$3,400,000", "3.4 million", "$1.29 billion", "105,000"
+FIGURE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s*(million|billion))?", re.I)
+SCALE = {None: 1, "million": 1e6, "billion": 1e9}
+
+
+def stated_figures(cand):
+    return {float(m.group(1).replace(",", "") + (m.group(2) or "")) * SCALE[(m.group(3) or "").lower() or None]
+            for m in FIGURE.finditer(cand)}
+
+
+def money_values(node):
+    """Every Money object in an instance, at any depth."""
+    if isinstance(node, dict):
+        if "basis" in node and "amount" in node:
+            yield node
+        for v in node.values():
+            yield from money_values(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from money_values(v)
+
+
+def check_stated_amounts(inst, figures, log):
+    for m in money_values(inst):
+        a = m.get("amount")
+        if not str(m.get("basis", "")).startswith("pct_of") or m.get("pct") is None or not isinstance(a, (int, float)):
+            continue
+        if any(abs(a - f) < 0.5 for f in figures):
+            continue
+        m["amount"] = "not_stated"
+        m["postcheck"] = "v2.6 rule 1"
+        log.append({"concept": inst["concept"], "rule": "v2.6 rule 1", "was": a, "basis": m["basis"], "pct": m["pct"]})
+
+
 def line_with(lines, quote):
     return next((l for l in lines if quote and quote in l and not l.startswith("@@")), "")
 
@@ -153,7 +189,7 @@ def check_expense_labeled_fee(insts, lines, log):
 def apply(doc, cand):
     """Return (checked copy of doc, change log)."""
     doc, log, lines = copy.deepcopy(doc), [], lines_of(cand)
-    insts = doc["instances"]
+    insts, figures = doc["instances"], stated_figures(cand)
     check_expense_labeled_fee(insts, lines, log)
     for inst in insts:
         if inst.get("finding") != "present":
@@ -162,6 +198,7 @@ def apply(doc, cand):
             check_recommendation_failure(inst, lines, log)
         if inst["concept"] == "ma.indemn.cap":
             check_cap_equals_price(inst, lines, log)
+        check_stated_amounts(inst, figures, log)
     return doc, log
 
 
