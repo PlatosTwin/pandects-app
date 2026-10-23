@@ -967,6 +967,7 @@ def regular_ingest_staging_asset(
     )
     resumed_scope = logical_run.agreement_uuids if logical_run is not None else []
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_staging",
@@ -990,6 +991,7 @@ def regular_ingest_staging_asset(
     final_scope = logical_run.agreement_uuids if logical_run is not None else sorted(set(scoped_agreement_uuids))
     if final_scope:
         mark_logical_run_stage_completed(
+            context=context,
             db=db,
             job_name="regular_ingest",
             stage_name="regular_ingest_staging",

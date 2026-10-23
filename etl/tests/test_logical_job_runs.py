@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import ast
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
@@ -1026,6 +1028,217 @@ class LogicalJobRunTests(unittest.TestCase):
 
         self.assertEqual(scope, ["agreement-1", "agreement-2"])
         self.assertEqual(_owner_for_run(db, owner_run.logical_run_id), "dagster-2")
+
+    def test_every_asset_passes_context_to_stage_progress_helpers(self) -> None:
+        helper_names = {"should_skip_managed_stage", "mark_logical_run_stage_completed", "load_active_logical_run"}
+        defs_dir = Path(__file__).resolve().parents[1] / "src" / "etl" / "defs"
+        missing: list[str] = []
+        call_count = 0
+        for path in sorted(defs_dir.rglob("*.py")):
+            for node in ast.walk(ast.parse(path.read_text())):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in helper_names:
+                    call_count += 1
+                    if not any(keyword.arg == "context" for keyword in node.keywords):
+                        missing.append(f"{path.name}:{node.lineno}")
+        self.assertGreater(call_count, 0)
+        self.assertEqual(missing, [])
+
+    def test_stage_progress_helpers_leave_live_run_logical_run_alone(self) -> None:
+        db = _FakeDB()
+        owner_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_c",
+            initial_stage="ingestion_cleanup_c_sections",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert owner_run is not None
+        mark_logical_run_stage_completed(
+            context=cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_c",
+            stage_name="ingestion_cleanup_c_sections",
+        )
+
+        other_context = cast(
+            AssetExecutionContext,
+            cast(
+                object,
+                SimpleNamespace(
+                    run_id="dagster-2",
+                    instance=_FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-1", "dagster-2"}),
+                    log=_FakeLog(),
+                ),
+            ),
+        )
+        should_skip, _ = should_skip_managed_stage(
+            context=other_context,
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_c",
+            stage_name="ingestion_cleanup_c_sections",
+        )
+        self.assertFalse(should_skip)
+        self.assertIsNone(
+            load_active_logical_run(
+                context=other_context,
+                db=cast(DBResource, cast(object, db)),
+                job_name="ingestion_cleanup_c",
+            )
+        )
+        mark_logical_run_stage_completed(
+            context=other_context,
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_c",
+            stage_name="ingestion_cleanup_c_tax_module",
+            complete_run=True,
+        )
+
+        owner_view = load_active_logical_run(db=cast(DBResource, cast(object, db)), job_name="ingestion_cleanup_c")
+        assert owner_view is not None
+        self.assertEqual(owner_view["logical_run_id"], owner_run.logical_run_id)
+        self.assertEqual(owner_view["completed_stages"], ["ingestion_cleanup_c_sections"])
+        self.assertEqual(_owner_for_run(db, owner_run.logical_run_id), "dagster-1")
+
+    def test_retry_whose_first_step_only_records_completion_revives_logical_run(self) -> None:
+        db = _FakeDB()
+        original_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert original_run is not None
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_reconcile_tags",
+            dagster_run_id="dagster-1",
+        )
+
+        retry_context = _reexecution_context(
+            "dagster-2",
+            parent_run_id="dagster-1",
+            root_run_id="dagster-1",
+            instance=_FakeInstance(finished_run_ids={"dagster-1"}, alive_run_ids={"dagster-2"}),
+        )
+        mark_logical_run_stage_completed(
+            context=cast(AssetExecutionContext, cast(object, retry_context)),
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_reconcile_tags",
+        )
+
+        active_run = load_active_logical_run(db=cast(DBResource, cast(object, db)), job_name="regular_ingest")
+        assert active_run is not None
+        self.assertEqual(active_run["logical_run_id"], original_run.logical_run_id)
+        self.assertIn("regular_ingest_reconcile_tags", active_run["completed_stages"])
+        self.assertEqual(_owner_for_run(db, original_run.logical_run_id), "dagster-2")
+
+    def test_resume_prefers_retried_logical_run_over_one_further_along(self) -> None:
+        db = _FakeDB()
+        retried_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert retried_run is not None
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_a",
+            stage_name="ingestion_cleanup_a_tagging",
+            dagster_run_id="dagster-1",
+        )
+        # A later, unrelated run of the job got further before failing.
+        further_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-other"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-2"],
+        )
+        assert further_run is not None
+        # Re-mark the first run FAILED: force_new abandoned it above.
+        with db.get_engine().begin() as conn:
+            _ = conn.execute(
+                text("UPDATE pipeline_job_runs SET status = :status WHERE logical_run_id = :id"),
+                {"status": LOGICAL_RUN_STATUS_FAILED, "id": retried_run.logical_run_id},
+            )
+        mark_logical_run_stage_completed(
+            context=cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-other"))),
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_a",
+            stage_name="ingestion_cleanup_a_post_repair_build_xml",
+        )
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_a",
+            stage_name="ingestion_cleanup_a_post_repair_verify_xml",
+            dagster_run_id="dagster-other",
+        )
+
+        retry_context = _reexecution_context(
+            "dagster-2",
+            parent_run_id="dagster-1",
+            root_run_id="dagster-1",
+            instance=_FakeInstance(
+                finished_run_ids={"dagster-1", "dagster-other"},
+                alive_run_ids={"dagster-2"},
+                root_run_ids={"dagster-other": "dagster-other"},
+            ),
+        )
+        resumed_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, retry_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-3"],
+        )
+
+        assert resumed_run is not None
+        self.assertEqual(resumed_run.logical_run_id, retried_run.logical_run_id)
+
+    def test_resume_does_not_take_over_logical_run_of_live_dagster_run(self) -> None:
+        db = _FakeDB()
+        live_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_b",
+            initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert live_run is not None
+
+        log = _FakeLog()
+        second_context = SimpleNamespace(
+            run_id="dagster-2",
+            instance=_FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-1", "dagster-2"}),
+            log=log,
+        )
+        second_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, second_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_b",
+            initial_stage="ingestion_cleanup_b_ai_repair_enqueue",
+            selected_agreement_uuids=["agreement-2"],
+        )
+
+        assert second_run is not None
+        self.assertNotEqual(second_run.logical_run_id, live_run.logical_run_id)
+        self.assertFalse(second_run.resumed_existing)
+        self.assertEqual(second_run.agreement_uuids, ["agreement-2"])
+        self.assertEqual(_owner_for_run(db, live_run.logical_run_id), "dagster-1")
+        self.assertEqual(_status_for_run(db, live_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
+        self.assertTrue(any("still running" in warning for warning in log.warnings))
 
     def test_start_resumes_failed_run_instead_of_starting_fresh(self) -> None:
         db = _FakeDB()

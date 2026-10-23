@@ -868,6 +868,7 @@ def _run_managed_tax_module_asset(
 ) -> list[str]:
     if skip_if_completed:
         should_skip, current_stage = should_skip_managed_stage(
+            context=context,
             db=db,
             job_name=job_name,
             stage_name=stage_name,
@@ -892,13 +893,14 @@ def _run_managed_tax_module_asset(
             log_prefix,
         )
         mark_logical_run_stage_completed(
+            context=context,
             db=db,
             job_name=job_name,
             stage_name=stage_name,
         )
         return scope_uuids
 
-    active_run = load_active_logical_run(db=db, job_name=job_name)
+    active_run = load_active_logical_run(context=context, db=db, job_name=job_name)
     processed_agreement_uuids = _run_tax_module_for_agreements(
         context,
         db,
@@ -912,6 +914,7 @@ def _run_managed_tax_module_asset(
         log_prefix=log_prefix,
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name=job_name,
         stage_name=stage_name,

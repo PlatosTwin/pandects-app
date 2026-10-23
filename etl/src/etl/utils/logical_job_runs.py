@@ -363,6 +363,12 @@ def fetch_active_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[s
 
 
 def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[str, Any] | None:
+    rows = _resumable_logical_runs(conn, schema=schema, job_name=job_name)
+    return rows[0] if rows else None
+
+
+def _resumable_logical_runs(conn: Any, *, schema: str, job_name: str) -> list[dict[str, Any]]:
+    """Unfinished logical runs for a job, the one furthest along first."""
     completed_stages_expr = _job_runs_completed_stages_expr(conn, schema=schema)
     rows = [
         _hydrate_logical_run_row(job_name, dict(row))
@@ -381,8 +387,6 @@ def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dic
         },
     ).mappings().all()
     ]
-    if not rows:
-        return None
     rows.sort(
         key=lambda row: (
             max(
@@ -394,7 +398,7 @@ def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dic
         ),
         reverse=True,
     )
-    return rows[0]
+    return rows
 
 
 def _fetch_running_run_for_dagster_run(
@@ -514,12 +518,128 @@ def _fetch_unfinished_run_for_reexecuted_dagster_run(
     return None
 
 
-def load_active_logical_run(*, db: DBResource, job_name: str) -> dict[str, Any] | None:
+def _owned_by_other_live_dagster_run(context: AssetExecutionContext, logical_run: dict[str, Any]) -> bool:
+    owner_run_id = logical_run.get("dagster_run_id")
+    current_run_id = _current_dagster_run_id(context)
+    return bool(
+        owner_run_id
+        and current_run_id is not None
+        and str(owner_run_id) != current_run_id
+        and _dagster_run_is_alive(context, owner_run_id) is True
+    )
+
+
+def _warn_owned_by_other_live_dagster_run(
+    context: AssetExecutionContext,
+    *,
+    job_name: str,
+    logical_run: dict[str, Any],
+) -> None:
+    log = getattr(context, "log", None)
+    if log is None:
+        return
+    log.warning(
+        "%s: logical run %s belongs to Dagster run %s, which is still running; "
+        + "this run will not take it over or touch its progress.",
+        job_name,
+        str(logical_run["logical_run_id"]),
+        logical_run.get("dagster_run_id"),
+    )
+
+
+def _claim_logical_run_for_context(
+    context: AssetExecutionContext,
+    conn: Any,
+    *,
+    schema: str,
+    job_name: str,
+) -> dict[str, Any] | None:
+    """The logical run this Dagster run's steps should read and record progress on.
+
+    In order: the RUNNING logical run this Dagster run already owns; for a
+    "re-execute from failure" run, the unfinished logical run it retries (a
+    retry often starts past the step that calls start_or_resume_logical_run,
+    so whichever managed step comes first revives it); otherwise the newest
+    RUNNING logical run, unless another Dagster run that is still alive owns
+    it. The chosen row is pointed at this Dagster run and marked RUNNING.
+    """
+    current_run_id = _current_dagster_run_id(context)
+    logical_run = _fetch_running_run_for_dagster_run(
+        conn,
+        schema=schema,
+        job_name=job_name,
+        dagster_run_id=current_run_id,
+    )
+    if logical_run is not None:
+        return logical_run
+    logical_run = _fetch_unfinished_run_for_reexecuted_dagster_run(
+        context,
+        conn,
+        schema=schema,
+        job_name=job_name,
+    )
+    if logical_run is None:
+        logical_run = fetch_active_logical_run(conn, schema=schema, job_name=job_name)
+        if logical_run is None:
+            return None
+        if _owned_by_other_live_dagster_run(context, logical_run):
+            _warn_owned_by_other_live_dagster_run(context, job_name=job_name, logical_run=logical_run)
+            return None
+    if current_run_id is not None:
+        _ = conn.execute(
+            text(
+                f"""
+                UPDATE {_job_runs_table(schema, conn)}
+                SET dagster_run_id = :dagster_run_id,
+                    status = :running_status,
+                    updated_at = CURRENT_TIMESTAMP,
+                    finished_at = NULL
+                WHERE logical_run_id = :logical_run_id
+                """
+            ),
+            {
+                "logical_run_id": str(logical_run["logical_run_id"]),
+                "dagster_run_id": current_run_id,
+                "running_status": LOGICAL_RUN_STATUS_RUNNING,
+            },
+        )
+        logical_run = {
+            **logical_run,
+            "dagster_run_id": current_run_id,
+            "status": LOGICAL_RUN_STATUS_RUNNING,
+        }
+    return logical_run
+
+
+def _load_logical_run_for_progress(
+    conn: Any,
+    *,
+    schema: str,
+    job_name: str,
+    context: AssetExecutionContext | None,
+) -> dict[str, Any] | None:
+    if context is None:
+        return fetch_active_logical_run(conn, schema=schema, job_name=job_name)
+    return _claim_logical_run_for_context(context, conn, schema=schema, job_name=job_name)
+
+
+def load_active_logical_run(
+    *,
+    db: DBResource,
+    job_name: str,
+    context: AssetExecutionContext | None = None,
+) -> dict[str, Any] | None:
+    """The logical run whose progress a step should use.
+
+    Asset code passes its context so the run is chosen by Dagster-run
+    ownership (see _claim_logical_run_for_context); without it, the newest
+    RUNNING logical run of the job is returned.
+    """
     engine = db.get_engine()
     schema = db.database
     with engine.begin() as conn:
         assert_logical_job_run_tables_exist(conn, schema=schema)
-        return fetch_active_logical_run(conn, schema=schema, job_name=job_name)
+        return _load_logical_run_for_progress(conn, schema=schema, job_name=job_name, context=context)
 
 
 def load_logical_run_scope(conn: Any, *, schema: str, logical_run_id: str) -> list[str]:
@@ -652,6 +772,37 @@ def _reconcile_orphaned_running_runs(
             )
 
 
+def _fetch_resumable_logical_run_for_context(
+    context: AssetExecutionContext,
+    conn: Any,
+    *,
+    schema: str,
+    job_name: str,
+) -> dict[str, Any] | None:
+    """The logical run a resuming Dagster run should continue.
+
+    Prefers the logical run this Dagster run already owns, then (for a
+    "re-execute from failure" run) the one it retries, then the unfinished
+    run furthest along. A logical run owned by another Dagster run that is
+    still alive is never resumed: taking it over would leave that run
+    recording progress on a row it no longer owns.
+    """
+    owned_run = _fetch_running_run_for_dagster_run(
+        conn,
+        schema=schema,
+        job_name=job_name,
+        dagster_run_id=_current_dagster_run_id(context),
+    ) or _fetch_unfinished_run_for_reexecuted_dagster_run(context, conn, schema=schema, job_name=job_name)
+    if owned_run is not None:
+        return owned_run
+    for logical_run in _resumable_logical_runs(conn, schema=schema, job_name=job_name):
+        if _owned_by_other_live_dagster_run(context, logical_run):
+            _warn_owned_by_other_live_dagster_run(context, job_name=job_name, logical_run=logical_run)
+            continue
+        return logical_run
+    return None
+
+
 def _log_resume_banner(
     context: AssetExecutionContext,
     *,
@@ -751,7 +902,12 @@ def start_or_resume_logical_run(
         _reconcile_orphaned_running_runs(context, conn, schema=schema, job_name=job_name)
         continuing_reexecuted_run = False
         if pipeline_config.resume_logical_runs and not pipeline_config.force_new_logical_run:
-            existing_run = fetch_resumable_logical_run(conn, schema=schema, job_name=job_name)
+            existing_run = _fetch_resumable_logical_run_for_context(
+                context,
+                conn,
+                schema=schema,
+                job_name=job_name,
+            )
         else:
             # Every managed step of a Dagster run calls this. Starting fresh
             # applies only to the first one; later steps of the same Dagster
@@ -892,67 +1048,10 @@ def load_active_scope_for_job(
     schema = db.database
     with engine.begin() as conn:
         assert_logical_job_run_tables_exist(conn, schema=schema)
-        current_run_id = _current_dagster_run_id(context)
-        # A "re-execute from failure" run often starts past the step that
-        # calls start_or_resume_logical_run, so the first scoped step revives
-        # the FAILED logical run it retries; otherwise later steps would see
-        # no RUNNING row and neither skip nor record completed stages.
-        active_run = (
-            _fetch_running_run_for_dagster_run(
-                conn,
-                schema=schema,
-                job_name=job_name,
-                dagster_run_id=current_run_id,
-            )
-            or _fetch_unfinished_run_for_reexecuted_dagster_run(
-                context,
-                conn,
-                schema=schema,
-                job_name=job_name,
-            )
-            or fetch_active_logical_run(conn, schema=schema, job_name=job_name)
-        )
+        active_run = _claim_logical_run_for_context(context, conn, schema=schema, job_name=job_name)
         if active_run is None:
             return fallback_scope
-        owner_run_id = active_run.get("dagster_run_id")
-        if (
-            owner_run_id
-            and current_run_id is not None
-            and str(owner_run_id) != current_run_id
-            and _dagster_run_is_alive(context, owner_run_id) is True
-        ):
-            # Another live Dagster run owns this logical run. Repointing its row
-            # at us would make that run's later steps lose track of it, so use
-            # our own scope instead.
-            log = getattr(context, "log", None)
-            if log is not None:
-                log.warning(
-                    "%s: active logical run %s belongs to Dagster run %s, which is still running; "
-                    + "not taking it over, using this run's own %d-agreement scope.",
-                    job_name,
-                    str(active_run["logical_run_id"]),
-                    owner_run_id,
-                    len(fallback_scope),
-                )
-            return fallback_scope
         logical_run_id = str(active_run["logical_run_id"])
-        _ = conn.execute(
-            text(
-                f"""
-                UPDATE {_job_runs_table(schema, conn)}
-                SET dagster_run_id = :dagster_run_id,
-                    status = :running_status,
-                    updated_at = CURRENT_TIMESTAMP,
-                    finished_at = NULL
-                WHERE logical_run_id = :logical_run_id
-                """
-            ),
-            {
-                "logical_run_id": logical_run_id,
-                "dagster_run_id": _current_dagster_run_id(context),
-                "running_status": LOGICAL_RUN_STATUS_RUNNING,
-            },
-        )
         return load_logical_run_scope(conn, schema=schema, logical_run_id=logical_run_id)
 
 
@@ -1046,12 +1145,13 @@ def should_skip_managed_stage(
     db: DBResource,
     job_name: str,
     stage_name: str,
+    context: AssetExecutionContext | None = None,
 ) -> tuple[bool, str | None]:
     stage_sequence = MANAGED_JOB_STAGE_SEQUENCE.get(job_name)
     if stage_sequence is None or stage_name not in stage_sequence:
         return False, None
 
-    active_run = load_active_logical_run(db=db, job_name=job_name)
+    active_run = load_active_logical_run(db=db, job_name=job_name, context=context)
     if active_run is None:
         return False, None
 
@@ -1081,12 +1181,13 @@ def mark_logical_run_stage_completed(
     job_name: str,
     stage_name: str,
     complete_run: bool = False,
+    context: AssetExecutionContext | None = None,
 ) -> None:
     engine = db.get_engine()
     schema = db.database
     with engine.begin() as conn:
         assert_logical_job_run_tables_exist(conn, schema=schema)
-        active_run = fetch_active_logical_run(conn, schema=schema, job_name=job_name)
+        active_run = _load_logical_run_for_progress(conn, schema=schema, job_name=job_name, context=context)
         if active_run is None:
             return
         normalized_stage_name = normalize_managed_stage_name(stage_name)

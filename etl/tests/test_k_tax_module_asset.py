@@ -4,7 +4,7 @@
 import unittest
 from types import SimpleNamespace
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from dagster import AssetExecutionContext
 
@@ -312,6 +312,7 @@ class TaxModuleAssetTests(unittest.TestCase):
 
         self.assertEqual(result, ["agreement-1"])
         mark_completed.assert_called_once_with(
+            context=ANY,
             db=db,
             job_name="regular_ingest",
             stage_name="regular_ingest_tax_module",

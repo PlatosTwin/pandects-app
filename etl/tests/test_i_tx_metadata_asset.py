@@ -1707,6 +1707,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
 
         self.assertEqual(result, [])
         mark_stage.assert_called_once_with(
+            context=unittest.mock.ANY,
             db=unittest.mock.ANY,
             job_name="ingestion_cleanup_a",
             stage_name="ingestion_cleanup_a_tx_metadata_offline",
@@ -1740,6 +1741,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
 
         self.assertEqual(result, [])
         mark_stage.assert_called_once_with(
+            context=unittest.mock.ANY,
             db=unittest.mock.ANY,
             job_name="ingestion_cleanup_a",
             stage_name="ingestion_cleanup_a_tx_metadata_web_search",
