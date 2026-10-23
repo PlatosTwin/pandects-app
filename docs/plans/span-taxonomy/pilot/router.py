@@ -9,6 +9,7 @@ in prepare_v7, so the comparison isolates the choice of operative sections.
 Usage: python3 router.py outline D OUT          (writes OUT/<uuid>.md for every agreement in D)
        python3 router.py candidates D PICKS OUT  (picked sections + definitions, as candidate views)
        python3 router.py score D PICKS           (gold-span recall and candidate share vs prepare_v7)
+       python3 router.py union D PICKS OUT       (prepare_v7's sections plus the picked ones, as candidate views)
 """
 import glob, json, os, re, sys
 sys.path.insert(0, os.path.dirname(__file__))
@@ -65,6 +66,18 @@ def select(layer, picked):
     return groups, leaf_keep
 
 
+def union(layer, picked):
+    """prepare_v7's selection plus the model's picks (plan section 7.14)."""
+    gv, kv = prepare_v7.select(layer)
+    gr, kr = select(layer, picked)
+    groups = {k: gr.get(k, set()) | gv.get(k, set()) for k in set(gr) | set(gv)}
+    keep = {}  # a section either side keeps whole stays whole; otherwise keep both sides' leaves
+    for k in groups:
+        if not (k in gv and k not in kv or k in gr and k not in kr):
+            keep[k] = kv.get(k, set()) | kr.get(k, set())
+    return groups, keep
+
+
 def score_stage1(D, picks):
     """Gold spans inside a candidate section, for the model's picks against prepare_v7."""
     import statistics
@@ -101,6 +114,13 @@ def main():
     cmd, D = sys.argv[1], sys.argv[2]
     if cmd == "score":
         print(json.dumps(score_stage1(D, sys.argv[3]), indent=1))
+    elif cmd == "union":
+        picks, out = sys.argv[3], sys.argv[4]
+        os.makedirs(out, exist_ok=True)
+        for m in json.load(open(f"{D}/manifest.json")):
+            layer = json.load(open(f"{D}/layer/{m['uuid']}.json"))
+            picked = {int(x) for v in json.load(open(f"{picks}/{m['uuid']}.json")).values() for x in v}
+            open(f"{out}/{m['uuid']}.md", "w").write(candidate_view(layer, *union(layer, picked)))
     elif cmd == "outline":
         out = sys.argv[3]
         os.makedirs(out, exist_ok=True)

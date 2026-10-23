@@ -106,6 +106,18 @@ class CapEqualsPrice(unittest.TestCase):
         out, log = apply(cap("shall not exceed the Indemnity Escrow Amount"), "")
         self.assertEqual(log, [])
 
+    def test_price_less_claims_is_left_alone(self):  # 2fafb339
+        q = "exceed an amount equal to the Purchase Price, less the aggregate amount of all Buyer Claims"
+        out, log = apply(cap(q, basis="formula", amount="not_stated"), "")
+        self.assertEqual(log, [])
+        out, log = apply(cap(q), "")
+        self.assertEqual(log, [])
+
+    def test_stated_pct_of_received_is_left_alone(self):  # 67e84aa3
+        q = "limited to thirty five percent (35%) of the portion of the Merger Consideration that has been paid"
+        out, log = apply(cap(q, basis="pct_of_purchase_price", amount="not_stated", pct=35), "")
+        self.assertEqual((cap_amount(out)["pct"], log), (35, []))
+
     def test_price_adjustment_is_left_alone(self):
         out, log = apply(cap("shall not exceed the Purchase Price Adjustment Escrow Amount"), "")
         self.assertEqual(log, [])

@@ -5,7 +5,8 @@ saw the text for but did not apply in the definition-resolution re-check (sectio
   `recommendation_failure` when the agreement's definition of that change includes failing
   to make, include or reaffirm the recommendation.
 - v2.3 rule 2: a cap of "the Purchase Price" (or merger consideration, consideration shares,
-  or 100% of the price) is `pct_of_purchase_price` 100.
+  or 100% of the price) is `pct_of_purchase_price` 100, unless the model already coded a
+  percentage or a formula, or the price is followed by "less" or "minus" (v2.8 rule 7).
 - An amount labeled a termination fee that is defined as the payee's out-of-pocket expenses
   (up to a stated maximum) is expense reimbursement, not a fee (v2.1 rule 10).
 - v2.6 rule 1: an amount stated as a percentage of a price keeps a dollar figure only when the
@@ -32,6 +33,7 @@ PRICE = (r"(?:Purchase Price|Merger Consideration|Aggregate Consideration|Total 
 PRICE_CAP = re.compile(r"\b(?:exceed|in excess of|greater than|more than|up to|limited to|equal to)\s+(?:an amount equal to\s+)?"
                        r"(?:100%\s+of\s+|one hundred percent \(100%\) of\s+)?(?:the\s+)?(?:aggregate\s+|total\s+|final\s+)?"
                        r"(?:(?:value|amount) of the\s+)?" + PRICE, re.I)
+LESS = re.compile(r",?\s*(?:less|minus|reduced by)\b", re.I)  # "the Purchase Price, less ...": a formula
 PRICE_RECEIVED = re.compile(r"portion of the\s+" + PRICE + r"[^.;]{0,40}?\b(?:actually\s+)?(?:received|paid)", re.I)
 
 EXPENSE_FEE = [
@@ -94,11 +96,11 @@ def check_cap_equals_price(inst, lines, log):
         if not isinstance(cap, dict):
             continue
         amt = cap.get("amount") if isinstance(cap.get("amount"), dict) else {}
-        if amt.get("basis") == "pct_of_purchase_price" and amt.get("pct") == 100:
-            continue
+        if amt.get("basis") == "formula" or amt.get("pct") is not None:
+            continue  # a stated percentage, or a price less a part of it (v2.8 rule 7), is already coded
         for q in (cap.get("quote"), amt.get("quote")):
             m = isinstance(q, str) and (PRICE_CAP.search(q) or PRICE_RECEIVED.search(q))
-            if m:
+            if m and not LESS.match(q, m.end()):
                 cap["amount"] = {"amount": "not_stated", "currency": amt.get("currency", "USD"),
                                  "basis": "pct_of_purchase_price", "pct": 100, "quote": q}
                 cap["postcheck"] = "v2.3 rule 2"
