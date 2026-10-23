@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
@@ -343,7 +344,7 @@ def fetch_active_logical_run(conn: Any, *, schema: str, job_name: str) -> dict[s
     row = conn.execute(
         text(
             f"""
-            SELECT logical_run_id, job_name, status, current_stage, {completed_stages_expr}
+            SELECT logical_run_id, job_name, status, current_stage, dagster_run_id, {completed_stages_expr}
             FROM {_job_runs_table(schema, conn)}
             WHERE job_name = :job_name
               AND status = :status
@@ -429,6 +430,90 @@ def _fetch_running_run_for_dagster_run(
     return _hydrate_logical_run_row(job_name, dict(row))
 
 
+def _dagster_root_run_id(context: AssetExecutionContext, dagster_run_id: str) -> str | None:
+    instance = getattr(context, "instance", None)
+    get_run_by_id = getattr(instance, "get_run_by_id", None)
+    if not callable(get_run_by_id):
+        return None
+    run = get_run_by_id(dagster_run_id)
+    if run is None:
+        return None
+    root_run_id = getattr(run, "root_run_id", None) or getattr(run, "run_id", None)
+    return str(root_run_id) if root_run_id else None
+
+
+# Dagster sets this tag only on "re-execute from failure" runs and drops it
+# when a later re-execution copies the parent's tags. "Re-execute all" and
+# selected-step re-executions get parent and root run ids too but are meant
+# to redo the work. "From asset failure" runs are not recognized: their tag
+# (dagster/is_asset_resume_retry) is inherited by later re-executions, so it
+# cannot tell a resume from a re-execute-all.
+_DAGSTER_RESUME_RETRY_TAG = "dagster/is_resume_retry"
+
+
+def _is_resume_retry_dagster_run(context: AssetExecutionContext) -> bool:
+    tags = getattr(getattr(context, "run", None), "tags", None)
+    if not isinstance(tags, Mapping):
+        return False
+    return tags.get(_DAGSTER_RESUME_RETRY_TAG) == "true"
+
+
+def _fetch_unfinished_run_for_reexecuted_dagster_run(
+    context: AssetExecutionContext,
+    conn: Any,
+    *,
+    schema: str,
+    job_name: str,
+) -> dict[str, Any] | None:
+    """The unfinished logical run owned by an earlier run of this re-execution family.
+
+    A "re-execute from failure" run is a new Dagster run whose
+    parent_run_id/root_run_id point back at the run it retries. It skips steps
+    that already succeeded, so it must continue that run's logical run rather
+    than start a fresh one, even when the copied config says to start fresh.
+    A row whose owner is another Dagster run that is still alive (a concurrent
+    sibling retry) is left to that run.
+    """
+    if not _is_resume_retry_dagster_run(context):
+        return None
+    dagster_run = getattr(context, "run", None)
+    parent_run_id = getattr(dagster_run, "parent_run_id", None)
+    root_run_id = getattr(dagster_run, "root_run_id", None)
+    if not parent_run_id and not root_run_id:
+        return None
+    family_run_ids = {str(run_id) for run_id in (parent_run_id, root_run_id) if run_id}
+    completed_stages_expr = _job_runs_completed_stages_expr(conn, schema=schema)
+    rows = conn.execute(
+        text(
+            f"""
+            SELECT logical_run_id, job_name, status, current_stage, started_at, updated_at, scope_size, dagster_run_id, {completed_stages_expr}
+            FROM {_job_runs_table(schema, conn)}
+            WHERE job_name = :job_name
+              AND status IN :resumable_statuses
+            ORDER BY started_at DESC, logical_run_id DESC
+            """
+        ).bindparams(bindparam("resumable_statuses", expanding=True)),
+        {
+            "job_name": job_name,
+            "resumable_statuses": [LOGICAL_RUN_STATUS_RUNNING, LOGICAL_RUN_STATUS_FAILED],
+        },
+    ).mappings().all()
+    for row in rows:
+        owner_run_id = row.get("dagster_run_id")
+        if not owner_run_id:
+            continue
+        # A row last touched by a sibling re-execution (e.g. a second retry
+        # launched from the original run) shares our root run, not our parent.
+        if str(owner_run_id) not in family_run_ids and not (
+            root_run_id and _dagster_root_run_id(context, str(owner_run_id)) == str(root_run_id)
+        ):
+            continue
+        if str(owner_run_id) != _current_dagster_run_id(context) and _dagster_run_is_alive(context, owner_run_id) is True:
+            continue
+        return _hydrate_logical_run_row(job_name, dict(row))
+    return None
+
+
 def load_active_logical_run(*, db: DBResource, job_name: str) -> dict[str, Any] | None:
     engine = db.get_engine()
     schema = db.database
@@ -486,9 +571,12 @@ def _dagster_run_is_alive(context: AssetExecutionContext, dagster_run_id: Any) -
     liveness cannot be determined (no instance available, e.g. unit tests). A
     run the instance has no record of is treated as not alive.
     """
+    return _instance_run_is_alive(getattr(context, "instance", None), dagster_run_id)
+
+
+def _instance_run_is_alive(instance: Any, dagster_run_id: Any) -> bool | None:
     if not dagster_run_id:
         return None
-    instance = getattr(context, "instance", None)
     if instance is None:
         return None
     get_run_by_id = getattr(instance, "get_run_by_id", None)
@@ -570,6 +658,7 @@ def _log_resume_banner(
     job_name: str,
     existing_run: dict[str, Any],
     resumed_scope: list[str],
+    continuing_reexecuted_run: bool = False,
 ) -> None:
     log = getattr(context, "log", None)
     if log is None:
@@ -608,6 +697,16 @@ def _log_resume_banner(
         worker_note = "previous worker liveness unknown"
     completed_stages = list(existing_run.get("completed_stages", []))
     current_stage = existing_run.get("current_stage")
+    if continuing_reexecuted_run:
+        fresh_hint = (
+            "  This Dagster run re-executes the run that owned it from failure, so force_new_logical_run "
+            + "and resume_logical_runs=false do not apply; re-execute all steps or launch a new run to start fresh."
+        )
+    else:
+        fresh_hint = (
+            "  To start fresh instead, relaunch with pipeline_config "
+            + "force_new_logical_run=true (or resume_logical_runs=false)."
+        )
     log.warning(
         "%s: RESUMING existing logical run %s instead of starting fresh.\n"
         + "  prior status: %s (%s)\n"
@@ -616,8 +715,7 @@ def _log_resume_banner(
         + "  resuming at: %s\n"
         + "  scope: %d agreements carried over from the original run "
         + "(newly selected agreements are ignored while resuming)\n"
-        + "  To start fresh instead, relaunch with pipeline_config "
-        + "force_new_logical_run=true (or resume_logical_runs=false).",
+        + "%s",
         job_name,
         str(existing_run.get("logical_run_id")),
         str(existing_run.get("status") or ""),
@@ -628,6 +726,7 @@ def _log_resume_banner(
         ", ".join(completed_stages) if completed_stages else "(none)",
         current_stage if current_stage is not None else "(initial stage)",
         len(resumed_scope),
+        fresh_hint,
     )
 
 
@@ -650,6 +749,7 @@ def start_or_resume_logical_run(
     with engine.begin() as conn:
         assert_logical_job_run_tables_exist(conn, schema=schema)
         _reconcile_orphaned_running_runs(context, conn, schema=schema, job_name=job_name)
+        continuing_reexecuted_run = False
         if pipeline_config.resume_logical_runs and not pipeline_config.force_new_logical_run:
             existing_run = fetch_resumable_logical_run(conn, schema=schema, job_name=job_name)
         else:
@@ -662,6 +762,14 @@ def start_or_resume_logical_run(
                 job_name=job_name,
                 dagster_run_id=_current_dagster_run_id(context),
             )
+            if existing_run is None:
+                existing_run = _fetch_unfinished_run_for_reexecuted_dagster_run(
+                    context,
+                    conn,
+                    schema=schema,
+                    job_name=job_name,
+                )
+                continuing_reexecuted_run = existing_run is not None
         if existing_run is not None:
             logical_run_id = str(existing_run["logical_run_id"])
             resumed_scope = load_logical_run_scope(conn, schema=schema, logical_run_id=logical_run_id)
@@ -670,6 +778,7 @@ def start_or_resume_logical_run(
                 job_name=job_name,
                 existing_run=existing_run,
                 resumed_scope=resumed_scope,
+                continuing_reexecuted_run=continuing_reexecuted_run,
             )
             _ = conn.execute(
                 text(
@@ -677,7 +786,8 @@ def start_or_resume_logical_run(
                     UPDATE {_job_runs_table(schema, conn)}
                     SET dagster_run_id = :dagster_run_id,
                         status = :running_status,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = CURRENT_TIMESTAMP,
+                        finished_at = NULL
                     WHERE logical_run_id = :logical_run_id
                     """
                 ),
@@ -782,8 +892,48 @@ def load_active_scope_for_job(
     schema = db.database
     with engine.begin() as conn:
         assert_logical_job_run_tables_exist(conn, schema=schema)
-        active_run = fetch_active_logical_run(conn, schema=schema, job_name=job_name)
+        current_run_id = _current_dagster_run_id(context)
+        # A "re-execute from failure" run often starts past the step that
+        # calls start_or_resume_logical_run, so the first scoped step revives
+        # the FAILED logical run it retries; otherwise later steps would see
+        # no RUNNING row and neither skip nor record completed stages.
+        active_run = (
+            _fetch_running_run_for_dagster_run(
+                conn,
+                schema=schema,
+                job_name=job_name,
+                dagster_run_id=current_run_id,
+            )
+            or _fetch_unfinished_run_for_reexecuted_dagster_run(
+                context,
+                conn,
+                schema=schema,
+                job_name=job_name,
+            )
+            or fetch_active_logical_run(conn, schema=schema, job_name=job_name)
+        )
         if active_run is None:
+            return fallback_scope
+        owner_run_id = active_run.get("dagster_run_id")
+        if (
+            owner_run_id
+            and current_run_id is not None
+            and str(owner_run_id) != current_run_id
+            and _dagster_run_is_alive(context, owner_run_id) is True
+        ):
+            # Another live Dagster run owns this logical run. Repointing its row
+            # at us would make that run's later steps lose track of it, so use
+            # our own scope instead.
+            log = getattr(context, "log", None)
+            if log is not None:
+                log.warning(
+                    "%s: active logical run %s belongs to Dagster run %s, which is still running; "
+                    + "not taking it over, using this run's own %d-agreement scope.",
+                    job_name,
+                    str(active_run["logical_run_id"]),
+                    owner_run_id,
+                    len(fallback_scope),
+                )
             return fallback_scope
         logical_run_id = str(active_run["logical_run_id"])
         _ = conn.execute(
@@ -791,13 +941,16 @@ def load_active_scope_for_job(
                 f"""
                 UPDATE {_job_runs_table(schema, conn)}
                 SET dagster_run_id = :dagster_run_id,
-                    updated_at = CURRENT_TIMESTAMP
+                    status = :running_status,
+                    updated_at = CURRENT_TIMESTAMP,
+                    finished_at = NULL
                 WHERE logical_run_id = :logical_run_id
                 """
             ),
             {
                 "logical_run_id": logical_run_id,
                 "dagster_run_id": _current_dagster_run_id(context),
+                "running_status": LOGICAL_RUN_STATUS_RUNNING,
             },
         )
         return load_logical_run_scope(conn, schema=schema, logical_run_id=logical_run_id)
@@ -823,6 +976,7 @@ def mark_logical_run_failed(
     job_name: str,
     stage_name: str | None,
     dagster_run_id: str | None = None,
+    instance: Any = None,
 ) -> None:
     engine = db.get_engine()
     schema = db.database
@@ -854,6 +1008,16 @@ def mark_logical_run_failed(
         if logical_run_id is None:
             active_run = fetch_active_logical_run(conn, schema=schema, job_name=job_name)
             if active_run is None:
+                return
+            owner_run_id = active_run.get("dagster_run_id")
+            if (
+                dagster_run_id
+                and owner_run_id
+                and str(owner_run_id) != dagster_run_id
+                and _instance_run_is_alive(instance, owner_run_id) is True
+            ):
+                # The failing run never owned a logical run, and the active one
+                # belongs to another Dagster run that is still executing.
                 return
             logical_run_id = str(active_run["logical_run_id"])
 
