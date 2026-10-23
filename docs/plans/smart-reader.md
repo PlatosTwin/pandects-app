@@ -388,13 +388,44 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **0** (this PR) | Design and prototype | Done: decisions in Section 11 |
-| **1. Enricher** | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
+| **0** | Design and prototype | Done: decisions in Section 11 |
+| **1. Enricher** (in progress, 10.1) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
 
 Phases 1 and 2 are mostly independent of the UI work in flight. Phase 3 should start only after the current reader polish lands on main.
+
+### 10.1 Phase 1 progress (2026-10-22)
+
+Landed on this branch: [`etl/src/etl/domain/reader_index.py`](../../etl/src/etl/domain/reader_index.py), the pure enricher (XML string in, Section 6.3 payload out, `ENRICHER_VERSION = "0.1.0"`), and `etl/tests/test_reader_index.py` (15 unit tests: outline, declarations, uses, xref statuses, anchors, UTF-16 offsets, text hash). Not wired into Dagster and writes nothing to any database.
+
+Changes from the prototype:
+
+- Emits anchors and UTF-16 spans per the contract. Corpus check: none of the 11,790 latest verified XMLs contains a carriage return or markup nested inside `<text>`, so ElementTree's decoded text has the same length as the string the reader renders.
+- Pointers ("has the meaning set forth in Section 5.4") are no longer counted as `means` declarations, and are dropped when the term has a real declaration.
+- Glossary layout (`Term. "Term" shall mean...`) is a declaration, and its leading heading is not counted as a use (decision 11.5).
+- Back matter is split at attachment headings. A segment where at least three paragraphs open with a quoted term is treated as the agreement's own glossary, so its bare "Section 5.4" resolves to the body. In any other exhibit, a bare section reference stays unlinked (`exhibit_local`), because exhibits such as voting agreements number their own sections.
+- "Section 4.4 of the Company Disclosure Letter" and dotted "Schedule 3.4" are `disclosure_schedule`, not `external`.
+- Duplicate section numbers produce `ambiguous` with candidates, and no subsection targets under them.
+- Article titles glued to their headings ("ARTICLE VIISURVIVAL") are accepted only when the roman prefix is the next article number in sequence.
+- Common-word terms get `confidence: "low"` and no sentence-initial uses (decision 11.7).
+
+Measured on 13 latest verified agreements (12 drawn by hash plus `053261a1`), body text, Section/Article/clause references, excluding external and disclosure-schedule:
+
+| | Exact | Section level | n |
+|---|---|---|---|
+| All in-document references | 87.3% | 88.2% | 3,634 |
+| Excluding inline enumerations ("clause (i) above" with no outline target) | 95.1% | 96.1% | 3,336 |
+
+The prototype's 93.5% counted inline enumerations as resolved; v0.1.0 leaves them unlinked until paragraph-level targets exist. About 61 ms per agreement. The payload is about 190 KB raw and 40 KB gzipped, larger than the Section 6.3 estimate, mostly because `uses` keys repeat section uuids. Shortening those keys is a Phase 2 option if it matters.
+
+Remaining for Phase 1:
+
+1. Gold set of about 30 agreements (Section 9.1, decision 11.4) and the precision/recall eval harness. Precision is unmeasured until then; the rates above only say that a target was found.
+2. `reader_index` table migration and a Dagster asset after verify, with staleness by `xml_version`, `enricher_version` and `text_hash`. Verify with `import etl.definitions` before committing.
+3. Full local corpus run and the health report (decision 11.6).
+4. Known gaps to score against the gold set: "this Section" with no number, ALL-CAPS term uses, "§" heads, paragraph-level targets for inline enumerations, and statute-number plausibility ("Section 1300 et seq.").
 
 ## 11. Decisions (2026-10-22)
 
