@@ -1,0 +1,904 @@
+{
+ "agreement_uuid": "ac898a77-03a3-564b-95c6-7eb61cdc5ee0",
+ "rubric": "v1",
+ "declarations": [
+  {
+   "term": "Acquired Employees",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s6.2(a)"
+  },
+  {
+   "term": "Action",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Adjustment Amount",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Adjustment Notice",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.7(b)"
+  },
+  {
+   "term": "AFE",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.13"
+  },
+  {
+   "term": "Agreement",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Allocated Administrative Portion",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Amended and Restated Titan Operating Agreement",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable Contracts",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Articles of Merger",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s1.1(b)"
+  },
+  {
+   "term": "Atlas",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Atlas Basket",
+   "para": "P15",
+   "kind": "pointer",
+   "pointer": "s11.6"
+  },
+  {
+   "term": "Atlas Common Units",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Atlas De Minimis Liability",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "s11.6(a)"
+  },
+  {
+   "term": "Atlas Employee Benefit Plan",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Atlas Employee Welfare Benefit Plan",
+   "para": "P18",
+   "kind": "paren"
+  },
+  {
+   "term": "Atlas Employee Pension Benefit Plan",
+   "para": "P18",
+   "kind": "paren"
+  },
+  {
+   "term": "Atlas Indemnified Parties",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "s11.2(a)"
+  },
+  {
+   "term": "Atlas Losses",
+   "para": "P22",
+   "kind": "pointer",
+   "pointer": "s11.2(e)"
+  },
+  {
+   "term": "Atlas Material Adverse Effect",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Atlas Partnership Agreement",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Atlas Preferred Units",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Atlas SEC Documents",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s4.9"
+  },
+  {
+   "term": "Atlas SEC Reports",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Atlas Units",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Audited Financial Statements",
+   "para": "P30",
+   "kind": "pointer",
+   "pointer": "s3.28(a)"
+  },
+  {
+   "term": "Base Units",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Cash Consideration",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Cash Flow Claim",
+   "para": "P34",
+   "kind": "pointer",
+   "pointer": "s11.6(c)"
+  },
+  {
+   "term": "Casualty Losses",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Claim Date",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s8.2(a)"
+  },
+  {
+   "term": "Claimed Defect Amount",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s8.2(a)"
+  },
+  {
+   "term": "Claimed Remediation Amount",
+   "para": "P39",
+   "kind": "pointer",
+   "pointer": "s9.1(a)"
+  },
+  {
+   "term": "Closing",
+   "para": "P40",
+   "kind": "pointer",
+   "pointer": "s1.2"
+  },
+  {
+   "term": "Surviving Entity",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Merger Effective Time",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "AFEs",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "Acquired Employees",
+   "para": "P46",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "12.2",
+   "context": "Section 12.2 of the Titan Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "6.2(a)",
+   "context": "meaning set forth in Section 6.2(a)",
+   "target": "s6.2(a)"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "2.6",
+   "context": "meaning set forth in Section 2.6",
+   "target": "s2.6"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "2.7(b)",
+   "context": "meaning set forth in Section 2.7(b)",
+   "target": "s2.7(b)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.13",
+   "context": "meaning set forth in Section 3.13",
+   "target": "s3.13"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "12.14",
+   "context": "for the purposes set forth in Section 12.14",
+   "target": "s12.14"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "1.1(b)",
+   "context": "meaning set forth in Section 1.1(b)",
+   "target": "s1.1(b)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "11.6",
+   "context": "meaning set forth in Section 11.6",
+   "target": "s11.6"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "11.6(a)",
+   "context": "meaning set forth in Section 11.6(a)",
+   "target": "s11.6(a)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "3(1)",
+   "context": "within the meaning of Section 3(1) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "3(2)",
+   "context": "within the meaning of Section 3(2) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "11.2(a)",
+   "context": "meaning set forth in Section 11.2(a)",
+   "target": "s11.2(a)"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "11.2(e)",
+   "context": "meaning set forth in Section 11.2(e)",
+   "target": "s11.2(e)"
+  },
+  {
+   "para": "P23",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "for the purpose of clause (a) hereof",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "in the cases of clauses (i)",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "clauses (i) and (iii) through (v)",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(v)",
+   "context": "and (iii) through (v), to the extent",
+   "target": "inline"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "4.9",
+   "context": "meaning set forth in Section 4.9",
+   "target": "s4.9"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.28(a)",
+   "context": "meaning set forth in Section 3.28(a)",
+   "target": "s3.28(a)"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "2.2",
+   "context": "Class A Units pursuant to Section 2.2",
+   "target": "s2.2"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "11.6(c)",
+   "context": "meaning set forth in Section 11.6(c)",
+   "target": "s11.6(c)"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "8.2(a)",
+   "context": "meaning set forth in Section 8.2(a)",
+   "target": "s8.2(a)"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "8.2(a)",
+   "context": "meaning set forth in Section 8.2(a)",
+   "target": "s8.2(a)"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "9.1(a)",
+   "context": "meaning set forth in Section 9.1(a)",
+   "target": "s9.1(a)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "1.2",
+   "context": "meaning set forth in Section 1.2",
+   "target": "s1.2"
+  },
+  {
+   "para": "P42",
+   "head": "article",
+   "mention": "7",
+   "context": "conditions set forth in Article 7",
+   "target": "a7"
+  },
+  {
+   "para": "P42",
+   "head": "annex",
+   "mention": "A",
+   "context": "in the form attached hereto as Annex A",
+   "target": "x-annex-a"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "3.13",
+   "context": "set forth on Section 3.13 of the Titan Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "6.2(a)",
+   "context": "information on Section 6.2(a) of the Titan Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "6.2",
+   "context": "Subject to the requirements of this Section 6.2",
+   "target": "s6.2"
+  },
+  {
+   "para": "P51",
+   "head": "section",
+   "mention": "6.2",
+   "context": "none of the provisions of this Section 6.2 is intended",
+   "target": "s6.2"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Acquired Employees",
+   "para": "P47",
+   "count": 4
+  },
+  {
+   "term": "Acquired Employees",
+   "para": "P48",
+   "count": 2
+  },
+  {
+   "term": "Acquired Employees",
+   "para": "P51",
+   "count": 1
+  },
+  {
+   "term": "AFE",
+   "para": "P45",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [
+  {
+   "para": "P9",
+   "head": "schedule",
+   "mention": "12.2",
+   "context": "meaning set forth in Schedule 12.2",
+   "target": "x-schedule-12.2"
+  },
+  {
+   "para": "P10",
+   "head": "annex",
+   "mention": "B",
+   "context": "attached hereto as Annex B",
+   "target": "x-annex-b"
+  },
+  {
+   "para": "P44",
+   "head": "annex",
+   "mention": "B",
+   "context": "to read as set forth in Annex B",
+   "target": "x-annex-b"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "3.13",
+   "context": "Section 3.13 of the Titan Disclosure Schedule sets forth",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "xml_version": 1,
+ "para_map": {
+  "P1": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "425e0833-4233-50ec-9ebe-465c3f4c0c6c",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "90efae95-3746-5d94-b3aa-c7e2435a1514",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "90efae95-3746-5d94-b3aa-c7e2435a1514",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "90efae95-3746-5d94-b3aa-c7e2435a1514",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "90efae95-3746-5d94-b3aa-c7e2435a1514",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "331d919a-75fe-55f8-9118-b035fe25b26f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "19c3cff1-fc00-5b0b-a930-92167fbe7f7d",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "19c3cff1-fc00-5b0b-a930-92167fbe7f7d",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "19c3cff1-fc00-5b0b-a930-92167fbe7f7d",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "19c3cff1-fc00-5b0b-a930-92167fbe7f7d",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "19c3cff1-fc00-5b0b-a930-92167fbe7f7d",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "19c3cff1-fc00-5b0b-a930-92167fbe7f7d",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "c89547d4-829d-5f25-9f76-a71fe6107882",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "declarations",
+   "draft": {
+    "term": "Allocated Value",
+    "para": "P9",
+    "kind": "pointer",
+    "pointer": "x-schedule-12.2"
+   },
+   "checker": {
+    "term": "Allocated Value",
+    "para": "P9",
+    "kind": "pointer",
+    "pointer": "disclosure_schedule"
+   },
+   "type": "disagree",
+   "reason": "Schedule 12.2 mirrors Section 12.2 numbering and P1 says other terms are defined in Section 12.2 of the Titan Disclosure Schedule; no Schedule 12.2 attachment in the outline."
+  },
+  {
+   "section": "declarations",
+   "draft": {
+    "term": "Atlas Employee Welfare Benefit Plan",
+    "para": "P19",
+    "kind": "pointer",
+    "pointer": "P18"
+   },
+   "checker": {
+    "term": "Atlas Employee Welfare Benefit Plan",
+    "para": "P19",
+    "kind": "pointer",
+    "pointer": "s12.2"
+   },
+   "type": "disagree",
+   "reason": "'P18' is not a valid target id; the Atlas Employee Benefit Plan definition lives in Section 12.2."
+  },
+  {
+   "section": "declarations",
+   "draft": {
+    "term": "Atlas Employee Pension Benefit Plan",
+    "para": "P20",
+    "kind": "pointer",
+    "pointer": "P18"
+   },
+   "checker": {
+    "term": "Atlas Employee Pension Benefit Plan",
+    "para": "P20",
+    "kind": "pointer",
+    "pointer": "s12.2"
+   },
+   "type": "disagree",
+   "reason": "'P18' is not a valid target id; the Atlas Employee Benefit Plan definition lives in Section 12.2."
+  },
+  {
+   "section": "declarations",
+   "draft": {
+    "term": "CERCLA",
+    "para": "P36",
+    "kind": "pointer",
+    "pointer": "not_in_filing"
+   },
+   "checker": {
+    "term": "CERCLA",
+    "para": "P36",
+    "kind": "pointer",
+    "pointer": "s12.2"
+   },
+   "type": "disagree",
+   "reason": "Points to the definition of Environmental Laws, which is in this filing's Section 12.2 definitions, not missing from the filing."
+  },
+  {
+   "section": "xrefs",
+   "draft": {
+    "para": "P9",
+    "head": "schedule",
+    "mention": "12.2",
+    "context": "meaning set forth in Schedule 12.2",
+    "target": "x-schedule-12.2"
+   },
+   "checker": {
+    "para": "P9",
+    "head": "schedule",
+    "mention": "12.2",
+    "context": "meaning set forth in Schedule 12.2",
+    "target": "disclosure_schedule"
+   },
+   "type": "disagree",
+   "reason": "Schedule 12.2 is the disclosure schedule keyed to Section 12.2 (see P1); no Schedule 12.2 attachment in the outline."
+  },
+  {
+   "section": "xrefs",
+   "draft": {
+    "para": "P10",
+    "head": "annex",
+    "mention": "B",
+    "context": "attached hereto as Annex B",
+    "target": "x-annex-b"
+   },
+   "checker": {
+    "para": "P10",
+    "head": "annex",
+    "mention": "B",
+    "context": "attached hereto as Annex B",
+    "target": "not_in_filing"
+   },
+   "type": "disagree",
+   "reason": "Outline lists no attachment headings in back matter, so Annex B is not in this filing."
+  },
+  {
+   "section": "xrefs",
+   "draft": {
+    "para": "P44",
+    "head": "annex",
+    "mention": "B",
+    "context": "to read as set forth in Annex B",
+    "target": "x-annex-b"
+   },
+   "checker": {
+    "para": "P44",
+    "head": "annex",
+    "mention": "B",
+    "context": "to read as set forth in Annex B",
+    "target": "not_in_filing"
+   },
+   "type": "disagree",
+   "reason": "Outline lists no attachment headings in back matter, so Annex A is not in this filing."
+  },
+  {
+   "section": "xrefs",
+   "draft": {
+    "para": "P45",
+    "head": "section",
+    "mention": "3.13",
+    "context": "Section 3.13 of the Titan Disclosure Schedule sets forth",
+    "target": "disclosure_schedule"
+   },
+   "checker": {
+    "para": "P45",
+    "head": "section",
+    "mention": "3.13",
+    "context": "Section 3.13 of the Titan Disclosure Schedule sets forth",
+    "target": "not_in_filing"
+   },
+   "type": "disagree",
+   "reason": "Outline lists no attachment headings in back matter, so Annex B is not in this filing."
+  }
+ ]
+}

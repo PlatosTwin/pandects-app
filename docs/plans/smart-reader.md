@@ -450,6 +450,35 @@ Two rules were added after the first corpus pass surfaced a cluster of agreement
 - **Health tail** (decision 11.6): 251 agreements below 50% section level, 443 below 70% and 1,433 below 80%. Also 154 agreements with duplicate section numbers, 70 with no numbered sections and 38 with no defined terms. Spot checks of the lowest group found broken structure (definitions parsed as sections) and UK drafting; the remaining 14 agreements at 0% have very few references each.
 - **The per-agreement CSV** (`reader_index_health_2026-10-22.csv`) is in the session notes folder, not in the repo. It is the first input for the validation-queue report.
 
+### 10.3 Gold-set pilot (2026-10-23)
+
+Five agreements, one per stratum, none used to tune the enricher: `a4f68407` (pre-2005, txt, terms defined inline with no definitions article), `ac898a77` (2005–14), `f1e944db` and `dcaec060` (2015+), and `03f4e108` (UK-style clauses). Tooling: [`gold_rubric.md`](smart-reader/gold_rubric.md) and `etl/src/etl/utils/reader_gold.py`. Each packet holds a definitions excerpt of up to 40 paragraphs, 4 seeded random sections and the outline. Sonnet drafted the labels without seeing the enricher's output, and Opus checked them. Agreed items are in `etl/tests/fixtures/reader_gold/`, and each file's `pending_disputes` holds the items awaiting the user's ruling. Fixes that only shorten a quoted context are applied automatically.
+
+**Cost:** about 1.0M subagent tokens in total, roughly 100k per drafter and 100k per checker. Packets are only about 6k tokens each, so nearly all of the cost is fixed per-agent overhead. For the full 30, giving each agent 3 agreements should bring the cost to an estimated 2.5–3M tokens, against about 6M at one agreement per agent.
+
+**Labels:** 159 declarations, 165 references (112 internal) and 12 term-use rows were agreed. 16 items await the user's ruling, and 5 context-only fixes were applied automatically.
+
+**First score:** the enricher started at 92.4% link precision (108 of 117 links correct), against the 99% bar. Fixes for the error patterns the pilot exposed:
+
+- "Section 3.2(a) of the Company Schedules" is now `disclosure_schedule`, and so is a reference joined to one by "or" or "and".
+- A bare "clause (i)" stays unlinked when the citing paragraph enumerates (i) itself, or when it sits in a definitions section (5 or more declarations). Those items belong to one definition.
+- Multi-word statute names ("Section 3 of the Spanish Civil Code") are external.
+- An attachment heading ("Annex 3.7") no longer links to itself.
+- Declarations now cover `(the entity so determined, the "X")`, `referred to herein as "X"`, `the term "X," when used ... means`, and a pointer wrapped in a `<definition>` element. Plural terms also match their singular ("Acquired Employees" and "Acquired Employee").
+
+**After the fixes** (pilot set; optimistic, because these agreements drove the fixes):
+
+| Metric | Pilot | Launch bar |
+|---|---|---|
+| Xref link precision | 100% (109/109) | ≥ 99% |
+| Xref in-document recall | 97.3% | ≥ 95% |
+| Declaration precision / recall | 94–100% / 94–100% per agreement | ≥ 98% / ≥ 95% |
+| Term-use precision / recall | 100% / 89–100% (2 agreements only) | ≥ 97% / ≥ 90% |
+
+The full set of 30 must be scored held-out, with no rule changes in between, to give a real precision number. Term-use evidence is thin: rubric v1 picked terms that never occur in the sampled sections, so v1.1 picks terms that do.
+
+**Corpus after the fixes** (read-only, 11,790 XMLs): 0 errors, 80 ms per agreement. Resolved references fell from 2.49M to 2.44M and ambiguous ones from 17k to 6.7k; most of the difference is now unlinked `inline`, as intended. Terms rose from 1.82M to 1.86M and uses from 36.8M to 38.4M. The median body section-level rate is 87.5%.
+
 Remaining for Phase 1:
 
 1. Gold set of about 30 agreements (Section 9.1, decision 11.4) and the precision/recall eval harness. Precision is unmeasured until then; the rates above only say that a target was found. This step spends model tokens, so it should start when the user is around to rule on disagreements.

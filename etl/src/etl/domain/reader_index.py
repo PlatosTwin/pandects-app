@@ -348,6 +348,12 @@ DEF_MEANS = re.compile(
 DEF_PAREN = re.compile(
     rf"\(\s*(?:(?:together|collectively|individually|each|each of which|any such|such|hereinafter|herein)[^{_Q_OPEN})]*?\s+)?(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}](?:\s*(?:or|and)\s+(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}])?\s*\)",
 )
+# (the entity so determined, the "EBITDA Expert"), (jointly, a "Parent Corporate Event")
+DEF_PAREN_LEADIN = re.compile(rf"\(\s*[^()“”\"]{{1,80}}?,\s*(?:the|a|an)\s+[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}]\s*\)")
+# referred to herein as "Compaq Broad Plans", being referred to herein as the "Merger Effective Time"
+DEF_AS = re.compile(rf"\b(?:referred\s+to|defined)\s+(?:herein\s+|hereinafter\s+|below\s+)?as\s+(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]")
+# the term "Material Adverse Effect," when used ..., means
+DEF_THE_TERM = re.compile(rf"\bthe\s+term\s+[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]")
 # "Foo" has the meaning set forth in Section 3.2 / is defined in Section 3.2
 DEF_POINTER = re.compile(
     rf"[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}]\s*(?:shall\s+)?(?:has|have|is)\s+(?:the\s+meanings?\s+(?:set\s+forth|given|ascribed|assigned|specified)\s+(?:to\s+(?:it|such term|them)\s+)?in|defined\s+in)\s+(Section|Article|Exhibit|Schedule|Annex)\s+([0-9A-Z.()]*[0-9A-Z)])",
@@ -390,7 +396,13 @@ def _collect_declarations(root: ET.Element, texts: list[_Text], by_el: dict[ET.E
             continue
         m = re.match(rf"\s*[{_Q_OPEN}]([^{_Q_CLOSE}]+)[{_Q_CLOSE}]", tn.text)
         if m:
-            found.append(_Decl(m.group(1).strip(), "element", tn, m.start(1), m.end(1)))
+            # a glossary pointer wrapped in <definition> ("X" has the meaning set forth in ...) is
+            # still a pointer
+            pm = DEF_POINTER.match(tn.text.lstrip())
+            if pm:
+                found.append(_Decl(m.group(1).strip(), "pointer", tn, m.start(1), m.end(1), f"{pm.group(2)} {pm.group(3)}"))
+            else:
+                found.append(_Decl(m.group(1).strip(), "element", tn, m.start(1), m.end(1)))
     for tn in texts:
         if tn.region not in _INDEXED_REGIONS:
             continue
@@ -405,6 +417,11 @@ def _collect_declarations(root: ET.Element, texts: list[_Text], by_el: dict[ET.E
             for g in (1, 2):
                 if m.group(g):
                     found.append(_Decl(m.group(g).strip(), "paren", tn, m.start(g), m.end(g)))
+        for rx in (DEF_PAREN_LEADIN, DEF_AS):
+            for m in rx.finditer(tn.text):
+                found.append(_Decl(m.group(1).strip(), "paren", tn, m.start(1), m.end(1)))
+        for m in DEF_THE_TERM.finditer(tn.text):
+            found.append(_Decl(m.group(1).strip(), "means", tn, m.start(1), m.end(1)))
     # one declaration per (term, text node), the strongest kind wins
     best: dict[tuple[str, str, int], _Decl] = {}
     for d in found:
@@ -423,6 +440,11 @@ def _term_forms(term: str) -> list[str]:
     forms = [term]
     if term.endswith("y") and len(term) > 2 and term[-2] not in "aeiou":
         forms.append(term[:-1] + "ies")
+    # a plural term ("Acquired Employees") is also used in the singular
+    if term.endswith("ies") and len(term) > 4:
+        forms.append(term[:-3] + "y")
+    elif term.endswith("s") and not term.endswith("ss") and len(term) > 3 and term[-2].islower():
+        forms.append(term[:-1])
     return forms
 
 
@@ -447,10 +469,10 @@ def _sentence_initial(text: str, start: int) -> bool:
 # ---------------------------------------------------------------- xrefs
 
 STATUTE = re.compile(
-    r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant to)\s+(?:the\s+)?(?:[A-Z]{3,6}\b|Code|DGCL|Exchange Act|Securities Act|HSR Act|ERISA|Treasury Regulations?|Regulation|Rule|Delaware|General Corporation Law|Investment Company Act|Internal Revenue Code|[A-Z][A-Za-z]+ (?:Act|Law|Code|Statutes?)|Title)",
+    r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant to)\s+(?:the\s+)?(?:[A-Z]{3,6}\b|Code|DGCL|Exchange Act|Securities Act|HSR Act|ERISA|Treasury Regulations?|Regulation|Rule|Delaware|General Corporation Law|Investment Company Act|Internal Revenue Code|(?:[A-Z][A-Za-z]+\s+){1,4}(?:Act|Law|Code|Statutes?)\b|Title)",
 )
 DISCLOSURE = re.compile(
-    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?:[A-Z][\w\-]*\s+){0,4}Disclosure\s+(?:Schedules?|Letter)\b",
+    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?:[A-Z][\w\-]*\s+){0,4}(?:Disclosure\s+(?:Schedules?|Letter)|Schedules)\b",
 )
 ATTACHMENT_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Schedules?|Part|Annex|Appendix|Exhibit)\s+[A-Z0-9IVX]")
 SELF_DOC = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+Agreement\b")
@@ -557,14 +579,15 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             if r.head == "schedule" and SEC_FORM.match(r.target):
                 r.status = "external"
         # "Section 355 or Section 361 of the Code": a run joined to an external run is external too
+        # "Section 3.2(a) or Section 3.2(b) of the Company Schedules": the same for disclosure schedules
         if (
             prev_run
             and prev_end is not None
-            and run[0].status == "external"
+            and run[0].status in ("external", "disclosure_schedule")
             and re.fullmatch(r"\s*(?:,\s*)?(?:and|or|and/or)?\s*", text[prev_end : hm.start()])
         ):
             for r in prev_run:
-                r.status = "external"
+                r.status = run[0].status
         prev_run, prev_end = run, pos
         refs.extend(run)
     return refs
@@ -624,6 +647,11 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         return "unlocated_attachment", None, None
     if ref.head in ("clause", "paragraph"):
         cur = tn.section_key
+        if t.startswith("(") and tn.text.count(t) >= 2:
+            # "clauses (i) and (iii) through (v)" inside a paragraph that enumerates (i)...(v)
+            # itself, typical of definitions: the items are inline, not subsections
+            ref.detail = "inline"
+            return "unresolved", None, None
         if cur and t.startswith("("):
             cands = [k for k in ol.subs if k.startswith(cur + "(") and k.endswith(t)]
             if len(cands) == 1:
@@ -642,6 +670,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
 
 _DECL_START = re.compile(rf"^\s*(?:[A-Z0-9][^“”\".]{{0,80}}?\.\s+)?[{_Q_OPEN}][A-Z0-9][^{_Q_CLOSE}]{{0,80}}[{_Q_CLOSE}]")
 _GLOSSARY_MIN_ENTRIES = 3
+_DEFINITIONS_SECTION_MIN_DECLS = 5
 
 
 def _glossary_exhibit_texts(texts: list[_Text]) -> set[int]:
@@ -703,6 +732,10 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
     sec_text_cache: dict[int, str] = {}
 
     glossary_texts = _glossary_exhibit_texts(texts)
+    # sections holding many declarations: their "(a)", "(i)" items belong to single definitions,
+    # so a bare "clause (i)" there is never a subsection of the section
+    decl_count = Counter(d.tn.s for d in decls)
+    definition_containers = {c for c, n in decl_count.items() if n >= _DEFINITIONS_SECTION_MIN_DECLS}
     for tn in texts:
         if tn.region not in _INDEXED_REGIONS:
             continue
@@ -732,8 +765,13 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         else:
             sec_text = tn.text
         in_exhibit = tn.region == "backMatter" and id(tn) not in glossary_texts
+        is_heading = ATTACHMENT_HEADING.match(tn.text.strip()) is not None and len(tn.text.strip()) < 120
         for r in _find_refs(tn.text, in_exhibit=in_exhibit):
+            if is_heading and r.start == len(tn.text) - len(tn.text.lstrip()):
+                continue  # the heading "Annex 3.7" itself, not a reference to it
             status, target, cands = _resolve(r, ol, tn, sec_text)
+            if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
+                status, target, r.detail = "unresolved", None, "inline"
             end = r.base_end if status == "section_fallback" else r.end
             x: dict[str, Any] = {"at": {"s": tn.s, "t": tn.t}, "span": tn.span(r.start, end), "text": tn.text[r.start : end], "status": status}
             if target:

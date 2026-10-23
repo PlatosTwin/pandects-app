@@ -204,6 +204,23 @@ class XrefTests(unittest.TestCase):
         self.assertEqual(x["Section 2.1"]["status"], "unresolved")
         self.assertEqual(x["clause 2.1"]["status"], "unresolved")
 
+    def test_gold_pilot_precision_fixes(self) -> None:
+        xml = _doc(
+            _section("s3", "Section 3.2 Capital", "(a) shares.", "(b) options.")
+            + _section(
+                "s9",
+                "Section 9.1 Defs",
+                "“Excluded” means (i) any tax, (ii) any fee and (iii) any cost, other than in clauses (i) and (iii) hereof.",
+                "As set forth in Section 3.2(a) of the Company Schedules and Section 3 of the Spanish Civil Code.",
+            ),
+            back="<text>Annex 3.7</text><text>Earn-out terms.</text>",
+        )
+        x = _xrefs(build_reader_index(xml))
+        self.assertEqual(x["clauses (i)"]["status"], "unresolved")
+        self.assertEqual(x["Section 3.2(a)"]["status"], "disclosure_schedule")
+        self.assertEqual(x["Section 3"]["status"], "external")
+        self.assertNotIn("Annex 3.7", x)
+
     def test_local_clause_resolves_within_current_section(self) -> None:
         xml = _doc(_section("s1", "Section 7.2 Conditions", "(a) first.", "(b) second, subject to clause (a) above."))
         x = _xrefs(build_reader_index(xml))["clause (a)"]

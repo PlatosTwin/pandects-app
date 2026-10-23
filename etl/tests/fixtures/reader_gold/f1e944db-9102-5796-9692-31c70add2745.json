@@ -1,0 +1,727 @@
+{
+ "agreement_uuid": "f1e944db-9102-5796-9692-31c70add2745",
+ "rubric": "v1",
+ "declarations": [
+  {
+   "term": "Acquiror",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Acquiror and Merger Sub Representations",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Acquiror Board",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Acquiror Bylaws",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Acquiror Charter",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Acquiror Common Stock",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Acquiror Disclosure Schedules",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Acquiror Material Adverse Effect",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Effect",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "Acquiror Organizational Documents",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Acquiror Preferred Stock",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Acquiror SEC Reports",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s5.8(a)"
+  },
+  {
+   "term": "Acquiror Stockholder",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Acquiror Stockholder Meeting",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Action",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "control",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Antitrust Law",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Balance Sheet Date",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Benefit Plan",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Beneficial Ownership Limitation",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "s3.7(c)"
+  },
+  {
+   "term": "Business Day",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "CBA",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s4.11(a)(xiv)"
+  },
+  {
+   "term": "Certificate of Designation",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Charter Amendment",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Code",
+   "para": "P29",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Company",
+   "para": "P30",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Company Benefit Plan",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Company Board",
+   "para": "P32",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Company Common Stock",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Company Disclosure Schedules",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Company Option",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Company Organizational Documents",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Company Permits",
+   "para": "P39",
+   "kind": "pointer",
+   "pointer": "s4.6(c)"
+  },
+  {
+   "term": "Company Representations",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Interim Period",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Representations",
+   "para": "P46",
+   "kind": "paren"
+  },
+  {
+   "term": "Acquiror and Merger Sub Representations",
+   "para": "P46",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P3",
+   "head": "article",
+   "mention": "V",
+   "context": "set forth in Article V of this Agreement",
+   "target": "a5"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "solely with respect to clause (a), none of",
+   "target": "inline"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "in the cases of clauses (i) through",
+   "target": "inline"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "clauses (i) through (iii), to the extent",
+   "target": "inline"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "5.08(a)",
+   "context": "meaning specified in Section 5.08(a)",
+   "target": "s5.8(a)"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "within the meaning of Section 3(3) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "501(c)(9)",
+   "context": "under Section 501(c)(9) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "3.07(c)",
+   "context": "meaning specified in Section 3.07(c)",
+   "target": "s3.7(c)"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "4.11(a)(xiv)",
+   "context": "meaning set forth in Section 4.11(a)(xiv)",
+   "target": "s4.11(a)(xiv)"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "2.01",
+   "context": "meaning specified in Section 2.01",
+   "target": "s2.1"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "2.03",
+   "context": "meaning specified in Section 2.03",
+   "target": "s2.3"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "2.03",
+   "context": "meaning specified in Section 2.03",
+   "target": "s2.3"
+  },
+  {
+   "para": "P36",
+   "head": "clause",
+   "mention": "(vii)",
+   "context": "provided that this clause (vii) shall not prevent",
+   "target": "inline"
+  },
+  {
+   "para": "P36",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "the cases of clauses (i) through",
+   "target": "inline"
+  },
+  {
+   "para": "P36",
+   "head": "clause",
+   "mention": "(iv)",
+   "context": "(i) through (iv) to the extent the",
+   "target": "inline"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "4.06(c)",
+   "context": "meaning specified in Section 4.06(c)",
+   "target": "s4.6(c)"
+  },
+  {
+   "para": "P40",
+   "head": "article",
+   "mention": "IV",
+   "context": "set forth in Article IV of this Agreement",
+   "target": "a4"
+  },
+  {
+   "para": "P42",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "in the case of clause (ii) above",
+   "target": "inline"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "5.02(a)",
+   "context": "referred to in Section 5.02(a), under any Law",
+   "target": "s5.2(a)"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "13(a)",
+   "context": "such reports under Section 13(a) or 15(d)",
+   "target": "external"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "15(d)",
+   "context": "Section 13(a) or 15(d) of the Exchange Act",
+   "target": "external"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "7.01",
+   "context": "contemplated by this Section 7.01 will affect",
+   "target": "s7.1"
+  },
+  {
+   "para": "P46",
+   "head": "article",
+   "mention": "IV",
+   "context": "expressly set forth in Article IV (the",
+   "target": "a4"
+  },
+  {
+   "para": "P46",
+   "head": "article",
+   "mention": "V",
+   "context": "expressly set forth in Article V (the",
+   "target": "a5"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "10.15",
+   "context": "nothing in this Section 10.15 (or elsewhere",
+   "target": "s10.15"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Acquiror",
+   "para": "P41",
+   "count": 6
+  },
+  {
+   "term": "Acquiror",
+   "para": "P42",
+   "count": 4
+  },
+  {
+   "term": "Acquiror",
+   "para": "P43",
+   "count": 2
+  },
+  {
+   "term": "Acquiror",
+   "para": "P44",
+   "count": 4
+  },
+  {
+   "term": "Acquiror",
+   "para": "P45",
+   "count": 7
+  },
+  {
+   "term": "Acquiror",
+   "para": "P46",
+   "count": 2
+  },
+  {
+   "term": "Acquiror Organizational Documents",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Action",
+   "para": "P44",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [
+  {
+   "para": "P24",
+   "head": "exhibit",
+   "mention": "B",
+   "context": "attached hereto as Exhibit B",
+   "target": "x-exhibit-b"
+  }
+ ],
+ "xml_version": 2,
+ "para_map": {
+  "P1": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "5c2e2d41-acba-54f3-8de9-d510c832efe3",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "a5f5494d-0bee-5a05-8ef0-894dcd2f126e",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "a5f5494d-0bee-5a05-8ef0-894dcd2f126e",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "a5f5494d-0bee-5a05-8ef0-894dcd2f126e",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "d02308dc-b6ea-5c44-99be-156a2499aac3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "c2052ea7-38f7-58fb-ab40-91e5f4b6f62f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "be7aa1e1-5a1d-54cb-a276-33b1af0dffe9",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "be7aa1e1-5a1d-54cb-a276-33b1af0dffe9",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "xrefs",
+   "draft": {
+    "para": "P24",
+    "head": "exhibit",
+    "mention": "B",
+    "context": "attached hereto as Exhibit B",
+    "target": "x-exhibit-b"
+   },
+   "checker": {
+    "para": "P24",
+    "head": "exhibit",
+    "mention": "B",
+    "context": "attached hereto as Exhibit B",
+    "target": "not_in_filing"
+   },
+   "type": "disagree",
+   "reason": "Outline lists no attachment headings in back matter, so Exhibit B is not in this filing."
+  }
+ ]
+}
