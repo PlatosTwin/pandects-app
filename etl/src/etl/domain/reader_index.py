@@ -472,7 +472,7 @@ STATUTE = re.compile(
     r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant to)\s+(?:the\s+)?(?:[A-Z]{3,6}\b|Code|DGCL|Exchange Act|Securities Act|HSR Act|ERISA|Treasury Regulations?|Regulation|Rule|Delaware|General Corporation Law|Investment Company Act|Internal Revenue Code|(?:[A-Z][A-Za-z]+\s+){1,4}(?:Act|Law|Code|Statutes?)\b|Title)",
 )
 DISCLOSURE = re.compile(
-    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?:[A-Z][\w\-]*\s+){0,4}(?:Disclosure\s+(?:Schedules?|Letter)|Schedules)\b",
+    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?:[A-Z][\w\-]*\s+){0,4}(?:(?i:disclosure\s+(?:schedules?|letter))|Schedules)\b",
 )
 ATTACHMENT_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Schedules?|Part|Annex|Appendix|Exhibit)\s+[A-Z0-9IVX]")
 SELF_DOC = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+Agreement\b")
@@ -517,12 +517,15 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         run: list[_Ref] = []
         first = True
         while True:
+            item_pos = pos
             if not first:
                 jm = REF_JOIN.match(text, pos)
                 if not jm:
                     break
-                pos = jm.end()
-            im = REF_ITEM.match(text, pos)
+                item_pos = jm.end()
+            # only consume a joiner when an item follows it: in "Section 3.14(a) to the Disclosure
+            # Schedule" the "to" belongs to the tail, not to a range
+            im = REF_ITEM.match(text, item_pos)
             if not im:
                 break
             item = im.group(1)

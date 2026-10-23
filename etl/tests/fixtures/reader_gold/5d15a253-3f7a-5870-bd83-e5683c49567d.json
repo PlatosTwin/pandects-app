@@ -1,0 +1,517 @@
+{
+ "agreement_uuid": "5d15a253-3f7a-5870-bd83-e5683c49567d",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Actual Cash",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Advisors",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliated Company",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Anticorruption Laws",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "FCPA",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "UK Bribery Act",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Assets",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s4.12"
+  },
+  {
+   "term": "Business",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Business Licenses",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s4.25"
+  },
+  {
+   "term": "Claims",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Closing Bonuses",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s4.16"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P15",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Co-operation Agreement",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Companies Act",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Company",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Company Bank Accounts",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Business Licenses",
+   "para": "P43",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P5",
+   "head": "article",
+   "mention": "8",
+   "context": "defined in Article 8, paragraph 5 of the Ordinance",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "paragraph",
+   "mention": "5",
+   "context": "Article 8, paragraph 5 of the Ordinance on",
+   "target": "external"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "4.12",
+   "context": "has the meaning assigned in section 4.12,",
+   "target": "s4.12"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.25",
+   "context": "has the meaning assigned in section 4.25.",
+   "target": "s4.25"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "2.3",
+   "context": "has the meaning assigned in section 2.3.",
+   "target": "s2.3"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "4.16",
+   "context": "has the meaning assigned in section 4.16.",
+   "target": "s4.16"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "2.3",
+   "context": "has the meaning assigned in section 2.3.",
+   "target": "s2.3"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "4.22",
+   "context": "Except as provided under Schedule 4.22, the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P43",
+   "head": "schedule",
+   "mention": "4.25",
+   "context": "Schedule 4.25 contains a complete and correct list",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P43",
+   "head": "schedule",
+   "mention": "4.4",
+   "context": "as shown in Schedule 4.4).",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "2.1",
+   "context": "set forth in sections 2.1 and 2.4 are subject",
+   "target": "s2.1"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "2.4",
+   "context": "sections 2.1 and 2.4 are subject to",
+   "target": "s2.4"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "6.1(b)",
+   "context": "in accordance with section 6.1(b) (or, in the",
+   "target": "s6.1(b)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Assets",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Business Licenses",
+   "para": "P43",
+   "count": 4
+  },
+  {
+   "term": "Closing",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Closing",
+   "para": "P45",
+   "count": 2
+  },
+  {
+   "term": "Closing",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P41",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P42",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P43",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [
+  {
+   "para": "P16",
+   "head": "schedule",
+   "mention": "1.1-(1)",
+   "context": "agreed form of which is set forth on Schedule 1.1-(1).",
+   "target": "not_in_filing"
+  }
+ ],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "uk",
+ "para_map": {
+  "P1": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "2ca07480-6097-57f9-a040-617be89ac6f7",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "250220c4-3e06-5110-b02e-d173e85712d5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "73156ad5-ead9-5ab2-9f97-7af48c5b60c1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "e3ceef79-df48-5d51-977b-e1debb04e168",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "f88f1b21-2ad1-518a-9792-cd246ee8a2b7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "f88f1b21-2ad1-518a-9792-cd246ee8a2b7",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "f88f1b21-2ad1-518a-9792-cd246ee8a2b7",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "xrefs",
+   "draft": {
+    "para": "P16",
+    "head": "schedule",
+    "mention": "1.1-(1)",
+    "context": "agreed form of which is set forth on Schedule 1.1-(1).",
+    "target": "not_in_filing"
+   },
+   "checker": {
+    "para": "P16",
+    "head": "schedule",
+    "mention": "1.1-(1)",
+    "context": "agreed form of which is set forth on Schedule 1.1-(1).",
+    "target": "disclosure_schedule"
+   },
+   "type": "disagree",
+   "reason": "Schedule 1.1-(1) number mirrors s1.1, which the 2026-10-23 ruling maps to disclosure_schedule (consistent with Schedules 4.22/4.25/4.4 here)."
+  }
+ ]
+}

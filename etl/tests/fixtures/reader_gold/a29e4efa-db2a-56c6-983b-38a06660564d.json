@@ -1,0 +1,842 @@
+{
+ "agreement_uuid": "a29e4efa-db2a-56c6-983b-38a06660564d",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Acquisition Proposal",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Balance Sheet",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Balance Sheet Date",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Companies Act",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Company 10-Q",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Company SEC Filings",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "FCC",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Lien",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "1933 Act",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "1934 Act",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Person",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "SEC",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Shares",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Third Party",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Amalgamation",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Amalgamated Company",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Amalgamation Consideration",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Amalgamation Sub",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Board of Directors",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s4.20"
+  },
+  {
+   "term": "Certificates",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Change of Control",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s10.2"
+  },
+  {
+   "term": "Closing",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Communication Licenses",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s4.16"
+  },
+  {
+   "term": "Company",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Company Option",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.5"
+  },
+  {
+   "term": "Company Proxy Statement",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.21"
+  },
+  {
+   "term": "Company Securities",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.5"
+  },
+  {
+   "term": "Company Shareholder Meeting",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s6.2"
+  },
+  {
+   "term": "Company Subsidiary Securities",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.6"
+  },
+  {
+   "term": "Dissenting Shareholder",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.4"
+  },
+  {
+   "term": "Dissenting Shares",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.4"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Employee Plans",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.15"
+  },
+  {
+   "term": "Exchange Agent",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Exchange Documents",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Exon-Florio",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.3"
+  },
+  {
+   "term": "Extension Period",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s8.5"
+  },
+  {
+   "term": "FEMA",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s5.3"
+  },
+  {
+   "term": "Filing Deadline",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s8.2"
+  },
+  {
+   "term": "GAAP",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.8"
+  },
+  {
+   "term": "Indemnified Party",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s7.2"
+  },
+  {
+   "term": "Infocomm",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s10.2"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.17"
+  },
+  {
+   "term": "Gateway",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Permits",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.16"
+  },
+  {
+   "term": "RBI",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s5.3"
+  },
+  {
+   "term": "Registrar",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Required Capacity",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s10.2"
+  },
+  {
+   "term": "Resolution Period",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s8.5"
+  },
+  {
+   "term": "Substantially Equivalent Transaction",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s8.5"
+  },
+  {
+   "term": "Superior Proposal",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s6.3"
+  },
+  {
+   "term": "Tax",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.14"
+  },
+  {
+   "term": "Taxing Authority",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.14"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s4.14"
+  },
+  {
+   "term": "Termination Fee",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s11.4"
+  },
+  {
+   "term": "FEMA",
+   "para": "P28",
+   "kind": "paren"
+  },
+  {
+   "term": "RBI",
+   "para": "P28",
+   "kind": "paren"
+  },
+  {
+   "term": "Superior Proposal",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Extension Period",
+   "para": "P37",
+   "kind": "paren"
+  },
+  {
+   "term": "Resolution Period",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Substantially Equivalent Transaction",
+   "para": "P41",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P20",
+   "head": "article",
+   "mention": "4",
+   "context": "As used in Article 4, “Subsidiary” means",
+   "target": "a4"
+  },
+  {
+   "para": "P20",
+   "head": "article",
+   "mention": "5",
+   "context": "as used in Article 5 “Subsidiary” means",
+   "target": "a5"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "4.19",
+   "context": "approval as contemplated by Section 4.19, (i)",
+   "target": "s4.19"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "4.03",
+   "context": "compliance with the matters referred to in Section 4.03,",
+   "target": "s4.3"
+  },
+  {
+   "para": "P27",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "in the case of clause (ii), (iii) and (iv)",
+   "target": "inline"
+  },
+  {
+   "para": "P27",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "in the case of clause (ii), (iii) and (iv)",
+   "target": "inline"
+  },
+  {
+   "para": "P27",
+   "head": "clause",
+   "mention": "(iv)",
+   "context": "in the case of clause (ii), (iii) and (iv)",
+   "target": "inline"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "9.01(b)",
+   "context": "the condition set forth in Section 9.01(b) shall",
+   "target": "s9.1(b)"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "6.03(a)",
+   "context": "result from a breach of Section 6.03(a) and",
+   "target": "s6.3(a)"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "6.03(c)",
+   "context": "subject to compliance with Section 6.03(c), the",
+   "target": "s6.3(c)"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "6.03(b)",
+   "context": "information as permitted by Section 6.03(b) unless",
+   "target": "s6.3(b)"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "6.03",
+   "context": "Nothing contained in this Section 6.03 shall",
+   "target": "s6.3"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "9.01(a)",
+   "context": "condition set forth in Section 9.01(a) or 9.02(e) is",
+   "target": "s9.1(a)"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "9.02(e)",
+   "context": "condition set forth in Section 9.01(a) or 9.02(e) is",
+   "target": "s9.2(e)"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "9.01(a)",
+   "context": "conditions set forth in Sections 9.01(a) and 9.02(e) can",
+   "target": "s9.1(a)"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "9.02(e)",
+   "context": "conditions set forth in Sections 9.01(a) and 9.02(e) can",
+   "target": "s9.2(e)"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "6.03(b)",
+   "context": "the provisions of Section 6.03(b) and 6.03(c) shall",
+   "target": "s6.3(b)"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "6.03(c)",
+   "context": "the provisions of Section 6.03(b) and 6.03(c) shall",
+   "target": "s6.3(c)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "9.01(a)",
+   "context": "contemplated by Section 9.01(a) or Section 9.02(e),",
+   "target": "s9.1(a)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "9.02(e)",
+   "context": "contemplated by Section 9.01(a) or Section 9.02(e),",
+   "target": "s9.2(e)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "9.01(a)",
+   "context": "in accordance with Section 9.01(a) or 9.02(e), as",
+   "target": "s9.1(a)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "9.02(e)",
+   "context": "in accordance with Section 9.01(a) or 9.02(e), as",
+   "target": "s9.2(e)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "9.01(a)",
+   "context": "the condition in Section 9.01(a) and 9.02(e), as",
+   "target": "s9.1(a)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "9.02(e)",
+   "context": "the condition in Section 9.01(a) and 9.02(e), as",
+   "target": "s9.2(e)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "9.01(a)",
+   "context": "condition set forth in Section 9.01(a) or 9.02(e) not",
+   "target": "s9.1(a)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "9.02(e)",
+   "context": "condition set forth in Section 9.01(a) or 9.02(e) not",
+   "target": "s9.2(e)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Acquisition Proposal",
+   "para": "P30",
+   "count": 3
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P31",
+   "count": 1
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P33",
+   "count": 5
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P35",
+   "count": 2
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P37",
+   "count": 1
+  },
+  {
+   "term": "Company SEC Filings",
+   "para": "P26",
+   "count": 1
+  },
+  {
+   "term": "HSR Act",
+   "para": "P28",
+   "count": 2
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P27",
+   "count": 1
+  },
+  {
+   "term": "Person",
+   "para": "P27",
+   "count": 1
+  },
+  {
+   "term": "Person",
+   "para": "P31",
+   "count": 1
+  },
+  {
+   "term": "Person",
+   "para": "P32",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "c510291d-ef21-55df-90c7-f9309c42aa7b",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "220ae79e-f5aa-5320-b8a0-245c05f53432",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "220ae79e-f5aa-5320-b8a0-245c05f53432",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "fe342cb7-7a98-5fc8-8d27-d563aa387373",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "fe342cb7-7a98-5fc8-8d27-d563aa387373",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "0818ebc3-f012-5004-b2ea-ccafc921e0da",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "0818ebc3-f012-5004-b2ea-ccafc921e0da",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "0818ebc3-f012-5004-b2ea-ccafc921e0da",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "0818ebc3-f012-5004-b2ea-ccafc921e0da",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "0818ebc3-f012-5004-b2ea-ccafc921e0da",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P35": {
+   "s": "0818ebc3-f012-5004-b2ea-ccafc921e0da",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P36": {
+   "s": "5ed38320-7523-533f-9bda-59af53f67dca",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P37": {
+   "s": "5ed38320-7523-533f-9bda-59af53f67dca",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P38": {
+   "s": "5ed38320-7523-533f-9bda-59af53f67dca",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P39": {
+   "s": "5ed38320-7523-533f-9bda-59af53f67dca",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P40": {
+   "s": "5ed38320-7523-533f-9bda-59af53f67dca",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P41": {
+   "s": "5ed38320-7523-533f-9bda-59af53f67dca",
+   "t": 5,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "declarations",
+   "draft": null,
+   "checker": {
+    "term": "$",
+    "para": "P25",
+    "kind": "means"
+   },
+   "type": "missing",
+   "reason": "All references to \"$\" ... are to U.S. dollars declares the symbol term \"$\" (rubric allows terms starting with $); \"dollar\" is lowercase and excluded."
+  }
+ ]
+}

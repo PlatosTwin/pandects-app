@@ -502,6 +502,53 @@ Remaining for Phase 1:
 2. Turning the health CSV into the validation-queue report format.
 3. Known gaps to score against the gold set: "this Section" with no number, ALL-CAPS term uses, "§" heads, paragraph-level targets for inline enumerations, and statute-number plausibility ("Section 1300 et seq.").
 
+### 10.4 Held-out gold set (2026-10-23)
+
+Thirty agreements none of the earlier work touched, drawn across the strata (11 2015+/html, 7 2005–14/html, 2 2005–14/txt, 2 pre-2005/html, 4 pre-2005/txt, 4 UK). Rubric v1.2, three agreements per agent, Sonnet drafting and Opus checking. The enricher stayed frozen at `7e1771de` until scoring was done. Fixtures are in `etl/tests/fixtures/reader_gold/` with `"set": "heldout-v1"`; open disputes stay in each file's `pending_disputes` until the user rules on them.
+
+**Cost:** about 2.75M subagent tokens: drafters 1.38M and checkers 1.37M, so about 92k per agreement against about 200k in the pilot.
+
+**Score, US filings (26 agreements), frozen enricher.** UK/AU drafting is out of scope and is reported separately.
+
+| Metric | Held-out (US) | Launch bar |
+|---|---|---|
+| Xref link precision | 97.6% (402/412) | ≥ 99% |
+| Xref in-document recall | 96.4% (402/417) | ≥ 95% |
+| Declaration precision / recall | 91–100% / 45–100% per agreement (most ≥ 90%) | ≥ 98% / ≥ 95% |
+| Term-use precision / recall | 72–100% / 0–100% per agreement | ≥ 97% / ≥ 90% |
+
+Exact-target links were 86.4%; the rest landed on the right section without the subsection. Those are 20 legitimate fallbacks plus 32 in `f4b4ba89`, which writes "Section 6.2 (a)" with a space.
+
+The 10 wrong or unlabeled links:
+
+- **8 in `c33015cb`**: "Section 3.14(a) to the Anadarko Disclosure Schedule". The range joiner consumed " to " before checking that a section number followed, so the disclosure-schedule tail was never seen (7 links). The eighth was "Section 3.2 to the disclosure schedule" in lowercase.
+- **2 in `62618fe9`**: "clauses (i) and (ii) of Section 3.4(c)". The enricher links Section 3.4(c), which is correct; the labels only recorded the qualified clauses. This is a gap in the gold convention, not an enricher error.
+
+UK (4 agreements): 92.3% precision (36/39) and 39% recall. Not tuned.
+
+**After the freeze** (same gold, so no longer a clean held-out number): the joiner only consumes "to"/"and"/"or" when a number follows, and "disclosure schedule" matches in any case. US precision is now 99.5% (402/404), and the only remaining misses are the two correct `62618fe9` links. Confirming 99% on unseen agreements needs a fresh batch.
+
+**Not yet analyzed:** low declaration recall in `9d022d6c` (45%), `59653f66` (57%) and `df342ced` (78%), and low term-use recall in `e2468cb7` and `d2a1d5ae` (31%).
+
+**Pending disputes (US)** awaiting the user:
+
+- `9ade6054`: remove 2 xrefs to statute official titles after "commonly referred to as".
+- `d2a1d5ae`: a term-use count of 4 should be 3. Missing "Principal" (as defined in FAR 2.101), a pointer to an external source.
+- `fc8cf572`: Schedule 1 and Schedule 2 are the disclosure schedules themselves (`not_in_filing` → `disclosure_schedule`).
+- `8645c6ff`: "Agreement" use count in P50 should be 2, not 1.
+- `a29e4efa`: missing the `"$"` declaration.
+
+UK-only disputes (`1b8f3f3c`, `98444543`, `5d15a253`) are listed in their fixtures.
+
+**Rubric questions the agents raised:**
+
+- Does "every second qualifying term" start at the 1st or the 2nd? Every drafter took the 1st, 3rd, 5th…
+- What to do when fewer than 5 terms qualify.
+- Should the Section inside "clause (i) of Section 3.4(c)" get its own label? Recommendation: yes, which settles the `62618fe9` gap.
+- Lowercase-first acronyms such as "cGMP".
+- Is "Tax or Taxation" one term or two?
+- Should preamble or recital pointers be marked `not_in_filing`?
+
 ## 11. Decisions (2026-10-22)
 
 The user answered the open questions on 2026-10-22. Items 3, 6 and 7 use the defaults proposed in the hand-off, and the user did not object to them.

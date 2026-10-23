@@ -1,0 +1,380 @@
+{
+ "agreement_uuid": "9ade6054-e6c8-5b45-8830-9f9d9dfd784f",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Authorized Committee",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Disinterested Director",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Gross Up Payment",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Guarantor",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Intervening Event",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Law",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Laws",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Federal Fraud Statutes",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Stark Statute",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Limited Guarantee",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Order",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Group",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Person",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Restricted Stock Award",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Special Committee",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P21",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P21",
+   "kind": "paren"
+  },
+  {
+   "term": "Debt Commitment Letters",
+   "para": "P24",
+   "kind": "paren"
+  },
+  {
+   "term": "Lenders",
+   "para": "P24",
+   "kind": "paren"
+  },
+  {
+   "term": "Equity Commitment Letter",
+   "para": "P24",
+   "kind": "paren"
+  },
+  {
+   "term": "Commitment Letters",
+   "para": "P24",
+   "kind": "paren"
+  },
+  {
+   "term": "Investor",
+   "para": "P24",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "4999",
+   "context": "imposed by Section 4999 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P13",
+   "head": "clause",
+   "mention": "(A)",
+   "context": "except, in each of clauses (A),",
+   "target": "inline"
+  },
+  {
+   "para": "P13",
+   "head": "clause",
+   "mention": "(B)",
+   "context": "of clauses (A), (B), (C) and",
+   "target": "inline"
+  },
+  {
+   "para": "P13",
+   "head": "clause",
+   "mention": "(C)",
+   "context": "clauses (A), (B), (C) and (D),",
+   "target": "inline"
+  },
+  {
+   "para": "P13",
+   "head": "clause",
+   "mention": "(D)",
+   "context": "(B), (C) and (D), to the extent",
+   "target": "inline"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "13(d)(3)",
+   "context": "is defined in Section 13(d)(3) of the Exchange Act",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "article",
+   "mention": "6",
+   "context": "the conditions set forth in Article 6 (which can",
+   "target": "a6"
+  },
+  {
+   "para": "P25",
+   "head": "article",
+   "mention": "3",
+   "context": "in Article 3, as of the date hereof, no event",
+   "target": "a3"
+  },
+  {
+   "para": "P25",
+   "head": "article",
+   "mention": "3",
+   "context": "Article 3, as of the date hereof, Parent has no Knowledge",
+   "target": "a3"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "8.05",
+   "context": "subject to the proviso in Section 8.05, waive compliance",
+   "target": "s8.5"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Knowledge",
+   "para": "P25",
+   "count": 1
+  },
+  {
+   "term": "Limited Guarantee",
+   "para": "P25",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "8cd13230-84f4-58b3-bc88-5bb25fb962bb",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "2b5dc0a4-d0cd-5e31-8282-817be7dea287",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "d9a66ee4-28c3-5534-bcb0-a5e44f0fc592",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "d9a66ee4-28c3-5534-bcb0-a5e44f0fc592",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "500ea360-9462-58f7-97f1-b77f2441f8c2",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "500ea360-9462-58f7-97f1-b77f2441f8c2",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "9b1c506c-99fc-5637-a189-4899bdeca506",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "declarations",
+   "draft": {
+    "term": "Federal False Claims Act",
+    "para": "P10",
+    "kind": "means"
+   },
+   "checker": null,
+   "type": "remove",
+   "reason": "\"Federal False Claims Act\" is the statute's own title described as commonly referred to, not a term this agreement declares."
+  },
+  {
+   "section": "declarations",
+   "draft": {
+    "term": "Health Insurance Portability and Accountability Act of 1996",
+    "para": "P10",
+    "kind": "means"
+   },
+   "checker": null,
+   "type": "remove",
+   "reason": "\"Health Insurance Portability and Accountability Act of 1996\" is a statute title, not a declaration."
+  }
+ ]
+}

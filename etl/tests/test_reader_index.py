@@ -221,6 +221,20 @@ class XrefTests(unittest.TestCase):
         self.assertEqual(x["Section 3"]["status"], "external")
         self.assertNotIn("Annex 3.7", x)
 
+    def test_joiner_before_a_tail_is_not_consumed(self) -> None:
+        xml = _doc(
+            _section("s3", "Section 3.14 Benefits", "(a) plans.")
+            + _section("s4", "Section 4.1 Refs", "Section 3.14(a) to the Anadarko Disclosure Schedule lists the plans.")
+        )
+        self.assertEqual(_xrefs(build_reader_index(xml))["Section 3.14(a)"]["status"], "disclosure_schedule")
+
+    def test_lowercase_disclosure_schedule_is_not_a_link(self) -> None:
+        xml = _doc(
+            _section("s3", "Section 3.2 Capital", "(a) shares.")
+            + _section("s4", "Section 4.1 Refs", "Except as set forth in Section 3.2 to the disclosure schedule, none.")
+        )
+        self.assertEqual(_xrefs(build_reader_index(xml))["Section 3.2"]["status"], "disclosure_schedule")
+
     def test_local_clause_resolves_within_current_section(self) -> None:
         xml = _doc(_section("s1", "Section 7.2 Conditions", "(a) first.", "(b) second, subject to clause (a) above."))
         x = _xrefs(build_reader_index(xml))["clause (a)"]

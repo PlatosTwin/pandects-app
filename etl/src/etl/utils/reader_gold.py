@@ -135,8 +135,10 @@ def _locate(text: str, context: str, mention: str) -> int | None:
     i = text.find(context)
     if i < 0:
         return None
-    j = context.find(mention)
-    return None if j < 0 else i + j
+    # the mention as a whole token: "A" in "Annex A" is not the "A" of "Annex", and "1" in
+    # "Schedule 1" is not the "1" of "1.1"
+    m = re.search(rf"(?<![\w.]){re.escape(mention)}(?!\w|\.\d)", context)
+    return None if m is None else i + m.start()
 
 
 def _id_section(target: str) -> str:

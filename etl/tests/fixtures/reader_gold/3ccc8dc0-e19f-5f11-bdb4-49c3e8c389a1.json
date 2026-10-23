@@ -1,0 +1,364 @@
+{
+ "agreement_uuid": "3ccc8dc0-e19f-5f11-bdb4-49c3e8c389a1",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Target Common Stock",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Trust Account Shares",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "DPC Shares",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Exchange Ratio",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Parent Common Stock",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Stock Consideration",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Cash Consideration",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Cash Election Number",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Stock Election Number",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Cash Election",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Stock Election",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Combination Election",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Form of Election",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Representative",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Mailing Date",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Election Deadline",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Cash Election Shares",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "Stock Election Shares",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "Certificate",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Target Dissenting Shares",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "FRB",
+   "para": "P13",
+   "kind": "paren"
+  },
+  {
+   "term": "State Regulator",
+   "para": "P13",
+   "kind": "paren"
+  },
+  {
+   "term": "OCC",
+   "para": "P13",
+   "kind": "paren"
+  },
+  {
+   "term": "Regulatory Agencies",
+   "para": "P13",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2.2(e)",
+   "context": "Subject to Section 2.2(e) and the election",
+   "target": "s2.2(e)"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "1.4(b)",
+   "context": "redesignation provisions of Section 1.4(b), each share",
+   "target": "s1.4(b)"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2.2(e)",
+   "context": "accordance with the provisions of Section 2.2(e) of this Agreement",
+   "target": "s2.2(e)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "1.4(d)",
+   "context": "cancelled pursuant to Section 1.4(d)) (the “Cash Election Number”)",
+   "target": "s1.4(d)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "1.4(d)",
+   "context": "cancelled pursuant to Section 1.4(d)) (the “Stock Election Number”)",
+   "target": "s1.4(d)"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.4(b)",
+   "context": "set forth in this Section 1.4(b), each holder of record",
+   "target": "s1.4(b)"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "1.4(b)",
+   "context": "contemplated by this Section 1.4(b) and all such",
+   "target": "s1.4(b)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.4(b)(v)",
+   "context": "set forth in Section 1.4(b)(v) is completed",
+   "target": "s1.4(b)(v)"
+  },
+  {
+   "para": "P9",
+   "head": "article",
+   "mention": "I",
+   "context": "pursuant to this Article I shall no longer be outstanding",
+   "target": "a1"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.2(e)",
+   "context": "pursuant to Section 2.2(e); and/or (ii) the Cash",
+   "target": "s2.2(e)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.4",
+   "context": "converted pursuant to this Section 1.4 and Section",
+   "target": "s1.4"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.2(e)",
+   "context": "this Section 1.4 and Section 2.2(e). Certificates previously representing",
+   "target": "s2.2(e)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.2",
+   "context": "accordance with Section 2.2, without any interest thereon",
+   "target": "s2.2"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "48-23-201",
+   "context": "in accordance with Sections 48-23-201, et. seq. of the TBCA",
+   "target": "external"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "48-23-201",
+   "context": "the provisions of Sections 48-23-201, et. seq. of the TBCA;",
+   "target": "external"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "48-23-201",
+   "context": "provided in Sections 48-23-201, et. seq. of the TBCA, such",
+   "target": "external"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.4(a)",
+   "context": "as provided in Sections 1.4(a) and",
+   "target": "s1.4(a)"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.4(b)",
+   "context": "Sections 1.4(a) and 1.4(b) and Article II hereof",
+   "target": "s1.4(b)"
+  },
+  {
+   "para": "P12",
+   "head": "article",
+   "mention": "II",
+   "context": "and 1.4(b) and Article II hereof as if",
+   "target": "a2"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Target Common Stock",
+   "para": "P15",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "93f855cb-b86c-5206-9648-f68029aee8c2",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "c5763f5f-a753-56e6-bf2b-1612f5f7be17",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "4e59afde-55ff-553e-b4e6-faa27f65f147",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "c1b947a1-48c3-59fe-88ea-d36481382b91",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "c75f2600-fc70-523c-9c34-82e998dcce31",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "c75f2600-fc70-523c-9c34-82e998dcce31",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

@@ -1,0 +1,496 @@
+{
+ "agreement_uuid": "b5b1815f-8849-5570-a13b-fa36ce783c28",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Action",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Adjustment Amount",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "AMACAI Option",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "AMACAI Option Plan",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Cash",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Change of Control Payments",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Cash",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Merger Consideration",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Non-Cash Working Capital",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Per Share Merger Consideration",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Tax Benefits from Compensation Expense",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Continuing Employees",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "COTS Software",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Encumbrance",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Permits",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Escrow Agent",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Escrow Agreement",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Estimated Closing Non-Cash Working Capital Adjustment",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Shares",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Cancelled Shares",
+   "para": "P43",
+   "kind": "paren"
+  },
+  {
+   "term": "Financing Commitment",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "Financing",
+   "para": "P45",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "3.3(b)",
+   "context": "payments made pursuant to Section 3.3(b) to the",
+   "target": "s3.3(b)"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "6.11(b)",
+   "context": "purchased by the Company in accordance with Section 6.11(b)",
+   "target": "s6.11(b)"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "6.14",
+   "context": "Effective Time pursuant to Section 6.14",
+   "target": "s6.14"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "6.11(b)",
+   "context": "purchased by the Company in accordance with Section 6.11(b)",
+   "target": "s6.11(b)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "1.1",
+   "context": "is set forth in Section 1.1 of the Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "3.3(b)",
+   "context": "Closing Date pursuant to Section 3.3(b) and (ii)",
+   "target": "s3.3(b)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "421(b)",
+   "context": "determined pursuant to Section 421(b) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P39",
+   "head": "exhibit",
+   "mention": "C",
+   "context": "substantially in the form of Exhibit C",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P47",
+   "head": "article",
+   "mention": "IV",
+   "context": "warranties set forth in Article IV, Parent",
+   "target": "a4"
+  },
+  {
+   "para": "P49",
+   "head": "paragraph",
+   "mention": "(a)",
+   "context": "For purposes of paragraph (a) above, the determination",
+   "target": "s7.1(a)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Adjustment Amount",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Escrow Agreement",
+   "para": "P42",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "4b5b6065-b836-5b46-a70a-c7e729426b25",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "aa5deba3-02ac-5a5a-a8df-c09d58779fcd",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "aa5deba3-02ac-5a5a-a8df-c09d58779fcd",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "aa5deba3-02ac-5a5a-a8df-c09d58779fcd",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "aa5deba3-02ac-5a5a-a8df-c09d58779fcd",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "b46f6bb3-e917-53ff-b996-efb73fe13510",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "b46f6bb3-e917-53ff-b996-efb73fe13510",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "b46f6bb3-e917-53ff-b996-efb73fe13510",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "47f9d960-a297-5cf1-8f73-c102674996bf",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "47f9d960-a297-5cf1-8f73-c102674996bf",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "47f9d960-a297-5cf1-8f73-c102674996bf",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "79c21452-4b71-5abd-ae0e-f68a9bef758b",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

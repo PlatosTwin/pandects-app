@@ -1,0 +1,529 @@
+{
+ "agreement_uuid": "c33015cb-dee0-59d3-abae-c81dee6f48fa",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "ANADARKO CONTROLLED GROUP LIABILITY",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "ANADARKO EMPLOYEE BENEFIT PLANS",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "ANADARKO EMPLOYMENT AGREEMENT",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "ANADARKO MATERIAL EMPLOYMENT AGREEMENT",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "ANADARKO PLAN",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA AFFILIATE",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "MULTIEMPLOYER PLAN",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "WITHDRAWAL LIABILITY",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "ANADARKO QUALIFIED PLANS",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "PBGC",
+   "para": "P15",
+   "kind": "paren"
+  },
+  {
+   "term": "MULTIPLE EMPLOYER PLAN",
+   "para": "P16",
+   "kind": "paren"
+  },
+  {
+   "term": "ANADARKO DISCLOSURE SCHEDULE",
+   "para": "P24",
+   "kind": "paren"
+  },
+  {
+   "term": "APPLICABLE LAWS",
+   "para": "P25",
+   "kind": "paren"
+  },
+  {
+   "term": "ENVIRONMENTAL LAWS",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "HAZARDOUS MATERIALS",
+   "para": "P27",
+   "kind": "paren"
+  },
+  {
+   "term": "ENVIRONMENTAL PERMIT",
+   "para": "P27",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "302",
+   "context": "(ii) under section 302 of ERISA, (iii)",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "412",
+   "context": "(iii) under sections 412 and 4971 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "4971",
+   "context": "(iii) under sections 412 and 4971 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "601",
+   "context": "requirements of section 601 et seq. of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "4980B",
+   "context": "ERISA and section 4980B of the Code,",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "3.14",
+   "context": "listed in Section 3.14 of the Anadarko Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3(1)",
+   "context": "within the meaning of Section 3(1) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3(2)",
+   "context": "within the meaning of Section 3(2) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "414(b)",
+   "context": "in Section 414(b), (c), (m) or (o) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "(c)",
+   "context": "in Section 414(b), (c), (m) or (o) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "(m)",
+   "context": "in Section 414(b), (c), (m) or (o) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "(o)",
+   "context": "in Section 414(b), (c), (m) or (o) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4001(b)(1)",
+   "context": "or Section 4001(b)(1) of ERISA that includes",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4001(a)(14)",
+   "context": "pursuant to Section 4001(a)(14) of ERISA.",
+   "target": "external"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "4001(a)(3)",
+   "context": "within the meaning of Section 4001(a)(3) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "3.14(a)",
+   "context": "Section 3.14(a) to the Anadarko Disclosure Schedule includes a",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "3.14(c)",
+   "context": "(c) Section 3.14(c) to the Anadarko Disclosure Schedule identifies",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "401(a)",
+   "context": "within the meaning of Section 401(a) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "3.14(c)",
+   "context": "related trust. Section 3.14(c) to the Anadarko Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "501(c)(9)",
+   "context": "requirements of Code Section 501(c)(9), and each",
+   "target": "external"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "3(1)",
+   "context": "plan under Section 3(1) of ERISA is either",
+   "target": "external"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "419",
+   "context": "with the meaning of Section 419 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3.13(e)",
+   "context": "forth in Section 3.13(e) to the Anadarko Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "302",
+   "context": "subject to Title IV or Section 302 of ERISA or",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "412",
+   "context": "ERISA or Section 412 or 4971 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "4971",
+   "context": "ERISA or Section 412 or 4971 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "412",
+   "context": "deficiency within the meaning of Section 412 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "302",
+   "context": "of the Code or Section 302 of ERISA, whether",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "4043(c)",
+   "context": "within the meaning of Section 4043(c) of ERISA for",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "4042",
+   "context": "grounds under Section 4042 of ERISA for the",
+   "target": "external"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "4063",
+   "context": "within the meaning of Section 4063 of ERISA (a",
+   "target": "external"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "4069",
+   "context": "in Section 4069 or Section 4204 or 4212 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "4204",
+   "context": "in Section 4069 or Section 4204 or 4212 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "4212",
+   "context": "in Section 4069 or Section 4204 or 4212 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "3.14(i)",
+   "context": "Section 3.14(i) to the Anadarko Disclosure Schedule sets forth",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "4975",
+   "context": "in Section 4975 of the Code or Section 406",
+   "target": "external"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "406",
+   "context": "of the Code or Section 406 of ERISA), which",
+   "target": "external"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "4975",
+   "context": "imposed under Section 4975 of the Code or Section 502",
+   "target": "external"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "502",
+   "context": "of the Code or Section 502 of ERISA.",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "3.14(k)",
+   "context": "forth in Section 3.14(k) to the Anadarko Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "3.2",
+   "context": "as set forth in Section 3.2 to the disclosure schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "3.11",
+   "context": "forth in Section 3.11 to the Anadarko Disclosure Schedule",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "44dfc766-3d71-561a-9339-fa733ce8ec12",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "f765b1aa-3fe7-5979-867c-cbce77f4572f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "3c6e8cb4-a619-5515-beb7-7b9af1288019",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "ff3839f8-821e-5c33-842c-11d61e160ac2",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "ff3839f8-821e-5c33-842c-11d61e160ac2",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "dc309b32-a410-52b0-8c11-9f3a8185cf71",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

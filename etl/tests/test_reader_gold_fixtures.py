@@ -21,7 +21,11 @@ class ReaderGoldFixtureTests(unittest.TestCase):
                 g = json.loads(f.read_text(encoding="utf-8"))
                 self.assertEqual(f.stem, g["agreement_uuid"])
                 self.assertIsInstance(g["xml_version"], int)
-                self.assertNotIn("pending_disputes", g)
+                # held-out files carry their open disputes until the user rules; pilot files are settled
+                if g.get("set") != "heldout-v1":
+                    self.assertNotIn("pending_disputes", g)
+                for d in g.get("pending_disputes", []):
+                    self.assertIn(d["type"], {"disagree", "remove", "missing"})
                 paras = set(g["para_map"])
                 for d in g["declarations"]:
                     self.assertIn(d["para"], paras)
