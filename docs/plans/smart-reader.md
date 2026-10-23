@@ -1,6 +1,6 @@
 # Smart reader: live TOC, defined terms and cross-references
 
-Status: design draft, not scheduled. Owner: maintainer. Last updated 2026-10-20.
+Status: design approved 2026-10-22 (Section 11); Phase 1 next. Owner: maintainer. Last updated 2026-10-22.
 
 Prototype: [`smart-reader/prototype_enrich.py`](smart-reader/prototype_enrich.py) (read-only, local XML files).
 
@@ -388,20 +388,22 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **0** (this PR) | Design and prototype | User review; open questions answered |
-| **1. Enricher** | `reader_index.py` module, gold set, eval harness, asset, local table, `<definition>` glossary-layout fix in `f_xml.py` | Launch-bar metrics on gold; full local corpus run; health report |
+| **0** (this PR) | Design and prototype | Done: decisions in Section 11 |
+| **1. Enricher** | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
 
 Phases 1 and 2 are mostly independent of the UI work in flight. Phase 3 should start only after the current reader polish lands on main.
 
-## 11. Open questions for the user
+## 11. Decisions (2026-10-22)
 
-1. **Anonymous readers.** Should a term defined in a redacted section show "Defined in Section 1.1 (sign in to read)", or should anonymous readers get no term popovers at all?
-2. **Bulk dumps.** Publish the reader index as its own table or JSON, generate an enriched-XML export with inline `<xref>`/`<term>`, or both? (Inline XML is friendlier to outside users but is the costly option B if it ever becomes canonical.)
-3. **Statute links.** Link Code, ERISA and Exchange Act sections to Cornell LII or eCFR (Phase 4), or keep them as plain text?
-4. **Gold labeling.** Is the model-drafted, model-checked, user-rules-on-disagreements process acceptable here, with about 30 agreements?
-5. **Glossary `<definition>` fix.** Change the canonical XML build in Phase 1 (new XML versions for affected agreements, which re-trigger downstream assets), or leave the XML alone and let the index catch those definitions?
-6. **XML quality signal.** Should low xref-resolution agreements feed the validation queue as a report, or eventually become a verify rule?
-7. **Common-word terms.** Hide low-confidence terms like "Law" and "Effect" by default, or show everything?
+The user answered the open questions on 2026-10-22. Items 3, 6 and 7 use the defaults proposed in the hand-off, and the user did not object to them.
+
+1. **Anonymous readers: teaser popover.** A term whose definition sits in a redacted section stays marked. Its popover shows only "Defined in Section 1.1 (sign in to read)", with no definition text. The redaction filter in Phase 2 removes the definition body from the payload, so a hidden popover never ships the text.
+2. **Bulk dumps: index table first.** `reader_index` ships in the dump as its own table, with prose in `bulk/schema_docs/table_docs.yml`. An enriched-XML export (inline `<xref>`/`<term>`) waits for Phase 4 and is built only if outside users ask for it. The index stays canonical.
+3. **Statute links: Phase 4.** Code, ERISA and Exchange Act references are classified `external` and stay plain text until then.
+4. **Gold labeling: as designed.** About 30 agreements. A strong model drafts the labels, a second model checks them, and the user rules only on disagreements.
+5. **Glossary `<definition>` fix: in the index only for now.** The enricher detects the `Term. "Term" shall mean...` layout itself. `f_xml.py` is not changed in Phase 1. The canonical-XML fix lands later, batched with the next planned XML rebuild, so nothing is re-verified, re-sectioned or re-embedded just for this.
+6. **XML quality signal: a report.** Low-resolution agreements go into a health report that feeds the validation queue. They do not become a verify rule.
+7. **Common-word terms: hidden by default when low-confidence.** Terms like "Law" and "Effect" get a confidence flag, and the reader hides the low-confidence ones by default. A setting shows all of them.
