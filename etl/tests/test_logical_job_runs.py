@@ -129,10 +129,14 @@ def _reexecution_context(
     parent_run_id: str,
     root_run_id: str,
     instance: _FakeInstance | None = None,
+    from_failure: bool = True,
 ) -> SimpleNamespace:
+    tags = {"dagster/parent_run_id": parent_run_id, "dagster/root_run_id": root_run_id}
+    if from_failure:
+        tags["dagster/is_resume_retry"] = "true"
     return SimpleNamespace(
         run_id=run_id,
-        run=SimpleNamespace(run_id=run_id, parent_run_id=parent_run_id, root_run_id=root_run_id),
+        run=SimpleNamespace(run_id=run_id, parent_run_id=parent_run_id, root_run_id=root_run_id, tags=tags),
         instance=instance,
         log=_FakeLog(),
     )
@@ -714,6 +718,140 @@ class LogicalJobRunTests(unittest.TestCase):
         assert retried_run is not None
         self.assertEqual(retried_run.logical_run_id, logical_run.logical_run_id)
         self.assertEqual(_status_for_run(db, logical_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
+
+    def test_force_new_reexecute_all_steps_starts_fresh(self) -> None:
+        db = _FakeDB()
+        original_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert original_run is not None
+        mark_logical_run_stage_completed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_staging",
+        )
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_tagging",
+            dagster_run_id="dagster-1",
+        )
+
+        rerun_context = _reexecution_context(
+            "dagster-2",
+            parent_run_id="dagster-1",
+            root_run_id="dagster-1",
+            instance=_FakeInstance(finished_run_ids={"dagster-1"}, alive_run_ids={"dagster-2"}),
+            from_failure=False,
+        )
+        rerun = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, rerun_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-2"],
+        )
+
+        assert rerun is not None
+        self.assertNotEqual(rerun.logical_run_id, original_run.logical_run_id)
+        self.assertEqual(rerun.completed_stages, [])
+        self.assertEqual(_status_for_run(db, original_run.logical_run_id), LOGICAL_RUN_STATUS_ABANDONED)
+        should_skip, _ = should_skip_managed_stage(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_staging",
+        )
+        self.assertFalse(should_skip)
+
+    def test_reexecution_from_failure_does_not_take_over_live_sibling_retry(self) -> None:
+        db = _FakeDB()
+        sibling_context = _reexecution_context("dagster-2", parent_run_id="dagster-1", root_run_id="dagster-1")
+        sibling_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, sibling_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_pre_processing",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert sibling_run is not None
+
+        retry_context = _reexecution_context(
+            "dagster-3",
+            parent_run_id="dagster-1",
+            root_run_id="dagster-1",
+            instance=_FakeInstance(
+                finished_run_ids={"dagster-1"},
+                alive_run_ids={"dagster-2", "dagster-3"},
+                root_run_ids={"dagster-2": "dagster-1", "dagster-3": "dagster-1"},
+            ),
+        )
+        retried_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, retry_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(resume_logical_runs=False),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_pre_processing",
+            selected_agreement_uuids=["agreement-2"],
+        )
+
+        assert retried_run is not None
+        self.assertNotEqual(retried_run.logical_run_id, sibling_run.logical_run_id)
+        self.assertEqual(_owner_for_run(db, sibling_run.logical_run_id), "dagster-2")
+
+    def test_active_scope_revives_failed_run_for_reexecution_from_failure(self) -> None:
+        db = _FakeDB()
+        original_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-1", "agreement-2"],
+        )
+        assert original_run is not None
+        for stage_name in ("regular_ingest_staging", "regular_ingest_pre_processing"):
+            mark_logical_run_stage_completed(
+                db=cast(DBResource, cast(object, db)),
+                job_name="regular_ingest",
+                stage_name=stage_name,
+            )
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_tagging",
+            dagster_run_id="dagster-1",
+        )
+
+        # The retry starts at tagging, past the steps that call start_or_resume.
+        retry_context = _reexecution_context(
+            "dagster-2",
+            parent_run_id="dagster-1",
+            root_run_id="dagster-1",
+            instance=_FakeInstance(finished_run_ids={"dagster-1"}, alive_run_ids={"dagster-2"}),
+        )
+        scope = load_active_scope_for_job(
+            cast(AssetExecutionContext, cast(object, retry_context)),
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            fallback_agreement_uuids=[],
+        )
+
+        self.assertEqual(scope, ["agreement-1", "agreement-2"])
+        self.assertEqual(_status_for_run(db, original_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
+        self.assertEqual(_owner_for_run(db, original_run.logical_run_id), "dagster-2")
+        should_skip, _ = should_skip_managed_stage(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_pre_processing",
+        )
+        self.assertTrue(should_skip)
 
     def test_force_new_reexecution_does_not_adopt_unrelated_failed_run(self) -> None:
         db = _FakeDB()
