@@ -16,6 +16,13 @@ Definition resolution also reads the colon forms '"General Indemnity Holdback Am
 and '"Special Indemnity Holdback Amount": means $18,850,000' (plan section 7.14), which hid the
 cap figures in one M6 agreement.
 
+From the M7 holdout (plan section 7.17):
+- date and representation terms the outside date and survival clauses name ("Drop Dead Date",
+  "Longstop Date", "Excepted Representations") are kept and resolved, and "MaterialAdverse
+  Effect" printed without its space still counts as an MAE term;
+- a kept definition that runs on into the next paragraphs, across a page number or because the
+  text layer split it, brings those paragraphs, up to the next quoted term.
+
 Usage: python3 prepare_v7.py holdout.tsv OUT
        python3 prepare_v7.py --rebuild D OUT   (stage 1 again from D/layer, candidates to OUT)
 """
@@ -33,11 +40,31 @@ FUNDS_BODY = re.compile(r"\b(cash|funds|funding|capital resources|financial reso
                         r"\b(cash|funds|funding|financial resources)\b", re.I)
 FINANCING = re.compile(r"\bfinancing\b", re.I)
 # v4.select and v4.resolve read these module patterns at call time
-CAP_TERMS = r"|maximum|\blimit|\bcap\b|cap amount"
+CAP_TERMS = r"|maximum|\blimit|\bcap\b|cap amount" + r"|drop dead|long ?stop|cut-?off date|excepted rep|specified rep|material\s*adverse"
 v4.TERMS = re.compile(v4.TERMS.pattern + CAP_TERMS, re.I)
 v4.RESOLVE = re.compile(v4.RESOLVE.pattern + CAP_TERMS, re.I)
 v4.DEFINED = re.compile(r"[\"“]([^\"”:]{2,80})(?::[\"”]|[\"”]\s*:\s|[\"”](\s+of any \w+)?\s*(shall\s+)?"
                         r"(means?|has the meaning|shall have the meaning|is defined|(shall|will) be deemed))")
+
+
+NEW_DEF = re.compile(r"^\s*(?:(?:A|An|The)\s+)?[\"“]")
+
+
+def extend_definitions(layer, leaf_keep, limit=6):
+    """Keep the paragraphs a kept definition runs on into, up to the next quoted term."""
+    by_sec = {}
+    for lf in layer["leaves"]:
+        by_sec.setdefault(lf["section"], []).append(lf)
+    for sec, keep in leaf_keep.items():
+        leaves, add = by_sec.get(sec, []), set()
+        for i, lf in enumerate(leaves):
+            if id(lf) not in keep or lf["kind"] != "definition":
+                continue
+            for x in leaves[i + 1:i + 1 + limit]:
+                if id(x) in keep or NEW_DEF.match(layer["text"][x["start"]:x["end"]]):
+                    break
+                add.add(id(x))
+        keep |= add
 
 
 def select(layer):
@@ -58,6 +85,7 @@ def select(layer):
                 or REPS.search(article) and (FUNDS_TITLE.search(title) or FUNDS_BODY.search(body))
                 or FINANCING.search(body)):
             groups[s["uuid"]] = {"deal_risk", "structure"}
+    extend_definitions(layer, leaf_keep)
     return groups, leaf_keep
 
 

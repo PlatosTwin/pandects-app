@@ -243,3 +243,36 @@ class CashOnHand(unittest.TestCase):
                "is sufficient to pay the Merger Consideration.")
         out, log = apply(financing("debt"), cov)
         self.assertEqual(log, [])
+
+
+def other_trigger(quote, tail=None):
+    doc = fee("adverse_recommendation_change")
+    doc["instances"][0]["triggers"].append({"code": "other", "text": "", "quote": quote, "tail": tail})
+    return doc
+
+
+class MeetingBreach(unittest.TestCase):
+    def test_failing_to_call_and_hold(self):  # 20205629
+        out, log = apply(other_trigger("shall have breached Section 6.3 by failing to call and hold the Company Meeting, as provided therein"), "")
+        self.assertEqual(codes(out), ["adverse_recommendation_change", "breach_no_tail"])
+
+    def test_failing_to_hold(self):  # 8eeea4af
+        out, log = apply(other_trigger("(1) materially breached its obligations under Section 5.1 by failing to hold the Company Stockholders Meeting"), "")
+        self.assertEqual(codes(out)[-1], "breach_no_tail")
+
+    def test_tail_is_left_alone(self):
+        tail = {"months": 12, "threshold_pct": 50, "requires": "either"}
+        out, log = apply(other_trigger("failing to hold the Company Stockholders Meeting", tail), "")
+        self.assertEqual((codes(out)[-1], log), ("other", []))
+
+    def test_other_trigger_is_left_alone(self):
+        out, log = apply(other_trigger("a Triggering Event shall have occurred"), "")
+        self.assertEqual(log, [])
+
+    def test_failing_to_hold_by_a_date_is_left_alone(self):  # 679089f9: no breach
+        out, log = apply(other_trigger("(vii) the Company shall have failed to hold the Stockholders' Meeting as promptly as practicable and in any event by no later than July 1, 2006"), "")
+        self.assertEqual(log, [])
+
+    def test_meeting_date_reference_is_left_alone(self):  # 7051d0a3
+        out, log = apply(other_trigger("on or prior to the date of the Stockholders Meeting, any event giving rise to Parent's right to terminate (other than a breach) occurred"), "")
+        self.assertEqual(log, [])

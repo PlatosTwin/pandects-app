@@ -63,6 +63,7 @@ def select(layer, picked):
         elif n in picked and not is_defs(layer, s, by_sec.get(s["uuid"], [])):
             groups[s["uuid"]] = {"picked"}
     v4.resolve(layer, by_sec, groups, leaf_keep)
+    prepare_v7.extend_definitions(layer, leaf_keep)
     return groups, leaf_keep
 
 

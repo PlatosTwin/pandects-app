@@ -11,6 +11,9 @@ saw the text for but did not apply in the definition-resolution re-check (sectio
   (up to a stated maximum) is expense reimbursement, not a fee (v2.1 rule 10).
 - v2.6 rule 1: an amount stated as a percentage of a price keeps a dollar figure only when the
   text states that figure; one the extractor computed becomes `"not_stated"`.
+- v2.2 rule 11: a target-fee or reimbursement trigger coded `other` that is a termination for
+  breaching the covenant by failing to call or hold the stockholder meeting, with no tail, is
+  `breach_no_tail` (plan section 7.17).
 - v2.5 rule 3: a buyer funds representation that counts the buyer's own cash ("together with
   any available cash", "cash on hand", "marketable securities") adds `cash_on_hand` to committed
   financing (plan section 7.14). Contingency covenants ("In the event ... becomes unavailable",
@@ -93,6 +96,20 @@ def check_recommendation_failure(inst, lines, log):
     inst["triggers"].append({"code": "recommendation_failure", "text": phrase, "quote": phrase,
                              "tail": copy.deepcopy(arc.get("tail")), "postcheck": "v2.2 rule 12"})
     log.append({"concept": inst["concept"], "rule": "v2.2 rule 12", "added": phrase})
+
+
+MEETING_BREACH = re.compile(r"\bbreach\w*[^;]{0,80}?\bby\s+(?:its\s+)?fail(?:ing|ure)\s+(?:to\s+)?(?:duly\s+)?"
+                            r"(?:call|convene|hold|give notice of)\b[^.;]{0,80}?\bmeeting\b", re.I)
+
+
+def check_meeting_breach(inst, log):
+    for t in inst.get("triggers") or []:
+        if not isinstance(t, dict) or t.get("code") != "other" or t.get("tail"):
+            continue
+        q = " ".join(x for x in (t.get("quote"), t.get("text")) if isinstance(x, str))
+        if MEETING_BREACH.search(q):
+            t["code"], t["postcheck"] = "breach_no_tail", "v2.2 rule 11"
+            log.append({"concept": inst["concept"], "rule": "v2.2 rule 11", "match": MEETING_BREACH.search(q).group(0)})
 
 
 def check_cap_equals_price(inst, lines, log):
@@ -232,6 +249,8 @@ def apply(doc, cand):
             continue
         if inst["concept"] in ("ma.termination.fee.target", "ma.termination.expense_reimbursement"):
             check_recommendation_failure(inst, lines, log)
+        if inst["concept"] in ("ma.termination.fee.target", "ma.termination.expense_reimbursement"):
+            check_meeting_breach(inst, log)  # reverse fees use the buyer-side codes
         if inst["concept"] == "ma.indemn.cap":
             check_cap_equals_price(inst, lines, log)
         if inst["concept"] == "ma.financing.structure":
