@@ -267,6 +267,7 @@ def regular_ingest_sections_from_fresh_xml_asset(
     verified_fresh_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_sections_from_fresh_xml",
@@ -290,6 +291,7 @@ def regular_ingest_sections_from_fresh_xml_asset(
         log_prefix="regular_ingest_sections_from_fresh_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_sections_from_fresh_xml",
@@ -327,6 +329,7 @@ def regular_ingest_sections_from_repair_xml_asset(
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_sections_from_repair_xml",
@@ -350,6 +353,7 @@ def regular_ingest_sections_from_repair_xml_asset(
         log_prefix="regular_ingest_sections_from_repair_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_sections_from_repair_xml",
@@ -368,6 +372,7 @@ def ingestion_cleanup_a_sections_from_fresh_xml_asset(
     verified_fresh_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_sections_from_fresh_xml",
@@ -391,6 +396,7 @@ def ingestion_cleanup_a_sections_from_fresh_xml_asset(
         log_prefix="ingestion_cleanup_a_sections_from_fresh_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_sections_from_fresh_xml",
@@ -409,6 +415,7 @@ def ingestion_cleanup_a_sections_from_repair_xml_asset(
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_sections_from_repair_xml",
@@ -432,6 +439,7 @@ def ingestion_cleanup_a_sections_from_repair_xml_asset(
         log_prefix="ingestion_cleanup_a_sections_from_repair_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_sections_from_repair_xml",
@@ -450,6 +458,7 @@ def ingestion_cleanup_b_sections_from_repair_xml_asset(
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_sections_from_repair_xml",
@@ -473,6 +482,7 @@ def ingestion_cleanup_b_sections_from_repair_xml_asset(
         log_prefix="ingestion_cleanup_b_sections_from_repair_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_sections_from_repair_xml",
@@ -497,6 +507,7 @@ def ingestion_cleanup_c_sections_asset(
         fallback_agreement_uuids=verified_agreement_uuids,
     )
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_sections",
@@ -515,6 +526,7 @@ def ingestion_cleanup_c_sections_asset(
         log_prefix="ingestion_cleanup_c_sections_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_sections",
@@ -543,6 +555,7 @@ def ingestion_cleanup_d_sections_asset(
     )
     scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_d",
         stage_name="ingestion_cleanup_d_sections",
@@ -561,6 +574,7 @@ def ingestion_cleanup_d_sections_asset(
         log_prefix="ingestion_cleanup_d_sections_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_d",
         stage_name="ingestion_cleanup_d_sections",

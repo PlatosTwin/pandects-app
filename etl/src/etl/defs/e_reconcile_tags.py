@@ -189,6 +189,7 @@ def regular_ingest_reconcile_tags(
         log_prefix="regular_ingest_reconcile_tags",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_reconcile_tags",
@@ -214,6 +215,7 @@ def ingestion_cleanup_a_reconcile_tags(
         log_prefix="ingestion_cleanup_a_reconcile_tags",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_reconcile_tags",
@@ -232,6 +234,7 @@ def ingestion_cleanup_b_reconcile_tags(
     polled_request_ids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_reconcile_tags",
@@ -250,6 +253,7 @@ def ingestion_cleanup_b_reconcile_tags(
         log_prefix="ingestion_cleanup_b_reconcile_tags",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_reconcile_tags",

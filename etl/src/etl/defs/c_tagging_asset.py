@@ -225,6 +225,7 @@ def regular_ingest_tagging_asset(
         fallback_agreement_uuids=pre_processed_agreement_uuids,
     )
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_tagging",
@@ -245,6 +246,7 @@ def regular_ingest_tagging_asset(
     )
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_tagging",
@@ -274,6 +276,7 @@ def ingestion_cleanup_a_tagging_asset(
     )
     scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_tagging",
@@ -294,6 +297,7 @@ def ingestion_cleanup_a_tagging_asset(
     )
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_tagging",

@@ -1035,6 +1035,7 @@ def _run_managed_taxonomy_asset(
 ) -> list[str]:
     if skip_if_completed:
         should_skip, current_stage = should_skip_managed_stage(
+            context=context,
             db=db,
             job_name=job_name,
             stage_name=stage_name,
@@ -1059,13 +1060,14 @@ def _run_managed_taxonomy_asset(
             log_prefix,
         )
         mark_logical_run_stage_completed(
+            context=context,
             db=db,
             job_name=job_name,
             stage_name=stage_name,
         )
         return scope_uuids
 
-    active_run = load_active_logical_run(db=db, job_name=job_name) if mode == TaxonomyMode.LLM else None
+    active_run = load_active_logical_run(context=context, db=db, job_name=job_name) if mode == TaxonomyMode.LLM else None
     batch_key_override = None
     if mode == TaxonomyMode.LLM:
         batch_key_override = build_logical_batch_key(
@@ -1085,6 +1087,7 @@ def _run_managed_taxonomy_asset(
         log_prefix=log_prefix,
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name=job_name,
         stage_name=stage_name,

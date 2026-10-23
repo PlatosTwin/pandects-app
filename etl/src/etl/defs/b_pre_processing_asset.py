@@ -402,6 +402,7 @@ def regular_ingest_pre_processing_asset(
         else sorted({str(agreement_uuid) for agreement_uuid in staged_agreement_uuids if agreement_uuid})
     )
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_pre_processing",
@@ -414,6 +415,7 @@ def regular_ingest_pre_processing_asset(
         return scope_uuids
     if not scope_uuids:
         mark_logical_run_stage_completed(
+            context=context,
             db=db,
             job_name="regular_ingest",
             stage_name="regular_ingest_pre_processing",
@@ -431,6 +433,7 @@ def regular_ingest_pre_processing_asset(
     )
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_pre_processing",

@@ -1547,6 +1547,7 @@ def regular_ingest_ai_repair_enqueue_asset(
     verified_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_ai_repair_enqueue",
@@ -1563,7 +1564,7 @@ def regular_ingest_ai_repair_enqueue_asset(
         job_name="regular_ingest",
         fallback_agreement_uuids=verified_agreement_uuids,
     )
-    active_run = load_active_logical_run(db=db, job_name="regular_ingest")
+    active_run = load_active_logical_run(context=context, db=db, job_name="regular_ingest")
     enqueued_agreement_uuids = _enqueue_ai_repair_for_agreements(
         context,
         db,
@@ -1577,6 +1578,7 @@ def regular_ingest_ai_repair_enqueue_asset(
         log_prefix="regular_ingest_ai_repair_enqueue_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_ai_repair_enqueue",
@@ -1595,6 +1597,7 @@ def ingestion_cleanup_a_ai_repair_enqueue_asset(
     verified_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_ai_repair_enqueue",
@@ -1611,7 +1614,7 @@ def ingestion_cleanup_a_ai_repair_enqueue_asset(
         job_name="ingestion_cleanup_a",
         fallback_agreement_uuids=verified_agreement_uuids,
     )
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
+    active_run = load_active_logical_run(context=context, db=db, job_name="ingestion_cleanup_a")
     enqueued_agreement_uuids = _enqueue_ai_repair_for_agreements(
         context,
         db,
@@ -1625,6 +1628,7 @@ def ingestion_cleanup_a_ai_repair_enqueue_asset(
         log_prefix="ingestion_cleanup_a_ai_repair_enqueue_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_ai_repair_enqueue",
@@ -1649,6 +1653,7 @@ def ingestion_cleanup_b_ai_repair_enqueue_asset(
     )
     scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_ai_repair_enqueue",
@@ -1672,6 +1677,7 @@ def ingestion_cleanup_b_ai_repair_enqueue_asset(
         log_prefix="ingestion_cleanup_b_ai_repair_enqueue_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_ai_repair_enqueue",
@@ -2838,6 +2844,7 @@ def regular_ingest_ai_repair_poll_asset(
     enqueued_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_ai_repair_poll",
@@ -2861,6 +2868,7 @@ def regular_ingest_ai_repair_poll_asset(
         log_prefix="regular_ingest_ai_repair_poll_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_ai_repair_poll",
@@ -2879,6 +2887,7 @@ def ingestion_cleanup_a_ai_repair_poll_asset(
     enqueued_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_ai_repair_poll",
@@ -2902,6 +2911,7 @@ def ingestion_cleanup_a_ai_repair_poll_asset(
         log_prefix="ingestion_cleanup_a_ai_repair_poll_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_ai_repair_poll",
@@ -2920,6 +2930,7 @@ def ingestion_cleanup_b_ai_repair_poll_asset(
     enqueued_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_ai_repair_poll",
@@ -2943,6 +2954,7 @@ def ingestion_cleanup_b_ai_repair_poll_asset(
         log_prefix="ingestion_cleanup_b_ai_repair_poll_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_ai_repair_poll",
