@@ -38,6 +38,8 @@ The financing-retrieval round uses the seed `'m4holdout'`, excludes the M1, M2, 
 
 The v2.6 re-score reuses that run: `python3 postchecks.py OUT sonnet sonnet_pc` with the v2.6 check, the same check applied to adjudicated gold against the full text (5 amounts in 2 agreements), then the same `report_m3.py` command. `python3 prepare_v6.py --rebuild OUT CAND` re-runs stage 1 from the saved layers for the not-blind retrieval check.
 
+The next holdout uses the seed `'m5holdout'` and filters on `WHERE t.rn <= IF(t.era = 'a', 7, 6)`, giving 50 agreements. It excludes the M3 and M4 manifests by uuid, and M1, M2 and the M2 holdout by re-running their seeded queries as nested subqueries (`./bin/mariadb-read` refuses `WITH`). The query is saved as `.claude/span-taxonomy-runs/m5holdout/sample.sql`, and `python3 prepare_v6.py m5.tsv OUT` built the views there.
+
 ## Files
 
 - `text_layer.py`: the canonical text layer (body `<text>` elements, unstripped, one per line).
@@ -64,6 +66,7 @@ The v2.6 re-score reuses that run: `python3 postchecks.py OUT sonnet sonnet_pc` 
 - `m4_holdout_results.json`: financing-retrieval round numbers for the four concepts.
 - `prepare_v6.py`: stage 1 with the financing wordings the financing-retrieval round missed, on top of `prepare_v5.py`.
 - `schema_v2_6.md`: v2.5 plus 2 rulings (amounts hold only stated figures; three more funds-representation wordings).
+- `schema_v2_7.md`: v2.6 plus 5 rulings (words against numerals, commitments named in a funds representation, section-scoped cumulative remedies, de minimis by indemnitor, reverse-fee kind), for the next holdout.
 - `m4_holdout_v26_results.json`: the financing-retrieval round re-scored under v2.6, with the gold corrections and the not-blind stage 1 check.
 
 ## How it ran
