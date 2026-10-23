@@ -541,8 +541,30 @@ def _log_resume_banner(
     log = getattr(context, "log", None)
     if log is None:
         return
-    worker_alive = _dagster_run_is_alive(context, existing_run.get("dagster_run_id"))
-    if worker_alive is True:
+    previous_dagster_run_id = existing_run.get("dagster_run_id")
+    current_dagster_run_id = _current_dagster_run_id(context)
+    same_dagster_run = (
+        bool(previous_dagster_run_id)
+        and current_dagster_run_id is not None
+        and str(previous_dagster_run_id) == str(current_dagster_run_id)
+    )
+    if same_dagster_run and existing_run.get("status") == LOGICAL_RUN_STATUS_RUNNING:
+        # An earlier step of this same Dagster run already started or resumed
+        # the logical run and pointed it at our run id. The liveness check
+        # would see our own run as "alive" and warn about a concurrent run
+        # that does not exist, so keep this to a one-line info message instead.
+        log.info(
+            "%s: logical run %s already started or resumed earlier in this Dagster run; "
+            + "continuing with the same %d-agreement scope.",
+            job_name,
+            str(existing_run.get("logical_run_id")),
+            len(resumed_scope),
+        )
+        return
+    worker_alive = None if same_dagster_run else _dagster_run_is_alive(context, previous_dagster_run_id)
+    if same_dagster_run:
+        worker_note = "an earlier step of this same Dagster run left it in this state"
+    elif worker_alive is True:
         worker_note = (
             "WARNING: the previous run's worker still appears to be RUNNING - "
             "you may have two concurrent runs of this job"

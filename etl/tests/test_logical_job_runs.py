@@ -104,12 +104,13 @@ class _FakeInstance:
 class _FakeLog:
     def __init__(self) -> None:
         self.warnings: list[str] = []
+        self.infos: list[str] = []
 
     def warning(self, message: str, *args: object) -> None:
         self.warnings.append(message % args if args else message)
 
     def info(self, message: str, *args: object) -> None:
-        pass
+        self.infos.append(message % args if args else message)
 
 
 def _status_for_run(db: "_FakeDB", logical_run_id: str) -> str:
@@ -229,6 +230,143 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertEqual(_status_for_run(db, first_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
         self.assertTrue(any("RESUMING existing logical run" in line for line in log.warnings))
         self.assertTrue(any("no longer alive" in line for line in log.warnings))
+
+    def test_resume_within_same_dagster_run_does_not_warn_about_concurrent_run(self) -> None:
+        db = _FakeDB()
+        first_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1", "agreement-2"],
+        )
+        assert first_run is not None
+
+        # Step one of the new Dagster run resumes the failed logical run and
+        # re-points it at "dagster-2".
+        first_step_log = _FakeLog()
+        first_step_context = SimpleNamespace(
+            run_id="dagster-2",
+            instance=_FakeInstance(finished_run_ids={"dagster-1"}, alive_run_ids=set()),
+            log=first_step_log,
+        )
+        resumed_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, first_step_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-9"],
+        )
+        assert resumed_run is not None
+        self.assertTrue(resumed_run.resumed_existing)
+        self.assertTrue(any("RESUMING existing logical run" in line for line in first_step_log.warnings))
+
+        # A later step of the same Dagster run sees its own run id as the
+        # logical run's worker; that is not a concurrent run.
+        second_step_log = _FakeLog()
+        second_step_context = SimpleNamespace(
+            run_id="dagster-2",
+            instance=_FakeInstance(finished_run_ids={"dagster-1"}, alive_run_ids={"dagster-2"}),
+            log=second_step_log,
+        )
+        same_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, second_step_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-9"],
+        )
+        assert same_run is not None
+        self.assertEqual(same_run.logical_run_id, first_run.logical_run_id)
+        self.assertEqual(same_run.agreement_uuids, ["agreement-1", "agreement-2"])
+        self.assertEqual(second_step_log.warnings, [])
+        self.assertTrue(
+            any("already started or resumed earlier in this Dagster run" in line for line in second_step_log.infos)
+        )
+        self.assertFalse(any("concurrent" in line for line in second_step_log.infos))
+
+    def test_later_step_of_fresh_dagster_run_does_not_warn(self) -> None:
+        db = _FakeDB()
+        first_step_context = SimpleNamespace(
+            run_id="dagster-1",
+            instance=_FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-1"}),
+            log=_FakeLog(),
+        )
+        first_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, first_step_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert first_run is not None
+        self.assertFalse(first_run.resumed_existing)
+
+        second_step_log = _FakeLog()
+        second_step_context = SimpleNamespace(
+            run_id="dagster-1",
+            instance=_FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-1"}),
+            log=second_step_log,
+        )
+        same_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, second_step_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert same_run is not None
+        self.assertEqual(same_run.logical_run_id, first_run.logical_run_id)
+        self.assertEqual(second_step_log.warnings, [])
+        self.assertTrue(
+            any("already started or resumed earlier in this Dagster run" in line for line in second_step_log.infos)
+        )
+
+    def test_failed_run_from_same_dagster_run_still_logs_full_banner(self) -> None:
+        db = _FakeDB()
+        first_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert first_run is not None
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_a",
+            stage_name="ingestion_cleanup_a_tagging",
+            dagster_run_id="dagster-1",
+        )
+        self.assertEqual(_status_for_run(db, first_run.logical_run_id), LOGICAL_RUN_STATUS_FAILED)
+
+        # A later step of the same Dagster run picks the FAILED row back up;
+        # the operator should see the full banner, but not a concurrent-run warning.
+        log = _FakeLog()
+        later_step_context = SimpleNamespace(
+            run_id="dagster-1",
+            instance=_FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-1"}),
+            log=log,
+        )
+        resumed_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, later_step_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert resumed_run is not None
+        self.assertTrue(any("RESUMING existing logical run" in line for line in log.warnings))
+        self.assertTrue(any("prior status: FAILED" in line for line in log.warnings))
+        self.assertTrue(any("this same Dagster run" in line for line in log.warnings))
+        self.assertFalse(any("concurrent" in line for line in log.warnings))
 
 
     def test_start_creates_new_logical_run_with_persisted_scope(self) -> None:
