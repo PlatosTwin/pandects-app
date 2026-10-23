@@ -846,12 +846,89 @@ class LogicalJobRunTests(unittest.TestCase):
         self.assertEqual(scope, ["agreement-1", "agreement-2"])
         self.assertEqual(_status_for_run(db, original_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
         self.assertEqual(_owner_for_run(db, original_run.logical_run_id), "dagster-2")
+        with db.get_engine().begin() as conn:
+            finished_at = conn.execute(
+                text("SELECT finished_at FROM pipeline_job_runs WHERE logical_run_id = :id"),
+                {"id": original_run.logical_run_id},
+            ).scalar()
+        self.assertIsNone(finished_at)
         should_skip, _ = should_skip_managed_stage(
             db=cast(DBResource, cast(object, db)),
             job_name="regular_ingest",
             stage_name="regular_ingest_pre_processing",
         )
         self.assertTrue(should_skip)
+        mark_logical_run_stage_completed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_tagging",
+        )
+        active_run = load_active_logical_run(db=cast(DBResource, cast(object, db)), job_name="regular_ingest")
+        assert active_run is not None
+        self.assertEqual(active_run["logical_run_id"], original_run.logical_run_id)
+        self.assertIn("regular_ingest_tagging", active_run["completed_stages"])
+
+    def test_inherited_asset_resume_retry_tag_does_not_count_as_resume(self) -> None:
+        db = _FakeDB()
+        original_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert original_run is not None
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_a",
+            stage_name="ingestion_cleanup_a_tagging",
+            dagster_run_id="dagster-1",
+        )
+
+        # A re-execute-all of a from-asset-failure retry inherits that retry's tag.
+        rerun_context = _reexecution_context(
+            "dagster-3",
+            parent_run_id="dagster-1",
+            root_run_id="dagster-1",
+            instance=_FakeInstance(finished_run_ids={"dagster-1"}, alive_run_ids={"dagster-3"}),
+            from_failure=False,
+        )
+        rerun_context.run.tags["dagster/is_asset_resume_retry"] = "true"
+        rerun = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, rerun_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="ingestion_cleanup_a",
+            initial_stage="ingestion_cleanup_a_tagging",
+            selected_agreement_uuids=["agreement-2"],
+        )
+
+        assert rerun is not None
+        self.assertNotEqual(rerun.logical_run_id, original_run.logical_run_id)
+        self.assertEqual(_status_for_run(db, original_run.logical_run_id), LOGICAL_RUN_STATUS_ABANDONED)
+
+    def test_mark_failed_does_not_fail_logical_run_owned_by_live_dagster_run(self) -> None:
+        db = _FakeDB()
+        owner_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, SimpleNamespace(run_id="dagster-1"))),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="ingestion_cleanup_c",
+            initial_stage="ingestion_cleanup_c_sections",
+            selected_agreement_uuids=["agreement-1"],
+        )
+        assert owner_run is not None
+
+        mark_logical_run_failed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="ingestion_cleanup_c",
+            stage_name="ingestion_cleanup_c_sections",
+            dagster_run_id="dagster-2",
+            instance=_FakeInstance(finished_run_ids=set(), alive_run_ids={"dagster-1", "dagster-2"}),
+        )
+
+        self.assertEqual(_status_for_run(db, owner_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
 
     def test_force_new_reexecution_does_not_adopt_unrelated_failed_run(self) -> None:
         db = _FakeDB()
