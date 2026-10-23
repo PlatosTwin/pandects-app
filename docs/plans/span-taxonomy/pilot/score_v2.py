@@ -166,7 +166,8 @@ def main(D, arm, gold, split=None, dis_path=None, concepts=None):
            "spans": {short(c): {"recall": round(s[1] / max(s[0], 1), 3), "precision": round(s[3] / max(s[2], 1), 3),
                                 "gold": s[0], "pred": s[2]} for c, s in span.items()},
            "fields": {f"{short(c)}.{k}": [ok, n] for (c, k), (ok, n) in sorted(fld.items())},
-           "set_field_f1": {f"{short(c)}.{k}": round(2 * tp / max(pr + g, 1), 3) for (c, k), (tp, pr, g) in sorted(setf1.items())}}
+           "set_field_f1": {f"{short(c)}.{k}": round(2 * tp / max(pr + g, 1), 3) for (c, k), (tp, pr, g) in sorted(setf1.items())},
+           "set_field_counts": {f"{short(c)}.{k}": [tp, pr, g] for (c, k), (tp, pr, g) in sorted(setf1.items())}}
     if dis_path:
         json.dump(disagreements, open(dis_path, "w"), indent=1)
     return rep
