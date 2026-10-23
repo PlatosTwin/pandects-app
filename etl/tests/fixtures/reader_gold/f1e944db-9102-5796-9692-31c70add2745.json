@@ -1,6 +1,6 @@
 {
  "agreement_uuid": "f1e944db-9102-5796-9692-31c70add2745",
- "rubric": "v1",
+ "rubric": "v1.2",
  "declarations": [
   {
    "term": "Acquiror",
@@ -83,11 +83,6 @@
   },
   {
    "term": "Affiliate",
-   "para": "P16",
-   "kind": "means"
-  },
-  {
-   "term": "control",
    "para": "P16",
    "kind": "means"
   },
@@ -412,6 +407,13 @@
    "mention": "10.15",
    "context": "nothing in this Section 10.15 (or elsewhere",
    "target": "s10.15"
+  },
+  {
+   "para": "P24",
+   "head": "exhibit",
+   "mention": "B",
+   "context": "attached hereto as Exhibit B",
+   "target": "not_in_filing"
   }
  ],
  "term_uses": [
@@ -456,15 +458,7 @@
    "count": 2
   }
  ],
- "excluded_xrefs": [
-  {
-   "para": "P24",
-   "head": "exhibit",
-   "mention": "B",
-   "context": "attached hereto as Exhibit B",
-   "target": "x-exhibit-b"
-  }
- ],
+ "excluded_xrefs": [],
  "xml_version": 2,
  "para_map": {
   "P1": {
@@ -703,25 +697,5 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P24",
-    "head": "exhibit",
-    "mention": "B",
-    "context": "attached hereto as Exhibit B",
-    "target": "x-exhibit-b"
-   },
-   "checker": {
-    "para": "P24",
-    "head": "exhibit",
-    "mention": "B",
-    "context": "attached hereto as Exhibit B",
-    "target": "not_in_filing"
-   },
-   "type": "disagree",
-   "reason": "Outline lists no attachment headings in back matter, so Exhibit B is not in this filing."
-  }
- ]
+ "rulings": "2026-10-23: user accepted recommended rulings 1-5 (gold_rubric.md v1.2)"
 }

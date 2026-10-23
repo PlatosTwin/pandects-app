@@ -456,7 +456,7 @@ Five agreements, one per stratum, none used to tune the enricher: `a4f68407` (pr
 
 **Cost:** about 1.0M subagent tokens in total, roughly 100k per drafter and 100k per checker. Packets are only about 6k tokens each, so nearly all of the cost is fixed per-agent overhead. For the full 30, giving each agent 3 agreements should bring the cost to an estimated 2.5–3M tokens, against about 6M at one agreement per agent.
 
-**Labels:** 159 declarations, 165 references (112 internal) and 12 term-use rows were agreed. 16 items await the user's ruling, and 5 context-only fixes were applied automatically.
+**Labels:** after adjudication, 161 declarations, 170 references (111 internal) and 12 term-use rows. 16 items went to the user, and 5 context-only fixes were applied automatically.
 
 **First score:** the enricher started at 92.4% link precision (108 of 117 links correct), against the 99% bar. Fixes for the error patterns the pilot exposed:
 
@@ -466,16 +466,33 @@ Five agreements, one per stratum, none used to tune the enricher: `a4f68407` (pr
 - An attachment heading ("Annex 3.7") no longer links to itself.
 - Declarations now cover `(the entity so determined, the "X")`, `referred to herein as "X"`, `the term "X," when used ... means`, and a pointer wrapped in a `<definition>` element. Plural terms also match their singular ("Acquired Employees" and "Acquired Employee").
 
-**After the fixes** (pilot set; optimistic, because these agreements drove the fixes):
+**Rulings (2026-10-23).** The user accepted all five recommended rulings on the 16 disputed items, now in rubric v1.2:
+
+1. Single-letter formula variables are not declarations.
+2. Lowercase correlatives ("control", "controlled") are not declarations.
+3. An attachment that is mentioned but not filed is `not_in_filing`.
+4. A "Schedule 12.2" that mirrors the agreement's section numbers is `disclosure_schedule`.
+5. Drafter errors were fixed in the checker's favor, except one "Section 3.13 of the ... Disclosure Schedule" that stays `disclosure_schedule`.
+
+All five fixtures are adjudicated, and `etl/tests/test_reader_gold_fixtures.py` keeps them consistent in CI.
+
+**Score against the adjudicated gold** (pilot set; optimistic, because these agreements drove the fixes):
 
 | Metric | Pilot | Launch bar |
 |---|---|---|
 | Xref link precision | 100% (109/109) | ≥ 99% |
-| Xref in-document recall | 97.3% | ≥ 95% |
-| Declaration precision / recall | 94–100% / 94–100% per agreement | ≥ 98% / ≥ 95% |
+| Xref in-document recall | 98.2% (109/111) | ≥ 95% |
+| Declaration precision / recall | 94–100% / 100% per agreement | ≥ 98% / ≥ 95% |
 | Term-use precision / recall | 100% / 89–100% (2 agreements only) | ≥ 97% / ≥ 90% |
 
 The full set of 30 must be scored held-out, with no rule changes in between, to give a real precision number. Term-use evidence is thin: rubric v1 picked terms that never occur in the sampled sections, so v1.1 picks terms that do.
+
+**Known gaps** left for the held-out set to measure, not fixed now:
+
+- `(this "Agreement")` is not a declaration yet.
+- Terms that start with `$` ("$18 Earn Out Shares") are not matched.
+- "clauses (f) or (g) of the definition of X" does not resolve.
+- One extra "Material Adverse Effect" declaration appears in `a4f68407`.
 
 **Corpus after the fixes** (read-only, 11,790 XMLs): 0 errors, 80 ms per agreement. Resolved references fell from 2.49M to 2.44M and ambiguous ones from 17k to 6.7k; most of the difference is now unlinked `inline`, as intended. Terms rose from 1.82M to 1.86M and uses from 36.8M to 38.4M. The median body section-level rate is 87.5%.
 

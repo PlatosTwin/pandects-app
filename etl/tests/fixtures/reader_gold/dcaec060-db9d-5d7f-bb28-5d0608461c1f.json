@@ -1,6 +1,6 @@
 {
  "agreement_uuid": "dcaec060-db9d-5d7f-bb28-5d0608461c1f",
- "rubric": "v1",
+ "rubric": "v1.2",
  "declarations": [
   {
    "term": "$18 Earn Out Shares",
@@ -60,11 +60,6 @@
   },
   {
    "term": "Affiliate",
-   "para": "P11",
-   "kind": "means"
-  },
-  {
-   "term": "control",
    "para": "P11",
    "kind": "means"
   },
@@ -850,39 +845,5 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "controlled",
-    "para": "P11",
-    "kind": "means"
-   },
-   "type": "missing",
-   "reason": "Quoted term given a correlative meaning; same pattern as the drafter's own 'Beneficial Ownership' entry."
-  },
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "controlling",
-    "para": "P11",
-    "kind": "means"
-   },
-   "type": "missing",
-   "reason": "Quoted term given a correlative meaning; same pattern as the drafter's own 'Beneficial Ownership' entry."
-  },
-  {
-   "section": "term_uses",
-   "draft": null,
-   "checker": {
-    "term": "Allocation Schedule",
-    "para": "P47",
-    "count": 1
-   },
-   "type": "missing",
-   "reason": "With controlled/controlling declared after control, the 20th declared term is Allocation Schedule, used once in P47."
-  }
- ]
+ "rulings": "2026-10-23: user accepted recommended rulings 1-5 (gold_rubric.md v1.2)"
 }

@@ -1,6 +1,6 @@
 {
  "agreement_uuid": "ac898a77-03a3-564b-95c6-7eb61cdc5ee0",
- "rubric": "v1",
+ "rubric": "v1.2",
  "declarations": [
   {
    "term": "Acquired Employees",
@@ -219,6 +219,30 @@
    "term": "Acquired Employees",
    "para": "P46",
    "kind": "paren"
+  },
+  {
+   "term": "Allocated Value",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "disclosure_schedule"
+  },
+  {
+   "term": "Atlas Employee Welfare Benefit Plan",
+   "para": "P19",
+   "kind": "pointer",
+   "pointer": "s12.2"
+  },
+  {
+   "term": "Atlas Employee Pension Benefit Plan",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "s12.2"
+  },
+  {
+   "term": "CERCLA",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s12.2"
   }
  ],
  "xrefs": [
@@ -409,7 +433,7 @@
    "head": "annex",
    "mention": "A",
    "context": "in the form attached hereto as Annex A",
-   "target": "x-annex-a"
+   "target": "not_in_filing"
   },
   {
    "para": "P45",
@@ -438,6 +462,34 @@
    "mention": "6.2",
    "context": "none of the provisions of this Section 6.2 is intended",
    "target": "s6.2"
+  },
+  {
+   "para": "P9",
+   "head": "schedule",
+   "mention": "12.2",
+   "context": "meaning set forth in Schedule 12.2",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P10",
+   "head": "annex",
+   "mention": "B",
+   "context": "attached hereto as Annex B",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P44",
+   "head": "annex",
+   "mention": "B",
+   "context": "to read as set forth in Annex B",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "3.13",
+   "context": "Section 3.13 of the Titan Disclosure Schedule sets forth",
+   "target": "disclosure_schedule"
   }
  ],
  "term_uses": [
@@ -462,36 +514,7 @@
    "count": 2
   }
  ],
- "excluded_xrefs": [
-  {
-   "para": "P9",
-   "head": "schedule",
-   "mention": "12.2",
-   "context": "meaning set forth in Schedule 12.2",
-   "target": "x-schedule-12.2"
-  },
-  {
-   "para": "P10",
-   "head": "annex",
-   "mention": "B",
-   "context": "attached hereto as Annex B",
-   "target": "x-annex-b"
-  },
-  {
-   "para": "P44",
-   "head": "annex",
-   "mention": "B",
-   "context": "to read as set forth in Annex B",
-   "target": "x-annex-b"
-  },
-  {
-   "para": "P45",
-   "head": "section",
-   "mention": "3.13",
-   "context": "Section 3.13 of the Titan Disclosure Schedule sets forth",
-   "target": "disclosure_schedule"
-  }
- ],
+ "excluded_xrefs": [],
  "xml_version": 1,
  "para_map": {
   "P1": {
@@ -755,150 +778,5 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": {
-    "term": "Allocated Value",
-    "para": "P9",
-    "kind": "pointer",
-    "pointer": "x-schedule-12.2"
-   },
-   "checker": {
-    "term": "Allocated Value",
-    "para": "P9",
-    "kind": "pointer",
-    "pointer": "disclosure_schedule"
-   },
-   "type": "disagree",
-   "reason": "Schedule 12.2 mirrors Section 12.2 numbering and P1 says other terms are defined in Section 12.2 of the Titan Disclosure Schedule; no Schedule 12.2 attachment in the outline."
-  },
-  {
-   "section": "declarations",
-   "draft": {
-    "term": "Atlas Employee Welfare Benefit Plan",
-    "para": "P19",
-    "kind": "pointer",
-    "pointer": "P18"
-   },
-   "checker": {
-    "term": "Atlas Employee Welfare Benefit Plan",
-    "para": "P19",
-    "kind": "pointer",
-    "pointer": "s12.2"
-   },
-   "type": "disagree",
-   "reason": "'P18' is not a valid target id; the Atlas Employee Benefit Plan definition lives in Section 12.2."
-  },
-  {
-   "section": "declarations",
-   "draft": {
-    "term": "Atlas Employee Pension Benefit Plan",
-    "para": "P20",
-    "kind": "pointer",
-    "pointer": "P18"
-   },
-   "checker": {
-    "term": "Atlas Employee Pension Benefit Plan",
-    "para": "P20",
-    "kind": "pointer",
-    "pointer": "s12.2"
-   },
-   "type": "disagree",
-   "reason": "'P18' is not a valid target id; the Atlas Employee Benefit Plan definition lives in Section 12.2."
-  },
-  {
-   "section": "declarations",
-   "draft": {
-    "term": "CERCLA",
-    "para": "P36",
-    "kind": "pointer",
-    "pointer": "not_in_filing"
-   },
-   "checker": {
-    "term": "CERCLA",
-    "para": "P36",
-    "kind": "pointer",
-    "pointer": "s12.2"
-   },
-   "type": "disagree",
-   "reason": "Points to the definition of Environmental Laws, which is in this filing's Section 12.2 definitions, not missing from the filing."
-  },
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P9",
-    "head": "schedule",
-    "mention": "12.2",
-    "context": "meaning set forth in Schedule 12.2",
-    "target": "x-schedule-12.2"
-   },
-   "checker": {
-    "para": "P9",
-    "head": "schedule",
-    "mention": "12.2",
-    "context": "meaning set forth in Schedule 12.2",
-    "target": "disclosure_schedule"
-   },
-   "type": "disagree",
-   "reason": "Schedule 12.2 is the disclosure schedule keyed to Section 12.2 (see P1); no Schedule 12.2 attachment in the outline."
-  },
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P10",
-    "head": "annex",
-    "mention": "B",
-    "context": "attached hereto as Annex B",
-    "target": "x-annex-b"
-   },
-   "checker": {
-    "para": "P10",
-    "head": "annex",
-    "mention": "B",
-    "context": "attached hereto as Annex B",
-    "target": "not_in_filing"
-   },
-   "type": "disagree",
-   "reason": "Outline lists no attachment headings in back matter, so Annex B is not in this filing."
-  },
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P44",
-    "head": "annex",
-    "mention": "B",
-    "context": "to read as set forth in Annex B",
-    "target": "x-annex-b"
-   },
-   "checker": {
-    "para": "P44",
-    "head": "annex",
-    "mention": "B",
-    "context": "to read as set forth in Annex B",
-    "target": "not_in_filing"
-   },
-   "type": "disagree",
-   "reason": "Outline lists no attachment headings in back matter, so Annex A is not in this filing."
-  },
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P45",
-    "head": "section",
-    "mention": "3.13",
-    "context": "Section 3.13 of the Titan Disclosure Schedule sets forth",
-    "target": "disclosure_schedule"
-   },
-   "checker": {
-    "para": "P45",
-    "head": "section",
-    "mention": "3.13",
-    "context": "Section 3.13 of the Titan Disclosure Schedule sets forth",
-    "target": "not_in_filing"
-   },
-   "type": "disagree",
-   "reason": "Outline lists no attachment headings in back matter, so Annex B is not in this filing."
-  }
- ]
+ "rulings": "2026-10-23: user accepted recommended rulings 1-5 (gold_rubric.md v1.2)"
 }
