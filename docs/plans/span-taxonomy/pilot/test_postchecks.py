@@ -196,6 +196,109 @@ class StatedAmounts(unittest.TestCase):
         self.assertEqual(log, [])
 
 
+
+def escrow_cap(value):
+    doc = cap("shall not exceed the Indemnity Escrow Amount")
+    doc["instances"][0]["escrow_sole_recourse"] = value
+    return doc
+
+
+def recourse(doc):
+    v = doc["instances"][0]["escrow_sole_recourse"]
+    return v.get("value") if isinstance(v, dict) else v
+
+
+S = "@@ S80 | ARTICLE X INDEMNIFICATION | Section 10.4 Manner of Payment | groups=indemnification\n"
+
+
+class EscrowSoleRecourse(unittest.TestCase):
+    def test_first_source_of_payment(self):  # 14e30716
+        out, log = apply(escrow_cap({"value": True, "quote": "x"}), S + "(i) The first source of payment for Losses in respect of the Securityholder Indemnifiable Matters will be payment from the Indemnity Escrow Amount.")
+        self.assertEqual((recourse(out), log[-1]["rule"]), (False, "v2.8 rule 8"))
+
+    def test_escrow_then_sellers(self):  # 1509f5f1
+        out, log = apply(escrow_cap("not_stated"), S + "Any Adverse Consequences recoverable by a Buyer Indemnified Party under this Article 7 will first be recovered from the Escrow Funds and then from the applicable Seller or Sellers.")
+        self.assertIs(recourse(out), False)
+
+    def test_escrow_then_policy_is_left_alone(self):  # 749cfebe: the second source is not the sellers
+        out, log = apply(escrow_cap({"value": True, "quote": "x"}), S + "(a) In the case of any amount payable to a Purchaser Indemnitee under Section 7.2(a), such amount shall be satisfied (i) first, from the Escrow Amount until the Escrow Amount has been depleted, and (ii) second, from the R&W Insurance Policy.")
+        self.assertIs(recourse(out), True)
+
+    def test_price_adjustment_is_left_alone(self):  # 1818c1ec
+        out, log = apply(escrow_cap({"value": True, "quote": "x"}), S + "Any Net Negative Adjustment Amount shall be recovered first from the Net Working Capital Expense Fund, second from the Escrow Fund and finally, from the Founder and the Outside Sellers according to their respective Indemnification Percentages.")
+        self.assertIs(recourse(out), True)
+
+    def test_adverbial_then_is_left_alone(self):  # 320c861f: "then remaining outstanding"
+        out, log = apply(escrow_cap({"value": True, "quote": "x"}), S + "The indemnity obligation of the Escrow Participants shall be satisfied first by reducing the principal amount of the Stockholder Term B Loan by the amount of such Distribution Entitlement, up to the principal amount of the Stockholder Term B Loan then remaining outstanding.")
+        self.assertIs(recourse(out), True)
+
+    def test_non_exclusive_setoff(self):  # d166d547
+        out, log = apply(escrow_cap("not_stated"), S + "(b) Buyer may set off any amount to which it is entitled under this Article IX. Neither the exercise nor the failure to exercise such right of setoff shall constitute an election of remedies or limit Buyer in any manner in the enforcement of any other remedies that may be available to it.")
+        self.assertEqual((recourse(out), log[-1]["rule"]), (False, "v2.10 rule 3"))
+
+    def test_non_exclusive_setoff_leaves_a_coded_value(self):
+        out, log = apply(escrow_cap({"value": True, "quote": "x"}), S + "Neither the exercise nor the failure to exercise such right of setoff shall constitute an election of remedies.")
+        self.assertIs(recourse(out), True)
+
+
+def reverse(*triggers):
+    return {"agreement": "x", "instances": [{"concept": "ma.termination.fee.reverse", "finding": "present",
+            "amounts": [], "triggers": [dict({"tail": None, "text": ""}, **t) for t in triggers]}]}
+
+
+R = "ma.termination.fee.reverse"
+
+
+class HadRight(unittest.TestCase):
+    def test_outside_date_while_payee_could_terminate(self):  # 9ac16a58
+        out, log = apply(reverse({"code": "buyer_breach", "quote": "a"}, {"code": "failure_to_close", "quote": "b"},
+                                 {"code": "other", "quote": "(ii) Parent pursuant to Section 8.01(b)(i) and at such time the Company had the right to terminate this Agreement pursuant to Section 8.01(d)(ii) or Section 8.01(d)(iii)"}), "")
+        self.assertEqual((codes(out, R), log[-1]["rule"]), (["buyer_breach", "failure_to_close"], "v2.10 rule 1"))
+
+    def test_could_have_terminated_in_text(self):  # 28803f36
+        out, log = apply(reverse({"code": "buyer_breach", "quote": "a"},
+                                 {"code": "other", "quote": "9.01(b)", "text": "termination at the End Date when the Company could have terminated under 9.01(f)"}), "")
+        self.assertEqual(codes(out, R), ["buyer_breach"])
+
+    def test_sole_trigger_is_kept(self):
+        out, log = apply(reverse({"code": "other", "quote": "at such time the Company had the right to terminate"}), "")
+        self.assertEqual((codes(out, R), log), (["other"], []))
+
+    def test_other_other_is_kept(self):
+        out, log = apply(reverse({"code": "buyer_breach", "quote": "a"}, {"code": "other", "quote": "a Parent Triggering Event shall have occurred"}), "")
+        self.assertEqual(codes(out, R), ["buyer_breach", "other"])
+
+
+BA52 = """@@ S70 | ARTICLE X TERMINATION | Section 10.01 Termination | groups=termination
+(c) by the Company, if Pyramid shall have breached any of its representations, warranties or covenants;
+(f) by the Company, if the Board of Directors of Pyramid shall have failed to recommend, or shall have withdrawn, modified or amended in a manner adverse to the Company in any material respect the Pyramid Board Recommendation;
+(h) by Pyramid, if the Board of Directors of the Company shall have failed to recommend, or shall have withdrawn the Company Board Recommendation;"""
+
+
+class ReverseRecommendationFailure(unittest.TestCase):
+    def test_cited_clause_covers_failure(self):  # ba52fd38
+        out, log = apply(reverse({"code": "buyer_breach", "quote": "a"},
+                                 {"code": "buyer_recommendation_change", "quote": "the Company terminates this Agreement pursuant to Sections 10.01(c) (as a result of a breach by Pyramid) or 10.01(f)"}), BA52)
+        self.assertEqual(codes(out, R), ["buyer_breach", "buyer_recommendation_change", "recommendation_failure"])
+        self.assertEqual(out["instances"][0]["triggers"][-1]["quote"], "failed to recommend")
+
+    def test_uncited_clause_is_left_alone(self):  # (h) is the target board's failure
+        out, log = apply(reverse({"code": "buyer_recommendation_change", "quote": "pursuant to Section 10.01(c)"}), BA52)
+        self.assertEqual(codes(out, R), ["buyer_recommendation_change"])
+
+    def test_failure_to_include_recoded(self):  # 4d5b8c58
+        out, log = apply(reverse({"code": "buyer_recommendation_change", "quote": "a Parent Adverse Recommendation Change shall have occurred"},
+                                 {"code": "buyer_approval_failure", "quote": "the Board of Directors of Parent shall have failed to include its recommendation to the stockholders of Parent for the approval of the Parent Share Issuance in the Joint Proxy Statement"}), "")
+        self.assertEqual(codes(out, R), ["buyer_recommendation_change", "recommendation_failure"])
+
+    def test_vote_failure_is_left_alone(self):
+        out, log = apply(reverse({"code": "buyer_approval_failure", "quote": "the Parent Stockholder Approval shall not have been obtained"}), "")
+        self.assertEqual((codes(out, R), log), (["buyer_approval_failure"], []))
+
+    def test_meeting_breach_is_buyer_breach(self):  # 4d5b8c58
+        out, log = apply(reverse({"code": "other", "quote": "(ii) Parent shall have materially breached its obligations under Section 5.01 by failing to hold the Parent Stockholders' Meeting"}), "")
+        self.assertEqual(codes(out, R), ["buyer_breach"])
+
 if __name__ == "__main__":
     unittest.main()
 
