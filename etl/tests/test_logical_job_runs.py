@@ -461,10 +461,11 @@ class LogicalJobRunTests(unittest.TestCase):
 
     def test_force_new_logical_run_abandons_old_run_and_creates_new_one(self) -> None:
         db = _FakeDB()
-        context = SimpleNamespace(run_id="dagster-1")
+        first_context = SimpleNamespace(run_id="dagster-1")
+        context = SimpleNamespace(run_id="dagster-2")
 
         first_run = start_or_resume_logical_run(
-            cast(AssetExecutionContext, cast(object, context)),
+            cast(AssetExecutionContext, cast(object, first_context)),
             db=cast(DBResource, cast(object, db)),
             pipeline_config=_pipeline_config(),
             job_name="regular_ingest",
@@ -503,6 +504,56 @@ class LogicalJobRunTests(unittest.TestCase):
         status_by_run_id = {str(row["logical_run_id"]): str(row["status"]) for row in statuses}
         self.assertEqual(status_by_run_id[first_run.logical_run_id], LOGICAL_RUN_STATUS_ABANDONED)
         self.assertEqual(status_by_run_id[second_run.logical_run_id], LOGICAL_RUN_STATUS_RUNNING)
+
+    def test_force_new_logical_run_reuses_run_started_earlier_in_same_dagster_run(self) -> None:
+        db = _FakeDB()
+        old_context = SimpleNamespace(run_id="dagster-old")
+        context = SimpleNamespace(run_id="dagster-1")
+
+        old_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, old_context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-old"],
+        )
+        assert old_run is not None
+
+        staging_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_staging",
+            selected_agreement_uuids=["agreement-1", "agreement-2"],
+        )
+        assert staging_run is not None
+        mark_logical_run_stage_completed(
+            db=cast(DBResource, cast(object, db)),
+            job_name="regular_ingest",
+            stage_name="regular_ingest_staging",
+        )
+
+        pre_processing_run = start_or_resume_logical_run(
+            cast(AssetExecutionContext, cast(object, context)),
+            db=cast(DBResource, cast(object, db)),
+            pipeline_config=_pipeline_config(force_new_logical_run=True),
+            job_name="regular_ingest",
+            initial_stage="regular_ingest_pre_processing",
+            selected_agreement_uuids=["agreement-1", "agreement-2", "agreement-3"],
+        )
+
+        assert pre_processing_run is not None
+        self.assertNotEqual(staging_run.logical_run_id, old_run.logical_run_id)
+        self.assertEqual(pre_processing_run.logical_run_id, staging_run.logical_run_id)
+        self.assertEqual(pre_processing_run.agreement_uuids, ["agreement-1", "agreement-2"])
+        self.assertEqual(pre_processing_run.completed_stages, ["regular_ingest_staging"])
+        self.assertEqual(_status_for_run(db, old_run.logical_run_id), LOGICAL_RUN_STATUS_ABANDONED)
+        self.assertEqual(_status_for_run(db, staging_run.logical_run_id), LOGICAL_RUN_STATUS_RUNNING)
+        with db.get_engine().begin() as conn:
+            run_count = conn.execute(text("SELECT COUNT(*) FROM pipeline_job_runs")).scalar()
+        self.assertEqual(run_count, 2)
 
     def test_start_resumes_failed_run_instead_of_starting_fresh(self) -> None:
         db = _FakeDB()

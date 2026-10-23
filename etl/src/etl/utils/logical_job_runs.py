@@ -396,6 +396,39 @@ def fetch_resumable_logical_run(conn: Any, *, schema: str, job_name: str) -> dic
     return rows[0]
 
 
+def _fetch_running_run_for_dagster_run(
+    conn: Any,
+    *,
+    schema: str,
+    job_name: str,
+    dagster_run_id: str | None,
+) -> dict[str, Any] | None:
+    if not dagster_run_id:
+        return None
+    completed_stages_expr = _job_runs_completed_stages_expr(conn, schema=schema)
+    row = conn.execute(
+        text(
+            f"""
+            SELECT logical_run_id, job_name, status, current_stage, started_at, updated_at, scope_size, dagster_run_id, {completed_stages_expr}
+            FROM {_job_runs_table(schema, conn)}
+            WHERE job_name = :job_name
+              AND status = :running_status
+              AND dagster_run_id = :dagster_run_id
+            ORDER BY started_at DESC, logical_run_id DESC
+            LIMIT 1
+            """
+        ),
+        {
+            "job_name": job_name,
+            "running_status": LOGICAL_RUN_STATUS_RUNNING,
+            "dagster_run_id": dagster_run_id,
+        },
+    ).mappings().first()
+    if row is None:
+        return None
+    return _hydrate_logical_run_row(job_name, dict(row))
+
+
 def load_active_logical_run(*, db: DBResource, job_name: str) -> dict[str, Any] | None:
     engine = db.get_engine()
     schema = db.database
@@ -617,9 +650,18 @@ def start_or_resume_logical_run(
     with engine.begin() as conn:
         assert_logical_job_run_tables_exist(conn, schema=schema)
         _reconcile_orphaned_running_runs(context, conn, schema=schema, job_name=job_name)
-        existing_run = None
         if pipeline_config.resume_logical_runs and not pipeline_config.force_new_logical_run:
             existing_run = fetch_resumable_logical_run(conn, schema=schema, job_name=job_name)
+        else:
+            # Every managed step of a Dagster run calls this. Starting fresh
+            # applies only to the first one; later steps of the same Dagster
+            # run must continue the logical run it started, not abandon it.
+            existing_run = _fetch_running_run_for_dagster_run(
+                conn,
+                schema=schema,
+                job_name=job_name,
+                dagster_run_id=_current_dagster_run_id(context),
+            )
         if existing_run is not None:
             logical_run_id = str(existing_run["logical_run_id"])
             resumed_scope = load_logical_run_scope(conn, schema=schema, logical_run_id=logical_run_id)
