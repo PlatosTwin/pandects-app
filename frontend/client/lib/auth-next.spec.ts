@@ -22,6 +22,12 @@ describe("safeNextPath", () => {
     expect(safeNextPath("//evil.example/path")).toBe("/account");
   });
 
+  it("rejects backslashes and control characters that browsers treat as a second slash", () => {
+    expect(safeNextPath("/\\evil.example/path")).toBe("/account");
+    expect(safeNextPath("/\t/evil.example/path")).toBe("/account");
+    expect(safeNextPath("/\n/evil.example")).toBe("/account");
+  });
+
   it("accepts safe relative paths", () => {
     expect(safeNextPath("/search?query=test")).toBe("/search?query=test");
   });

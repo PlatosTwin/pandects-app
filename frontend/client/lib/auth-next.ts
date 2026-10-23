@@ -24,7 +24,20 @@ export function safeNextPath(value: string | null | undefined): string {
   const trimmed = value.trim();
   if (!trimmed.startsWith("/")) return "/account";
   if (trimmed.startsWith("//")) return "/account";
+  if (hasUnsafePathChar(trimmed)) return "/account";
   return trimmed;
+}
+
+/**
+ * Browsers read `\` as `/` and drop tabs and newlines, so `/\evil.test` and
+ * `/\t/evil.test` would leave the site.
+ */
+function hasUnsafePathChar(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x1f || code === 0x7f || code === 0x5c) return true;
+  }
+  return false;
 }
 
 function buildDocumentNavigationTarget(value: string | null | undefined): DocumentNavigationTarget | null {

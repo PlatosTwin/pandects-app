@@ -3,7 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import dotenv from 'dotenv';
 import React from 'react';
-import { renderAsync } from '@react-email/render';
+import { render } from '@react-email/render';
 import { Resend } from 'resend';
 
 type TemplateComponent = (props: Record<string, unknown>) => JSX.Element & {
@@ -58,7 +58,7 @@ async function main(templateIdValue?: string): Promise<void> {
 
   if (getResponse.error) {
     if (getResponse.error.statusCode === 404) {
-      const html = await renderAsync(reactElement);
+      const html = await render(reactElement);
       const variables = extractTemplateVariables(html);
       const createResponse = await resend.templates.create({
         name: templateIdValue,
@@ -91,7 +91,7 @@ async function main(templateIdValue?: string): Promise<void> {
     );
   }
 
-  const html = await renderAsync(reactElement);
+  const html = await render(reactElement);
   const variables = extractTemplateVariables(html);
   const updateResponse = await resend.templates.update(templateIdValue, { html, variables });
 

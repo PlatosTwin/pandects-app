@@ -1,6 +1,6 @@
 import { renderToString } from "react-dom/server";
 import { Route, Routes } from "react-router-dom";
-import { StaticRouter } from "react-router-dom/server";
+import { StaticRouter } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { AppProviders } from "@/components/AppProviders";
 import { AccessGate } from "@/components/AccessGate";
