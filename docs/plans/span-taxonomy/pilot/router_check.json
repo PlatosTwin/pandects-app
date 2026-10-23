@@ -1,0 +1,143 @@
+{
+ "picker": "Claude Haiku via subagents, outline only (router.py outline), brief in router/brief.md",
+ "outline_tokens_total_approx": 1608721,
+ "picker_subagent_tokens_total_approx": 4440000,
+ "span_level": {
+  "m3holdout": {
+   "router": {
+    "hit": 1005,
+    "total": 1031,
+    "recall": 0.9748,
+    "missed": {
+     "termination.fee.reverse": 7,
+     "financing.structure": 6,
+     "termination.outside_date": 4,
+     "indemn.cap": 3,
+     "indemn.basket": 1,
+     "indemn.survival": 1,
+     "mae.definition": 3,
+     "termination.fee.target": 1
+    },
+    "median_share": 0.246
+   },
+   "v7": {
+    "hit": 1025,
+    "total": 1031,
+    "recall": 0.9942,
+    "missed": {
+     "mae.definition": 4,
+     "financing.structure": 2
+    },
+    "median_share": 0.409
+   }
+  },
+  "m4holdout": {
+   "router": {
+    "hit": 388,
+    "total": 400,
+    "recall": 0.97,
+    "missed": {
+     "indemn.basket": 1,
+     "financing.structure": 7,
+     "indemn.cap": 1,
+     "termination.fee.reverse": 3
+    },
+    "median_share": 0.225
+   },
+   "v7": {
+    "hit": 395,
+    "total": 400,
+    "recall": 0.9875,
+    "missed": {
+     "indemn.cap": 3,
+     "indemn.basket": 2
+    },
+    "median_share": 0.383
+   }
+  },
+  "m5holdout": {
+   "router": {
+    "hit": 244,
+    "total": 254,
+    "recall": 0.9606,
+    "missed": {
+     "indemn.cap": 1,
+     "financing.structure": 9
+    },
+    "median_share": 0.238
+   },
+   "v7": {
+    "hit": 252,
+    "total": 254,
+    "recall": 0.9921,
+    "missed": {
+     "indemn.cap": 2
+    },
+    "median_share": 0.42
+   }
+  }
+ },
+ "instance_level_reachable": {
+  "m3holdout": {
+   "router": [
+    288,
+    289
+   ],
+   "v7": [
+    288,
+    289
+   ],
+   "union": [
+    289,
+    289
+   ]
+  },
+  "m4holdout": {
+   "router": [
+    99,
+    100
+   ],
+   "v7": [
+    99,
+    100
+   ],
+   "union": [
+    100,
+    100
+   ]
+  },
+  "m5holdout": {
+   "router": [
+    68,
+    70
+   ],
+   "v7": [
+    70,
+    70
+   ],
+   "union": [
+    70,
+    70
+   ]
+  }
+ },
+ "union_spans": {
+  "m3holdout": [
+   1028,
+   1031
+  ],
+  "m4holdout": [
+   400,
+   400
+  ],
+  "m5holdout": [
+   253,
+   254
+  ]
+ },
+ "union_median_share": {
+  "m3holdout": 0.429,
+  "m4holdout": 0.405,
+  "m5holdout": 0.423
+ }
+}
