@@ -270,6 +270,88 @@ def check_reverse_recommendation_failure(inst, lines, log):
             return
 
 
+# v2.11 rule 8: a breach trigger that names its covenants only by number ("breached its obligations
+# under Section 6.3 or 6.11"); the section titles say which covenant each number is
+HEADER = re.compile(r"^@@ S\d+ \|[^|]*\| (?:Section\s+|SECTION\s+)?(\d+\.\d+)\.?\s+([^|]*)")
+CITED = re.compile(r"\bSections?\s+((?:\d+\.\d+(?:\([A-Za-z0-9]{1,4}\))*(?:\s*(?:,|and/or|or|and)\s*(?:Section\s+)?)?)+)")
+MEETING_TITLE = re.compile(r"(?:stock|share)holders?['’]?\s+(?:meetings?|approvals?|votes?)|special meeting|"
+                           r"company meeting|proxy statement", re.I)
+NO_SHOP_TITLE = re.compile(r"solicitation|no[- ]shop|acquisition proposals?|takeover proposals?|other offers", re.I)
+BREACH = re.compile(r"\bbreach|fail(?:s|ed|ure)?\s+to\s+(?:comply|perform)", re.I)
+
+
+def section_titles(lines):
+    return {m.group(1): m.group(2).strip() for m in map(HEADER.match, lines) if m}
+
+
+def cited_sections(text):
+    return [n for m in CITED.finditer(text) for n in re.findall(r"\d+\.\d+", m.group(1))]
+
+
+def check_cited_meeting_breach(inst, titles, log, code="breach_no_tail"):
+    trig = [t for t in inst.get("triggers") or [] if isinstance(t, dict)]
+    for t in list(trig):
+        if t.get("tail") or t.get("code") not in ("other", "breach_of_no_shop" if code == "breach_no_tail" else "other"):
+            continue
+        q = " ".join(x for x in (t.get("quote"), t.get("text")) if isinstance(x, str))
+        cited = [titles.get(n, "") for n in cited_sections(q)]
+        if not BREACH.search(q) or not any(MEETING_TITLE.search(x) for x in cited):
+            continue
+        codes = {x.get("code") for x in trig}
+        no_shop = code == "breach_no_tail" and any(NO_SHOP_TITLE.search(x) for x in cited)
+        want = [code] + (["breach_of_no_shop"] if no_shop else [])
+        if t["code"] == "other":
+            t["code"], t["postcheck"] = want.pop(0), "v2.11 rule 8"
+            log.append({"concept": inst["concept"], "rule": "v2.11 rule 8", "recoded": q[:120]})
+        for c in want:
+            if c not in codes:
+                new = {"code": c, "text": t.get("text"), "quote": t.get("quote"), "tail": None, "postcheck": "v2.11 rule 8"}
+                inst["triggers"].append(new)
+                trig.append(new)
+                log.append({"concept": inst["concept"], "rule": "v2.11 rule 8", "added": c})
+
+
+# v2.11 rule 9: a tail trigger citing a termination clause that is the tender offer lapsing unaccepted
+OFFER_LAPSE = re.compile(r"\bOffer\b[^;]{0,60}?\b(?:expired?|terminated|withdrawn)\b[^;]{0,160}?\bwithout\b[^;]{0,80}?"
+                         r"\b(?:purchas|accept)", re.I)
+CLAUSE = re.compile(r"(\d+\.\d+)\s*\(([a-z])\)")
+
+
+def clause_text(lines, number, letter):
+    """The text of clause (letter) of the section numbered number, up to the next lettered clause."""
+    start = next((i for i, l in enumerate(lines) if (m := HEADER.match(l)) and m.group(1) == number), None)
+    if start is None:
+        return ""
+    out = []
+    for l in lines[start + 1:]:
+        if l.startswith("@@"):
+            break
+        m = re.match(r"\s*\(([a-z])\)\s", l)
+        if m and out and m.group(1) == chr(ord(letter) + 1):
+            break
+        if out or m and m.group(1) == letter:
+            out.append(l)
+    return " ".join(out)
+
+
+def check_offer_lapse(inst, lines, log):
+    trig = [t for t in inst.get("triggers") or [] if isinstance(t, dict)]
+    if any(t.get("code") == "approval_failure_with_tail" for t in trig):
+        return
+    for t in trig:
+        if not (str(t.get("code", "")).endswith("_with_tail") or t.get("code") == "other" and t.get("tail")):
+            continue
+        q = " ".join(x for x in (t.get("quote"), t.get("text")) if isinstance(x, str))
+        for number, letter in CLAUSE.findall(q):
+            m = OFFER_LAPSE.search(clause_text(lines, number, letter))
+            if m:
+                inst["triggers"].append({"code": "approval_failure_with_tail", "text": f"termination under Section {number}({letter})"
+                                         " after the Offer lapses unaccepted", "quote": m.group(0),
+                                         "tail": copy.deepcopy(t.get("tail")), "postcheck": "v2.11 rule 9"})
+                log.append({"concept": inst["concept"], "rule": "v2.11 rule 9", "added": m.group(0)[:120]})
+                return
+
+
 # "$3,400,000", "3.4 million", "$1.29 billion", "105,000"
 FIGURE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s*(million|billion))?", re.I)
 SCALE = {None: 1, "million": 1e6, "billion": 1e9}
@@ -350,9 +432,11 @@ def check_expense_labeled_fee(insts, lines, log):
         log.append({"concept": c, "rule": "expense-labeled fee", "moved": [a.get("amount") for a in amounts if isinstance(a, dict)]})
 
 
-def apply(doc, cand):
-    """Return (checked copy of doc, change log)."""
+def apply(doc, cand, full=None):
+    """Return (checked copy of doc, change log). full, the whole agreement text, lets section
+    numbers resolve to sections stage 1 did not keep."""
     doc, log, lines = copy.deepcopy(doc), [], lines_of(cand)
+    titles = section_titles(lines_of(full) if full else lines)
     insts, figures = doc["instances"], stated_figures(cand)
     check_expense_labeled_fee(insts, lines, log)
     for inst in insts:
@@ -362,11 +446,14 @@ def apply(doc, cand):
             check_recommendation_failure(inst, lines, log)
         if inst["concept"] in ("ma.termination.fee.target", "ma.termination.expense_reimbursement"):
             check_meeting_breach(inst, log)
+            check_cited_meeting_breach(inst, titles, log)
+            check_offer_lapse(inst, lines, log)
         if inst["concept"] in ("ma.termination.fee.target", "ma.termination.fee.reverse",
                                "ma.termination.expense_reimbursement"):
             check_had_right(inst, log)
         if inst["concept"] == "ma.termination.fee.reverse":
             check_meeting_breach(inst, log, "buyer_breach")  # the buyer-side code (v2.10 rule 2)
+            check_cited_meeting_breach(inst, titles, log, "buyer_breach")
             check_reverse_recommendation_failure(inst, lines, log)
         if inst["concept"] == "ma.indemn.cap":
             check_cap_equals_price(inst, lines, log)
@@ -382,7 +469,9 @@ def main(D, arm_in, arm_out):
     changes = {}
     for p in sorted(glob.glob(f"{D}/out/{arm_in}/*.json")):
         u = os.path.basename(p)[:-5]
-        doc, log = apply(json.load(open(p)), open(f"{D}/candidates/{u}.md").read())
+        full = f"{D}/read/{u}.md"
+        doc, log = apply(json.load(open(p)), open(f"{D}/candidates/{u}.md").read(),
+                         open(full).read() if os.path.exists(full) else None)
         json.dump(doc, open(f"{D}/out/{arm_out}/{u}.json", "w"), indent=1)
         if log:
             changes[u] = log

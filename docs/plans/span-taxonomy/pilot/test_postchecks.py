@@ -379,3 +379,101 @@ class MeetingBreach(unittest.TestCase):
     def test_meeting_date_reference_is_left_alone(self):  # 7051d0a3
         out, log = apply(other_trigger("on or prior to the date of the Stockholders Meeting, any event giving rise to Parent's right to terminate (other than a breach) occurred"), "")
         self.assertEqual(log, [])
+
+
+# 0522c1f4: the covenants are named only by number; 6.3 is the meeting covenant, 6.11 the no-shop
+GD = """@@ S83 | ARTICLE VI ADDITIONAL AGREEMENTS | 6.3 Stockholders’ Approvals. | groups=resolved
+(a) Green Dot shall call a meeting of its stockholders.
+@@ S91 | ARTICLE VI ADDITIONAL AGREEMENTS | 6.11 No Solicitation. | groups=resolved
+(a) Green Dot shall not solicit any Acquisition Proposal.
+@@ S92 | ARTICLE VI ADDITIONAL AGREEMENTS | 6.12 Indemnification. | groups=resolved
+(a) CommerceOne shall indemnify the directors."""
+GD_QUOTE = "Green Dot or the Board of Directors of Green Dot shall have breached its obligations under Section 6.3 or 6.11 in any material respect"
+
+
+class CitedMeetingBreach(unittest.TestCase):
+    def test_other_becomes_breach_no_tail_and_no_shop(self):  # 0522c1f4
+        out, log = apply(other_trigger(GD_QUOTE), GD)
+        self.assertEqual(codes(out), ["adverse_recommendation_change", "breach_no_tail", "breach_of_no_shop"])
+
+    def test_no_shop_code_gains_breach_no_tail(self):  # bd6b9a5b, 596a45c3
+        doc = fee("breach_of_no_shop")
+        doc["instances"][0]["triggers"][0]["quote"] = "failed to comply in any material respect with its obligations under Section 6.3 or Section 6.11"
+        out, log = apply(doc, GD)
+        self.assertEqual(codes(out), ["breach_of_no_shop", "breach_no_tail"])
+
+    def test_title_from_the_full_text(self):  # 0522c1f4: stage 1 did not keep 6.11
+        cand = GD.split("@@ S91")[0].rstrip()
+        out, log = apply(other_trigger(GD_QUOTE), cand, GD)
+        self.assertEqual(codes(out), ["adverse_recommendation_change", "breach_no_tail", "breach_of_no_shop"])
+        out, log = apply(other_trigger(GD_QUOTE), cand)
+        self.assertEqual(codes(out), ["adverse_recommendation_change", "breach_no_tail"])
+
+    def test_sub_clause_reference(self):
+        out, log = apply(other_trigger("breached its obligations under Section 6.3(a)"), GD)
+        self.assertEqual(codes(out)[-1], "breach_no_tail")
+
+    def test_other_covenant_is_left_alone(self):
+        out, log = apply(other_trigger("shall have breached its obligations under Section 6.12 in any material respect"), GD)
+        self.assertEqual((codes(out)[-1], log), ("other", []))
+
+    def test_no_breach_is_left_alone(self):
+        out, log = apply(other_trigger("the vote required by Section 6.3 shall not have been obtained"), GD)
+        self.assertEqual(log, [])
+
+    def test_tail_is_left_alone(self):
+        tail = {"months": 12, "threshold_pct": 50, "requires": "either"}
+        out, log = apply(other_trigger(GD_QUOTE, tail), GD)
+        self.assertEqual(log, [])
+
+    def test_reverse_fee_is_buyer_breach(self):
+        out, log = apply(reverse({"code": "other", "quote": "Parent shall have breached its obligations under Section 6.3"}), GD)
+        self.assertEqual(codes(out, R), ["buyer_breach"])
+
+    def test_reverse_no_shop_code_is_left_alone(self):  # m4 11107109: a mirrored no-shop trigger
+        out, log = apply(reverse({"code": "breach_of_no_shop", "quote": "such party shall have breached Section 6.3 or Section 6.11"}), GD)
+        self.assertEqual(log, [])
+
+
+# 036d5ac2: clause (b)(i)(B) of the termination section is the tender offer lapsing
+OFFER = """@@ S70 | ARTICLE IX TERMINATION | SECTION 9.01 Termination. | groups=picked,termination
+(a) by written consent of each of Parent, Merger Sub and the Company;
+(b) by either Parent or the Company:
+(i) if (A) the Offer Closing Time shall not have occurred on or before June 15, 2024 (the “Outside Date”) or (B) the Offer shall have expired or been terminated in accordance with its terms and in accordance with this Agreement without Merger Sub having purchased any shares of the Company Common Stock pursuant to the Offer;
+(ii) if any Legal Restraint permanently preventing the consummation of the Offer shall be in effect;
+(c) by Parent, if the Company breaches any of its covenants and the Offer shall have expired without the Minimum Condition being satisfied;
+(d) by Parent if an Adverse Recommendation Change has occurred;"""
+TAIL = {"months": 12, "threshold_pct": 50, "requires": "definitive_agreement"}
+
+
+def tail_trigger(code, quote):
+    doc = fee()
+    doc["instances"][0]["triggers"].append({"code": code, "text": "", "quote": quote, "tail": dict(TAIL)})
+    return doc
+
+
+class OfferLapse(unittest.TestCase):
+    def test_outside_date_clause_with_offer_lapse(self):  # 036d5ac2
+        out, log = apply(tail_trigger("outside_date_with_tail", "terminated by either Parent or the Company pursuant to Section 9.01(b)(i)"), OFFER)
+        self.assertEqual(codes(out), ["outside_date_with_tail", "approval_failure_with_tail"])
+        self.assertEqual(out["instances"][0]["triggers"][-1]["tail"], TAIL)
+
+    def test_already_coded_is_left_alone(self):
+        doc = tail_trigger("outside_date_with_tail", "pursuant to Section 9.01(b)(i)")
+        doc["instances"][0]["triggers"].append({"code": "approval_failure_with_tail", "text": "", "quote": "", "tail": dict(TAIL)})
+        out, log = apply(doc, OFFER)
+        self.assertEqual(log, [])
+
+    def test_clause_without_offer_lapse_is_left_alone(self):
+        out, log = apply(tail_trigger("breach_with_tail", "terminated by Parent pursuant to Section 9.01(d)"), OFFER)
+        self.assertEqual(log, [])
+
+    def test_lapse_in_a_later_clause_is_not_read(self):  # (c) mentions the Offer expiring; (b)(ii) is cited
+        out, log = apply(tail_trigger("outside_date_with_tail", "pursuant to Section 9.01(a)"), OFFER)
+        self.assertEqual(log, [])
+
+    def test_no_tail_is_left_alone(self):
+        doc = fee()
+        doc["instances"][0]["triggers"].append({"code": "other", "text": "", "quote": "pursuant to Section 9.01(b)", "tail": None})
+        out, log = apply(doc, OFFER)
+        self.assertEqual(log, [])

@@ -46,10 +46,20 @@ def val(v):
     return v.get("value") if isinstance(v, dict) else v
 
 
+def duration(d):
+    """(value, unit) with years counted in months, so 1 year and 12 months are equal."""
+    d = obj(d)
+    v, u = d.get("value"), d.get("unit")
+    if u == "years" and isinstance(v, (int, float)):
+        v, u = v * 12, "months"
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return v, u
+
+
 def period(p):
     p = obj(obj(p).get("period"))
-    d = obj(p.get("duration"))
-    return (p.get("kind"), d.get("value"), d.get("unit"), p.get("offset_days"), p.get("date"))
+    return (p.get("kind"), *duration(p.get("duration")), p.get("offset_days"), p.get("date"))
 
 
 def fields(c, inst):
@@ -67,7 +77,7 @@ def fields(c, inst):
     elif c == "ma.termination.outside_date":
         ini = obj(inst.get("initial"))
         dur = ini.get("duration")
-        f["initial"] = ini.get("date") or (f"{dur.get('value')} {dur.get('unit')}" if isinstance(dur, dict) else None)
+        f["initial"] = ini.get("date") or ("%s %s" % duration(dur) if isinstance(dur, dict) else None)
         f["effect"] = code(inst.get("effect"))
         exts = as_list(inst.get("extensions"))
         f["n_extensions"] = len(exts)
