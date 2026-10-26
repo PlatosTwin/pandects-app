@@ -142,7 +142,12 @@ def check_cap_equals_price(inst, lines, log):
 
 SUFFICIENT = re.compile(r"\b(?:sufficient|necessary|adequate|enough)\b", re.I)
 OWN_CASH = re.compile(r"cash on hand|available cash|cash and cash equivalents|cash resources|marketable securities|existing cash"
-                      r"|own (?:cash|funds)|available funds|together with[^.;]{0,80}\bcash\b|\bcash\b[^.;]{0,40}\bon hand\b", re.I)
+                      r"|own (?:cash|funds)|available funds|together with[^.;]{0,80}\bcash\b|\bcash\b[^.;]{0,40}\bon hand\b"
+                      # v2.12 rule 1: other funds counted beside the commitments, or the buyer itself having the funds
+                      r"|cash-on-hand|other funds (?:available|of)|funds available to"
+                      r"|\b(?:Parent|Buyer|Purchaser|Acquir\w*)\s+(?:(?:will|shall)\s+)?(?:at the Closing\s+)?(?:has|have)\s+"
+                      r"(?:access to\s+)?(?:sufficient|adequate)\s+(?:funds|cash|financial resources)",
+                      re.I)
 BUYER = re.compile(r"\b(?:Parent|Buyer|Purchaser|Acquir\w*|Merger Sub|Pubco|SPAC)\b")
 PAYABLE = re.compile(r"\b(?:consummate|pay|payment|amounts? payable|Merger Consideration|Purchase Price|obligations)\b", re.I)
 CONTINGENCY = re.compile(r"^\s*(?:\(\w{1,4}\)\s*)?(?:in the event|if|provided)\b|becomes? unavailable|\bdeposit|substitut", re.I)

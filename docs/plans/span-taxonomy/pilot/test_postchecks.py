@@ -348,6 +348,48 @@ class CashOnHand(unittest.TestCase):
         self.assertEqual(log, [])
 
 
+def rep(text):
+    return "@@ S53 | ARTICLE IV REPRESENTATIONS AND WARRANTIES OF PARENT | Section 4.6 Financing | groups=deal_risk\n" + text
+
+
+class CombinedSources(unittest.TestCase):  # v2.12 rule 1
+    def test_other_funds_available(self):  # 7d951084
+        out, log = apply(financing("debt"), rep("(a) Parent has entered into a binding commitment letter entitling Parent to borrow funds in an "
+                                                "aggregate amount which, when combined with other funds available to Parent to be used to pay the "
+                                                "Cash Consideration, will be sufficient to satisfy Parent's obligations under this Agreement."))
+        self.assertEqual(committed(out), ["debt", "cash_on_hand"])
+
+    def test_buyer_will_have_sufficient_funds(self):  # c815853e
+        out, log = apply(financing("debt"), rep("Taking into account the funds pursuant to the Buyer Financing, at the Closing the Buyer "
+                                                "will have sufficient funds to consummate the transactions contemplated by this Agreement."))
+        self.assertEqual(committed(out), ["debt", "cash_on_hand"])
+
+    def test_after_giving_effect_to_equity(self):  # 6693cf04
+        out, log = apply(financing("equity"), rep("After giving effect to the Equity Financing, Parent will have sufficient financial "
+                                                  "resources to satisfy all of its obligations hereunder in full."))
+        self.assertEqual(committed(out), ["equity", "cash_on_hand"])
+
+    def test_hyphenated_cash_on_hand(self):  # 9e4baf48
+        out, log = apply(financing("debt"), rep("The net proceeds from the Debt Financing will be sufficient, together with any available "
+                                                "cash-on-hand of Parent, to consummate the transactions contemplated by this Agreement."))
+        self.assertEqual(committed(out), ["debt", "cash_on_hand"])
+
+    def test_negated_is_left_alone(self):  # b0d8da74: a covenant not to reduce the financing
+        out, log = apply(financing("debt"), rep("Parent shall not reduce the aggregate amount of the Financing such that Parent would not "
+                                                "or does not have sufficient cash proceeds to satisfy Parent's obligations under this Agreement."))
+        self.assertEqual(log, [])
+
+    def test_failure_to_have_is_left_alone(self):  # dbdace06
+        out, log = apply(financing("debt"), rep("No event has occurred that constitutes a failure by Buyer to satisfy a condition, or would "
+                                                "result in Buyer failing to have sufficient cash to pay the Purchase Price."))
+        self.assertEqual(log, [])
+
+    def test_other_subject_is_left_alone(self):  # abe6927f
+        out, log = apply(financing("equity"), rep("Parent shall ensure that the Surviving Corporation and its Subsidiaries have sufficient "
+                                                  "funds to pay the full amounts due to holders of Vested Company Options."))
+        self.assertEqual(log, [])
+
+
 def other_trigger(quote, tail=None):
     doc = fee("adverse_recommendation_change")
     doc["instances"][0]["triggers"].append({"code": "other", "text": "", "quote": quote, "tail": tail})

@@ -59,7 +59,7 @@ def duration(d):
 
 def period(p):
     p = obj(obj(p).get("period"))
-    return (p.get("kind"), *duration(p.get("duration")), p.get("offset_days"), p.get("date"))
+    return (p.get("kind"), *duration(p.get("duration")), p.get("offset_days") or 0, p.get("date"))  # no offset is 0 days
 
 
 def fields(c, inst):

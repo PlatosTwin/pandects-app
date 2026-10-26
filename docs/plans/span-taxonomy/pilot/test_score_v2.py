@@ -24,6 +24,12 @@ class Durations(unittest.TestCase):
     def test_days_are_not_months(self):
         self.assertNotEqual(period(survival(30, "days")), period(survival(1, "months")))
 
+    def test_null_offset_is_zero(self):  # a5fad085: statute of limitations with offset_days null against 0
+        a = {"period": {"kind": "statute_of_limitations_plus", "offset_days": None}}
+        b = {"period": {"kind": "statute_of_limitations_plus", "offset_days": 0}}
+        self.assertEqual(period(a), period(b))
+        self.assertNotEqual(period(a), period({"period": {"kind": "statute_of_limitations_plus", "offset_days": 60}}))
+
     def test_outside_date_duration(self):
         a = fields("ma.termination.outside_date", {"initial": {"duration": {"value": 1, "unit": "years"}}})
         b = fields("ma.termination.outside_date", {"initial": {"duration": {"value": 12, "unit": "months"}}})
