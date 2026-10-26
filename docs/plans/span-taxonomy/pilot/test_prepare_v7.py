@@ -70,3 +70,23 @@ class Terms(unittest.TestCase):
     def test_new_terms(self):
         for term in ("Drop Dead Date", "Longstop Date", "Excepted Representations", "MaterialAdverse Effect"):
             self.assertTrue(v4.TERMS.search(term) and v4.RESOLVE.search(term), term)
+
+
+class OutsideDateCitations(unittest.TestCase):  # plan section 7.24
+    def layer(self, sentence):
+        text = sentence + "\nAny waiting periods under the HSR Act shall have expired.\nNotices shall be in writing."
+        a, b = len(sentence) + 1, len(sentence) + 1 + len("Any waiting periods under the HSR Act shall have expired.")
+        return {"text": text,
+                "sections": [{"uuid": "s1", "title": "Section 8.1 Termination", "article": "ARTICLE VIII", "start": 0, "end": a},
+                             {"uuid": "s2", "title": "Section 7.1 General Conditions", "article": "ARTICLE VII", "start": a, "end": b + 1},
+                             {"uuid": "s3", "title": "Section 10.2 Notices", "article": "ARTICLE X", "start": b + 1, "end": len(text)}],
+                "leaves": [{"kind": "text", "term": None, "start": 0, "end": len(sentence), "section": "s1"}]}
+
+    def test_cited_condition_is_kept(self):
+        L = self.layer("If each condition other than the condition set forth in Section 7.1(b) is satisfied, the Termination Date "
+                       "shall be automatically extended to February 17, 2020.")
+        self.assertEqual(prepare_v7.outside_date_citations(L), {"s2"})
+
+    def test_citation_outside_an_extension_is_ignored(self):
+        L = self.layer("Any notice under Section 10.2 shall be given in writing.")
+        self.assertEqual(prepare_v7.outside_date_citations(L), set())

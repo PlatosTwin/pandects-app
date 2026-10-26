@@ -519,3 +519,103 @@ class OfferLapse(unittest.TestCase):
         doc["instances"][0]["triggers"].append({"code": "other", "text": "", "quote": "pursuant to Section 9.01(b)", "tail": None})
         out, log = apply(doc, OFFER)
         self.assertEqual(log, [])
+
+
+OD = "ma.termination.outside_date"
+
+
+def outside(*exts):
+    return {"agreement": "x", "instances": [{"concept": OD, "finding": "present", "extensions": [dict(e) for e in exts]}]}
+
+
+def ext(code, quote, text="", count=1):
+    return {"length": None, "new_date": None, "exercise": "automatic", "count": count, "quote": quote,
+            "condition": {"code": code, "text": text, "quote": quote}}
+
+
+def exts(doc):
+    return [(e["condition"]["code"], e.get("count")) for e in doc["instances"][0]["extensions"]]
+
+
+class SplitExtensions(unittest.TestCase):  # v2.13 rule 1
+    def test_one_grant_split_by_delay_kind(self):  # 8d343a41
+        q = 'the End Date shall automatically be extended (the "Extension") by the time period which is the greater of'
+        out, log = apply(outside(ext("sec_review", q), ext("regulatory_pending", q)), "")
+        self.assertEqual(exts(out), [("other", 1)])
+
+    def test_alternative_conditions_quoted_inside_the_grant(self):  # 04d3f8ef
+        out, log = apply(outside(ext("other", "the Outside Date may be extended to September 21, 2018 upon (i) mutual written consent; "
+                                              "or (ii) the obtaining of any waiver"),
+                                 ext("other", "(ii) the obtaining of any waiver")), "")
+        self.assertEqual(exts(out), [("other", 1)])
+
+    def test_quotes_overlapping_end_to_start(self):  # cbc1bf49
+        a = ext("regulatory_pending", "Termination Date shall automatically be extended up to two (2) times for a period of three (3) months each, first to June 8, 2021")
+        b = ext("regulatory_pending", "first to June 8, 2021 and then to September 8, 2021")
+        a["count"] = b["count"] = 2
+        out, log = apply(outside(a, b), "")
+        self.assertEqual(exts(out), [("regulatory_pending", 2)])
+        self.assertTrue(out["instances"][0]["extensions"][0]["quote"].endswith("each, first to June 8, 2021 and then to September 8, 2021"))
+
+    def test_separate_grants_are_left_alone(self):  # 4c95f1e9
+        out, log = apply(outside(ext("regulatory_pending", "be extended to March 13, 2026"),
+                                 ext("regulatory_pending", "be extended to June 15, 2026")), "")
+        self.assertEqual(log, [])
+
+
+SP = """@@ S120 | ARTICLE IX MISCELLANEOUS | Section 9.11 Specific Performance | groups=termination
+If, prior to the Termination Date, either Buyer or any Seller brings any action to enforce specifically the performance of the terms and provisions hereof by the other party, the Termination Date will automatically be extended for the period during which such action is pending, plus ten (10) Business Days."""
+
+
+class SpecificPerformanceExtension(unittest.TestCase):  # v2.13 rule 2
+    def test_added_from_the_specific_performance_section(self):  # 0e7cbf22
+        out, log = apply(outside(), SP)
+        self.assertEqual(exts(out), [("other", None)])
+        self.assertEqual(out["instances"][0]["extensions"][0]["condition"]["text"], "specific performance pending")
+
+    def test_already_coded(self):
+        out, log = apply(outside(ext("other", "extended", "specific performance pending")), SP)
+        self.assertEqual(log, [])
+
+    def test_extension_without_specific_performance_is_left_alone(self):
+        out, log = apply(outside(), "@@ S1 | x | y | z\nThe End Date will automatically be extended to June 30 if the HSR waiting period has not expired.")
+        self.assertEqual(log, [])
+
+
+CONDITIONS = """@@ S60 | ARTICLE VII CONDITIONS | Section 7.1 General Conditions. | groups=deal_risk
+(a) No Law or Order shall be in effect enjoining the Closing.
+(b) Any waiting periods under the HSR Act applicable to the transactions shall have expired or been terminated.
+(c) The Stockholder Approval shall have been obtained.
+@@ S61 | ARTICLE VII CONDITIONS | Section 7.4 Regulatory Consents and Approvals. | groups=deal_risk
+(a) The Required Consents shall have been obtained.
+@@ S62 | ARTICLE VII CONDITIONS | Section 7.5 Financing Market. | groups=deal_risk
+(a) There shall not have occurred a material disruption in the markets for leveraged loans."""
+
+
+class CitedRegulatoryCondition(unittest.TestCase):  # v2.13 rule 3
+    def test_cited_clause_is_the_hsr_condition(self):  # 39857b40
+        out, log = apply(outside(ext("other", "then the Termination Date shall be automatically extended to February 17, 2020",
+                                     "each condition other than the condition set forth in Section 7.1(b) is satisfied")), "", CONDITIONS)
+        self.assertEqual(exts(out), [("regulatory_pending", 1)])
+
+    def test_cited_section_title_is_regulatory(self):  # 92491b2d
+        out, log = apply(outside(ext("other", "shall have the right to extend the Outside Date",
+                                     "due to the failure to satisfy the conditions set forth in Sections 7.4 and 8.4")), "", CONDITIONS)
+        self.assertEqual(exts(out), [("regulatory_pending", 1)])
+
+    def test_other_cited_condition_is_left_alone(self):  # 1f6673b9: a market-disruption condition
+        out, log = apply(outside(ext("other", "the Outside Date shall be extended",
+                                     "if the condition set forth in Section 7.5(a) shall not have been satisfied")), "", CONDITIONS)
+        self.assertEqual(log, [])
+
+    def test_no_condition_is_left_alone(self):  # fb9dae77: an extension tied to another termination date
+        out, log = apply(outside(ext("other", "be extended the same number of days as the extension pursuant to Section 7.1(b)")),
+                         "", CONDITIONS)
+        self.assertEqual(log, [])
+
+
+class MarketingPeriodExtension(unittest.TestCase):  # v2.13 rule 4
+    def test_financing_period(self):  # 6bae3995
+        out, log = apply(outside(ext("other", "the End Date shall be automatically extended to the date that is five Business Days "
+                                              "after the end of the Financing Period")), "")
+        self.assertEqual(exts(out), [("marketing_period", 1)])

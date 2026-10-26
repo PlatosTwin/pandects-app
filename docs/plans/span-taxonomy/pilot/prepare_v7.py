@@ -23,6 +23,10 @@ From the M7 holdout (plan section 7.17):
 - a kept definition that runs on into the next paragraphs, across a page number or because the
   text layer split it, brings those paragraphs, up to the next quoted term.
 
+From the M7 to M9 extension misses (plan section 7.24): a sentence that extends the outside date
+often names its condition only by section number ("other than the condition set forth in
+Section 7.1(b)"), so the sections such a sentence cites are kept whole.
+
 Usage: python3 prepare_v7.py holdout.tsv OUT
        python3 prepare_v7.py --rebuild D OUT   (stage 1 again from D/layer, candidates to OUT)
 """
@@ -48,6 +52,26 @@ v4.DEFINED = re.compile(r"[\"“]([^\"”:]{2,80})(?::[\"”]|[\"”]\s*:\s|[\"�
 
 
 NEW_DEF = re.compile(r"^\s*(?:(?:A|An|The)\s+)?[\"“]")
+OD_TERM = r"(?:Outside|End|Termination|Expiration|Drop Dead|Long ?stop|Cut-?off)\s+Date"
+OD_EXTEND = re.compile(OD_TERM + r"[^.]{0,250}?\bextend|\bextend\w*[^.]{0,120}?" + OD_TERM, re.I)
+CITED = re.compile(r"\bSections?\s+((?:\d+\.\d+(?:\([A-Za-z0-9]{1,4}\))*(?:\s*(?:,|and/or|or|and)\s*(?:Section\s+)?)?)+)")
+SEC_NUMBER = re.compile(r"^\s*(?:Section\s+|SECTION\s+)?(\d+\.\d+)\b")
+
+
+def outside_date_citations(layer):
+    """Sections cited by any sentence that extends the outside date."""
+    numbers = {}
+    for s in layer["sections"]:
+        m = SEC_NUMBER.match(s["title"] or "")
+        if m:
+            numbers.setdefault(m.group(1), s["uuid"])
+    cited = set()
+    for lf in layer["leaves"]:
+        t = layer["text"][lf["start"]:lf["end"]]
+        for sent in re.split(r"(?<=[.;])\s+", t):
+            if OD_EXTEND.search(sent):
+                cited |= {numbers[n] for m in CITED.finditer(sent) for n in re.findall(r"\d+\.\d+", m.group(1)) if n in numbers}
+    return cited
 
 
 def extend_definitions(layer, leaf_keep, limit=6):
@@ -85,6 +109,10 @@ def select(layer):
                 or REPS.search(article) and (FUNDS_TITLE.search(title) or FUNDS_BODY.search(body))
                 or FINANCING.search(body)):
             groups[s["uuid"]] = {"deal_risk", "structure"}
+    for uuid in outside_date_citations(layer):
+        sec = next(s for s in secs if s["uuid"] == uuid)
+        if uuid not in groups and not DEFS_TITLE.search(f"{sec['title'] or ''} {sec['article'] or ''}"):
+            groups[uuid] = {"outside_date"}
     extend_definitions(layer, leaf_keep)
     return groups, leaf_keep
 

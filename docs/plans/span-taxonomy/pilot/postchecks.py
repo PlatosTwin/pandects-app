@@ -357,6 +357,97 @@ def check_offer_lapse(inst, lines, log):
                 return
 
 
+# v2.13 rules 1 to 4: outside-date extensions
+OD_TERM = r"(?:Outside|End|Termination|Expiration|Drop Dead|Long ?stop|Cut-?off)\s+Date"
+SP_EXTENSION = re.compile(OD_TERM + r"[^.]{0,80}?\b(?:shall|will)\s+(?:be\s+)?automatically\s+(?:be\s+)?extended", re.I)
+SPECIFIC = re.compile(r"specific(?:ally)?\s+(?:perform|enforc)|enforce\s+specifically|specific performance", re.I)
+REGULATORY = re.compile(r"antitrust|\bHSR\b|Hart-Scott|competition (?:law|act)|waiting period|regulatory (?:consents?|approvals?|conditions?)"
+                        r"|governmental (?:consents?|approvals?)|required (?:governmental|regulatory)", re.I)
+MARKETING = re.compile(r"marketing period|financing period", re.I)
+
+
+def ext_text(e):
+    c = e.get("condition") if isinstance(e.get("condition"), dict) else {}
+    return " ".join(x for x in (c.get("text"), c.get("quote"), e.get("quote")) if isinstance(x, str))
+
+
+def joined(a, b, least=20):
+    """a and b as one quote when one contains the other or one's end is the other's start (>= least chars)."""
+    if not a or not b:
+        return None
+    if a in b or b in a:
+        return max(a, b, key=len)
+    for x, y in ((a, b), (b, a)):
+        k = next((k for k in range(min(len(x), len(y)), least - 1, -1) if x.endswith(y[:k])), 0)
+        if k:
+            return x + y[k:]
+    return None
+
+
+def merge_split_extensions(inst, log):
+    """Rule 1: entries the extractor split out of one grant (overlapping quotes) become one."""
+    exts = [e for e in inst.get("extensions") or [] if isinstance(e, dict)]
+    out = []
+    for e in exts:
+        q = (e.get("quote") or "").strip()
+        same = next((o for o in out if q and joined(q, (o.get("quote") or "").strip())), None)
+        if same is None:
+            out.append(e)
+            continue
+        a, b = same.get("condition") or {}, e.get("condition") or {}
+        if a.get("code") != b.get("code"):
+            same["condition"] = {"code": "other", "text": "; ".join(x for x in (a.get("text"), b.get("text")) if x),
+                                 "quote": a.get("quote") or b.get("quote")}
+        same["quote"] = joined(q, (same.get("quote") or "").strip())
+        same["count"] = max(same.get("count") or 1, e.get("count") or 1)  # alternative routes to one extension, not more uses
+        same["postcheck"] = "v2.13 rule 1"
+        log.append({"concept": inst["concept"], "rule": "v2.13 rule 1", "merged": q[:120]})
+    if len(out) < len(exts):
+        inst["extensions"] = out
+
+
+def check_specific_performance_extension(inst, lines, log):
+    """Rule 2: an automatic extension while a specific-performance action is pending, wherever it sits."""
+    exts = inst.get("extensions")
+    if not isinstance(exts, list) or any(SPECIFIC.search(ext_text(e)) or "pending" in ext_text(e) for e in exts if isinstance(e, dict)):
+        return
+    for line in lines:
+        if line.startswith("@@"):
+            continue
+        for sent in re.split(r"(?<=[.;])\s+", line):
+            if SP_EXTENSION.search(sent) and SPECIFIC.search(sent):
+                exts.append({"length": None, "new_date": None, "exercise": "automatic", "count": None, "quote": sent,
+                             "condition": {"code": "other", "text": "specific performance pending", "quote": sent},
+                             "postcheck": "v2.13 rule 2"})
+                log.append({"concept": inst["concept"], "rule": "v2.13 rule 2", "added": sent[:120]})
+                return
+
+
+def check_cited_regulatory_condition(inst, titles, full_lines, log):
+    """Rule 3: an `other` extension whose condition is cited only by number, when what it cites is regulatory."""
+    for e in inst.get("extensions") or []:
+        c = e.get("condition") if isinstance(e, dict) else None
+        if not isinstance(c, dict) or c.get("code") != "other":
+            continue
+        t = ext_text(e)
+        if not re.search(r"\bconditions?\b", t, re.I) or REGULATORY.search(t):
+            continue
+        cited = [titles.get(n, "") for n in cited_sections(t)]
+        cited += [clause_text(full_lines, n, l)[:300] for n, l in CLAUSE.findall(t)]  # the clause's opening only
+        if any(REGULATORY.search(x) for x in cited):
+            c["code"], e["postcheck"] = "regulatory_pending", "v2.13 rule 3"
+            log.append({"concept": inst["concept"], "rule": "v2.13 rule 3", "recoded": t[:120]})
+
+
+def check_marketing_period_extension(inst, log):
+    """Rule 4: an `other` extension that runs to the end of a marketing or financing period."""
+    for e in inst.get("extensions") or []:
+        c = e.get("condition") if isinstance(e, dict) else None
+        if isinstance(c, dict) and c.get("code") == "other" and MARKETING.search(ext_text(e)):
+            c["code"], e["postcheck"] = "marketing_period", "v2.13 rule 4"
+            log.append({"concept": inst["concept"], "rule": "v2.13 rule 4", "recoded": ext_text(e)[:120]})
+
+
 # "$3,400,000", "3.4 million", "$1.29 billion", "105,000"
 FIGURE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s*(million|billion))?", re.I)
 SCALE = {None: 1, "million": 1e6, "billion": 1e9}
@@ -441,7 +532,8 @@ def apply(doc, cand, full=None):
     """Return (checked copy of doc, change log). full, the whole agreement text, lets section
     numbers resolve to sections stage 1 did not keep."""
     doc, log, lines = copy.deepcopy(doc), [], lines_of(cand)
-    titles = section_titles(lines_of(full) if full else lines)
+    full_lines = lines_of(full) if full else lines
+    titles = section_titles(full_lines)
     insts, figures = doc["instances"], stated_figures(cand)
     check_expense_labeled_fee(insts, lines, log)
     for inst in insts:
@@ -460,6 +552,11 @@ def apply(doc, cand, full=None):
             check_meeting_breach(inst, log, "buyer_breach")  # the buyer-side code (v2.10 rule 2)
             check_cited_meeting_breach(inst, titles, log, "buyer_breach")
             check_reverse_recommendation_failure(inst, lines, log)
+        if inst["concept"] == "ma.termination.outside_date":
+            merge_split_extensions(inst, log)
+            check_specific_performance_extension(inst, lines, log)
+            check_cited_regulatory_condition(inst, titles, full_lines, log)
+            check_marketing_period_extension(inst, log)
         if inst["concept"] == "ma.indemn.cap":
             check_cap_equals_price(inst, lines, log)
             check_escrow_sole_recourse(inst, lines, log)
