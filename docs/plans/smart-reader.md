@@ -391,7 +391,7 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **0** | Design and prototype | Done: decisions in Section 11 |
-| **1. Enricher** (done, 10.1–10.8 and the health report in 10.10; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
+| **1. Enricher** (done, 10.1–10.8, the health report in 10.10 and enricher 0.5.0 in 10.11; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** (built, 10.8; waiting on the prod push) | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** (built behind a flag, 10.9) | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
@@ -981,10 +981,34 @@ The reader uses the index behind a flag. The flag is on in development and on a 
 
 61 non-US agreements were left out.
 
-**Next:**
+**Follow-up:** both done in 10.11. Enricher 0.5.0 handles the dotted, "Article 2.1" and flat shapes, and 34 of the 40 `xml_structure.csv` agreements are fixed in the data.
 
-- **Enricher 0.5.0.** Resolve "Section 5.16.1" to the subsection, or else to Section 5.16. Resolve "Article 2.1" as Section 2.1 when there's no Article 2.1. Resolve "Section 2(a)" against articles titled "Section 2." in flat agreements. This needs a corpus rerun.
-- **Validation queue.** Hand `xml_structure.csv` to the next validation pass.
+### 10.11 Enricher 0.5.0 (2026-10-30)
+
+The reader health report (10.10) listed 100 US agreements the enricher reads poorly though their XML is sound. 0.5.0 fixes the main shapes behind them:
+
+- **Dotted subsections.** A paragraph that opens "5.16.1" or "Section 5.16.1" is a subsection, and the "(a)" paragraphs after it nest under it (5.16.1(a), not 5.16(a)). A section's own "(b)" after its dotted paragraphs goes back to the section's list. "Section 5.16.1(c)" with no paragraph (c) falls back to 5.16.1. "Section 5.16.9" with no such paragraph stays unlinked rather than falling back to 5.16, because the gold showed that fallback is often wrong (the paragraph lives in an exhibit).
+- **"Article 2.1".** It resolves as a section when there is no article 2.1.
+- **Flat agreements.** A numbered article with no `<section>` inside and no untagged "1.1" paragraphs gets its "(a)" paragraphs as subsections, and "Section 2(c)" with no (c) falls back to the item.
+- **Precision guards.** Subsections of a duplicated section or flat item are not link targets. Paragraphs after a dotted number for another section are skipped. Only a paragraph that became a subsection loses its leading number as a reference.
+
+**Gold** (all 125 fixtures): links 2,052 → 2,058, exact 1,923 → 1,928, misses 79 → 73, wrong links unchanged at 2. An adversarial review found six ways the first draft could link wrongly; all six are fixed and have tests.
+
+**Corpus** (local, 11,790 agreements, 7 minutes with 8 processes, 0 failures):
+
+| | 0.4.0 | 0.5.0 |
+|---|---|---|
+| Average body section-level rate | 87.0% | 87.6% |
+| Agreements below 50% / below 80% | 214 / 1,328 | 134 / 1,185 |
+| Unresolved dotted-subsection references | 5,590 | 275 |
+| Unresolved "Article 2.1" references | 1,048 | 154 |
+| Health report: enricher-gap agreements | 100 | 69 |
+
+The 58 `sections_tagged_as_articles` agreements stay in the report, since that check counts the shape and not whether it resolves. Letter-suffix sections ("Section 2.4A", 80 references) and consistent Roman schemes ("Section VIII.2(e)", e.g. f04d10bd) are not handled yet.
+
+**XML structure.** The 40 structure rows are a data fix, not an enricher one. A read-only triage found 34 with verified source-text fixes: 21 with numbering that restarts at 1.x in every article (prefix-only rewrite, under the b9c87e30 ruling), 3 with Roman prefixes and 10 with a number glued to its title. Of the other 6, 5 are left as they are and 731d4045 is left by ruling, because its own TOC prints 1.x. All 34 were applied locally: 2,813 text fixes on 1,236 pages, then a scoped XML build, verify and sections run. All 34 came out verified with 0 hard-rule violations, 0 duplicate and 0 unnumbered sections, and a body section-level rate of 0.78 to 1.0, matching the offline rebuilds exactly. Backups are `pages_xmlfix_backup_20261030`, `tagged_outputs_xmlfix_backup_20261030` and `xml_xmlfix_backup_20261030`; results and the rollback are in `ma_validation_review/reader_health_20261030/xml_structure_apply_20261030.md`.
+
+**Prod.** Pushing 0.5.0 rows is part of the next data push (10.8): the asset recomputes every row whose enricher version is older.
 
 ## 11. Decisions (2026-10-22)
 
