@@ -234,24 +234,32 @@ export function ProcessingStatusChart({
             dataKey="processed"
             stackId="agreements"
             fill="var(--color-processed)"
+            stroke="hsl(var(--card))"
+            strokeWidth={1}
             name="Complete"
           />
           <Bar
             dataKey="staged"
             stackId="agreements"
             fill="var(--color-staged)"
+            stroke="hsl(var(--card))"
+            strokeWidth={1}
             name="Staged"
           />
           <Bar
             dataKey="awaiting"
             stackId="agreements"
             fill="var(--color-awaiting)"
+            stroke="hsl(var(--card))"
+            strokeWidth={1}
             name="Awaiting validation"
           />
           <Bar
             dataKey="notPaginated"
             stackId="agreements"
             fill="var(--color-notPaginated)"
+            stroke="hsl(var(--card))"
+            strokeWidth={1}
             name="Not paginated"
           />
           {showSourceSplit ? (
@@ -444,6 +452,8 @@ export function DealTypesChart({
               dataKey={item.key}
               stackId="deal-types"
               fill={`var(--color-${item.key})`}
+              stroke="hsl(var(--card))"
+              strokeWidth={1}
               name={item.label}
             />
           ))}

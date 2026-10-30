@@ -822,6 +822,7 @@ def _maybe_skip_managed_tx_metadata_stage(
     if not skip_if_completed:
         return False
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name=job_name,
         stage_name=stage_name,
@@ -867,6 +868,7 @@ def _run_managed_tx_metadata_offline_asset(
     )
     if not scope_uuids:
         mark_logical_run_stage_completed(
+            context=context,
             db=db,
             job_name=job_name,
             stage_name=stage_name,
@@ -874,7 +876,7 @@ def _run_managed_tx_metadata_offline_asset(
         return []
 
     run_pre_asset_gating(context, db)
-    active_run = load_active_logical_run(db=db, job_name=job_name)
+    active_run = load_active_logical_run(context=context, db=db, job_name=job_name)
     engine = db.get_engine()
     schema = db.database
     agreements_table = f"{schema}.agreements"
@@ -898,6 +900,7 @@ def _run_managed_tx_metadata_offline_asset(
     )
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name=job_name,
         stage_name=stage_name,
@@ -952,6 +955,7 @@ def _run_managed_tx_metadata_web_search_asset(
     target_scope_uuids = sorted({*scope_uuids, *forced_verification_uuids})
     if not target_scope_uuids:
         mark_logical_run_stage_completed(
+            context=context,
             db=db,
             job_name=job_name,
             stage_name=stage_name,
@@ -981,6 +985,7 @@ def _run_managed_tx_metadata_web_search_asset(
     )
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name=job_name,
         stage_name=stage_name,

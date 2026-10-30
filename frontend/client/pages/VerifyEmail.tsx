@@ -140,19 +140,19 @@ export default function VerifyEmail() {
             <div className="grid gap-4">
               {!error ? (
                 <Alert>
-                  <AlertTitle>Verifying your email</AlertTitle>
+                  <AlertTitle as="h2">Verifying your email</AlertTitle>
                   <AlertDescription>
                     Please wait while Pandects completes your email verification.
                   </AlertDescription>
                 </Alert>
               ) : (
                 <Alert variant="destructive">
-                  <AlertTitle>Could not verify email</AlertTitle>
+                  <AlertTitle as="h2">Could not verify email</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
               <div className="text-sm text-muted-foreground">
-                <Link to="/login" className="text-primary hover:underline">
+                <Link to="/login" className="text-primary underline underline-offset-4 hover:text-primary/80">
                   Back to sign in
                 </Link>
               </div>

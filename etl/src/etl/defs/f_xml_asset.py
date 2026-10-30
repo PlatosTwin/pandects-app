@@ -2507,6 +2507,7 @@ def regular_ingest_xml_asset(
         fallback_agreement_uuids=tagged_agreement_uuids,
     )
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_build_xml",
@@ -2526,6 +2527,7 @@ def regular_ingest_xml_asset(
     )
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_build_xml",
@@ -2550,6 +2552,7 @@ def ingestion_cleanup_a_xml_asset(
         fallback_agreement_uuids=tagged_agreement_uuids,
     )
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_build_xml",
@@ -2569,6 +2572,7 @@ def ingestion_cleanup_a_xml_asset(
     )
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_build_xml",
@@ -2597,6 +2601,7 @@ def ingestion_cleanup_c_xml_asset(
     )
     scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_build_xml",
@@ -2616,6 +2621,7 @@ def ingestion_cleanup_c_xml_asset(
     )
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_build_xml",
@@ -3023,6 +3029,7 @@ def _run_scoped_fresh_xml_verify(
         assert_tables_exist(conn, schema=schema, table_names=("xml_verify_batches", "xml_status_reasons"))
 
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name=job_name,
         stage_name=stage_name,
@@ -3035,7 +3042,7 @@ def _run_scoped_fresh_xml_verify(
         context.log.info(empty_scope_message)
         run_post_asset_refresh(context, db, pipeline_config)
         if mark_stage_on_empty_scope:
-            mark_logical_run_stage_completed(db=db, job_name=job_name, stage_name=stage_name)
+            mark_logical_run_stage_completed(context=context, db=db, job_name=job_name, stage_name=stage_name)
         return []
 
     queue_q = text(canonical_fresh_xml_verify_queue_sql(schema, scoped=True)).bindparams(
@@ -3053,7 +3060,7 @@ def _run_scoped_fresh_xml_verify(
         context.log.info(no_eligible_message)
         run_post_asset_refresh(context, db, pipeline_config)
         if mark_stage_on_no_eligible:
-            mark_logical_run_stage_completed(db=db, job_name=job_name, stage_name=stage_name)
+            mark_logical_run_stage_completed(context=context, db=db, job_name=job_name, stage_name=stage_name)
         return []
 
     select_q = text(
@@ -3208,7 +3215,7 @@ def _run_scoped_fresh_xml_verify(
         llm_targets = sorted({_parse_custom_id(str(line["custom_id"])) for line in lines})
         if not llm_targets:
             raise ValueError(f"{log_prefix}: no (agreement_uuid, version) targets derived from LLM lines.")
-        active_run = load_active_logical_run(db=db, job_name=job_name)
+        active_run = load_active_logical_run(context=context, db=db, job_name=job_name)
         verify_batch_key = build_logical_batch_key(
             logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
             stage_name=stage_name,
@@ -3314,7 +3321,7 @@ def _run_scoped_fresh_xml_verify(
             )
 
     run_post_asset_refresh(context, db, pipeline_config)
-    mark_logical_run_stage_completed(db=db, job_name=job_name, stage_name=stage_name)
+    mark_logical_run_stage_completed(context=context, db=db, job_name=job_name, stage_name=stage_name)
     return sorted(verified_agreement_uuids)
 
 

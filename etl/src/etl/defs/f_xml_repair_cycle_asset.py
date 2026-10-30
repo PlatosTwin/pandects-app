@@ -757,6 +757,7 @@ def regular_ingest_post_repair_build_xml_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_post_repair_build_xml",
@@ -942,7 +943,7 @@ def regular_ingest_post_repair_verify_xml_asset(
             )
 
     llm_targets = sorted({_parse_custom_id(str(line["custom_id"])) for line in lines})
-    active_run = load_active_logical_run(db=db, job_name="regular_ingest")
+    active_run = load_active_logical_run(context=context, db=db, job_name="regular_ingest")
     verify_batch_key = build_logical_batch_key(
         logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
         stage_name="regular_ingest_post_repair_verify_xml",
@@ -1042,6 +1043,7 @@ def regular_ingest_post_repair_verify_xml_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_post_repair_verify_xml",
@@ -1211,6 +1213,7 @@ def ingestion_cleanup_a_post_repair_build_xml_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_post_repair_build_xml",
@@ -1401,7 +1404,7 @@ def ingestion_cleanup_a_post_repair_verify_xml_asset(
     llm_targets = sorted({_parse_custom_id(str(line["custom_id"])) for line in lines})
     if not llm_targets:
         raise ValueError("ingestion_cleanup_a_post_repair_verify_xml_asset: no (agreement_uuid, version) targets derived from LLM lines.")
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_a")
+    active_run = load_active_logical_run(context=context, db=db, job_name="ingestion_cleanup_a")
     verify_batch_key = build_logical_batch_key(
         logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
         stage_name="ingestion_cleanup_a_post_repair_verify_xml",
@@ -1501,6 +1504,7 @@ def ingestion_cleanup_a_post_repair_verify_xml_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_post_repair_verify_xml",
@@ -1524,6 +1528,7 @@ def ingestion_cleanup_b_post_repair_build_xml_asset(
     reconciled_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_post_repair_build_xml",
@@ -1681,6 +1686,7 @@ def ingestion_cleanup_b_post_repair_build_xml_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_post_repair_build_xml",
@@ -1699,6 +1705,7 @@ def ingestion_cleanup_b_post_repair_verify_xml_asset(
     rebuilt_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_post_repair_verify_xml",
@@ -1882,7 +1889,7 @@ def ingestion_cleanup_b_post_repair_verify_xml_asset(
     llm_targets = sorted({_parse_custom_id(str(line["custom_id"])) for line in lines})
     if not llm_targets:
         raise ValueError("ingestion_cleanup_b_post_repair_verify_xml_asset: no (agreement_uuid, version) targets derived from LLM lines.")
-    active_run = load_active_logical_run(db=db, job_name="ingestion_cleanup_b")
+    active_run = load_active_logical_run(context=context, db=db, job_name="ingestion_cleanup_b")
     verify_batch_key = build_logical_batch_key(
         logical_run_id=None if active_run is None else str(active_run["logical_run_id"]),
         stage_name="ingestion_cleanup_b_post_repair_verify_xml",
@@ -1982,6 +1989,7 @@ def ingestion_cleanup_b_post_repair_verify_xml_asset(
 
     run_post_asset_refresh(context, db, pipeline_config)
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_post_repair_verify_xml",

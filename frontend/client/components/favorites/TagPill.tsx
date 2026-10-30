@@ -80,9 +80,9 @@ export function TagPill({
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
         tagPillClassName(color),
         interactive &&
-          "min-h-11 cursor-pointer transition-shadow hover:shadow-sm sm:min-h-0",
+          "min-h-11 cursor-pointer transition-shadow hover:shadow-raised sm:min-h-0",
         selected &&
-          "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-sm",
+          "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-raised",
         onRemove && "py-1 pr-1",
         className,
       )}

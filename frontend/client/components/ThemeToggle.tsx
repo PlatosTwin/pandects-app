@@ -12,8 +12,10 @@ import {
 import {
   applyTheme,
   getThemePreference,
+  resolveTheme,
   setThemePreference,
   subscribeTheme,
+  type ResolvedTheme,
   type ThemePreference,
 } from "@/lib/theme";
 
@@ -35,6 +37,15 @@ function useThemePreference() {
   return useSyncExternalStore(subscribeTheme, getThemePreference, getServerSnapshot);
 }
 
+function getResolvedServerSnapshot(): ResolvedTheme {
+  return "light";
+}
+
+/** The theme actually showing, so "System" still reads as light or dark. */
+function useResolvedTheme() {
+  return useSyncExternalStore(subscribeTheme, resolveTheme, getResolvedServerSnapshot);
+}
+
 function ThemeToggleComponent() {
   const preference = useThemePreference();
 
@@ -44,10 +55,13 @@ function ThemeToggleComponent() {
     applyTheme();
   }, []);
 
+  const resolved = useResolvedTheme();
   const current =
     THEME_OPTIONS.find((option) => option.value === preference) ??
     THEME_OPTIONS[2];
-  const CurrentIcon = current.icon;
+  // The trigger shows the sun or moon for the theme on screen (the common
+  // pattern); "System" lives in the menu, where the monitor icon is labeled.
+  const CurrentIcon = resolved === "dark" ? Moon : Sun;
 
   return (
     <DropdownMenu modal={false}>
@@ -113,7 +127,7 @@ function ThemeToggleInlineComponent({ className }: { className?: string }) {
             className={cn(
               "inline-flex h-8 w-9 items-center justify-center rounded-[5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               selected
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background text-foreground shadow-raised"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

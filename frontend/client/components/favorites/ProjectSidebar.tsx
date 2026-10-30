@@ -170,7 +170,7 @@ export function ProjectSidebar({
   };
 
   return (
-    <aside className="self-start rounded-lg border bg-background p-3 shadow-sm lg:sticky lg:top-20">
+    <aside className="self-start rounded-lg border bg-background p-3 shadow-raised lg:sticky lg:top-20">
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">

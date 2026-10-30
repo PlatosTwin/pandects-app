@@ -27,10 +27,10 @@ import { useAgreementSummary } from "@/hooks/use-agreement-summary";
 import { formatDateValue } from "@/lib/format-utils";
 import { getDocsUrl } from "@/lib/docs-url";
 import { Link } from "react-router-dom";
+import { useIsLockedOut } from "@/components/NavLinkParts";
 
 const docsUrl = `${getDocsUrl()}/docs/guides/getting-started`;
-const ssrnUrl =
-  "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6653778";
+const ssrnUrl = "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6653778";
 const pandectsBibtex = String.raw`@article{Bogdanov2026Pandects,
   author  = {Bogdanov, Nikita},
   title   = {Pandects: An Open-Source Database of Publicly Filed M\&A Agreements},
@@ -153,6 +153,7 @@ const roadmapItems: {
 ];
 
 export default function About() {
+  const isLockedOut = useIsLockedOut();
   // The summary query is disabled during prerender, so render the loading
   // state on the server and on the first client paint (as LandingStats does).
   const hydrated = useHydrated();
@@ -193,63 +194,67 @@ export default function About() {
               ))}
             </div>
 
-            <div className="mt-4 rounded-xl border border-border bg-card p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <Eyebrow>Agreement Index</Eyebrow>
-                  <p className="mt-1 text-sm prose-copy">
-                    Browse the corpus by year, party, and processing status.
-                  </p>
+            {/* TEMPORARY (access lockdown): the index and its counts are gated,
+                so a visitor who isn't signed in doesn't get this card. */}
+            {!isLockedOut("/agreement-index") && (
+              <div className="mt-4 rounded-xl border border-border bg-card shadow-raised p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <Eyebrow>Agreement Index</Eyebrow>
+                    <p className="mt-1 text-sm prose-copy">
+                      Browse the corpus by year, party, and processing status.
+                    </p>
+                  </div>
+                  <Link
+                    to="/agreement-index"
+                    className="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/50 hover:bg-primary/15"
+                  >
+                    Browse the index
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
                 </div>
-                <Link
-                  to="/agreement-index"
-                  className="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/50 hover:bg-primary/15"
-                >
-                  Browse the index
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              </div>
 
-              {!summaryError && (
-                <div
-                  className="mt-4 grid gap-3 sm:grid-cols-3"
-                  aria-busy={summaryLoading}
-                  aria-live="polite"
-                >
-                  {corpusMetrics.map(({ key, icon: Icon, label, detail }) => (
-                    <div
-                      key={key}
-                      className="flex min-h-[5.5rem] items-center gap-3 rounded-lg border border-border bg-background p-3"
-                    >
-                      <div className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <Icon className="h-4 w-4" aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0">
-                        <Eyebrow>{label}</Eyebrow>
-                        <div className="flex min-h-7 items-center text-xl font-semibold tabular-nums text-foreground">
-                          {summaryLoading ? (
-                            <>
-                              <Skeleton className="h-6 w-20" />
-                              <span className="sr-only">Loading {label}</span>
-                            </>
-                          ) : (
-                            (
-                              (key === "processed_agreements"
-                                ? (summary?.processed_agreements ??
-                                  summary?.agreements)
-                                : summary?.[key]) ?? 0
-                            ).toLocaleString("en-US")
-                          )}
+                {!summaryError && (
+                  <div
+                    className="mt-4 grid gap-3 sm:grid-cols-3"
+                    aria-busy={summaryLoading}
+                    aria-live="polite"
+                  >
+                    {corpusMetrics.map(({ key, icon: Icon, label, detail }) => (
+                      <div
+                        key={key}
+                        className="flex min-h-[5.5rem] items-center gap-3 rounded-lg border border-border bg-background p-3"
+                      >
+                        <div className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-primary/10 text-primary">
+                          <Icon className="h-4 w-4" aria-hidden="true" />
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {detail}
+                        <div className="min-w-0">
+                          <Eyebrow>{label}</Eyebrow>
+                          <div className="flex min-h-7 items-center text-xl font-semibold tabular-nums text-foreground">
+                            {summaryLoading ? (
+                              <>
+                                <Skeleton className="h-6 w-20" />
+                                <span className="sr-only">Loading {label}</span>
+                              </>
+                            ) : (
+                              (
+                                (key === "processed_agreements"
+                                  ? (summary?.processed_agreements ??
+                                    summary?.agreements)
+                                  : summary?.[key]) ?? 0
+                              ).toLocaleString("en-US")
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {detail}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <p className="prose-copy mt-6">
               Pandects is an <strong>open-source M&A research platform</strong>{" "}
@@ -270,9 +275,9 @@ export default function About() {
               account, you gain access to unredacted XML and unlock higher rate
               limits for public endpoints, putting Pandects data at your
               fingertips. An account also provides access to the MCP server,
-              enabling you to tackle research questions by partnering with an
-              AI research agent of your choice. To aid adoption of both the API
-              and MCP server, we've put together a small collection of{" "}
+              enabling you to tackle research questions by partnering with an AI
+              research agent of your choice. To aid adoption of both the API and
+              MCP server, we've put together a small collection of{" "}
               <ExternalLink
                 href="https://github.com/PlatosTwin/pandects-app/tree/main/examples"
                 className="underline underline-offset-2"
@@ -287,9 +292,13 @@ export default function About() {
                 documentation site
               </ExternalLink>
               . Finally, for more control, users may elect to{" "}
-              <Link to="/bulk-data" className="underline underline-offset-2">
-                bulk download
-              </Link>{" "}
+              {isLockedOut("/bulk-data") ? (
+                "bulk download"
+              ) : (
+                <Link to="/bulk-data" className="underline underline-offset-2">
+                  bulk download
+                </Link>
+              )}{" "}
               a copy of the complete database.
             </p>
           </section>
@@ -299,14 +308,11 @@ export default function About() {
             className="scroll-mt-24 pt-12"
             aria-labelledby="contributing-heading"
           >
-            <SectionHeader
-              title="Contributing"
-              id="contributing-heading"
-            />
+            <SectionHeader title="Contributing" id="contributing-heading" />
 
             <p className="prose-copy mt-6">
-              This is an open-source project, and contributions are welcome.
-              See the{" "}
+              This is an open-source project, and contributions are welcome. See
+              the{" "}
               <ExternalLink
                 href="https://github.com/PlatosTwin/pandects-app"
                 className="underline underline-offset-2"
@@ -355,9 +361,7 @@ export default function About() {
             <SectionHeader title="Credits" id="credits-heading" />
 
             <dl className="mt-6 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-x-6 gap-y-5">
-              <dt className={`${eyebrowClassName} self-start`}>
-                Advisors
-              </dt>
+              <dt className={`${eyebrowClassName} self-start`}>Advisors</dt>
               <dd className="text-sm text-foreground">
                 Emiliano Catan (NYU Law); Alex Walker (NYU Law, tax taxonomy);
                 Chris Sprigman (NYU Law).
@@ -376,9 +380,7 @@ export default function About() {
                 ; NYU IT High Performance Computing.
               </dd>
 
-              <dt className={`${eyebrowClassName} self-start`}>
-                Inspiration
-              </dt>
+              <dt className={`${eyebrowClassName} self-start`}>Inspiration</dt>
               <dd className="text-sm text-foreground">
                 Site concept and design borrow from{" "}
                 <ExternalLink
@@ -398,9 +400,7 @@ export default function About() {
                 guidance.
               </dd>
 
-              <dt className={`${eyebrowClassName} self-start`}>
-                Prior work
-              </dt>
+              <dt className={`${eyebrowClassName} self-start`}>Prior work</dt>
               <dd className="text-sm text-foreground">
                 Peter Adelson, Matthew Jennejohn, Julian Nyarko, Eric Talley —{" "}
                 <ExternalLink
@@ -436,10 +436,7 @@ export default function About() {
             className="scroll-mt-24 pt-12"
             aria-labelledby="cite-pandects-heading"
           >
-            <SectionHeader
-              title="Cite Pandects"
-              id="cite-pandects-heading"
-            />
+            <SectionHeader title="Cite Pandects" id="cite-pandects-heading" />
 
             <p className="prose-copy mt-6">
               If you use Pandects in academic work, please cite:

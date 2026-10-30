@@ -63,7 +63,7 @@ export function FilterBar({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="grid min-h-12 w-full grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-border bg-background/80 px-3 py-2 text-left shadow-sm transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="grid min-h-12 w-full grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-border bg-background/80 px-3 py-2 text-left shadow-raised transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={open ? "Close filters" : "Open filters"}
         >
           <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">

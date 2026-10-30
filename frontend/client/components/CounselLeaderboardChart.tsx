@@ -205,7 +205,8 @@ export function CounselLeaderboardChart({
               dataKey={item.key}
               type="monotone"
               stackId="leaderboard"
-              stroke={`var(--color-${item.key})`}
+              stroke="hsl(var(--card))"
+              strokeWidth={1}
               fill={`var(--color-${item.key})`}
               fillOpacity={0.95}
               name={item.label}

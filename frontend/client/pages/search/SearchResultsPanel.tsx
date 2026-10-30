@@ -75,7 +75,7 @@ function SelectionBar({
       aria-label="Selected results"
       className="pointer-events-none sticky bottom-4 z-30 mt-4 flex justify-center px-2 pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-popover/95 px-3 py-2 shadow-lg supports-[backdrop-filter]:bg-popover/80 supports-[backdrop-filter]:backdrop-blur">
+      <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-popover/95 px-3 py-2 shadow-overlay supports-[backdrop-filter]:bg-popover/80 supports-[backdrop-filter]:backdrop-blur">
         <span className="px-1 text-sm font-medium text-foreground" aria-live="polite">
           {selectedSize} selected
         </span>
@@ -140,8 +140,20 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
         : "";
 
   return (
-    <section aria-labelledby="search-page-title" className="flex min-w-0 flex-1 flex-col">
-      <div className="z-10 border-b border-border bg-background/95 px-4 py-2 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur sm:px-6 lg:sticky lg:top-[calc(4rem+var(--search-bar-h,0px))] lg:px-6">
+    <section
+      id="search-results"
+      tabIndex={-1}
+      aria-labelledby={hasSearched ? "search-results-heading" : "search-page-title"}
+      // The skip link scrolls here; keep the top clear of the sticky bars.
+      className="flex min-w-0 flex-1 flex-col outline-none lg:scroll-mt-[calc(4rem+var(--search-bar-h,0px))]"
+    >
+      {/* Before a search the empty state brings its own h2. */}
+      {hasSearched ? (
+        <h2 id="search-results-heading" className="sr-only">
+          Results
+        </h2>
+      ) : null}
+      <div className="z-10 border-b border-border bg-background/95 px-4 py-2 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur sm:px-6 lg:sticky lg:top-[calc(4rem+var(--search-bar-h,0px))] lg:px-8">
         <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-2">
           {props.mobileFilters}
           {props.selectPage && showRows ? (
@@ -196,9 +208,11 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
             </DropdownMenu>
           </div>
         </div>
+        {/* Below lg the chips get their own row; the sheet hides what's applied. */}
+        <div className="mt-2 empty:hidden lg:hidden">{props.chips}</div>
       </div>
 
-      <div className="flex-1 px-4 py-4 sm:px-6">
+      <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
         {!hasSearched ? (
           props.emptyState
         ) : error ? (

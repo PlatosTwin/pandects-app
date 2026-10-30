@@ -8,6 +8,7 @@ counts are cached per database by ``taxonomy_service`` instead.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Hashable, Iterable
 from typing import Any, cast
@@ -38,6 +39,8 @@ DUMPS_MANIFEST_CACHE_TTL_SECONDS = int(os.environ.get("DUMPS_MANIFEST_CACHE_TTL_
 # changelog.json doesn't turn every request into a live R2 GetObject.
 CHANGELOG_FAIL_TTL_SECONDS = 60
 _DUMPS_MANIFEST_CACHE_MAX_KEYS = 256
+
+logger = logging.getLogger(__name__)
 
 
 def _single_slot(_deps: ReferenceDataDeps, /) -> Hashable:
@@ -251,8 +254,10 @@ def dump_list_cached(deps: ReferenceDataDeps) -> list[dict[str, object]]:
                     )
                 else:
                     data = _read_dump_manifest(s3_client, deps.R2_BUCKET_NAME, manifest_key)
-            except Exception as e:
-                entry["warning"] = f"couldn't read manifest: {e}"
+            except Exception:
+                # The exception text can carry R2 endpoint and key details; keep it in the logs.
+                logger.exception("dump_manifest_read_failed key=%s", manifest_key)
+                entry["warning"] = "couldn't read manifest"
                 data = {}
             if "size_bytes" in data:
                 entry["size_bytes"] = data["size_bytes"]

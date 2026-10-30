@@ -122,7 +122,7 @@ function isMacPlatform() {
 
 function ReaderSkeleton() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8" role="status">
+    <div className="app-frame py-6" role="status">
       <span className="sr-only">Loading agreement</span>
       <div aria-hidden="true" className="space-y-6">
         <div className="flex h-12 items-center gap-3">
@@ -455,7 +455,9 @@ export function AgreementReader({
     return (
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
         <ErrorState
-          error={errorFromMessage(error)}
+          // The query's own error keeps its status, so a missing agreement
+          // reads as "not found" and an outage as retryable.
+          error={agreementQuery.error ?? errorFromMessage(error)}
           title="Agreement unavailable"
           onRetry={() => void agreementQuery.refetch()}
           action={
@@ -597,7 +599,7 @@ export function AgreementReader({
         ref={headerRef}
         className="sticky top-16 z-30 border-b border-border bg-background print:hidden"
       >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="app-frame">
           <div className="relative flex h-12 items-center gap-1 sm:gap-2">
             <ReaderBackLink origin={origin} compact={isMobile} />
             <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
@@ -776,7 +778,7 @@ export function AgreementReader({
       <section
         aria-labelledby="agreement-reader-title"
         className={cn(
-          "mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8",
+          "app-frame py-5 sm:py-6",
           "print:block print:max-w-none print:px-0 print:py-0",
           showContentsPanel && "grid grid-cols-[300px_minmax(0,1fr)] gap-8",
         )}
@@ -784,7 +786,7 @@ export function AgreementReader({
         {showContentsPanel ? (
           <aside
             aria-label="Contents"
-            className="sticky self-start overflow-y-auto rounded-xl border border-border bg-card print:hidden"
+            className="sticky self-start overflow-y-auto rounded-xl border border-border bg-card shadow-raised print:hidden print:shadow-none"
             style={{
               top: `${stickyBottom + 12}px`,
               maxHeight: `calc(100vh - ${stickyBottom + 24}px)`,
@@ -811,8 +813,17 @@ export function AgreementReader({
         ) : null}
 
         <div className="min-w-0">
-          {/* One measure for facts, notice and text. */}
-          <div className="mx-auto w-full max-w-[calc(72ch+4rem)]">
+          {/* One measure for facts, notice and text. Next to the contents
+              panel the text keeps at most a 6rem gap from it, so a wide frame
+              leaves its spare width on the right instead of a gutter. */}
+          <div
+            className={cn(
+              "w-full max-w-[calc(72ch+4rem)]",
+              showContentsPanel
+                ? "ml-[min(6rem,max(0px,calc((100%-72ch-4rem)/2)))]"
+                : "mx-auto",
+            )}
+          >
             <div className="mb-4 space-y-1.5 print:hidden">
               {showAcquirer ? (
                 <p className="text-sm text-muted-foreground lg:hidden">
@@ -864,7 +875,7 @@ export function AgreementReader({
             </div>
 
             <article
-              className="rounded-xl border border-border bg-card p-4 sm:p-8 print:rounded-none print:border-none print:p-0"
+              className="rounded-xl border border-border bg-card shadow-raised p-4 sm:p-8 print:rounded-none print:border-none print:p-0 print:shadow-none"
               aria-labelledby="agreement-reader-title"
               aria-busy={!docReady}
             >

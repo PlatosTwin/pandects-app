@@ -43,11 +43,11 @@ export default function ResetPasswordConfirm() {
       description="Finish resetting your Pandects password."
       layout="form"
     >
-      <Card className="w-full p-6 shadow-sm sm:p-8">
+      <Card className="w-full p-6 shadow-raised sm:p-8">
         <div className="grid gap-6">
           {!userId || !code ? (
             <Alert variant="destructive">
-              <AlertTitle>Invalid reset link</AlertTitle>
+              <AlertTitle as="h2">Invalid reset link</AlertTitle>
               <AlertDescription>
                 The reset link is missing required information. Request a new password reset email.
               </AlertDescription>
@@ -56,7 +56,7 @@ export default function ResetPasswordConfirm() {
 
           {submitted ? (
             <Alert>
-              <AlertTitle>Password updated</AlertTitle>
+              <AlertTitle as="h2">Password updated</AlertTitle>
               <AlertDescription>
                 Your password has been updated. You can now sign in with the new password.
               </AlertDescription>
@@ -65,7 +65,7 @@ export default function ResetPasswordConfirm() {
 
           {error ? (
             <Alert variant="destructive">
-              <AlertTitle>Could not reset password</AlertTitle>
+              <AlertTitle as="h2">Could not reset password</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
@@ -118,7 +118,7 @@ export default function ResetPasswordConfirm() {
           ) : null}
 
           <div className="text-sm text-muted-foreground">
-            <Link to="/login" className="text-primary hover:underline">
+            <Link to="/login" className="text-primary underline underline-offset-4 hover:text-primary/80">
               Back to sign in
             </Link>
           </div>

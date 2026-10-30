@@ -172,6 +172,13 @@ function ChartSkeleton({ className = "h-[260px] sm:h-[320px] lg:h-[360px]" }: { 
   );
 }
 
+// The segment column stays put while the cells scroll sideways, so each row
+// keeps its label on narrow screens.
+// Narrow on phones (labels wrap) so a full data cell still fits beside it.
+const STICKY_SEGMENT_CELL =
+  "sticky left-0 z-10 w-24 bg-background px-2 text-left text-foreground shadow-[1px_0_0_hsl(var(--foreground)/0.12)] sm:w-64 sm:px-3";
+const SEGMENT_LABEL = "block break-words sm:overflow-hidden sm:text-ellipsis sm:whitespace-nowrap";
+
 function TrendsHeatmapTable({
   caption,
   className,
@@ -189,11 +196,11 @@ function TrendsHeatmapTable({
 }) {
   return (
     <div className={cn("overflow-x-auto rounded-lg border border-border bg-background/80", className)}>
-      <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
+      <table className="w-full min-w-[40rem] table-fixed border-collapse text-sm sm:min-w-[56rem]">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-border">
-            <th className="w-64 px-3 py-2 text-left font-semibold text-foreground">
+            <th className={cn(STICKY_SEGMENT_CELL, "py-2 font-semibold")}>
               Segment
             </th>
             {columns.map((column) => (
@@ -212,8 +219,8 @@ function TrendsHeatmapTable({
         <tbody>
           {rows.map((row) => (
             <tr key={row} className="border-b border-border/50 last:border-0">
-              <th className="w-64 px-3 py-3 text-left font-medium text-foreground" title={row}>
-                <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
+              <th className={cn(STICKY_SEGMENT_CELL, "py-3 font-medium")} title={row}>
+                <span className={SEGMENT_LABEL}>
                   {row}
                 </span>
               </th>
@@ -229,7 +236,7 @@ function TrendsHeatmapTable({
                   <td key={`${row}-${column}`} className="w-44 px-2 py-2 align-top">
                     <div
                       className={cn(
-                        "flex min-h-[6.75rem] w-full flex-col items-center justify-center rounded-md border border-border/50 px-3 py-3 text-center shadow-sm transition-colors",
+                        "flex min-h-[6.75rem] w-full flex-col items-center justify-center rounded-md border border-border/50 px-3 py-3 text-center shadow-raised transition-colors",
                         foregroundClass,
                       )}
                       style={

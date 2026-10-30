@@ -63,66 +63,81 @@
     --chart-4: 350 80% 52%;
     --chart-5: 196 83% 42%;
     --chart-6: 262 83% 58%;
-    --chart-7: 135 70% 24%;
+    --chart-7: 135 60% 40%;
     --chart-8: 28 95% 40%;
     --chart-neutral: 220 9% 58%;
+    /* Heatmap cell fill; text on it stays foreground at every opacity. */
+    --heatmap: 212 93% 50%;
+    /* Elevation (tailwind shadow-raised / -lifted / -overlay). */
+    --elevation-raised: 0 1px 2px 0 hsl(222 30% 12% / 0.05), 0 1px 3px 0 hsl(222 30% 12% / 0.07);
+    --elevation-lifted: 0 6px 16px -4px hsl(222 30% 12% / 0.12), 0 2px 4px -1px hsl(222 30% 12% / 0.06);
+    --elevation-overlay: 0 16px 40px -12px hsl(222 30% 12% / 0.24), 0 4px 10px -2px hsl(222 30% 12% / 0.08);
 
     /* App background (used via bg-cream) — cool near-white */
     --cream: 220 20% 98.5%;
   }
 
   /* Dark surfaces share one cool-neutral hue and get lighter as they rise:
-     page (cream) < card/background < popover; muted < secondary < accent < border. */
-  .dark {
-    --background: 222 9% 9.5%;
-    --foreground: 210 20% 96%;
+     page (cream) < card/background < popover; muted < secondary < accent < border.
+     Screen only (like the dark: variant), so printing from dark mode gives a light page. */
+  @media not print {
+    .dark {
+      --background: 222 9% 9.5%;
+      --foreground: 210 20% 96%;
 
-    --card: 222 9% 9.5%;
-    --card-foreground: 210 20% 96%;
+      --card: 222 9% 9.5%;
+      --card-foreground: 210 20% 96%;
 
-    --popover: 222 9% 12%;
-    --popover-foreground: 210 20% 96%;
+      --popover: 222 9% 12%;
+      --popover-foreground: 210 20% 96%;
 
-    --primary: 221.2 83.2% 65%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+      --primary: 221.2 83.2% 65%;
+      --primary-foreground: 222.2 47.4% 11.2%;
 
-    --secondary: 222 8% 16%;
-    --secondary-foreground: 210 20% 96%;
+      --secondary: 222 8% 16%;
+      --secondary-foreground: 210 20% 96%;
 
-    --muted: 222 8% 14%;
-    --muted-foreground: 220 9% 66%;
+      --muted: 222 8% 14%;
+      --muted-foreground: 220 9% 66%;
 
-    --accent: 222 8% 18%;
-    --accent-foreground: 210 20% 96%;
+      --accent: 222 8% 18%;
+      --accent-foreground: 210 20% 96%;
 
-    /* Lighter red so text-destructive passes AA (5.6:1) on card; solid
-       destructive fills pair it with dark text (5.6:1) like --primary does. */
-    --destructive: 0 84% 66%;
-    --destructive-foreground: 222 9% 9.5%;
+      /* Lighter red so text-destructive passes AA (5.6:1) on card; solid
+         destructive fills pair it with dark text (5.6:1) like --primary does. */
+      --destructive: 0 84% 66%;
+      --destructive-foreground: 222 9% 9.5%;
 
-    --border: 222 7% 20%;
-    --input: 222 7% 24%;
-    --ring: 221.2 83.2% 65%;
+      --border: 222 7% 20%;
+      --input: 222 7% 24%;
+      --ring: 221.2 83.2% 65%;
 
-    --success: 150 60% 52%;
-    --success-foreground: 222 9% 9.5%;
-    --warning: 38 92% 60%;
-    --warning-foreground: 222 9% 9.5%;
-    --info: 212 90% 66%;
-    --info-foreground: 222 9% 9.5%;
+      --success: 150 60% 52%;
+      --success-foreground: 222 9% 9.5%;
+      --warning: 38 92% 60%;
+      --warning-foreground: 222 9% 9.5%;
+      --info: 212 90% 66%;
+      --info-foreground: 222 9% 9.5%;
 
-    --chart-1: 212 93% 62%;
-    --chart-2: 170 70% 45%;
-    --chart-3: 38 92% 58%;
-    --chart-4: 0 84% 66%;
-    --chart-5: 196 80% 55%;
-    --chart-6: 262 83% 70%;
-    --chart-7: 142 60% 52%;
-    --chart-8: 24 95% 60%;
-    --chart-neutral: 220 9% 52%;
+      --chart-1: 212 93% 62%;
+      --chart-2: 170 70% 45%;
+      --chart-3: 38 92% 58%;
+      --chart-4: 0 84% 66%;
+      --chart-5: 196 80% 55%;
+      --chart-6: 262 83% 70%;
+      --chart-7: 142 60% 52%;
+      --chart-8: 24 95% 60%;
+      --chart-neutral: 220 9% 52%;
+      /* Darker than chart-1 so foreground text clears 4.5:1 at full intensity. */
+      --heatmap: 212 93% 50%;
+    /* Dark shadows need more weight, plus a faint top highlight to read. */
+    --elevation-raised: 0 1px 2px 0 hsl(0 0% 0% / 0.4), inset 0 1px 0 0 hsl(0 0% 100% / 0.03);
+    --elevation-lifted: 0 8px 20px -6px hsl(0 0% 0% / 0.6), inset 0 1px 0 0 hsl(0 0% 100% / 0.05);
+    --elevation-overlay: 0 18px 44px -12px hsl(0 0% 0% / 0.7), 0 0 0 1px hsl(0 0% 100% / 0.05);
 
-    /* App background (used via bg-cream) */
-    --cream: 222 10% 6.5%;
+      /* App background (used via bg-cream) */
+      --cream: 222 10% 6.5%;
+    }
   }
 }
 
@@ -130,6 +145,23 @@
   html {
     font-size: 16.5px;
     scrollbar-gutter: stable;
+  }
+
+  /* Radix menus and selects lock scroll through react-remove-scroll, which
+     hides the page scrollbar and pads the body by its width. With the stable
+     gutter above that can move the whole page sideways by a scrollbar width
+     whenever a menu opens (seen with macOS "always show scrollbars"). For
+     menus and selects, keep the scrollbar and the body exactly as they are;
+     wheel and touch scrolling outside the layer stay blocked. Dialogs, alert
+     dialogs and sheets keep the library's full lock, so keyboard and
+     scrollbar scrolling can't move the page behind them. The extra `html`
+     beats the library's injected rule, which has the same !important and is
+     inserted later. */
+  html body[data-scroll-locked]:not(:has([role="dialog"], [role="alertdialog"])) {
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
   }
 
   * {
@@ -196,7 +228,7 @@
 
 @layer components {
   .tooltip-help-trigger {
-    @apply inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-foreground/35 bg-background text-[10px] font-semibold text-foreground/80 transition-colors hover:border-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-foreground/35 bg-background text-[10px] font-semibold text-foreground/80 transition-colors hover:border-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background print:hidden;
   }
 
   .tooltip-help-trigger-compact {
@@ -232,5 +264,81 @@
   .animate-spin,
   .animate-pulse {
     animation: none !important;
+  }
+}
+
+/* Docs and legal pages on paper. The nav, footer, docs TOC, Buttons and "?"
+   help triggers are hidden by their print: classes (text-bearing inline
+   triggers stay, so no sentence loses words); here code wraps instead of being
+   clipped by its scroll region, and the page prints light even from dark mode. */
+@media print {
+  @page {
+    margin: 18mm 16mm;
+  }
+
+  :root {
+    /* Beats the inline color-scheme the theme script sets on <html>. */
+    color-scheme: light !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+
+  main pre,
+  main [role="region"] {
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+    width: auto !important;
+  }
+
+  pre,
+  tr,
+  img {
+    break-inside: avoid;
+  }
+
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+}
+
+@layer components {
+  /* The one page frame: navigation, footer, page shells, search and the
+     reader all line up on it. Change the width here, nowhere else. */
+  .app-frame {
+    @apply mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* The Search workspace's frame: full-bleed, with lg:pl-5 lining content up
+     with the filter rail's and lg:pr-8 with the results' edge. The nav uses
+     it on Search too, so the header and the workspace share edges. */
+  .app-frame-bleed {
+    @apply w-full px-4 sm:px-6 lg:pl-5 lg:pr-8;
+  }
+
+  /* A surface that is itself one link or button (starter tile, linked fact
+     card): it rises a pixel and picks up the primary border on hover, settles on press. Its
+     hover beats plain utilities, so don't use it on selectable surfaces. Pair
+     with a resting shadow-raised. Motion is dropped for reduced-motion users;
+     the shadow and border still change. */
+  .surface-interactive {
+    @apply transition-[box-shadow,border-color,background-color,transform] duration-150 ease-out;
+  }
+  .surface-interactive:hover {
+    @apply border-primary/30 shadow-lifted;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .surface-interactive:hover {
+      transform: translateY(-1px);
+    }
+    .surface-interactive:active {
+      transform: translateY(0);
+    }
   }
 }

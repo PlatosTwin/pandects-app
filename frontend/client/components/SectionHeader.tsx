@@ -21,7 +21,7 @@ export function SectionHeader({
     <div className="min-w-0">
       <h2
         id={id}
-        className="scroll-mt-24 text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
+        className="scroll-mt-24 text-xl font-semibold tracking-tight text-foreground"
       >
         {title}
       </h2>

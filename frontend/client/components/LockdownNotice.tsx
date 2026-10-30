@@ -12,7 +12,7 @@ export function LockdownNotice() {
     <StatusPage
       icon={Lock}
       title="Temporarily unavailable"
-      description="Access is temporarily limited to existing accounts, and new user creation is paused."
+      description="Access is temporarily limited to existing accounts, and new user creation is paused. For one-off access, please contact Nikita Bogdanov at nmbogdan [at] alumni [dot] stanford [dot] edu."
       actions={
         <>
           <Button asChild>

@@ -4,6 +4,7 @@ import { LazyPandaEasterEgg } from "@/components/LazyPandaEasterEgg";
 import { NavBetaBadge } from "@/components/NavBetaBadge";
 import { NavLogo } from "@/components/NavLogo";
 import { trackEvent } from "@/lib/analytics";
+import { cn } from "@/lib/utils";
 
 const NavigationDesktopMenus = lazy(
   () => import("@/components/NavigationDesktopMenus"),
@@ -38,17 +39,18 @@ function NavigationComponent() {
   const location = useLocation();
   const navRef = useRef<HTMLElement | null>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
+  const isSearch = location.pathname === "/search" || location.pathname.startsWith("/search/");
 
   useEffect(() => {
     setHasHydrated(true);
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+    <header className="sticky top-0 z-50 w-full print:hidden border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
       <nav
         ref={navRef}
         aria-label="Primary"
-        className="relative z-0 mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
+        className={cn("relative z-0 flex h-16 items-center justify-between", isSearch ? "app-frame-bleed" : "app-frame")}
       >
         {/* Brand */}
         <div className="flex items-center gap-2">

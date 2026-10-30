@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useIsLockedOut } from "@/components/NavLinkParts";
 
 import { buildAgreementHref } from "@/lib/agreement-links";
 import { useHydrated } from "@/components/landing/use-hydrated";
@@ -37,10 +38,17 @@ export function FeaturedAgreements({
   className,
 }: FeaturedAgreementsProps) {
   const hydrated = useHydrated();
+  const isLockedOut = useIsLockedOut();
+  const lockedOut = isLockedOut("/agreements/any");
 
-  const { results, isLoading, error } = useRecentAgreements(limit);
+  const { results, isLoading, error } = useRecentAgreements(limit, !lockedOut);
   const loading = !hydrated || isLoading;
 
+  // TEMPORARY (access lockdown): every row opens an agreement page, which a
+  // signed-out visitor can't open, so the section isn't offered at all.
+  if (lockedOut) {
+    return null;
+  }
   if (!loading && (error || results.length === 0)) {
     return null;
   }
@@ -68,7 +76,7 @@ export function FeaturedAgreements({
       </div>
 
       <ul
-        className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card"
+        className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-raised"
         aria-busy={loading || undefined}
       >
         {loading
@@ -103,7 +111,10 @@ function FeaturedAgreementRow({
 
   return (
     <Link
-      to={buildAgreementHref({ agreementUuid: result.agreement_uuid, from: "/" })}
+      to={buildAgreementHref({
+        agreementUuid: result.agreement_uuid,
+        from: "/",
+      })}
       onClick={() =>
         trackEvent("landing_featured_agreement_click", {
           position,
@@ -128,7 +139,7 @@ function FeaturedAgreementRow({
         </span>
       ) : null}
       <ArrowRight
-        className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+        className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,transform] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
         aria-hidden="true"
       />
     </Link>

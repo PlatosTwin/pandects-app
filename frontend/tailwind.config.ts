@@ -3,7 +3,8 @@ import typography from "@tailwindcss/typography";
 import animate from "tailwindcss-animate";
 
 export default {
-  darkMode: ["class"],
+  // Dark styles apply on screen only, so printing from dark mode gives a light page.
+  darkMode: ["variant", "@media not print { &:is(.dark *) }"],
   content: ["./client/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
@@ -105,7 +106,19 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      // Elevation scale (values per theme in global.css): raised for resting
+      // surfaces, lifted for hovered or selected ones, overlay for popovers,
+      // menus and dialogs. Use these, not shadow-sm/md/lg.
+      boxShadow: {
+        raised: "var(--elevation-raised)",
+        lifted: "var(--elevation-lifted)",
+        overlay: "var(--elevation-overlay)",
+      },
       keyframes: {
+        enter: {
+          from: { opacity: "0", transform: "translateY(4px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
         "accordion-down": {
           from: {
             height: "0",
@@ -124,6 +137,7 @@ export default {
         },
       },
       animation: {
+        enter: "enter 0.22s cubic-bezier(0.2, 0, 0, 1) both",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },

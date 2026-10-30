@@ -339,10 +339,9 @@ describe("useSearch (sections)", () => {
   });
 
   it("surfaces server errors via the modal and refetches on retry of the same query", async () => {
-    // The hook retries a failed fetch once, so queue two 500s.
-    mockAuthFetch
-      .mockResolvedValueOnce(errorResponse(500, "Internal Server Error"))
-      .mockResolvedValueOnce(errorResponse(500, "Internal Server Error"));
+    // A 500 is not retried automatically: it is usually a query that already
+    // ran into the server's statement limit.
+    mockAuthFetch.mockResolvedValueOnce(errorResponse(500, "Internal Server Error"));
     const { result } = renderHook(() => useSections(), {
       wrapper: createWrapper(),
     });
@@ -354,7 +353,7 @@ describe("useSearch (sections)", () => {
     expect(result.current.errorMessage).toMatch(/HTTP 500/);
     expect(result.current.errorMessage).not.toMatch(/Network error/);
     expect(result.current.error).toMatchObject({ status: 500 });
-    expect(mockAuthFetch).toHaveBeenCalledTimes(2);
+    expect(mockAuthFetch).toHaveBeenCalledTimes(1);
 
     // Re-running the identical search must hit the network again (nonce).
     mockAuthFetch.mockResolvedValueOnce(
@@ -365,7 +364,23 @@ describe("useSearch (sections)", () => {
     });
     await waitFor(() => expect(result.current.results).toHaveLength(1));
     expect(result.current.showErrorModal).toBe(false);
-    expect(mockAuthFetch).toHaveBeenCalledTimes(3);
+    expect(mockAuthFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a 503 from a machine that is starting or stopping once", async () => {
+    mockAuthFetch
+      .mockResolvedValueOnce(errorResponse(503, "Service Unavailable"))
+      .mockResolvedValueOnce(okResponse(sectionsResponse([sectionResult()])));
+    const { result } = renderHook(() => useSections(), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.actions.performSearch({ resetPage: true });
+    });
+    await waitFor(() => expect(result.current.results).toHaveLength(1), { timeout: 5000 });
+    expect(result.current.showErrorModal).toBe(false);
+    expect(mockAuthFetch).toHaveBeenCalledTimes(2);
   });
 
   it("says 'network error' only when the server could not be reached", async () => {

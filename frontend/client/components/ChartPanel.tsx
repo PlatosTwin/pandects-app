@@ -43,7 +43,7 @@ export function ChartPanel({
   return (
     <section
       aria-labelledby={id}
-      className={cn("rounded-xl border border-border bg-card p-4 sm:p-6", className)}
+      className={cn("rounded-xl border border-border bg-card shadow-raised p-4 sm:p-6", className)}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0">

@@ -86,7 +86,10 @@ const COMPARISON_ROWS: ReadonlyArray<{
   },
 ];
 
-const markupHighlightClass = "rounded-sm bg-warning/10 px-1 text-warning";
+// The light warning token is 4.4:1 on its own 10% tint; a slightly darker
+// shade clears WCAG AA (4.5:1) for this small mono text.
+const markupHighlightClass =
+  "rounded-sm bg-warning/10 px-1 text-[hsl(30_90%_30%)] dark:text-warning";
 
 // Reserved heights for the lazy metrics cards (measured at the 720px docs
 // measure and at phone width) so deep links below them do not land short.
@@ -437,60 +440,54 @@ export default function SourcesMethods() {
               text and messy HTML into clean, taxonomized XML. Conceptually, our
               pipeline solves several distinct problems.
             </p>
-            <table className="hidden w-full border-collapse text-left text-sm sm:table">
-              <caption className="sr-only">
-                Status quo versus Pandects standard comparisons
-              </caption>
-              <thead>
-                <tr className="border-b border-border">
-                  <th scope="col" className="w-1/2 pb-2 pr-6 align-bottom">
-                    <Eyebrow asChild>
-                      <span>The Status Quo</span>
-                    </Eyebrow>
-                  </th>
-                  <th scope="col" className="w-1/2 pb-2 align-bottom">
-                    <Eyebrow asChild>
-                      <span>The Pandects Standard</span>
-                    </Eyebrow>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARISON_ROWS.map((row) => (
-                  <tr key={row.problem} className="border-b border-border last:border-b-0">
-                    <td className="py-4 pr-6 align-top">
+            {/* One responsive list: numbered row cards, the status quo on the
+                left and the Pandects answer on a success tint on the right;
+                stacked with labels on phones. */}
+            <div className="rounded-2xl border border-border bg-card shadow-raised p-3 sm:p-4">
+              <div
+                aria-hidden="true"
+                className="hidden gap-3 border-b border-border px-3 pb-3 md:grid md:grid-cols-[1.5rem_1fr_1fr]"
+              >
+                <span />
+                <Eyebrow>The Status Quo</Eyebrow>
+                <Eyebrow className="px-3">The Pandects Standard</Eyebrow>
+              </div>
+              <ol
+                role="list"
+                className="space-y-3 pt-3"
+                aria-label="Status quo versus Pandects standard comparisons"
+              >
+                {COMPARISON_ROWS.map((row, index) => (
+                  <li
+                    key={row.problem}
+                    className="grid gap-3 rounded-xl border border-border bg-background/60 p-3 text-sm md:grid-cols-[1.5rem_1fr_1fr]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="hidden h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums text-muted-foreground md:mt-2 md:flex"
+                    >
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 md:py-2.5">
+                      <Eyebrow className="mb-1 md:hidden" aria-hidden="true">
+                        The Status Quo
+                      </Eyebrow>
+                      <span className="sr-only">Status quo: </span>
                       <div className="font-semibold text-foreground">{row.problem}</div>
                       <p className="mt-1 prose-copy">{row.problemDetail}</p>
-                    </td>
-                    <td className="py-4 align-top">
+                    </div>
+                    <div className="min-w-0 rounded-lg bg-success/10 px-3 py-2.5">
+                      <Eyebrow className="mb-1 md:hidden" aria-hidden="true">
+                        The Pandects Standard
+                      </Eyebrow>
+                      <span className="sr-only">Pandects standard: </span>
                       <div className="font-semibold text-foreground">{row.solution}</div>
                       <p className="mt-1 text-foreground">{row.solutionDetail}</p>
-                    </td>
-                  </tr>
+                    </div>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-            <ol
-              className="divide-y divide-border border-y border-border sm:hidden"
-              aria-label="Status quo versus Pandects standard comparisons"
-            >
-              {COMPARISON_ROWS.map((row) => (
-                <li key={row.problem} className="space-y-3 py-4 text-sm">
-                  <div>
-                    <Eyebrow>Problem</Eyebrow>
-                    <div className="mt-1 font-semibold text-foreground">{row.problem}</div>
-                    <p className="mt-1 prose-copy">{row.problemDetail}</p>
-                  </div>
-                  <div>
-                    <Eyebrow>
-                      <span aria-hidden="true">→ </span>Solution
-                    </Eyebrow>
-                    <div className="mt-1 font-semibold text-foreground">{row.solution}</div>
-                    <p className="mt-1 text-foreground">{row.solutionDetail}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+              </ol>
+            </div>
           </section>
 
           <section
@@ -600,13 +597,13 @@ export default function SourcesMethods() {
                         tooltipProps={{
                           side: "top",
                           className:
-                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                         }}
                         delayDuration={300}
                         popoverProps={{
                           side: "top",
                           className:
-                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                            "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                         }}
                       />
                       <a
@@ -927,13 +924,13 @@ export default function SourcesMethods() {
                 tooltipProps={{
                   side: "top",
                   className:
-                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                 }}
                 delayDuration={300}
                 popoverProps={{
                   side: "top",
                   className:
-                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                    "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                 }}
               />{" "}
               still made too many mistakes for us to be comfortable using them
@@ -1146,13 +1143,13 @@ export default function SourcesMethods() {
                       tooltipProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                       }}
                     />{" "}
                     manually labeled pages across 606 agreements, grouped by
@@ -1271,13 +1268,13 @@ export default function SourcesMethods() {
                       tooltipProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                       }}
                       delayDuration={300}
                       popoverProps={{
                         side: "top",
                         className:
-                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-lg",
+                          "max-w-xs border-border bg-popover text-xs text-foreground shadow-overlay",
                       }}
                     />
                     . We split the corpus by <strong>agreement</strong>, not by

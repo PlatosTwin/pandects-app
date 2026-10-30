@@ -7,17 +7,19 @@ import {
   LEGAL_LINKS,
   linkKey,
 } from "@/components/navigation-links";
-import { NavItemLink } from "@/components/NavLinkParts";
+import { NavItemLink, useShowLock } from "@/components/NavLinkParts";
 
 const focusRing =
   "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function FooterComponent() {
+  // Same signal as the header menus: a lock on pages that need sign-in.
+  const showLock = useShowLock();
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t border-border bg-background">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <footer className="mt-auto border-t print:hidden border-border bg-background">
+      <div className="app-frame">
         <nav
           aria-label="Footer"
           className="grid grid-cols-2 gap-x-6 gap-y-6 py-6 sm:grid-cols-4"
@@ -32,6 +34,7 @@ function FooterComponent() {
                   <li key={linkKey(link)}>
                     <NavItemLink
                       link={link}
+                      locked={showLock(link)}
                       className={`inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground ${focusRing}`}
                     />
                   </li>
@@ -43,8 +46,16 @@ function FooterComponent() {
 
         <div className="flex flex-col gap-3 border-t border-border py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span>© {currentYear} Nikita Bogdanov</span>
-            <ul role="list" aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {/* The prerender bakes in the build year; after New Year the browser
+                renders the next one. Patch the text instead of failing hydration. */}
+            <span suppressHydrationWarning>
+              © {currentYear} Nikita Bogdanov
+            </span>
+            <ul
+              role="list"
+              aria-label="Legal"
+              className="flex flex-wrap items-center gap-x-4 gap-y-1"
+            >
               {LEGAL_LINKS.map((link) => (
                 <li key={link.to}>
                   <Link

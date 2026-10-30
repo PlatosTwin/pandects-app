@@ -650,6 +650,66 @@ def upsert_sections(
         _ = conn.execute(upsert_sql, batch)
 
 
+def delete_stale_sections(
+    agreement_versions: Mapping[str, int],
+    schema: str,
+    conn: Connection,
+) -> int:
+    """
+    Delete sections (and their clauses) left from older XML versions.
+
+    The upsert stamps every extracted section with the current xml_version, so a
+    row with any other version is a section the rebuilt XML no longer contains.
+    Returns the number of section rows deleted.
+    """
+    if not agreement_versions:
+        return 0
+
+    sections_table = f"{schema}.sections"
+    clauses_table = f"{schema}.clauses"
+    assignments_table = f"{schema}.tax_clause_assignments"
+    stale_sections = f"""
+        SELECT s.section_uuid
+        FROM {sections_table} s
+        WHERE s.agreement_uuid = :agreement_uuid
+          AND (s.xml_version IS NULL OR s.xml_version <> :xml_version)
+    """
+    delete_assignments_sql = text(
+        f"""
+        DELETE FROM {assignments_table}
+        WHERE clause_uuid IN (
+            SELECT c.clause_uuid
+            FROM {clauses_table} c
+            WHERE c.section_uuid IN ({stale_sections})
+        )
+        """
+    )
+    delete_clauses_sql = text(
+        f"""
+        DELETE FROM {clauses_table}
+        WHERE section_uuid IN ({stale_sections})
+        """
+    )
+    delete_sections_sql = text(
+        f"""
+        DELETE FROM {sections_table}
+        WHERE agreement_uuid = :agreement_uuid
+          AND (xml_version IS NULL OR xml_version <> :xml_version)
+        """
+    )
+
+    params = [
+        {"agreement_uuid": agreement_uuid, "xml_version": xml_version}
+        for agreement_uuid, xml_version in agreement_versions.items()
+    ]
+    deleted = 0
+    for p in params:
+        _ = conn.execute(delete_assignments_sql, p)
+        _ = conn.execute(delete_clauses_sql, p)
+        deleted += int(conn.execute(delete_sections_sql, p).rowcount or 0)
+    return deleted
+
+
 def replace_module_clauses(
     staged_clauses: Sequence[Mapping[str, object]],
     *,

@@ -21,6 +21,11 @@ interface UseFilterOptionsReturn {
   industry_labels: Record<string, string>;
   isLoading: boolean;
   error: string | null;
+  /** Refetch whichever of the options or the taxonomy failed. */
+  retry: () => void;
+  /** False when retrying can't help (signed out, forbidden, not found). */
+  canRetry: boolean;
+  isRetrying: boolean;
 }
 
 interface UseFilterOptionsOptions {
@@ -49,6 +54,9 @@ const EMPTY: UseFilterOptionsReturn = {
   industry_labels: {},
   isLoading: false,
   error: null,
+  retry: () => {},
+  canRetry: false,
+  isRetrying: false,
 };
 
 async function fetchFilterOptions(
@@ -121,6 +129,14 @@ export function useFilterOptions(
     industry_labels: data?.industry_labels ?? EMPTY_LABELS,
     isLoading: (needsServer && query.isLoading) || (wantsClauseTypes && taxonomy.isLoading),
     error: errorValue,
+    retry: () => {
+      if (query.error) void query.refetch();
+      if (taxonomy.rawError) taxonomy.retry();
+    },
+    canRetry: [query.error, taxonomy.rawError].some(
+      (err) => err && !(isApiError(err) && [401, 403, 404].includes(err.status)),
+    ),
+    isRetrying: (Boolean(query.error) && query.isFetching) || (Boolean(taxonomy.rawError) && taxonomy.isRetrying),
   };
 }
 

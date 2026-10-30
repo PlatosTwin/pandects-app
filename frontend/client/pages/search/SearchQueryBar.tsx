@@ -1,7 +1,7 @@
 import { forwardRef, useId, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { Search as SearchIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ReferenceLink } from "@/components/ui/reference-link";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
   Select,
@@ -100,7 +100,9 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
   };
 
   const keywordInput = (
-    <div className="relative min-w-0 flex-1">
+    // Its own row on phones (above the match select), so a long phrase stays
+    // readable. Without the select (tax mode) it shares the row with Search.
+    <div className={cn("relative min-w-0 flex-1", keywordSupported && "basis-full sm:basis-0")}>
       <SearchIcon
         className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden="true"
@@ -148,103 +150,106 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
   return (
     <div
       ref={ref}
-      className="z-20 border-b border-border bg-background/95 px-4 py-3 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur lg:sticky lg:top-16 sm:px-6 lg:px-8"
+      className="z-20 border-b border-border bg-background/95 py-3 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur lg:sticky lg:top-16"
     >
-      <h1 className="sr-only" id="search-page-title">
-        Search {MODE_NOUNS[mode].many}
-      </h1>
-      <form
-        role="search"
-        aria-labelledby="search-page-title"
-        onSubmit={onFormSubmit}
-        className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center lg:flex-nowrap"
-      >
-        <SegmentedControl
-          aria-label="Search mode"
-          value={mode}
-          onValueChange={onModeChange}
-          className="w-full shrink-0 md:w-auto [&>*]:flex-1 md:[&>*]:flex-none"
-          options={MODE_ORDER.map((value) => ({ value, label: MODE_NOUNS[value].title }))}
-        />
-        <div className="flex min-w-0 items-center gap-1 md:w-64 lg:w-56 xl:w-72">
-          <NestedCheckboxFilter
-            label={clauseLabel}
-            placeholder={`All ${clauseNoun}`}
-            noun={clauseNoun}
-            data={clauseTypes}
-            selectedValues={selectedClauseTypes}
-            onToggle={onToggleClauseType}
-            onClear={onClearClauseTypes}
-            labelById={clauseTypeLabelById}
-            isLoading={isLoadingTaxonomy}
-            className="min-w-0 flex-1"
-            triggerClassName={selectedClauseTypes.length > 0 ? "border-primary/50 bg-primary/5" : undefined}
+      <div className="app-frame-bleed">
+        <h1 className="sr-only" id="search-page-title">
+          Search {MODE_NOUNS[mode].many}
+        </h1>
+        <form
+          role="search"
+          aria-labelledby="search-page-title"
+          onSubmit={onFormSubmit}
+          className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center lg:flex-nowrap"
+        >
+          <SegmentedControl
+            aria-label="Search mode"
+            value={mode}
+            onValueChange={onModeChange}
+            className="w-full shrink-0 md:w-auto [&>*]:flex-1 md:[&>*]:flex-none"
+            options={MODE_ORDER.map((value) => ({ value, label: MODE_NOUNS[value].title }))}
           />
-          {infoId ? (
-            <ClauseTypeInfo
-              key={`${mode}:${infoId}`}
-              kind={isTax ? "tax" : "main"}
-              standardId={infoId}
-              label={clauseTypeLabelById[infoId] ?? clauseLabel}
+          <div className="flex min-w-0 items-center gap-1 md:w-64 lg:w-56 xl:w-72">
+            <NestedCheckboxFilter
+              label={clauseLabel}
+              placeholder={`All ${clauseNoun}`}
+              noun={clauseNoun}
+              data={clauseTypes}
+              selectedValues={selectedClauseTypes}
+              onToggle={onToggleClauseType}
+              onClear={onClearClauseTypes}
+              labelById={clauseTypeLabelById}
+              isLoading={isLoadingTaxonomy}
+              className="min-w-0 flex-1"
+              triggerClassName={selectedClauseTypes.length > 0 ? "border-primary/50 bg-primary/5" : undefined}
             />
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  to="/taxonomy"
-                  className="tooltip-help-trigger shrink-0"
-                  aria-label="About the clause taxonomy"
-                >
-                  ?
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-                How clause types are defined: open the Taxonomy page.
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-        <div className="flex min-w-0 flex-1 items-center gap-2 md:basis-full lg:basis-auto">
-          {keywordInput}
-          {keywordSupported ? (
-            <Select
-              value={draftMatch}
-              onValueChange={(value) => {
-                const next = value as TextMatchMode;
-                setDraftMatch(next);
-                if (keyword || draft.trim()) submit(next);
-              }}
-            >
-              <SelectTrigger className="h-10 w-[6.75rem] shrink-0 text-sm sm:w-[8.5rem]" aria-label="Keyword match">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(TEXT_MATCH_MODE_LABELS) as TextMatchMode[]).map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {TEXT_MATCH_MODE_LABELS[value]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          <Button type="submit" className="h-10 w-10 shrink-0 gap-2 px-0 sm:w-auto sm:px-4" aria-label="Search" aria-describedby="search-results-status">
-            {isSearching ? (
-              <span
-                className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"
-                aria-hidden="true"
+            {infoId ? (
+              <ClauseTypeInfo
+                key={`${mode}:${infoId}`}
+                kind={isTax ? "tax" : "main"}
+                standardId={infoId}
+                label={clauseTypeLabelById[infoId] ?? clauseLabel}
               />
             ) : (
-              <SearchIcon className="h-4 w-4 sm:hidden" aria-hidden="true" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ReferenceLink
+                    to="/taxonomy"
+                    hideIcon
+                    className="tooltip-help-trigger shrink-0"
+                    aria-label="About the clause taxonomy (opens the Taxonomy page in a new tab)"
+                  >
+                    ?
+                  </ReferenceLink>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                  How clause types are defined. Opens the Taxonomy page in a new tab.
+                </TooltipContent>
+              </Tooltip>
             )}
-            <span className="hidden sm:inline">Search</span>
-          </Button>
-        </div>
-      </form>
-      {error ? (
-        <p id={errorId} role="alert" className="mt-1.5 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap md:basis-full lg:basis-auto">
+            {keywordInput}
+            {keywordSupported ? (
+              <Select
+                value={draftMatch}
+                onValueChange={(value) => {
+                  const next = value as TextMatchMode;
+                  setDraftMatch(next);
+                  if (keyword || draft.trim()) submit(next);
+                }}
+              >
+                <SelectTrigger className="h-10 flex-1 text-sm sm:w-[8.5rem] sm:flex-none sm:shrink-0" aria-label="Keyword match">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(TEXT_MATCH_MODE_LABELS) as TextMatchMode[]).map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {TEXT_MATCH_MODE_LABELS[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            <Button type="submit" className="h-10 w-10 shrink-0 gap-2 px-0 sm:w-auto sm:px-4" aria-label="Search" aria-describedby="search-results-status">
+              {isSearching ? (
+                <span
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"
+                  aria-hidden="true"
+                />
+              ) : (
+                <SearchIcon className="h-4 w-4 sm:hidden" aria-hidden="true" />
+              )}
+              <span className="hidden sm:inline">Search</span>
+            </Button>
+          </div>
+        </form>
+        {error ? (
+          <p id={errorId} role="alert" className="mt-1.5 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 });

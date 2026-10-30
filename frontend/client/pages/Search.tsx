@@ -563,12 +563,27 @@ export default function Search() {
     notice: filterOptions.error ? (
       <p role="alert" className="py-2 text-sm text-destructive">
         Some filter options couldn't load. {filterOptions.error}
+        {filterOptions.canRetry ? (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={filterOptions.retry}
+              disabled={filterOptions.isRetrying}
+              className="font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60"
+            >
+              {filterOptions.isRetrying ? "Retrying…" : "Try again"}
+            </button>
+          </>
+        ) : null}
       </p>
     ) : null,
   };
 
+  const mobileFiltersButtonRef = useRef<HTMLButtonElement>(null);
   const mobileFilters = (
     <Button
+      ref={mobileFiltersButtonRef}
       type="button"
       variant="outline"
       size="sm"
@@ -628,6 +643,17 @@ export default function Search() {
         isSearching={active.isSearching}
       />
 
+      {/* The filter rail comes first in tab order on desktop; let keyboard
+          users jump past its ~60 controls. */}
+      <a
+        href="#search-results"
+        className="sr-only z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:hidden lg:focus:not-sr-only lg:focus:fixed lg:focus:left-4 lg:focus:top-4"
+      >
+        Skip to results
+      </a>
+
+      {/* A full-bleed workspace, not the app frame: the filter rail sits flush
+          against the screen edge and the results take the rest. */}
       <div className="flex min-h-[calc(100vh-4rem)]">
         {hydrated ? (
           <Suspense fallback={<SearchSidebarFallback />}>
@@ -685,7 +711,19 @@ export default function Search() {
       </div>
 
       <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-        <SheetContent side="bottom" className="flex max-h-[85dvh] flex-col gap-0 rounded-t-xl p-0">
+        <SheetContent
+          side="bottom"
+          className="flex max-h-[85dvh] flex-col gap-0 rounded-t-xl p-0"
+          // The sheet opens from state, not a Radix trigger, so return focus
+          // to the Filters button by hand.
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            // If the viewport crossed lg while open, the button is hidden.
+            const button = mobileFiltersButtonRef.current;
+            if (button?.offsetParent) button.focus();
+            else document.getElementById("search-results")?.focus();
+          }}
+        >
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <SheetTitle className="text-base">Filters{railCount > 0 ? ` (${railCount})` : ""}</SheetTitle>
             <SheetDescription className="sr-only">Filters apply as you change them.</SheetDescription>

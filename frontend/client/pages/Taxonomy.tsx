@@ -107,7 +107,7 @@ export default function Taxonomy() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab: TaxonomyKind = searchParams.get("tab") === "tax" ? "tax" : "main";
   const selectedId = searchParams.get("node");
-  const { taxonomyTree, isLoading, error } = useTaxonomy({ kind: currentTab });
+  const { taxonomyTree, isLoading, error, rawError, retry } = useTaxonomy({ kind: currentTab });
   const { counts } = useTaxonomyCounts({ kind: currentTab });
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
@@ -468,7 +468,7 @@ export default function Taxonomy() {
 
             {hasQuery && (
               <div
-                className="mt-3 rounded-xl border border-border bg-card p-3"
+                className="mt-3 rounded-xl border border-border bg-card shadow-raised p-3"
                 aria-live="polite"
                 aria-atomic="true"
               >
@@ -487,7 +487,7 @@ export default function Taxonomy() {
                     </p>
                     <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {orderedResults.map((result) => (
-                        <li key={result.id} className="rounded-lg border border-border bg-card">
+                        <li key={result.id} className="rounded-lg border border-border bg-card shadow-raised">
                           <button
                             type="button"
                             onClick={() => handleResultClick(result)}
@@ -565,7 +565,7 @@ export default function Taxonomy() {
 
             <div className="mt-4" aria-busy={isLoading}>
               {error ? (
-                <ErrorState variant="card" error={error} />
+                <ErrorState variant="card" error={rawError} onRetry={retry} />
               ) : isLoading || (taxonomyEntries.length > 0 && !shouldRenderTree) ? (
                 <div className="min-h-[28rem] space-y-4" role="status" aria-live="polite">
                   <Skeleton className="h-32 w-full" />
@@ -676,7 +676,7 @@ export default function Taxonomy() {
                                         key={leaf.id}
                                         id={`taxonomy-l3-${leaf.id}`}
                                         className={cn(
-                                          "flex items-start gap-1 rounded-lg border bg-card p-1 transition-colors duration-700",
+                                          "flex items-start gap-1 rounded-lg border bg-card shadow-raised p-1 transition-colors duration-700",
                                           isSelected ? "border-primary/60 bg-primary/5" : "border-border",
                                           highlightRingClass(`taxonomy-l3-${leaf.id}`),
                                         )}
@@ -716,7 +716,7 @@ export default function Taxonomy() {
                   ))}
                 </Accordion>
               ) : (
-                <div className="rounded-xl border border-border bg-card p-2 sm:p-3">
+                <div className="rounded-xl border border-border bg-card shadow-raised p-2 sm:p-3">
                   {counts ? (
                     <div className="flex justify-end pb-1 pr-10" aria-hidden="true">
                       <Eyebrow>{currentTab === "tax" ? "Clauses" : "Sections"}</Eyebrow>
@@ -751,7 +751,7 @@ export default function Taxonomy() {
 
         {isPanelDocked ? (
           <aside aria-labelledby={panel ? "taxonomy-node-title" : undefined} className="hidden lg:block">
-            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl border border-border bg-card p-5">
+            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl border border-border bg-card shadow-raised p-5">
               {panel ?? (
                 <EmptyState
                   variant="inline"

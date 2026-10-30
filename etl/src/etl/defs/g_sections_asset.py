@@ -1,5 +1,5 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
-from typing import List, Optional
+from typing import List, Optional, cast
 
 import dagster as dg
 from dagster import AssetExecutionContext
@@ -20,7 +20,7 @@ from etl.defs.f_xml_repair_cycle_asset import (
 )
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.g_sections import extract_sections_from_xml
-from etl.utils.db_utils import upsert_sections
+from etl.utils.db_utils import delete_stale_sections, upsert_sections
 from etl.utils.logical_job_runs import (
     load_active_scope_for_job,
     mark_logical_run_stage_completed,
@@ -170,11 +170,17 @@ def _run_sections_for_agreements(
 
             if staged:
                 upsert_sections(staged, db.database, conn)
+                stale_deleted = delete_stale_sections(
+                    {str(s["agreement_uuid"]): cast(int, s["xml_version"]) for s in staged},
+                    db.database,
+                    conn,
+                )
                 context.log.info(
-                    "%s: upserted %s sections from %s agreements",
+                    "%s: upserted %s sections from %s agreements (deleted %s stale sections)",
                     log_prefix,
                     len(staged),
                     len(rows),
+                    stale_deleted,
                 )
             if rows:
                 refreshed = refresh_latest_sections_search(conn, db.database, agreement_uuids)
@@ -261,6 +267,7 @@ def regular_ingest_sections_from_fresh_xml_asset(
     verified_fresh_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_sections_from_fresh_xml",
@@ -284,6 +291,7 @@ def regular_ingest_sections_from_fresh_xml_asset(
         log_prefix="regular_ingest_sections_from_fresh_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_sections_from_fresh_xml",
@@ -321,6 +329,7 @@ def regular_ingest_sections_from_repair_xml_asset(
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_sections_from_repair_xml",
@@ -344,6 +353,7 @@ def regular_ingest_sections_from_repair_xml_asset(
         log_prefix="regular_ingest_sections_from_repair_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="regular_ingest",
         stage_name="regular_ingest_sections_from_repair_xml",
@@ -362,6 +372,7 @@ def ingestion_cleanup_a_sections_from_fresh_xml_asset(
     verified_fresh_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_sections_from_fresh_xml",
@@ -385,6 +396,7 @@ def ingestion_cleanup_a_sections_from_fresh_xml_asset(
         log_prefix="ingestion_cleanup_a_sections_from_fresh_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_sections_from_fresh_xml",
@@ -403,6 +415,7 @@ def ingestion_cleanup_a_sections_from_repair_xml_asset(
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_sections_from_repair_xml",
@@ -426,6 +439,7 @@ def ingestion_cleanup_a_sections_from_repair_xml_asset(
         log_prefix="ingestion_cleanup_a_sections_from_repair_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_a",
         stage_name="ingestion_cleanup_a_sections_from_repair_xml",
@@ -444,6 +458,7 @@ def ingestion_cleanup_b_sections_from_repair_xml_asset(
     verified_repair_agreement_uuids: List[str],
 ) -> List[str]:
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_sections_from_repair_xml",
@@ -467,6 +482,7 @@ def ingestion_cleanup_b_sections_from_repair_xml_asset(
         log_prefix="ingestion_cleanup_b_sections_from_repair_xml_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_b",
         stage_name="ingestion_cleanup_b_sections_from_repair_xml",
@@ -491,6 +507,7 @@ def ingestion_cleanup_c_sections_asset(
         fallback_agreement_uuids=verified_agreement_uuids,
     )
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_sections",
@@ -509,6 +526,7 @@ def ingestion_cleanup_c_sections_asset(
         log_prefix="ingestion_cleanup_c_sections_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_c",
         stage_name="ingestion_cleanup_c_sections",
@@ -537,6 +555,7 @@ def ingestion_cleanup_d_sections_asset(
     )
     scope_uuids = logical_run.agreement_uuids if logical_run is not None else []
     should_skip, current_stage = should_skip_managed_stage(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_d",
         stage_name="ingestion_cleanup_d_sections",
@@ -555,6 +574,7 @@ def ingestion_cleanup_d_sections_asset(
         log_prefix="ingestion_cleanup_d_sections_asset",
     )
     mark_logical_run_stage_completed(
+        context=context,
         db=db,
         job_name="ingestion_cleanup_d",
         stage_name="ingestion_cleanup_d_sections",

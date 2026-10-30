@@ -1,9 +1,11 @@
 name: Backend Quality
 
 # Cancel superseded runs on the same ref (force-pushes, rapid commits)
-# so we don't burn CI minutes on stale workflows.
+# so we don't burn CI minutes on stale workflows. github.workflow is the
+# caller's name under workflow_call, so the run inside Deploy Backend never
+# shares a group with (and gets cancelled by) a standalone run on main.
 concurrency:
-  group: backend-quality-${{ github.ref }}
+  group: backend-quality-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 on:
@@ -35,10 +37,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"

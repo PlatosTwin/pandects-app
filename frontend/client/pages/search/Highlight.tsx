@@ -50,7 +50,12 @@ export function Highlight({ text, pattern }: { text: string; pattern: RegExp | n
     if (match[0].length === 0) continue;
     if (start > last) parts.push(text.slice(last, start));
     parts.push(
-      <mark key={start} className="rounded-sm bg-primary/20 px-0.5 text-foreground">
+      <mark
+        key={start}
+        // The reader's amber find treatment, a step stronger because result
+        // snippets are skimmed rather than read.
+        className="rounded-sm bg-warning/25 px-0.5 text-foreground ring-1 ring-warning/40"
+      >
         {match[0]}
       </mark>,
     );

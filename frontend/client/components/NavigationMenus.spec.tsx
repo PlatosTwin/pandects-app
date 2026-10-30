@@ -115,11 +115,10 @@ describe("Navigation menus", () => {
     expect(loading).not.toContain('data-testid="nav-lock"');
   });
 
-  it("renders a favorites button and avatar initial when signed in", () => {
+  it("renders only the avatar initial when signed in (Favorites lives in its menu)", () => {
     const markup = render(createElement(AuthMenu), { auth: "authenticated" });
 
-    const favoritesTag = markup.match(/<a[^>]*href="\/favorites"[^>]*>/)?.[0] ?? "";
-    expect(favoritesTag).toContain('aria-label="Favorites"');
+    expect(markup).not.toContain('href="/favorites"');
     expect(markup).toContain('aria-label="Account menu for member@example.com"');
     expect(markup).toContain(">M</span>");
     expect(markup).not.toContain("member@e...");

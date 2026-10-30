@@ -161,6 +161,7 @@ class RegularIngestScopeResumeTests(unittest.TestCase):
 
         self.assertEqual(result, [])
         mark_stage.assert_called_once_with(
+            context=ANY,
             db=ANY,
             job_name="regular_ingest",
             stage_name="regular_ingest_pre_processing",

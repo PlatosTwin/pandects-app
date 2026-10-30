@@ -209,7 +209,8 @@ describe("XMLRenderer agreement mode anchors and structure", () => {
   });
 
   it("decodes entities in article and section titles", () => {
-    expect(markup).toContain("ARTICLE I &amp; THE MERGER</h3>");
+    // Articles are h2 under the agreement's h1; their sections are h3.
+    expect(markup).toContain("ARTICLE I &amp; THE MERGER</h2>");
     expect(markup).toContain("Section 1.1 The Merger</h3>");
   });
 
