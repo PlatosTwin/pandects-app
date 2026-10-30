@@ -1,17 +1,17 @@
 # Graph Report - pandects-app  (2026-10-30)
 
 ## Corpus Check
-- 909 files · ~955,971 words
+- 909 files · ~955,983 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 53 file(s) not represented in the graph (top: (none) 15, .toml 7, .example 6)
 
 ## Summary
-- 10551 nodes · 28546 edges · 371 communities (264 shown, 107 thin omitted)
+- 10551 nodes · 28543 edges · 383 communities (275 shown, 108 thin omitted)
 - Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 2274 edges (avg confidence: 0.89)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `16aee49d`
+- Built from commit: `c1cc35f6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -29,7 +29,7 @@
 - h_taxonomy_asset.py
 - _server_capabilities_payload
 - i_tx_metadata_asset.py
-- CheckboxFilter.tsx
+- cn
 - usage.py
 - handlers.py
 - summary_data.py
@@ -49,7 +49,7 @@
 - MainRoutesTests
 - ClassifierTrainer
 - xml_tag_repairs.py
-- session_runtime.py
+- _MockAuthStore
 - PageClassifier
 - frontend/package.json
 - tools/__init__.py
@@ -63,7 +63,7 @@
 - dependencies
 - XMLVerifyAssetTests
 - Env Var Sensitivity Categories
-- apiUrl
+- client.ts
 - retrieval.py
 - ner/config.py
 - register_favorites_routes
@@ -77,14 +77,14 @@
 - compilerOptions
 - classifier_xgb.py
 - NERTagger
-- runtime_utils.py
+- rate_limit.py
 - app.py
 - _fake_oauth_fetch_json
 - build_reader_index
 - d_ai_repair.py
 - TxMetadataDomainTests
 - PaginationAndAccessTests
-- apiUrl
+- lucide-react
 - k_tax_module_asset.py
 - a_staging.py
 - test_sections_text_search.py
@@ -110,7 +110,7 @@
 - review_model.py
 - sqlalchemy
 - register_auth_routes
-- Account.tsx
+- SearchResultsTable.tsx
 - oss-quality.yml
 - config
 - ._auth_external_subject
@@ -148,7 +148,7 @@
 - components.json
 - FavoritesRoutesTests
 - backend-quality.yml
-- reader_gold.py
+- ner.py
 - year
 - Optuna Best Hyperparameter Config
 - deploy-backend.yml
@@ -180,7 +180,7 @@
 - StageQueueAlignmentTests
 - route-manifest.mjs
 - _plan_corpus_dedupe
-- models/__init__.py
+- app.py
 - predict_with_transition_overrides
 - test_regular_ingest_scope_resume.py
 - build_tx_metadata_update_params
@@ -243,7 +243,7 @@
 - columns
 - filtering.py
 - NavbarItem/index.js
-- sync-template.ts
+- SearchQueryBar.tsx
 - _FakeResult
 - Bulk
 - _FakeBeginContext
@@ -253,11 +253,11 @@
 - .test_apply_offline_batch_output_supports_counsel_updates
 - .test_server_capabilities_snapshot
 - push_to_r2.sh
-- ._get_callbacks
+- frontend/package.json
 - _FakeResult
 - batch_inference.py
 - .test_password_login_requires_terms_and_email_verification_for_pending_signup
-- ._print_eval_diagnostics
+- _register_blueprints
 - restore_prod.sh
 - Docs
 - columns
@@ -268,7 +268,7 @@
 - Google Analytics gtag Bootstrap
 - .test_monetary_extraction_does_not_absorb_surrounding_prose
 - nodes
-- test_r2_allowlist.py
+- ExhibitClassifier
 - hashlib
 - _Result
 - deps/package.json
@@ -279,7 +279,7 @@
 - ._sqlite_text_search
 - build_web_search_retry_context
 - convert_to_xml
-- dependencies
+- entity_audit.py
 - i_tx_metadata.py
 - _FakeCounselSelectionConn
 - etl
@@ -289,7 +289,7 @@
 - releases
 - .test_xml_verify_asset_bypasses_llm_when_disabled_and_marks_verified
 - unreleased
-- _MySQLVector
+- FavoritesAgreementMetadataTests
 - sys
 - _FakeResult
 - changes
@@ -309,8 +309,8 @@
 - Reader-index gold labeling rubric (v1.5)
 - schema_utils.py
 - Server/index.tsx
-- scripts
-- generate_openai_gold.py
+- xml-parser.ts
+- NerInferencePrettyPrintTests
 - Bulk Data Schema
 - inference.py
 - changelog.md
@@ -320,18 +320,18 @@
 - .setUpClass
 - unwrap_stray_decimal_section_tags
 - fulltext_slot
-- dev.mjs
+- eslint.config.mjs
 - _FakeConn
 - _web_search_missing_core_metadata_sql
 - codex_normalized
 - __init__
 - ._seed_reader_index
-- apply_results.py
-- ngram-analysis.ts
-- enforce_monotonic_prediction_sequence
+- logging
+- init_auth_db.py
+- inference.py
 - strip_rendered_navigation_chrome
-- compare_to_gold.py
-- TextLabelDataset
+- text_hash
+- TaxonomyInference
 - PostAssetRefreshTests
 - _StatementQuery
 - _Query
@@ -340,11 +340,25 @@
 - unwrap_same_line_cross_article_section_tags
 - unwrap_bare_article_tags_before_other_article_sections
 - normalize_padded_quoted_terms
-- DocumentDataset
+- exhibit_classifier.py
+- paths.py
+- CRFModelProtocol
 - Reference data
+- AsyncTaskRunner
+- 10. Phases
+- section_text_search_backfill.py
+- select_section_text_drift_details
+- normalizeXmlText
+- request_ip_address
+- test_delete_stale_sections.py
+- tailwind.config.ts
+- ref_path
+- schemas/errors.py
+- postprocess-openapi.js
+- overrides
 
 ## God Nodes (most connected - your core abstractions)
-1. `cn()` - 256 edges
+1. `cn()` - 254 edges
 2. `McpTests` - 177 edges
 3. `PipelineConfig` - 167 edges
 4. `DBResource` - 161 edges
@@ -370,11 +384,11 @@
 ## Import Cycles
 - None detected.
 
-## Communities (371 total, 107 thin omitted)
+## Communities (383 total, 108 thin omitted)
 
 ### Community 0 - "analytics.ts"
-Cohesion: 0.05
-Nodes (57): App(), AccessGate(), AppLayout(), FallbackBody(), FallbackLines(), FallbackTitle(), RouteFallback(), routeShellFor() (+49 more)
+Cohesion: 0.03
+Nodes (100): App(), AccessGate(), AppLayout(), FallbackBody(), FallbackLines(), FallbackTitle(), RouteFallback(), routeShellFor() (+92 more)
 
 ### Community 2 - "json"
 Cohesion: 0.07
@@ -382,7 +396,7 @@ Nodes (62): apply_source_text_bypasses_for_agreements(), _apply_xml_verify_batch
 
 ### Community 3 - "typing"
 Cohesion: 0.02
-Nodes (34): create_test_app(), _load_main_db_module_isolated(), _load_reflected_main_db(), MainDbStartupTests, _sqlite_main_db_engine(), McpOAuthRuntimeTests, _set_default_env(), _openapi_path() (+26 more)
+Nodes (32): create_test_app(), _load_main_db_module_isolated(), _load_reflected_main_db(), MainDbStartupTests, _sqlite_main_db_engine(), McpOAuthRuntimeTests, _set_default_env(), _openapi_path() (+24 more)
 
 ### Community 4 - "WebsiteAuthService"
 Cohesion: 0.11
@@ -393,16 +407,16 @@ Cohesion: 0.14
 Nodes (22): Toast, ToastAction, ToastActionElement, ToastClose, ToastDescription, ToastProps, ToastTitle, toastVariants (+14 more)
 
 ### Community 7 - "shared.tsx"
-Cohesion: 0.10
-Nodes (40): ClassifierEvalMetrics(), ClassifierEvalMetricsProps, ClassifierModel, DocsTableOfContents(), DocsTableOfContentsProps, DocsTocItem, useScrollSpy(), ConfusionMatrixPanel() (+32 more)
+Cohesion: 0.15
+Nodes (26): ClassifierEvalMetrics(), ClassifierEvalMetricsProps, ClassifierModel, ConfusionMatrixPanel(), EvalBadge(), EvalModelCard(), EvalModelHeader(), EvalPanel() (+18 more)
 
 ### Community 8 - "Search.tsx"
 Cohesion: 0.02
-Nodes (232): CheckboxList(), buildReaderMatchesQuery(), MatchesResponse, NON_FILTER_PARAMS, ReaderMatches, ReaderMatchesQuery, SECTION_FILTER_PARAMS, ResultsSortField (+224 more)
+Nodes (243): ASYNC_OPTION_CACHE, CheckboxFilter(), CheckboxFilterProps, CheckboxList(), CheckboxListProps, NestedCheckboxTreeProps, EMPTY_LABELS, FacetGroup() (+235 more)
 
 ### Community 9 - "XMLRenderer.tsx"
-Cohesion: 0.08
-Nodes (42): renderFindHighlights(), AGREEMENT_COLLAPSIBLE_TAGS, AGREEMENT_REGION_LABELS, collectFindHitNodes(), EMPTY_NODE_SET, EMPTY_SET, extractAgreementTocTextChunks(), hasSubstantiveReaderContent() (+34 more)
+Cohesion: 0.14
+Nodes (23): renderFindHighlights(), AGREEMENT_COLLAPSIBLE_TAGS, AGREEMENT_REGION_LABELS, EMPTY_NODE_SET, EMPTY_SET, extractAgreementTocTextChunks(), hasSubstantiveReaderContent(), isAdjacentToAgreementRegionBreak() (+15 more)
 
 ### Community 10 - "h_taxonomy_asset.py"
 Cohesion: 0.08
@@ -416,13 +430,13 @@ Nodes (13): 10. Alternatives considered, 11. Implementation checklist, 1. Proble
 Cohesion: 0.08
 Nodes (34): _apply_offline_batch_output(), _build_offline_metadata_lines(), _chunk_agreements(), _clear_web_failure(), _collect_counsel_sync_uuids(), _counsel_offline_update_sql(), _create_offline_batch(), _fetch_unapplied_offline_batch() (+26 more)
 
-### Community 13 - "CheckboxFilter.tsx"
-Cohesion: 0.06
-Nodes (51): ASYNC_OPTION_CACHE, CheckboxFilter(), CheckboxFilterProps, CheckboxListProps, buildFindRegex(), FIND_CURRENT_ATTR, FIND_HIT_ATTR, findHitClassName (+43 more)
+### Community 13 - "cn"
+Cohesion: 0.03
+Nodes (125): AgreementReader(), AgreementReaderProps, AgreementTextSize, DocSectionInfo, errorFromMessage(), indexDocumentSections(), isMacPlatform(), ReaderSkeleton() (+117 more)
 
 ### Community 14 - "usage.py"
-Cohesion: 0.05
-Nodes (29): record_signon_event(), _record_signup_attribution(), record_request_usage(), usage_buffer(), AccessContextLike, _api_route_template(), build_usage_event(), _commit_rollup_pending() (+21 more)
+Cohesion: 0.06
+Nodes (25): AccessContextLike, _api_route_template(), build_usage_event(), _commit_rollup_pending(), _flush_rollup_rows(), _get_rollup_buffer(), HourlyRollupAggregate, HourlyRollupBuffer (+17 more)
 
 ### Community 15 - "handlers.py"
 Cohesion: 0.05
@@ -437,12 +451,12 @@ Cohesion: 0.04
 Nodes (37): clamp_page_size(), search_max_page_size(), McpDeps, ApiKeyLikeProtocol, AuthenticateExternalIdentityProtocol, CachedExactQueryCountProtocol, CreateApiKeyProtocol, EnsureCurrentLegalAcceptancesProtocol (+29 more)
 
 ### Community 18 - "crf_pipeline.py"
-Cohesion: 0.07
-Nodes (57): _agreement_type_from_counts(), append_next_page_annex_feature(), build_agreement_documents(), _build_agreement_level_metrics(), build_agreement_split_frame(), _build_body_involved_error_metrics(), build_feature_sequences(), build_label_sequences() (+49 more)
+Cohesion: 0.13
+Nodes (34): _agreement_type_from_counts(), build_agreement_documents(), _build_agreement_level_metrics(), build_agreement_split_frame(), _build_body_involved_error_metrics(), build_postprocess_parameters(), _coerce_dict(), _coerce_int() (+26 more)
 
 ### Community 19 - "exhibit_classifier_train.py"
-Cohesion: 0.08
-Nodes (19): load_training_data(), _class_weight_from_params(), _compute_and_log_metrics(), _compute_threshold_metrics(), _drop_short_positive_examples(), _hard_negative_mask(), _load_or_create_split(), main() (+11 more)
+Cohesion: 0.15
+Nodes (18): load_training_data(), _class_weight_from_params(), _compute_and_log_metrics(), _compute_threshold_metrics(), _drop_short_positive_examples(), _hard_negative_mask(), _load_or_create_split(), main() (+10 more)
 
 ### Community 20 - "start_or_resume_logical_run"
 Cohesion: 0.07
@@ -469,8 +483,8 @@ Cohesion: 0.05
 Nodes (76): agreement_is_public_eligible_expr(), _agreement_trends_payload(), _keep_year(), default_filter_options_cached(), get(), get_filter_option_values(), get_filter_options(), AccessContextProtocol (+68 more)
 
 ### Community 27 - "Taxonomy.tsx"
-Cohesion: 0.04
-Nodes (102): childrenOf(), isLeaf(), isNode(), leafIdsOf(), LeafMatch, NestedCheckboxFilter(), NestedCheckboxFilterProps, NestedCheckboxTree() (+94 more)
+Cohesion: 0.06
+Nodes (58): useMediaQuery(), EmptyState(), countNoun(), formatCount(), indexTaxonomyNodes(), plainTextFromXml(), sectionReaderHref(), TAXONOMY_LEVEL_NAMES (+50 more)
 
 ### Community 28 - "d_ai_repair_asset.py"
 Cohesion: 0.05
@@ -478,35 +492,35 @@ Nodes (52): _ai_repair_batch_key(), ai_repair_enqueue_asset(), ai_repair_poll_as
 
 ### Community 29 - "cn"
 Cohesion: 0.03
-Nodes (141): AgreementIndexOverview(), DEAL_TYPE_DISPLAY_ORDER, DEAL_TYPE_MODE_OPTIONS, DealTypeChartMode, DealTypesChart, DealTypeSeries, dealTypeSeriesKey(), EMPTY_DEAL_TYPE_ROWS (+133 more)
+Nodes (137): AgreementIndexOverview(), DEAL_TYPE_DISPLAY_ORDER, DEAL_TYPE_MODE_OPTIONS, DealTypeChartMode, DealTypesChart, DealTypeSeries, dealTypeSeriesKey(), EMPTY_DEAL_TYPE_ROWS (+129 more)
 
 ### Community 31 - "ClassifierTrainer"
-Cohesion: 0.09
-Nodes (7): collate_pages(), PageDataModule, ClassifierInference, _stop_on_no_improve(), HyperParams, main(), ModelOverrides
+Cohesion: 0.05
+Nodes (10): collate_pages(), PageDataModule, ClassifierInference, ClassifierTrainer, _stop_on_no_improve(), _objective(), HyperParams, main() (+2 more)
 
 ### Community 32 - "xml_tag_repairs.py"
 Cohesion: 0.13
 Nodes (24): _apply_tag_repair_to_body_rows(), apply_body_start_tag_repairs(), insert_missing_section_heading_tags(), normalize_no_space_section_prefixes(), _omitted_article_split_positions(), _omitted_section_split_positions(), promote_whole_number_sections_to_articles(), _section_heading_pattern() (+16 more)
 
-### Community 33 - "session_runtime.py"
-Cohesion: 0.06
-Nodes (39): access_account_predates_today(), _api_key_context(), current_access_context(), _is_deleted_account_email(), require_user(), require_verified_user(), temporary_access_gate(), user_id_is_verified() (+31 more)
+### Community 33 - "_MockAuthStore"
+Cohesion: 0.16
+Nodes (4): _utc_now(), _MockApiKey, _MockAuthStore, _MockAuthUser
 
 ### Community 35 - "frontend/package.json"
-Cohesion: 0.04
-Nodes (63): devDependencies, autoprefixer@^10.6.1, eslint@^9.39.4, @eslint/js@^9.39.4, eslint-plugin-jsx-a11y@^6.10.2, eslint-plugin-react-hooks@^7.1.1, @flydotio/dockerfile@^0.7.10, globals@^15.9.0 (+55 more)
+Cohesion: 0.06
+Nodes (35): devDependencies, autoprefixer@^10.6.1, eslint@^9.39.4, @flydotio/dockerfile@^0.7.10, jsdom@^29.1.1, openapi-typescript@7.13.0, postcss@^8.5.30, prettier@^3.9.10 (+27 more)
 
 ### Community 36 - "tools/__init__.py"
 Cohesion: 0.12
 Nodes (55): _access_schema(), _agreement_list_result_schema(), _agreement_search_result_schema(), _agreement_trends_output_schema(), _agreements_summary_output_schema(), _auth_help_schema(), _batch_agreement_result_schema(), _batch_agreement_sections_output_schema() (+47 more)
 
 ### Community 37 - "ner.py"
-Cohesion: 0.05
-Nodes (33): _append_experiment_row(), _bucket_agreement_lengths(), _bucket_agreement_tag_density(), _build_cli(), _build_strat_labels(), _count_non_upsample_rows(), _eval_job_dir(), _eval_runs_dir() (+25 more)
+Cohesion: 0.08
+Nodes (11): _load_entity_audit_builders(), _log_dir(), _log_progress(), main(), NERTrainer, run_article_audit(), run_hparam_tuning(), run_page_audit() (+3 more)
 
 ### Community 38 - "react-router-dom"
-Cohesion: 0.04
-Nodes (102): RFC-6749, LegalAcceptancePrompt(), FactCard(), FactCardProps, PageHeader(), PageHeaderProps, PageShell(), PageShellLayout (+94 more)
+Cohesion: 0.03
+Nodes (148): RFC-6749, LegalAcceptancePrompt(), FlagAsInaccurateButtonProps, ISSUE_OPTIONS, PageHeader(), PageHeaderProps, PageShell(), PageShellLayout (+140 more)
 
 ### Community 39 - "favorites_service.py"
 Cohesion: 0.10
@@ -529,8 +543,8 @@ Cohesion: 0.10
 Nodes (17): decode_dsml_to_arguments(), _decode_value(), _drop_thinking_messages(), encode_arguments_to_dsml(), encode_messages(), find_last_user_index(), merge_tool_messages(), parse_message_from_completion_text() (+9 more)
 
 ### Community 44 - "dependencies"
-Cohesion: 0.04
-Nodes (55): dependencies, class-variance-authority@^0.7.1, clsx@^2.1.1, cmdk@^1.0.0, date-fns@^3.6.0, @dnd-kit/core@^6.3.1, @dnd-kit/sortable@^10.0.0, @dnd-kit/utilities@^3.2.2 (+47 more)
+Cohesion: 0.05
+Nodes (41): dependencies, class-variance-authority@^0.7.1, cmdk@^1.0.0, compression@^1.8.2, @dnd-kit/core@^6.3.1, @dnd-kit/utilities@^3.2.2, express@^5.3.0, lucide-react@^0.462.0 (+33 more)
 
 ### Community 45 - "XMLVerifyAssetTests"
 Cohesion: 0.09
@@ -540,17 +554,17 @@ Nodes (4): _article_title_marks_intentionally_empty(), find_hard_rule_violations
 Cohesion: 0.07
 Nodes (35): Dependabot Weekly Update Config, GitHub Funding Config (buy_me_a_coffee: nmbogdan), Backend Quality Workflow, Deploy Backend Workflow, Deploy Docs Workflow, Deploy Frontend Workflow, Frontend Quality Workflow (reusable), OSS Quality Workflow (+27 more)
 
-### Community 47 - "apiUrl"
-Cohesion: 0.04
-Nodes (99): StarButtonProps, FavoritesContext, FavoritesContextValue, FavoritesProvider(), sortProjects(), sortTags(), api, createWrapper() (+91 more)
+### Community 47 - "client.ts"
+Cohesion: 0.09
+Nodes (27): mockAuthFetch, TREE, apiDelete(), ApiError, apiPatch(), apiPost(), apiPut(), apiRequest() (+19 more)
 
 ### Community 48 - "retrieval.py"
-Cohesion: 0.06
-Nodes (33): build_engine(), _fetch_sections(), _load_gold(), main(), _fetch_parties(), _fetch_section_text(), _format_candidates(), _gold_section_ids() (+25 more)
+Cohesion: 0.08
+Nodes (23): _fetch_sections(), _load_gold(), main(), BM25, build_queries(), Candidate, _clean_title(), fuse() (+15 more)
 
 ### Community 49 - "ner/config.py"
-Cohesion: 0.05
-Nodes (25): build_config(), _build_run_id(), _config_fingerprint(), config_to_dict(), _detect_git_commit(), FrozenExperimentConfig, load_config_from_cli(), load_frozen_experiment_config() (+17 more)
+Cohesion: 0.06
+Nodes (24): build_config(), _build_run_id(), _config_fingerprint(), config_to_dict(), _detect_git_commit(), FrozenExperimentConfig, load_config_from_cli(), load_frozen_experiment_config() (+16 more)
 
 ### Community 50 - "register_favorites_routes"
 Cohesion: 0.15
@@ -573,12 +587,12 @@ Cohesion: 0.09
 Nodes (43): mcp_protocol_version(), mcp_server_name(), mcp_server_version(), _apply_protocol_headers(), _bad_request_message(), _client_prefers_sse(), _encode_sse_event(), _ensure_object_payload() (+35 more)
 
 ### Community 55 - "core/config.py"
-Cohesion: 0.07
-Nodes (29): init_auth_db(), _schema_prefix(), app_config_map(), _auth_bind_config(), auth_database_uri_or_default(), configure_app(), configure_auth_bind(), configure_auth_bind_engine_options() (+21 more)
+Cohesion: 0.09
+Nodes (26): _schema_prefix(), app_config_map(), _auth_bind_config(), auth_database_uri_or_default(), configure_app(), configure_auth_bind(), configure_auth_bind_engine_options(), configure_cors() (+18 more)
 
 ### Community 56 - "enrichment_lib.py"
-Cohesion: 0.09
-Nodes (23): _is_sanctioned_mirror(), main(), add(), _expand_reps(), main(), _norm_example(), _party(), _sub() (+15 more)
+Cohesion: 0.08
+Nodes (24): _is_sanctioned_mirror(), main(), add(), _expand_reps(), main(), _norm_example(), _party(), _sub() (+16 more)
 
 ### Community 57 - "public_api.py"
 Cohesion: 0.04
@@ -593,28 +607,28 @@ Cohesion: 0.09
 Nodes (44): hard_negative_back_matter_mask(), _class_weight_vector(), _class_weight_vector_balanced(), _decode_doc_moe(), _decode_subset_from_probs(), _doc_case_id(), _doc_groups_for_subset(), load_and_prepare_data() (+36 more)
 
 ### Community 60 - "NERTagger"
-Cohesion: 0.09
-Nodes (4): ConstrainedLinearChainCRF, FocalLoss, _LogitsOutput, NERTagger
+Cohesion: 0.11
+Nodes (3): ConstrainedLinearChainCRF, EvalDocRecord, NERTagger
 
-### Community 61 - "runtime_utils.py"
-Cohesion: 0.04
-Nodes (58): require_captcha_token(), require_turnstile_configured(), turnstile_enabled(), turnstile_required(), turnstile_secret_key(), turnstile_site_key(), verify_turnstile_token(), ensure_current_legal_acceptances() (+50 more)
+### Community 61 - "rate_limit.py"
+Cohesion: 0.08
+Nodes (28): require_captcha_token(), error_code_for_status(), _field_validation_messages(), _flatten_validation_messages(), handle_http_exception(), handle_internal_server_error(), handle_sqlalchemy_error(), handle_validation_error() (+20 more)
 
 ### Community 62 - "app.py"
 Cohesion: 0.03
-Nodes (90): _ApiExtension, _auth_enumeration_delay(), _auth_rate_limit_guard(), _build_favorites_deps(), _build_route_deps(), _build_sections_service_deps(), _build_tax_clauses_service_deps(), _cached_exact_query_count() (+82 more)
+Nodes (84): _auth_enumeration_delay(), _build_favorites_deps(), _build_route_deps(), _build_sections_service_deps(), _build_tax_clauses_service_deps(), _cached_exact_query_count(), _estimated_latest_sections_search_table_rows(), _estimated_query_row_count() (+76 more)
 
 ### Community 64 - "build_reader_index"
-Cohesion: 0.17
+Cohesion: 0.16
 Nodes (10): build_reader_index(), AnchorTests, _article(), _doc(), OutlineTests, _section(), _term(), TermTests (+2 more)
 
 ### Community 65 - "d_ai_repair.py"
 Cohesion: 0.08
 Nodes (20): build_jsonl_line_for_source_text_verdict(), build_jsonl_lines_for_page(), _build_token_char_map(), _chars_to_tokens(), _coverage_metrics_from_tokens(), decide_repair_windows(), _json_schema_excerpt_rulings(), _json_schema_full_tagged_text() (+12 more)
 
-### Community 68 - "apiUrl"
-Cohesion: 0.04
-Nodes (145): AgreementReader(), AgreementReaderProps, AgreementTextSize, DocSectionInfo, errorFromMessage(), indexDocumentSections(), isMacPlatform(), ReaderSkeleton() (+137 more)
+### Community 68 - "lucide-react"
+Cohesion: 0.05
+Nodes (110): fetchAgreementMetadataBatch(), fetchSectionDetailsBatch(), BulkTagActions(), ColorPicker(), FavoriteRow(), FilterBar(), contextLabels(), contextString() (+102 more)
 
 ### Community 69 - "k_tax_module_asset.py"
 Cohesion: 0.10
@@ -637,8 +651,8 @@ Cohesion: 0.12
 Nodes (17): agreement_matches_auto_verify_rule(), AgreementCandidate, apply_status_updates(), _assert_agreements_status_supports_verified(), BatchOutcome, _build_db_resource(), collect_matching_agreement_uuids(), scan_candidate() (+9 more)
 
 ### Community 75 - "reader_index.py"
-Cohesion: 0.09
-Nodes (25): _build_outline(), add_section(), walk(), _classify_tokens(), _collect_declarations(), _Decl, _enum_kind(), _enum_ordinal() (+17 more)
+Cohesion: 0.06
+Nodes (42): _build_outline(), add_section(), walk(), _classify_tokens(), _collect_declarations(), _collect_texts(), walk(), _container_label() (+34 more)
 
 ### Community 76 - "PandaEasterEgg.tsx"
 Cohesion: 0.20
@@ -653,12 +667,12 @@ Cohesion: 0.06
 Nodes (62): DealTypeChartMode, DealTypeChartRow, DealTypesChart(), DealTypesChartProps, DealTypeSeries, PERCENT_AXIS_TICKS, ProcessingStatusChart(), ProcessingStatusChartProps (+54 more)
 
 ### Community 79 - "Smart reader: live TOC, defined terms and cross-references"
-Cohesion: 0.06
-Nodes (35): 10.1 Phase 1 progress (2026-10-22), 10.2 Table, asset and corpus run (2026-10-22, overnight), 10.3 Gold-set pilot (2026-10-23), 10.4 Held-out gold set (2026-10-23), 10.5 Enricher 0.2.0 and a second held-out set (2026-10-29), 10.6 Held-out v3: a blind score for enricher 0.3.0 (2026-10-29), 10.7 Enricher 0.4.0 and held-out v4 (2026-10-29), 10.8 Phase 2: the API and the corpus run (2026-10-30) (+27 more)
+Cohesion: 0.11
+Nodes (19): 11. Decisions (2026-10-22), 1. Problem, 2.1 Reader (frontend), 2.2 API (backend), 2.3 XML and ETL, 2. Current state, 3. The reference implementation (kirkland `standard-k` and `ingester`), 4. Prototype results (+11 more)
 
 ### Community 80 - "_FakeConn"
-Cohesion: 0.10
-Nodes (6): _FakeBeginContext, _FakeConn, _FakeDB, _FakeEngine, _FakeLog, _FakeResult
+Cohesion: 0.07
+Nodes (10): _FakeBatches, _FakeBeginContext, _FakeClient, _FakeConn, _FakeContent, _FakeDB, _FakeEngine, _FakeFiles (+2 more)
 
 ### Community 81 - "_run_crf_experiment"
 Cohesion: 0.12
@@ -673,36 +687,32 @@ Cohesion: 0.09
 Nodes (8): _ExecuteResult, _FakeBeginContext, _FakeConn, _FakeEngine, _FakeLog, _InsertResult, _ParseContext, _SelectResult
 
 ### Community 84 - "emails/package.json"
-Cohesion: 0.15
-Nodes (16): devDependencies, react-email@6.9.5, @react-email/preview-server@5.2.10, tsx@^4.23.13, @types/react@^19.3.0, @types/react-dom@^19.3.0, tsx, @types/react (+8 more)
+Cohesion: 0.07
+Nodes (40): dependencies, dotenv@^17.4.2, react@^19.3.0, react-dom@^19.3.0, @react-email/components@1.0.12, @react-email/render@^2.1.1, resend@^6.28.0, devDependencies (+32 more)
 
 ### Community 85 - "gold_generate.py"
-Cohesion: 0.11
-Nodes (19): load_envs(), _build_engine(), _build_system_instructions(), _build_user_payload(), _clean_body(), _fetch_sections(), _fetch_taxonomy(), main() (+11 more)
+Cohesion: 0.08
+Nodes (28): build_engine(), _build_engine(), _build_system_instructions(), _build_user_payload(), _clean_body(), _fetch_sections(), _fetch_taxonomy(), _fetch_parties() (+20 more)
 
 ### Community 86 - "mcp_runtime.py"
 Cohesion: 0.10
 Nodes (36): public_pem_from_private_pem(), _audience_set(), _auth_error(), authenticate_external_identity(), authenticate_mcp_request(), _authenticate_pandects_access_token(), _bearer_challenge(), _claim_client_id() (+28 more)
-
-### Community 87 - "._extract_document_features"
-Cohesion: 0.07
-Nodes (6): ExhibitClassifier, main(), _build_training_data(), _contains_normalized_phrase(), ExhibitClassifierTests, _normalize_text_for_overlap_check()
 
 ### Community 88 - "test_i_tx_metadata_asset.py"
 Cohesion: 0.11
 Nodes (7): _fake_web_search_output(), _FakeContent, _FakeFiles, _FakeResponsesClient, _FlakyResponsesClient, _RoutingResponsesClient, _RoutingWebClient
 
 ### Community 89 - "reference_data.py"
-Cohesion: 0.08
-Nodes (17): _default_key(), _Entry, ttl_cached(), decorator(), ttl_caching_active(), TtlCachedFunction, changelog_payload_cached(), counsel_payload_cached() (+9 more)
+Cohesion: 0.05
+Nodes (25): _default_key(), _Entry, ttl_cached(), decorator(), ttl_caching_active(), TtlCachedFunction, changelog_payload_cached(), counsel_payload_cached() (+17 more)
 
 ### Community 90 - "GET /v1/taxonomy — Retrieve clause taxonomy"
 Cohesion: 0.08
 Nodes (25): GET /v1/counsel — Retrieve canonical counsel names, GET /v1/naics — Retrieve NAICS sectors and subsectors, GET /v1/sections/{section_uuid} — Retrieve section text by UUID, GET /v1/sections/{section_uuid}/tax-clauses — Retrieve tax clauses for a section, GET /v1/taxonomy/tax-clauses — Retrieve tax-clause taxonomy, GET /v1/taxonomy — Retrieve clause taxonomy, GET /v1/agreements/{agreement_uuid}/sections — List ordered agreement sections, Base64 keyset cursor pagination (+17 more)
 
 ### Community 91 - "review_model.py"
-Cohesion: 0.08
-Nodes (26): ExhibitClassifierModelData, CRFHyperparameters, _build_ranking_metrics(), _build_review_model_candidates(), _build_review_training_dataset(), _coerce_cached_review_frame(), _evaluate_review_model(), _extract_model_feature_rows() (+18 more)
+Cohesion: 0.11
+Nodes (26): build_label_sequences(), CRFHyperparameters, _build_ranking_metrics(), _build_review_model_candidates(), _build_review_training_dataset(), _coerce_cached_review_frame(), _evaluate_review_model(), _extract_model_feature_rows() (+18 more)
 
 ### Community 92 - "sqlalchemy"
 Cohesion: 0.10
@@ -712,9 +722,9 @@ Nodes (26): _apply_legacy_catchup(), _column_names(), _create_api_keys(), _creat
 Cohesion: 0.18
 Nodes (19): _clear_zitadel_pending_cookie(), _clear_zitadel_web_cookie(), _load_oauth_browser_cookie(), _load_signed_cookie(), _load_zitadel_link_cookie(), _load_zitadel_pending_cookie(), _load_zitadel_web_cookie(), _oauth_browser_cookie_serializer() (+11 more)
 
-### Community 94 - "Account.tsx"
+### Community 94 - "SearchResultsTable.tsx"
 Cohesion: 0.08
-Nodes (49): ConfirmDeleteDialog(), NavBetaBadge(), ReaderDetailItem, ReaderDetails(), SaveConfirmationModal(), SaveConfirmationModalProps, AlertDialogAction, AlertDialogCancel (+41 more)
+Nodes (56): DocsTableOfContents(), DocsTableOfContentsProps, DocsTocItem, useScrollSpy(), FlagAsInaccurateButton(), ResultsDensity, ResultsSortField, SearchResultsTable() (+48 more)
 
 ### Community 95 - "oss-quality.yml"
 Cohesion: 0.06
@@ -723,10 +733,6 @@ Nodes (33): concurrency, cancel-in-progress, group, run, runs-on, steps, default
 ### Community 96 - "config"
 Cohesion: 0.06
 Nodes (32): ai_repair_attempt_priority, ai_repair_page_budget, embed_agreement_batch_size, embed_focus_section, embed_focus_section_batch_size, embed_target, enable_section_taxonomy, enable_tax_taxonomy (+24 more)
-
-### Community 98 - "NERDataModule"
-Cohesion: 0.19
-Nodes (3): EvalDocRecord, NERDataModule, _LoaderKwargs
 
 ### Community 99 - "ui_api.py"
 Cohesion: 0.12
@@ -737,12 +743,12 @@ Cohesion: 0.09
 Nodes (21): DOCS_DIR, endpoints, fs, GUIDES, guideSlug(), guideUrl(), llmsFull, llmsTxt (+13 more)
 
 ### Community 102 - "search_counts.py"
-Cohesion: 0.16
+Cohesion: 0.15
 Nodes (7): cached_exact_query_count(), exact_query_count(), _prune_count_cache(), _StatementQuery, ToIntProtocol, CachedExactQueryCountTests, _fake_query()
 
 ### Community 103 - "time"
-Cohesion: 0.03
-Nodes (44): create_api_key(), permanently_delete_api_key(), should_touch_api_key_last_used(), touch_api_key_last_used_if_needed(), assert_zitadel_notification_signing_key_configured(), _emails_workspace_dir(), frontend_base_url(), is_email_like() (+36 more)
+Cohesion: 0.08
+Nodes (31): require_turnstile_configured(), turnstile_enabled(), turnstile_required(), turnstile_secret_key(), turnstile_site_key(), verify_turnstile_token(), assert_zitadel_notification_signing_key_configured(), _emails_workspace_dir() (+23 more)
 
 ### Community 104 - "eval_dedupe_similarity.py"
 Cohesion: 0.06
@@ -754,7 +760,7 @@ Nodes (43): _article_has_substantive_non_section_content(), article_heading_firs
 
 ### Community 106 - "g_sections.py"
 Cohesion: 0.14
-Nodes (11): clean_article_title(), clean_section_title(), extract_sections_from_xml(), get_article_level_xml_excluding_sections(), get_inner_xml(), has_meaningful_xml_text(), _local_tag_name(), normalize_section_search_text() (+3 more)
+Nodes (12): build_section_search_text(), clean_article_title(), clean_section_title(), extract_sections_from_xml(), get_article_level_xml_excluding_sections(), get_inner_xml(), has_meaningful_xml_text(), _local_tag_name() (+4 more)
 
 ### Community 107 - "compile_boolean_text_query"
 Cohesion: 0.06
@@ -778,7 +784,7 @@ Nodes (5): CollectEvalDocsTests, _ConstrainedDecoder, _emissions(), FirstSubword
 
 ### Community 113 - "TaxonomyTrainer"
 Cohesion: 0.05
-Nodes (4): _combine_text(), TaxonomyConfig, TaxonomyTrainer, TaxonomyModelTests
+Nodes (3): TaxonomyConfig, TaxonomyTrainer, TaxonomyModelTests
 
 ### Community 114 - "StagingDedupTests"
 Cohesion: 0.17
@@ -789,12 +795,12 @@ Cohesion: 0.12
 Nodes (18): build_section_text_match_expression(), SectionTextMatchExpressionTests, apply_docs(), collect_enums(), Column, dbml_default(), dbml_quote(), dbml_type() (+10 more)
 
 ### Community 116 - "TaxClauseCompare.tsx"
-Cohesion: 0.11
-Nodes (26): favoriteHref(), base, AgreementOriginKind, buildAgreementHref(), BuildAgreementHrefOptions, buildSectionHref(), currentOrigin(), hasUnsafePathChar() (+18 more)
+Cohesion: 0.07
+Nodes (45): buildFindRegex(), FIND_CURRENT_ATTR, FIND_HIT_ATTR, findHitClassName, splitFindSegments(), TextSegment, buildReaderMatchesQuery(), MatchesResponse (+37 more)
 
 ### Community 117 - "taxonomy.py"
-Cohesion: 0.05
-Nodes (18): build_bioes_constraints(), _legal_bioes(), _parse_bioes(), repair_bioes(), _singleton_tag(), spans_to_tags(), _upgrade_token_head(), collate_pages_predict() (+10 more)
+Cohesion: 0.04
+Nodes (16): build_bioes_constraints(), FocalLoss, _legal_bioes(), _LogitsOutput, _parse_bioes(), repair_bioes(), _singleton_tag(), spans_to_tags() (+8 more)
 
 ### Community 118 - "metrics.py"
 Cohesion: 0.27
@@ -817,8 +823,8 @@ Cohesion: 0.12
 Nodes (15): brandSection, brandText, button, buttonSection, container, copy, divider, emailLink (+7 more)
 
 ### Community 124 - "seo-helpers.mjs"
-Cohesion: 0.10
-Nodes (19): compression@^1.8.2, express@^5.3.0, vite@^6.4.2, @vitejs/plugin-react-swc@^4.3.3, createServer(), DOCS_SITE_URL, loadPrerenderedTemplates(), createProductionServer() (+11 more)
+Cohesion: 0.15
+Nodes (13): createServer(), DOCS_SITE_URL, loadPrerenderedTemplates(), createProductionServer(), startProductionServer(), FRONTEND_CONTENT_SECURITY_POLICY, FRONTEND_SECURITY_HEADERS, SCRIPT_HASH_SOURCES (+5 more)
 
 ### Community 125 - "_extract_article_number"
 Cohesion: 0.10
@@ -840,9 +846,9 @@ Nodes (16): aliases, components, hooks, lib, ui, utils, rsc, $schema (+8 more)
 Cohesion: 0.07
 Nodes (29): concurrency, cancel-in-progress, group, env, FORCE_JAVASCRIPT_ACTIONS_TO_NODE24, MCP_ENABLE_LIVE_TRANSPORT_TESTS, SKIP_MAIN_DB_REFLECTION, jobs (+21 more)
 
-### Community 132 - "reader_gold.py"
-Cohesion: 0.12
-Nodes (17): _collect_texts(), walk(), _container_label(), _glossary_exhibit_texts(), _norm_num(), _Text, _utf16_table(), adjudicate() (+9 more)
+### Community 132 - "ner.py"
+Cohesion: 0.10
+Nodes (21): _append_experiment_row(), _bucket_agreement_lengths(), _bucket_agreement_tag_density(), _build_strat_labels(), _count_non_upsample_rows(), _eval_job_dir(), _eval_runs_dir(), _eval_trials_dir() (+13 more)
 
 ### Community 133 - "year"
 Cohesion: 0.10
@@ -875,10 +881,6 @@ Nodes (16): initialState, slice, State, ApiFrontMatter, ApiItem(), base64ToUint8
 ### Community 140 - "compilerOptions"
 Cohesion: 0.20
 Nodes (9): compilerOptions, composite, jsx, noEmit, skipLibCheck, strict, strictNullChecks, exclude (+1 more)
-
-### Community 141 - "NERInference"
-Cohesion: 0.12
-Nodes (4): ascii_lower(), NERInference, NerInferencePrettyPrintTests, _offsets_for_tokens()
 
 ### Community 142 - "party_names_conflict"
 Cohesion: 0.27
@@ -953,20 +955,20 @@ Cohesion: 0.11
 Nodes (6): _FakeDbResource, _FakeLog, _NoopEngine, _add_output_metadata(), fake_create_offline_batch(), fake_resume_and_apply()
 
 ### Community 162 - "route-manifest.mjs"
-Cohesion: 0.10
-Nodes (16): STATIC_ROUTE_PATHS, escapeXml(), lastmod, now, origin, outPath, urls, xml (+8 more)
+Cohesion: 0.07
+Nodes (24): STATIC_ROUTE_PATHS, escapeXml(), lastmod, now, origin, outPath, urls, xml (+16 more)
 
 ### Community 163 - "_plan_corpus_dedupe"
 Cohesion: 0.21
 Nodes (7): _plan_corpus_dedupe(), find(), union(), _ReviewFlag, _item(), PlanCorpusDedupeTests, _text()
 
-### Community 164 - "models/__init__.py"
-Cohesion: 0.05
-Nodes (34): PandectsApi, ApiKey, ApiRequestEvent, ApiUsageDaily, ApiUsageDailyIp, ApiUsageHourly, AuthExternalSubject, AuthOAuthAuthorizationCode (+26 more)
+### Community 164 - "app.py"
+Cohesion: 0.04
+Nodes (93): _auth_rate_limit_guard(), _record_api_key_usage(), access_account_predates_today(), _api_key_context(), current_access_context(), _is_deleted_account_email(), require_user(), require_verified_user() (+85 more)
 
 ### Community 165 - "predict_with_transition_overrides"
-Cohesion: 0.09
-Nodes (15): attachment_after_main_signature(), DecodableCRFProtocol, guard_back_matter_start(), guard_body_after_attachment(), monotonic_transition_overrides(), predict_with_transition_overrides(), AttachmentAfterMainSignatureTests, _brute_force() (+7 more)
+Cohesion: 0.07
+Nodes (17): attachment_after_main_signature(), DecodableCRFProtocol, fit_tfidf_vectorizer(), guard_back_matter_start(), guard_body_after_attachment(), monotonic_transition_overrides(), predict_with_transition_overrides(), _split_targets() (+9 more)
 
 ### Community 166 - "test_regular_ingest_scope_resume.py"
 Cohesion: 0.09
@@ -989,8 +991,8 @@ Cohesion: 0.31
 Nodes (9): Pandects Panda Mark — 256px WebP rendition, Pandects Panda Mark — full-size PNG rendition, Pandects Panda Mark — full-size WebP rendition, Sponsor Slot Placeholder 1 (panda mark stand-in), Sponsor Slot Placeholder 2 (panda mark stand-in), Sponsor Slot Placeholder 3 (panda mark stand-in), Model Context Protocol Mark (interlocking-strokes SVG), Open Graph Social Preview Card (panda mark + PANDECTS wordmark) (+1 more)
 
 ### Community 171 - "._compute_eval_metrics"
-Cohesion: 0.07
-Nodes (16): build_article_failure_records(), build_entity_failure_records(), build_page_failure_records(), _context_bounds(), EntityFailureRecord, _line_bounds(), _overlaps(), _span_details() (+8 more)
+Cohesion: 0.12
+Nodes (6): _bootstrap_entity_f1_ci(), _aggregate(), _prf(), prf1_from_spans(), prf1_from_spans_lenient(), tags_to_spans()
 
 ### Community 172 - "Pandects Terms of Service"
 Cohesion: 0.22
@@ -1021,8 +1023,8 @@ Cohesion: 0.14
 Nodes (13): block_level_soup(), block_level_soup_preserve_sequence(), _append_node_sequence(), _flush_inline_buffer(), _inline_node_text(), collapse_tables(), _extract_relaxed_html_text(), _format_html_content_legacy() (+5 more)
 
 ### Community 180 - "NavigationMobileMenu.tsx"
-Cohesion: 0.04
-Nodes (93): AuthMenu(), FeaturedAgreementRow(), FeaturedAgreements(), FeaturedAgreementsProps, RecentAgreement, FooterComponent(), buildLandingSearchHref(), LandingSearchForm() (+85 more)
+Cohesion: 0.06
+Nodes (48): FooterComponent(), LazyPandaEasterEgg(), LazyPandaProps, PandaComponent, DesktopNavigationFallback(), AGREEMENT_INDEX, API_MCP, BULK_DATA (+40 more)
 
 ### Community 181 - "zitadel-link.ts"
 Cohesion: 0.43
@@ -1030,7 +1032,7 @@ Nodes (6): buildZitadelAuthorizeUrl(), defaultRedirectUri(), isZitadelLinkConfig
 
 ### Community 182 - "ref_node_path"
 Cohesion: 0.04
-Nodes (34): fs, path, sidebarPath, tagMdxPath, taxonomyResponse, TemplateComponent, ALLOWED_EXCEPTIONS, HOOKS_DIR (+26 more)
+Nodes (34): TemplateComponent, ALLOWED_EXCEPTIONS, HOOKS_DIR, HookViolation, clientRoot, sources, clientRoot, REFERENCE_ROUTES (+26 more)
 
 ### Community 183 - "resources.py"
 Cohesion: 0.05
@@ -1041,8 +1043,8 @@ Cohesion: 0.39
 Nodes (6): CodeTabs(), CodeTabsProps, Props, TabContent(), TabList(), TabsComponent()
 
 ### Community 185 - "TaxonomyClassifier"
-Cohesion: 0.08
-Nodes (5): _LogitsOutput, _SparseTfidfDataset, TaxonomyClassifier, TfidfDataModule, TransformerDataModule
+Cohesion: 0.10
+Nodes (3): _LogitsOutput, TaxonomyClassifier, TransformerDataModule
 
 ### Community 186 - "resolutions"
 Cohesion: 0.18
@@ -1092,6 +1094,10 @@ Nodes (8): contrastRatio(), criticalCss, frontendRoot, globalCss, hslTokenLumina
 Cohesion: 0.14
 Nodes (12): baseInline, byScript, __dirname, __filename, hashSet, indexHtml, indexHtmlPath, inlineScriptHashes() (+4 more)
 
+### Community 200 - "SectionTextSearchBackfillRunTests"
+Cohesion: 0.14
+Nodes (3): _register_sha256(), SectionTextSearchBackfillCliTests, SectionTextSearchBackfillRunTests
+
 ### Community 202 - "welcome.tsx"
 Cohesion: 0.13
 Nodes (13): brandSection, brandText, container, copy, divider, footer, inlineLink, logoImg (+5 more)
@@ -1137,12 +1143,12 @@ Cohesion: 0.10
 Nodes (19): runs-on, steps, env, FLY_API_TOKEN, FORCE_JAVASCRIPT_ACTIONS_TO_NODE24, jobs, deploy, name (+11 more)
 
 ### Community 215 - "pandas"
-Cohesion: 0.11
-Nodes (9): load_xgb_model(), PageDataset, augment_with_neighbor_context(), build_feature_matrix(), extract_base_feature_matrix(), extract_features(), feature_name_list(), full_feature_name_list() (+1 more)
+Cohesion: 0.09
+Nodes (10): DocumentDataset, load_xgb_model(), PageDataset, augment_with_neighbor_context(), build_feature_matrix(), extract_base_feature_matrix(), extract_features(), feature_name_list() (+2 more)
 
 ### Community 216 - "upsert_agreements"
-Cohesion: 0.13
-Nodes (9): upsert_agreements(), _AgreementRow, _FakeConnection, _FakeScalarResult, InsertNewTagsTests, _TagRow, UpsertAgreementsTests, DeleteStaleSectionsTests (+1 more)
+Cohesion: 0.20
+Nodes (7): upsert_agreements(), _AgreementRow, _FakeConnection, _FakeScalarResult, InsertNewTagsTests, _TagRow, UpsertAgreementsTests
 
 ### Community 217 - "CONTRIBUTING.md"
 Cohesion: 0.29
@@ -1157,7 +1163,7 @@ Cohesion: 0.50
 Nodes (3): ImportMetaEnv, *.md?raw, Window
 
 ### Community 220 - "DeclarationPatternTests"
-Cohesion: 0.18
+Cohesion: 0.20
 Nodes (4): 4. Source of truth: `bulk/changelog/changelog.yml`, DeclarationPatternTests, HeldoutV3FormTests, refs()
 
 ### Community 221 - "PipelineConfig"
@@ -1180,9 +1186,9 @@ Nodes (16): columns, description, columns, description, agreement_count, field_n
 Cohesion: 0.13
 Nodes (13): agreement_filter_predicates(), apply_agreement_filters(), build_any_counsel_agreement_uuid_subquery(), build_canonical_counsel_agreement_uuid_subquery(), build_transaction_price_bucket_filter(), has_agreement_filters(), ineligible_agreement_uuids_query(), _list_arg() (+5 more)
 
-### Community 228 - "sync-template.ts"
-Cohesion: 0.29
-Nodes (8): dotenv@^17.4.2, args, exitWithError(), extractTemplateVariables(), main(), pascalCase(), TemplateComponent, dotenv
+### Community 228 - "SearchQueryBar.tsx"
+Cohesion: 0.15
+Nodes (21): childrenOf(), isLeaf(), isNode(), leafIdsOf(), LeafMatch, NestedCheckboxFilter(), NestedCheckboxFilterProps, NestedCheckboxTree() (+13 more)
 
 ### Community 229 - "_FakeResult"
 Cohesion: 0.12
@@ -1208,9 +1214,17 @@ Nodes (3): SEO Metadata Block (SEO:BEGIN/END), schema.org JSON-LD Organization/W
 Cohesion: 0.31
 Nodes (3): _FakeOfflineClient, _FakeOfflineConn, _FakeOfflineEngine
 
+### Community 246 - "frontend/package.json"
+Cohesion: 0.07
+Nodes (26): clsx@^2.1.1, date-fns@^3.6.0, @dnd-kit/sortable@^10.0.0, @fontsource-variable/inter@^5.2.8, @radix-ui/react-checkbox@^1.4.1, @radix-ui/react-dropdown-menu@^2.2.1, react@^18.3.1, resize-observer-polyfill@^1.5.1 (+18 more)
+
 ### Community 248 - "batch_inference.py"
 Cohesion: 0.23
 Nodes (8): _build_prompts(), _build_response_schema(), _load_jsonl(), _log_generation_stats(), main(), log(), _parse_assignments(), _write_results()
+
+### Community 250 - "_register_blueprints"
+Cohesion: 0.10
+Nodes (14): _ApiExtension, _configure_app(), create_app(), _healthz(), _register_app(), _register_blueprints(), _register_request_hooks(), _set_security_headers() (+6 more)
 
 ### Community 251 - "restore_prod.sh"
 Cohesion: 0.42
@@ -1240,13 +1254,13 @@ Nodes (19): ingestion_cleanup_a_tagging_asset(), regular_ingest_tagging_asset(),
 Cohesion: 0.15
 Nodes (12): embed_model, nodes, canonical_terms, description, example_phrases, exclusion_cues, l1_label, l2_label (+4 more)
 
-### Community 264 - "test_r2_allowlist.py"
-Cohesion: 0.32
-Nodes (3): _derive_expected_api_tables(), _parse_table_file(), R2AllowlistTests
+### Community 264 - "ExhibitClassifier"
+Cohesion: 0.12
+Nodes (5): ExhibitClassifier, _build_training_data(), _contains_normalized_phrase(), ExhibitClassifierTests, _normalize_text_for_overlap_check()
 
 ### Community 265 - "hashlib"
-Cohesion: 0.10
-Nodes (18): build_section_search_text(), _assert_section_text_search_schema(), main(), parse_args(), run_backfill(), _validate_table_name(), _delete_stale_rows(), _drifted_agreements_sql() (+10 more)
+Cohesion: 0.16
+Nodes (9): _assert_section_text_search_schema(), _delete_stale_rows(), prune_section_text_search(), _qualified_table(), refresh_section_text_search(), select_section_text_backfill_agreements(), select_section_text_drifted_agreements(), _upsert_sql() (+1 more)
 
 ### Community 266 - "_Result"
 Cohesion: 0.16
@@ -1268,9 +1282,9 @@ Nodes (4): active(), fake_candidate(), on_connect(), regexp()
 Cohesion: 0.20
 Nodes (7): add_metadata_nodes(), convert_to_xml(), add_text_nodes(), add_text_nodes_simple(), get_uuid(), _iter_line_fragments(), make_section_uuid()
 
-### Community 280 - "dependencies"
-Cohesion: 0.18
-Nodes (11): dependencies, react@^19.3.0, react-dom@^19.3.0, @react-email/components@1.0.12, @react-email/render@^2.1.1, resend@^6.28.0, react, react-dom (+3 more)
+### Community 280 - "entity_audit.py"
+Cohesion: 0.16
+Nodes (10): build_article_failure_records(), build_entity_failure_records(), build_page_failure_records(), _context_bounds(), EntityFailureRecord, _line_bounds(), _overlaps(), _span_details() (+2 more)
 
 ### Community 281 - "i_tx_metadata.py"
 Cohesion: 0.11
@@ -1289,8 +1303,8 @@ Cohesion: 0.22
 Nodes (9): columns, description, latest_filing_date, metadata_coverage_pct, metadata_covered_agreements, singleton_key, taxonomy_coverage_pct, taxonomy_covered_sections (+1 more)
 
 ### Community 286 - "seo-helpers.mjs"
-Cohesion: 0.09
-Nodes (28): applySeo(), getSeoForPath(), SeoPage, setMetaByName(), setMetaByProperty(), __dirname, __filename, indexHtml (+20 more)
+Cohesion: 0.13
+Nodes (18): applySeo(), getSeoForPath(), SeoPage, setMetaByName(), setMetaByProperty(), CONFIGURED_ORIGIN, isKnownRoute(), SeoPage (+10 more)
 
 ### Community 287 - "releases"
 Cohesion: 0.25
@@ -1304,9 +1318,13 @@ Nodes (3): values(), __init__(), __init__()
 Cohesion: 0.25
 Nodes (8): details, migration, refs, severity, summary, tables, type, unreleased
 
+### Community 290 - "FavoritesAgreementMetadataTests"
+Cohesion: 0.14
+Nodes (3): FavoritesAgreementMetadataTests, FavoritesSectionDetailsTests, _set_default_env()
+
 ### Community 291 - "sys"
-Cohesion: 0.21
-Nodes (8): _Args, _effective_database_uri(), main(), _normalize_database_uri(), _parse_args(), main(), Probe, _probes()
+Cohesion: 0.15
+Nodes (14): _Args, _effective_database_uri(), main(), _normalize_database_uri(), _parse_args(), main(), Probe, _probes() (+6 more)
 
 ### Community 293 - "changes"
 Cohesion: 0.29
@@ -1360,21 +1378,17 @@ Nodes (7): _array_schema_for_filter(), _enum_array_schema(), _field_json_schema(
 Cohesion: 0.70
 Nodes (4): isLocalHostname(), normalizeServerOptions(), renderResolvedUrl(), Server()
 
-### Community 325 - "scripts"
-Cohesion: 0.40
-Nodes (5): scripts, build, dev, email, export
-
-### Community 326 - "generate_openai_gold.py"
-Cohesion: 0.40
-Nodes (6): _build_response_schema(), _extract_system_user(), _load_jsonl(), _load_processed_section_uuids(), main(), _write_record()
+### Community 325 - "xml-parser.ts"
+Cohesion: 0.23
+Nodes (12): SharedNodeProps, XMLNodeViewProps, xmlNodeViewPropsEqual(), buildXmlTreeIndex(), findFirstTagNode(), isSectionLikeTag(), OpenFrame, parseXMLContent() (+4 more)
 
 ### Community 327 - "Bulk Data Schema"
 Cohesion: 0.18
 Nodes (11): `agreement_counsel`, Bulk Data Schema, Conventions, Counsel, `counsel`, Getting the dump, `latest_sections_search`, `latest_sections_search_standard_ids` (+3 more)
 
 ### Community 328 - "inference.py"
-Cohesion: 0.10
-Nodes (16): AgreementReviewSummary, build_agreement_review_summary(), ClassifierInference, ClassifierPrediction, ClassifierProbs, _coerce_postprocess_parameters(), _coerce_transition_overrides(), _coerce_typesafe_features() (+8 more)
+Cohesion: 0.14
+Nodes (11): AgreementReviewSummary, build_agreement_review_summary(), ClassifierInference, ClassifierPrediction, ClassifierProbs, _PreparedInferenceBatch, review_summaries_to_frame(), AgreementDocument (+3 more)
 
 ### Community 329 - "changelog.md"
 Cohesion: 0.40
@@ -1400,33 +1414,77 @@ Nodes (5): dedupe_adjacent_same_number_headings(), unwrap_stray_decimal_section_
 Cohesion: 0.14
 Nodes (7): fulltext_slot(), FulltextSearchBusy, _slot_names(), _try_any_slot(), _FakeEngine, FulltextSlotTests, busy()
 
-### Community 346 - "dev.mjs"
-Cohesion: 0.20
-Nodes (5): certDir, { certPath, keyPath }, env, result, vite
+### Community 346 - "eslint.config.mjs"
+Cohesion: 0.18
+Nodes (10): @eslint/js@^9.39.4, eslint-plugin-jsx-a11y@^6.10.2, eslint-plugin-react-hooks@^7.1.1, globals@^15.9.0, typescript-eslint@^8.71.2, @eslint/js, eslint-plugin-jsx-a11y, eslint-plugin-react-hooks (+2 more)
 
-### Community 352 - "apply_results.py"
-Cohesion: 0.39
-Nodes (5): _build_engine(), _load_results(), main(), _resolve_input(), _serialize_labels()
+### Community 352 - "logging"
+Cohesion: 0.18
+Nodes (9): _build_engine(), _load_results(), main(), _resolve_input(), _serialize_labels(), _family(), _load(), main() (+1 more)
 
-### Community 353 - "ngram-analysis.ts"
-Cohesion: 0.33
-Nodes (7): DEFAULT_OPTIONS, extractNgrams(), NgramOptions, PhraseFrequency, shouldKeepPhrase(), STOP_BOUNDARY, tokenize()
+### Community 353 - "init_auth_db.py"
+Cohesion: 0.22
+Nodes (3): init_auth_db(), main(), upgrade_auth_db()
+
+### Community 354 - "inference.py"
+Cohesion: 0.09
+Nodes (23): append_next_page_annex_feature(), build_feature_sequences(), _count_leading_heading_fragments(), _default_postprocess_parameters(), enforce_monotonic_prediction_sequence(), extract_page_features(), guard_page_sequence(), guard_page_sequences() (+15 more)
 
 ### Community 355 - "strip_rendered_navigation_chrome"
 Cohesion: 0.25
 Nodes (4): _format_html_content_rendered(), _normalize_rendered_visible_text(), _render_visible_html_text(), strip_rendered_navigation_chrome()
 
-### Community 356 - "compare_to_gold.py"
-Cohesion: 0.36
-Nodes (4): _family(), _load(), main(), _taxonomy()
+### Community 356 - "text_hash"
+Cohesion: 0.22
+Nodes (8): 10.2 Table, asset and corpus run (2026-10-22, overnight), 6.1 Enricher (ETL), 6.2 Storage, 6.3 Payload and the anchor contract, 6.4 API, 6.5 Frontend, 6. Recommended architecture, text_hash()
+
+### Community 357 - "TaxonomyInference"
+Cohesion: 0.10
+Nodes (9): TextLabelDataset, _combine_text(), _load_test_samples(), main(), _parse_cli_args(), TaxonomyInference, clean_article_title(), clean_section_title() (+1 more)
 
 ### Community 362 - "parse_tx_metadata_response_text_web_search"
 Cohesion: 0.29
 Nodes (5): _extract_response_usage(), _extract_web_search_count(), _request_web_search_payload(), _submit_available_work(), parse_tx_metadata_response_text_web_search()
 
+### Community 369 - "CRFModelProtocol"
+Cohesion: 0.28
+Nodes (4): CRFMetricsModuleProtocol, CRFModelProtocol, CRFSuiteModuleProtocol, _load_crf_modules()
+
 ### Community 370 - "Reference data"
 Cohesion: 0.67
 Nodes (3): `naics_sectors`, `naics_sub_sectors`, Reference data
+
+### Community 372 - "10. Phases"
+Cohesion: 0.25
+Nodes (8): 10.1 Phase 1 progress (2026-10-22), 10.3 Gold-set pilot (2026-10-23), 10.4 Held-out gold set (2026-10-23), 10.5 Enricher 0.2.0 and a second held-out set (2026-10-29), 10.6 Held-out v3: a blind score for enricher 0.3.0 (2026-10-29), 10.7 Enricher 0.4.0 and held-out v4 (2026-10-29), 10.8 Phase 2: the API and the corpus run (2026-10-30), 10. Phases
+
+### Community 373 - "section_text_search_backfill.py"
+Cohesion: 0.39
+Nodes (4): main(), parse_args(), run_backfill(), _validate_table_name()
+
+### Community 374 - "select_section_text_drift_details"
+Cohesion: 0.29
+Nodes (4): _drifted_agreements_sql(), select_section_text_drift_details(), _source_hash_diff_expression(), _version_diff_expression()
+
+### Community 375 - "normalizeXmlText"
+Cohesion: 0.36
+Nodes (7): collectFindHitNodes(), normalizeXmlText(), regexHits(), AgreementTextSection, attrValue(), extractAgreementTextSections(), stripXml()
+
+### Community 378 - "tailwind.config.ts"
+Cohesion: 0.29
+Nodes (6): tailwindcss@^3.4.11, tailwindcss-animate@^1.0.7, @tailwindcss/typography@^0.5.20, tailwindcss, tailwindcss-animate, @tailwindcss/typography
+
+### Community 379 - "ref_path"
+Cohesion: 0.33
+Nodes (4): vite@^6.4.2, @vitejs/plugin-react-swc@^4.3.3, vite, @vitejs/plugin-react-swc
+
+### Community 381 - "postprocess-openapi.js"
+Cohesion: 0.33
+Nodes (5): fs, path, sidebarPath, tagMdxPath, taxonomyResponse
+
+### Community 382 - "overrides"
+Cohesion: 0.50
+Nodes (4): overrides, diff, qs, shell-quote
 
 ## Ambiguous Edges - Review These
 - `Passwords and API Keys Stored As Hashes` → `Fly Postgres Auth-DB Access Notes`  [AMBIGUOUS]
@@ -1437,21 +1495,21 @@ Nodes (3): `naics_sectors`, `naics_sub_sectors`, Reference data
 ## Knowledge Gaps
 - **43 isolated node(s):** `etl`, `RFC-8252`, `RFC-6749`, `Public dump table allowlist`, `Bulk tooling dependencies (boto3, PyMySQL, PyYAML)` (+38 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 3098 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **107 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **108 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `page()` connect `agreements_service.py` to `Search.tsx`, `NavigationMobileMenu.tsx`?**
-  _High betweenness centrality (0.277) - this node is a cross-community bridge._
+- **Why does `page()` connect `agreements_service.py` to `Search.tsx`, `analytics.ts`?**
+  _High betweenness centrality (0.274) - this node is a cross-community bridge._
 - **Are the 8 inferred relationships involving `McpTests` (e.g. with `ExternalIdentity` and `FulltextSearchBusy`) actually correct?**
   _`McpTests` has 8 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `etl`, `RFC-8252`, `RFC-6749` to the rest of the system?**
   _43 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `analytics.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.04658454647256439 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.03167155425219941 - nodes in this community are weakly interconnected._
 - **Why does `Design Notes` connect `agreements_service.py` to `public_api.py`, `app.py`?**
-  _High betweenness centrality (0.232) - this node is a cross-community bridge._
+  _High betweenness centrality (0.231) - this node is a cross-community bridge._
 
 ### Low-confidence Hints
 _AMBIGUOUS edges — the extractor was unsure. Verify before acting on these._
