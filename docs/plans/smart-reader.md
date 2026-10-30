@@ -391,8 +391,8 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **0** | Design and prototype | Done: decisions in Section 11 |
-| **1. Enricher** (in progress, 10.1–10.7; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
-| **2. API** | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
+| **1. Enricher** (done except the health report, 10.1–10.8; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
+| **2. API** (built, 10.8; waiting on the prod push) | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
 
@@ -863,6 +863,53 @@ Rulings 1, 2, 3, 6 and 7 apply rules already in rubric v1.5. Ruling 4 is new, an
 | Term-use precision / recall | 99.1% (439/443) / 98.9% (439/444) |
 
 "TBiz" and "Taxes" add two missed declarations, and "$" in `bbd28634` turns an extra declaration into a correct one. The two pointers are excluded from declaration recall, like every pointer. Ruling 6 removes six "Company" uses that the enricher rightly left out. Rulings 4 and 5 restore the two disputed counts without the split uses, and the enricher matches both.
+
+### 10.8 Phase 2: the API and the corpus run (2026-10-30)
+
+**Local table and corpus run.** The `reader_index` migration is applied to local `pdx`. Enricher 0.4.0 indexed all 11,790 latest verified XMLs in about 40 minutes, with 0 failures, using the `12_reader_index` asset logic. Totals:
+
+- 1.97M terms, 42.2M term uses and 4.43M cross-references, of which 2.58M are linked.
+- The average body section-level rate is 87.0%. 214 agreements are below 50% and 1,328 below 80%, for the health report.
+- Stored size is 505 MB of gzip payload, 592 MB on disk against 5.05 GB for `xml`. A payload averages 44 KB and the largest is 247 KB, above the 15–25 KB estimated in 6.3; a long glossary drives it.
+
+**Endpoint.** `GET /v1/agreements/<uuid>/reader-index` serves the row for the XML version `/v1/agreements/<uuid>` serves:
+
+- **404** when the agreement is not public or has no row for its current XML version.
+- **Encoding.** When the client accepts gzip, the stored bytes go out as they are, with `Content-Encoding: gzip`. Otherwise the payload is decompressed.
+- **Caching.**
+  - The weak ETag is `xml_version-enricher_version`. Anonymous variants add a redaction version and the focus window.
+  - `Cache-Control: private, no-cache`, because the payload changes when a caller signs in. A browser revalidates every time, and an unchanged index costs a 304.
+- **Anonymous callers.** They get the redaction window of the XML endpoint (`focus_section_uuid`, `neighbor_sections`):
+  - An item is kept only when its exact anchor (container and text ordinal, walked with the enricher's rules) is a `<text>` that the redacted XML still shows. Anything else is dropped, so a shape either walk misreads stays hidden.
+  - Declarations in hidden text become `{"redacted": true, "label": "Section 1.1"}`.
+  - Outline titles that quote hidden text (subsection lead-ins, attachment headings) are blanked.
+  - Section and article titles stay, as they do in the redacted XML.
+- **Boot without the table.** The model is reflected optionally, so a serving schema without `reader_index` still boots, and the endpoint returns 404.
+
+**Dump and docs.**
+- `reader_index` is in `bulk/public_tables.txt`, with prose in `table_docs.yml`.
+- The generated DBML and `bulk-data-schema.md` are regenerated.
+- The OpenAPI specs and `frontend/shared/api.gen.ts` are regenerated.
+- The `xml` table already ships whole, so the index adds no new text.
+
+**Checks.**
+- All 586 backend tests pass, and basedpyright reports 0 errors.
+- A redaction test builds anchors with the real enricher on uuid-less sections and articles, an article preamble, and back matter. The filter in the first commit fails this test 5 times; the current filter passes it.
+- An independent review found that the first filter, which hid whole containers, leaked text from uuid-less sections and articles. The current XML builder never emits such sections, and 0 exist locally. The review also found attachment headings in hidden sections and `gzip;q=0` being ignored. All three are fixed.
+- Against the local database, 150 random agreements were requested twice each as an anonymous caller (no focus, and a random focus with 1 neighbor). That gave 300 responses and 45,612 kept items, and none points at text the redacted XML hides.
+- Response times:
+
+  | Request | Agreement with the most cross-references |
+  |---|---|
+  | Anonymous request | about 0.6 s, mostly parsing the XML for redaction |
+  | Gzip payload size | 165 KB |
+  | Revalidation | 304 |
+
+**Still to do before Phase 3 can use it:**
+
+1. **Get the table into prod.** It reaches prod with the next push: `push_to_r2.sh` and then `restore_prod.sh`. Then check that the table exists in the serving schema, and call the live endpoint, as the memory note on the serving schema requires.
+2. **Health report.** Turn the health numbers into the validation-queue report, decision 11.6.
+3. **Glossary miss.** Fix the glossary-exhibit miss in Articles of Association, from 10.5.
 
 ## 11. Decisions (2026-10-22)
 
