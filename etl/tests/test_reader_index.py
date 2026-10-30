@@ -422,6 +422,83 @@ class DeclarationPatternTests(unittest.TestCase):
         self.assertEqual(_term(p, "Merger")["decls"][0]["pointer"], "preamble")
 
 
+class HeldoutV3FormTests(unittest.TestCase):
+    """Forms the held-out v3 gold found (docs/plans/smart-reader.md 10.6)."""
+
+    def _decls(self, *texts: str) -> dict[str, str]:
+        return DeclarationPatternTests._decls(self, *texts)  # pyright: ignore[reportArgumentType]
+
+    def test_declaration_forms(self) -> None:
+        d = self._decls(
+            "“Beneficial Owner” and derivatives thereof, with respect to any Shares, mean a holder.",
+            "“Knowledge of the Company” or “Company’s Knowledge,” or a variation thereof, means actual knowledge.",
+            "(b) \"KNOWLEDGE\" with respect to (i) the Company means the actual knowledge of its officers.",
+            "As used herein, “Fully-Diluted Shares” as of any time shall mean all shares.",
+            "“Expenses” includes all reasonable out-of-pocket expenses.",
+            "The parties pay their costs. “Fees”, as used in this Agreement, shall include all fees.",
+            "The date on which the Closing occurs is referred to in this Agreement as the “Closing Date.”",
+            "“Exhibits” means the exhibits listed in the table of contents.",
+            "each certificate (a \"Certificate\", it being understood that any reference applies) shall be cancelled.",
+            "(each Share referred to in clause (i) or (ii) above being an \"Excluded Share\" and collectively, \"Excluded Shares\")",
+        )
+        for term in (
+            "Beneficial Owner", "Knowledge of the Company", "Company’s Knowledge", "KNOWLEDGE", "Fully-Diluted Shares", "Expenses",
+            "Fees", "Closing Date", "Exhibits", "Certificate", "Excluded Share", "Excluded Shares",
+        ):
+            self.assertIn(term, d)
+        # a closing curly quote used to open ("(c) ”Knowledge” of any person ... means")
+        self.assertIn("Knowledge", self._decls("(c) ”Knowledge” of any person that is not an individual means the knowledge of its officers."))
+        # a reading rule still declares no document part, and "includes" mid-sentence declares nothing
+        d = self._decls("The terms “Section” and “Article” refer to parts of this Agreement.", "the “Company” includes its Subsidiaries.")
+        self.assertFalse({"Section", "Article", "Company"} & set(d))
+
+    def test_reference_forms(self) -> None:
+        p = build_reader_index(
+            _doc(
+                _article("a3", "ARTICLE III REPRESENTATIONS", _section("s31", "Section 3.1 Organization", "(a) It is organized.") + _section("s35", "Section 3.5 Title", "Title is good."))
+                + _article(
+                    "a4",
+                    "ARTICLE IV PARENT",
+                    _section("s41", "Section 4.1 Parent", "Parent is organized.")
+                    + _section("s42", "Section 4.2 Authority", "Parent has authority.")
+                    + _section("s47", "Section 4.7 Brokers", "No brokers."),
+                )
+                + _section(
+                    "s9",
+                    "Section 9.1 Other",
+                    "The warranty in section 3.5 and the conditions in article III apply. See Article Three. "
+                    + "Parent makes Sections 4.1 (except that “Delaware” reads “Australia”), 4.2 (Authority) and 4.7 (Brokers) again. "
+                    + "A single employer under Section 4.14(b), (c), (m) or (o) of the Code. Any Investment Company Act filing.",
+                ),
+            )
+        )
+        refs = [x for x in p["xrefs"] if x["at"]["s"] == "s9"]
+        by_text = {x["text"]: x for x in refs}
+        self.assertEqual(by_text["section 3.5"]["target"], "s3.5")
+        self.assertEqual(by_text["article III"]["target"], "a3")
+        self.assertEqual(by_text["Article Three"]["target"], "a3")
+        self.assertEqual([by_text[k]["target"] for k in ("Sections 4.1", "4.2", "4.7")], ["s4.1", "s4.2", "s4.7"])
+        self.assertEqual({by_text[k]["status"] for k in ("Section 4.14(b)", "(c)")}, {"external"})
+
+
+    def test_other_documents_and_typed_numbers(self) -> None:
+        # found by the 0.4.0 corpus audit (docs/plans/smart-reader.md 10.7)
+        from etl.domain.reader_index import _find_refs
+
+        def refs(t: str) -> list[tuple[str, str]]:
+            return [(r.target, r.status) for r in _find_refs(t, False)]
+
+        self.assertEqual(refs("under section 3 of the European Union (Withdrawal) Act 2018"), [("3", "external")])
+        self.assertEqual(refs("pursuant to article 15 of the Decree"), [("15", "external")])
+        self.assertEqual(refs("in Seller Disclosure Schedule section 3.4(c) and"), [("3.4(c)", "disclosure_schedule")])
+        self.assertEqual(refs("Articles Four and Five of the Company Articles"), [("Four", "external"), ("Five", "external")])
+        self.assertEqual(refs("the Dutch Civil Code articles 7:17 and"), [("7", "external")])
+        self.assertEqual(refs("set forth in Section 4,02 of this Agreement"), [("4.02", "")])
+        # this agreement's own lowercase references and clause lists are untouched
+        self.assertEqual(refs("in section 4.1 of this Agreement"), [("4.1", "")])
+        self.assertEqual(refs("clauses (i) through (v) of Section 3.4(c), conflict"), [("3.4(c)(i)", ""), ("3.4(c)(v)", ""), ("3.4(c)", "")])
+
+
 class AnchorTests(unittest.TestCase):
     def test_text_inside_definition_counts_toward_the_ordinal(self) -> None:
         xml = _doc(

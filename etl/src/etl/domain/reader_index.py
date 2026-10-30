@@ -27,7 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-ENRICHER_VERSION = "0.3.0"
+ENRICHER_VERSION = "0.4.0"
 PAYLOAD_SCHEMA = 1
 
 # Regions whose text is indexed for term uses and cross-references. The table of
@@ -355,9 +355,15 @@ _TERM = r"[A-Z0-9$][^“”\"]{0,80}?"
 # "Foo" means / shall mean / is defined as / as used herein, also after a short qualifier
 # ('"Affiliate" of any Person means', '"Material Adverse Effect" on the Company means')
 DEF_MEANS_KW = re.compile(r"(?:shall\s+)?(?:means?\b|is defined(?!\s+in\b)|as used herein|refers?\s+to\b)")
+# ('"Beneficial Owner" and derivatives thereof, with respect to any Shares, mean', '"X" or "Y," or a
+# variation thereof, means', '"KNOWLEDGE" with respect to (i) the Company means', '"X" as of any time shall mean')
 _MEANS_GAP = re.compile(
-    r"\s*(?:\([^)]*\)\s*)?(?:,\s*)?(?:(?:when\s+used\s+)?(?:of|on|for|in relation to|in respect of|with respect to|on or with respect to|as applied to)\s+[^“”\".;:()]{1,60}?,?\s+)?"
+    r"\s*(?:\([^)]*\)\s*)?(?:,\s*)?(?:(?:and|or)\s+(?:a\s+)?(?:derivatives?|variations?)\s+thereof\s*,?\s*)?(?:as\s+used\s+(?:in\s+this\s+Agreement|herein)\s*,?\s*)?"
+    + r"(?:(?:when\s+used\s+)?(?:of|on|for|in relation to|in respect of|with respect to|on or with respect to|as applied to|as of)\s+(?:[^“”\".;:()]|\([a-z0-9]{1,4}\)){1,60}?,?\s+)?"
 )
+# '"Expenses" includes ...' opening a paragraph (or a definition item) is a definition
+DEF_INCLUDES_KW = re.compile(r"(?:shall\s+)?includes?\b|shall\s+include\b")
+_ITEM_START = re.compile(r"^\s*(?:\([A-Za-z0-9]{1,4}\)\s*|[A-Za-z0-9]{1,3}[.)]\s+)?$")
 # "Controlled" and "Controlling" have correlative meanings; the terms "X" and "Y" have meanings
 # that correspond to the foregoing
 DEF_CORRELATIVE_KW = re.compile(
@@ -380,7 +386,9 @@ def _quoted_spans(text: str) -> list[tuple[int, int]]:
     spans: list[tuple[int, int]] = []
     open_at: int | None = None
     for i, ch in enumerate(text):
-        if ch == "“" or (ch == '"' and open_at is None):
+        # "(c) ”Knowledge” of any person": a closing curly quote used to open, after a space and before a capital
+        opens_right = ch == "”" and open_at is None and (i == 0 or text[i - 1] in " (\t") and text[i + 1 : i + 2].isupper()
+        if ch == "“" or (ch == '"' and open_at is None) or opens_right:
             open_at = i + 1
         elif (ch == "”" or ch == '"') and open_at is not None:
             end = i
@@ -430,13 +438,18 @@ DEF_PAREN_LEADIN = re.compile(rf"\(\s*[^()“”\"]{{1,80}}?,\s*(?:the|a|an)\s+[
 # a quoted term inside a parenthetical that ends with a quoted term: "(the time ... being the
 # "Effective Time")", "(the "Cash Consideration" and together with ..., the "Merger Consideration")"
 _PAREN_TAIL_TERM = re.compile(rf"[{_Q_OPEN}][^{_Q_OPEN}{_Q_CLOSE}]{{1,80}}[,.]?[{_Q_CLOSE}]\s*$")
-_PAREN_TERM = re.compile(rf"(?:^|(?<=[\s,(]))(?:(\w+)\s+)?(?:the|a|an|this)\s+[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]|^\s*[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]")
+_PAREN_TERM = re.compile(
+    rf"(?:^|(?<=[\s,(]))(?:(\w+)\s+)?(?:the|a|an|this)\s+[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]|^\s*[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]"
+    + rf"|(?<=[\s,(])(?:collectively|together|individually)\s*,?\s+[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]"
+)
+# '(a "Certificate", it being understood ...)': a parenthetical that opens with a declared term and runs on
+DEF_PAREN_RUNON = re.compile(rf"\(\s*(?:the|a|an|each)\s+[{_Q_OPEN}]({_TERM})[,]?[{_Q_CLOSE}]\s*,\s*(?:it\s+being|which|provided|in\s+each\s+case|including|it\s+is)\b")
 # "the X" after these words refers to a term ("as defined in the "Credit Agreement"", "together
 # with the "Common Exchange Ratio"") rather than declaring it
 _PAREN_REF_WORDS = frozenset("of in under to by with from for into on at pursuant per than".split())
 _PAREN_MAX = 400
 # referred to herein as "Compaq Broad Plans", being referred to herein as the "Merger Effective Time"
-DEF_AS = re.compile(rf"\b(?:(?:referred\s+(?:to\s+)?|defined\s+)(?:herein\s+|hereinafter\s+|below\s+)?as|(?:herein\s+)?called(?:\s+herein)?)\s+(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]")
+DEF_AS = re.compile(rf"\b(?:(?:referred\s+(?:to\s+)?|defined\s+)(?:herein\s+|hereinafter\s+|below\s+|in\s+this\s+Agreement\s+)?as|(?:herein\s+)?called(?:\s+herein)?)\s+(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]")
 # '... referred to herein as the "Balance Sheet" and the date thereof as the "Balance Sheet Date"',
 # '... referred to herein as a "Material Contract" and collectively, the "Material Contracts"'
 _AS_MORE = re.compile(
@@ -490,10 +503,10 @@ _NUMBER_LIKE = re.compile(r"[\d$.,%\s]+")
 _TITLE_AFTER_NUMBER = re.compile(r"\b(?:Sections?|Articles?)\s+[\dIVXLC][\w.()]*\s*\(\s*[“\"]$")
 
 
-def _is_term(t: str) -> bool:
+def _is_term(t: str, doc_part_ok: bool = False) -> bool:
     """A declared term starts with a capital, a digit or a symbol ("$"), or is a lowercase-first
     acronym with an internal capital ("cGMP"). Lowercase words ("dollars", "control") are not terms."""
-    if not t or ";" in t or (t != "$" and _NUMBER_LIKE.fullmatch(t)) or t.casefold() in _DOC_PART_WORDS:
+    if not t or ";" in t or (t != "$" and _NUMBER_LIKE.fullmatch(t)) or (t.casefold() in _DOC_PART_WORDS and not doc_part_ok):
         return False
     if t[0].isupper() or t[0].isdigit() or t[0] == "$":
         return True
@@ -513,7 +526,7 @@ def _paren_terms(text: str) -> list[tuple[str, int, int]]:
             if len(body) > _PAREN_MAX or not _PAREN_TAIL_TERM.search(body):
                 continue
             for m in _PAREN_TERM.finditer(body):
-                g = 2 if m.group(2) else 3
+                g = next(k for k in (2, 3, 4) if m.group(k))
                 if m.group(1) and m.group(1).lower() in _PAREN_REF_WORDS:
                     continue
                 out.append((m.group(g).strip(), start + 1 + m.start(g), start + 1 + m.end(g)))
@@ -545,6 +558,7 @@ class _Decl:
     start: int
     end: int
     pointer: str | None = None
+    doc_part_ok: bool = False
 
 
 def _collect_declarations(root: ET.Element, texts: list[_Text], by_el: dict[ET.Element, _Text]) -> list[_Decl]:
@@ -589,6 +603,14 @@ def _collect_declarations(root: ET.Element, texts: list[_Text], by_el: dict[ET.E
                 if run and _REFERENCES_TO.search(tn.text, max(0, run[0][0] - 80), run[0][0] - 1):
                     continue
                 for a, b in run:
+                    # '"Exhibits" means the exhibits listed ...' defines a document part on purpose
+                    own = len(run) == 1 and m.group(0).rstrip().endswith(("mean", "means")) and bool(_ITEM_START.match(tn.text[: a - 1]))
+                    found.append(_Decl(tn.text[a:b].strip(), "means", tn, a, b, doc_part_ok=own))
+            for m in DEF_INCLUDES_KW.finditer(tn.text):
+                run = _run_before(tn.text, spans, m.start(), _MEANS_GAP)
+                lead = tn.text[: run[0][0] - 1] if len(run) == 1 else ""
+                if len(run) == 1 and (_ITEM_START.match(lead) or re.search(r"[.;:]\s+$", lead)):
+                    a, b = run[0]
                     found.append(_Decl(tn.text[a:b].strip(), "means", tn, a, b))
         for m in DEF_PAREN.finditer(tn.text):
             for g in (1, 2):
@@ -596,6 +618,8 @@ def _collect_declarations(root: ET.Element, texts: list[_Text], by_el: dict[ET.E
                     found.append(_Decl(m.group(g).strip(), "paren", tn, m.start(g), m.end(g)))
         for term, a, b in _paren_terms(tn.text):
             found.append(_Decl(term, "paren", tn, a, b))
+        for m in DEF_PAREN_RUNON.finditer(tn.text):
+            found.append(_Decl(m.group(1).strip(), "paren", tn, m.start(1), m.end(1)))
         for m in DEF_PAREN_LEADIN.finditer(tn.text):
             found.append(_Decl(m.group(1).strip(), "paren", tn, m.start(1), m.end(1)))
         for m in DEF_AS.finditer(tn.text):
@@ -635,7 +659,7 @@ def _collect_declarations(root: ET.Element, texts: list[_Text], by_el: dict[ET.E
         if _SO_CALLED.search(d.tn.text, max(0, d.start - 12), d.start):
             continue
         # "$" is the one single-character term (rubric v1.2)
-        if not (2 <= len(d.term) <= 80 or d.term == "$") or not _is_term(d.term):
+        if not (2 <= len(d.term) <= 80 or d.term == "$") or not _is_term(d.term, d.doc_part_ok):
             continue
         k = (d.term, d.tn.s, d.tn.t)
         if k not in best or _KIND_RANK[d.kind] < _KIND_RANK[best[k].kind]:
@@ -685,7 +709,8 @@ def _term_forms(term: str) -> list[str]:
 
 
 def _term_regex(forms: dict[str, int]) -> re.Pattern[str] | None:
-    alts = sorted((re.escape(f) for f in forms if len(f) >= 2), key=len, reverse=True)
+    # a declared document part ("Exhibits" means ...) is still not matched: every "Schedule 2.2" would become a use
+    alts = sorted((re.escape(f) for f in forms if len(f) >= 2 and f.casefold() not in _DOC_PART_WORDS), key=len, reverse=True)
     if not alts:
         return None
     # longest first; plural, "(s)" and possessive forms; case-sensitive
@@ -694,6 +719,17 @@ def _term_regex(forms: dict[str, int]) -> re.Pattern[str] | None:
     )
 
 
+PROPER_NAME_ACT = re.compile(r"\s+Act\b")
+PROPER_NAME_LAW = re.compile(r"\s+(?:Law|Code)\b")
+PROPER_NAME_BEFORE = re.compile(r"\b(?:Trust|Bank|Investment)\s+$")
+_CAP_WORD_BEFORE = re.compile(r"\b[A-Z][a-z]+\s+$")
+
+
+def _in_proper_name(text: str, start: int, end: int) -> bool:
+    before = text[max(0, start - 20) : start]
+    if PROPER_NAME_ACT.match(text, end) or (" " not in text[start:end] and PROPER_NAME_BEFORE.search(before)):
+        return True
+    return bool(PROPER_NAME_LAW.match(text, end) and _CAP_WORD_BEFORE.search(before) and not _sentence_initial(text, start - len(before.split()[-1]) - 1))
 _ENUM_ONLY = re.compile(r"^\s*(?:\([A-Za-z0-9]{1,6}\)\s*)*$")
 
 
@@ -713,25 +749,37 @@ DISCLOSURE = re.compile(
     # "of the Seller’s Disclosure Letter", "item 1 of the ...", "Disclosure ----- Schedule" across a page break
     r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter))|Schedules)\b",
 )
+DISCLOSURE_BEFORE = re.compile(r"(?i:disclosure)\s+(?:Schedules?|Letter|Memorandum)\s*$")
+LOWER_HEAD_OTHER = re.compile(r"^[\d:.()A-Za-z]*\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant\s+to)\s+(?:the\s+|such\s+|its\s+|their\s+)?(?!this\b|Agreement\b|hereof\b)[A-Z]")
+OCR_COMMA = re.compile(r",(\d{2})(?![\d,])")
+COLON_NUMBER = re.compile(r":\d")
+LEFTOVER_ITEMS = re.compile(r"^(?:\s*,?\s*(?:and/or|and|or)?\s*\([A-Za-z0-9]{1,6}\))+")
 THEREOF = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*thereof\b")
 ATTACHMENT_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Schedules?|Part|Annex|Appendix|Exhibit)\s+[A-Z0-9IVX]")
 SELF_DOC = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+Agreement\b")
 SELF_DOC_FROM_EXHIBIT = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+(?:Merger\s+)?Agreement\b")
 OTHER_DOC = re.compile(
-    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?!Agreement\b)(?:[A-Z][\w\-]*\s+){0,5}(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement)\b"
-    r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:[a-z]+\s+){0,3}(?:bylaws|by-laws|charter|certificate of incorporation|articles of incorporation|operating agreement)\b",
+    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?!Agreement\b)(?:[A-Z][\w\-]*\s+){0,5}(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles)\b"
+    + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:[a-z]+\s+){0,3}(?:bylaws|by-laws|charter|certificate of incorporation|articles of incorporation|operating agreement)\b"
+    + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:Amended\s+and\s+Restated\s+)?(?:Articles|Certificate)\s+of\s+(?:Incorporation|Association|Organization)\b",
 )
 # "Code Section 409A", "Treasury Regulations Section 1.368-2" (from the kirkland ingester)
 AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.)|§)\s*$")
 SEC_FORM = re.compile(r"^(?:\d{2}[A-Z](?:-\d+)?|TO|13E-3)$")
-REF_HEAD = re.compile(r"\b(Sections?|Articles?|SECTIONS?|ARTICLES?|Exhibits?|Schedules?|Annex(?:es)?|Appendix|Appendices|clauses?|paragraphs?)\s+(?=[\dIVXLC(A-Z])")
+# lowercase "section 3.5" and "article VI" are references too (rubric v1.4 lists the head words, not their case)
+REF_HEAD = re.compile(r"\b(Sections?|Articles?|SECTIONS?|ARTICLES?|sections?|articles?|Exhibits?|Schedules?|Annex(?:es)?|Appendix|Appendices|clauses?|paragraphs?)\s+(?=[\dIVXLC(A-Z])")
+_SPELLED: tuple[str, ...] = tuple("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split())
+# "Article Three"
+SPELLED_ITEM = re.compile(r"(" + "|".join(w.capitalize() + "|" + w.upper() for w in _SPELLED) + r")\b")
 REF_ITEM = re.compile(r"(\d+[A-Z]?(?:-\d+)?(?:\.\d+[A-Z]?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 # "(other than Sections 1.1, 6.2 (a)), 6.6 (f)": a list can step out of the parenthetical it started in
 RELATIVE_FOLLOW = re.compile(
     r"\s*(?:[,;.)]|$)|\s+(?:and|or|of|through|to|hereof|hereto|herein|thereof|above|below|shall|will|is|are|has|have|was|were|would|may|applies|apply)\b"
 )
-REF_JOIN = re.compile(r"\s*(?:\)?,\s*(?:and|or)?\s*|\s+(?:and|or|through|to|and/or)\s+|\s*[\-–]\s*)")
-QUALIFIED = re.compile(r"\s+(?:of|in)\s+(?:this\s+)?Section\s+(\d+[A-Z]?(?:\.\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
+# "Sections 4.1 (Organization; Subsidiaries), 4.2 (Authority) and 4.7": a caption or other parenthetical
+# (not an enumerator) may follow each item
+REF_JOIN = re.compile(r"(?:\s*\((?![A-Za-z0-9]{1,6}\))[^()]{2,200}\))?(?:\s*(?:\)?,\s*(?:and|or)?\s*|\s+(?:and|or|through|to|and/or)\s+|\s*[\-–]\s*))")
+QUALIFIED = re.compile(r"\s+(?:of|in)\s+(?:this\s+)?[Ss]ection\s+(\d+[A-Z]?(?:\.\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
 SECTION_TARGET = re.compile(r"(\d+[A-Z]?(?:\.\d+[A-Z]?)*)((?:\([A-Za-z0-9]+\))*)$")
 
 _HEAD_NORM = {"annexe": "annex", "appendice": "appendix"}
@@ -768,6 +816,12 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         first = True
         while True:
             item_pos = pos
+            # "Section 4,02": a comma typed for the period
+            if run and (cm := OCR_COMMA.match(text, pos)) and re.fullmatch(r"\d+", run[-1].target):
+                last = run[-1]
+                last.target, last.end, last.base_end = f"{last.target}.{cm.group(1)}", cm.end(), cm.end()
+                pos = cm.end()
+                continue
             if not first:
                 jm = REF_JOIN.match(text, pos)
                 if not jm:
@@ -776,6 +830,8 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             # only consume a joiner when an item follows it: in "Section 3.14(a) to the Disclosure
             # Schedule" the "to" belongs to the tail, not to a range
             im = REF_ITEM.match(text, item_pos)
+            if not im and head == "article":
+                im = SPELLED_ITEM.match(text, item_pos)
             if not im:
                 break
             item = re.sub(r"\s", "", im.group(1))  # "6.2 (a)" is "6.2(a)"
@@ -810,15 +866,30 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             continue
         # "Section 1.3.22. of the Company Disclosure Letter": a stray period before the tail
         tail = re.sub(r"^\.(?=\s+(?:of|to|in|under)\b)", "", text[pos : pos + 90])
+        # "Section 4.14(b), (c), (m) or (o) of the Code": items the run did not take still lead to the tail
+        tail = LEFTOVER_ITEMS.sub("", tail, count=1)
         before = text[max(0, hm.start() - 40) : hm.start()]
+        lower_head = hm.group(1) in ("section", "sections", "article", "articles")
         self_doc = (SELF_DOC_FROM_EXHIBIT if in_exhibit else SELF_DOC).match(tail)
         status = ""
-        if AUTHORITY_BEFORE.search(before):
+        if COLON_NUMBER.match(text, pos):
+            # "articles 7:17 DCC", "section 2:107a": civil-code numbering, never this agreement's
+            status = "external"
+        elif AUTHORITY_BEFORE.search(before):
             status = "external"
         elif DISCLOSURE.match(tail):
             status = "disclosure_schedule"
+        elif lower_head and DISCLOSURE_BEFORE.search(before):
+            # "Seller Disclosure Schedule section 3.4(c)"; an index table's "Company Disclosure Schedule Section 2"
+            # names a term and where it is defined
+            status = "disclosure_schedule"
         elif not self_doc and (
-            STATUTE.match(tail) or OTHER_DOC.match(tail) or re.search(r"\bof\s+(?:the\s+)?[A-Z][\w .\-]{2,60}\bAct\b", tail[:70])
+            STATUTE.match(tail)
+            or OTHER_DOC.match(tail)
+            or re.search(r"\bof\s+(?:the\s+)?[A-Z][\w .\-()]{2,60}\bAct\b", tail[:70])
+            # a lowercase "section 9 of the Decree", "article 15 of the DCC" is how other documents and foreign
+            # statutes are cited; this agreement's own sections are capitalized or "of this Agreement"
+            or (lower_head and LOWER_HEAD_OTHER.match(tail))
         ):
             status = "external"
         elif THEREOF.match(tail):
@@ -911,7 +982,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         return "section_fallback", nodes[0].id, None
     if ref.head == "article":
         key = t.upper()
-        as_int = _roman_to_int(key)
+        as_int = _SPELLED.index(t.lower()) + 1 if t.lower() in _SPELLED else _roman_to_int(key)
         key = str(as_int) if as_int else key
         arts = ol.articles.get(key)
         if not arts:
@@ -1043,6 +1114,10 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
                     continue
                 tid = forms[m.group(1)]
                 if tid in low_ids and _sentence_initial(tn.text, m.start()):
+                    continue
+                # "Investment Company Act", "General Corporation Law", "Deutsche Bank Trust Company": part of a
+                # proper name ("state or local Income Tax Law" still uses "Income Tax")
+                if _in_proper_name(tn.text, m.start(), m.end()):
                     continue
                 row.append([*tn.span(m.start(), m.end()), tid])
             if row:
