@@ -1,0 +1,559 @@
+{
+ "agreement_uuid": "bbd28634-2e48-5b0a-945f-545b9400535e",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Action",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliates",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Agreed Assumption",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "disclosure_schedule"
+  },
+  {
+   "term": "Antitrust Laws",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Book-Entry Shares",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Canadian Securities Administrators",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Canadian Securities Laws",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "CITA",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Clean Team Agreement",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Company ARS Facility Agreement",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Company Benefit Plans",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Company Common Stock",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Company Credit Agreement",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Company Deferral Plans",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Company Equity Awards",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Company Equity Plan",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Company ESPP",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Company Indenture",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Company IT Assets",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Company Labor Agreement",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Company Notes",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Company Products",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Laws",
+   "para": "P44",
+   "kind": "paren"
+  },
+  {
+   "term": "Permits",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Permits",
+   "para": "P45",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "6.2(e)",
+   "context": "shall be set forth in Schedule 6.2(e).",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3(1)",
+   "context": "within the meaning of Section 3(1) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3(2)",
+   "context": "within the meaning of Section 3(2) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "clause",
+   "mention": "(x)",
+   "context": "solely in the case of clause (x), shall not include",
+   "target": "inline"
+  },
+  {
+   "para": "P30",
+   "head": "clause",
+   "mention": "(e)",
+   "context": "exceptions in this clause (e) shall not apply",
+   "target": "inline"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.3(d)",
+   "context": "warranties set forth in Section 3.3(d) or in the",
+   "target": "s3.3(d)"
+  },
+  {
+   "para": "P30",
+   "head": "article",
+   "mention": "6",
+   "context": "the conditions set forth in Article 6 with respect",
+   "target": "a6"
+  },
+  {
+   "para": "P38",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "except, with respect to clauses (a), (c)",
+   "target": "inline"
+  },
+  {
+   "para": "P38",
+   "head": "clause",
+   "mention": "(c)",
+   "context": "respect to clauses (a), (c), (d)",
+   "target": "inline"
+  },
+  {
+   "para": "P38",
+   "head": "clause",
+   "mention": "(d)",
+   "context": "(a), (c), (d), (g), (h)",
+   "target": "inline"
+  },
+  {
+   "para": "P38",
+   "head": "clause",
+   "mention": "(g)",
+   "context": "(d), (g), (h), (i) and",
+   "target": "inline"
+  },
+  {
+   "para": "P38",
+   "head": "clause",
+   "mention": "(h)",
+   "context": "(g), (h), (i) and (j)",
+   "target": "inline"
+  },
+  {
+   "para": "P38",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "(g), (h), (i) and (j), to",
+   "target": "inline"
+  },
+  {
+   "para": "P38",
+   "head": "clause",
+   "mention": "(j)",
+   "context": "(i) and (j), to the extent",
+   "target": "inline"
+  },
+  {
+   "para": "P47",
+   "head": "appendix",
+   "mention": "A",
+   "context": "column 2 of Appendix A to 31 C.F.R.",
+   "target": "external"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "5.1",
+   "context": "this Agreement, including Section 5.1), including by waiver",
+   "target": "s5.1"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Action",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P49",
+   "count": 2
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P42",
+   "count": 2
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P45",
+   "count": 2
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P46",
+   "count": 2
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P48",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "ac47f40c-ff8e-59ea-bad6-b9a06f45b44f",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "033de9df-9cce-52c3-8e59-482103cb6be7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "033de9df-9cce-52c3-8e59-482103cb6be7",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "033de9df-9cce-52c3-8e59-482103cb6be7",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "4b75f51e-4a4b-5616-91f1-0615176acf1c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "4b75f51e-4a4b-5616-91f1-0615176acf1c",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "4b75f51e-4a4b-5616-91f1-0615176acf1c",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "4b75f51e-4a4b-5616-91f1-0615176acf1c",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "c1c4b41f-cce0-53f5-a3b9-26d4eccdd5e9",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "4a083296-092e-5bbb-82f3-108f0b861118",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "4a083296-092e-5bbb-82f3-108f0b861118",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

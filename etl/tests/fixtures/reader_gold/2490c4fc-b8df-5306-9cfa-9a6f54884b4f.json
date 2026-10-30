@@ -1,0 +1,226 @@
+{
+ "agreement_uuid": "2490c4fc-b8df-5306-9cfa-9a6f54884b4f",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "COMPANY SECURITIES",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "LIEN",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "EXCHANGE ACT",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "INTELLECTUAL PROPERTY",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "TRADEMARKS",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "PATENTS",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "COPYRIGHTS",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "MATERIAL ADVERSE INTELLECTUAL PROPERTY EFFECT",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "COMPANY INTELLECTUAL PROPERTY RIGHTS",
+   "para": "P14",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Material Contracts",
+   "para": "P20",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.2",
+   "context": "Except as set forth in this Section 3.2, as of",
+   "target": "s3.2"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.2",
+   "context": "Section 3.2 of the Company Disclosure Schedule lists each",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "3.2(b)",
+   "context": "which is set forth on section 3.2(b) of the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "3.14",
+   "context": "For purposes of this Section 3.14,",
+   "target": "s3.14"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3.14(c)",
+   "context": "or as set forth in Section 3.14(c) of the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "3.19",
+   "context": "Company's SEC Reports or Section 3.19 of the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P20",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "contracts of the type described in clauses (i)",
+   "target": "inline"
+  },
+  {
+   "para": "P20",
+   "head": "clause",
+   "mention": "(vi)",
+   "context": "clauses (i) - (vi) being referred to herein",
+   "target": "inline"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "94c04f02-d2f7-5771-89c0-16dfe4fecf54",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "94c04f02-d2f7-5771-89c0-16dfe4fecf54",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "94c04f02-d2f7-5771-89c0-16dfe4fecf54",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "94c04f02-d2f7-5771-89c0-16dfe4fecf54",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "94c04f02-d2f7-5771-89c0-16dfe4fecf54",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "bde58114-4ee1-5582-adf1-e73fb8d9ea10",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "bde58114-4ee1-5582-adf1-e73fb8d9ea10",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "bde58114-4ee1-5582-adf1-e73fb8d9ea10",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "bde58114-4ee1-5582-adf1-e73fb8d9ea10",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "68bdfbee-9ad4-5f90-a3cf-a998297b2705",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "b55f239f-a58e-5369-997e-08acf4dd74f9",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "9a82b464-5de2-57b0-9aa4-783e252ad290",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

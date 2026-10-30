@@ -391,7 +391,7 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **0** | Design and prototype | Done: decisions in Section 11 |
-| **1. Enricher** (in progress, 10.1–10.6; all launch-bar metrics met blind on held-out v3 under rubric v1.5) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
+| **1. Enricher** (in progress, 10.1–10.7; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
@@ -751,6 +751,110 @@ Fixing any of these would be fit to v3, so a fourth batch would be needed for a 
 **Accepted without dispute:**
 - dotted subsection ids (`s6.7.9`) for numbers the outline does not list;
 - an `x-schedule-…` id, rather than `disclosure_schedule`, when a schedule numbered like a section has a filed heading.
+
+### 10.7 Enricher 0.4.0 and held-out v4 (2026-10-29)
+
+**Order of work.** The v4 labels were drafted and checked while 0.4.0 was being built from the v3 misses, so the batch was drawn first and the enricher was written without opening any v4 draft, check or packet. 0.4.0 was committed (`3c7e0878`) before v4 was scored.
+
+**Held-out v4.** 30 more US agreements, none in any earlier gold set or the 600-agreement audit sample. The draw used seed `heldout-v4-2026-10-29` and the same strata as v2 and v3. A governing-law filter now skips non-US filings; it skipped 2. Labeling used rubric v1.5, Sonnet drafting and Opus checking. The checker brief now asks each checker to make its own list before opening the draft. Fixtures carry `"set": "heldout-v4"`. Cost: about 1.42M drafter and 1.42M checker subagent tokens.
+
+**What 0.4.0 changes** (fit to v3; v3 under 0.4.0 scores 100% / 98.2% links, 99.6% / 99.7% declarations and 99.8% / 99.5% uses):
+
+- **Declarations:**
+  - words between the term and "means" ("and derivatives thereof", "or a variation thereof", "with respect to (i) the Company", "as of any time");
+  - `"X" includes` at the start of a paragraph, item or sentence;
+  - a closing curly quote used to open a term;
+  - "referred to in this Agreement as";
+  - parentheticals that run on after the term, and `collectively, "X"` inside one;
+  - a document part defined on purpose (`"Exhibits" means`), which still never matches uses.
+- **References:**
+  - lowercase "section" and "article";
+  - spelled-out article numbers ("Article Three");
+  - captions between list items ("Sections 4.1 (Organization), 4.2 and 4.7");
+  - an "of the Code" tail reached past unconsumed list items;
+  - "clauses (3) through (6) of section 3.16(a)(viii)".
+- **What stays unlinked:**
+  - a lowercase head citing another document ("article 15 of the Decree");
+  - civil-code colon numbers ("articles 7:17");
+  - "Seller Disclosure Schedule section 3.4(c)";
+  - "Articles Four and Five of the Company Articles".
+- **Typed numbers:** "Section 4,02" reads as 4.02.
+- **Term uses:** never inside a statute or company name ("Investment Company Act", "General Corporation Law", "Deutsche Bank Trust Company").
+
+**Corpus audit.** 0.3.0 and 0.4.0 were compared on the 600-agreement sample. On it, 0.4.0 makes 447 new declarations, removes 83, changes 2,564 reference statuses, adds 5,866 uses and removes 4,236. Most removed uses moved to newly declared longer terms, such as "Closing" into "Closing Date".
+
+Sonnet judged a blind sample of 580 changes in round 1:
+
+| Change | Correct | Wrong | Unsure |
+|---|---|---|---|
+| New declarations | 98 | 10 | 2 |
+| Removed declarations | 50 | 0 | 0 |
+| New links | 95 | 9 | 6 |
+| Now external | 90 | 0 | 0 |
+| Added uses | 94 | 5 | 11 |
+| Removed uses | 109 | 0 | 1 |
+
+What the wrong items were:
+- **Declarations:** all 10 were real declarations. The audit context marked the first occurrence of the term, not the declared span (`referred to in this Agreement as the “MSDC Financing.”` showed as "[[MSDC Financing]] Commitment"), the same mistake as round 1 of the v2 audit.
+- **Added uses:** the wrong and unsure items were "Schedule 2.8(c)" counted as a use of a declared "Schedules". That is fixed.
+- **Links:** lowercase heads citing other documents, which is fixed.
+
+Round 2 sampled 120 new links and 60 added uses again. All 60 uses and 109 of the 120 links were judged correct:
+- 7 wrong: 3 OCR commas (fixed), 1 colon number (fixed) and 3 one-off citations of other documents.
+- 4 unsure: inline clauses linked to their parent section.
+
+**Scorer fixes**, made after scoring and limited to the scorer:
+- **Repeated contexts:** gold items that repeat a context now locate to successive occurrences. `050572a3` prints the same 15-section list twice, and `1be86269` (v3) prints "Schedule 3.4" twice with no 10-word difference.
+- **Term names:** a gold term matches an enricher term in another number. `b577064e`'s index row says "COMPANY SUBSIDIARY", and the agreement declares "COMPANY SUBSIDIARIES".
+
+| Metric | Held-out v4, blind (`3c7e0878`, 30 US) | Same, before the scorer fixes | Launch bar |
+|---|---|---|---|
+| Xref link precision | 100% (602/602) | 98.9% (602/609) | ≥ 99% |
+| Xref in-document recall | 98.2% (602/613) | 98.2% | ≥ 95% |
+| Declaration precision / recall | 99.0% (694/701) / 97.5% (694/712) | same | ≥ 98% / ≥ 95% |
+| Term-use precision / recall | 98.0% (434/443) / 97.5% (434/445) | 97.8% / 89.9% | ≥ 97% / ≥ 90% |
+
+This is the first blind batch that meets every launch-bar metric. Pilot, v1 and v2 are unchanged by 0.4.0 and the scorer fixes. v3 link precision goes from 99.7% to 100% with its duplicate-context artifact gone.
+
+**The 11 missed links:**
+- 8 in `11127aa1`: all-caps "CLAUSE (VI) or (XIII) of SECTION 2.4(B)". "CLAUSE" is not an all-caps head, and an all-caps "SECTION" in a paragraph with three or more caps heads reads as a table of contents.
+- 2 in `22cf3a13`: "Section 2.1(d), (e) and (l)". "(l)" is taken as the roman numeral 50, so it looks like a jump, not the next letter.
+- 1 in `ea35b11e`: "Schedule A" in an index row "Section 1.2 of Schedule A", marked external with the section.
+
+**The 18 missed declarations:**
+- "Tax", "Taxable" and "Taxes" in one glossary form (`4be10641`, and "Tax" in `054ddbae`).
+- Capitalized correlatives (`fa0b76ed`).
+- "Knowledge" and "Material" (`de57cbed`).
+- `a "Bonus Plan Payment."` with no parentheses.
+- "$".
+- Three price and ratio terms defined inside formulas (`050572a3`, `22cf3a13`).
+- "Old Certificates".
+- "Affiliate", in a form with a carve-out sentence.
+- A term broken by page-break dashes ("Applicable Securities --- Laws"), which the enricher declares with the dashes.
+
+**The 7 extra declarations:**
+- "Offeror" and "Vintage", quoted names that are not definitions.
+- "GUST" ("referred to as “GUST”", which the drafter treated as an informal name).
+- "Agreement" and "Continuing Employee" in `de57cbed`.
+- The dashed term.
+- "$" in `bbd28634` (ruling 7 below).
+
+**The 11 missed and 9 extra uses:**
+- Mostly the two page-split uses (rulings 4 and 5).
+- "Certificate" in headings ("Officers’ Certificate").
+- `b577064e`'s "Company" inside "Knowledge of the Company" (ruling 6).
+
+**Open rulings** (recommendations first):
+
+1. **"otherwise known as “TBiz”"** (`71d34d87`): a declaration, as the checker said.
+2. **A pointer that prints a subsection** ("in this Section 10.1(a)", `de57cbed` CERCLA and RCRA): `s10.1(a)`, as printed, as the checker said.
+3. **A capitalized correlative's kind** (`054ddbae` "Taxes"): `means`, per v1.5, as the checker said.
+4. **A term split across a page-break paragraph boundary** (`a621ea6f` "the Acquired / Corporations", `bd2e4684` "U.S. Bancorp Common / Stock"): count it in neither paragraph, as the drafters' counts do. A per-paragraph count can only see whole uses, and the split is an artifact of the filing's page breaks.
+5. **Same as 4**, for the second agreement.
+6. **"Company" inside "Knowledge of the Company"** when that phrase is its own declared term (`b577064e`): not a use of "Company", per the existing longer-term rule. The checker accepted the draft only because the declaration was outside the packet. This recounts `b577064e`.
+7. **"All references to “$” … are to U.S. dollars"** (`bbd28634`): "$" is declared, as rubric v1.2 and the earlier gold have it.
+
+Rubric v1.5 is unchanged until these are ruled on.
 
 ## 11. Decisions (2026-10-22)
 

@@ -1,0 +1,819 @@
+{
+ "agreement_uuid": "22cf3a13-3ed2-5ec0-94f6-02bf9694e386",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "MERGER SUB COMMON STOCK",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "COMPANY COMMON STOCK",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "CASH CONSIDERATION",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "PARENT COMMON STOCK",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "STOCK CONSIDERATION",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "MIXED CONSIDERATION",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Exchange Ratio",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Share Price",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "NYSE",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "CASH ELECTION",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "CASH ELECTION NUMBER",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "FORM OF ELECTION",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "REPRESENTATIVE",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "CASH ELECTION SHARES",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "CASH FRACTION",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "STOCK ELECTION",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "STOCK ELECTION NUMBER",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "STOCK ELECTION SHARES",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "STOCK FRACTION",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "MIXED ELECTION",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "ELECTION",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "PAYING AGENT",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "COMPANY CERTIFICATES",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "NO ELECTION SHARES",
+   "para": "P13",
+   "kind": "paren"
+  },
+  {
+   "term": "ELECTION DEADLINE",
+   "para": "P14",
+   "kind": "paren"
+  },
+  {
+   "term": "REVERSE MERGER",
+   "para": "P16",
+   "kind": "paren"
+  },
+  {
+   "term": "PARENT BUSINESS COMBINATION",
+   "para": "P17",
+   "kind": "paren"
+  },
+  {
+   "term": "CONTROLLED GROUP LIABILITY",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "EMPLOYEE BENEFIT PLAN",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "EMPLOYMENT AGREEMENT",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA AFFILIATE",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "MULTIEMPLOYER PLAN",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "PLAN",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "WITHDRAWAL LIABILITY",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "IRS",
+   "para": "P30",
+   "kind": "paren"
+  },
+  {
+   "term": "QUALIFIED PLANS",
+   "para": "P31",
+   "kind": "paren"
+  },
+  {
+   "term": "VEBA",
+   "para": "P31",
+   "kind": "paren"
+  },
+  {
+   "term": "PARENT SHAREHOLDERS' APPROVAL",
+   "para": "P35",
+   "kind": "paren"
+  },
+  {
+   "term": "ALTERNATIVE PROPOSAL",
+   "para": "P37",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "2.1",
+   "context": "provisions of this Section 2.1, each share of",
+   "target": "s2.1"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "2.1(b)",
+   "context": "canceled pursuant to Section 2.1(b), issued and",
+   "target": "s2.1(b)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.1(l)",
+   "context": "subject to Section 2.1(l), the aggregate number",
+   "target": "s2.1(l)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.1(l)",
+   "context": "subject to Section 2.1(l), the aggregate number",
+   "target": "s2.1(l)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "2.1(l)",
+   "context": "subject to Section 2.1(l), the aggregate number",
+   "target": "s2.1(l)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "2.1(d)",
+   "context": "contained in Sections 2.1(d), (e) and",
+   "target": "s2.1(d)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "(e)",
+   "context": "Sections 2.1(d), (e) and (l), and",
+   "target": "s2.1(e)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "(l)",
+   "context": "2.1(d), (e) and (l), and the shares",
+   "target": "s2.1(l)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "2.1(f)",
+   "context": "contained in Sections 2.1(f), (g) and",
+   "target": "s2.1(f)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "(g)",
+   "context": "Sections 2.1(f), (g) and (l).",
+   "target": "s2.1(g)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "(l)",
+   "context": "2.1(f), (g) and (l).",
+   "target": "s2.1(l)"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "2.1",
+   "context": "contemplated by this Section 2.1, and all such",
+   "target": "s2.1"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "2.1(k)",
+   "context": "(as defined in Section 2.1(k)) (the",
+   "target": "s2.1(k)"
+  },
+  {
+   "para": "P15",
+   "head": "article",
+   "mention": "II",
+   "context": "anything in this Article II to the contrary",
+   "target": "a2"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "2.1(m)",
+   "context": "last sentence of Section 2.1(m)), unless",
+   "target": "s2.1(m)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "2.1(l)",
+   "context": "accordance with this Section 2.1(l), the number",
+   "target": "s2.1(l)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "2.1(c)",
+   "context": "Stock Consideration pursuant to Section 2.1(c), to",
+   "target": "s2.1(c)"
+  },
+  {
+   "para": "P15",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "set forth in the preceding clause (i) plus",
+   "target": "inline"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "2.1(c)",
+   "context": "to be issued pursuant to Section 2.1(c) plus",
+   "target": "s2.1(c)"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "1.368-1(e)",
+   "context": "Treasury Regulation Sections 1.368-1(e) plus (D) any",
+   "target": "external"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "1.368-1(e)",
+   "context": "Treasury Regulation Sections 1.368-1(e), to be 42.5%.",
+   "target": "external"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "2.1(l)",
+   "context": "application of this Section 2.1(l) would reasonably be",
+   "target": "s2.1(l)"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "2.1(l)",
+   "context": "adjustment under this Section 2.1(l)) pursuant to a",
+   "target": "s2.1(l)"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "368(a)",
+   "context": "within the meaning of Section 368(a) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "8.2(g)",
+   "context": "the conditions of Sections 8.2(g) and",
+   "target": "s8.2(g)"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "8.3(f)",
+   "context": "8.2(g) and 8.3(f) hereof would be waived",
+   "target": "s8.3(f)"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "2.1(l)",
+   "context": "extent required by this Section 2.1(l), and the number",
+   "target": "s2.1(l)"
+  },
+  {
+   "para": "P17",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "a distribution referred to in clause (i) of this sentence)",
+   "target": "inline"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "2.2(b)",
+   "context": "(as defined in Section 2.2(b)) shall be proportionately",
+   "target": "s2.2(b)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "4.10",
+   "context": "appropriate subsection of Section 4.10 of the Company Disclosure Schedule:",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "4.10",
+   "context": "For purposes of this Section 4.10, the following terms",
+   "target": "s4.10"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "701",
+   "context": "requirements of Section 701 ET SEQ. of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "701",
+   "context": "and Section 701 ET SEQ. of ERISA, (b)",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "302",
+   "context": "funding requirements of Section 302 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "412",
+   "context": "or Section 412 of the Code, (c)",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "4971",
+   "context": "(c) under Section 4971 of the Code, and",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "601",
+   "context": "continuation coverage requirements of Section 601 et seq. of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "4980B",
+   "context": "and Section 4980B of the Code, other than",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "4.10(b)",
+   "context": "listed in Section 4.10(b) of the Company Disclosure Schedule.",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "3(1)",
+   "context": "within the meaning of Section 3(1) of ERISA, any",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "3(2)",
+   "context": "within the meaning of Section 3(2) of ERISA (whether",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "414(b)",
+   "context": "a group described in Section 414(b), (c)",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "(c)",
+   "context": "described in Section 414(b), (c), (m)",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "(m)",
+   "context": "414(b), (c), (m) or (o) of",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "(o)",
+   "context": "(c), (m) or (o) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "4001(b)(1)",
+   "context": "or Section 4001(b)(1) of ERISA that includes",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "4001(a)(14)",
+   "context": "pursuant to Section 4001(a)(14) of ERISA.",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "4001(a)(3)",
+   "context": "within the meaning of Section 4001(a)(3) of ERISA.",
+   "target": "external"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "4.10(b)",
+   "context": "(b) Section 4.10(b) of the Company Disclosure Schedule includes",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "4.10(b)",
+   "context": "(d) Section 4.10(b) of the Company Disclosure Schedule identifies",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "401(a)",
+   "context": "within the meaning of Section 401(a) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "501(c)(9)",
+   "context": "requirements of Code Section 501(c)(9) (a",
+   "target": "external"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "3(1)",
+   "context": "welfare benefit plan under Section 3(1) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "4.10(b)",
+   "context": "as such in Section 4.10(b) of the Company Disclosure",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "406",
+   "context": "(as defined in Section 406 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "4975",
+   "context": "or Section 4975 of the Code) has",
+   "target": "external"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "9.1(f)",
+   "context": "terminates this Agreement pursuant to Section 9.1(f).",
+   "target": "s9.1(f)"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "6.1(e)",
+   "context": "an acquisition permitted by Section 6.1(e) hereof",
+   "target": "s6.1(e)"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "6.1(g)",
+   "context": "a disposition permitted by Section 6.1(g) hereof.",
+   "target": "s6.1(g)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "PARENT COMMON STOCK",
+   "para": "P35",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "24aabd28-4107-5e8b-89bf-59965e69516f",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "ba106cf8-99e1-5b71-ac1e-6812396ce607",
+   "t": 15,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "9c76ad1f-5043-59e5-8078-f313bef1de90",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P35": {
+   "s": "bfb6ed69-d9d7-5928-9264-e9a3969154e3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P36": {
+   "s": "7bfbf08b-e015-555c-8c46-12787d4896ad",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P37": {
+   "s": "7bfbf08b-e015-555c-8c46-12787d4896ad",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

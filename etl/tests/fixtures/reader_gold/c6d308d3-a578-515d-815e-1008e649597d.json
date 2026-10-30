@@ -1,0 +1,153 @@
+{
+ "agreement_uuid": "c6d308d3-a578-515d-815e-1008e649597d",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Loans",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "NewBridge Bank",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Bank Merger",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Bank Merger Agreement",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Bank Merger Certificates",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Yadkin Certificate",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Yadkin Bylaws",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Yadkin Subsidiary",
+   "para": "P11",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "3.26(a)",
+   "context": "Set forth in Section 3.26(a) of the NewBridge",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P8",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "attached hereto as Exhibit A (the",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.1(b)",
+   "context": "Section 4.1(b) of the Yadkin Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "9.9",
+   "context": "CERTIFICATIONS IN THIS SECTION 9.9.",
+   "target": "s9.9"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "5004b7da-1a0d-5944-a365-ee18cc6db4e4",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "5004b7da-1a0d-5944-a365-ee18cc6db4e4",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "5004b7da-1a0d-5944-a365-ee18cc6db4e4",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "5004b7da-1a0d-5944-a365-ee18cc6db4e4",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "5004b7da-1a0d-5944-a365-ee18cc6db4e4",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "5004b7da-1a0d-5944-a365-ee18cc6db4e4",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "5004b7da-1a0d-5944-a365-ee18cc6db4e4",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "a71322ed-ce23-5a4c-99db-806c84d11697",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "90b8fb57-758f-5a71-9db2-632ef8d486c5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "90b8fb57-758f-5a71-9db2-632ef8d486c5",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "90b8fb57-758f-5a71-9db2-632ef8d486c5",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "f5d00a0b-f705-5eca-b64f-712c222045c6",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "dfc0548d-848a-5b6a-af75-58ed67f87a7b",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "dfc0548d-848a-5b6a-af75-58ed67f87a7b",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

@@ -1,0 +1,1620 @@
+{
+ "agreement_uuid": "de57cbed-d6bb-5e35-a9df-94f22aec2da9",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Acquisition Agreement",
+   "para": "P1",
+   "kind": "pointer",
+   "pointer": "s7.3(a)"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P1",
+   "kind": "means"
+  },
+  {
+   "term": "Acquisition Transaction",
+   "para": "P1",
+   "kind": "means"
+  },
+  {
+   "term": "Adverse Recommendation Change",
+   "para": "P1",
+   "kind": "pointer",
+   "pointer": "s7.1(b)"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P1",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Articles of Merger",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "ASC 320",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Assets",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Average Buyer Stock Price",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Bank",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.5"
+  },
+  {
+   "term": "Bank Merger",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.5"
+  },
+  {
+   "term": "BHCA",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s4.1"
+  },
+  {
+   "term": "Burdensome Condition",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s8.1(c)"
+  },
+  {
+   "term": "Business Days",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Buyer Bank",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.5"
+  },
+  {
+   "term": "Buyer Common Stock",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Disclosure Memorandum",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Entities",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Exchange Act Reports",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.4(a)"
+  },
+  {
+   "term": "Buyer Financial Advisor",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Financial Statements",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Material Adverse Effect",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Regulatory Agreement",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.12"
+  },
+  {
+   "term": "Buyer Subsidiaries",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer’s Security Program",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s7.6(e)"
+  },
+  {
+   "term": "Calculation Date",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.2(d)"
+  },
+  {
+   "term": "Certificates",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.1(b)"
+  },
+  {
+   "term": "Change in Control Benefit",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s4.15(k)"
+  },
+  {
+   "term": "Closing",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.2"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.6"
+  },
+  {
+   "term": "Community Reinvestment Act",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Confidential Information",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s7.6(b)"
+  },
+  {
+   "term": "Consent",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Continuing Employee",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.9(a)"
+  },
+  {
+   "term": "Contract",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Data Incident",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Default",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "DIF",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.1"
+  },
+  {
+   "term": "Dissenter’s Rights",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.7"
+  },
+  {
+   "term": "DOL",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.15(b)"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "Employee Benefit Plan",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Employer Side Taxes",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Enforceability Exception",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.2"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "CERCLA",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "RCRA",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "ERISA",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Estimated Closing Statement",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s3.2(d)"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Exchange Act Documents",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Exchange Agent",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s3.3(a)"
+  },
+  {
+   "term": "Exchange Fund",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s3.3(a)"
+  },
+  {
+   "term": "Exchange Ratio",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Extinguished Shares",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s3.1(d)"
+  },
+  {
+   "term": "FDIA",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.1"
+  },
+  {
+   "term": "FDIC",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Federal Reserve",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Final Closing Statement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.2(d)"
+  },
+  {
+   "term": "GAAP",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Gross-Up Payment",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.15(k)"
+  },
+  {
+   "term": "Group",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Hazardous Material",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Indemnified Party",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s7.11(a)"
+  },
+  {
+   "term": "Individually Identifiable Personal Information",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.13(b)(vii)"
+  },
+  {
+   "term": "IIPI",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.13(b)(vii)"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "IRS",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.15(b)"
+  },
+  {
+   "term": "Knowledge",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Law",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Liability",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Lien",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Litigation",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Material",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Merger",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s3.1(a)"
+  },
+  {
+   "term": "NCBCA",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s1.1"
+  },
+  {
+   "term": "NC Commissioner",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s4.2(c)"
+  },
+  {
+   "term": "Notice of Recommendation Change",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s7.1(b)"
+  },
+  {
+   "term": "Operating Properties",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Order",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Participation Facilities",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Party",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Parties",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Party in Interest",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.15(f)"
+  },
+  {
+   "term": "PBGC",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.15(b)"
+  },
+  {
+   "term": "Permit",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Person",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Proxy Statement/Prospectus",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.2(c)"
+  },
+  {
+   "term": "Qualified Group",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s5.7"
+  },
+  {
+   "term": "Registration Statement",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.2(c)"
+  },
+  {
+   "term": "Regulatory Authorities",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Representative",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Requisite Seller Shareholder Approval",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.2(a)"
+  },
+  {
+   "term": "Retention Plan",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s7.10(a)"
+  },
+  {
+   "term": "Rights",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Sarbanes-Oxley Act",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "SC Code",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s1.1"
+  },
+  {
+   "term": "SCBFI",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "SEC",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Securities Act",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Securities Laws",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Seller",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Seller 2026 Q3 Cash Dividend",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s3.2(c)"
+  },
+  {
+   "term": "Seller Benefit Plan(s)",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s4.15(a)"
+  },
+  {
+   "term": "Seller Common Stock",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Seller Contracts",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s4.16(a)"
+  },
+  {
+   "term": "Seller D&O Policy",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s7.11(b)"
+  },
+  {
+   "term": "Seller Disclosure Memorandum",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Seller Entities",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Seller ERISA Plan",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s4.15(a)"
+  },
+  {
+   "term": "Seller Financial Advisor",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Seller Financial Statements",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Seller Investment Securities",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Seller Leased Real Properties",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s4.10(f)"
+  },
+  {
+   "term": "Seller Material Adverse Effect",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Seller Pension Plan",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s4.15(a)"
+  },
+  {
+   "term": "Seller Realty",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s4.10(e)"
+  },
+  {
+   "term": "Seller Regulatory Agreement",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s4.22"
+  },
+  {
+   "term": "Seller Recommendation",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Seller Reports",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s4.19"
+  },
+  {
+   "term": "Seller Stock",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Seller’s D&O Policy",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s7.11(b)"
+  },
+  {
+   "term": "Seller’s Shareholders’ Meeting",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Seller Subsidiaries",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Subsidiaries",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Superior Proposal",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Support Agreements",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Surviving Corporation",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Takeover Laws",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s4.23"
+  },
+  {
+   "term": "Tangible Common Equity Capital",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s3.2(c)"
+  },
+  {
+   "term": "Tangible Common Equity Capital Target Maximum",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Tangible Common Equity Capital Target Minimum",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Tax",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Taxes",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Treatment",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Taxing Authority",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Termination Fee",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s9.3(a)"
+  },
+  {
+   "term": "Transaction Expenses",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s3.2(c)"
+  },
+  {
+   "term": "WARN Act",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s4.14(d)"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "7.3(a)",
+   "context": "forth in Section 7.3(a) of the Agreement.",
+   "target": "s7.3(a)"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "7.1(b)",
+   "context": "forth in Section 7.1(b) of the Agreement.",
+   "target": "s7.1(b)"
+  },
+  {
+   "para": "P1",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "described in clause (ii) acts in any",
+   "target": "inline"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "1.3",
+   "context": "forth in Section 1.3 of the Agreement.",
+   "target": "s1.3"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "1.5",
+   "context": "set forth in Section 1.5 of the Agreement. “Bank",
+   "target": "s1.5"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "1.5",
+   "context": "set forth in Section 1.5 of the Agreement. “BHCA”",
+   "target": "s1.5"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "4.1",
+   "context": "forth in Section 4.1 of the Agreement.",
+   "target": "s4.1"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "8.1(c)",
+   "context": "forth in Section 8.1(c) of the Agreement.",
+   "target": "s8.1(c)"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "1.5",
+   "context": "set forth in Section 1.5 of the Agreement. “Buyer",
+   "target": "s1.5"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "5.4(a)",
+   "context": "forth in Section 5.4(a) of the Agreement.",
+   "target": "s5.4(a)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "5.12",
+   "context": "forth in Section 5.12 of the Agreement.",
+   "target": "s5.12"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "7.6(e)",
+   "context": "forth in Section 7.6(e) of the Agreement.",
+   "target": "s7.6(e)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.2(d)",
+   "context": "forth in Section 3.2(d) of the Agreement.",
+   "target": "s3.2(d)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "10.1(a)",
+   "context": "in this Section 10.1(a) of the Agreement.",
+   "target": "s10.1(a)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.1(b)",
+   "context": "forth in Section 3.1(b) of the Agreement.",
+   "target": "s3.1(b)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "4.15(k)",
+   "context": "forth in Section 4.15(k) of the Agreement.",
+   "target": "s4.15(k)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "1.2",
+   "context": "forth in Section 1.2 of the Agreement.",
+   "target": "s1.2"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "1.6",
+   "context": "forth in Section 1.6 of the Agreement.",
+   "target": "s1.6"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "7.6(b)",
+   "context": "forth in Section 7.6(b) of the Agreement.",
+   "target": "s7.6(b)"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "7.9(a)",
+   "context": "forth in Section 7.9(a) of the Agreement.",
+   "target": "s7.9(a)"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "4.1",
+   "context": "forth in Section 4.1 of the Agreement.",
+   "target": "s4.1"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "3.7",
+   "context": "forth in Section 3.7 of the Agreement.",
+   "target": "s3.7"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "4.15(b)",
+   "context": "forth in Section 4.15(b) of the Agreement.",
+   "target": "s4.15(b)"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.3",
+   "context": "forth in Section 1.3 of the Agreement.",
+   "target": "s1.3"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "defined in Section 3(3) of ERISA and",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "4.2",
+   "context": "forth in Section 4.2 of the Agreement.",
+   "target": "s4.2"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "414(b)",
+   "context": "under Code Section 414(b), (c), (m), or",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "(c)",
+   "context": "Code Section 414(b), (c), (m), or (o).",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "(m)",
+   "context": "Section 414(b), (c), (m), or (o). “Estimated",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "(o)",
+   "context": "(c), (m), or (o). “Estimated Closing Statement”",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3.2(d)",
+   "context": "forth in Section 3.2(d) of the Agreement.",
+   "target": "s3.2(d)"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "906",
+   "context": "Act or Section 906 of the Sarbanes-Oxley",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3.3(a)",
+   "context": "forth in Section 3.3(a) of the Agreement. “Exchange Fund” shall",
+   "target": "s3.3(a)"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3.3(a)",
+   "context": "forth in Section 3.3(a) of the Agreement. “Exchange Ratio” shall",
+   "target": "s3.3(a)"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3.1",
+   "context": "forth in Section 3.1 of the Agreement.",
+   "target": "s3.1"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3.1(d)",
+   "context": "forth in Section 3.1(d) of the Agreement.",
+   "target": "s3.1(d)"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "4.1",
+   "context": "forth in Section 4.1 of the Agreement.",
+   "target": "s4.1"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.2(d)",
+   "context": "forth in Section 3.2(d) of the Agreement.",
+   "target": "s3.2(d)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4.15(k)",
+   "context": "forth in Section 4.15(k) of the Agreement.",
+   "target": "s4.15(k)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "13(d)",
+   "context": "forth in Section 13(d) of the Exchange",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "7.11(a)",
+   "context": "forth in Section 7.11(a) of the Agreement.",
+   "target": "s7.11(a)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4.13(b)(vii)",
+   "context": "forth in Section 4.13(b)(vii) of the Agreement.",
+   "target": "s4.13(b)(vii)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4.15(b)",
+   "context": "forth in Section 4.15(b) of the Agreement.",
+   "target": "s4.15(b)"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "3.1(a)",
+   "context": "forth in Section 3.1(a) of the Agreement.",
+   "target": "s3.1(a)"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "1.1",
+   "context": "forth in Section 1.1 of the Agreement.",
+   "target": "s1.1"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4.2(c)",
+   "context": "forth in Section 4.2(c) of the Agreement.",
+   "target": "s4.2(c)"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "7.1(b)",
+   "context": "forth in Section 7.1(b) of the Agreement.",
+   "target": "s7.1(b)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "4.15(f)",
+   "context": "forth in Section 4.15(f) of the Agreement.",
+   "target": "s4.15(f)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "4.15(b)",
+   "context": "forth in Section 4.15(b) of the Agreement.",
+   "target": "s4.15(b)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "4.2(c)",
+   "context": "set forth in Section 4.2(c) of the Agreement. “Qualified",
+   "target": "s4.2(c)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "5.7",
+   "context": "forth in Section 5.7 of the Agreement.",
+   "target": "s5.7"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "10.1(a)",
+   "context": "in this Section 10.1(a) of the Agreement.",
+   "target": "s10.1(a)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "4.2(c)",
+   "context": "set forth in Section 4.2(c) of the Agreement. “Regulatory",
+   "target": "s4.2(c)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "4.2(a)",
+   "context": "forth in Section 4.2(a) of the Agreement.",
+   "target": "s4.2(a)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "7.10(a)",
+   "context": "forth in Section 7.10(a) of the Agreement.",
+   "target": "s7.10(a)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.1",
+   "context": "forth in Section 1.1 of the Agreement.",
+   "target": "s1.1"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "3.2(c)",
+   "context": "forth in Section 3.2(c) of the Agreement.",
+   "target": "s3.2(c)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "4.15(a)",
+   "context": "forth in Section 4.15(a) of the Agreement. “Seller Common Stock”",
+   "target": "s4.15(a)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "4.16(a)",
+   "context": "forth in Section 4.16(a) of the Agreement.",
+   "target": "s4.16(a)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "7.11(b)",
+   "context": "forth in Section 7.11(b) of the Agreement.",
+   "target": "s7.11(b)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "4.15(a)",
+   "context": "forth in Section 4.15(a) of the Agreement. “Seller Financial Advisor”",
+   "target": "s4.15(a)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "4.10(f)",
+   "context": "forth in Section 4.10(f) of the Agreement.",
+   "target": "s4.10(f)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "4.15(a)",
+   "context": "forth in Section 4.15(a) of the Agreement.",
+   "target": "s4.15(a)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "4.10(e)",
+   "context": "forth in Section 4.10(e) of the Agreement.",
+   "target": "s4.10(e)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "4.22",
+   "context": "forth in Section 4.22 of the Agreement.",
+   "target": "s4.22"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "4.19",
+   "context": "forth in Section 4.19 of the Agreement.",
+   "target": "s4.19"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "7.11(b)",
+   "context": "forth in Section 7.11(b) of the Agreement.",
+   "target": "s7.11(b)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "7.1(a)",
+   "context": "pursuant to Section 7.1(a), including any adjournment",
+   "target": "s7.1(a)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.23",
+   "context": "forth in Section 4.23 of the Agreement.",
+   "target": "s4.23"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "3.2(c)",
+   "context": "forth in Section 3.2(c) of the Agreement.",
+   "target": "s3.2(c)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "368(a)",
+   "context": "meaning of Section 368(a) of the Code.",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "9.3(a)",
+   "context": "forth in Section 9.3(a) of the Agreement.",
+   "target": "s9.3(a)"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "3.2(c)",
+   "context": "forth in Section 3.2(c) of the Agreement.",
+   "target": "s3.2(c)"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "4.14(d)",
+   "context": "forth in Section 4.14(d) of the Agreement.",
+   "target": "s4.14(d)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "10.6(b)",
+   "context": "pursuant to Section 10.6(b): (a) Representations and",
+   "target": "s10.6(b)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "8.3(a)",
+   "context": "of this Section 8.3(a), the accuracy of",
+   "target": "s8.3(a)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.1",
+   "context": "forth in Section 5.1, Section 5.2(a), Section 5.2(b)(i), and Section",
+   "target": "s5.1"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.2(a)",
+   "context": "Section 5.1, Section 5.2(a), Section 5.2(b)(i), and",
+   "target": "s5.2(a)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.2(b)(i)",
+   "context": "Section 5.2(a), Section 5.2(b)(i), and Section 5.13",
+   "target": "s5.2(b)(i)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.13",
+   "context": "5.2(b)(i), and Section 5.13 shall be true",
+   "target": "s5.13"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.1",
+   "context": "forth in Section 5.1, Section 5.2(a), Section 5.2(b)(i), Section 5.3,",
+   "target": "s5.1"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.2(a)",
+   "context": "Section 5.1, Section 5.2(a), Section 5.2(b)(i), Section",
+   "target": "s5.2(a)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.2(b)(i)",
+   "context": "Section 5.2(a), Section 5.2(b)(i), Section 5.3, and",
+   "target": "s5.2(b)(i)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.3",
+   "context": "Section 5.2(b)(i), Section 5.3, and Section 5.13)",
+   "target": "s5.3"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.13",
+   "context": "5.3, and Section 5.13) such that the",
+   "target": "s5.13"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "8.1",
+   "context": "forth in Section 8.1 as it relates",
+   "target": "s8.1"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "8.3(a)",
+   "context": "and in Sections 8.3(a), Section 8.3(b), and",
+   "target": "s8.3(a)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "8.3(b)",
+   "context": "Sections 8.3(a), Section 8.3(b), and Section 8.3(f)",
+   "target": "s8.3(b)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "8.3(f)",
+   "context": "8.3(b), and Section 8.3(f) have been satisfied.",
+   "target": "s8.3(f)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P13",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P14",
+   "count": 3
+  },
+  {
+   "term": "Agreement",
+   "para": "P15",
+   "count": 9
+  },
+  {
+   "term": "Agreement",
+   "para": "P16",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P17",
+   "count": 4
+  },
+  {
+   "term": "Buyer",
+   "para": "P14",
+   "count": 3
+  },
+  {
+   "term": "Buyer",
+   "para": "P15",
+   "count": 13
+  },
+  {
+   "term": "Buyer",
+   "para": "P16",
+   "count": 1
+  },
+  {
+   "term": "Buyer Common Stock",
+   "para": "P13",
+   "count": 2
+  },
+  {
+   "term": "Certificates",
+   "para": "P13",
+   "count": 1
+  },
+  {
+   "term": "Effective Time",
+   "para": "P15",
+   "count": 3
+  },
+  {
+   "term": "Effective Time",
+   "para": "P16",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "d719054e-518e-5242-bf2b-84fec429619b",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "9047bbf9-cfe1-5a1c-a602-fa99203bafb9",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "98a3cb3c-0f19-5529-956b-75d297497cca",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "9029a6cd-e563-53b6-9de2-dec8c98ad9f9",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "9029a6cd-e563-53b6-9de2-dec8c98ad9f9",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "14b48178-906c-5085-9074-7c4bb3d04f8b",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "declarations",
+   "draft": {
+    "term": "CERCLA",
+    "para": "P3",
+    "kind": "pointer",
+    "pointer": "s10.1"
+   },
+   "checker": {
+    "term": "CERCLA",
+    "para": "P3",
+    "kind": "pointer",
+    "pointer": "s10.1(a)"
+   },
+   "type": "disagree",
+   "reason": "The pointer prints 'in this Section 10.1(a)'; the Environmental Laws definition sits in subsection (a) of 10.1, matching the xref target s10.1(a)."
+  },
+  {
+   "section": "declarations",
+   "draft": {
+    "term": "RCRA",
+    "para": "P8",
+    "kind": "pointer",
+    "pointer": "s10.1"
+   },
+   "checker": {
+    "term": "RCRA",
+    "para": "P8",
+    "kind": "pointer",
+    "pointer": "s10.1(a)"
+   },
+   "type": "disagree",
+   "reason": "Same as CERCLA: pointer prints 'in this Section 10.1(a)', where the Environmental Laws definition sits."
+  }
+ ]
+}

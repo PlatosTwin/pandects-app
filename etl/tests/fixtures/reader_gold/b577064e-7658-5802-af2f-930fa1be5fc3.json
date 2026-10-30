@@ -1,0 +1,973 @@
+{
+ "agreement_uuid": "b577064e-7658-5802-af2f-930fa1be5fc3",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "ACTIVE COMPANY EMPLOYEES",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s6.6(A)"
+  },
+  {
+   "term": "AFFILIATE",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "AFFILIATE CONTRACTS",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.20"
+  },
+  {
+   "term": "AGREEMENT",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "ANNUAL FINANCIAL STATEMENTS",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.4(A)"
+  },
+  {
+   "term": "APPLICABLE RATE",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "AUTHORIZED CAPITAL EXPENDITURE DEFICIENCY",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.6(D)(III)"
+  },
+  {
+   "term": "AUTHORIZED CAPITAL EXPENDITURE EXCESS",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s2.6(D)(III)"
+  },
+  {
+   "term": "AUTHORIZED CAPITAL EXPENDITURE STATEMENT",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s2.6(A)"
+  },
+  {
+   "term": "AUTHORIZED CAPITAL EXPENDITURES",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "BALANCE SHEET",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s4.4(A)"
+  },
+  {
+   "term": "BENEFIT PLAN",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s4.10(A)"
+  },
+  {
+   "term": "BENEFIT PLANS",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s4.10(A)"
+  },
+  {
+   "term": "BUSINESS",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "BUSINESS DAY",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "BUYER",
+   "para": "P16",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "BUYER INDEMNIFIED PERSONS",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "s9.1(A)"
+  },
+  {
+   "term": "CANADIAN COMPANY SUBSIDIARIES",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "CAPITAL EXPENDITURE BUDGET",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "CASH AND CASH EQUIVALENTS",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "CLAIM",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "s9.5(D)(I)"
+  },
+  {
+   "term": "CLAIM NOTICE",
+   "para": "P22",
+   "kind": "pointer",
+   "pointer": "s9.5(D)(I)"
+  },
+  {
+   "term": "CLAIM RESPONSE",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s9.5(D)(I)"
+  },
+  {
+   "term": "CLOSING",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "CLOSING CERTIFICATE",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "s2.4(A)(IX)"
+  },
+  {
+   "term": "CLOSING DATE",
+   "para": "P26",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "CODE",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s2.2(D)"
+  },
+  {
+   "term": "COMPANY",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "COMPANY EMPLOYEE",
+   "para": "P29",
+   "kind": "pointer",
+   "pointer": "s4.10(A)"
+  },
+  {
+   "term": "COMPANY MATERIAL ADVERSE EFFECT",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P31",
+   "kind": "pointer",
+   "pointer": "s4.3"
+  },
+  {
+   "term": "COMPETITION/INVESTMENT LAW",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "CONFIDENTIALITY AGREEMENT",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "CONSENT",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "CONTRACT",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "CPA FIRM",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "CPA RESOLUTION",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s9.5(E)(II)"
+  },
+  {
+   "term": "CURRENT TAX MATTER",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "DEBT OBLIGATIONS",
+   "para": "P39",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "6.6(A)",
+   "context": "has the meaning set forth in SECTION 6.6(A)",
+   "target": "s6.6(A)"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "4.20",
+   "context": "has the meaning set forth in SECTION 4.20",
+   "target": "s4.20"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4.4(A)",
+   "context": "has the meaning set forth in SECTION 4.4(A)",
+   "target": "s4.4(A)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "2.6(D)(III)",
+   "context": "has the meaning set forth in SECTION 2.6(D)(III)",
+   "target": "s2.6(D)(III)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.6(D)(III)",
+   "context": "has the meaning set forth in SECTION 2.6(D)(III)",
+   "target": "s2.6(D)(III)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.6(A)",
+   "context": "has the meaning set forth in SECTION 2.6(A)",
+   "target": "s2.6(A)"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "4.4(A)",
+   "context": "has the meaning set forth in SECTION 4.4(A)",
+   "target": "s4.4(A)"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "4.10(A)",
+   "context": "has the meaning set forth in SECTION 4.10(A)",
+   "target": "s4.10(A)"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "9.1(A)",
+   "context": "has the meaning set forth in SECTION 9.1(A)",
+   "target": "s9.1(A)"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "9.5(D)(I)",
+   "context": "has the meaning set forth in SECTION 9.5(D)(I)",
+   "target": "s9.5(D)(I)"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "9.5(D)(I)",
+   "context": "has the meaning set forth in SECTION 9.5(D)(I)",
+   "target": "s9.5(D)(I)"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "9.5(D)(I)",
+   "context": "has the meaning set forth in SECTION 9.5(D)(I)",
+   "target": "s9.5(D)(I)"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "2.3",
+   "context": "has the meaning set forth in SECTION 2.3",
+   "target": "s2.3"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "2.4(A)(IX)",
+   "context": "has the meaning set forth in SECTION 2.4(A)(IX)",
+   "target": "s2.4(A)(IX)"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "2.3",
+   "context": "has the meaning set forth in SECTION 2.3",
+   "target": "s2.3"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "2.2(D)",
+   "context": "has the meaning set forth in SECTION 2.2(D)",
+   "target": "s2.2(D)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "4.10(A)",
+   "context": "has the meaning set forth in SECTION 4.10(A)",
+   "target": "s4.10(A)"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "4.3",
+   "context": "has the meaning set forth in SECTION 4.3",
+   "target": "s4.3"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "9.5(E)(II)",
+   "context": "has the meaning set forth in SECTION 9.5(E)(II)",
+   "target": "s9.5(E)(II)"
+  },
+  {
+   "para": "P19",
+   "head": "schedule",
+   "mention": "A",
+   "context": "as set forth on SCHEDULE A.",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P33",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "is attached as EXHIBIT A.",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P39",
+   "head": "schedule",
+   "mention": "1.1(A)",
+   "context": "under those agreements set forth on SCHEDULE 1.1(A), (b) except",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P39",
+   "head": "schedule",
+   "mention": "1.1(A)",
+   "context": "(b) except as set forth on SCHEDULE 1.1(A), obligations of",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P40",
+   "head": "schedule",
+   "mention": "1.1(A)",
+   "context": "(c) except as set forth on SCHEDULE 1.1(A), obligations of",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P40",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "the preceding clauses (a) and (b) secured",
+   "target": "inline"
+  },
+  {
+   "para": "P40",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "clauses (a) and (b) secured by any",
+   "target": "inline"
+  },
+  {
+   "para": "P40",
+   "head": "schedule",
+   "mention": "1.1(A)",
+   "context": "Employees set forth on SCHEDULE 1.1(A), (f) guarantees",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P40",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "type described in clause (a) above by",
+   "target": "inline"
+  },
+  {
+   "para": "P40",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "indebtedness described in clause (a) above, including",
+   "target": "inline"
+  },
+  {
+   "para": "P40",
+   "head": "schedule",
+   "mention": "1.1(A)",
+   "context": "agreements set forth on SCHEDULE 1.1(A). With respect",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "2.6",
+   "context": "for purposes of SECTION 2.6.",
+   "target": "s2.6"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "(a) SCHEDULE 4.12 is a complete and",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "to have been set forth on SCHEDULE 4.12 have been",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "and, except as set forth on SCHEDULE 4.12, no such",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "Except as set forth on SCHEDULE 4.12, all of the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P43",
+   "head": "schedule",
+   "mention": "4.13",
+   "context": "set forth on SCHEDULE 4.13, all of the Owned",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P43",
+   "head": "schedule",
+   "mention": "4.13",
+   "context": "set forth on SCHEDULE 4.13, neither the Company nor",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P45",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "(c) Except as set forth on SCHEDULE 4.12, all former",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P45",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "Except as set forth on SCHEDULE 4.12, no director, officer",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P46",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "(d) Except as set forth on SCHEDULE 4.12, the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P47",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "Except as set forth on SCHEDULE 4.12 and to the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P47",
+   "head": "schedule",
+   "mention": "4.13",
+   "context": "Material Contract listed on SCHEDULE 4.13.",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P48",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "(f) Except as set forth on SCHEDULE 4.12, no Proceeding",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P49",
+   "head": "schedule",
+   "mention": "4.13",
+   "context": "Material Contract listed on SCHEDULE 4.13) required to pay",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P49",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "Except as set forth on SCHEDULE 4.12, none of the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P50",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "(g) Except as set forth in SCHEDULE 4.12, no funding",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P51",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "(h) SCHEDULE 4.12 lists all the Information Systems",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P51",
+   "head": "schedule",
+   "mention": "4.12",
+   "context": "those Information Systems set forth on SCHEDULE 4.12, all",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P52",
+   "head": "schedule",
+   "mention": "4.22",
+   "context": "methods set forth on SCHEDULE 4.22. Since the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P55",
+   "head": "schedule",
+   "mention": "2.4(A)(VII)",
+   "context": "including securing Consents listed in SCHEDULE 2.4(A)(VII).",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "AGREEMENT",
+   "para": "P53",
+   "count": 3
+  },
+  {
+   "term": "BUSINESS",
+   "para": "P51",
+   "count": 1
+  },
+  {
+   "term": "BUYER",
+   "para": "P53",
+   "count": 4
+  },
+  {
+   "term": "COMPANY",
+   "para": "P41",
+   "count": 2
+  },
+  {
+   "term": "COMPANY",
+   "para": "P43",
+   "count": 3
+  },
+  {
+   "term": "COMPANY",
+   "para": "P45",
+   "count": 9
+  },
+  {
+   "term": "COMPANY",
+   "para": "P46",
+   "count": 5
+  },
+  {
+   "term": "COMPANY",
+   "para": "P47",
+   "count": 8
+  },
+  {
+   "term": "COMPANY",
+   "para": "P48",
+   "count": 3
+  },
+  {
+   "term": "COMPANY",
+   "para": "P49",
+   "count": 2
+  },
+  {
+   "term": "COMPANY",
+   "para": "P50",
+   "count": 1
+  },
+  {
+   "term": "COMPANY",
+   "para": "P51",
+   "count": 5
+  },
+  {
+   "term": "COMPANY",
+   "para": "P52",
+   "count": 2
+  },
+  {
+   "term": "COMPANY",
+   "para": "P54",
+   "count": 1
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P41",
+   "count": 2
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P43",
+   "count": 2
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P45",
+   "count": 9
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P46",
+   "count": 5
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P47",
+   "count": 5
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P48",
+   "count": 2
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P49",
+   "count": 2
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P51",
+   "count": 5
+  },
+  {
+   "term": "COMPANY SUBSIDIARY",
+   "para": "P52",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v4",
+ "stratum": "2005-14/txt",
+ "para_map": {
+  "P1": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "0d12a8d2-6bda-5db4-9703-38f5df1c85d6",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "3a15d966-da1e-5540-be86-9113951c70d1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "e13ae9f7-f7e8-5000-9cff-a93fdb4488ef",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "2502fd02-fecd-53c0-a9e0-277511d59639",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "7b2ddb03-aed4-5b55-8832-79a4b3ebff6c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P54": {
+   "s": "7b2ddb03-aed4-5b55-8832-79a4b3ebff6c",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P55": {
+   "s": "7b2ddb03-aed4-5b55-8832-79a4b3ebff6c",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ }
+}

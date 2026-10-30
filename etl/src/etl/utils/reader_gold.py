@@ -27,6 +27,7 @@ from etl.domain.reader_index import (
     _glossary_exhibit_texts,  # pyright: ignore[reportPrivateUsage]
     _norm_num,  # pyright: ignore[reportPrivateUsage]
     _roman_to_int,  # pyright: ignore[reportPrivateUsage]
+    _term_forms,  # pyright: ignore[reportPrivateUsage]
     _Text,  # pyright: ignore[reportPrivateUsage]
     build_reader_index,
 )
@@ -131,10 +132,17 @@ def build_packet(xml: str, agreement_uuid: str) -> tuple[str, dict[str, dict[str
 # ---------------------------------------------------------------- scoring
 
 
-def _locate(text: str, context: str, mention: str) -> int | None:
+def _locate(text: str, context: str, mention: str, nth: int = 0) -> int | None:
+    # the nth gold item with the same context is the nth occurrence of it: a paragraph can repeat a whole
+    # list word for word, and 10 words cannot tell its two copies apart
     i = text.find(context)
     if i < 0:
         return None
+    for _ in range(nth):
+        j = text.find(context, i + 1)
+        if j < 0:
+            break
+        i = j
     # the mention as a whole token: "A" in "Annex A" is not the "A" of "Annex", and "1" in
     # "Schedule 1" is not the "1" of "1.1"
     m = re.search(rf"(?<![\w.]){re.escape(mention)}(?!\w|\.\d)", context)
@@ -164,10 +172,13 @@ def score(xml: str, gold: dict[str, Any], para_map: dict[str, dict[str, Any]]) -
     c: Counter[str] = Counter()
     misses: list[dict[str, Any]] = []
     matched_sys: set[tuple[str, int, int]] = set()
+    seen: Counter[tuple[str, str, str]] = Counter()
     for g in gold.get("xrefs", []):
         anchor = para_map[g["para"]]
         txt = text_of[(anchor["s"], anchor["t"])]
-        pos = _locate(txt, g["context"], g["mention"])
+        key = (g["para"], g["context"], g["mention"])
+        pos = _locate(txt, g["context"], g["mention"], seen[key])
+        seen[key] += 1
         if pos is None:
             c["gold_unlocated"] += 1
             continue
@@ -242,10 +253,14 @@ def score(xml: str, gold: dict[str, Any], para_map: dict[str, dict[str, Any]]) -
     gold_terms = {u["term"] for u in gold.get("term_uses", [])}
     gold_counts = {(u["term"], para_map[u["para"]]["s"], para_map[u["para"]]["t"]): int(u["count"]) for u in gold.get("term_uses", [])}
     sampled = {(a["s"], a["t"]) for a in para_map.values() if a.get("excerpt", "sampled") == "sampled"}
-    # an index-table row can print a term in another case than its declaration ("Company" for "COMPANY")
+    # an index-table row can print a term in another case or number than its declaration ("Company" for
+    # "COMPANY", "COMPANY SUBSIDIARY" for "COMPANY SUBSIDIARIES")
     term_id_ci = {k.casefold(): v for k, v in term_id.items()}
+    term_id_forms = {f.casefold(): v for k, v in term_id.items() for f in _term_forms(k)}
     for term in gold_terms:
         tid = term_id.get(term, term_id_ci.get(term.casefold()))
+        if tid is None:
+            tid = next((term_id_forms[f.casefold()] for f in _term_forms(term) if f.casefold() in term_id_forms), None)
         for (s, t) in sampled:
             sys_n = sum(1 for u in payload["uses"].get(f"{s}/{t}", []) if u[2] == tid) if tid is not None else 0
             g_n = gold_counts.get((term, s, t), 0)

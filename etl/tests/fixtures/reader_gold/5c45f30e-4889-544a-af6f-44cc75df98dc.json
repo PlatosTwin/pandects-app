@@ -1,0 +1,612 @@
+{
+ "agreement_uuid": "5c45f30e-4889-544a-af6f-44cc75df98dc",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Controlled Group Liability",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Plans",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Qualified Plan",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Multiemployer Plan",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Multiple Employer Plan",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "ALARIS Board Recommendation",
+   "para": "P25",
+   "kind": "paren"
+  },
+  {
+   "term": "Antitrust Laws",
+   "para": "P29",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "5.15",
+   "context": "For purposes of this Section 5.15, the following",
+   "target": "s5.15"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "302",
+   "context": "(ii) under Section 302 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "412",
+   "context": "(iii) under Sections 412 and 4971",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "4971",
+   "context": "Sections 412 and 4971 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "601",
+   "context": "continuation coverage requirements of Section 601 et seq. of",
+   "target": "external"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "4980B",
+   "context": "ERISA and Section 4980B of the Code or",
+   "target": "external"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "9801",
+   "context": "plan requirements of Sections 9801 et seq. of",
+   "target": "external"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "701",
+   "context": "of the Code and Section 701 et seq. of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "414(b)",
+   "context": "a group described in Section 414(b), (c), (m)",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "(c)",
+   "context": "described in Section 414(b), (c), (m) or",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "(m)",
+   "context": "Section 414(b), (c), (m) or (o) of",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "(o)",
+   "context": "414(b), (c), (m) or (o) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "(within the meaning of Section 3(3) of ERISA)",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "5.15(b)",
+   "context": "(b) Section 5.15(b) to the ALARIS Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "401(a)",
+   "context": "(within the meaning of Section 401(a) of the Code)",
+   "target": "external"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "5.15(c)",
+   "context": "Except as set forth in Section 5.15(c) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "5.15(e)",
+   "context": "Section 5.15(e) to the ALARIS Disclosure Schedule, ALARIS and",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "5.15(e)",
+   "context": "Section 5.15(e) to the ALARIS Disclosure Schedule, each Plan",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "5.15(f)",
+   "context": "Except as set forth in Section 5.15(f) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "302",
+   "context": "subject to Title IV or Section 302 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "412",
+   "context": "of ERISA or Section 412 or 4971",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4971",
+   "context": "412 or 4971 of the Code. No Plan",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4001(a)(3)",
+   "context": "(within the meaning of Section 4001(a)(3) of ERISA)",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4063",
+   "context": "(within the meaning of Section 4063 of ERISA)",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "302",
+   "context": "Each Plan that is subject to Section 302 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "412",
+   "context": "ERISA and Section 412 of the Code satisfies",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "302",
+   "context": "minimum funding standards of Section 302 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "412",
+   "context": "ERISA and Section 412 of the Code (without regard",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "307",
+   "context": "to any Plan pursuant to Section 307 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "501(a)",
+   "context": "ERISA or Section 501(a) of the Code. Since",
+   "target": "external"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "4069",
+   "context": "any transaction described in Section 4069 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "5.15(h)",
+   "context": "Except as set forth in Section 5.15(h) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.15(i)",
+   "context": "Except as disclosed in Section 5.15(i) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.15(i)",
+   "context": "except as set forth in Section 5.15(i) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "280G",
+   "context": "(within the meaning of Section 280G of the Code)",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.15(i)",
+   "context": "Section 5.15(i) to the ALARIS Disclosure Schedule sets forth",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "5.15(j)",
+   "context": "Except as disclosed in Section 5.15(j) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "5.15(k)",
+   "context": "Section 5.15(k) to the ALARIS Disclosure Schedule sets forth",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "5.15(k)",
+   "context": "Section 5.15(k) to the ALARIS Disclosure Schedule also lists",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "5.15(k)",
+   "context": "Section 5.15(k) to the ALARIS Disclosure Schedule also sets",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "5.15(k)",
+   "context": "Except as disclosed in Section 5.15(k) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "5.15(k)",
+   "context": "Section 5.15(k) to the ALARIS Disclosure Schedule, no officer",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "5.15(k)",
+   "context": "Section 5.15(k) to the ALARIS Disclosure Schedule, to the knowledge",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "5.15(l)",
+   "context": "Except as disclosed in Section 5.15(l) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "5.15(m)",
+   "context": "Except as disclosed in Section 5.15(m) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "162(m)",
+   "context": "deduction under Section 162(m) of the Code of",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "5.15(n)(i)",
+   "context": "(n) Section 5.15(n)(i) to the ALARIS Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "5.15(n)(ii)",
+   "context": "except as disclosed in Section 5.15(n)(ii) to the ALARIS",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "203",
+   "context": "for purposes of Section 203 of the DGCL",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "253",
+   "context": "in accordance with Section 253 of the DGCL",
+   "target": "external"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "6.1(a)(ii)",
+   "context": "Antitrust Laws (as defined in Section 6.1(a)(ii))",
+   "target": "s6.1(a)(ii)"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "6.1",
+   "context": "provided to the other under this Section 6.1",
+   "target": "s6.1"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "6.1(a)",
+   "context": "nothing in this Section 6.1(a) shall limit",
+   "target": "s6.1(a)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "8.1",
+   "context": "terminate this Agreement pursuant to Section 8.1, so long",
+   "target": "s8.1"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "6.1(a)",
+   "context": "its obligations under this Section 6.1(a).",
+   "target": "s6.1(a)"
+  },
+  {
+   "para": "P31",
+   "head": "annex",
+   "mention": "A",
+   "context": "set forth in Annex A)",
+   "target": "x-annex-a"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "f26978d7-0946-5af0-93ea-66877017e722",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "864c63bd-14cb-55ed-a4ca-61fbf82f46ff",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "2ea8c7a6-546d-5408-9b53-4a5b41cfe97a",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "2ea8c7a6-546d-5408-9b53-4a5b41cfe97a",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "33ca4fea-01b2-5f97-a670-20d49c94d814",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "33ca4fea-01b2-5f97-a670-20d49c94d814",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "33ca4fea-01b2-5f97-a670-20d49c94d814",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "33ca4fea-01b2-5f97-a670-20d49c94d814",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "33ca4fea-01b2-5f97-a670-20d49c94d814",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "33ca4fea-01b2-5f97-a670-20d49c94d814",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "42f44843-5b63-598f-9006-b213755e2cfb",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

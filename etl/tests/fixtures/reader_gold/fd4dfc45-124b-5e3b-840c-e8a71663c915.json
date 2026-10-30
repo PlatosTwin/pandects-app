@@ -1,0 +1,217 @@
+{
+ "agreement_uuid": "fd4dfc45-124b-5e3b-840c-e8a71663c915",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Offer Date",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Common Shares",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Genesis Shares",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Offer",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Applicable Securities Laws",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Expiry Time",
+   "para": "P5",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P4",
+   "head": "article",
+   "mention": "4",
+   "context": "other than in Article 4 where the terms",
+   "target": "a4"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "1.1(c)",
+   "context": "to the conditions set forth in Schedule 1.1(c) hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "1.1(c)",
+   "context": "set forth in Schedule 1.1(c) are not satisfied or waived",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "1.1(c)",
+   "context": "condition (d) of Schedule 1.1(c) alone or together",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "1.1(c)",
+   "context": "of conditions in Schedule 1.1(c) prior to 12:00",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "1.1(c)",
+   "context": "forth in Schedule 1.1(c), the Offeror shall, on",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "1.1(c)",
+   "context": "conditions set forth in Schedule 1.1(c) are satisfied and the",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "1.1(c)",
+   "context": "Minimum Condition (as defined in Schedule 1.1(c)) may not",
+   "target": "not_in_filing"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Common Shares",
+   "para": "P6",
+   "count": 3
+  },
+  {
+   "term": "Common Shares",
+   "para": "P8",
+   "count": 3
+  },
+  {
+   "term": "Offer",
+   "para": "P6",
+   "count": 3
+  },
+  {
+   "term": "Offer",
+   "para": "P8",
+   "count": 4
+  },
+  {
+   "term": "Offer",
+   "para": "P10",
+   "count": 1
+  },
+  {
+   "term": "Offer",
+   "para": "P11",
+   "count": 2
+  },
+  {
+   "term": "Offer",
+   "para": "P13",
+   "count": 2
+  },
+  {
+   "term": "Expiry Time",
+   "para": "P6",
+   "count": 1
+  },
+  {
+   "term": "Expiry Time",
+   "para": "P8",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "52b38bf0-baee-50e0-b756-eca5ff87b7e7",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "52b38bf0-baee-50e0-b756-eca5ff87b7e7",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "52b38bf0-baee-50e0-b756-eca5ff87b7e7",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "52b38bf0-baee-50e0-b756-eca5ff87b7e7",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "52b38bf0-baee-50e0-b756-eca5ff87b7e7",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "8695431b-fd31-54d1-af97-641c6ccdec95",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "8695431b-fd31-54d1-af97-641c6ccdec95",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "8695431b-fd31-54d1-af97-641c6ccdec95",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "b2d14b17-bb51-543e-871e-a1a71f17ca5b",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "9f8746e7-9f75-596f-83e3-d336db99ae4e",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "9ec5293e-2393-5eed-bc1f-dcad26d54c75",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "9ec5293e-2393-5eed-bc1f-dcad26d54c75",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "9ec5293e-2393-5eed-bc1f-dcad26d54c75",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "9ec5293e-2393-5eed-bc1f-dcad26d54c75",
+   "t": 3,
+   "excerpt": "sampled"
+  }
+ }
+}

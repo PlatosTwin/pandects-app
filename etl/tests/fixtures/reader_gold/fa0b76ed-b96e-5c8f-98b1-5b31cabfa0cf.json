@@ -1,0 +1,695 @@
+{
+ "agreement_uuid": "fa0b76ed-b96e-5c8f-98b1-5b31cabfa0cf",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Company Adverse Recommendation Change",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Company Disclosure Letter",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Company Licensed IP",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Company Owned IP",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Company Recommendation",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Company Registered IP",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Control",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Controlling",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Controlled",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Copyrights",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Customs & International Trade Authorizations",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Customs & International Trade Laws",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "OFAC",
+   "para": "P21",
+   "kind": "paren"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Excluded Contracts",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Existing Credit Agreements",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "FCPA",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "FDA Laws",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "FDCA",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Fundamental Representations",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Good Clinical Practices",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Good Laboratory Practices",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Hazardous Materials",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Indebtedness",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property Agreement",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge of the Company",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Labor Agreement",
+   "para": "P43",
+   "kind": "paren"
+  },
+  {
+   "term": "Union",
+   "para": "P43",
+   "kind": "paren"
+  },
+  {
+   "term": "WARN Act",
+   "para": "P44",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "14D-9",
+   "context": "in the initial Schedule 14D-9, subject",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "each of clauses (a) and (b) above",
+   "target": "inline"
+  },
+  {
+   "para": "P7",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "each of clauses (a) and (b) above",
+   "target": "inline"
+  },
+  {
+   "para": "P10",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "set forth in clauses (i), (ii), (iv) and (v) above",
+   "target": "inline"
+  },
+  {
+   "para": "P10",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "set forth in clauses (i), (ii), (iv) and (v) above",
+   "target": "inline"
+  },
+  {
+   "para": "P10",
+   "head": "clause",
+   "mention": "(iv)",
+   "context": "set forth in clauses (i), (ii), (iv) and (v) above",
+   "target": "inline"
+  },
+  {
+   "para": "P10",
+   "head": "clause",
+   "mention": "(v)",
+   "context": "set forth in clauses (i), (ii), (iv) and (v) above",
+   "target": "inline"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.2(a)",
+   "context": "representations and warranties set forth in (a) Section 3.2(a)",
+   "target": "s3.2(a)"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.3",
+   "context": "(b) Section 3.3, (c) Section",
+   "target": "s3.3"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.4(a) (i)",
+   "context": "(c) Section 3.4(a) (i), (d) Section",
+   "target": "s3.4(a)(i)"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.6(b)",
+   "context": "(d) Section 3.6(b), (e) Section",
+   "target": "s3.6(b)"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.24",
+   "context": "(e) Section 3.24 and (f) Section",
+   "target": "s3.24"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.25",
+   "context": "and (f) Section 3.25.",
+   "target": "s3.25"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "321",
+   "context": "(21 U.S.C. Section 321 et seq.)",
+   "target": "external"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "321",
+   "context": "(21 U.S.C. Section 321 et seq.)",
+   "target": "external"
+  },
+  {
+   "para": "P37",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "with respect to clauses (a) through (e) above",
+   "target": "inline"
+  },
+  {
+   "para": "P37",
+   "head": "clause",
+   "mention": "(e)",
+   "context": "with respect to clauses (a) through (e) above",
+   "target": "inline"
+  },
+  {
+   "para": "P51",
+   "head": "schedule",
+   "mention": "14D-9",
+   "context": "Offer Documents or the Schedule 14D-9, including any",
+   "target": "external"
+  },
+  {
+   "para": "P51",
+   "head": "schedule",
+   "mention": "TO",
+   "context": "The Schedule TO, including any amendments thereof",
+   "target": "external"
+  },
+  {
+   "para": "P51",
+   "head": "schedule",
+   "mention": "TO",
+   "context": "statements made in the Schedule TO, including any",
+   "target": "external"
+  },
+  {
+   "para": "P52",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "each of clauses (a) and (b) above",
+   "target": "inline"
+  },
+  {
+   "para": "P52",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "each of clauses (a) and (b) above",
+   "target": "inline"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P42",
+   "count": 2
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P43",
+   "count": 5
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P44",
+   "count": 2
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P45",
+   "count": 3
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P46",
+   "count": 4
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P48",
+   "count": 1
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P49",
+   "count": 1
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P50",
+   "count": 1
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Knowledge of the Company",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Knowledge of the Company",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Knowledge of the Company",
+   "para": "P48",
+   "count": 1
+  },
+  {
+   "term": "Knowledge of the Company",
+   "para": "P50",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "9a2985c8-ab7d-5fe7-a164-24f73c241cf4",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "c13e36ec-1a22-5582-be50-d179755d79ea",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "c13e36ec-1a22-5582-be50-d179755d79ea",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "c13e36ec-1a22-5582-be50-d179755d79ea",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "c13e36ec-1a22-5582-be50-d179755d79ea",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "c13e36ec-1a22-5582-be50-d179755d79ea",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "c13e36ec-1a22-5582-be50-d179755d79ea",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "c13e36ec-1a22-5582-be50-d179755d79ea",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "c13e36ec-1a22-5582-be50-d179755d79ea",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "c13e36ec-1a22-5582-be50-d179755d79ea",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "b2cff71e-d565-5f86-b0d1-a2d6d05e0e6d",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "489b1751-6e86-57a5-8f52-5a6784383996",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

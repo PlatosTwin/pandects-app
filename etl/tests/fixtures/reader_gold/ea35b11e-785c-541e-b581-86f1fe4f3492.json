@@ -1,0 +1,3359 @@
+{
+ "agreement_uuid": "ea35b11e-785c-541e-b581-86f1fe4f3492",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "A&R Registration Rights Agreement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Additional Parent SEC Reports",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.7(a)"
+  },
+  {
+   "term": "Adjustment Escrow Account",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Adjustment Escrow Amount",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Adjustment Notice of Objection",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.11(e)"
+  },
+  {
+   "term": "Adjustment Review Period",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.11(e)"
+  },
+  {
+   "term": "Adjustment Statement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.11(d)"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Aggregate Forward Purchase Investment Amount",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Agreement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Alternative Acquisition Agreement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Anti-Corruption Laws",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Applicable Legal Requirements",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Approvals",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.6"
+  },
+  {
+   "term": "Audited Financial Statements",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.7(a)"
+  },
+  {
+   "term": "Base Value",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Bonus Plan Payments",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Bonus Plans",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Borrowed Indebtedness",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Business Day",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Cash and Cash Equivalents",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Certificate",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.7(a)"
+  },
+  {
+   "term": "Certificates of Merger",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.3(e)"
+  },
+  {
+   "term": "Certifications",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.7(a)"
+  },
+  {
+   "term": "Change in Recommendation",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.1(c)"
+  },
+  {
+   "term": "Change of Control",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Closing",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.1"
+  },
+  {
+   "term": "Closing Cash Payment Amount",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.1"
+  },
+  {
+   "term": "Closing Form 8-K",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.3(c)"
+  },
+  {
+   "term": "Closing Indebtedness Amount",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Closing Number of Securities",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Closing Press Release",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.3(c)"
+  },
+  {
+   "term": "Closing Securities Payment Amount",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Closing Transaction Costs",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Code",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Communications Plan",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.4(b)"
+  },
+  {
+   "term": "Company",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Business Combination",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s7.10(a)"
+  },
+  {
+   "term": "Company Cash",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Company Common Stock",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.3(a)"
+  },
+  {
+   "term": "Company Deal Communications",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s11.16(b)"
+  },
+  {
+   "term": "Company Disclosure Letter",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "a4"
+  },
+  {
+   "term": "Company Estimated Adjustment Statement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.11(a)"
+  },
+  {
+   "term": "Company IT Systems",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.17(h)"
+  },
+  {
+   "term": "Company Law Firms",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s11.16(a)"
+  },
+  {
+   "term": "Company Leased Properties",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.13(b)"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Company Material Contract",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.19(a)"
+  },
+  {
+   "term": "Company Real Property Leases",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.13(b)"
+  },
+  {
+   "term": "Company Registered Intellectual Property",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.17(a)"
+  },
+  {
+   "term": "Company Stockholder",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Company Stockholder Approval",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Subsidiaries",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.2(a)"
+  },
+  {
+   "term": "Company Transaction Costs",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Continental",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s5.13(a)"
+  },
+  {
+   "term": "Contract",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Copyrights",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "COVID Action",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Crescent",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Current Registration Rights Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Customs & International Trade Authorizations",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Customs & International Trade Laws",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "D&O Indemnified Party",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s7.12(a)"
+  },
+  {
+   "term": "D&O Tail",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s7.12(b)"
+  },
+  {
+   "term": "DGCL",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "DLLCA",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Earn Out Escrow Account",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.2(a)"
+  },
+  {
+   "term": "Earn Out Escrow Agent",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.2(a)"
+  },
+  {
+   "term": "Earn Out Escrow Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.2(a)"
+  },
+  {
+   "term": "Earn Out Shares",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Earn Out Triggering Event",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.3"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Employee Benefit Plan",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Environmental Law",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Environmental Permits",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.15(a)(ii)"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Escrow Agent",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Escrow Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Escrow Shares",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Estimated Closing Indebtedness Amount",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.11(a)"
+  },
+  {
+   "term": "Estimated Closing Transaction Costs",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Estimated Company Cash",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.11(a)"
+  },
+  {
+   "term": "Estimated Company Transaction Costs",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.11(a)"
+  },
+  {
+   "term": "Estimated Merger Consideration",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Estimated Parent Transaction Costs",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.11(b)"
+  },
+  {
+   "term": "Estimated Trust Account Interest",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.11(b)"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Excluded Share",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.7(d)"
+  },
+  {
+   "term": "Existing Credit Agreement",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Extension",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s6.2"
+  },
+  {
+   "term": "Final Closing Indebtedness Amount",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.11(g)"
+  },
+  {
+   "term": "Final Closing Transaction Costs",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.11(g)"
+  },
+  {
+   "term": "Final Company Cash",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.11(g)"
+  },
+  {
+   "term": "Final Merger Consideration",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Final Spreadsheet",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Final Trust Account Interest",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.11(g)"
+  },
+  {
+   "term": "Financial Statements",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.7(a)"
+  },
+  {
+   "term": "First Certificate of Merger",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s1.3(d)"
+  },
+  {
+   "term": "First Merger",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "First Merger Sub",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "First Merger Sub Common Stock",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s5.3(b)"
+  },
+  {
+   "term": "Forward Purchase Agreement",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Forward Purchase Investment Amount",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Forward Purchase Transaction",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "FPA Transferee",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Fraud",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Fundamental Representations",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Governing Documents",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Government Shutdown",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Group Companies",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Group Company Software",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.17(i)"
+  },
+  {
+   "term": "Hazardous Substance",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.5(b)"
+  },
+  {
+   "term": "Inbound License",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.19(a)(xvi)"
+  },
+  {
+   "term": "Incremental Forward Purchase Investment Amount",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s7.18"
+  },
+  {
+   "term": "Indebtedness",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Independent Expert",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.11(f)"
+  },
+  {
+   "term": "Initial Spreadsheet",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Insider",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.21(b)"
+  },
+  {
+   "term": "Insurance Policies",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.20"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Intervening Event",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "JOBS Act",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s7.15"
+  },
+  {
+   "term": "Knowledge",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Legal Proceeding",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Legal Requirements",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Licensed Intellectual Property",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Lien",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Losses",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Material Suppliers",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s4.19(a)(iii)"
+  },
+  {
+   "term": "Mergers",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Nasdaq",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s5.12"
+  },
+  {
+   "term": "Notice Period",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s7.1(c)(i)"
+  },
+  {
+   "term": "Open Source Code",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Open Source License",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Order",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Ordinary Course of Business",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Outside Date",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s9.1(b)"
+  },
+  {
+   "term": "Owned Intellectual Property",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Parent",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Parent A&R Bylaws",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Parent A&R Charter",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Parent Board",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Parent Business Combination",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s7.10(b)"
+  },
+  {
+   "term": "Parent Bylaws",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Parent Cash",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Parent Charter",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Parent Class A Stock",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s5.3(a)"
+  },
+  {
+   "term": "Parent Class F Stock",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s5.3(a)"
+  },
+  {
+   "term": "Parent Common Stock",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Parent Deal Communications",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s11.16(c)"
+  },
+  {
+   "term": "Parent Disclosure Letter",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "a5"
+  },
+  {
+   "term": "Parent Estimated Adjustment Statement",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s2.11(b)"
+  },
+  {
+   "term": "Parent Material Adverse Effect",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Parent Material Contracts",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s5.11"
+  },
+  {
+   "term": "Parent Organizational Documents",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Parent Parties",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s11.16(a)"
+  },
+  {
+   "term": "Parent Preferred Stock",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s5.3(a)"
+  },
+  {
+   "term": "Parent Recommendation",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Parent SEC Reports",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s5.7(a)"
+  },
+  {
+   "term": "Parent Shares",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s5.3(a)"
+  },
+  {
+   "term": "Parent Stockholder Matters",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s7.1(a)(i)"
+  },
+  {
+   "term": "Parent Stockholder Redemption",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s7.1(a)(i)"
+  },
+  {
+   "term": "Parent Transaction Costs",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Parent Units",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Parent Warrants",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s5.3(a)"
+  },
+  {
+   "term": "Parties",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Party",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Patents",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Permitted Lien",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Person",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Personal Data",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "PIPE Investment",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "PIPE Investment Amount",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "PIPE Investor",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Prior Parent Counsel",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s11.16(a)"
+  },
+  {
+   "term": "Privacy Laws",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Private Placement Warrants",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s5.3(a)"
+  },
+  {
+   "term": "Privileged Company Communications",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s11.16(b)"
+  },
+  {
+   "term": "Privileged Parent Communications",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s11.16(c)"
+  },
+  {
+   "term": "Processing",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s4.18(a)"
+  },
+  {
+   "term": "Proxy Clearance Date",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s7.1(a)(i)"
+  },
+  {
+   "term": "Proxy Statement",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s7.1(a)(i)"
+  },
+  {
+   "term": "Public Warrants",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s5.3(a)"
+  },
+  {
+   "term": "Related Parties",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Release Notice",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s3.2(b)"
+  },
+  {
+   "term": "Representatives",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s7.10(a)"
+  },
+  {
+   "term": "Required Extension",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s7.26"
+  },
+  {
+   "term": "Restricted Cash",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Retained Cash",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Sanctioned Jurisdiction",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Sanctioned Person",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Sanctions",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "SEC",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Second Certificate of Merger",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s1.3(e)"
+  },
+  {
+   "term": "Second Effective Time",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Second Merger",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Second Merger Sub",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Securities Act",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Seller Parties",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s11.16(a)"
+  },
+  {
+   "term": "Share Escrow Agreement",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s3.2(d)"
+  },
+  {
+   "term": "Software",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Special Meeting",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s7.1(b)"
+  },
+  {
+   "term": "Specified Representations",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s4.28"
+  },
+  {
+   "term": "Sponsor",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Sponsor Support Agreement",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Stockholder Released Parties",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s7.21"
+  },
+  {
+   "term": "Stockholder Representative",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Stockholder Representative Expense Holdback Amount",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Stockholders Agreement",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Subscription Agreement",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Superior Proposal",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Support Agreement",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Surviving Corporation",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Surviving Entity",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Tax",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Taxes",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Total Consideration",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s2.6(a)"
+  },
+  {
+   "term": "Trade Secrets",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Trademarks",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Transaction Agreements",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Transactions",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Transfer Taxes",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s7.13(b)"
+  },
+  {
+   "term": "Treasury Regulations",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Trust Account",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s5.13(a)"
+  },
+  {
+   "term": "Trust Account Interest",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Trust Agreement",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s5.13(a)"
+  },
+  {
+   "term": "Trust Termination Letter",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s7.5"
+  },
+  {
+   "term": "U.S. GAAP",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s4.7(a)"
+  },
+  {
+   "term": "Unaudited Financial Statements",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s4.7(a)"
+  },
+  {
+   "term": "Volume Weighted Average Share Price",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "WARN",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s4.12(e)"
+  },
+  {
+   "term": "Withholding Amount",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s3.2(f)"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Aggregate Forward Purchase Investment Amount",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Alternative Acquisition Agreement",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Anti-Corruption Laws",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Base Value",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Bonus Plans",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Bonus Plan Payments",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Bonus Plan Payment",
+   "para": "P24",
+   "kind": "paren"
+  },
+  {
+   "term": "Borrowed Indebtedness",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Cash and Cash Equivalents",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Change of Control",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Cash Payment Amount",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Indebtedness Amount",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Number of Securities",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Securities Payment Amount",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Transaction Costs",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Company Cash",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stockholder",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Company Leased Properties",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Real Property Leases",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Representatives",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Business Combination",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "Parent Business Combination",
+   "para": "P46",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Acquisition Proposal Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Acquisition Proposal Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Affiliate Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Affiliate Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Aggregate Forward Purchase Investment Amount Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Aggregate Forward Purchase Investment Amount Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Alternative Acquisition Agreement Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Alternative Acquisition Agreement Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Anti-Corruption Laws Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Anti-Corruption Laws Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Base Value Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Base Value Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Bonus Plan Payments Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Bonus Plan Payments Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Bonus Plans Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Bonus Plans Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Borrowed Indebtedness Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Borrowed Indebtedness Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Business Day Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Business Day Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Cash and Cash Equivalents Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Cash and Cash Equivalents Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Change of Control Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Change of Control Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Closing Cash Payment Amount Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Closing Cash Payment Amount Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Closing Indebtedness Amount Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Closing Indebtedness Amount Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Closing Number of Securities Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Closing Number of Securities Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Closing Securities Payment Amount Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Closing Securities Payment Amount Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Closing Transaction Costs Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Closing Transaction Costs Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Code Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P4",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Code Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Company Cash Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Company Cash Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Company Material Adverse Effect Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Company Material Adverse Effect Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Company Stockholder Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Company Stockholder Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Company Transaction Costs Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Company Transaction Costs Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Confidentiality Agreement Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Confidentiality Agreement Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Contract Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Contract Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Copyrights Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Copyrights Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "COVID Action Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "COVID Action Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Current Registration Rights Agreement Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Current Registration Rights Agreement Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Customs & International Trade Authorizations Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Customs & International Trade Authorizations Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Customs & International Trade Laws Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Customs & International Trade Laws Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Employee Benefit Plan Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Employee Benefit Plan Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Environmental Law Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Environmental Law Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "ERISA Affiliate Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "ERISA Affiliate Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Escrow Agent Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Escrow Agent Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Estimated Closing Transaction Costs Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Estimated Closing Transaction Costs Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Estimated Merger Consideration Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Estimated Merger Consideration Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Exchange Act Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Exchange Act Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Existing Credit Agreement Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Existing Credit Agreement Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Final Merger Consideration Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Final Merger Consideration Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Final Spreadsheet Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Final Spreadsheet Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "FPA Transferee Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "FPA Transferee Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Fraud Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Fraud Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Fundamental Representations Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Fundamental Representations Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Governing Documents Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Governing Documents Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Government Shutdown Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Government Shutdown Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Governmental Entity Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Governmental Entity Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Group Companies Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Group Companies Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Hazardous Substance Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Hazardous Substance Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Indebtedness Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Indebtedness Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Initial Spreadsheet Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Initial Spreadsheet Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Intellectual Property Section 1.2 of Schedule A Intervening",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Intellectual Property Section 1.2 of Schedule A Intervening",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Intervening Event Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Intervening Event Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Knowledge Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Knowledge Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Legal Proceeding Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Legal Proceeding Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Legal Requirements Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Legal Requirements Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Licensed Intellectual Property Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P8",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Licensed Intellectual Property Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Lien Section 1.2 of Schedule A Losses",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Lien Section 1.2 of Schedule A Losses",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Losses Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Losses Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Open Source Code Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Open Source Code Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Open Source License Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Open Source License Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Order Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Order Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Ordinary Course of Business Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Ordinary Course of Business Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Owned Intellectual Property Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Owned Intellectual Property Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Parent Bylaws Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Parent Bylaws Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Parent Cash Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Parent Cash Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Parent Charter Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Parent Charter Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Parent Common Stock Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Parent Common Stock Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Parent Material Adverse Effect Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Parent Material Adverse Effect Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Parent Organizational Documents Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Parent Organizational Documents Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Parent Transaction Costs Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Parent Transaction Costs Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Parent Units Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Parent Units Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Patents Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Patents Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Permitted Lien Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Permitted Lien Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Person Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Person Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Personal Data Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Personal Data Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "PIPE Investor Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "PIPE Investor Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Privacy Laws Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Privacy Laws Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Related Parties Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Related Parties Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Restricted Cash Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Restricted Cash Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Retained Cash Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Retained Cash Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Sanctioned Jurisdiction Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Sanctioned Jurisdiction Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Sanctioned Person Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Sanctioned Person Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Sanctions Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Sanctions Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "SEC Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "SEC Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Securities Act Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Securities Act Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Software Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Software Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Stockholder Representative Expense Holdback Amount Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Stockholder Representative Expense Holdback Amount Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Subsidiary Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Subsidiary Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Superior Proposal Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Superior Proposal Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Tax Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Tax Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Tax Return Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Tax Return Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Taxes Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Taxes Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Trade Secrets Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P14",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Trade Secrets Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Trademarks Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P14",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Trademarks Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Transaction Agreements Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P14",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Transaction Agreements Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Transactions Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P14",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Transactions Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Treasury Regulations Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P14",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Treasury Regulations Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Trust Account Interest Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P14",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Trust Account Interest Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "1.2",
+   "context": "Volume Weighted Average Share Price Section 1.2 of Schedule A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P14",
+   "head": "schedule",
+   "mention": "A",
+   "context": "Volume Weighted Average Share Price Section 1.2 of Schedule A",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P37",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "pursuant to clause (a) or (b) has occurred",
+   "target": "inline"
+  },
+  {
+   "para": "P37",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "pursuant to clause (a) or (b) has occurred",
+   "target": "inline"
+  },
+  {
+   "para": "P37",
+   "head": "clause",
+   "mention": "(viii)",
+   "context": "provided that this clause (viii) shall not prevent",
+   "target": "inline"
+  },
+  {
+   "para": "P39",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "clauses (i), (ii), (iv), (v), (vi) or (vii) above",
+   "target": "inline"
+  },
+  {
+   "para": "P39",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "clauses (i), (ii), (iv), (v), (vi) or (vii) above",
+   "target": "inline"
+  },
+  {
+   "para": "P39",
+   "head": "clause",
+   "mention": "(iv)",
+   "context": "clauses (i), (ii), (iv), (v), (vi) or (vii) above",
+   "target": "inline"
+  },
+  {
+   "para": "P39",
+   "head": "clause",
+   "mention": "(v)",
+   "context": "clauses (i), (ii), (iv), (v), (vi) or (vii) above",
+   "target": "inline"
+  },
+  {
+   "para": "P39",
+   "head": "clause",
+   "mention": "(vi)",
+   "context": "clauses (i), (ii), (iv), (v), (vi) or (vii) above",
+   "target": "inline"
+  },
+  {
+   "para": "P39",
+   "head": "clause",
+   "mention": "(vii)",
+   "context": "clauses (i), (ii), (iv), (v), (vi) or (vii) above",
+   "target": "inline"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "4.13(b)(i)",
+   "context": "set forth on Schedule 4.13(b)(i) of the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "4.13(b)(ii)",
+   "context": "Schedule 4.13(b)(ii) of the Company Disclosure Letter contains",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P43",
+   "head": "schedule",
+   "mention": "4.13(c)(iii)",
+   "context": "identified on Schedule 4.13(c)(iii) of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P44",
+   "head": "clause",
+   "mention": "(A)",
+   "context": "in each case of clauses (A) and (B) except",
+   "target": "inline"
+  },
+  {
+   "para": "P44",
+   "head": "clause",
+   "mention": "(B)",
+   "context": "in each case of clauses (A) and (B) except",
+   "target": "inline"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "11",
+   "context": "comply with Section 11 of the Support Agreement",
+   "target": "external"
+  },
+  {
+   "para": "P48",
+   "head": "article",
+   "mention": "VIII",
+   "context": "conditions set forth in Article VIII and provision",
+   "target": "a8"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Affiliate",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Closing",
+   "para": "P48",
+   "count": 1
+  },
+  {
+   "term": "Company Business Combination",
+   "para": "P45",
+   "count": 3
+  },
+  {
+   "term": "Company Business Combination",
+   "para": "P47",
+   "count": 2
+  },
+  {
+   "term": "Company Leased Properties",
+   "para": "P42",
+   "count": 4
+  },
+  {
+   "term": "Company Stockholder",
+   "para": "P45",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "76896350-43f7-544f-8b3f-c5a4968c44c5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "76896350-43f7-544f-8b3f-c5a4968c44c5",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "76896350-43f7-544f-8b3f-c5a4968c44c5",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "76896350-43f7-544f-8b3f-c5a4968c44c5",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "e7742f20-37eb-5b7e-97ea-e2afc6089ba8",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "e7742f20-37eb-5b7e-97ea-e2afc6089ba8",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "e7742f20-37eb-5b7e-97ea-e2afc6089ba8",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "26f2a64f-1fce-52b6-a2c1-cc84779bc5f5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "a65f7c8e-19b2-50f0-afa4-64017f6ced70",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "a65f7c8e-19b2-50f0-afa4-64017f6ced70",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "a65f7c8e-19b2-50f0-afa4-64017f6ced70",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ }
+}

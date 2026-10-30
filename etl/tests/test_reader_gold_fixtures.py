@@ -22,7 +22,7 @@ class ReaderGoldFixtureTests(unittest.TestCase):
                 self.assertEqual(f.stem, g["agreement_uuid"])
                 self.assertIsInstance(g["xml_version"], int)
                 # held-out files carry their open disputes until the user rules; pilot files are settled
-                if g.get("set") not in ("heldout-v1", "heldout-v2", "heldout-v3"):
+                if g.get("set") not in ("heldout-v1", "heldout-v2", "heldout-v3", "heldout-v4"):
                     self.assertNotIn("pending_disputes", g)
                 for d in g.get("pending_disputes", []):
                     self.assertIn(d["type"], {"disagree", "remove", "missing"})
