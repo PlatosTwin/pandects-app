@@ -1,0 +1,1176 @@
+{
+ "agreement_uuid": "25b7de22-629e-56a2-bbdf-b91c210dac50",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Adjusted Net Earnings",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Adjusted Net Earnings Agreed Upon Procedures Report",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "AFI Material Adverse Effect",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "AFI SEC Documents",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Alternative Transaction Proposal",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Business Combination Transaction",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "Third Party",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Best Knowledge of the Company",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Company Benefit Plans",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Company Related Person",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Company Rights Agreement",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Constituent Documents",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Encumbrance",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "IRS",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Losses",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Permitted Encumbrances",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Person",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Superior Proposal",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Taxes",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Taxing Authority",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "U.S. GAAP",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Adverse Recommendation Change",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s7.4(b)"
+  },
+  {
+   "term": "Affirmative Consent",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s7.10"
+  },
+  {
+   "term": "AFI",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Agreement",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "AIMR Standards",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.31"
+  },
+  {
+   "term": "Appraisal Shares",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s4.4"
+  },
+  {
+   "term": "Benefits Continuation Period",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s7.7(a)"
+  },
+  {
+   "term": "By-Laws",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Certificate",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s4.1(b)"
+  },
+  {
+   "term": "Certificate of Incorporation",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "Client Contract",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.27"
+  },
+  {
+   "term": "Closing",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s1.2"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s1.2"
+  },
+  {
+   "term": "Code",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s4.2(e)"
+  },
+  {
+   "term": "Common Stock",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s4.1(a)"
+  },
+  {
+   "term": "Company",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Adviser Subsidiary",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.2(g)"
+  },
+  {
+   "term": "Company Annual Statutory Statements",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.7"
+  },
+  {
+   "term": "Company Broker/Dealers",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.2(f)"
+  },
+  {
+   "term": "Company Contracts",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.23(a)"
+  },
+  {
+   "term": "Company Disclosure Letter",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.2"
+  },
+  {
+   "term": "Company Financial Statements",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.6(b)"
+  },
+  {
+   "term": "Company Forms",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.13(a)"
+  },
+  {
+   "term": "Company Insurance Subsidiaries",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.2(b)"
+  },
+  {
+   "term": "Company Investments",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.15(a)"
+  },
+  {
+   "term": "Company Privacy Policy",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.29"
+  },
+  {
+   "term": "Company Quarterly Statutory Statements",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.1.7"
+  },
+  {
+   "term": "Company Reports",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.6(c)"
+  },
+  {
+   "term": "Company Requisite Vote",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.4(a)"
+  },
+  {
+   "term": "Company Statutory Financial Statements",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.7"
+  },
+  {
+   "term": "Company Stockholder Approval",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.4(a)"
+  },
+  {
+   "term": "Company Stockholders’ Meeting",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s7.3"
+  },
+  {
+   "term": "Company Subsidiaries",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.2(a)"
+  },
+  {
+   "term": "Company Title IV Plan",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.19(c)"
+  },
+  {
+   "term": "Company’s 10-K",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.6(c)"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s7.1"
+  },
+  {
+   "term": "Convertible Preferred Stock",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.3(a)"
+  },
+  {
+   "term": "Distribution Date",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.33"
+  },
+  {
+   "term": "DGCL",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "Environmental Claims",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.24(b)"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.24(a)"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.2(i)"
+  },
+  {
+   "term": "Excluded Shares",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s4.1(a)"
+  },
+  {
+   "term": "FDIC",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.2(e)"
+  },
+  {
+   "term": "Foreign Funds",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.26"
+  },
+  {
+   "term": "Frontier",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s7.18"
+  },
+  {
+   "term": "Fund Approvals",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s7.9"
+  },
+  {
+   "term": "Fund Shares",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.28(c)"
+  },
+  {
+   "term": "Governmental Requirements",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.5(a)"
+  },
+  {
+   "term": "HOLA",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.2(e)"
+  },
+  {
+   "term": "Holder",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s4.2(a)"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.1.5(a)"
+  },
+  {
+   "term": "Indemnified Parties",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s7.8(a)"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.21(d)"
+  },
+  {
+   "term": "Investment Advisers Act",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.2(g)"
+  },
+  {
+   "term": "Investment Company Act",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.2(i)"
+  },
+  {
+   "term": "Merger",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s4.1(a)"
+  },
+  {
+   "term": "Merger Fund",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s4.2(a)"
+  },
+  {
+   "term": "Merger Sub",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "NASD",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.2(f)"
+  },
+  {
+   "term": "Negative Consent",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s7.10"
+  },
+  {
+   "term": "New Clients",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s7.10"
+  },
+  {
+   "term": "Non-Fund Clients",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.26"
+  },
+  {
+   "term": "Option",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s4.3(a)"
+  },
+  {
+   "term": "OTS",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.2(e)"
+  },
+  {
+   "term": "Outside Date",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s9.1(b)"
+  },
+  {
+   "term": "Paying Agent",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s4.2(a)"
+  },
+  {
+   "term": "Preferred Stock",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.3(a)"
+  },
+  {
+   "term": "Private Funds",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.26"
+  },
+  {
+   "term": "PwC",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.6(b)"
+  },
+  {
+   "term": "Proxy Statement",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s7.2(a)"
+  },
+  {
+   "term": "Registered Funds",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.26"
+  },
+  {
+   "term": "Registered Separate Account",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.13(f)"
+  },
+  {
+   "term": "Renewal Option",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s7.8(c)"
+  },
+  {
+   "term": "Reports",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.28(d)"
+  },
+  {
+   "term": "Representatives",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s7.4(a)"
+  },
+  {
+   "term": "Required Consents",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s8.1(c)"
+  },
+  {
+   "term": "Restricted Share",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s4.3(b)"
+  },
+  {
+   "term": "Rights",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s5.1.3(a)"
+  },
+  {
+   "term": "Rights Agreement Amendment",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.33"
+  },
+  {
+   "term": "Sarbanes-Oxley Act",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.6(d)"
+  },
+  {
+   "term": "SEC",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.2(f)"
+  },
+  {
+   "term": "Second Confidentiality Agreement",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s7.1"
+  },
+  {
+   "term": "Section 262",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s4.4"
+  },
+  {
+   "term": "Securities Act",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.5(a)"
+  },
+  {
+   "term": "Separate Account",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.13(e)"
+  },
+  {
+   "term": "Series A Preferred Stock",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.3(a)"
+  },
+  {
+   "term": "Statutory Accounting Practices",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.7"
+  },
+  {
+   "term": "Stock Acquisition Date",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.33"
+  },
+  {
+   "term": "Surviving Corporation",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s1.1"
+  },
+  {
+   "term": "Thrift",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.2(e)"
+  },
+  {
+   "term": "Thrift Merger",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s7.18"
+  },
+  {
+   "term": "Underwriting Agreement",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.28(b)"
+  },
+  {
+   "term": "U.S. Registered Fund",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.26"
+  },
+  {
+   "term": "Voting Company Debt",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.3(b)"
+  },
+  {
+   "term": "Warrants",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s5.1.3(a)"
+  },
+  {
+   "term": "Company Stockholders’ Meeting",
+   "para": "P40",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "10.1",
+   "context": "terms in this Section 10.1 and elsewhere in",
+   "target": "s10.1"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "201",
+   "context": "AT Section 201, Agreed Upon Procedures Engagements,",
+   "target": "external"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "10.1",
+   "context": "listed on Section 10.1 of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "as defined in Section 3(3) of ERISA, whether",
+   "target": "external"
+  },
+  {
+   "para": "P16",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "in the case of clauses (i), (ii), (iii) or (v)",
+   "target": "inline"
+  },
+  {
+   "para": "P16",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "in the case of clauses (i), (ii), (iii) or (v)",
+   "target": "inline"
+  },
+  {
+   "para": "P16",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "in the case of clauses (i), (ii), (iii) or (v)",
+   "target": "inline"
+  },
+  {
+   "para": "P16",
+   "head": "clause",
+   "mention": "(v)",
+   "context": "in the case of clauses (i), (ii), (iii) or (v)",
+   "target": "inline"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "8.3(a)",
+   "context": "conditions set forth in Sections 8.3(a), 8.3(c) and 8.3(h),",
+   "target": "s8.3(a)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "8.3(c)",
+   "context": "conditions set forth in Sections 8.3(a), 8.3(c) and 8.3(h),",
+   "target": "s8.3(c)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "8.3(h)",
+   "context": "conditions set forth in Sections 8.3(a), 8.3(c) and 8.3(h),",
+   "target": "s8.3(h)"
+  },
+  {
+   "para": "P18",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "under clause (a) of the first sentence",
+   "target": "inline"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "414",
+   "context": "single employer under Section 414 of the Code.",
+   "target": "external"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "6.1",
+   "context": "Notwithstanding anything in Section 6.1 to the contrary,",
+   "target": "s6.1"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "7.4(b)",
+   "context": "except as otherwise provided in Section 7.4(b), recommend adoption",
+   "target": "s7.4(b)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "7.4(b)",
+   "context": "of this Agreement in accordance with Section 7.4(b) or the",
+   "target": "s7.4(b)"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "7.4(b)",
+   "context": "may, subject to Section 7.4(b), communicate the basis",
+   "target": "s7.4(b)"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "10.3",
+   "context": "in the manner provided in Section 10.3 or in such",
+   "target": "s10.3"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "10.6",
+   "context": "MUTUAL WAIVERS AND CERTIFICATIONS IN THIS SECTION 10.6.",
+   "target": "s10.6"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Adjusted Net Earnings",
+   "para": "P39",
+   "count": 2
+  },
+  {
+   "term": "Alternative Transaction Proposal",
+   "para": "P40",
+   "count": 1
+  },
+  {
+   "term": "Constituent Documents",
+   "para": "P40",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P40",
+   "count": 4
+  },
+  {
+   "term": "Agreement",
+   "para": "P41",
+   "count": 4
+  },
+  {
+   "term": "Agreement",
+   "para": "P42",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P39",
+   "count": 5
+  },
+  {
+   "term": "Company",
+   "para": "P40",
+   "count": 4
+  },
+  {
+   "term": "Company",
+   "para": "P41",
+   "count": 6
+  },
+  {
+   "term": "Company",
+   "para": "P45",
+   "count": 5
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v2",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "d4ee8770-8d13-5064-8ac5-d5e992f84d3b",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "369dbddf-ca8b-56d6-aef8-f774a23f733b",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P40": {
+   "s": "8ea55009-3f09-563f-8b66-e16df17359ec",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P41": {
+   "s": "8ea55009-3f09-563f-8b66-e16df17359ec",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "9c9ce6ed-7bb9-50de-b53c-593e8048fe26",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "9c9ce6ed-7bb9-50de-b53c-593e8048fe26",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "9c9ce6ed-7bb9-50de-b53c-593e8048fe26",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "6dfd0043-044d-5b57-868e-4e5412822171",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "declarations",
+   "draft": null,
+   "checker": {
+    "term": "$",
+    "para": "P1",
+    "kind": "means"
+   },
+   "type": "missing",
+   "reason": "P1 says references to “dollars” or “$” are references to US lawful money; the rubric lets a term start with $; lowercase “dollars” is not a declaration."
+  }
+ ]
+}

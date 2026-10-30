@@ -288,6 +288,7 @@ Keep the latest row per agreement, and keep old rows until the next push, for ro
 }
 ```
 
+- **Declarations** may carry `pointer` (the target of "has the meaning set forth in …": `Section 2.2`, or the printed words otherwise: `preamble`, `introductory paragraph`, `Parent Charter`) and `as`, the printed spelling when it differs from the term's (a glossary's "COMPANY" merged into the preamble's "Company", enricher 0.3.0).
 - **Anchor** = `s`: section uuid (or region name `frontMatter`, `body`, `backMatter`, plus an ordinal for non-section text) and `t`: ordinal of the `<text>` node within that container, in document order, *including* text inside `<definition>`.
 - **Offsets are UTF-16 code units, measured over entity-decoded text**, the same string `normalizeXmlText` gives the React renderer. Python indexes code points, so the enricher converts. A shared fixture test (one agreement with curly quotes, `&amp;`, `§` and a non-BMP character) runs in both pytest and vitest to pin the contract.
 - **Size:** about 2.8k term uses and 300 xrefs per agreement is roughly 60–100 KB of JSON raw and about 15–25 KB gzipped, against 337 KB of XML. This is an estimate from the prototype counts, to be measured in Phase 1.
@@ -548,6 +549,110 @@ UK-only disputes (`1b8f3f3c`, `98444543`, `5d15a253`) are listed in their fixtur
 - Lowercase-first acronyms such as "cGMP".
 - Is "Tax or Taxation" one term or two?
 - Should preamble or recital pointers be marked `not_in_filing`?
+
+Rubric v1.3 (2026-10-29) settles all six with the defaults above: the 1st, 3rd, 5th… term, filled from the skipped ones when fewer than 5 result; the qualifying Section gets its own label; "cGMP"-style acronyms are declarations; "X or Y means" is two entries; and preamble pointers have `pointer: "preamble"`. Two fixtures gained the labels this implies (`62618fe9`, `98af24ef`).
+
+### 10.5 Enricher 0.2.0 and a second held-out set (2026-10-29)
+
+**Fixes from the held-out-v1 analysis** (commit `7591cbd3`, enricher 0.2.0). These used held-out v1, so v1 numbers after them are no longer clean:
+
+- **Declarations:**
+  - Runs of quoted terms before "means": `"Tax" or "Taxes" means`.
+  - A short qualifier before "means": `"Affiliate" of any Person means`.
+  - Correlatives: `"Controlled", "Controlling" … have correlative meanings`.
+  - Parentheticals that end in a quoted term, including `(this "Agreement")`, nested parentheses and two terms in one parenthetical.
+  - Chained "referred to herein as … and … as the X".
+  - `references to "$"` and other symbol terms.
+  - Pointers to the preamble, introductory paragraph or another document.
+
+  Quotes are paired before a run is walked back from its keyword. The first version, a single regex, backtracked badly on straight quotes.
+- **Xrefs:**
+  - Qualified clause lists ("clauses (i) through (v) of Section 3.4(c)") fall back to the section they name.
+  - "Section 6.2 (a)", with a space, parses.
+  - All-caps "ARTICLE VII" links, except at the start of a paragraph or in a table of contents.
+  - A relative "(b)" must move forward in its list.
+- **Corpus audit before freezing:** 600 random latest verified XMLs, old enricher against new. Sonnet judged a blind sample of what changed: 217 of 238 new declarations and 196 of 210 new or changed links were correct. The errors were fixed before the freeze: quoted section titles after "Section 2.3", "references to "Schedules"", amendment instructions, quoted percentages, tables of contents and backward relative items.
+
+**Held-out v2.** Thirty US agreements that nothing earlier touched, also kept out of the 600-agreement audit sample. Stratified as 11 2015+/html, 7 2005–14/html, 3 2005–14/txt, 3 pre-2005/html and 6 pre-2005/txt; one non-US draw was skipped. Rubric v1.3, three agreements per agent, Sonnet drafting and Opus checking, with the enricher frozen at `7591cbd3` until scoring was done. Fixtures carry `"set": "heldout-v2"`. Cost: about 1.35M drafter and 1.36M checker subagent tokens, roughly 90k per agreement. The two audit rounds cost about 0.9M more.
+
+| Metric | Held-out v2, blind (`7591cbd3`) | Launch bar |
+|---|---|---|
+| Xref link precision | 96.8% (420/434) | ≥ 99% |
+| Xref in-document recall | 94.0% (420/447) | ≥ 95% |
+| Declaration precision / recall | 99.9% / 93.7% (795 gold) | ≥ 98% / ≥ 95% |
+| Term-use precision / recall | 97.1% / 89.1% (487 gold) | ≥ 97% / ≥ 90% |
+
+The 14 wrong links:
+
+- 8 in `c55efec3`: "Section 3.2 of the Seller’s Disclosure Letter". The possessive broke the disclosure-schedule tail.
+- 2 in `b25fc0d0`: "Sections 8.2, 8.4 … thereof", meaning another document.
+- "Section 5.17(a) of the Public Disclosure ----- Schedule", across a page break.
+- "Section 1.3.22. of the Company Disclosure Letter", with a stray period.
+- "Section 4 para 1 and 2 AWG", a German statute.
+- "Article III" in an Articles of Association glossary that the enricher took for the agreement's own glossary. This one is not fixed.
+
+Declaration recall was low mainly because of an unquoted colon glossary (`Business Day: any day other than …`, `25b7de22`) and "is herein called", "referred as", "The term X shall include", ", in relation to X, means" and `A "X" is an …`. Term-use recall was low mainly because old filings declare "COMPANY" or "HSR ACT" and write "the Company" and "the HSR Act".
+
+**Fixes after scoring** (not blind; working tree on top of `7591cbd3`):
+
+- **Xref tails:** possessives, page-break dashes and "item 1 of" in disclosure-schedule tails; a stray period before a tail; "thereof" (unlinked, `other_document`); and "para N" statutes.
+- **Lists:**
+  - A list can step out of a parenthetical: "(other than Sections 1.1, 6.2 (a)), 6.6 (f)".
+  - A relative "(b)" falls back to its printed section and keeps its own span.
+  - A relative item must be followed by list-like text (a comma, "and", "of", "shall"…).
+  - A relative item cannot follow `),` and cannot jump more than three letters outside a range, so "(x) … (y)" pairs stay unlinked.
+- **Declarations:** the forms above. The colon glossary counts only inside a body section titled as definitions, needs five distinct entries, and skips notice labels. Document-part words ("Section", "Article", "Schedule", …) are never terms. 'so-called "X"' and 'references … to the "X" shall refer to' are not declarations.
+- **Term uses:**
+  - All-caps terms also match their title-case form.
+  - Terms that differ only by all-caps spelling merge into one term. Each declaration keeps its printed spelling in a new optional `as` field.
+  - An exact declared term is never claimed by another term's plural form.
+  - "-ses" plurals give both singulars ("Bonuses" gives "Bonus" and "Bonuse").
+
+A second audit of what these changes did on the same 600 agreements first found 84 of 150 new declarations and 54 of 150 new term uses wrong. The causes were charter articles ("FIRST: …"), signature and notice blocks taken as colon-glossary entries, and an interpretive 'the terms "Article", "Section" … refer to' declaring "Section" as a term. After the definitions-title, notice-label and document-part rules, 5 of those 84 declarations and 1 of the 54 uses remain. Every item judged correct survived except 4 declarations, and 3 of the 8 wrong links remain, all numbering mismatches in other documents' sections.
+
+| Metric | v2 after fixes | v1 after fixes | Pilot |
+|---|---|---|---|
+| Xref link precision | 99.8% (422/423) | 100% (412/412) | 100% (109/109) |
+| Xref in-document recall | 94.4% (422/447) | 98.3% (412/419) | 98.2% (109/111) |
+| Declaration precision / recall | 99.9% / 98.2% | 99.6% / 99.1% | 100% / 100% |
+| Term-use precision / recall | 98.8% / 99.6% | 98.0% / 100% | 100% / 97.3% |
+
+These are fit to the gold they were fixed against. The only blind number for this enricher would come from a third batch.
+
+**v2 recall** is held down by one rubric question. 17 of the 25 misses are clauses inside a definition: "clauses (a) through (c)" of the Initial Marketing Period definition (`dd824313`), "clauses (a), (b), and (d) in the definition thereof" (`a79d5ac8`) and "paragraph (e) above" (`ad7a582f`). The drafters labeled them `s1.1(a)` and so on, but Section 1.1 has no such subsections, and in `dd824313` its real (a) is a different paragraph. The enricher leaves them unlinked on purpose. If they become `inline`, as below, v2 recall is 98.1% (422/430).
+
+**Corpus run** (read-only, all 11,790 latest verified XMLs, enricher 0.3.0):
+
+- **Errors and speed:** 0 errors. 144 ms mean and 273 ms p95 per agreement, measured with six processes sharing the machine; 4.9 minutes wall time.
+- **Volume:** terms rose from 1.86M to 1.96M and uses from 38.4M to 42.1M.
+- **Reference statuses:**
+  - resolved: 2.46M (from 2.44M)
+  - section fallback: 102k (from 77k, mostly qualified and relative clause lists)
+  - ambiguous: 6.6k
+  - unresolved: 627k
+  - external: 624k
+  - disclosure schedule: 486k
+  - unlocated attachment: 79k
+- **Per-agreement rates:** the median body section-level rate is 88.7% (from 87.5%), the mean 86.7%.
+- **Health tail:** 216 agreements below 50%, 394 below 70% and 1,417 below 80%.
+
+**Open v2 disputes** (10, in the fixtures' `pending_disputes`), with recommended rulings:
+
+1. **Clauses inside a definition** (`dd824313` ×2 plus the 17 agreed labels above): `inline`, a new rubric line ("a clause or paragraph of a definition is `inline` until definitions have paragraph targets").
+2. **Drafting typos** (`b04ab879` "Sections 12(a) and 12(b)" inside 12.3, and `465d70b2` "this Section 4.04" inside 4.03): label the printed number, so `not_in_filing` or the printed target. The enricher cannot know intent, and the reader should not guess either.
+3. **The checker's side** on the remaining six:
+   - `$` in `25b7de22`, as rubric v1.2 allows.
+   - "Event of Default" (as defined in another document) is an `external` pointer in `374d67c9`.
+   - Exhibits A and B are `not_in_filing` in `7c81d0e8`, whose outline has no back matter.
+   - The quote marks come off the "A" mention in `ad7a582f`.
+   - Schedule A of another document is `external` in `b7196dcd`.
+
+Smaller questions the checkers raised, with recommended defaults:
+
+- All-caps "THIS AGREEMENT" is not a use.
+- An attachment heading marked "[omitted]" is `not_in_filing`.
+- "subparagraph", "subclause" and "para" stay outside the head-word list.
+- A period inside the closing quote is dropped unless it ends an abbreviation ("U.S.", "Corp.").
 
 ## 11. Decisions (2026-10-22)
 

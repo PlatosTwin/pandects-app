@@ -221,7 +221,7 @@ def score(xml: str, gold: dict[str, Any], para_map: dict[str, dict[str, Any]]) -
     # meaning set forth in Section 2.3") are scored as coverage: the enricher drops a pointer when the
     # term has a real declaration elsewhere, so the question is only whether it knows the term.
     sys_real = {
-        (t["term"], d["anchor"]["s"], d["anchor"]["t"]) for t in payload["terms"] for d in t["decls"] if d["kind"] != "pointer"
+        (d.get("as", t["term"]), d["anchor"]["s"], d["anchor"]["t"]) for t in payload["terms"] for d in t["decls"] if d["kind"] != "pointer"
     }
     gold_decls = gold.get("declarations", [])
     gold_real = {(d["term"], para_map[d["para"]]["s"], para_map[d["para"]]["t"]) for d in gold_decls if d["kind"] != "pointer"}
@@ -231,13 +231,13 @@ def score(xml: str, gold: dict[str, Any], para_map: dict[str, dict[str, Any]]) -
     out["decl_recall"] = round(tp / len(gold_real), 4) if gold_real else None
     out["decl_missed"] = sorted(t for t, *_ in gold_real - sys_in_scope)
     out["decl_extra"] = sorted(t for t, *_ in sys_in_scope - gold_real)
-    known_terms = {t["term"] for t in payload["terms"]}
+    known_terms = {d.get("as", t["term"]) for t in payload["terms"] for d in t["decls"]} | {t["term"] for t in payload["terms"]}
     gold_pointers = {d["term"] for d in gold_decls if d["kind"] == "pointer"}
     out["pointer_term_coverage"] = round(len(gold_pointers & known_terms) / len(gold_pointers), 4) if gold_pointers else None
     out["pointer_terms_unknown"] = sorted(gold_pointers - known_terms)
 
     # term uses: counts per (term, paragraph)
-    term_id = {t["term"]: t["id"] for t in payload["terms"]}
+    term_id = {d.get("as", t["term"]): t["id"] for t in payload["terms"] for d in t["decls"]} | {t["term"]: t["id"] for t in payload["terms"]}
     tu_tp = tu_sys = tu_gold = 0
     gold_terms = {u["term"] for u in gold.get("term_uses", [])}
     gold_counts = {(u["term"], para_map[u["para"]]["s"], para_map[u["para"]]["t"]): int(u["count"]) for u in gold.get("term_uses", [])}
@@ -253,6 +253,7 @@ def score(xml: str, gold: dict[str, Any], para_map: dict[str, dict[str, Any]]) -
     # term uses are labeled only in the sampled sections (rubric 3)
     out["term_use_precision"] = round(tu_tp / tu_sys, 4) if tu_sys else None
     out["term_use_recall"] = round(tu_tp / tu_gold, 4) if tu_gold else None
+    out["term_use_counts"] = {"tp": tu_tp, "sys": tu_sys, "gold": tu_gold}
     return out
 
 

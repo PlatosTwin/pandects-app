@@ -1,0 +1,717 @@
+{
+ "agreement_uuid": "b7196dcd-fa27-5f72-975e-213c20eea346",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "2016 Equity Incentive Plan",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Acquirer Common Stock",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Acquirer Stock Price",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Anti-Corruption Law",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Bain Purchasers",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Bain Stockholders Agreement",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Business",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Cash Reinvestment Portion",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Company Capital Stock",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Company Closing Transaction Expenses Certificate",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Company Common Stock",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Company Credit Agreement",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Company Debt",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Company Funded Debt",
+   "para": "P22",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Employee Plans",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Legally Required Plan",
+   "para": "P25",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Financial Information",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Company Indenture",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Company Notes",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Company Optionholders",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Company Options",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Company-Owned Intellectual Property Right",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Company-Owned Technology",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Company Products",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Company Registered Intellectual Property",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Company Restricted Stock",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Company Securityholders",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stock Plan",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stockholders",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Debt Financing Sources",
+   "para": "P46",
+   "kind": "paren"
+  },
+  {
+   "term": "Debt Commitment Letter",
+   "para": "P46",
+   "kind": "paren"
+  },
+  {
+   "term": "Required Amount",
+   "para": "P46",
+   "kind": "paren"
+  },
+  {
+   "term": "Section 280G Payments",
+   "para": "P53",
+   "kind": "paren"
+  },
+  {
+   "term": "280G Stockholder Approval",
+   "para": "P53",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P22",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "obligations described in clause (a), the",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "described in clauses (a) through (f) above",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(f)",
+   "context": "described in clauses (a) through (f) above",
+   "target": "inline"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "within the meaning of Section 3(3) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "supplements to the foregoing in clause (b) as may",
+   "target": "inline"
+  },
+  {
+   "para": "P26",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "the foregoing information in clause (b) does not",
+   "target": "inline"
+  },
+  {
+   "para": "P43",
+   "head": "schedule",
+   "mention": "2.23(b)",
+   "context": "Schedule 2.23(b) of the Company Disclosure Letter lists",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "2.23",
+   "context": "are those included in this Section 2.23",
+   "target": "s2.23"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "6.3(e)",
+   "context": "specifically set forth in Section 6.3(e)",
+   "target": "s6.3(e)"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "6.1",
+   "context": "conditions set forth in Section 6.1 and Section",
+   "target": "s6.1"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "6.3",
+   "context": "and Section 6.3, the aggregate proceeds",
+   "target": "s6.3"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "1.3",
+   "context": "contemplated by Section 1.3 and Section",
+   "target": "s1.3"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "1.4",
+   "context": "Section 1.3 and Section 1.4 (i.e.,",
+   "target": "s1.4"
+  },
+  {
+   "para": "P46",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "the amounts in clauses (i), (ii) and (iii), the",
+   "target": "inline"
+  },
+  {
+   "para": "P46",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "the amounts in clauses (i), (ii) and (iii), the",
+   "target": "inline"
+  },
+  {
+   "para": "P46",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "the amounts in clauses (i), (ii) and (iii), the",
+   "target": "inline"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "5.8",
+   "context": "as described in Section 5.8 (the amounts",
+   "target": "s5.8"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "6.1",
+   "context": "conditions set forth in Section 6.1 and Section",
+   "target": "s6.1"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "6.3",
+   "context": "and Section 6.3, Acquirer is not aware",
+   "target": "s6.3"
+  },
+  {
+   "para": "P48",
+   "head": "article",
+   "mention": "VII",
+   "context": "in accordance with Article VII and the",
+   "target": "a7"
+  },
+  {
+   "para": "P48",
+   "head": "section",
+   "mention": "4.1",
+   "context": "in Section 4.1 of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P48",
+   "head": "section",
+   "mention": "4.2",
+   "context": "restrictions set forth in Section 4.2 and except",
+   "target": "s4.2"
+  },
+  {
+   "para": "P53",
+   "head": "section",
+   "mention": "280G(b)(5)(B)",
+   "context": "terms of Section 280G(b)(5)(B) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P53",
+   "head": "section",
+   "mention": "280G",
+   "context": "pursuant to Section 280G of the Code (",
+   "target": "external"
+  },
+  {
+   "para": "P53",
+   "head": "section",
+   "mention": "280G",
+   "context": "conformance with Section 280G of the Code and",
+   "target": "external"
+  },
+  {
+   "para": "P53",
+   "head": "section",
+   "mention": "5.15",
+   "context": "pursuant to this Section 5.15, which parachute",
+   "target": "s5.15"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Applicable Law",
+   "para": "P48",
+   "count": 2
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P49",
+   "count": 1
+  },
+  {
+   "term": "Business",
+   "para": "P49",
+   "count": 1
+  },
+  {
+   "term": "Code",
+   "para": "P53",
+   "count": 3
+  },
+  {
+   "term": "Company Funded Debt",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Company Common Stock",
+   "para": "P53",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [
+  {
+   "para": "P16",
+   "head": "schedule",
+   "mention": "A",
+   "context": "on Schedule A to such Reinvestment",
+   "target": "external"
+  }
+ ],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "bf1c4cfd-73f4-51ea-adcc-39e5dc4812a2",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "bf1c4cfd-73f4-51ea-adcc-39e5dc4812a2",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "bf1c4cfd-73f4-51ea-adcc-39e5dc4812a2",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "bf1c4cfd-73f4-51ea-adcc-39e5dc4812a2",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "bf1c4cfd-73f4-51ea-adcc-39e5dc4812a2",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "de12a90d-d126-5615-9966-d5c7c8a6ad41",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "de12a90d-d126-5615-9966-d5c7c8a6ad41",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "41453147-9a68-5c2f-9639-1e4a91bb2dea",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "41453147-9a68-5c2f-9639-1e4a91bb2dea",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "41453147-9a68-5c2f-9639-1e4a91bb2dea",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "41453147-9a68-5c2f-9639-1e4a91bb2dea",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "41453147-9a68-5c2f-9639-1e4a91bb2dea",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "0c38c653-9487-5963-a48b-edf455749414",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "xrefs",
+   "draft": null,
+   "checker": {
+    "para": "P16",
+    "head": "schedule",
+    "mention": "A",
+    "context": "on Schedule A to such Reinvestment",
+    "target": "external"
+   },
+   "type": "missing",
+   "reason": "Schedule A to each Reinvestment Agreement is a schedule of another document."
+  }
+ ]
+}

@@ -1,0 +1,899 @@
+{
+ "agreement_uuid": "dd824313-0d83-529b-9cb2-dbd8b4826b16",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Acquisition Proposal",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Company Balance Sheet",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Company Balance Sheet Date",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Company Disclosure Schedule",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stockholder Meeting Time",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stock Plans",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Company 10-K",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Company 10-Q",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Consent",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Delaware Law",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Permits",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Financing Sources",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Hazardous Substance",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Initial Marketing Period",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Key Employee",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Lien",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Uncompleted Initial Marketing Period",
+   "para": "P33",
+   "kind": "paren"
+  },
+  {
+   "term": "Initial Marketing Period Blackout",
+   "para": "P35",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Stockholder Meeting",
+   "para": "P42",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "414",
+   "context": "single employer under Section 414 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "the case of clauses (i) and (ii), their",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "the case of clauses (i) and (ii), their",
+   "target": "inline"
+  },
+  {
+   "para": "P33",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "described in clauses (a) through (c) commences and",
+   "target": "s1.1(a)"
+  },
+  {
+   "para": "P33",
+   "head": "clause",
+   "mention": "(c)",
+   "context": "described in clauses (a) through (c) commences and",
+   "target": "s1.1(c)"
+  },
+  {
+   "para": "P33",
+   "head": "clause",
+   "mention": "(a)(ii)",
+   "context": "the condition in clauses (a)(ii), (b)(ii)(B) or (c)(ii)",
+   "target": "s1.1(a)(ii)"
+  },
+  {
+   "para": "P33",
+   "head": "clause",
+   "mention": "(b)(ii)(B)",
+   "context": "the condition in clauses (a)(ii), (b)(ii)(B) or (c)(ii)",
+   "target": "s1.1(b)(ii)(B)"
+  },
+  {
+   "para": "P33",
+   "head": "clause",
+   "mention": "(c)(ii)",
+   "context": "the condition in clauses (a)(ii), (b)(ii)(B) or (c)(ii)",
+   "target": "s1.1(c)(ii)"
+  },
+  {
+   "para": "P34",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "Period described in this clause (b) is as of",
+   "target": "s1.1(b)"
+  },
+  {
+   "para": "P34",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "Initial Marketing Period described in this clause (b).",
+   "target": "s1.1(b)"
+  },
+  {
+   "para": "P35",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "described in clauses (a) through (c) commences and",
+   "target": "s1.1(a)"
+  },
+  {
+   "para": "P35",
+   "head": "clause",
+   "mention": "(c)",
+   "context": "described in clauses (a) through (c) commences and",
+   "target": "s1.1(c)"
+  },
+  {
+   "para": "P35",
+   "head": "clause",
+   "mention": "(c)",
+   "context": "Period described in this clause (c) is as of",
+   "target": "s1.1(c)"
+  },
+  {
+   "para": "P35",
+   "head": "clause",
+   "mention": "(c)",
+   "context": "Initial Marketing Period described in this clause (c).",
+   "target": "s1.1(c)"
+  },
+  {
+   "para": "P36",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "Marketing Period as defined in clauses (a) through (c) above",
+   "target": "s1.1(a)"
+  },
+  {
+   "para": "P36",
+   "head": "clause",
+   "mention": "(c)",
+   "context": "Marketing Period as defined in clauses (a) through (c) above",
+   "target": "s1.1(c)"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "1.01(a)",
+   "context": "listed on Section 1.01(a) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "1.01(a)",
+   "context": "listed on Section 1.01(a) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "1.01(c)",
+   "context": "listed on Section 1.01(c) of the Parent Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "2.01(e)",
+   "context": "terminated pursuant to Section 2.01(e), the Company shall",
+   "target": "s2.1(e)"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "253",
+   "context": "with Section 253 of Delaware Law, the parties shall",
+   "target": "external"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "253",
+   "context": "Stockholder Meeting in accordance with Section 253 of Delaware Law.",
+   "target": "external"
+  },
+  {
+   "para": "P51",
+   "head": "section",
+   "mention": "2.01(e)",
+   "context": "terminated pursuant to Section 2.01(e), Merger Subsidiary shall",
+   "target": "s2.1(e)"
+  },
+  {
+   "para": "P87",
+   "head": "section",
+   "mention": "12.01",
+   "context": "provided in Section 12.01 (except for notice by",
+   "target": "s12.1"
+  },
+  {
+   "para": "P88",
+   "head": "section",
+   "mention": "12.09",
+   "context": "are waived pursuant to Section 12.09.",
+   "target": "s12.9"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P87",
+   "count": 3
+  },
+  {
+   "term": "Business Day",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P86",
+   "count": 2
+  },
+  {
+   "term": "Financing Sources",
+   "para": "P87",
+   "count": 3
+  },
+  {
+   "term": "HSR Act",
+   "para": "P49",
+   "count": 1
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P44",
+   "count": 2
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P45",
+   "count": 3
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P88",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [
+  {
+   "para": "P34",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "Period described in this clause (b); and (C) nothing",
+   "target": "s1.1(b)"
+  },
+  {
+   "para": "P35",
+   "head": "clause",
+   "mention": "(c)",
+   "context": "Period described in this clause (c); and (iii) nothing",
+   "target": "s1.1(c)"
+  }
+ ],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "4555cffa-f0f1-5a55-ae4a-d2ae26848b26",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "065dd9c3-c8ad-57f0-b477-65cdb594f60f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "065dd9c3-c8ad-57f0-b477-65cdb594f60f",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "065dd9c3-c8ad-57f0-b477-65cdb594f60f",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "065dd9c3-c8ad-57f0-b477-65cdb594f60f",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "065dd9c3-c8ad-57f0-b477-65cdb594f60f",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "065dd9c3-c8ad-57f0-b477-65cdb594f60f",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "8c3be9ce-ec0b-5212-b455-38e1c6bcda8d",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "8c3be9ce-ec0b-5212-b455-38e1c6bcda8d",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "8c3be9ce-ec0b-5212-b455-38e1c6bcda8d",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "8c3be9ce-ec0b-5212-b455-38e1c6bcda8d",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "8c3be9ce-ec0b-5212-b455-38e1c6bcda8d",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P54": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P55": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P56": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P57": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P58": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P59": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P60": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P61": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P62": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P63": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P64": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P65": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P66": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P67": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 15,
+   "excerpt": "sampled"
+  },
+  "P68": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 16,
+   "excerpt": "sampled"
+  },
+  "P69": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 17,
+   "excerpt": "sampled"
+  },
+  "P70": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 18,
+   "excerpt": "sampled"
+  },
+  "P71": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 19,
+   "excerpt": "sampled"
+  },
+  "P72": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 20,
+   "excerpt": "sampled"
+  },
+  "P73": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 21,
+   "excerpt": "sampled"
+  },
+  "P74": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 22,
+   "excerpt": "sampled"
+  },
+  "P75": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 23,
+   "excerpt": "sampled"
+  },
+  "P76": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 24,
+   "excerpt": "sampled"
+  },
+  "P77": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 25,
+   "excerpt": "sampled"
+  },
+  "P78": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 26,
+   "excerpt": "sampled"
+  },
+  "P79": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 27,
+   "excerpt": "sampled"
+  },
+  "P80": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 28,
+   "excerpt": "sampled"
+  },
+  "P81": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 29,
+   "excerpt": "sampled"
+  },
+  "P82": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 30,
+   "excerpt": "sampled"
+  },
+  "P83": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 31,
+   "excerpt": "sampled"
+  },
+  "P84": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 32,
+   "excerpt": "sampled"
+  },
+  "P85": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 33,
+   "excerpt": "sampled"
+  },
+  "P86": {
+   "s": "3d2dfbf4-771e-552b-a6c6-4a5b2e584e39",
+   "t": 34,
+   "excerpt": "sampled"
+  },
+  "P87": {
+   "s": "af5db153-aff1-551f-9725-5d231382a171",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P88": {
+   "s": "af5db153-aff1-551f-9725-5d231382a171",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "xrefs",
+   "draft": null,
+   "checker": {
+    "para": "P34",
+    "head": "clause",
+    "mention": "(b)",
+    "context": "Period described in this clause (b); and (C) nothing",
+    "target": "s1.1(b)"
+   },
+   "type": "missing",
+   "reason": "P34 has three 'this clause (b)' mentions; the draft has the first and last, not the middle one."
+  },
+  {
+   "section": "xrefs",
+   "draft": null,
+   "checker": {
+    "para": "P35",
+    "head": "clause",
+    "mention": "(c)",
+    "context": "Period described in this clause (c); and (iii) nothing",
+    "target": "s1.1(c)"
+   },
+   "type": "missing",
+   "reason": "P35 has three 'this clause (c)' mentions; the draft has the first and last, not the middle one."
+  }
+ ]
+}

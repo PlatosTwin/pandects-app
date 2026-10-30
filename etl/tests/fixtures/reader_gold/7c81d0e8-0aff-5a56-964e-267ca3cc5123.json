@@ -1,0 +1,861 @@
+{
+ "agreement_uuid": "7c81d0e8-0aff-5a56-964e-267ca3cc5123",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliates",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Asworth Accounting Procedures",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Business",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Capital Interests",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Cash",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Company",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Consent",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Deposit Account",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Claim",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental and Safety Requirements",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Escrow Agent",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Escrow Agreement",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Escrow Amount",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Excluded Assets",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Excluded Liabilities",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Consent",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Hazardous Substances",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Indebtedness",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "IRS",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge of the Purchaser",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge of Sellers",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Leased Real Property",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Liability",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Liabilities",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Liens",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Extended Survival Period",
+   "para": "P48",
+   "kind": "paren"
+  },
+  {
+   "term": "General Survival Period",
+   "para": "P48",
+   "kind": "paren"
+  },
+  {
+   "term": "Survival Period",
+   "para": "P48",
+   "kind": "paren"
+  },
+  {
+   "term": "Survival Periods",
+   "para": "P48",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "414(b)",
+   "context": "under Sections 414(b), 414(c) and 414(m) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "414(c)",
+   "context": "under Sections 414(b), 414(c) and 414(m) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "414(m)",
+   "context": "under Sections 414(b), 414(c) and 414(m) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "7.7",
+   "context": "Net Working Capital pursuant to Section 7.7, (iii) all",
+   "target": "s7.7"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "9.4",
+   "context": "entitled under Section 9.4 whether before",
+   "target": "s9.4"
+  },
+  {
+   "para": "P25",
+   "head": "schedule",
+   "mention": "1.1(i)",
+   "context": "set forth on Schedule 1.1(i) (but only",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "7.7",
+   "context": "Net Working Capital pursuant to Section 7.7), including,",
+   "target": "s7.7"
+  },
+  {
+   "para": "P27",
+   "head": "schedule",
+   "mention": "1.1(ii)",
+   "context": "set forth on Schedule 1.1(ii).",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P35",
+   "head": "schedule",
+   "mention": "1.1(iii)",
+   "context": "identified on Schedule 1.1(iii), after making",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P36",
+   "head": "schedule",
+   "mention": "1.1(iv)",
+   "context": "identified on Schedule 1.1(iv), after making",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "2.1",
+   "context": "name on Schedule 2.1 by wire transfer",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P43",
+   "head": "article",
+   "mention": "III",
+   "context": "behalf of such Party under Article III.",
+   "target": "a3"
+  },
+  {
+   "para": "P44",
+   "head": "article",
+   "mention": "IV",
+   "context": "set forth in Article IV, including the related",
+   "target": "a4"
+  },
+  {
+   "para": "P44",
+   "head": "article",
+   "mention": "IV",
+   "context": "warranties set forth in Article IV).",
+   "target": "a4"
+  },
+  {
+   "para": "P44",
+   "head": "article",
+   "mention": "IV",
+   "context": "warranties in Article IV, Sellers have made",
+   "target": "a4"
+  },
+  {
+   "para": "P44",
+   "head": "article",
+   "mention": "IV",
+   "context": "warranties in Article IV, the Purchaser shall",
+   "target": "a4"
+  },
+  {
+   "para": "P44",
+   "head": "article",
+   "mention": "IX",
+   "context": "indemnification pursuant to Articles IX or",
+   "target": "a9"
+  },
+  {
+   "para": "P44",
+   "head": "article",
+   "mention": "X",
+   "context": "or X with respect to any information",
+   "target": "a10"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "10.1",
+   "context": "period set forth in this Section 10.1, and any",
+   "target": "s10.1"
+  },
+  {
+   "para": "P46",
+   "head": "article",
+   "mention": "IX",
+   "context": "causes of action for indemnification under Article IX (whether",
+   "target": "a9"
+  },
+  {
+   "para": "P46",
+   "head": "article",
+   "mention": "X",
+   "context": "and this Article X arising out of the",
+   "target": "a10"
+  },
+  {
+   "para": "P46",
+   "head": "article",
+   "mention": "IX",
+   "context": "for indemnification under Article IX and this",
+   "target": "a9"
+  },
+  {
+   "para": "P46",
+   "head": "article",
+   "mention": "X",
+   "context": "and this Article X shall survive as follows:",
+   "target": "a10"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "4.1",
+   "context": "set forth in Sections 4.1, 4.2, 4.3, 4.4 and 4.5",
+   "target": "s4.1"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "4.2",
+   "context": "set forth in Sections 4.1, 4.2, 4.3, 4.4 and 4.5",
+   "target": "s4.2"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "4.3",
+   "context": "set forth in Sections 4.1, 4.2, 4.3, 4.4 and 4.5",
+   "target": "s4.3"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "4.4",
+   "context": "set forth in Sections 4.1, 4.2, 4.3, 4.4 and 4.5",
+   "target": "s4.4"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "4.5",
+   "context": "set forth in Sections 4.1, 4.2, 4.3, 4.4 and 4.5",
+   "target": "s4.5"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "4.9(k)",
+   "context": "set forth in Sections 4.9(k), 4.13, 4.17 and 4.18,",
+   "target": "s4.9(k)"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "4.13",
+   "context": "set forth in Sections 4.9(k), 4.13, 4.17 and 4.18,",
+   "target": "s4.13"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "4.17",
+   "context": "set forth in Sections 4.9(k), 4.13, 4.17 and 4.18,",
+   "target": "s4.17"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "4.18",
+   "context": "set forth in Sections 4.9(k), 4.13, 4.17 and 4.18,",
+   "target": "s4.18"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "9.4",
+   "context": "indemnities provided in Sections 9.4 and 9.5, shall",
+   "target": "s9.4"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "9.5",
+   "context": "indemnities provided in Sections 9.4 and 9.5, shall",
+   "target": "s9.5"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "10.2(a)",
+   "context": "pursuant to Sections 10.2(a), (b) and (c) shall not",
+   "target": "s10.2(a)"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "(b)",
+   "context": "pursuant to Sections 10.2(a), (b) and (c) shall not",
+   "target": "s10.2(b)"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "(c)",
+   "context": "pursuant to Sections 10.2(a), (b) and (c) shall not",
+   "target": "s10.2(c)"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "10.3",
+   "context": "in accordance with Section 10.3; and (ii)",
+   "target": "s10.3"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "10.1",
+   "context": "(ii) this Section 10.1 shall not limit",
+   "target": "s10.1"
+  },
+  {
+   "para": "P50",
+   "head": "section",
+   "mention": "11.3",
+   "context": "jurisdiction in this Section 11.3.",
+   "target": "s11.3"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P46",
+   "count": 2
+  },
+  {
+   "term": "Agreement",
+   "para": "P48",
+   "count": 2
+  },
+  {
+   "term": "Agreement",
+   "para": "P50",
+   "count": 2
+  },
+  {
+   "term": "Business Day",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Escrow Agent",
+   "para": "P42",
+   "count": 2
+  },
+  {
+   "term": "Escrow Amount",
+   "para": "P42",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [
+  {
+   "para": "P5",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "described on Exhibit A hereto.",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P23",
+   "head": "exhibit",
+   "mention": "B",
+   "context": "substantially in the form of Exhibit B attached hereto",
+   "target": "x-exhibit-b"
+  }
+ ],
+ "xml_version": 2,
+ "set": "heldout-v2",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "e7c48a7d-5e7b-5582-b1df-5fb00d295776",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "36d8165a-0774-522d-af61-0d6e474a9ab1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "36d8165a-0774-522d-af61-0d6e474a9ab1",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "36d8165a-0774-522d-af61-0d6e474a9ab1",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "3b22e4da-c43b-581a-b8a8-b121f38c3e74",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "3b22e4da-c43b-581a-b8a8-b121f38c3e74",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "a13847c8-8a0a-5744-a9ec-6c6ba50e14c5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "a13847c8-8a0a-5744-a9ec-6c6ba50e14c5",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "a13847c8-8a0a-5744-a9ec-6c6ba50e14c5",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "a13847c8-8a0a-5744-a9ec-6c6ba50e14c5",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "c7f46462-cb2f-5be7-9b39-9eaf7b089a77",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "xrefs",
+   "draft": {
+    "para": "P5",
+    "head": "exhibit",
+    "mention": "A",
+    "context": "described on Exhibit A hereto.",
+    "target": "x-exhibit-a"
+   },
+   "checker": {
+    "para": "P5",
+    "head": "exhibit",
+    "mention": "A",
+    "context": "described on Exhibit A hereto.",
+    "target": "not_in_filing"
+   },
+   "type": "disagree",
+   "reason": "Outline lists no back-matter attachments, so Exhibit A is not in the filing (ruling 2026-10-23)."
+  },
+  {
+   "section": "xrefs",
+   "draft": {
+    "para": "P23",
+    "head": "exhibit",
+    "mention": "B",
+    "context": "substantially in the form of Exhibit B attached hereto",
+    "target": "x-exhibit-b"
+   },
+   "checker": {
+    "para": "P23",
+    "head": "exhibit",
+    "mention": "B",
+    "context": "substantially in the form of Exhibit B attached hereto",
+    "target": "not_in_filing"
+   },
+   "type": "disagree",
+   "reason": "Outline lists no back-matter attachments, so Exhibit B is not in the filing."
+  }
+ ]
+}

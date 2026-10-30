@@ -280,6 +280,31 @@ class XrefTests(unittest.TestCase):
         self.assertNotIn("(b)", _xrefs(p))
         self.assertEqual(_xrefs(p)["Section 3.2 (d)"]["target"], "s3.2(d)")
 
+    def test_heldout_v2_reference_tails_and_lists(self) -> None:
+        xml = _doc(
+            _section("s3", "Section 3.2 Taxes", "(a) returns.")
+            + _section("s8", "Section 8.2 Survival", "Survival.")
+            + _section("s10", "Section 10.2 Remedies", "(a) cure.")
+            + _section(
+                "s11",
+                "Section 11.1 Refs",
+                "Except as set forth in Section 3.2 of the Seller’s Disclosure Letter, none.",
+                "Listed in Section 3.2. of the Company Disclosure Letter.",
+                "Under Section 4 para 1 and 2 AWG.",
+                "The Partnership Agreement and Section 8.2 thereof continue.",
+                "Remedies pursuant to Sections 10.2(a), (b) and (c) shall not apply.",
+                "(other than Sections 3.2(a)), 8.2 and 10.2, any remedy.",
+            )
+        )
+        refs = build_reader_index(xml)["xrefs"]
+        by_text = {(r["at"]["t"], r["text"]): r for r in refs}
+        self.assertEqual(by_text[(0, "Section 3.2")]["status"], "disclosure_schedule")
+        self.assertEqual(by_text[(1, "Section 3.2")]["status"], "disclosure_schedule")
+        self.assertEqual(by_text[(2, "Section 4")]["status"], "external")
+        self.assertEqual(by_text[(3, "Section 8.2")]["status"], "unresolved")
+        self.assertEqual([by_text[(4, t)]["target"] for t in ("(b)", "(c)")], ["s10.2", "s10.2"])
+        self.assertEqual(by_text[(5, "8.2")]["target"], "s8.2")
+
 
 class DeclarationPatternTests(unittest.TestCase):
     def _decls(self, *texts: str) -> dict[str, str]:
@@ -348,6 +373,42 @@ class DeclarationPatternTests(unittest.TestCase):
             self.assertNotIn(term, d)
         self.assertEqual(d.get("Vandalia Corp."), "paren")
         self.assertEqual(d.get("U.S."), "paren")
+
+    def test_heldout_v2_declaration_forms(self) -> None:
+        d = self._decls(
+            "The date of such filing is herein called the \"Effective Date.\"",
+            "the provisions of ERISA, which provisions are collectively referred as “COBRA,” and any state law.",
+            "The term \"INTELLECTUAL PROPERTY\" shall include all trade names.",
+            "\"Corresponding Saving\", in relation to a Tax Liability, means any repayment.",
+            "“Subsidiary” when used with respect to any party, shall mean any corporation.",
+            "“Company’s Knowledge”, “Knowledge of the Company” or similar terms used in this Agreement mean the knowledge of X.",
+            "“Agreement”, “this Agreement”, “herein” and similar expressions refer to this agreement.",
+            "As used herein, a \"Tax Protection Agreement\" is an agreement to indemnify. The \"Parent Price\" shall be the average.",
+        )
+        for term in ("Effective Date", "COBRA", "INTELLECTUAL PROPERTY", "Corresponding Saving", "Subsidiary", "Company’s Knowledge", "Knowledge of the Company", "Agreement", "Tax Protection Agreement", "Parent Price"):
+            self.assertIn(term, d, term)
+
+    def test_unquoted_colon_glossary_but_not_notice_blocks(self) -> None:
+        entries = [f"{t}: {t.lower()} has the meaning a careful drafter gives it here." for t in ("Business Day", "Affiliate", "Encumbrance", "IRS", "Losses", "Tax Return")]
+        notices = ["Attention: John Smith, General Counsel of the Company", "Facsimile No.: (212) 555-0100 and (212) 555-0101", "E-mail: legal@example.com and notices@example.com"] * 2
+        p = build_reader_index(_doc(_section("s1", "Section 10.1 Definitions", *entries) + _section("s2", "Section 11.2 Notices", *notices)))
+        terms = {t["term"] for t in p["terms"]}
+        self.assertTrue({"Business Day", "Affiliate", "Encumbrance", "IRS", "Losses", "Tax Return"} <= terms)
+        self.assertFalse({"Attention", "Facsimile No.", "E-mail"} & terms)
+
+    def test_all_caps_terms_merge_and_match_title_case(self) -> None:
+        p = build_reader_index(
+            _doc(
+                _section("s0", "Section 1.1 Parties", "Acme Inc. (the “Company”) and the HSR rules apply.")
+                + _section("s1", "Section 1.2 Definitions", '"COMPANY" means Acme.', '"HSR ACT" means the Hart-Scott-Rodino Act.', '"ANNUAL BONUSES" means the bonuses.')
+                + _section("s2", "Section 5.1 Covenants", "The Company shall file under the HSR Act and pay each Annual Bonus.")
+            )
+        )
+        company = _term(p, "Company")
+        self.assertEqual({d.get("as", "Company") for d in company["decls"]}, {"Company", "COMPANY"})
+        names = {t["id"]: t["term"] for t in p["terms"]}
+        used = [names[u[2]] for u in p["uses"]["s2/0"]]
+        self.assertEqual(used, ["Company", "HSR ACT", "ANNUAL BONUSES"])
 
     def test_pointers_to_the_preamble_are_pointers(self) -> None:
         p = build_reader_index(

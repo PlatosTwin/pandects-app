@@ -1,0 +1,342 @@
+{
+ "agreement_uuid": "374d67c9-a9b0-5987-b7a4-b864d94561a1",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Associate",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Business Day",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Person",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Public Reports",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Public ERISA Affiliate",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "Public Benefit Plans",
+   "para": "P12",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "6.1",
+   "context": "compliance with Sections 6.1 or 6.2 of this Agreement",
+   "target": "s6.1"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "6.2",
+   "context": "compliance with Sections 6.1 or 6.2 of this Agreement",
+   "target": "s6.2"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "8.1(b)",
+   "context": "(as defined in Section 8.1(b))",
+   "target": "s8.1(b)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "5.4",
+   "context": "set forth in Section 5.4 of the Public Disclosure",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "5.17(a)",
+   "context": "Section 5.17(a) of the Public Disclosure",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "(within the meaning of section 3(3) of ERISA)",
+   "target": "external"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "414",
+   "context": "within the meaning of Section 414 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "5.17(c)",
+   "context": "as set forth in Section 5.17(c) of the Public Disclosure",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "401(a)",
+   "context": "within the meaning of Section 401(a) of the Code either",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3(2)",
+   "context": "as that term is defined in Section 3(2) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3(37)",
+   "context": "as such term is defined in Section 3(37) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "409",
+   "context": "assessed pursuant to Section 409 or 502(i) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "502(i)",
+   "context": "assessed pursuant to Section 409 or 502(i) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "4975",
+   "context": "pursuant to Section 4975, 4976 or 4980B of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "4976",
+   "context": "pursuant to Section 4975, 4976 or 4980B of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "4980B",
+   "context": "pursuant to Section 4975, 4976 or 4980B of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P16",
+   "head": "article",
+   "mention": "V",
+   "context": "Public set forth in Article V of this Agreement",
+   "target": "a5"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "368(a)",
+   "context": "reorganization within the meaning of Section 368(a) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "1.5",
+   "context": "pursuant to Section 1.5 and Section 1.6 hereof",
+   "target": "s1.5"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "1.6",
+   "context": "pursuant to Section 1.5 and Section 1.6 hereof",
+   "target": "s1.6"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Material Adverse Effect",
+   "para": "P16",
+   "count": 1
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P23",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "3dd0958f-7f0b-5535-ba73-276d57b38877",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "3dd0958f-7f0b-5535-ba73-276d57b38877",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "3dd0958f-7f0b-5535-ba73-276d57b38877",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "3dd0958f-7f0b-5535-ba73-276d57b38877",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "3dd0958f-7f0b-5535-ba73-276d57b38877",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "3dd0958f-7f0b-5535-ba73-276d57b38877",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "3dd0958f-7f0b-5535-ba73-276d57b38877",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "3dd0958f-7f0b-5535-ba73-276d57b38877",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "8b122631-ee1d-5288-8637-588ad1814eb7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "5aa4a9ad-fd96-578d-988f-c92841dbc02e",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "edbcb5cf-a72c-5ef3-ae20-62343108f78d",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "edbcb5cf-a72c-5ef3-ae20-62343108f78d",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "edbcb5cf-a72c-5ef3-ae20-62343108f78d",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "edbcb5cf-a72c-5ef3-ae20-62343108f78d",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "48c4c912-7fcc-57aa-a015-f96fc2d7155c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "48c4c912-7fcc-57aa-a015-f96fc2d7155c",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "48c4c912-7fcc-57aa-a015-f96fc2d7155c",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "48c4c912-7fcc-57aa-a015-f96fc2d7155c",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "48c4c912-7fcc-57aa-a015-f96fc2d7155c",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "48c4c912-7fcc-57aa-a015-f96fc2d7155c",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "48c4c912-7fcc-57aa-a015-f96fc2d7155c",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "48c4c912-7fcc-57aa-a015-f96fc2d7155c",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "48c4c912-7fcc-57aa-a015-f96fc2d7155c",
+   "t": 8,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "declarations",
+   "draft": null,
+   "checker": {
+    "term": "Event of Default",
+    "para": "P22",
+    "kind": "pointer",
+    "pointer": "external"
+   },
+   "type": "missing",
+   "reason": "Quoted capitalized term tied to an outside definition ('as defined in the Public Indenture and the Public Credit Facility'), same shape as a pointer to another document."
+  }
+ ]
+}
