@@ -391,7 +391,7 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **0** | Design and prototype | Done: decisions in Section 11 |
-| **1. Enricher** (done except the health report, 10.1–10.8; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
+| **1. Enricher** (done, 10.1–10.8, the health report in 10.10 and enricher 0.5.0 in 10.11; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** (built, 10.8; waiting on the prod push) | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** (built behind a flag, 10.9) | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
@@ -957,9 +957,35 @@ The reader uses the index behind a flag. The flag is on in development and on a 
 2. **Manual pass.** A manual pass on five long agreements with the flag on in production.
 3. **Then the flag.** Turn the flag on for everyone.
 
-### 10.10 Enricher 0.5.0 (2026-10-30)
+### 10.10 Health report (2026-10-30)
 
-The reader health report (PR #223) listed 100 US agreements the enricher reads poorly though their XML is sound. 0.5.0 fixes the main shapes behind them:
+`etl/src/etl/utils/reader_health_report.py` is read-only and changes no status (decision 11.6). It scans every `reader_index` row at the current enricher version and writes three CSVs and a README, for US agreements only. An agreement counts as US when a US state's law appears in its text; the jurisdiction markers name the rest.
+
+**A low rate is not an XML fault.** Of the 214 agreements below 50% at enricher 0.4.0:
+
+- **About 60 are not US.** They are UK, Australian or other drafting ("clause 17", "paragraph 2.1", Companies Act sections).
+- **Most of the US remainder read fine but use reference shapes the enricher doesn't resolve:**
+  - dotted subsections, "Section 5.16.1", across 755 agreements corpus-wide;
+  - "Article 2.1" used to mean Section 2.1;
+  - letter-suffixed sections, "Section 7.10A";
+  - flat agreements whose "Section 1. … Section 12." items are tagged as articles.
+- **The rest have real XML structure faults.** The report flags those directly, from the payload stats.
+
+**Report run on 2026-10-30** (local, `ma_validation_review/reader_health_20261030/`):
+
+| File | Agreements | Contents |
+|---|---|---|
+| `xml_structure.csv` | 40 | For the validation queue: 22 with three or more duplicated section numbers and a body rate below 80% (for example Article II restarting at "1.1"), 11 with no numbered sections, 7 mostly unnumbered |
+| `enricher_gaps.csv` | 100 | 58 flat agreements tagged as articles, plus unresolved dotted (5,590 refs), article-as-section (1,048) and letter-suffix (80) shapes |
+| `low_rate_unexplained.csv` | 30 | Bare statute sections, "clause (a)" inside definitions, "paragraph 2.1" drafting under US law |
+
+61 non-US agreements were left out.
+
+**Follow-up:** both done in 10.11. Enricher 0.5.0 handles the dotted, "Article 2.1" and flat shapes, and 34 of the 40 `xml_structure.csv` agreements are fixed in the data.
+
+### 10.11 Enricher 0.5.0 (2026-10-30)
+
+The reader health report (10.10) listed 100 US agreements the enricher reads poorly though their XML is sound. 0.5.0 fixes the main shapes behind them:
 
 - **Dotted subsections.** A paragraph that opens "5.16.1" or "Section 5.16.1" is a subsection, and the "(a)" paragraphs after it nest under it (5.16.1(a), not 5.16(a)). A section's own "(b)" after its dotted paragraphs goes back to the section's list. "Section 5.16.1(c)" with no paragraph (c) falls back to 5.16.1. "Section 5.16.9" with no such paragraph stays unlinked rather than falling back to 5.16, because the gold showed that fallback is often wrong (the paragraph lives in an exhibit).
 - **"Article 2.1".** It resolves as a section when there is no article 2.1.
