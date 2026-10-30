@@ -43,7 +43,9 @@ unreleased:
     must be requested by name, and a new tool_names argument narrows the
     per-tool sections. Tool results now carry the data as JSON in a second
     text block after the one-line summary, so clients that show the model
-    only content (not structuredContent) get the data too. On
+    only content (not structuredContent) get the data too; results over
+    250,000 characters get a short note there instead. The
+    pandects://capabilities resource returns the same compact index. On
     search_sections, search_agreements, list_agreements and
     search_tax_clauses, argument descriptions are shorter so each input
     schema fits the 5,000 bytes Codex allows before it strips all of them,

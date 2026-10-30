@@ -78,7 +78,7 @@ _PER_TOOL: dict[str, dict[str, str]] = {
     "search_sections": {
         "standard_id": (
             "16-hex clause-family ids (suggest_clause_families, get_clause_taxonomy), not dotted "
-            "numbers. Parents include descendants."
+            "numbers. Parents include descendants; unknown ids are listed in interpretation."
         ),
         "text_query": (
             "Literal, case-insensitive text (max 256 chars, 24 terms). `*` only at a word end "

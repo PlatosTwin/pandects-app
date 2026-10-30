@@ -337,7 +337,7 @@ def _base_tool_specs() -> tuple[McpToolSpec, ...]:
             selection_hint="Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
             negative_guidance=(
                 "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
-                "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
+                "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes, and the concept_notes section of get_server_capabilities, first.",
                 "Do not treat literal text search as semantic search: use suggest_clause_families for concepts and text_query for words or phrases that should actually appear in the clause.",
                 "Do not pass raw boolean-search operators, leading wildcards, or infix wildcards. Choose text_match_mode and use only a trailing * for word-prefix matching.",
                 "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
@@ -716,7 +716,7 @@ def _base_tool_specs() -> tuple[McpToolSpec, ...]:
             selection_hint="Use when you need full section XML for multiple sections at once; replaces N calls to get_section.",
             negative_guidance=(
                 "Do not use for snippets or excerpts — use get_section_snippets_batch instead.",
-                "Limited to 10 sections per call; split into multiple calls for larger sets.",
+                "Do not pass more than 10 sections in one call; split larger sets into multiple calls.",
                 "Do not assume returned_count equals the number of section_uuids you passed: a uuid that matches no section is omitted and reported under unresolved_section_uuids, so check that block before reading the shorter list as the answer.",
             ),
             pagination="none",

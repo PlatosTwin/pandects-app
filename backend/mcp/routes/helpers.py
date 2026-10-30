@@ -173,23 +173,33 @@ def _json_compatible(value: object) -> object:
     return value
 
 
+# Above this many characters the JSON mirror is dropped. Full-text XML pages
+# (list_agreements with include_xml, uncapped get_sections_batch) run to tens of MB,
+# and a second copy in content would raise peak memory on the 1 GB serving VM by a
+# third or more. Results that large are unusable in a model context anyway.
+_CONTENT_MIRROR_MAX_CHARS = 250_000
+
+
 def _tool_call_result(result: McpToolResult) -> dict[str, object]:
     # Clients disagree on which half of a tool result reaches the model. Claude Code
     # and Codex send the model the serialized structuredContent in place of content,
     # while content-only clients (the Anthropic API MCP connector among them) never
     # show structuredContent. Per the spec, the JSON is therefore mirrored into a
     # text block after the one-line summary, so every client delivers the data once.
+    # call_tool has already normalized structured_content to JSON types.
+    mirror = json.dumps(
+        result.structured_content, separators=(",", ":"), ensure_ascii=False, default=str
+    )
+    if len(mirror) > _CONTENT_MIRROR_MAX_CHARS:
+        mirror = (
+            f"Result is {len(mirror):,} characters, too large to repeat here; the full data "
+            "is in structuredContent. Narrow the request (smaller page_size, fields=[...], "
+            "or no include_xml) to get it inline."
+        )
     return {
         "content": [
             {"type": "text", "text": result.text},
-            {
-                "type": "text",
-                "text": json.dumps(
-                    _json_compatible(result.structured_content),
-                    separators=(",", ":"),
-                    ensure_ascii=False,
-                ),
-            },
+            {"type": "text", "text": mirror},
         ],
         "structuredContent": result.structured_content,
     }

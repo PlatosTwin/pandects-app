@@ -1461,6 +1461,23 @@ class McpTests(unittest.TestCase):
         self.assertEqual(json.loads(body["result"]["content"][1]["text"]), structured)
         self.assertTrue(any("mcp_tool_call" in line for line in log_context.output))
 
+    def test_oversized_result_is_not_mirrored_into_content(self):
+        # Full-text XML pages reach tens of MB; a second copy in content would raise
+        # peak memory on the 1 GB serving VM, so the mirror is replaced by a note.
+        from backend.mcp.routes import helpers
+        from backend.mcp.tools.dispatch import McpToolResult
+
+        big = McpToolResult(text="Returned 1 agreement(s).", structured_content={"xml": "x" * 300_000})
+        payload = helpers._tool_call_result(big)
+        content = cast(list[dict[str, str]], payload["content"])
+        self.assertIn("too large to repeat", content[1]["text"])
+        self.assertLess(len(content[1]["text"]), 1000)
+        self.assertIs(payload["structuredContent"], big.structured_content)
+
+        small = McpToolResult(text="ok", structured_content={"a": "é"})
+        small_content = cast(list[dict[str, str]], helpers._tool_call_result(small)["content"])
+        self.assertEqual(small_content[1]["text"], '{"a":"é"}')
+
     def test_output_contract_violation_returns_jsonrpc_server_error(self):
         import backend.mcp.tools as tools_module
 
