@@ -5,6 +5,7 @@ import { decodeXmlEntities } from "@/lib/text-utils";
 import { logger } from "@/lib/logger";
 import { prefersReducedMotion } from "@/lib/scroll";
 import { TOCItem } from "@shared/agreement";
+import type { ReaderOutlineNode } from "@/lib/reader-index";
 
 interface TableOfContentsProps {
   xmlContent: string;
@@ -24,6 +25,12 @@ interface TableOfContentsProps {
   visibleSectionUuids?: ReadonlySet<string> | null;
   /** Sections that matched the originating search; marked with a dot. */
   matchedSectionUuids?: ReadonlySet<string> | null;
+  /**
+   * Smart reader: subsections of a section. The current section lists its
+   * subsections under it; other sections stay one line each.
+   */
+  subsectionsFor?: (sectionUuid: string) => ReaderOutlineNode[];
+  onSubsectionClick?: (outlineId: string) => void;
 }
 
 function filterTocItems(
@@ -70,6 +77,8 @@ export function TableOfContents({
   showTitle = true,
   visibleSectionUuids = null,
   matchedSectionUuids = null,
+  subsectionsFor,
+  onSubsectionClick,
 }: TableOfContentsProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(
     () => new Set(["region-body"]),
@@ -227,7 +236,29 @@ export function TableOfContents({
             {item.children!.map((child) => renderTOCItem(child, depth + 1))}
           </div>
         )}
+        {isActive && !isFiltered && item.sectionUuid ? renderSubsections(item.sectionUuid) : null}
       </div>
+    );
+  };
+
+  const renderSubsections = (sectionUuid: string): React.ReactNode => {
+    const subs = subsectionsFor?.(sectionUuid);
+    if (!subs || subs.length === 0) return null;
+    return (
+      <ul className="ml-9 mt-0.5 space-y-px border-l border-border pl-2" aria-label="Subsections">
+        {subs.map((sub) => (
+          <li key={sub.id}>
+            <button
+              type="button"
+              className="w-full truncate rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => onSubsectionClick?.(sub.id)}
+              title={decodeXmlEntities(sub.title)}
+            >
+              {decodeXmlEntities(sub.title) || sub.label}
+            </button>
+          </li>
+        ))}
+      </ul>
     );
   };
 

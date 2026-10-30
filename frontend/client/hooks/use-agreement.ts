@@ -5,7 +5,8 @@ import type {
   AgreementSectionIndexItem,
   AgreementSectionIndexResponse,
 } from "@shared/transactions";
-import { apiGet, errorMessage } from "@/lib/api/client";
+import { ApiError, apiGet, errorMessage } from "@/lib/api/client";
+import type { ReaderIndex } from "@/lib/reader-index";
 import { logger } from "@/lib/logger";
 import { IS_SERVER_RENDER } from "@/lib/query-client";
 import { keys } from "@/lib/query-keys";
@@ -86,4 +87,42 @@ export function useAgreementSections(agreementUuid: string | null | undefined) {
       : null,
     query,
   };
+}
+
+/**
+ * The smart-reader index for the XML `useAgreementQuery` returns with the same
+ * focus (`v1/agreements/<uuid>/reader-index`). Resolves to null when the
+ * agreement has no index (404), so the reader falls back to plain text.
+ */
+export function useReaderIndex(
+  agreementUuid: string | null | undefined,
+  focusSectionUuid: string | null | undefined,
+  enabled: boolean,
+) {
+  const query = useQuery({
+    queryKey: keys.agreement.readerIndex(agreementUuid ?? "", focusSectionUuid),
+    queryFn: async ({ signal }) => {
+      try {
+        return await apiGet<ReaderIndex>(
+          `v1/agreements/${encodeURIComponent(agreementUuid!)}/reader-index`,
+          focusSectionUuid
+            ? { focus_section_uuid: focusSectionUuid, neighbor_sections: 1 }
+            : undefined,
+          { signal },
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    enabled: enabled && !IS_SERVER_RENDER && Boolean(agreementUuid),
+    staleTime: AGREEMENT_STALE_TIME_MS,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (query.error) logger.warn("Reader index unavailable:", query.error);
+  }, [query.error]);
+
+  return query.data ?? null;
 }

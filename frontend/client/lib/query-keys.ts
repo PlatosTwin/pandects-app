@@ -39,6 +39,9 @@ export const keys = {
         ? (["agreement", uuid, "focus", focusSectionUuid] as const)
         : (["agreement", uuid] as const),
     sections: (uuid: string) => ["agreement", uuid, "sections"] as const,
+    /** Smart-reader index; anonymous callers get it redacted around the focus. */
+    readerIndex: (uuid: string, focusSectionUuid?: string | null) =>
+      ["agreement", uuid, "reader-index", focusSectionUuid ?? null] as const,
   },
   agreements: {
     summary: ["agreements", "summary"] as const,

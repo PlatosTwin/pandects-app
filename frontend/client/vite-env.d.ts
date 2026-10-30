@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_DISABLE_ANALYTICS?: string;
   readonly VITE_GA_DEBUG_MODE?: string;
   readonly VITE_GA_MEASUREMENT_ID?: string;
+  readonly VITE_SMART_READER?: string;
 }
 
 declare global {

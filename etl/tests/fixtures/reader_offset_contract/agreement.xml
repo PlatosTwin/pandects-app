@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document uuid="contract-doc">
+  <metadata><url>https://example.test/a?x=1&amp;y=2</url></metadata>
+  <frontMatter>
+    <text>EXECUTION VERSION&#160;– Confidential</text>
+  </frontMatter>
+  <body>
+    <text>AGREEMENT AND PLAN OF MERGER (this “Agreement”), dated as of May 1, 2024, among Alpha &amp; Omega Holdings, Inc., a Delaware corporation (“Parent”), and Beta Corp. 𝔅 Ltd., a Delaware corporation (the “Company”).</text>
+    <text>WHEREAS, the parties intend the merger to qualify under §&#160;368(a) of the Code, as described in Section 1.1 and Section 2.1(b);</text>
+    <article uuid="art-1" title="ARTICLE I DEFINITIONS">
+      <text>This Article I applies to the “Company” and to Parent.</text>
+      <section uuid="sec-1-1" title="Section 1.1 Definitions.">
+        <text>(a) “Business Day” means any day other than a Saturday — or Sunday — on which banks in New York are open; “Closing” has the meaning set forth in Section 2.1.</text>
+        <definition standardID="&lt;placeholder&gt;" term="material adverse effect">
+          <text>“Material Adverse Effect” means any change that is material to the Company 𝔅 &amp; its Subsidiaries, see Section 2.1(b).</text>
+        </definition>
+        <pageUUID>page-1</pageUUID>
+        <text>(b) Each Business Day of the Company is a “Trading Day”.</text>
+      </section>
+      <section title="Section 1.2 Untitled.">
+        <text>Text in a section without a uuid stays in the article container; the Closing occurs on a Business Day.</text>
+      </section>
+    </article>
+    <article uuid="art-2" title="ARTICLE II THE MERGER">
+      <section uuid="sec-2-1" title="Section 2.1 Closing.">
+        <text>(a) The Closing shall take place on the second Business Day after the conditions in Section 1.1 are satisfied.</text>
+        <text>(b) At the Closing, the Company and Parent shall deliver the documents described in Section 2.1(a).</text>
+      </section>
+    </article>
+  </body>
+  <backMatter>
+    <text>Exhibit A – Form of Certificate; the Company’s charter, Section 1.1.</text>
+  </backMatter>
+</document>
