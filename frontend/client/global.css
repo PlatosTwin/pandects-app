@@ -316,8 +316,8 @@
   }
 
   /* The Search workspace's frame: full-bleed, with lg:pl-5 lining content up
-     with the filter rail's and lg:pr-8 with the results' edge. The nav uses
-     it on Search too, so the header and the workspace share edges. */
+     with the filter rail's and lg:pr-8 with the results' edge. The nav stays
+     on app-frame here too, so it never shifts between pages. */
   .app-frame-bleed {
     @apply w-full px-4 sm:px-6 lg:pl-5 lg:pr-8;
   }
