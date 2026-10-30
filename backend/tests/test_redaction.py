@@ -1,5 +1,8 @@
+import importlib.util
+import sys
 import unittest
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Any
 
 from backend.redaction import redact_agreement_xml, redact_reader_index
@@ -109,7 +112,7 @@ class TestReaderIndexRedaction(unittest.TestCase):
             "xrefs": [],
         }
 
-    def test_hidden_containers_follow_the_xml_redaction(self) -> None:
+    def test_items_outside_the_visible_text_are_dropped(self) -> None:
         out = redact_reader_index(self._payload(), self.XML, focus_section_uuid="s1", neighbor_sections=0)
         self.assertEqual(sorted(out["uses"]), ["backMatter/0", "s1/0"])
         self.assertEqual(out["terms"][0]["decls"][0]["in"], "Section 1.1")
@@ -125,3 +128,84 @@ class TestReaderIndexRedaction(unittest.TestCase):
         payload = self._payload()
         _ = redact_reader_index(payload, self.XML, focus_section_uuid=None, neighbor_sections=1)
         self.assertIn("s1/0", payload["uses"])
+
+
+def _load_enricher() -> Any:
+    # The ETL enricher is stdlib-only, so load it by path rather than installing the ETL package.
+    path = Path(__file__).resolve().parents[2] / "etl" / "src" / "etl" / "domain" / "reader_index.py"
+    spec = importlib.util.spec_from_file_location("reader_index_enricher", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # dataclasses look their module up in sys.modules while the class is built
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestReaderIndexRedactionAgainstEnricher(unittest.TestCase):
+    """Every item an anonymous caller keeps must point at text the redacted XML still
+    shows, for anchors built by the real enricher, including shapes the XML builder
+    does not emit today (uuid-less sections and articles)."""
+
+    XML = """<document uuid="doc">
+  <frontMatter><text>MERGER AGREEMENT among Parent and the Company (the "Company").</text></frontMatter>
+  <body>
+    <article title="ARTICLE I DEFINITIONS" uuid="a1">
+      <text>Article preamble: "Preamble Term" means a preamble thing. See Section 1.2.</text>
+      <section title="Section 1.1 Defined Terms" uuid="s11">
+        <text>"Visible Fee" means the fee. The Company pays the Visible Fee under Section 1.2.</text>
+      </section>
+      <section title="Section 1.2 Secret" uuid="s12">
+        <text>"Secret Fee" means the hidden fee. The Company pays the Secret Fee under Section 1.1.</text>
+      </section>
+      <section title="Section 1.3 No Uuid">
+        <text>"Orphan Fee" means another hidden fee. See Section 1.1 and the Secret Fee.</text>
+      </section>
+    </article>
+    <article title="ARTICLE II OTHER">
+      <text>"Loose Term" means text in an article without a uuid. See Section 1.1.</text>
+      <section title="Section 2.1 Payment" uuid="s21">
+        <text>(a) The Secret Fee and the Visible Fee are paid under Section 1.2.</text>
+        <text>(b) The Orphan Fee is paid under Section 1.1.</text>
+      </section>
+    </article>
+  </body>
+  <backMatter>
+    <text>EXHIBIT A FORM OF ESCROW AGREEMENT</text>
+    <text>The Company and the Escrow Agent (the "Escrow Agent") agree as set forth in Section 1.1.</text>
+  </backMatter>
+</document>"""
+
+    def _visible_texts(self, focus: str | None, neighbors: int) -> set[str]:
+        root = ET.fromstring(redact_agreement_xml(self.XML, focus_section_uuid=focus, neighbor_sections=neighbors))
+        return {(el.text or "").strip() for el in root.iter("text") if el.get("redacted") != "true"}
+
+    def test_kept_items_point_only_at_visible_text(self) -> None:
+        enricher = _load_enricher()
+        payload = enricher.build_reader_index(self.XML)
+        texts = {f"{n.s}/{n.t}": n.text.strip() for n in enricher._collect_texts(ET.fromstring(self.XML))[0]}
+        cases = [(None, 1), ("s11", 0), ("s12", 0), ("s21", 0), ("s11", 5)]
+        for focus, neighbors in cases:
+            with self.subTest(focus=focus, neighbors=neighbors):
+                visible = self._visible_texts(focus, neighbors)
+                out = redact_reader_index(payload, self.XML, focus_section_uuid=focus, neighbor_sections=neighbors)
+                kept = list(out["uses"])
+                kept += [f"{x['at']['s']}/{x['at']['t']}" for x in out["xrefs"]]
+                kept += [f"{d['anchor']['s']}/{d['anchor']['t']}" for t in out["terms"] for d in t["decls"] if not d.get("redacted")]
+                for key in kept:
+                    self.assertIn(texts[key], visible, key)
+                for node in out["outline"]:
+                    for sub in [node, *node.get("children", [])]:
+                        if sub["title"] and "t" in sub["anchor"]:
+                            self.assertIn(texts[f"{sub['anchor']['s']}/{sub['anchor']['t']}"], visible)
+                dumped = str(out)
+                for secret in ("Secret Fee", "Orphan Fee", "Preamble Term", "Loose Term"):
+                    if not any(secret in v for v in visible):
+                        self.assertNotIn(f"'{secret}'", dumped.replace(f"'term': '{secret}'", ""))
+
+    def test_the_payload_has_items_in_hidden_text_to_drop(self) -> None:
+        # guards the test above against passing because the enricher found nothing
+        payload = _load_enricher().build_reader_index(self.XML)
+        terms = {t["term"] for t in payload["terms"]}
+        self.assertTrue({"Secret Fee", "Orphan Fee", "Visible Fee"} <= terms, terms)
+        self.assertTrue(any(x["at"]["s"] == "s12" for x in payload["xrefs"]))

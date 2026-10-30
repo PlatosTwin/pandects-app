@@ -19,7 +19,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 
 from backend.core.caching import ttl_cached
-from backend.redaction import redact_reader_index
+from backend.redaction import READER_INDEX_REDACTION_VERSION, redact_reader_index
 from backend.routes.agreements.helpers import (
     _agreement_is_public_eligible_expr,
     _cacheable_json_response,
@@ -248,7 +248,7 @@ def register_agreements_routes(
                 abort(404)
             etag = f"{row['xml_version']}-{row['enricher_version']}"
             if redact:
-                etag += f"-r-{focus_section_uuid or ''}-{neighbor_sections}"
+                etag += f"-r{READER_INDEX_REDACTION_VERSION}-{focus_section_uuid or ''}-{neighbor_sections}"
             if request.if_none_match.contains_weak(etag):
                 resp = Response(status=304)
             else:
@@ -263,7 +263,7 @@ def register_agreements_routes(
                     )
                     raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
                     body = gzip.compress(raw, compresslevel=6)
-                if "gzip" in request.accept_encodings:
+                if request.accept_encodings.quality("gzip") > 0:
                     resp = Response(body, status=200, mimetype="application/json")
                     resp.headers["Content-Encoding"] = "gzip"
                 else:

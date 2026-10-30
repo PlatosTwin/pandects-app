@@ -1651,6 +1651,10 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(gz.headers.get("Content-Encoding"), "gzip")
         self.assertEqual(json.loads(gzip.decompress(gz.get_data())), payload)
 
+        refused = client.get("/v1/agreements/a1/reader-index", headers={**headers, "Accept-Encoding": "gzip;q=0"})
+        self.assertIsNone(refused.headers.get("Content-Encoding"))
+        self.assertEqual(refused.get_json(), payload)
+
         cached = client.get("/v1/agreements/a1/reader-index", headers={**headers, "If-None-Match": etag})
         self.assertEqual(cached.status_code, 304)
 

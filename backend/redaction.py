@@ -109,30 +109,57 @@ def redact_agreement_xml(
     return ET.tostring(root, encoding="unicode")
 
 
-def _hidden_containers(root: ET.Element, allowed: set[str]) -> set[str]:
-    """Reader-index containers (section and article uuids) whose text
-    `redact_agreement_xml` removes for the same caller: sections outside the
-    allowed set (unless nested in an allowed one) and every article preamble."""
-    hidden: set[str] = set()
+# Bump when the reader-index redaction rules change, so clients holding an older
+# anonymous payload refetch it instead of revalidating it with a 304.
+READER_INDEX_REDACTION_VERSION = 2
 
-    def _walk(el: ET.Element, *, inside_allowed_section: bool) -> None:
-        name = _local_name(el.tag).lower()
-        node_uuid = el.attrib.get("uuid")
-        if name == "section":
-            if inside_allowed_section or node_uuid in allowed:
-                for child in el:
-                    _walk(child, inside_allowed_section=True)
-            else:
-                # the whole body goes, nested sections included
-                hidden.update(d.attrib["uuid"] for d in el.iter() if "uuid" in d.attrib)
-            return
-        if name == "article" and not inside_allowed_section and node_uuid:
-            hidden.add(node_uuid)
+
+def _visible_text_anchors(root: ET.Element, allowed: set[str]) -> set[str]:
+    """``"<container>/<t>"`` keys of the `<text>` elements that survive
+    `redact_agreement_xml` for the same caller.
+
+    Containers and ordinals follow the enricher's walk exactly
+    (etl/src/etl/domain/reader_index.py, `_collect_texts`): a section or article with
+    a uuid opens a container, anything else keeps its parent's, and each container
+    counts its `<text>` elements in document order. Visibility follows
+    `redact_agreement_xml`: a section's body survives only inside an allowed section,
+    an article keeps nothing but its sections, and region text outside articles
+    stays. Callers keep only anchors found here, so a shape either walk misreads is
+    hidden rather than shown."""
+    visible: set[str] = set()
+    counters: dict[str, int] = {}
+
+    def _walk(el: ET.Element, container: str, mode: str) -> None:
+        # mode: "open" (outside articles), "allowed" (inside an allowed section),
+        # "article" (an article's own content, outside its sections), "hidden"
         for child in el:
-            _walk(child, inside_allowed_section=inside_allowed_section)
+            if child.tag == "text":
+                t = counters.get(container, 0)
+                counters[container] = t + 1
+                if mode in ("open", "allowed"):
+                    visible.add(f"{container}/{t}")
+                continue
+            uuid = child.attrib.get("uuid")
+            name = _local_name(child.tag).lower()
+            if mode == "allowed" or mode == "hidden":
+                child_mode = mode
+            elif name == "section":
+                child_mode = "allowed" if uuid in allowed else "hidden"
+            elif mode == "article":
+                # an article's non-section children are removed whole
+                child_mode = "hidden"
+            elif name == "article":
+                child_mode = "article"
+            else:
+                child_mode = "open"
+            child_container = uuid if child.tag in ("section", "article") and uuid else container
+            _walk(child, child_container, child_mode)
 
-    _walk(root, inside_allowed_section=False)
-    return hidden
+    for region in root:
+        if region.tag == "metadata":
+            continue
+        _walk(region, region.tag, "open")
+    return visible
 
 
 def redact_reader_index(
@@ -145,38 +172,37 @@ def redact_reader_index(
     """The reader index an anonymous caller may see next to the XML that
     `redact_agreement_xml` gives them (docs/plans/smart-reader.md, Section 6.4).
 
-    Term uses and cross-references inside hidden text are dropped. A declaration
-    inside hidden text becomes ``{"redacted": true, "label": "Section 1.1"}``, so the
-    reader can say where a term is defined without showing the definition.
-    Subsection titles in hidden sections are blanked, since they quote the text."""
+    Term uses and cross-references outside the visible text are dropped. A
+    declaration outside it becomes ``{"redacted": true, "label": "Section 1.1"}``, so
+    the reader can say where a term is defined without showing the definition.
+    Outline titles that quote hidden text (subsections, attachment headings) are
+    blanked; section and article titles stay, as they do in the redacted XML."""
     root = DET.fromstring(xml_content)
     allowed = _allowed_section_uuids(
         root, focus_section_uuid=focus_section_uuid, neighbor_sections=neighbor_sections
     )
-    hidden = _hidden_containers(root, allowed)
+    visible = _visible_text_anchors(root, allowed)
     out = copy.deepcopy(payload)
 
-    def _is_hidden(anchor: object) -> bool:
-        return isinstance(anchor, dict) and anchor.get("s") in hidden
+    def _is_visible(anchor: object) -> bool:
+        return isinstance(anchor, dict) and f"{anchor.get('s')}/{anchor.get('t')}" in visible
 
     for term in out.get("terms", []):
         term["decls"] = [
-            {"redacted": True, "label": d.get("in")} if _is_hidden(d.get("anchor")) else d
+            d if _is_visible(d.get("anchor")) else {"redacted": True, "label": d.get("in")}
             for d in term.get("decls", [])
         ]
-    out["uses"] = {
-        key: row
-        for key, row in out.get("uses", {}).items()
-        if key.rsplit("/", 1)[0] not in hidden
-    }
-    out["xrefs"] = [x for x in out.get("xrefs", []) if not _is_hidden(x.get("at"))]
+    out["uses"] = {key: row for key, row in out.get("uses", {}).items() if key in visible}
+    out["xrefs"] = [x for x in out.get("xrefs", []) if _is_visible(x.get("at"))]
 
-    def _blank_subs(nodes: list[dict[str, Any]]) -> None:
+    def _blank_titles(nodes: list[dict[str, Any]]) -> None:
         for node in nodes:
-            if node.get("kind") == "sub" and _is_hidden(node.get("anchor")):
+            anchor = node.get("anchor")
+            quotes_text = isinstance(anchor, dict) and "t" in anchor
+            if quotes_text and not _is_visible(anchor):
                 node["title"] = ""
-            _blank_subs(node.get("children", []))
+            _blank_titles(node.get("children", []))
 
-    _blank_subs(out.get("outline", []))
+    _blank_titles(out.get("outline", []))
     out["is_redacted"] = True
     return out
