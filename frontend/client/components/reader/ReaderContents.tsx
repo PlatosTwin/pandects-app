@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { TableOfContents } from "@/components/TableOfContents";
 import { badgeVariants } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { ReaderOutlineNode } from "@/lib/reader-index";
 
 export interface SectionTypeOption {
   value: string;
@@ -68,6 +69,9 @@ interface ReaderContentsProps {
   matchedSectionUuids: ReadonlySet<string> | null;
   /** Section-index failure: the type filter is unavailable, contents still work. */
   sectionIndexError?: string | null;
+  /** Smart reader: a section's subsections, listed under the current section. */
+  subsectionsFor?: (sectionUuid: string) => ReaderOutlineNode[];
+  onSubsectionClick?: (outlineId: string) => void;
 }
 
 const COLLAPSED_CHIP_COUNT = 6;
@@ -85,6 +89,8 @@ export function ReaderContents({
   visibleSectionUuids,
   matchedSectionUuids,
   sectionIndexError,
+  subsectionsFor,
+  onSubsectionClick,
 }: ReaderContentsProps) {
   const [showAllTypes, setShowAllTypes] = useState(false);
   const rankedOptions = useMemo(
@@ -171,6 +177,8 @@ export function ReaderContents({
         showTitle={false}
         visibleSectionUuids={visibleSectionUuids}
         matchedSectionUuids={matchedSectionUuids}
+        subsectionsFor={subsectionsFor}
+        onSubsectionClick={onSubsectionClick}
       />
     </div>
   );

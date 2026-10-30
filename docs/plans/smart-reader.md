@@ -393,7 +393,7 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 | **0** | Design and prototype | Done: decisions in Section 11 |
 | **1. Enricher** (done except the health report, 10.1–10.8; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** (built, 10.8; waiting on the prod push) | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
-| **3. Reader** | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
+| **3. Reader** (built behind a flag, 10.9) | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
 
 Phases 1 and 2 are mostly independent of the UI work in flight. Phase 3 should start only after the current reader polish lands on main.
@@ -915,6 +915,47 @@ Rulings 1, 2, 3, 6 and 7 apply rules already in rubric v1.5. Ruling 4 is new, an
    5. **Check prod disk.** The table is about 590 MB, and rows for superseded XML versions are never pruned, so check the prod volume's headroom before the first restore.
 2. **Health report.** Turn the health numbers into the validation-queue report, decision 11.6.
 3. **Glossary miss.** Fix the glossary-exhibit miss in Articles of Association, from 10.5.
+
+### 10.9 Phase 3: the reader (2026-10-30)
+
+The reader uses the index behind a flag. The flag is on in development and on a build with `VITE_SMART_READER=1`. Any one production browser can opt in with `localStorage.setItem("pandects.reader.smart", "1")`. With the flag off, or with no index for the agreement (404), the reader works exactly as before.
+
+**What it does:**
+
+- **Anchors.** `client/lib/reader-index.ts` walks the parsed XML the same way `_collect_texts` does. It gives every `<text>` element its `<container>/<t>` key and the text the enricher read.
+- **Contract test.** One fixture, `etl/tests/fixtures/reader_offset_contract/`, has entities, a non-breaking space, a non-BMP character, a `<definition>`, a page marker and a section without a uuid. The pytest and the vitest both check it, so a change on either side fails one of them. The test caught one real difference on its first run: an escaped `&#160;` is decoded before the non-breaking-space replacement on the enricher side, and the reader now does the same.
+- **Every range and anchor is checked before it is used.** Declarations and subsection anchors are checked too: the text at a subsection's anchor has to start like its outline title. Anonymous redaction can shift ordinals in a container that holds a section without a uuid, and a misaligned declaration then shows only where it is defined. A jump whose exact paragraph never renders lands on its section or region.
+- **Range checks in detail.** A cross-reference has to slice to exactly its printed text. A term use has to share all but its last two characters with the term, which covers plurals, possessives and singulars of plural terms. Anything that doesn't line up is dropped. A stale index, or an anonymous document whose ordinals moved, therefore loses underlines rather than drawing them on the wrong words.
+- **Terms.** Terms get a dotted underline. Low-confidence terms are hidden by default (decision 11.7), and the More menu offers Underline / Underline all / Off, remembered per browser.
+  - A 300 ms hover, or a click, opens one shared popover. It shows the definition excerpt, "Go to definition" and the use count.
+  - On phones, a tap opens a bottom sheet.
+  - A definition in redacted text shows "Defined in Section 1.1. Sign in to read it" (decision 11.1).
+- **Cross-references.** Resolved and section-fallback references are links, with a preview on hover or keyboard focus.
+  - Following one pushes a history entry with the target's outline id as the hash (`#s4.5(a)`), and a "Back to Section 1.1(a)" chip appears.
+  - The browser's Back restores the exact scroll position.
+  - Subsection targets flash briefly.
+- **Deep links.** A `#s6.4` hash on load resolves through the outline. It wins over `?focusSectionUuid=` for where the page opens, so a URL copied after following a cross-reference opens where it was copied. The focus section still sets the anonymous redaction window and the match marker.
+- **Contents and breadcrumb.** The current section lists its subsections in Contents. A breadcrumb row (Article › Section) sits in the sticky header on md+, and its height stays the same as you scroll.
+- **Find.** While find is open, text renders without the overlay, so find marks win.
+
+**Checked by hand on 2026-10-30, against the local DB:**
+
+- **Desktop:** hover previews, Go to definition, a cross-reference jump, then Back (scroll restored to the pixel) and Forward (hash re-resolved), and a fresh deep link.
+- **Phone width:** tap-to-sheet, and a fresh deep link.
+- **Anonymous with a focus section:** no term or link inside `[REDACTED]` blocks, and the teaser card.
+- **Largest index in the corpus** (`1e21d9f3`, 31.5k term uses and 3.3k xrefs): 27.8k underlines and 1.9k links. Switching underlines off and on re-renders the whole document in about 0.4 s on a dev build. Reading and scrolling stayed smooth, so `content-visibility` and virtualization stay in Phase 4 until measured otherwise.
+
+**Known gaps:**
+
+- **Keyboard access to terms.** Term underlines are not tab stops, since thousands of them would swamp keyboard navigation. Keyboard users get the cross-reference links and their previews, but not term popovers.
+- **Attachments.** The outline has no attachment nodes until Phase 4 segments back matter, so Contents shows no exhibit level.
+- **Unlinked references.** Disclosure-schedule, external and unresolved references stay plain text.
+
+**Still to do:**
+
+1. **Prod data.** The prod rollout in 10.8.
+2. **Manual pass.** A manual pass on five long agreements with the flag on in production.
+3. **Then the flag.** Turn the flag on for everyone.
 
 ## 11. Decisions (2026-10-22)
 
