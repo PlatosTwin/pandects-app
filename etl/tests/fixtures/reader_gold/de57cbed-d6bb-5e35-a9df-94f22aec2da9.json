@@ -801,6 +801,18 @@
    "para": "P12",
    "kind": "pointer",
    "pointer": "s4.14(d)"
+  },
+  {
+   "term": "CERCLA",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s10.1(a)"
+  },
+  {
+   "term": "RCRA",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s10.1(a)"
   }
  ],
  "xrefs": [
@@ -1580,41 +1592,5 @@
    "t": 0,
    "excerpt": "sampled"
   }
- },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": {
-    "term": "CERCLA",
-    "para": "P3",
-    "kind": "pointer",
-    "pointer": "s10.1"
-   },
-   "checker": {
-    "term": "CERCLA",
-    "para": "P3",
-    "kind": "pointer",
-    "pointer": "s10.1(a)"
-   },
-   "type": "disagree",
-   "reason": "The pointer prints 'in this Section 10.1(a)'; the Environmental Laws definition sits in subsection (a) of 10.1, matching the xref target s10.1(a)."
-  },
-  {
-   "section": "declarations",
-   "draft": {
-    "term": "RCRA",
-    "para": "P8",
-    "kind": "pointer",
-    "pointer": "s10.1"
-   },
-   "checker": {
-    "term": "RCRA",
-    "para": "P8",
-    "kind": "pointer",
-    "pointer": "s10.1(a)"
-   },
-   "type": "disagree",
-   "reason": "Same as CERCLA: pointer prints 'in this Section 10.1(a)', where the Environmental Laws definition sits."
-  }
- ]
+ }
 }

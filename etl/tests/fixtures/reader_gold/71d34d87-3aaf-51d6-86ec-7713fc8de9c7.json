@@ -176,6 +176,11 @@
    "term": "Legacy Patents",
    "para": "P45",
    "kind": "paren"
+  },
+  {
+   "term": "TBiz",
+   "para": "P10",
+   "kind": "paren"
   }
  ],
  "xrefs": [
@@ -803,18 +808,5 @@
    "t": 2,
    "excerpt": "sampled"
   }
- },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "TBiz",
-    "para": "P10",
-    "kind": "paren"
-   },
-   "type": "missing",
-   "reason": "Parenthetical nickname declaration in the Business definition: Travelocity Business (otherwise known as “TBiz”)."
-  }
- ]
+ }
 }

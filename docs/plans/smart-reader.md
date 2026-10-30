@@ -844,7 +844,7 @@ This is the first blind batch that meets every launch-bar metric. Pilot, v1 and 
 - "Certificate" in headings ("Officers’ Certificate").
 - `b577064e`'s "Company" inside "Knowledge of the Company" (ruling 6).
 
-**Open rulings** (recommendations first):
+**Rulings** (the user accepted all seven recommendations on 2026-10-30, and the fixtures carry them):
 
 1. **"otherwise known as “TBiz”"** (`71d34d87`): a declaration, as the checker said.
 2. **A pointer that prints a subsection** ("in this Section 10.1(a)", `de57cbed` CERCLA and RCRA): `s10.1(a)`, as printed, as the checker said.
@@ -854,7 +854,15 @@ This is the first blind batch that meets every launch-bar metric. Pilot, v1 and 
 6. **"Company" inside "Knowledge of the Company"** when that phrase is its own declared term (`b577064e`): not a use of "Company", per the existing longer-term rule. The checker accepted the draft only because the declaration was outside the packet. This recounts `b577064e`.
 7. **"All references to “$” … are to U.S. dollars"** (`bbd28634`): "$" is declared, as rubric v1.2 and the earlier gold have it.
 
-Rubric v1.5 is unchanged until these are ruled on.
+Rulings 1, 2, 3, 6 and 7 apply rules already in rubric v1.5. Ruling 4 is new, and the rubric records it as a dated ruling.
+
+| Metric | Held-out v4 under the rulings (0.4.0) |
+|---|---|
+| Xref link precision / recall | 100% (602/602) / 98.2% (602/613) |
+| Declaration precision / recall | 99.1% (695/701) / 97.2% (695/715) |
+| Term-use precision / recall | 99.1% (439/443) / 98.9% (439/444) |
+
+"TBiz" and "Taxes" add two missed declarations, and "$" in `bbd28634` turns an extra declaration into a correct one. The two pointers are excluded from declaration recall, like every pointer. Ruling 6 removes six "Company" uses that the enricher rightly left out. Rulings 4 and 5 restore the two disputed counts without the split uses, and the enricher matches both.
 
 ## 11. Decisions (2026-10-22)
 

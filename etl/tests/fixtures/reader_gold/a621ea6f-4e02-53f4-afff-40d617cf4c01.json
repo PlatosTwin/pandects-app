@@ -489,6 +489,11 @@
    "term": "Company Financial Statements",
    "para": "P46",
    "count": 1
+  },
+  {
+   "term": "Acquired Corporations",
+   "para": "P48",
+   "count": 4
   }
  ],
  "excluded_xrefs": [],
@@ -761,22 +766,5 @@
    "t": 2,
    "excerpt": "sampled"
   }
- },
- "pending_disputes": [
-  {
-   "section": "term_uses",
-   "draft": {
-    "term": "Acquired Corporations",
-    "para": "P48",
-    "count": 4
-   },
-   "checker": {
-    "term": "Acquired Corporations",
-    "para": "P48",
-    "count": 5
-   },
-   "type": "disagree",
-   "reason": "P48 has four full 'Acquired Corporations' plus the page-split 'the Acquired' / 'Corporations' the note says it counts, so 5, not 4."
-  }
- ]
+ }
 }

@@ -142,6 +142,11 @@
    "term": "Company Permits",
    "para": "P45",
    "kind": "paren"
+  },
+  {
+   "term": "$",
+   "para": "P49",
+   "kind": "means"
   }
  ],
  "xrefs": [

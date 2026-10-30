@@ -101,6 +101,11 @@
    "term": "Financing",
    "para": "P12",
    "kind": "paren"
+  },
+  {
+   "term": "Taxes",
+   "para": "P9",
+   "kind": "means"
   }
  ],
  "xrefs": [
@@ -271,22 +276,5 @@
    "t": 0,
    "excerpt": "sampled"
   }
- },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": {
-    "term": "Taxes",
-    "para": "P9",
-    "kind": "paren"
-   },
-   "checker": {
-    "term": "Taxes",
-    "para": "P9",
-    "kind": "means"
-   },
-   "type": "disagree",
-   "reason": "Capitalized correlative ('with correlative meaning, the terms \"Taxes\"') is kind means under v1.5."
-  }
- ]
+ }
 }

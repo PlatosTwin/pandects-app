@@ -273,6 +273,11 @@
    "term": "Firstar Common Stock",
    "para": "P20",
    "count": 1
+  },
+  {
+   "term": "U.S. Bancorp Common Stock",
+   "para": "P20",
+   "count": 1
   }
  ],
  "excluded_xrefs": [],
@@ -430,22 +435,5 @@
    "t": 12,
    "excerpt": "sampled"
   }
- },
- "pending_disputes": [
-  {
-   "section": "term_uses",
-   "draft": {
-    "term": "U.S. Bancorp Common Stock",
-    "para": "P20",
-    "count": 1
-   },
-   "checker": {
-    "term": "U.S. Bancorp Common Stock",
-    "para": "P20",
-    "count": 2
-   },
-   "type": "disagree",
-   "reason": "P20 has a full use ('dividends on U.S. Bancorp Common Stock at a rate') plus the use split at the P20/P21 break that the draft's note says is counted at P20."
-  }
- ]
+ }
 }

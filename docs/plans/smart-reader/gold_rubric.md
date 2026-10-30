@@ -61,6 +61,7 @@ Pick 5 terms declared in the definitions excerpt that are **used at least once i
 
 - A use is the defined term used in its defined sense. Plurals and possessives count ("Acquisition Proposals", "Parent's"), and so does the singular of a term declared in the plural ("any Company" for "Companies"). *(v1.5)* Capitalized as defined: a lowercase "person" is not a use of an all-caps PERSON. *(v1.5)*
 - Not a use: an all-caps run of text ("THIS AGREEMENT" in a legend) *(v1.4)*, the declaration itself, a lowercase ordinary-English use ("the law"), part of a longer defined term ("Parent" inside "Parent Material Adverse Effect" when that is its own defined term), or text inside quotes.
+- A use split across a page break, with part in one paragraph and the rest in the next ("the Acquired" / "Corporations"), is counted in neither paragraph. *(ruling 2026-10-30)*
 - Fields: `term`, `para`, `count`. Omit paragraphs with a count of 0.
 
 ## Output
