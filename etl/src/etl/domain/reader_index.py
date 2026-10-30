@@ -27,7 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-ENRICHER_VERSION = "0.4.0"
+ENRICHER_VERSION = "0.5.0"
 PAYLOAD_SCHEMA = 1
 
 # Regions whose text is indexed for term uses and cross-references. The table of
@@ -140,7 +140,8 @@ SECTION_NUM = re.compile(
 # A paragraph that opens with one or more enumerators: "(a)", "(a)(i)", "(ii) ..."
 ENUM_PREFIX = re.compile(r"^\s*((?:\([A-Za-z0-9]{1,6}\)\s*)+)")
 ENUM_TOKEN = re.compile(r"\(([A-Za-z0-9]{1,6})\)")
-DECIMAL_PARA = re.compile(r"^\s*(\d+(?:\.\d+){2,})\.?\s")
+# "5.16.1 ..." or "Section 5.16.1 ...": a paragraph numbered as a dotted subsection
+DECIMAL_PARA = re.compile(r"^\s*(?:(?:Section|SECTION|Sec\.|§)\s*)?(\d+(?:\.\d+){2,})\.?\s")
 ATTACHMENT_HEADING = re.compile(
     r"^(EXHIBIT|Exhibit|ANNEX|Annex|SCHEDULE|Schedule|APPENDIX|Appendix)\s+([A-Z0-9][A-Z0-9.\-]*)\b"
 )
@@ -212,6 +213,9 @@ class _Outline:
     articles: dict[str, list[_Node]] = field(default_factory=dict)  # "4" -> nodes
     sections: dict[str, list[_Node]] = field(default_factory=dict)  # "7.2" -> nodes
     subs: dict[str, _Node] = field(default_factory=dict)  # "7.2(b)(ii)" -> node
+    # Keys of numbered articles with no <section> inside: a flat agreement's
+    # "Section 2." items, tagged as articles. Their "(a)" paragraphs are subsections.
+    flat_articles: set[str] = field(default_factory=set)
     attachments: dict[str, _Node] = field(default_factory=dict)  # "exhibit a" -> node
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
@@ -243,8 +247,13 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         ol.sections.setdefault(num, []).append(node)
         if len(ol.sections[num]) > 1:
             return  # duplicate number after a bad parse: no subsection targets either
+        add_subs(sec, num, uuid, node)
+
+    def add_subs(el: ET.Element, num: str, uuid: str, node: _Node) -> None:
+        """Subsection nodes under `node` from the numbered paragraphs inside `el`."""
         stack: list[tuple[str, str]] = []  # (kind, token) per level
-        for t_el in sec.iter("text"):
+        base = num  # the latest dotted paragraph ("5.16.1") owns the "(a)" paragraphs after it
+        for t_el in el.iter("text"):
             tn = by_el.get(t_el)
             if tn is None:
                 continue
@@ -256,6 +265,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                     sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t})
                     ol.subs[key] = sub
                     node.children.append(sub)
+                base, stack = key, []
                 continue
             pm = ENUM_PREFIX.match(txt)
             if not pm:
@@ -266,7 +276,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             stack = stack[:level]
             for k, tok in zip(kinds, tokens):
                 stack.append((k, tok))
-                key = num + "".join(f"({tk})" for _, tk in stack)
+                key = base + "".join(f"({tk})" for _, tk in stack)
                 if key in ol.subs:
                     continue
                 parent_key = key[: key.rfind("(")]
@@ -292,6 +302,10 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                     node = _Node(ol.unique_id(f"a{key}"), "article", raw, title, {"s": uuid})
                     parent.append(node)
                     ol.articles.setdefault(key, []).append(node)
+                    if key.isdigit() and child.find(".//section") is None:
+                        ol.flat_articles.add(key)
+                        if len(ol.articles[key]) == 1:
+                            add_subs(child, key, uuid, node)
                     walk(child, node.children)
                 else:
                     walk(child, parent)
@@ -945,7 +959,9 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
     # UK drafting: "clause 9.4" is a section and "clause 5" a top-level clause.
     # Numbered "paragraph" references usually point into schedules, so they stay unlinked.
     numbered_clause = ref.head == "clause" and t[:1].isdigit()
-    if ref.head == "section" or numbered_clause:
+    # "Article 2.1" in agreements that call their sections articles, when there is no article "2.1"
+    dotted_article = ref.head == "article" and re.match(r"\d+\.\d", t) is not None
+    if ref.head == "section" or numbered_clause or dotted_article:
         m = SECTION_TARGET.match(t)
         if not m:
             return "unresolved", None, None
@@ -953,14 +969,19 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         subs = m.group(2)
         nodes = ol.sections.get(base)
         if not nodes:
-            if base in ol.subs and not subs:
-                return "resolved", ol.subs[base].id, None
+            if base + subs in ol.subs:
+                return "resolved", ol.subs[base + subs].id, None
+            if base in ol.subs:  # "Section 5.16.1(c)" where 5.16.1 has no paragraph (c)
+                return "section_fallback", ol.subs[base].id, None
             # "Section 8" in agreements whose top level is "SECTION 8"
             if "." not in base and not subs and base in ol.articles:
                 arts = ol.articles[base]
                 if len(arts) > 1:
                     return "ambiguous", None, [a.id for a in arts]
                 return "resolved", arts[0].id, None
+            # "Section 2(c)" in a flat agreement whose item 2 has no paragraph (c) of its own
+            if "." not in base and subs and base in ol.flat_articles and len(ol.articles[base]) == 1:
+                return "section_fallback", ol.articles[base][0].id, None
             return "unresolved", None, None
         if len(nodes) > 1:
             return "ambiguous", None, [n.id for n in nodes]
@@ -1135,9 +1156,11 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
             sec_text = tn.text
         in_exhibit = tn.region == "backMatter" and id(tn) not in glossary_texts
         is_heading = ATTACHMENT_HEADING.match(tn.text.strip()) is not None and len(tn.text.strip()) < 120
+        lead = len(tn.text) - len(tn.text.lstrip())
+        numbered_para = DECIMAL_PARA.match(tn.text) is not None
         for r in _find_refs(tn.text, in_exhibit=in_exhibit):
-            if is_heading and r.start == len(tn.text) - len(tn.text.lstrip()):
-                continue  # the heading "Annex 3.7" itself, not a reference to it
+            if (is_heading or numbered_para) and r.start == lead:
+                continue  # the heading "Annex 3.7" or "Section 5.16.1 Payments" itself, not a reference to it
             status, target, cands = _resolve(r, ol, tn, sec_text)
             if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
                 status, target, r.detail = "unresolved", None, "inline"

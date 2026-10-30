@@ -306,6 +306,66 @@ class XrefTests(unittest.TestCase):
         self.assertEqual(by_text[(5, "8.2")]["target"], "s8.2")
 
 
+class ReaderHealthShapeTests(unittest.TestCase):
+    """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""
+
+    def _ids(self, nodes: list[dict[str, Any]]) -> list[str]:
+        return [i for n in nodes for i in (n["id"], *self._ids(n.get("children", [])))]
+
+    def test_dotted_subsections_own_their_enumerated_paragraphs(self) -> None:
+        xml = _doc(
+            _article(
+                "a5",
+                "ARTICLE V COVENANTS",
+                _section(
+                    "s516",
+                    "Section 5.16 Earnout",
+                    "Section 5.16.1 Payments. Buyer pays.",
+                    "(a) first.",
+                    "(b) second.",
+                    "5.16.2 Statements.",
+                    "(a) delivered.",
+                ),
+            )
+            + _section(
+                "s61",
+                "Section 6.1 Refs",
+                "As in Section 5.16.1(b) and Section 5.16.2(a).",
+                "See Section 5.16.2(d) and Article 5.16 and Section 5.16.9.",
+            )
+        )
+        p = build_reader_index(xml)
+        ids = self._ids(p["outline"])
+        for sub in ("s5.16.1", "s5.16.1(a)", "s5.16.1(b)", "s5.16.2", "s5.16.2(a)"):
+            self.assertIn(sub, ids)
+        self.assertNotIn("s5.16(a)", ids)
+        refs = {(r["at"]["t"], r["text"]): r for r in p["xrefs"]}
+        # the paragraph's own number is not a reference to itself
+        self.assertNotIn((0, "Section 5.16.1"), refs)
+        self.assertEqual(refs[(0, "Section 5.16.1(b)")]["target"], "s5.16.1(b)")
+        self.assertEqual(refs[(0, "Section 5.16.2(a)")]["target"], "s5.16.2(a)")
+        self.assertEqual(
+            (refs[(1, "Section 5.16.2")]["status"], refs[(1, "Section 5.16.2")]["target"]),
+            ("section_fallback", "s5.16.2"),
+        )
+        self.assertEqual(refs[(1, "Article 5.16")]["target"], "s5.16")
+        # no dotted paragraph 5.16.9: left unlinked rather than sent to 5.16
+        self.assertEqual(refs[(1, "Section 5.16.9")]["status"], "unresolved")
+
+    def test_flat_agreement_items_tagged_as_articles(self) -> None:
+        xml = _doc(
+            _article("a1", "Section 1. Sale", "<text>Seller sells.</text>")
+            + _article("a2", "Section 2. Price", "<text>(a) Cash.</text><text>(b) Stock.</text>")
+            + _article("a3", "Section 3. Refs", "<text>Under Section 2(b) and Section 2(c) and Section 1(a).</text>")
+        )
+        p = build_reader_index(xml)
+        self.assertIn("s2(b)", self._ids(p["outline"]))
+        refs = _xrefs(p)
+        self.assertEqual(refs["Section 2(b)"]["target"], "s2(b)")
+        self.assertEqual((refs["Section 2"]["status"], refs["Section 2"]["target"]), ("section_fallback", "a2"))
+        self.assertEqual(refs["Section 1"]["target"], "a1")
+
+
 class DeclarationPatternTests(unittest.TestCase):
     def _decls(self, *texts: str) -> dict[str, str]:
         p = build_reader_index(_doc(_section("s1", "Section 1.1 Definitions", *texts)))
