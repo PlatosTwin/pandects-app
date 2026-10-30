@@ -22,7 +22,7 @@ from werkzeug.exceptions import BadRequest, HTTPException
 from backend.auth.mcp_runtime import mcp_protocol_version
 from backend.mcp.metrics import get_mcp_metrics_registry
 from backend.mcp.routes.deps import McpDeps
-from backend.mcp.tools import McpOutputValidationError, call_tool
+from backend.mcp.tools import McpOutputValidationError, McpToolResult, call_tool
 from backend.mcp.tools.shared import AgentVisibleBadRequest
 from backend.services.usage import record_mcp_tool_usage
 
@@ -171,6 +171,28 @@ def _json_compatible(value: object) -> object:
     if isinstance(value, (list, tuple)):
         return [_json_compatible(item) for item in value]
     return value
+
+
+def _tool_call_result(result: McpToolResult) -> dict[str, object]:
+    # Clients disagree on which half of a tool result reaches the model. Claude Code
+    # and Codex send the model the serialized structuredContent in place of content,
+    # while content-only clients (the Anthropic API MCP connector among them) never
+    # show structuredContent. Per the spec, the JSON is therefore mirrored into a
+    # text block after the one-line summary, so every client delivers the data once.
+    return {
+        "content": [
+            {"type": "text", "text": result.text},
+            {
+                "type": "text",
+                "text": json.dumps(
+                    _json_compatible(result.structured_content),
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ),
+            },
+        ],
+        "structuredContent": result.structured_content,
+    }
 
 
 def _json_response(payload: dict[str, object], status_code: int) -> Response:
@@ -426,10 +448,7 @@ def _stream_tool_call_response(
             {
                 "jsonrpc": "2.0",
                 "id": request_id,
-                "result": {
-                    "content": [{"type": "text", "text": result.text}],
-                    "structuredContent": result.structured_content,
-                },
+                "result": _tool_call_result(result),
             }
         )
 
@@ -561,8 +580,9 @@ _RESOURCE_DEFINITIONS: tuple[dict[str, object], ...] = (
         "uri": "pandects://capabilities",
         "name": "Pandects MCP capabilities",
         "description": (
-            "Server capabilities including tool inventory, required scopes, "
-            "field inventory, concept notes, and research workflows."
+            "Compact server index (the default get_server_capabilities payload): server info, "
+            "auth help, changelog summary, one-line tool index, research workflows, and the "
+            "names of the larger reference sections that tool can return on request."
         ),
         "mimeType": "application/json",
     },

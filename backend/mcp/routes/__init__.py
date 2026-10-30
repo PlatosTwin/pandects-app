@@ -41,10 +41,12 @@ from backend.mcp.routes.helpers import (
     _stream_tool_call_response,
     _summarize_validation_error,
     _tool_http_exception_category,
+    _tool_call_result,
     _tool_http_exception_response,
     metrics_registry,
 )
 from backend.mcp.tools import McpOutputValidationError, call_tool, tool_definitions
+from backend.mcp.tools.instructions import SERVER_INSTRUCTIONS
 
 
 logger = logging.getLogger(__name__)
@@ -169,18 +171,7 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                         "name": mcp_server_name(),
                         "version": mcp_server_version(),
                     },
-                    "instructions": (
-                        "Pandects MCP exposes M&A agreement and clause research tools. "
-                        "Start with get_server_capabilities for concept guidance and scope mapping, "
-                        "then list_filter_options or search_agreements/search_sections for discovery. "
-                        "Dataset and schema changes are documented in the changelog (see the "
-                        "changelog section of get_server_capabilities); check it when results seem "
-                        "to have changed across sessions. "
-                        "When you hit friction, missing capabilities, or data-quality issues — or when "
-                        "something works notably well — report it with submit_feedback as it happens, "
-                        "and consider a short wrap-up submission at the end of the session; the "
-                        "maintainer reads every report."
-                    ),
+                    "instructions": SERVER_INSTRUCTIONS,
                 },
                 extra_headers={"Mcp-Session-Id": _issue_session_id()},
             )
@@ -391,10 +382,7 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
                 )
             return _json_rpc_result(
                 request_id=request_id,
-                result={
-                    "content": [{"type": "text", "text": result.text}],
-                    "structuredContent": result.structured_content,
-                },
+                result=_tool_call_result(result),
             )
         return _json_rpc_error(
             request_id=request_id,

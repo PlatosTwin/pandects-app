@@ -132,7 +132,7 @@ def _object_schema(
     properties: dict[str, object],
     *,
     required: list[str] | None = None,
-    additional_properties: bool = True,
+    additional_properties: bool | dict[str, object] = True,
 ) -> dict[str, object]:
     schema: dict[str, object] = {
         "type": "object",
@@ -240,12 +240,11 @@ def _structured_filter_properties(*, include_cursor: bool = False, include_xml: 
                 "items": {"type": "integer"},
                 "description": "Agreement filing years to include.",
             }
-        elif field_name in {
-            "transaction_price_total",
-            "transaction_price_stock",
-            "transaction_price_cash",
-            "transaction_price_assets",
-        }:
+        elif field_name == "transaction_price_total":
+            # The stock/cash/assets buckets share these labels; their descriptions point
+            # here instead of repeating the enum, which keeps the search tools under
+            # Codex's 5,000-byte input-schema budget. The handler still rejects any
+            # label outside the set, naming the valid ones.
             properties[field_name] = _enum_array_schema(
                 _TRANSACTION_PRICE_BUCKET_OPTIONS,
                 description="Transaction-price bucket filters.",
