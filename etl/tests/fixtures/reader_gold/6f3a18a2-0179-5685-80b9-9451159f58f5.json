@@ -1,0 +1,971 @@
+{
+ "agreement_uuid": "6f3a18a2-0179-5685-80b9-9451159f58f5",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "2026 ESPP",
+   "para": "P1",
+   "kind": "pointer",
+   "pointer": "s5.19"
+  },
+  {
+   "term": "2026 Plan",
+   "para": "P1",
+   "kind": "pointer",
+   "pointer": "s5.19"
+  },
+  {
+   "term": "Accounting Firm",
+   "para": "P1",
+   "kind": "pointer",
+   "pointer": "s1.6(e)"
+  },
+  {
+   "term": "Agreement",
+   "para": "P1",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Allocation Certificate",
+   "para": "P1",
+   "kind": "pointer",
+   "pointer": "s5.15(a)"
+  },
+  {
+   "term": "Anti-Bribery Laws",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.23"
+  },
+  {
+   "term": "Anticipated Closing Date",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.6(a)"
+  },
+  {
+   "term": "Asset Disposition(s)",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s4.7"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "Certifications",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s3.6(a)"
+  },
+  {
+   "term": "Closing",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "COBRA",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.12(c)(iv)"
+  },
+  {
+   "term": "Company",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company 2025 Audited Financial Statements",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.16"
+  },
+  {
+   "term": "Company 2026 Interim Financial Statements",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.16"
+  },
+  {
+   "term": "Company Audited Financial Statements",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.16"
+  },
+  {
+   "term": "Company Balance Sheet",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.7"
+  },
+  {
+   "term": "Company Benefit Plan",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.12(a)"
+  },
+  {
+   "term": "Company Board Adverse Recommendation Change",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.2(d)"
+  },
+  {
+   "term": "Company Board Recommendation",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.2(d)"
+  },
+  {
+   "term": "Company Budget",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s4.2(b)(v)"
+  },
+  {
+   "term": "Company Bylaws",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.1(b)"
+  },
+  {
+   "term": "Company Charter",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.1(b)"
+  },
+  {
+   "term": "Company Determination Notice",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.2(e)(i)"
+  },
+  {
+   "term": "Company Disclosure Schedule",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "a2"
+  },
+  {
+   "term": "Company EIP",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.5(a)"
+  },
+  {
+   "term": "Company Financial Statements",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.6(a)"
+  },
+  {
+   "term": "Company In-bound License",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.19(b)"
+  },
+  {
+   "term": "Company Interim Financial Statements",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.16"
+  },
+  {
+   "term": "Company Licensed IP",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.19(b)"
+  },
+  {
+   "term": "Company Lock-Up Agreement",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Lock-Up Signatories",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Material Contracts",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.16(a)"
+  },
+  {
+   "term": "Company Notice Period",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.2(e)(i)"
+  },
+  {
+   "term": "Company Out-bound License",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.19(c)"
+  },
+  {
+   "term": "Company Products",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.11(c)"
+  },
+  {
+   "term": "Company Registered IP",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.19(a)"
+  },
+  {
+   "term": "Company Safety Notices",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.11(g)"
+  },
+  {
+   "term": "Company Stock Awards",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.2(b)"
+  },
+  {
+   "term": "Company Stock Certificate",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.8"
+  },
+  {
+   "term": "Required Company Stockholder Vote",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.4(c)"
+  },
+  {
+   "term": "Company Stockholder Matters",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.2(a)"
+  },
+  {
+   "term": "Company Stockholder Support Agreement",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Stockholder Written Consent(s)",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Termination Fee",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s9.3(b)"
+  },
+  {
+   "term": "Covered Person",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s3.2(e)"
+  },
+  {
+   "term": "CVR",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.7"
+  },
+  {
+   "term": "CVR Agreement",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.7"
+  },
+  {
+   "term": "Determination Notice",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.3(d)(i)"
+  },
+  {
+   "term": "Dispute Notice",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.6(b)"
+  },
+  {
+   "term": "Disqualifying Event",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.2(e)"
+  },
+  {
+   "term": "Dissenting Shares",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.10(a)"
+  },
+  {
+   "term": "D&O Indemnified Parties",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.6(a)"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "Encumbrances",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.5(a)"
+  },
+  {
+   "term": "End Date",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s9.1(b)"
+  },
+  {
+   "term": "Environmental Law",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.14(b)"
+  },
+  {
+   "term": "Equity Plan Proposals",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.19"
+  },
+  {
+   "term": "Exchange Agent",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.9(a)"
+  },
+  {
+   "term": "Exchange Fund",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.9(a)"
+  },
+  {
+   "term": "FDA",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.11(c)"
+  },
+  {
+   "term": "FDA Ethics Policy",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.11(h)"
+  },
+  {
+   "term": "Hazardous Substance",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.14(c)"
+  },
+  {
+   "term": "Health Care Laws",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.11(a)"
+  },
+  {
+   "term": "HIPAA",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.11(k)"
+  },
+  {
+   "term": "Information Statement",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.2(a)"
+  },
+  {
+   "term": "Intended Tax Treatment",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.10(a)"
+  },
+  {
+   "term": "IT Systems",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.19(g)"
+  },
+  {
+   "term": "Merger",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Merger Sub",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Nasdaq Listing Application",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.9"
+  },
+  {
+   "term": "Net Cash Calculation",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.6(a)"
+  },
+  {
+   "term": "Net Cash Schedule",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.6(a)"
+  },
+  {
+   "term": "Ordinary Course Agreement",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.15(g)"
+  },
+  {
+   "term": "Parent",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Parent Benefit Plan",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.12(a)"
+  },
+  {
+   "term": "Parent Board Adverse Recommendation Change",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.3(c)"
+  },
+  {
+   "term": "Parent Board Recommendation",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.3(c)"
+  },
+  {
+   "term": "Parent Charter Amendment",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s1.4(b)"
+  },
+  {
+   "term": "Parent Disclosure Schedule",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "Parent In-bound License",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.19(b)"
+  },
+  {
+   "term": "Parent IT Systems",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.19(g)"
+  },
+  {
+   "term": "Parent Licensed IP",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.19(b)"
+  },
+  {
+   "term": "Parent Material Contracts",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.16(a)"
+  },
+  {
+   "term": "Parent Notice Period",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.3(d)(i)"
+  },
+  {
+   "term": "Parent Out-bound License",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.19(c)"
+  },
+  {
+   "term": "Parent Outstanding Shares Certificate",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s5.15(b)"
+  },
+  {
+   "term": "Parent Distribution",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s4.8"
+  },
+  {
+   "term": "Parent Distribution Amount",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s4.8"
+  },
+  {
+   "term": "Parent Products",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.11(c)"
+  },
+  {
+   "term": "Parent Registered IP",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.19(a)"
+  },
+  {
+   "term": "Parent Safety Notices",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.11(g)"
+  },
+  {
+   "term": "Parent SEC Documents",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.6(a)"
+  },
+  {
+   "term": "Parent Stock Awards",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.2(b)"
+  },
+  {
+   "term": "Parent Stockholder Matters",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.3(a)(ii)"
+  },
+  {
+   "term": "Parent Stockholders’ Meeting",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.3(a)"
+  },
+  {
+   "term": "Parent Stockholder Support Agreement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Parent Termination Fee",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s9.3(c)"
+  },
+  {
+   "term": "PBGC",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.12(c)(iii)"
+  },
+  {
+   "term": "Pension Plan",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.12(b)"
+  },
+  {
+   "term": "Permits",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Permitted Encumbrances",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.18(a)"
+  },
+  {
+   "term": "Pre-Closing Distribution",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.7"
+  },
+  {
+   "term": "Pre-Closing Period",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.1(a)"
+  },
+  {
+   "term": "Privacy Laws",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.19(h)"
+  },
+  {
+   "term": "Purchasers",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.25(a)"
+  },
+  {
+   "term": "Required Company Stockholder Vote",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.4(c)"
+  },
+  {
+   "term": "Required Parent Stockholder Vote",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.4(c)"
+  },
+  {
+   "term": "Response Date",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.6(b)"
+  },
+  {
+   "term": "Reverse Stock Split Proposal",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.4(b)"
+  },
+  {
+   "term": "Rights Agent",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.7"
+  },
+  {
+   "term": "Stockholder Notice",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.2(c)"
+  },
+  {
+   "term": "Subscription Agreement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Surviving Corporation",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.1"
+  },
+  {
+   "term": "Tax Action",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.15(d)"
+  },
+  {
+   "term": "Tax Opinion",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.1(c)"
+  },
+  {
+   "term": "Third Party Expenses",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s9.3(d)"
+  },
+  {
+   "term": "WARN Act",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.13(d)"
+  },
+  {
+   "term": "Permitted Encumbrances",
+   "para": "P7",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2",
+   "context": "Company Disclosure Schedule Section 2 Company EIP",
+   "target": "a2"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3",
+   "context": "Parent Disclosure Schedule Section 3 Parent In-bound",
+   "target": "a3"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.18(c)",
+   "context": "Section 2.18(c) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.18",
+   "context": "This Section 2.18 does not relate",
+   "target": "s2.18"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.19",
+   "context": "the subject of Section 2.19",
+   "target": "s2.19"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.4",
+   "context": "provisions in this Section 4.4)",
+   "target": "s4.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "5.3",
+   "context": "(subject to Section 5.3)",
+   "target": "s5.3"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.4(a)",
+   "context": "permitted under this Section 4.4(a))",
+   "target": "s4.4(a)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.4",
+   "context": "anything contained in this Section 4.4 and",
+   "target": "s4.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.4",
+   "context": "compliance with this Section 4.4, prior",
+   "target": "s4.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.4",
+   "context": "shall have breached this Section 4.4 in any",
+   "target": "s4.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.4",
+   "context": "breach of this Section 4.4, the taking",
+   "target": "s4.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.4",
+   "context": "of this Section 4.4 by Parent for purposes",
+   "target": "s4.4"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P11",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P13",
+   "count": 3
+  },
+  {
+   "term": "Agreement",
+   "para": "P14",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P6",
+   "count": 2
+  },
+  {
+   "term": "Company",
+   "para": "P7",
+   "count": 4
+  },
+  {
+   "term": "Company",
+   "para": "P8",
+   "count": 2
+  },
+  {
+   "term": "Company",
+   "para": "P9",
+   "count": 2
+  },
+  {
+   "term": "Company",
+   "para": "P11",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P12",
+   "count": 2
+  },
+  {
+   "term": "Company",
+   "para": "P14",
+   "count": 1
+  },
+  {
+   "term": "Encumbrances",
+   "para": "P6",
+   "count": 2
+  },
+  {
+   "term": "Encumbrances",
+   "para": "P7",
+   "count": 2
+  },
+  {
+   "term": "Parent Distribution Amount",
+   "para": "P15",
+   "count": 1
+  },
+  {
+   "term": "Required Parent Stockholder Vote",
+   "para": "P11",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "476a54d2-815e-5e5f-aa73-b2fc7a6eac69",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "476a54d2-815e-5e5f-aa73-b2fc7a6eac69",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "476a54d2-815e-5e5f-aa73-b2fc7a6eac69",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "476a54d2-815e-5e5f-aa73-b2fc7a6eac69",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "476a54d2-815e-5e5f-aa73-b2fc7a6eac69",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "5f0f21bf-4211-5626-a392-f59276eee7f8",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "5f0f21bf-4211-5626-a392-f59276eee7f8",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "5f0f21bf-4211-5626-a392-f59276eee7f8",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "5f0f21bf-4211-5626-a392-f59276eee7f8",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "5f0f21bf-4211-5626-a392-f59276eee7f8",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "0a361e57-6942-5242-b633-5f9e1c72f002",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "0a361e57-6942-5242-b633-5f9e1c72f002",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "0a361e57-6942-5242-b633-5f9e1c72f002",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "02241a99-1c7f-538f-916c-e4de554f1d74",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "2ad105ef-1574-5c38-90c4-60196af31775",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

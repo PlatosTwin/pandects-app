@@ -391,7 +391,7 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **0** | Design and prototype | Done: decisions in Section 11 |
-| **1. Enricher** (in progress, 10.1–10.5; launch-bar metrics met on gold, not yet blind) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
+| **1. Enricher** (in progress, 10.1–10.6; blind on held-out v3, all launch-bar metrics met except term-use precision, which waits on a rubric ruling) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
@@ -662,9 +662,77 @@ The pilot column now leaves out the UK agreement `03f4e108`, as the held-out col
 
 **Remaining for Phase 1:**
 
-1. A third held-out batch of about 30 agreements, scored blind against enricher 0.3.0, is the only clean check on the post-v2 fixes. It costs about 2.7M subagent tokens.
+1. ~~A third held-out batch of about 30 agreements, scored blind against enricher 0.3.0.~~ Done; see 10.6.
 2. Turning the health CSV into the validation-queue report format.
 3. The `Article III` miss in an Articles of Association glossary: glossary-exhibit detection cannot yet tell the agreement's own glossary from an attached charter's.
+
+### 10.6 Held-out v3: a blind score for enricher 0.3.0 (2026-10-29)
+
+**Held-out v3.** 30 more agreements, none of them in any earlier gold set or in the 600-agreement audit sample. The draw used seed `heldout-v3-2026-10-29` and the v2 strata: 11 2015+/html, 7 2005–14/html, 3 2005–14/txt, 3 pre-2005/html and 6 pre-2005/txt. Labeling used rubric v1.4, three agreements per agent, Sonnet drafting and Opus checking. The enricher was frozen at `799fd00b` (0.3.0) until scoring was done. Fixtures carry `"set": "heldout-v3"`. Cost: about 1.37M drafter and 1.34M checker subagent tokens.
+
+The draw filter missed two non-US agreements. They are kept as fixtures but left out of the headline, as the UK pilot agreement is:
+- `476ff715`, an Israeli share purchase. Its glossary is a flattened two-column table (`“Affiliate” With respect to a Person: …`) with no "means", so the enricher finds 9 of its 73 declarations.
+- `fad0c1d1`, a French share purchase.
+
+The checkers were much quieter than in v2. Across 30 agreements they raised 11 disputes, and 4 of the 10 checkers changed nothing. So every enricher-versus-gold difference below was read against the source text.
+
+| Metric | Held-out v3, blind (`799fd00b`, 28 US) | Held-out v2, blind (`7591cbd3`) | Launch bar |
+|---|---|---|---|
+| Xref link precision | 99.2% (368/371) | 96.8% (420/434) | ≥ 99% |
+| Xref in-document recall | 95.8% (368/384) | 94.0% (420/447) | ≥ 95% |
+| Declaration precision / recall | 99.1% (684/690) / 97.9% (684/699) | 99.9% / 93.7% | ≥ 98% / ≥ 95% |
+| Term-use precision / recall | 96.4% (377/391) / 99.5% (377/379) | 97.1% / 89.1% | ≥ 97% / ≥ 90% |
+
+**The 3 wrong links:**
+- 2 in `7b58170c`: "Section 4.14(b), (c), (m) or (o) of the Code" (a typo for 414). The "of the Code" tail after the list does not reach back to the first item, so the enricher links them to `s4.14`.
+- 1 in `1be86269`: a scoring artifact. P46 mentions Schedule 3.4 twice, and the gold's two identical 10-word contexts both locate to the first mention. Without it, precision is 99.5%.
+
+**The 16 missed links:**
+- 5 in `818da315`: lowercase head words ("section 3.5", "article VI", "clauses (3) through (6) of section 3.16(a)(viii)").
+- 4 in `8df32dde`: lists with a descriptive parenthetical after each item ("Sections 4.1 (Organization; Subsidiaries), 4.2 (Authority …), and 4.7 (Broker’s Fees)").
+- 5 in `2cfa592a`:
+  - "Article Three", spelled out;
+  - "this paragraph (i)", "this paragraph (ii)" and "clause (i) above", all unresolved;
+  - "Article 8", in a filing whose outline has no article numbers.
+- 2 in `7f2ffe23`: "Article III" cells in a TERM/SECTION index table, read as "Exchange Act Article III" and so `external`.
+
+**The 15 missed declarations, all forms the enricher does not know yet:**
+- words between the term and "means":
+  - `"Beneficial Owner" and derivatives thereof, … mean`;
+  - `"KNOWLEDGE" with respect to (i) the Company means`;
+  - `As used herein, "Fully-Diluted Shares" as of any time shall mean`;
+- `"X" or "Y," or a variation thereof, means` (2 terms);
+- `"Expenses" includes` and `"Expenses", as used in this Agreement, shall include` (2);
+- a parenthetical that runs on after the term (`(a "Certificate", it being understood …)`, `(the "Senior Subordinated Notes")` after a number, and nested parentheses before `"Excluded Shares")`);
+- a right quote used as the opening quote (`”Knowledge”`, `”Company Material Adverse Change”`, 2 terms);
+- `referred to in this Agreement as the “Closing Date.”`;
+- `"Exhibits" means`, which the document-part rule from 10.5 now drops;
+- `("TRA "97")`, a stray straight quote in the filing (the enricher declares "TRA").
+
+**The 6 extra declarations:**
+- 3 capitalized correlatives in `2daafa64` ("Controlled", "Controlled by", "Controlling"), which are disputed (ruling 4 below);
+- 2 quoted German glosses in `2cfa592a` (`("Beherrschungs- und Gewinnabfuhrungsvertrag")`);
+- "TRA".
+
+**The 14 extra term uses:**
+- 11 in `76b77434`: "Company" as a use of the declared "Companies" (ruling 7 below).
+- 2 in `e6ba82d1`: "Company" inside "Continental Stock Transfer & Trust Company" and "Investment Company Act".
+- 1 in `3cb5bafb`: "Agreement" inside the undefined "Ancillary Agreement".
+
+**Open rulings** (recommendations first):
+
+1. **"the Schedule 13E-3" as a defined term** (`818da315`, 2 missing): label these as `external` xrefs, as the checker did. Links are unaffected.
+2. **A pointer to another document** ("Calculation Agent … in the Confirmations", `fd7b948a`): `external`, as the checker did.
+3. **"this Annex A"** in `9b99c57c`'s glossary (missed by the drafter): `x-annex-a`.
+4. **Capitalized correlatives** ("Controlled", "Controlled by", "Controlling"; `2daafa64`): declarations, as the checker did and as `2cfa592a`'s drafter and checker did. This extends the 2026-10-23 ruling, which excludes only lowercase correlatives.
+5. **"to Control"** (`2cfa592a`): removed, because it starts lowercase.
+6. **Lowercase "person"** as a use of an all-caps PERSON (`c6be02c1`, 3 rows): not a use, as the checker did.
+7. **A singular use of a term declared in the plural** ("Company" for "Companies", "Ancillary Agreement" for "Ancillary Agreements"): it counts. The rubric is silent. The drafters of `6baf72eb`, `8df32dde`, `2cfa592a` and `fd7b948a` already counted it, and `76b77434`'s did not. Counting it would recount `76b77434` and put term-use precision at about 99%.
+8. **A TERM/SECTION index table** (`7f2ffe23`, `6f3a18a2`, `2f397684`): each row is a pointer declaration, as two of the three drafters read it. `7f2ffe23` would need its roughly 100 pointers and its term uses relabeled. Pointers affect only pointer coverage and which terms the term-use sample takes, not declaration precision or recall.
+
+**Accepted without dispute:**
+- dotted subsection ids (`s6.7.9`) for numbers the outline does not list;
+- an `x-schedule-…` id, rather than `disclosure_schedule`, when a schedule numbered like a section has a filed heading.
 
 ## 11. Decisions (2026-10-22)
 

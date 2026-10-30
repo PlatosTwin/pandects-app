@@ -1,0 +1,363 @@
+{
+ "agreement_uuid": "c6be02c1-e102-5881-bf15-cf9686f665ab",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "AFFILIATE",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "KNOWLEDGE",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "MATERIAL ADVERSE EFFECT",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "MATERIAL ADVERSE CHANGE",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "PERSON",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "SUBSIDIARY",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "COMPANY REGULATORY DOCUMENTS",
+   "para": "P34",
+   "kind": "paren"
+  },
+  {
+   "term": "PARENT REGULATORY DOCUMENTS",
+   "para": "P35",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "9.3(b)",
+   "context": "officers listed in SECTION 9.3(b) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "9.3(b)",
+   "context": "officers listed in SECTION 9.3(b) of the Parent Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "2.2",
+   "context": "Certificates, as provided in SECTION 2.2, and no",
+   "target": "s2.2"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "2.4",
+   "context": "to any such holder pursuant to SECTION 2.4",
+   "target": "s2.4"
+  },
+  {
+   "para": "P9",
+   "head": "article",
+   "mention": "2",
+   "context": "Certificates pursuant to this ARTICLE 2, and no",
+   "target": "a2"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "4.1(a)",
+   "context": "set forth in SECTION 4.1(a) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "4.1(a)",
+   "context": "nothing contained in this SECTION 4.1(a) shall prohibit the Company",
+   "target": "s4.1(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "4.1(a)(ii)",
+   "context": "other than as permitted by SECTION 4.1(a)(ii); or",
+   "target": "s4.1(a)(ii)"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "5.3",
+   "context": "otherwise provided in this SECTION 5.3, each of the parties",
+   "target": "s5.3"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "5.3(b)",
+   "context": "any notice pursuant to this SECTION 5.3(b) shall not have",
+   "target": "s5.3(b)"
+  },
+  {
+   "para": "P32",
+   "head": "article",
+   "mention": "6",
+   "context": "the conditions set forth in ARTICLE 6 or otherwise",
+   "target": "a6"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "(e)(1)",
+   "context": "additional information pursuant to Section (e)(1) of the HSR Act.",
+   "target": "external"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "(e)(1)",
+   "context": "(e)(1) of the HSR Act, the obligation of the Company",
+   "target": "external"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "(e)(1)",
+   "context": "(e)(1) of the HSR Act, the obligation of Parent and",
+   "target": "external"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "ab8e632b-7707-5265-bf76-0637fad00adc",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "ab8e632b-7707-5265-bf76-0637fad00adc",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "ab8e632b-7707-5265-bf76-0637fad00adc",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "ab8e632b-7707-5265-bf76-0637fad00adc",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "ab8e632b-7707-5265-bf76-0637fad00adc",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "ab8e632b-7707-5265-bf76-0637fad00adc",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "74c81208-d298-5b8d-a602-3432c91529f7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "74c81208-d298-5b8d-a602-3432c91529f7",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "7d0a1c5f-dd1d-5850-93e0-aeff12e83d4c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 15,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 16,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 17,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 18,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "c258c1b1-3308-5f67-a895-f532e9537a99",
+   "t": 19,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "5543c2ca-ef47-598a-be3a-c30b7d523506",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "5543c2ca-ef47-598a-be3a-c30b7d523506",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "5543c2ca-ef47-598a-be3a-c30b7d523506",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "5543c2ca-ef47-598a-be3a-c30b7d523506",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "5543c2ca-ef47-598a-be3a-c30b7d523506",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P35": {
+   "s": "5543c2ca-ef47-598a-be3a-c30b7d523506",
+   "t": 5,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "term_uses",
+   "draft": {
+    "term": "PERSON",
+    "para": "P7",
+    "count": 2
+   },
+   "checker": null,
+   "type": "remove",
+   "reason": "Lowercase 'person' is not the defined term PERSON used as capitalized; rubric excludes lowercase ordinary-English uses"
+  },
+  {
+   "section": "term_uses",
+   "draft": {
+    "term": "PERSON",
+    "para": "P8",
+    "count": 2
+   },
+   "checker": null,
+   "type": "remove",
+   "reason": "Lowercase 'person' is not the defined term PERSON used as capitalized; rubric excludes lowercase ordinary-English uses"
+  },
+  {
+   "section": "term_uses",
+   "draft": {
+    "term": "PERSON",
+    "para": "P18",
+    "count": 4
+   },
+   "checker": null,
+   "type": "remove",
+   "reason": "Lowercase 'person' is not the defined term PERSON used as capitalized; rubric excludes lowercase ordinary-English uses"
+  }
+ ]
+}

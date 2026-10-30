@@ -1,0 +1,691 @@
+{
+ "agreement_uuid": "e6ba82d1-61af-5e01-9522-936e6414c5a7",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "2003 Plan",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "2015 Plan",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "A&R Registration Rights Agreement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Acquisition Transaction",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s9.4(a)"
+  },
+  {
+   "term": "Action",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Additional SEC Reports",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s8.7"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Aggregate Bridge Note Outstanding Amount",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Aggregate Series F Preference Amount",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "AI Inputs",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s5.19(f)(i)"
+  },
+  {
+   "term": "Antitrust Laws",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Appraisal Rights Deadline",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s9.2(g)"
+  },
+  {
+   "term": "Audited Financial Statements",
+   "para": "P15",
+   "kind": "pointer",
+   "pointer": "s5.8(a)"
+  },
+  {
+   "term": "Available Closing SPAC Cash",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Bridge Financing",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Bridge Notes",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Business Combination",
+   "para": "P19",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Business Combination Proposal",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "s9.4(b)"
+  },
+  {
+   "term": "Business Day",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Business Software",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Capitalization Date",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s5.6(a)"
+  },
+  {
+   "term": "Cayman Companies Act",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Cayman SPAC Units",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Cayman SPAC Warrant",
+   "para": "P26",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Closing",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s4.1"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s4.1"
+  },
+  {
+   "term": "Code",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Company",
+   "para": "P30",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company AI",
+   "para": "P31",
+   "kind": "pointer",
+   "pointer": "s5.19(f)(i)"
+  },
+  {
+   "term": "Company Benefit Plan",
+   "para": "P32",
+   "kind": "pointer",
+   "pointer": "s5.13(a)"
+  },
+  {
+   "term": "Company Board",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Company Board Recommendation",
+   "para": "P34",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Certificate of Incorporation",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Company Closing Statement",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s4.3"
+  },
+  {
+   "term": "Company Class A Common Stock",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Company Class B Common Stock",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Company Common Stock",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Company Convertible Securities",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Trust Account",
+   "para": "P51",
+   "kind": "paren"
+  },
+  {
+   "term": "Trustee",
+   "para": "P51",
+   "kind": "paren"
+  },
+  {
+   "term": "Trust Agreement",
+   "para": "P51",
+   "kind": "paren"
+  },
+  {
+   "term": "SPAC Final Prospectus",
+   "para": "P51",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "9.04(a)",
+   "context": "specified in Section 9.04(a)",
+   "target": "s9.4(a)"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "8.07",
+   "context": "specified in Section 8.07",
+   "target": "s8.7"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "5.19(f)(i)",
+   "context": "specified in Section 5.19(f)(i)",
+   "target": "s5.19(f)(i)"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "9.02(g)",
+   "context": "specified in Section 9.02(g)",
+   "target": "s9.2(g)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.08(a)",
+   "context": "specified in Section 5.08(a)",
+   "target": "s5.8(a)"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "9.04(b)",
+   "context": "set forth in Section 9.04(b)",
+   "target": "s9.4(b)"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "5.06(a)",
+   "context": "specified in Section 5.06(a)",
+   "target": "s5.6(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "4.01",
+   "context": "specified in Section 4.01",
+   "target": "s4.1"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "4.01",
+   "context": "specified in Section 4.01",
+   "target": "s4.1"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "5.19(f)(i)",
+   "context": "specified in Section 5.19(f)(i)",
+   "target": "s5.19(f)(i)"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "5.13(a)",
+   "context": "specified in Section 5.13(a)",
+   "target": "s5.13(a)"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "4.03",
+   "context": "specified in Section 4.03",
+   "target": "s4.3"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P41",
+   "count": 4
+  },
+  {
+   "term": "Agreement",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P48",
+   "count": 2
+  },
+  {
+   "term": "Agreement",
+   "para": "P49",
+   "count": 2
+  },
+  {
+   "term": "Agreement",
+   "para": "P51",
+   "count": 4
+  },
+  {
+   "term": "Agreement",
+   "para": "P52",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P53",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P46",
+   "count": 3
+  },
+  {
+   "term": "Closing",
+   "para": "P51",
+   "count": 1
+  },
+  {
+   "term": "Closing Date",
+   "para": "P52",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P48",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P49",
+   "count": 7
+  },
+  {
+   "term": "Company",
+   "para": "P50",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P52",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "bd9cd6d9-baf6-5b3e-a18d-e4323ce0125e",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "511cfab1-fae3-529e-9c74-2ef698c23d10",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "511cfab1-fae3-529e-9c74-2ef698c23d10",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "511cfab1-fae3-529e-9c74-2ef698c23d10",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "511cfab1-fae3-529e-9c74-2ef698c23d10",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "511cfab1-fae3-529e-9c74-2ef698c23d10",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "511cfab1-fae3-529e-9c74-2ef698c23d10",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "511cfab1-fae3-529e-9c74-2ef698c23d10",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "511cfab1-fae3-529e-9c74-2ef698c23d10",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "75f9018b-7a19-5872-a225-74ae77ce4787",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "90abb3b0-1817-5aa8-ab9a-d901a571415f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "f7234d6c-8f7d-5997-8fb3-659334873358",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "f7234d6c-8f7d-5997-8fb3-659334873358",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "f7234d6c-8f7d-5997-8fb3-659334873358",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ }
+}

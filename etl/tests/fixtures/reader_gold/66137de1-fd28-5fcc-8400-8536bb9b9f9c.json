@@ -1,0 +1,701 @@
+{
+ "agreement_uuid": "66137de1-fd28-5fcc-8400-8536bb9b9f9c",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "Action",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "AMEX",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s1.3(a)"
+  },
+  {
+   "term": "Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Blue Sky Laws",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s5.4(c)"
+  },
+  {
+   "term": "Business Day",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Bylaws",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Certificates",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s4.2(b)"
+  },
+  {
+   "term": "Certificate of Incorporation",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Change in Recommendation",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Claim",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s7.13(a)"
+  },
+  {
+   "term": "Classified Contracts",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P16",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Code",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Common Stock",
+   "para": "P19",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Board",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Convertible Notes",
+   "para": "P22",
+   "kind": "pointer",
+   "pointer": "s5.2(b)"
+  },
+  {
+   "term": "Company Disclosure Schedule",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "a5"
+  },
+  {
+   "term": "Company Employees",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Company Financial Advisor",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "s5.21"
+  },
+  {
+   "term": "Company Insurance Policies",
+   "para": "P26",
+   "kind": "pointer",
+   "pointer": "s5.24"
+  },
+  {
+   "term": "Company IP Claim",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s5.18(b)"
+  },
+  {
+   "term": "Company Expenses",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s9.3(d)"
+  },
+  {
+   "term": "Company Plans",
+   "para": "P29",
+   "kind": "pointer",
+   "pointer": "s5.13(a)"
+  },
+  {
+   "term": "Company Preferred Stock",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Company Reports",
+   "para": "P31",
+   "kind": "pointer",
+   "pointer": "s5.5(a)"
+  },
+  {
+   "term": "Company Representative",
+   "para": "P32",
+   "kind": "pointer",
+   "pointer": "s7.4(a)"
+  },
+  {
+   "term": "Company Restricted Shares",
+   "para": "P33",
+   "kind": "pointer",
+   "pointer": "s5.2(b)"
+  },
+  {
+   "term": "Company SOSARs",
+   "para": "P34",
+   "kind": "pointer",
+   "pointer": "s5.2(b)"
+  },
+  {
+   "term": "Company Stock-Based Securities",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s5.2(b)"
+  },
+  {
+   "term": "Company Stockholders Approval",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s5.4(d)"
+  },
+  {
+   "term": "Company Stockholders Meeting",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s7.6(a)"
+  },
+  {
+   "term": "Company Stock Options",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s4.4(a)"
+  },
+  {
+   "term": "Company Stock Option Plans",
+   "para": "P39",
+   "kind": "pointer",
+   "pointer": "s4.4(a)"
+  },
+  {
+   "term": "Company Warrants",
+   "para": "P40",
+   "kind": "pointer",
+   "pointer": "s5.2(b)"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Insurance Policies",
+   "para": "P43",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "1.3(a)",
+   "context": "assigned to such term in Section 1.3(a)",
+   "target": "s1.3(a)"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "5.4(c)",
+   "context": "assigned to such term in Section 5.4(c)",
+   "target": "s5.4(c)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "4.2(b)",
+   "context": "assigned to such term in Section 4.2(b)",
+   "target": "s4.2(b)"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "2.2",
+   "context": "assigned to such term in Section 2.2",
+   "target": "s2.2"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "7.13(a)",
+   "context": "assigned to such term in Section 7.13(a)",
+   "target": "s7.13(a)"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "2.3",
+   "context": "assigned to such term in Section 2.3",
+   "target": "s2.3"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "2.3",
+   "context": "assigned to such term in Section 2.3",
+   "target": "s2.3"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "5.2(b)",
+   "context": "assigned to such term in Section 5.2(b)",
+   "target": "s5.2(b)"
+  },
+  {
+   "para": "P23",
+   "head": "article",
+   "mention": "5",
+   "context": "in the introduction to Article 5",
+   "target": "a5"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "5.21",
+   "context": "assigned to such term in Section 5.21",
+   "target": "s5.21"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "5.24",
+   "context": "assigned to such term in Section 5.24",
+   "target": "s5.24"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "5.18(b)",
+   "context": "assigned to such term in Section 5.18(b)",
+   "target": "s5.18(b)"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "9.3(d)",
+   "context": "assigned to such term in Section 9.3(d)",
+   "target": "s9.3(d)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "5.13(a)",
+   "context": "assigned to such term in Section 5.13(a)",
+   "target": "s5.13(a)"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "5.5(a)",
+   "context": "assigned to such term in Section 5.5(a)",
+   "target": "s5.5(a)"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "7.4(a)",
+   "context": "assigned to such term in Section 7.4(a)",
+   "target": "s7.4(a)"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "5.2(b)",
+   "context": "assigned to such term in Section 5.2(b)",
+   "target": "s5.2(b)"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "5.2(b)",
+   "context": "assigned to such term in Section 5.2(b)",
+   "target": "s5.2(b)"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "5.2(b)",
+   "context": "assigned to such term in Section 5.2(b)",
+   "target": "s5.2(b)"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "5.4(d)",
+   "context": "assigned to such term in Section 5.4(d)",
+   "target": "s5.4(d)"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "7.6(a)",
+   "context": "assigned to such term in Section 7.6(a)",
+   "target": "s7.6(a)"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "4.4(a)",
+   "context": "assigned to such term in Section 4.4(a)",
+   "target": "s4.4(a)"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "4.4(a)",
+   "context": "assigned to such term in Section 4.4(a)",
+   "target": "s4.4(a)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "5.2(b)",
+   "context": "assigned to such term in Section 5.2(b)",
+   "target": "s5.2(b)"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "253",
+   "context": "as provided in Section 253 of the DGCL",
+   "target": "external"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "5.24",
+   "context": "Section 5.24 of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P42",
+   "count": 2
+  },
+  {
+   "term": "Agreement",
+   "para": "P44",
+   "count": 2
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P41",
+   "count": 2
+  },
+  {
+   "term": "Closing Date",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P42",
+   "count": 5
+  },
+  {
+   "term": "Company",
+   "para": "P43",
+   "count": 4
+  },
+  {
+   "term": "Company Disclosure Schedule",
+   "para": "P43",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 40,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 41,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 42,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 43,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 44,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 45,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 46,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 47,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "b7431562-4155-5eb2-892d-b7fe7401a101",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "9d50a5fc-42c6-5c0e-97ee-544398fa5ed7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "7567fb79-add1-5426-9cb8-b5d079b888d3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "98f01b80-682c-5741-a579-12979ca4c10f",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

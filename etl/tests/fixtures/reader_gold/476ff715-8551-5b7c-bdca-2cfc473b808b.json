@@ -1,0 +1,1331 @@
+{
+ "agreement_uuid": "476ff715-8551-5b7c-bdca-2cfc473b808b",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "102 Options",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "102 Shares",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "102 Trustee",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "3(i) Options",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "341 Legal Proceeding",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Benefit Plans",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Board of Directors",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Books and Records",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Accounting Arbitrator",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.7.5"
+  },
+  {
+   "term": "Aggregate Purchase Price Adjustment",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.7.6"
+  },
+  {
+   "term": "Business Day",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Business Data",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Claims",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Company Licensed Intellectual Property",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Bring-Along Notice",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s8.14.2"
+  },
+  {
+   "term": "Bring-Along Provisions",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s8.14.1"
+  },
+  {
+   "term": "Closing",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Closing Balance Sheet",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.6.3"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Closing Payment",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.2.6"
+  },
+  {
+   "term": "Company Options",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Company Owned Intellectual Property",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Companies Law",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Current Articles",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Data Protection Laws",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Debt Liabilities",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Company Registered Intellectual Property",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s5.14.1"
+  },
+  {
+   "term": "Contractors",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s5.12.2"
+  },
+  {
+   "term": "Damages",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s10.1"
+  },
+  {
+   "term": "Debt",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Employees",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Escrow Agent",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Executing Shareholders",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Founders",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Determination Materials",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.7.5"
+  },
+  {
+   "term": "Disputed Adjustment",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.7.5"
+  },
+  {
+   "term": "Escrow Amount",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.8"
+  },
+  {
+   "term": "Escrow Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.8"
+  },
+  {
+   "term": "Escrow Fund",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.8"
+  },
+  {
+   "term": "Estimated Aggregate Purchase Price Adjustment",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s2.7.2"
+  },
+  {
+   "term": "Excluded License",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s5.14.18"
+  },
+  {
+   "term": "Expense Fund",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s4.6"
+  },
+  {
+   "term": "Financial Statements",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s5.4.1"
+  },
+  {
+   "term": "Firm",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s11.12"
+  },
+  {
+   "term": "Fraud Event",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s10.7"
+  },
+  {
+   "term": "Fully Diluted Basis",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Grant",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Obligations",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Fundamental Representations",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s10.9"
+  },
+  {
+   "term": "IIA Amount",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "IIA",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property Rights",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "ITA",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "ITO",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Key Employees",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Patent Rights",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Domain Names",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Indemnified Party",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s10.1"
+  },
+  {
+   "term": "Indemnifying Party",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s10.3"
+  },
+  {
+   "term": "Interim Option Tax Ruling",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.5.2"
+  },
+  {
+   "term": "Interim Period",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s8.1"
+  },
+  {
+   "term": "Letter of Transmittal",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s2.9"
+  },
+  {
+   "term": "Material Contracts",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s5.8.1"
+  },
+  {
+   "term": "Open Source",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Option Plan",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Ordinary Shares",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Organizational Documents",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Paying Agent",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Person",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Money Laundering Laws",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s5.11"
+  },
+  {
+   "term": "Notice of Dispute",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s2.7.3"
+  },
+  {
+   "term": "Option Tax Ruling",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s2.5.1"
+  },
+  {
+   "term": "Optionholders Letter of Transmittal",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s3.2.5"
+  },
+  {
+   "term": "Options",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s5.3.2"
+  },
+  {
+   "term": "Paying Agent Agreement",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s2.9"
+  },
+  {
+   "term": "Payor",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Personal Information",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Pre-Closing Taxes",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Preferred Shares",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Price Per Share",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Privacy Contracts",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Retained Sellers",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Retained Holdback Amount",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Section 3(i)",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Security Incident",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Security Interest",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Retained Seller",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Privacy Policy",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s5.14.8"
+  },
+  {
+   "term": "Privileged Communications",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s11.12"
+  },
+  {
+   "term": "Proposal",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s8.4"
+  },
+  {
+   "term": "Purchase Price",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Purchase Shares",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Released Person",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s9.1"
+  },
+  {
+   "term": "Representative Losses",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s4.4"
+  },
+  {
+   "term": "Restricted Transaction",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s8.4"
+  },
+  {
+   "term": "Section 102",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s2.5.1"
+  },
+  {
+   "term": "Purchase Price Adjustment",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Series A Preferred Shares",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Series Seed Preferred Shares",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Shares",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Straddle Period",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Systems",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Tax(es)",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Contest",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Taxing Authority",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Service Inventions",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s5.12.5"
+  },
+  {
+   "term": "Shareholder Representative",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s4.1"
+  },
+  {
+   "term": "Tax Incentives",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s5.7.3"
+  },
+  {
+   "term": "Shareholders",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Technology",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Transaction",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Transaction Costs",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Terminated Agreements",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s3.3.8"
+  },
+  {
+   "term": "Third Party Defense",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s10.3"
+  },
+  {
+   "term": "Third Party Claim",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s10.3"
+  },
+  {
+   "term": "Transaction Documents",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Unvested Options",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Valid Tax Certificate",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Unrestricted Cash",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s2.6.1"
+  },
+  {
+   "term": "VAT",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s5.7.15"
+  },
+  {
+   "term": "Vested Options",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Waterfall",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Withholding Drop Date",
+   "para": "P15",
+   "kind": "pointer",
+   "pointer": "s2.9.2"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "2.7.5",
+   "context": "“Accounting Arbitrator” As defined in Section 2.7.5.",
+   "target": "s2.7.5"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "2.7.6",
+   "context": "“Aggregate Purchase Price Adjustment” As defined in Section 2.7.6.",
+   "target": "s2.7.6"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "8.14.2",
+   "context": "“Bring-Along Notice” As defined in Section 8.14.2.",
+   "target": "s8.14.2"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "8.14.1",
+   "context": "“Bring-Along Provisions” As defined in Section 8.14.1.",
+   "target": "s8.14.1"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "3.1",
+   "context": "“Closing” As defined in Section 3.1.",
+   "target": "s3.1"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "2.6.3",
+   "context": "“Closing Balance Sheet” As defined in Section 2.6.3.",
+   "target": "s2.6.3"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "3.1",
+   "context": "“Closing Date” As defined in Section 3.1.",
+   "target": "s3.1"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "3.2.6",
+   "context": "“Closing Payment” As defined in Section 3.2.6.",
+   "target": "s3.2.6"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "5.14.1",
+   "context": "“Company Registered Intellectual Property” As defined in Section 5.14.1.",
+   "target": "s5.14.1"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "5.12.2",
+   "context": "“Contractors” As defined in Section 5.12.2.",
+   "target": "s5.12.2"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "10.1",
+   "context": "“Damages” As defined in Section 10.1.",
+   "target": "s10.1"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "2.6",
+   "context": "“Debt” As defined in Section 2.6.",
+   "target": "s2.6"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.7.5",
+   "context": "“Determination Materials” As defined in Section 2.7.5.",
+   "target": "s2.7.5"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.7.5",
+   "context": "“Disputed Adjustment” As defined in Section 2.7.5.",
+   "target": "s2.7.5"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.8",
+   "context": "“Escrow Amount” As defined in Section 2.8.",
+   "target": "s2.8"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.8",
+   "context": "“Escrow Agreement” As defined in Section 2.8.",
+   "target": "s2.8"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.8",
+   "context": "“Escrow Fund” As defined in Section 2.8.",
+   "target": "s2.8"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.7.2",
+   "context": "“Estimated Aggregate Purchase Price Adjustment” As defined in Section 2.7.2.",
+   "target": "s2.7.2"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "5.14.18",
+   "context": "“Excluded License” As defined in Section 5.14.18.",
+   "target": "s5.14.18"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4.6",
+   "context": "“Expense Fund” As defined in Section 4.6.",
+   "target": "s4.6"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "5.4.1",
+   "context": "“Financial Statements” As defined in Section 5.4.1.",
+   "target": "s5.4.1"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "11.12",
+   "context": "“Firm” As defined in Section 11.12.",
+   "target": "s11.12"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "10.7",
+   "context": "“Fraud Event” As defined in Section 10.7.",
+   "target": "s10.7"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "10.9",
+   "context": "“Fundamental Representations” As defined in Section 10.9.",
+   "target": "s10.9"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "10.1",
+   "context": "“Indemnified Party” As defined in Section 10.1.",
+   "target": "s10.1"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "10.3",
+   "context": "“Indemnifying Party” As defined in Section 10.3.",
+   "target": "s10.3"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "2.5.2",
+   "context": "“Interim Option Tax Ruling” As defined in Section 2.5.2.",
+   "target": "s2.5.2"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "8.1",
+   "context": "“Interim Period” As defined in Section 8.1.",
+   "target": "s8.1"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "2.9",
+   "context": "“Letter of Transmittal” As defined in Section 2.9.",
+   "target": "s2.9"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "5.8.1",
+   "context": "“Material Contracts” As defined in Section 5.8.1.",
+   "target": "s5.8.1"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "5.11",
+   "context": "“Money Laundering Laws” As defined in Section 5.11.",
+   "target": "s5.11"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.7.3",
+   "context": "“Notice of Dispute” As defined in Section 2.7.3.",
+   "target": "s2.7.3"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.5.1",
+   "context": "“Option Tax Ruling” As defined in Section 2.5.1.",
+   "target": "s2.5.1"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "3.2.5",
+   "context": "“Optionholders Letter of Transmittal” As defined in Section 3.2.5.",
+   "target": "s3.2.5"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "5.3.2",
+   "context": "“Options” As defined in Section 5.3.2.",
+   "target": "s5.3.2"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.9",
+   "context": "“Paying Agent Agreement” As defined in Section 2.9.",
+   "target": "s2.9"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "5.14.8",
+   "context": "“Privacy Policy” As defined in Section 5.14.8.",
+   "target": "s5.14.8"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "11.12",
+   "context": "“Privileged Communications” As defined in Section 11.12.",
+   "target": "s11.12"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "8.4",
+   "context": "“Proposal” As defined in Section 8.4.",
+   "target": "s8.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "2.2",
+   "context": "“Purchase Price” As defined in Section 2.2.",
+   "target": "s2.2"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "2.1",
+   "context": "“Purchase Shares” As defined in Section 2.1.",
+   "target": "s2.1"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "9.1",
+   "context": "“Released Person” As defined in Section 9.1.",
+   "target": "s9.1"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.4",
+   "context": "“Representative Losses” As defined in Section 4.4.",
+   "target": "s4.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "8.4",
+   "context": "“Restricted Transaction” As defined in Section 8.4.",
+   "target": "s8.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "2.5.1",
+   "context": "“Section 102” As defined in Section 2.5.1.",
+   "target": "s2.5.1"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "2.2",
+   "context": "Price Adjustment’ As defined in Section 2.2.",
+   "target": "s2.2"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "5.12.5",
+   "context": "“Service Inventions” As defined in Section 5.12.5.",
+   "target": "s5.12.5"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "4.1",
+   "context": "“Shareholder Representative” As defined in Section 4.1.",
+   "target": "s4.1"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "5.7.3",
+   "context": "“Tax Incentives” As defined in Section 5.7.3.",
+   "target": "s5.7.3"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "3.3.8",
+   "context": "“Terminated Agreements” As defined in Section 3.3.8",
+   "target": "s3.3.8"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "10.3",
+   "context": "“Third Party Defense” As defined in Section 10.3.",
+   "target": "s10.3"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "10.3",
+   "context": "“Third Party Claim” As defined in Section 10.3.",
+   "target": "s10.3"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "2.6.1",
+   "context": "“Unrestricted Cash” As defined in Section 2.6.1.",
+   "target": "s2.6.1"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "5.7.15",
+   "context": "“VAT” As defined in Section 5.7.15.",
+   "target": "s5.7.15"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "2.9.2",
+   "context": "“Withholding Drop Date” As defined in Section 2.9.2.",
+   "target": "s2.9.2"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "102(b)(2)",
+   "context": "in accordance with Section 102(b)(2) of the ITO",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "102",
+   "context": "for the Option Plan in accordance with Section 102.",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "3(i)",
+   "context": "tax in accordance with Section 3(i) of the ITO",
+   "target": "external"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "341(b)",
+   "context": "in accordance with Section 341(b) of the Companies Law",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "schedule",
+   "mention": "A-1",
+   "context": "as detailed in Schedule A-1",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "3(i)",
+   "context": "Section 3(i) of the ITO.",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "schedule",
+   "mention": "C",
+   "context": "The waterfall attached in Schedule C, which shall be",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P15",
+   "head": "schedule",
+   "mention": "5.3.2",
+   "context": "Vested Options included in Schedule 5.3.2, Purchase Price",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "2.7",
+   "context": "in accordance with Section 2.7 below, and elections",
+   "target": "s2.7"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P22",
+   "count": 3
+  },
+  {
+   "term": "Companies Law",
+   "para": "P19",
+   "count": 1
+  },
+  {
+   "term": "Organizational Documents",
+   "para": "P16",
+   "count": 1
+  },
+  {
+   "term": "Organizational Documents",
+   "para": "P17",
+   "count": 2
+  },
+  {
+   "term": "Purchase Shares",
+   "para": "P21",
+   "count": 1
+  },
+  {
+   "term": "Purchase Shares",
+   "para": "P23",
+   "count": 2
+  },
+  {
+   "term": "Shareholder Representative",
+   "para": "P24",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v3",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "7a46056a-af46-5e36-a6a0-9c0e4d0434dc",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "7094e2db-b1e0-53c3-98b1-8e7296bd0c03",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "7094e2db-b1e0-53c3-98b1-8e7296bd0c03",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "7094e2db-b1e0-53c3-98b1-8e7296bd0c03",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "7094e2db-b1e0-53c3-98b1-8e7296bd0c03",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "7094e2db-b1e0-53c3-98b1-8e7296bd0c03",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "c497eedc-fd9f-5fca-81cb-83492c80b9a9",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "b82c4708-abb2-5a62-baf0-db2d9f8b8336",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "517e3307-29b8-5d72-8873-083b90d4dd10",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "517e3307-29b8-5d72-8873-083b90d4dd10",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "517e3307-29b8-5d72-8873-083b90d4dd10",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ }
+}

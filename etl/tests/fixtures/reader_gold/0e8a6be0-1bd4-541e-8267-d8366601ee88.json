@@ -1,0 +1,779 @@
+{
+ "agreement_uuid": "0e8a6be0-1bd4-541e-8267-d8366601ee88",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Aggregate Exercise Price",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Benefit Plans",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Board of Directors",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Books and Records",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Common Merger Consideration",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Merger Consideration",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Common Stock Merger Consideration",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Company Disclosure Schedule",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Company Employees",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Company Expenses",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Company Option Plans",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Company Options",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stockholders Agreement",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Credit Agreement",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Debt",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "$",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Extended Representations",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "FastenTech",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Final Closing Statement",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Final Working Capital",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Final Debt",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Fully Diluted Shares",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "AICPA",
+   "para": "P32",
+   "kind": "paren"
+  },
+  {
+   "term": "GAAP Consistently Applied",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "High Reference Amount",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Holdback Consideration",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Holdco Financing",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Indenture",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Senior Subordinated Notes",
+   "para": "P38",
+   "kind": "paren"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "IP Contracts",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Exchange Agent",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Exchange Fund",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Letter of Transmittal",
+   "para": "P44",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "as defined in Section 3(3) of ERISA, and",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "4069",
+   "context": "liability under Section 4069, 4201 or 4212(c) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "4201",
+   "context": "liability under Section 4069, 4201 or 4212(c) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "4212(c)",
+   "context": "liability under Section 4069, 4201 or 4212(c) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.8",
+   "context": "Estimated Debt determined pursuant to Section 2.8, plus",
+   "target": "s2.8"
+  },
+  {
+   "para": "P19",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "described in clause (i) above",
+   "target": "inline"
+  },
+  {
+   "para": "P20",
+   "head": "clause",
+   "mention": "(A)",
+   "context": "referred to in clauses (A) through (C) above",
+   "target": "inline"
+  },
+  {
+   "para": "P20",
+   "head": "clause",
+   "mention": "(C)",
+   "context": "referred to in clauses (A) through (C) above",
+   "target": "inline"
+  },
+  {
+   "para": "P21",
+   "head": "clause",
+   "mention": "(D)",
+   "context": "referred under this clause (D) is of the type",
+   "target": "inline"
+  },
+  {
+   "para": "P21",
+   "head": "clause",
+   "mention": "(A)",
+   "context": "referred to in clauses (A) through (O) above",
+   "target": "inline"
+  },
+  {
+   "para": "P21",
+   "head": "clause",
+   "mention": "(O)",
+   "context": "referred to in clauses (A) through (O) above",
+   "target": "inline"
+  },
+  {
+   "para": "P21",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "payment required under Exhibit A of the",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "payment required under Exhibit A of the",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "414(b)",
+   "context": "under Section 414(b), 414(c) or 414(m) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "414(c)",
+   "context": "under Section 414(b), 414(c) or 414(m) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "414(m)",
+   "context": "under Section 414(b), 414(c) or 414(m) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "3.1(a)",
+   "context": "of the Company in Sections 3.1(a), 3.1(b)",
+   "target": "s3.1(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "3.1(b)",
+   "context": "Sections 3.1(a), 3.1(b), 3.1(c), 3.1(d)(i)",
+   "target": "s3.1(b)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "3.1(c)",
+   "context": "3.1(b), 3.1(c), 3.1(d)(i), 3.1(h)",
+   "target": "s3.1(c)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "3.1(d)(i)",
+   "context": "3.1(c), 3.1(d)(i), 3.1(h), 3.1(n)",
+   "target": "s3.1(d)(i)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "3.1(h)",
+   "context": "3.1(d)(i), 3.1(h), 3.1(n), 3.1(r)",
+   "target": "s3.1(h)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "3.1(n)",
+   "context": "3.1(h), 3.1(n), 3.1(r) and 3.1(s)",
+   "target": "s3.1(n)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "3.1(r)",
+   "context": "3.1(n), 3.1(r) and 3.1(s)",
+   "target": "s3.1(r)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "3.1(s)",
+   "context": "3.1(n), 3.1(r) and 3.1(s)",
+   "target": "s3.1(s)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "2.9",
+   "context": "duly and timely delivered pursuant to Section 2.9 or (y)",
+   "target": "s2.9"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "2.9",
+   "context": "and Parent pursuant to Section 2.9 or (z)",
+   "target": "s2.9"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "2.9",
+   "context": "Arbiter pursuant to Section 2.9",
+   "target": "s2.9"
+  },
+  {
+   "para": "P32",
+   "head": "paragraph",
+   "mention": ".05",
+   "context": "are described in paragraph .05 of the American Institute",
+   "target": "external"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "411",
+   "context": "AU Section 411 of the AICPA Professional Standards",
+   "target": "external"
+  },
+  {
+   "para": "P34",
+   "head": "clause",
+   "mention": "(y)",
+   "context": "principles articulated in this clause (y) shall be applied",
+   "target": "inline"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "4.1",
+   "context": "identified on Section 4.1 of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "2.2",
+   "context": "all payments pursuant to Section 2.2 (other than",
+   "target": "s2.2"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "2.1(b)",
+   "context": "pursuant to this Section 2.1(b) shall hereinafter be referred",
+   "target": "s2.1(b)"
+  },
+  {
+   "para": "P44",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "in the form attached as Exhibit A hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "2.2(b)",
+   "context": "in accordance with Section 2.2(b)) for each",
+   "target": "s2.2(b)"
+  },
+  {
+   "para": "P46",
+   "head": "article",
+   "mention": "VIII",
+   "context": "provisions set forth in this Article VIII",
+   "target": "a8"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "8.2(a)",
+   "context": "any of Sections 8.2(a) and 8.2(b) shall be net",
+   "target": "s8.2(a)"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "8.2(b)",
+   "context": "any of Sections 8.2(a) and 8.2(b) shall be net",
+   "target": "s8.2(b)"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "8.5(d)",
+   "context": "except as provided in Section 8.5(d).",
+   "target": "s8.5(d)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Business Day",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Code",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Company Options",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Company Options",
+   "para": "P43",
+   "count": 5
+  },
+  {
+   "term": "Holdback Consideration",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Closing Merger Consideration",
+   "para": "P44",
+   "count": 3
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "417c90b2-2bbd-5802-a863-59ccd98fd2d6",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "9c0e2ee5-db5a-5ec2-a14c-df656ca96838",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "9c0e2ee5-db5a-5ec2-a14c-df656ca96838",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "9c0e2ee5-db5a-5ec2-a14c-df656ca96838",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "fb6fba56-e4c9-56a3-a134-584e32a77898",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "fb6fba56-e4c9-56a3-a134-584e32a77898",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "79ec4f58-a41a-5ff7-977e-861dd3070ec0",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "79ec4f58-a41a-5ff7-977e-861dd3070ec0",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "79ec4f58-a41a-5ff7-977e-861dd3070ec0",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "3409ae95-929d-5bb4-949e-7b4b65b0cbd3",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

@@ -1,0 +1,262 @@
+{
+ "agreement_uuid": "70eb7d3c-eb3c-51ce-a55a-77985cdcff99",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "Loans",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Loans",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Loan Participation",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Piper Sandler",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Regulatory Agreement",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P13",
+   "kind": "paren"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Company Systems",
+   "para": "P14",
+   "kind": "paren"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P16",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "3.25(a)",
+   "context": "Set forth in Section 3.25(a) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "3.25(b)",
+   "context": "(b) Section 3.25(b) of the Company Disclosure Schedule sets",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "each of this clause (iii), whether or not",
+   "target": "inline"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "of the foregoing clauses (i) – (iii), with such",
+   "target": "inline"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "of the foregoing clauses (i) – (iii), with such",
+   "target": "inline"
+  },
+  {
+   "para": "P10",
+   "head": "clause",
+   "mention": "(A)",
+   "context": "of the foregoing clauses (A) – (C), with such",
+   "target": "inline"
+  },
+  {
+   "para": "P10",
+   "head": "clause",
+   "mention": "(C)",
+   "context": "of the foregoing clauses (A) – (C), with such",
+   "target": "inline"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "6.3",
+   "context": "pursuant to this Section 6.3 in confidence",
+   "target": "s6.3"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "6.3(a)",
+   "context": "penultimate sentence of Section 6.3(a), (i) monthly",
+   "target": "s6.3(a)"
+  },
+  {
+   "para": "P18",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "described in the foregoing clauses (i) and (ii)",
+   "target": "inline"
+  },
+  {
+   "para": "P18",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "clauses (i) and (ii) shall not constitute",
+   "target": "inline"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "6.3(d)",
+   "context": "breach of this Section 6.3(d), or cause",
+   "target": "s6.3(d)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "7.2",
+   "context": "condition set forth in Section 7.2 or Section 7.3",
+   "target": "s7.2"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "7.3",
+   "context": "set forth in Section 7.2 or Section 7.3, unless",
+   "target": "s7.3"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "6.3(d)",
+   "context": "willful breach of this Section 6.3(d) and (B)",
+   "target": "s6.3(d)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "6.3(d)",
+   "context": "regarding the breach of this Section 6.3(d).",
+   "target": "s6.3(d)"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "cdea42df-240b-5c02-ba3a-33a29d7ff69f",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "cdea42df-240b-5c02-ba3a-33a29d7ff69f",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "cdea42df-240b-5c02-ba3a-33a29d7ff69f",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "cdea42df-240b-5c02-ba3a-33a29d7ff69f",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "cdea42df-240b-5c02-ba3a-33a29d7ff69f",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "cdea42df-240b-5c02-ba3a-33a29d7ff69f",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "15d1b05f-08f5-5163-b019-7024912aa3b5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "5e975352-61ab-5988-b551-30adb9c849ca",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "5e975352-61ab-5988-b551-30adb9c849ca",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "5e975352-61ab-5988-b551-30adb9c849ca",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "5e975352-61ab-5988-b551-30adb9c849ca",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "5e975352-61ab-5988-b551-30adb9c849ca",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "6de7af76-d6c9-5b2e-869a-07909d65c1d3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "6de7af76-d6c9-5b2e-869a-07909d65c1d3",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "f64a2f1e-b635-5e79-82b6-10cf8b511964",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "f64a2f1e-b635-5e79-82b6-10cf8b511964",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "f64a2f1e-b635-5e79-82b6-10cf8b511964",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "f64a2f1e-b635-5e79-82b6-10cf8b511964",
+   "t": 3,
+   "excerpt": "sampled"
+  }
+ }
+}

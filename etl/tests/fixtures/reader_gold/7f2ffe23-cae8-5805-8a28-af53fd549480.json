@@ -1,0 +1,130 @@
+{
+ "agreement_uuid": "7f2ffe23-cae8-5805-8a28-af53fd549480",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "STOCKHOLDERS' MEETING",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "PROXY STATEMENT",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "NLRB",
+   "para": "P9",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P4",
+   "head": "article",
+   "mention": "III",
+   "context": "Company Disclosure Letter Article III Company Financial",
+   "target": "a3"
+  },
+  {
+   "para": "P4",
+   "head": "article",
+   "mention": "III",
+   "context": "Company SEC Reports Article III Company Stock",
+   "target": "a3"
+  },
+  {
+   "para": "P4",
+   "head": "article",
+   "mention": "III",
+   "context": "Exchange Act Article III FAA 3.7(c)",
+   "target": "a3"
+  },
+  {
+   "para": "P6",
+   "head": "article",
+   "mention": "III",
+   "context": "Representatives 5.2(a) SEC Article III Securities Act",
+   "target": "a3"
+  },
+  {
+   "para": "P6",
+   "head": "article",
+   "mention": "III",
+   "context": "Securities Act Article III SOX Act",
+   "target": "a3"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2005-14/txt",
+ "para_map": {
+  "P1": {
+   "s": "b89be1f8-ff42-5325-8005-d8d9b7412195",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "b89be1f8-ff42-5325-8005-d8d9b7412195",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "b89be1f8-ff42-5325-8005-d8d9b7412195",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "b89be1f8-ff42-5325-8005-d8d9b7412195",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "b89be1f8-ff42-5325-8005-d8d9b7412195",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "b89be1f8-ff42-5325-8005-d8d9b7412195",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "b89be1f8-ff42-5325-8005-d8d9b7412195",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "95e9ad23-ed59-501d-ad0f-1ceb9130e06b",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "7842e852-bad3-596f-ac3d-3923eb7276d8",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "7842e852-bad3-596f-ac3d-3923eb7276d8",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "7842e852-bad3-596f-ac3d-3923eb7276d8",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "5389a909-3007-589d-a205-27aea52ea86a",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "5fb9f833-7bfa-5307-b0d1-81f403385712",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

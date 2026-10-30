@@ -1,0 +1,166 @@
+{
+ "agreement_uuid": "ce684223-c9f1-5d34-a4da-fac20b43e9c9",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Change",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Material Adverse Change",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Material Adverse Effect",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P11",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "5.04",
+   "context": "No investigation pursuant to this Section 5.04 or information",
+   "target": "s5.4"
+  },
+  {
+   "para": "P12",
+   "head": "exhibit",
+   "mention": "B",
+   "context": "in the form attached as Exhibit B hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "7.03",
+   "context": "the proviso to the first sentence of Section 7.03,",
+   "target": "s7.3"
+  },
+  {
+   "para": "P14",
+   "head": "article",
+   "mention": "II",
+   "context": "except for the provisions of Article II and Section 5.07,",
+   "target": "a2"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "5.07",
+   "context": "provisions of Article II and Section 5.07, are not",
+   "target": "s5.7"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P11",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "2a14ad76-533d-5980-87e0-c6a0c9ecca76",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "2a14ad76-533d-5980-87e0-c6a0c9ecca76",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "2a14ad76-533d-5980-87e0-c6a0c9ecca76",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "2a14ad76-533d-5980-87e0-c6a0c9ecca76",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "2a14ad76-533d-5980-87e0-c6a0c9ecca76",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "2a14ad76-533d-5980-87e0-c6a0c9ecca76",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "2a14ad76-533d-5980-87e0-c6a0c9ecca76",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "2a14ad76-533d-5980-87e0-c6a0c9ecca76",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "2a14ad76-533d-5980-87e0-c6a0c9ecca76",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "14a78070-60c5-5017-81ad-2e2baa493bfe",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "14a78070-60c5-5017-81ad-2e2baa493bfe",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "32e24e5a-e54c-52ce-8c2e-44b891d81600",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "83ad2417-f666-5e4b-9a32-4061d7de86b7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "2fbd5881-04cf-5f17-b9d8-a4e43a80f1f3",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

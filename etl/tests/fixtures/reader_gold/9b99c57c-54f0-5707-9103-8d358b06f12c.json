@@ -1,0 +1,772 @@
+{
+ "agreement_uuid": "9b99c57c-54f0-5707-9103-8d358b06f12c",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "2020 Financial Statements",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.5(a)"
+  },
+  {
+   "term": "280G Vote",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s6.18(b)"
+  },
+  {
+   "term": "401(k) Plan",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s6.6(d)"
+  },
+  {
+   "term": "Accountant",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Accounting Principles",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Advisers",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s12.16(c)"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Agreed Tax Treatment",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s11.1(e)"
+  },
+  {
+   "term": "Agreement",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Antitrust Laws",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Audited Financial Statements",
+   "para": "P15",
+   "kind": "pointer",
+   "pointer": "s3.5(a)"
+  },
+  {
+   "term": "Benefit Plans",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Business",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Business Day",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Business Intellectual Property",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Buyer Employee Benefit Arrangement",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "s6.6(a)"
+  },
+  {
+   "term": "Buyer Indemnified Parties",
+   "para": "P22",
+   "kind": "pointer",
+   "pointer": "s10.2"
+  },
+  {
+   "term": "Buyer’s Knowledge",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "CAA",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "CARES Act",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Cash",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Cash Notice of Disagreement",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s2.10(c)"
+  },
+  {
+   "term": "Cash Return Amount",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s2.10(a)"
+  },
+  {
+   "term": "Cash Statement",
+   "para": "P29",
+   "kind": "pointer",
+   "pointer": "s2.10(a)"
+  },
+  {
+   "term": "Charter Documents",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P31",
+   "kind": "pointer",
+   "pointer": "s2.4"
+  },
+  {
+   "term": "Closing Consideration",
+   "para": "P32",
+   "kind": "pointer",
+   "pointer": "s2.3(e)"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P33",
+   "kind": "pointer",
+   "pointer": "s2.4"
+  },
+  {
+   "term": "Code",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Company",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Indebtedness",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Company’s Knowledge",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Company Owned Intellectual Property",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Company Transaction Expenses",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Computer Database",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Fundamental Representations",
+   "para": "P43",
+   "kind": "paren"
+  },
+  {
+   "term": "Extended Representations",
+   "para": "P43",
+   "kind": "paren"
+  },
+  {
+   "term": "Deduction",
+   "para": "P44",
+   "kind": "paren"
+  },
+  {
+   "term": "Deductions",
+   "para": "P44",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "3.5(a)",
+   "context": "has the meaning set forth in Section 3.5(a)",
+   "target": "s3.5(a)"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "6.18(b)",
+   "context": "has the meaning set forth in Section 6.18(b)",
+   "target": "s6.18(b)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "6.6(d)",
+   "context": "has the meaning set forth in Section 6.6(d)",
+   "target": "s6.6(d)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "12.16(c)",
+   "context": "has the meaning set forth in Section 12.16(c)",
+   "target": "s12.16(c)"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "11.1(e)",
+   "context": "has the meaning set forth in Section 11.1(e)",
+   "target": "s11.1(e)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "3.5(a)",
+   "context": "has the meaning set forth in Section 3.5(a)",
+   "target": "s3.5(a)"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "is defined in Section 3(3) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "6.6(a)",
+   "context": "has the meaning set forth in Section 6.6(a)",
+   "target": "s6.6(a)"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "10.2",
+   "context": "has the meaning set forth in Section 10.2",
+   "target": "s10.2"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "2.10(c)",
+   "context": "has the meaning set forth in Section 2.10(c)",
+   "target": "s2.10(c)"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "2.10(a)",
+   "context": "has the meaning set forth in Section 2.10(a)",
+   "target": "s2.10(a)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "2.10(a)",
+   "context": "has the meaning set forth in Section 2.10(a)",
+   "target": "s2.10(a)"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "2.4",
+   "context": "has the meaning set forth in Section 2.4",
+   "target": "s2.4"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "2.3(e)",
+   "context": "has the meaning set forth in Section 2.3(e)",
+   "target": "s2.3(e)"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "2.4",
+   "context": "has the meaning set forth in Section 2.4",
+   "target": "s2.4"
+  },
+  {
+   "para": "P37",
+   "head": "article",
+   "mention": "3",
+   "context": "set forth in Article 3 of this Agreement",
+   "target": "a3"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "3.1(a)",
+   "context": "set forth in Section 3.1(a) (Organization)",
+   "target": "s3.1(a)"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "3.2",
+   "context": "Section 3.2 (Authorization; Enforceability)",
+   "target": "s3.2"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "3.3",
+   "context": "Section 3.3 (Capitalization), Section",
+   "target": "s3.3"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "3.10",
+   "context": "Section 3.10 (Tax Matters)",
+   "target": "s3.10"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "3.20",
+   "context": "Section 3.20 (Brokers and Finders)",
+   "target": "s3.20"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "4.1",
+   "context": "Section 4.1 (Authority of Such Shareholder)",
+   "target": "s4.1"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "4.3",
+   "context": "Section 4.3 (Title to Shares)",
+   "target": "s4.3"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "4.6",
+   "context": "Section 4.6 (Brokers and Finders)",
+   "target": "s4.6"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "5.1",
+   "context": "Section 5.1 (Organization of the Buyer)",
+   "target": "s5.1"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "5.2",
+   "context": "Section 5.2 (Authorization; Enforceability) and",
+   "target": "s5.2"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "5.5",
+   "context": "Section 5.5 (Brokers and Finders)",
+   "target": "s5.5"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "3.16",
+   "context": "set forth in Section 3.16 (Environmental Matters)",
+   "target": "s3.16"
+  },
+  {
+   "para": "P43",
+   "head": "article",
+   "mention": "11",
+   "context": "Tax covenants under Article 11 and",
+   "target": "a11"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "10.2(c)",
+   "context": "indemnification under Section 10.2(c) shall survive",
+   "target": "s10.2(c)"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "10.1",
+   "context": "set forth in this Section 10.1 are applicable",
+   "target": "s10.1"
+  },
+  {
+   "para": "P44",
+   "head": "paragraph",
+   "mention": "(a)",
+   "context": "in accordance with paragraphs (a) through (c) of",
+   "target": "external"
+  },
+  {
+   "para": "P44",
+   "head": "paragraph",
+   "mention": "(c)",
+   "context": "in accordance with paragraphs (a) through (c) of",
+   "target": "external"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "1.1502-76(b)(5)",
+   "context": "Proposed Treasury Regulations Section 1.1502-76(b)(5), without regard",
+   "target": "external"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "1.263(a)-5",
+   "context": "Treasury Regulations Section 1.263(a)-5, unless otherwise required",
+   "target": "external"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Acquisition Proposal",
+   "para": "P42",
+   "count": 4
+  },
+  {
+   "term": "Agreement",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P42",
+   "count": 3
+  },
+  {
+   "term": "Agreement",
+   "para": "P43",
+   "count": 3
+  },
+  {
+   "term": "Agreement",
+   "para": "P44",
+   "count": 2
+  },
+  {
+   "term": "Buyer Indemnified Parties",
+   "para": "P43",
+   "count": 2
+  },
+  {
+   "term": "Closing Date",
+   "para": "P43",
+   "count": 2
+  },
+  {
+   "term": "Closing Date",
+   "para": "P44",
+   "count": 3
+  },
+  {
+   "term": "Company Transaction Expenses",
+   "para": "P44",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [
+  {
+   "para": "P3",
+   "head": "annex",
+   "mention": "A",
+   "context": "to which this Annex A is attached will",
+   "target": "x-annex-a"
+  }
+ ],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "a8465df6-201e-596b-8403-78e52c57b176",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "0933805d-9162-5374-95e8-5a7fd1c2b8cc",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "4cf296d2-13a9-5713-8537-435c54c9ef1e",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "40f342e2-f2a8-5ff9-93ad-c3894289517d",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "xrefs",
+   "draft": null,
+   "checker": {
+    "para": "P3",
+    "head": "annex",
+    "mention": "A",
+    "context": "to which this Annex A is attached will",
+    "target": "x-annex-a"
+   },
+   "type": "missing",
+   "reason": "Annex A head-word reference in the glossary lead-in; ANNEX A is in the outline's back matter."
+  }
+ ]
+}

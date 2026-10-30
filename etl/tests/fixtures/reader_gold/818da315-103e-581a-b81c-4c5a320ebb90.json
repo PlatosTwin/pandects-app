@@ -1,0 +1,627 @@
+{
+ "agreement_uuid": "818da315-103e-581a-b81c-4c5a320ebb90",
+ "rubric": "v1.4",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Confidential Information",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Copyleft License",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Copyrights",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Customer Data",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Data",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Databases",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Domain Names",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "EMC Agency Agreements",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "EMC Entity",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "EMC-Pivotal Customer Contracts",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Government Contract",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Indebtedness",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Law",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Legal Proceeding",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Made Available",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Material Customer Contract",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Open Source License",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Open Source Materials",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Order",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Ordinary Course Licenses Out",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Owned Pivotal Intellectual Property",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Owned Pivotal Software",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Owned Pivotal Technology",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Patents",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Person",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Pivotal Data",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Pivotal Intellectual Property",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Pivotal Intellectual Property Registrations",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Pivotal IPO Date",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Pivotal MTA",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Pivotal Products",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Schedule 13E-3",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Proxy Statement",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Permits",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "Related Person",
+   "para": "P46",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "8.3(o)",
+   "context": "listed in section 8.3(o) of the Pivotal",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P23",
+   "head": "clause",
+   "mention": "(A)",
+   "context": "in the case of clause (A) only",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "3.5",
+   "context": "warranty contained in section 3.5 but subject",
+   "target": "s3.5"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "3.5",
+   "context": "disclosures in section 3.5 of the Pivotal Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(1)",
+   "context": "with respect to clauses (1), (2)",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(2)",
+   "context": "clauses (1), (2), (3) and (6), the",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(3)",
+   "context": "(2), (3) and (6), the impact",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(6)",
+   "context": "(3) and (6), the impact of",
+   "target": "inline"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "(9)",
+   "context": "the exception in this clause (9) shall",
+   "target": "inline"
+  },
+  {
+   "para": "P29",
+   "head": "clause",
+   "mention": "(3)",
+   "context": "described in clauses (3) through (6)",
+   "target": "s3.16(a)(viii)(3)"
+  },
+  {
+   "para": "P29",
+   "head": "clause",
+   "mention": "(6)",
+   "context": "clauses (3) through (6) of section",
+   "target": "s3.16(a)(viii)(6)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "3.16(a)(viii)",
+   "context": "(6) of section 3.16(a)(viii);",
+   "target": "s3.16(a)(viii)"
+  },
+  {
+   "para": "P41",
+   "head": "article",
+   "mention": "VI",
+   "context": "conditions set forth in article VI (other",
+   "target": "a6"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "13E-3",
+   "context": "Transaction Statement on Schedule 13E-3 (together",
+   "target": "external"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P46",
+   "count": 2
+  },
+  {
+   "term": "Business Day",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Law",
+   "para": "P41",
+   "count": 2
+  },
+  {
+   "term": "Law",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Law",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Person",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Pivotal IPO Date",
+   "para": "P44",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "13E-3",
+   "context": "Proxy Statement and the Schedule 13E-3 will comply",
+   "target": "external"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "13E-3",
+   "context": "in the Proxy Statement and the Schedule 13E-3 based",
+   "target": "external"
+  }
+ ],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "5f24d7ea-d752-5446-960b-5df24910fbd2",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "cf9a7e72-6425-5962-b550-7b34301871a3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "d9b448fe-6cb7-58ed-aa31-3af1d9c9db31",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "b1d0b856-7ab2-561b-a67c-3e5f015457b3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "b1d0b856-7ab2-561b-a67c-3e5f015457b3",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "b1d0b856-7ab2-561b-a67c-3e5f015457b3",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "3ad78cd1-61a4-55c0-b672-ed31c0f9fbcd",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "xrefs",
+   "draft": null,
+   "checker": {
+    "para": "P42",
+    "head": "schedule",
+    "mention": "13E-3",
+    "context": "Proxy Statement and the Schedule 13E-3 will comply",
+    "target": "external"
+   },
+   "type": "missing",
+   "reason": "Head word Schedule plus number naming the SEC Schedule 13E-3; a defined-term use is still a reference mention."
+  },
+  {
+   "section": "xrefs",
+   "draft": null,
+   "checker": {
+    "para": "P42",
+    "head": "schedule",
+    "mention": "13E-3",
+    "context": "in the Proxy Statement and the Schedule 13E-3 based",
+    "target": "external"
+   },
+   "type": "missing",
+   "reason": "Same: second use of 'the Schedule 13E-3' referring to the SEC schedule."
+  }
+ ]
+}
