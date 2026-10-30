@@ -391,7 +391,7 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **0** | Design and prototype | Done: decisions in Section 11 |
-| **1. Enricher** (done except the health report, 10.1–10.8; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
+| **1. Enricher** (done, 10.1–10.8 and the health report in 10.10; enricher 0.4.0 meets every launch-bar metric blind on held-out v4) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** (built, 10.8; waiting on the prod push) | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** (built behind a flag, 10.9) | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
@@ -956,6 +956,35 @@ The reader uses the index behind a flag. The flag is on in development and on a 
 1. **Prod data.** The prod rollout in 10.8.
 2. **Manual pass.** A manual pass on five long agreements with the flag on in production.
 3. **Then the flag.** Turn the flag on for everyone.
+
+### 10.10 Health report (2026-10-30)
+
+`etl/src/etl/utils/reader_health_report.py` is read-only and changes no status (decision 11.6). It scans every `reader_index` row at the current enricher version and writes three CSVs and a README, for US agreements only. An agreement counts as US when a US state's law appears in its text; the jurisdiction markers name the rest.
+
+**A low rate is not an XML fault.** Of the 214 agreements below 50% at enricher 0.4.0:
+
+- **About 60 are not US.** They are UK, Australian or other drafting ("clause 17", "paragraph 2.1", Companies Act sections).
+- **Most of the US remainder read fine but use reference shapes the enricher doesn't resolve:**
+  - dotted subsections, "Section 5.16.1", across 755 agreements corpus-wide;
+  - "Article 2.1" used to mean Section 2.1;
+  - letter-suffixed sections, "Section 7.10A";
+  - flat agreements whose "Section 1. … Section 12." items are tagged as articles.
+- **The rest have real XML structure faults.** The report flags those directly, from the payload stats.
+
+**Report run on 2026-10-30** (local, `ma_validation_review/reader_health_20261030/`):
+
+| File | Agreements | Contents |
+|---|---|---|
+| `xml_structure.csv` | 40 | For the validation queue: 22 with three or more duplicated section numbers and a body rate below 80% (for example Article II restarting at "1.1"), 11 with no numbered sections, 7 mostly unnumbered |
+| `enricher_gaps.csv` | 100 | 58 flat agreements tagged as articles, plus unresolved dotted (5,590 refs), article-as-section (1,048) and letter-suffix (80) shapes |
+| `low_rate_unexplained.csv` | 30 | Bare statute sections, "clause (a)" inside definitions, "paragraph 2.1" drafting under US law |
+
+61 non-US agreements were left out.
+
+**Next:**
+
+- **Enricher 0.5.0.** Resolve "Section 5.16.1" to the subsection, or else to Section 5.16. Resolve "Article 2.1" as Section 2.1 when there's no Article 2.1. Resolve "Section 2(a)" against articles titled "Section 2." in flat agreements. This needs a corpus rerun.
+- **Validation queue.** Hand `xml_structure.csv` to the next validation pass.
 
 ## 11. Decisions (2026-10-22)
 
