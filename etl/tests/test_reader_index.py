@@ -366,6 +366,70 @@ class ReaderHealthShapeTests(unittest.TestCase):
         self.assertEqual(refs["Section 1"]["target"], "a1")
 
 
+    def _status(self, xml: str) -> dict[str, tuple[str, str | None]]:
+        return {r["text"]: (r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]}
+
+    def test_duplicated_numbers_give_no_subsection_targets(self) -> None:
+        flat = self._status(
+            _doc(
+                _article("a2", "Section 2. Price", "<text>(a) Cash.</text><text>(b) Stock.</text>")
+                + _article("a2b", "Section 2. Other", "<text>(a) x.</text>")
+                + _article("a3", "Section 3. Refs", "<text>Under Section 2(b) and Section 2.</text>")
+            )
+        )
+        self.assertEqual(flat["Section 2(b)"], ("unresolved", None))
+        self.assertEqual(flat["Section 2"][0], "ambiguous")
+        dotted = self._status(
+            _doc(
+                _section("x", "Section 5.16 A", "5.16.1 p.", "(a) q.")
+                + _section("y", "Section 5.16 B", "5.16.1 p.", "(a) q.")
+                + _section("z", "Section 6.1 Refs", "See Section 5.16.1(a) and Section 5.16.1.")
+            )
+        )
+        self.assertEqual(dotted["Section 5.16.1(a)"], ("unresolved", None))
+        self.assertEqual(dotted["Section 5.16.1"], ("unresolved", None))
+
+    def test_section_list_resumes_after_dotted_paragraphs(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("x", "Section 5.16 A", "(a) Payments:", "5.16.1 first.", "5.16.2 second.", "(b) Statements.")
+                + _section("y", "Section 5.17 B", "(a) Payments:", "5.17.1 first.", "(a) one.", "(b) two.")
+                + _section("z", "Section 6.1 Refs", "See Section 5.16(b) and Section 5.17.1(b).")
+            )
+        )
+        self.assertEqual(refs["Section 5.16(b)"], ("resolved", "s5.16(b)"))
+        self.assertEqual(refs["Section 5.17.1(b)"], ("resolved", "s5.17.1(b)"))
+
+    def test_paragraphs_numbered_for_another_section_are_skipped(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("x", "Section 5.16 A", "5.16.1 Pay.", "(a) one.", "5.17.1 Other.", "(b) belongs.")
+                + _section("z", "Section 6.1 Refs", "See Section 5.16.1(b).")
+            )
+        )
+        self.assertEqual(refs["Section 5.16.1"], ("section_fallback", "s5.16.1"))
+
+    def test_article_with_untagged_sections_is_not_flat(self) -> None:
+        refs = self._status(
+            _doc(
+                _article("a1", "1. DEFINITIONS", "<text>1.1 In this agreement:</text><text>(b) Business Day.</text>")
+                + _article("a2", "2. Refs", "<text>see clause 1(b).</text>")
+            )
+        )
+        self.assertEqual(refs["clause 1(b)"], ("unresolved", None))
+
+    def test_only_a_subsection_paragraph_loses_its_leading_number(self) -> None:
+        p = build_reader_index(
+            _doc(
+                _section("s", "Section 9.1 S", "Section 4.1.1 shall survive.", "Section 2.1.1 of the Company Disclosure Letter lists.")
+                + _section("t", "Section 4.1 X", "4.1.1 thing.")
+            )
+        )
+        refs = {(r["at"]["t"], r["text"]): r for r in p["xrefs"]}
+        self.assertEqual(refs[(0, "Section 4.1.1")]["target"], "s4.1.1")
+        self.assertEqual(refs[(1, "Section 2.1.1")]["status"], "disclosure_schedule")
+
+
 class DeclarationPatternTests(unittest.TestCase):
     def _decls(self, *texts: str) -> dict[str, str]:
         p = build_reader_index(_doc(_section("s1", "Section 1.1 Definitions", *texts)))

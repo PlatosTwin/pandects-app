@@ -142,6 +142,8 @@ ENUM_PREFIX = re.compile(r"^\s*((?:\([A-Za-z0-9]{1,6}\)\s*)+)")
 ENUM_TOKEN = re.compile(r"\(([A-Za-z0-9]{1,6})\)")
 # "5.16.1 ..." or "Section 5.16.1 ...": a paragraph numbered as a dotted subsection
 DECIMAL_PARA = re.compile(r"^\s*(?:(?:Section|SECTION|Sec\.|§)\s*)?(\d+(?:\.\d+){2,})\.?\s")
+# "1.1 ..." opening a paragraph: a section the XML parse left untagged
+SECTION_PARA = re.compile(r"^\s*\d+\.\d+[.\s]")
 ATTACHMENT_HEADING = re.compile(
     r"^(EXHIBIT|Exhibit|ANNEX|Annex|SCHEDULE|Schedule|APPENDIX|Appendix)\s+([A-Z0-9][A-Z0-9.\-]*)\b"
 )
@@ -175,6 +177,17 @@ def _enum_ordinal(tok: str) -> int:
     if kind in ("roman", "ROMAN"):
         return _roman_to_int(tok.upper()) or 0
     return ord(tok.lower()[0]) * 10 + len(tok)  # (a) < (b) < (aa)
+
+
+def _follows(prev: tuple[str, str], tok: str) -> bool:
+    """Whether enumerator `tok` is the next sibling after `prev` (kind, token)."""
+    pk, ptok = prev
+    if pk == "alpha" and len(ptok) == 1 and len(tok) == 1 and tok.islower():
+        return ord(tok) == ord(ptok) + 1  # "(h)" then "(i)" is alpha
+    if _enum_kind(tok) != pk:
+        return False
+    step = 10 if pk in ("alpha", "ALPHA") else 1
+    return _enum_ordinal(tok) == _enum_ordinal(ptok) + step
 
 
 def _classify_tokens(tokens: list[str], prev_by_level: list[tuple[str, str]]) -> list[str]:
@@ -216,6 +229,8 @@ class _Outline:
     # Keys of numbered articles with no <section> inside: a flat agreement's
     # "Section 2." items, tagged as articles. Their "(a)" paragraphs are subsections.
     flat_articles: set[str] = field(default_factory=set)
+    # (container, ordinal) of paragraphs that became dotted subsection nodes ("5.16.1 ...")
+    numbered_paras: set[tuple[str, int]] = field(default_factory=set)
     attachments: dict[str, _Node] = field(default_factory=dict)  # "exhibit a" -> node
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
@@ -253,24 +268,37 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         """Subsection nodes under `node` from the numbered paragraphs inside `el`."""
         stack: list[tuple[str, str]] = []  # (kind, token) per level
         base = num  # the latest dotted paragraph ("5.16.1") owns the "(a)" paragraphs after it
+        outer: list[tuple[str, str]] = []  # the section-level stack from before the first dotted paragraph
+        foreign = False  # after a dotted paragraph numbered for another section: record nothing
         for t_el in el.iter("text"):
             tn = by_el.get(t_el)
             if tn is None:
                 continue
             txt = tn.text
             dm = DECIMAL_PARA.match(txt)
-            if dm and _norm_num(dm.group(1)).startswith(num + "."):
+            if dm:
                 key = _norm_num(dm.group(1))
+                foreign = not key.startswith(num + ".")
+                if foreign:
+                    continue
                 if key not in ol.subs:
                     sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t})
                     ol.subs[key] = sub
                     node.children.append(sub)
+                    ol.numbered_paras.add((uuid, tn.t))
+                if base == num:
+                    outer = stack
                 base, stack = key, []
+                continue
+            if foreign:
                 continue
             pm = ENUM_PREFIX.match(txt)
             if not pm:
                 continue
             tokens = ENUM_TOKEN.findall(pm.group(1))
+            # "(b)" after "(a) ...: 5.16.1 ... 5.16.2 ..." continues the section's own list
+            if base != num and outer and _follows(outer[0], tokens[0]) and not (stack and _follows(stack[0], tokens[0])):
+                base, stack = num, outer[:1]
             kinds = _classify_tokens(tokens, stack)
             level = next((i for i, (k, _) in enumerate(stack) if k == kinds[0]), len(stack))
             stack = stack[:level]
@@ -302,7 +330,14 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                     node = _Node(ol.unique_id(f"a{key}"), "article", raw, title, {"s": uuid})
                     parent.append(node)
                     ol.articles.setdefault(key, []).append(node)
-                    if key.isdigit() and child.find(".//section") is None:
+                    # flat: no <section> inside, and no "1.1 ..." paragraphs a parse left untagged
+                    if (
+                        key.isdigit()
+                        and child.find(".//section") is None
+                        and not any(
+                            SECTION_PARA.match(by_el[t].text) for t in child.iter("text") if t in by_el
+                        )
+                    ):
                         ol.flat_articles.add(key)
                         if len(ol.articles[key]) == 1:
                             add_subs(child, key, uuid, node)
@@ -334,6 +369,12 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             node = _Node(ol.unique_id("x-" + key.replace(" ", "-")), "attachment", key.split(" ", 1)[1].upper(), txt, {"s": tn.s, "t": tn.t})
             ol.attachments[key] = node
             ol.roots.append(node)
+    # Subsections of a duplicated section or flat item can't say which copy they belong to
+    dup = [n + "." for n, v in ol.sections.items() if len(v) > 1] + [n + "(" for n, v in ol.sections.items() if len(v) > 1]
+    dup += [k + "(" for k in ol.flat_articles if len(ol.articles[k]) > 1]
+    if dup:
+        prefixes = tuple(dup)
+        ol.subs = {k: v for k, v in ol.subs.items() if not k.startswith(prefixes)}
     return ol
 
 
@@ -1157,7 +1198,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         in_exhibit = tn.region == "backMatter" and id(tn) not in glossary_texts
         is_heading = ATTACHMENT_HEADING.match(tn.text.strip()) is not None and len(tn.text.strip()) < 120
         lead = len(tn.text) - len(tn.text.lstrip())
-        numbered_para = DECIMAL_PARA.match(tn.text) is not None
+        numbered_para = (tn.s, tn.t) in ol.numbered_paras
         for r in _find_refs(tn.text, in_exhibit=in_exhibit):
             if (is_heading or numbered_para) and r.start == lead:
                 continue  # the heading "Annex 3.7" or "Section 5.16.1 Payments" itself, not a reference to it
