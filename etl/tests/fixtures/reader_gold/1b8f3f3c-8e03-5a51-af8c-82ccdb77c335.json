@@ -1,0 +1,992 @@
+{
+ "agreement_uuid": "1b8f3f3c-8e03-5a51-af8c-82ccdb77c335",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Affiliated Body Corporate",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Associates",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Authorized Capital",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Bolnisi",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Break Fee",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Business Personnel",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Canadian Bidco",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Board",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Filings",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Coeur Group",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Information",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Material Adverse Change",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Meeting",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Prescribed Occurrence",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Proxy Statement",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Resolutions",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Share",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Coeur Shareholders",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Confidential Information",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Recipient",
+   "para": "P17",
+   "kind": "paren"
+  },
+  {
+   "term": "Discloser",
+   "para": "P17",
+   "kind": "paren"
+  },
+  {
+   "term": "Contract",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Corporations Act",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Court",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "CSA",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Disclosure Statement",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Effective Date",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "End Date",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Excluded Shares",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Exclusivity Period",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Fairness Opinion",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Fairview",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Final Order",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Formal Valuation",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Ineligible Overseas Shareholder",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Law",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Liens",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Material Proceedings",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "NYSE",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Options",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Palmarejo Board",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Palmarejo Group",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Palmarejo Information",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Palmarejo Material Adverse Change",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Palmarejo Prescribed Occurrence",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Palmarejo Shares",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Palmarejo Shareholders",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Permits",
+   "para": "P33",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Plan",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Plan Circular",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Plan Consideration",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Plan Meeting",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Plan Shareholders",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Plan Shares",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Project Plan Description",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Properties",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Public Disclosure Documents",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Regulatory Approvals",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s3.1(a)"
+  },
+  {
+   "term": "Regulatory Authority",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Related Persons",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Representative",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "SEC",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Third Party Proposal",
+   "para": "P38",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2(2)",
+   "context": "pursuant to Section 2(2) of the Corporations Act",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "schedule",
+   "mention": "2",
+   "context": "set out in §(c) of Schedule 2",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P2",
+   "head": "schedule",
+   "mention": "2",
+   "context": "set out in §(n)(ii) of Schedule 2",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P2",
+   "head": "schedule",
+   "mention": "2",
+   "context": "set out in §(f) of Schedule 2",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P18",
+   "head": "paragraph",
+   "mention": "(1)",
+   "context": "referred to in paragraphs (1) and (2) of this definition",
+   "target": "inline"
+  },
+  {
+   "para": "P18",
+   "head": "paragraph",
+   "mention": "(2)",
+   "context": "referred to in paragraphs (1) and (2) of this definition",
+   "target": "inline"
+  },
+  {
+   "para": "P18",
+   "head": "schedule",
+   "mention": "2",
+   "context": "set out in §(d) of Schedule 2",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P21",
+   "head": "schedule",
+   "mention": "2",
+   "context": "set out in §(b) of Schedule 2",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P33",
+   "head": "schedule",
+   "mention": "2",
+   "context": "set out in §(d) of Schedule 2",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "192",
+   "context": "plan of arrangement under Section 192 of the Corporations Act",
+   "target": "external"
+  },
+  {
+   "para": "P33",
+   "head": "annex",
+   "mention": "1",
+   "context": "the form of Annexure 1 with such",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P36",
+   "head": "annex",
+   "mention": "2",
+   "context": "set out in Annexure 2.",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P36",
+   "head": "schedule",
+   "mention": "2",
+   "context": "set out in §(e) of Schedule 2",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P36",
+   "head": "clause",
+   "mention": "3.1(a)",
+   "context": "given to that term in clause 3.1(a).",
+   "target": "s3.1(a)"
+  },
+  {
+   "para": "P45",
+   "head": "clause",
+   "mention": "3.1",
+   "context": "conditions precedent in clause 3.1 is satisfied",
+   "target": "s3.1"
+  },
+  {
+   "para": "P46",
+   "head": "clause",
+   "mention": "3.1",
+   "context": "conditions precedent in clause 3.1 being satisfied",
+   "target": "s3.1"
+  },
+  {
+   "para": "P47",
+   "head": "clause",
+   "mention": "3.1",
+   "context": "conditions precedent in clause 3.1 have been",
+   "target": "s3.1"
+  },
+  {
+   "para": "P51",
+   "head": "clause",
+   "mention": "3.6(a)(1)",
+   "context": "If the notice in clause 3.6(a)(1), relates",
+   "target": "s3.6(a)(1)"
+  },
+  {
+   "para": "P51",
+   "head": "clause",
+   "mention": "3.1(g)",
+   "context": "precedent in clauses 3.1(g), 3.1(i), 3.1(k), 3.1(m) or 3.1(o)",
+   "target": "s3.1(g)"
+  },
+  {
+   "para": "P51",
+   "head": "clause",
+   "mention": "3.1(i)",
+   "context": "precedent in clauses 3.1(g), 3.1(i), 3.1(k), 3.1(m) or 3.1(o)",
+   "target": "s3.1(i)"
+  },
+  {
+   "para": "P51",
+   "head": "clause",
+   "mention": "3.1(k)",
+   "context": "precedent in clauses 3.1(g), 3.1(i), 3.1(k), 3.1(m) or 3.1(o)",
+   "target": "s3.1(k)"
+  },
+  {
+   "para": "P51",
+   "head": "clause",
+   "mention": "3.1(m)",
+   "context": "precedent in clauses 3.1(g), 3.1(i), 3.1(k), 3.1(m) or 3.1(o)",
+   "target": "s3.1(m)"
+  },
+  {
+   "para": "P51",
+   "head": "clause",
+   "mention": "3.1(o)",
+   "context": "precedent in clauses 3.1(g), 3.1(i), 3.1(k), 3.1(m) or 3.1(o)",
+   "target": "s3.1(o)"
+  },
+  {
+   "para": "P52",
+   "head": "clause",
+   "mention": "3.6(a)(1)",
+   "context": "If the notice in clause 3.6(a)(1) relates",
+   "target": "s3.6(a)(1)"
+  },
+  {
+   "para": "P52",
+   "head": "clause",
+   "mention": "3.1(f)",
+   "context": "precedent in clauses 3.1(f), 3.1(h)or 3.1(j), 3.1(n) or 3.1(p)",
+   "target": "s3.1(f)"
+  },
+  {
+   "para": "P52",
+   "head": "clause",
+   "mention": "3.1(h)",
+   "context": "precedent in clauses 3.1(f), 3.1(h)or 3.1(j), 3.1(n) or 3.1(p)",
+   "target": "s3.1(h)"
+  },
+  {
+   "para": "P52",
+   "head": "clause",
+   "mention": "3.1(j)",
+   "context": "precedent in clauses 3.1(f), 3.1(h)or 3.1(j), 3.1(n) or 3.1(p)",
+   "target": "s3.1(j)"
+  },
+  {
+   "para": "P52",
+   "head": "clause",
+   "mention": "3.1(n)",
+   "context": "precedent in clauses 3.1(f), 3.1(h)or 3.1(j), 3.1(n) or 3.1(p)",
+   "target": "s3.1(n)"
+  },
+  {
+   "para": "P52",
+   "head": "clause",
+   "mention": "3.1(p)",
+   "context": "precedent in clauses 3.1(f), 3.1(h)or 3.1(j), 3.1(n) or 3.1(p)",
+   "target": "s3.1(p)"
+  },
+  {
+   "para": "P60",
+   "head": "clause",
+   "mention": "3.1",
+   "context": "general nature of clauses 3.1 to 3.5,",
+   "target": "s3.1"
+  },
+  {
+   "para": "P60",
+   "head": "clause",
+   "mention": "3.5",
+   "context": "general nature of clauses 3.1 to 3.5,",
+   "target": "s3.5"
+  },
+  {
+   "para": "P62",
+   "head": "clause",
+   "mention": "3.1(a)",
+   "context": "Regulatory Approvals specified in clause 3.1(a) and provide",
+   "target": "s3.1(a)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Business Day",
+   "para": "P48",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P51",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P52",
+   "count": 1
+  },
+  {
+   "term": "Corporations Act",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Effective Time",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Regulatory Approvals",
+   "para": "P61",
+   "count": 1
+  },
+  {
+   "term": "Regulatory Approvals",
+   "para": "P62",
+   "count": 1
+  },
+  {
+   "term": "Regulatory Approvals",
+   "para": "P64",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v1",
+ "stratum": "uk",
+ "para_map": {
+  "P1": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "4f5c528c-d980-5ec9-9695-e12ae1839a83",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "e0526310-dae5-5785-bf96-41bc86b01385",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "e0526310-dae5-5785-bf96-41bc86b01385",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "e0526310-dae5-5785-bf96-41bc86b01385",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "3606bc91-835c-521a-92e1-9bb97936c21a",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "3606bc91-835c-521a-92e1-9bb97936c21a",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "3606bc91-835c-521a-92e1-9bb97936c21a",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "3606bc91-835c-521a-92e1-9bb97936c21a",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "3606bc91-835c-521a-92e1-9bb97936c21a",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P54": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P55": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P56": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P57": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P58": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P59": {
+   "s": "160b2582-9e7e-5583-ad1b-c8e4937a0751",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P60": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P61": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P62": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P63": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P64": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P65": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P66": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P67": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P68": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P69": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P70": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P71": {
+   "s": "789d5a15-5e76-57e8-9fe5-3676ea5397f8",
+   "t": 11,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "declarations",
+   "draft": null,
+   "checker": {
+    "term": "$",
+    "para": "P43",
+    "kind": "means"
+   },
+   "type": "missing",
+   "reason": "Sampled s1.2(i) 'a reference to \"$\" or \"dollar\" is to Canadian currency' declares the symbol term \"$\"; \"dollar\" is lowercase and excluded."
+  }
+ ]
+}

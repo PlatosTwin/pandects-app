@@ -1,0 +1,278 @@
+{
+ "agreement_uuid": "72c7bf8d-654d-5410-897e-a2016e53705c",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Seller- Connected Persons",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Seller Releasees",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Buyer Releasors",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Buyer Released Matters",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Buyer-Connected Persons",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Buyer Releasees",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Seller Releasors",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Seller Released Matters",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Benefit Plan",
+   "para": "P3",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "6.8(a)",
+   "context": "(c) Sections 6.8(a) and (b) shall",
+   "target": "s6.8(a)"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "(b)",
+   "context": "Sections 6.8(a) and (b) shall not",
+   "target": "s6.8(b)"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "6.2",
+   "context": "any rights granted to Seller under Section 6.2, or",
+   "target": "s6.2"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "4.14(a)",
+   "context": "Set forth on Section 4.14(a) of the Disclosure Schedules",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "as defined in Section 3(3) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "401(a)",
+   "context": "qualify under Section 401(a) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "4.14(d)",
+   "context": "Except as described in Section 4.14(d) of the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "3(21)",
+   "context": "within the meaning of Section 3(21) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "409A(d)(1)",
+   "context": "within the meaning of Section 409A(d)(1) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "409A",
+   "context": "subject to Section 409A of the Code has",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "409A",
+   "context": "requirements of Section 409A of the Code and",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "4.14(f)",
+   "context": "Except as set forth on Section 4.14(f) of",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3(35)",
+   "context": "as defined in Section 3(35) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3(37)",
+   "context": "as defined in Section 3(37) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "413(c)",
+   "context": "as described in Section 413(c) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3(40)",
+   "context": "within the meaning of Section 3(40) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "4.14(i)",
+   "context": "set forth in Section 4.14(i) of the Disclosure Schedules",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "280G",
+   "context": "loss of a deduction under Section 280G of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "409A",
+   "context": "including under Section 409A or Section",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "4999",
+   "context": "409A or Section 4999 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4.18(a)",
+   "context": "Except as set forth on Section 4.18(a) of",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4.18(c)",
+   "context": "Except as set forth on Section 4.18(c) of",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4.18(d)",
+   "context": "except as set forth on Section 4.18(d) of",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4.18(g)(ii)",
+   "context": "set forth on Section 4.18(g)(ii) of the Disclosure Schedules",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v3",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "1c53717e-19b4-518d-85c7-6204fdab0ee5",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "1c53717e-19b4-518d-85c7-6204fdab0ee5",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "ccd075f7-24a8-5560-a9cf-1cc132de7148",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P4": {
+   "s": "ccd075f7-24a8-5560-a9cf-1cc132de7148",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P5": {
+   "s": "ccd075f7-24a8-5560-a9cf-1cc132de7148",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P6": {
+   "s": "17a4e155-5533-5528-a221-8f6da1fbcf49",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "17a4e155-5533-5528-a221-8f6da1fbcf49",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "6eb0bcc8-f5f9-5ca3-9f8e-a29a74975cc2",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "86986b45-cc89-5b39-b927-605321c654c7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "86986b45-cc89-5b39-b927-605321c654c7",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

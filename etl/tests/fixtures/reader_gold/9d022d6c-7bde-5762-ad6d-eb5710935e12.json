@@ -1,0 +1,417 @@
+{
+ "agreement_uuid": "9d022d6c-7bde-5762-ad6d-eb5710935e12",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Compiled Financial Statements",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Interim Financial Statements",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Financial Statements",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Balance Sheet",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Balance Sheet Date",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Interim Balance Sheet",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Interim Balance Sheet Date",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Sales Taxes",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "CARES Act",
+   "para": "P33",
+   "kind": "paren"
+  },
+  {
+   "term": "PPP Loan",
+   "para": "P33",
+   "kind": "paren"
+  },
+  {
+   "term": "Allocation Schedule",
+   "para": "P37",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.25(a)",
+   "context": "set forth in Section 3.25(a) of the Disclosure Schedules",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "3.25(g)",
+   "context": "(g) Section 3.25(g) of the Disclosure Schedules sets forth:",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "7121",
+   "context": "closing agreement executed under Section 7121 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "108(i)",
+   "context": "including, without limitation, Section 108(i) of the Code;",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "362(e)",
+   "context": "the application of Section 362(e) or Section",
+   "target": "external"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "965",
+   "context": "362(e) or Section 965 of the Code (or any",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "1502",
+   "context": "Treasury Regulations under Section 1502 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "168(h)",
+   "context": "within the meaning of Section 168(h) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "168(g)",
+   "context": "within the meaning of Section 168(g) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "168(g)(1)(A)",
+   "context": "(iv) subject to Section 168(g)(1)(A) of the Code or",
+   "target": "external"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "3.25(r)",
+   "context": "(r) Section 3.25(r) of the Disclosure Schedules contains a list",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "1102",
+   "context": "pursuant to Section 1102 of the Coronavirus Aid, Relief",
+   "target": "external"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "1102",
+   "context": "as described in Section 1102 of the CARES Act",
+   "target": "external"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "1060",
+   "context": "in accordance with Section 1060 of the Code.",
+   "target": "external"
+  },
+  {
+   "para": "P39",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "as required in clause (i) above), or after",
+   "target": "s6.5(a)(i)"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "6.05(a)",
+   "context": "modified pursuant to this Section 6.05(a)),",
+   "target": "s6.5(a)"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "1313(a)",
+   "context": "as defined in Section 1313(a) of the Internal Revenue Code.",
+   "target": "external"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "10.11(c)",
+   "context": "CERTIFICATIONS IN THIS Section 10.11(c).",
+   "target": "s10.11(c)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Interim Balance Sheet",
+   "para": "P6",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "2d242195-884d-56d9-88ed-d793bebf0ab3",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "2d242195-884d-56d9-88ed-d793bebf0ab3",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P4": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P5": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P6": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 15,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 16,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 17,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 18,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 19,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 20,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 21,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 22,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 23,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 24,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 25,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 26,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 27,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 28,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "63bedd59-2ef0-569d-a162-2064c52653b6",
+   "t": 29,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "ff6cf47d-fed2-58d0-a446-5a07b36acdf5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "ff6cf47d-fed2-58d0-a446-5a07b36acdf5",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P35": {
+   "s": "ff6cf47d-fed2-58d0-a446-5a07b36acdf5",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P36": {
+   "s": "5cf4a918-e3f6-5c3f-8727-b4f7bcea5bf5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P37": {
+   "s": "5cf4a918-e3f6-5c3f-8727-b4f7bcea5bf5",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P38": {
+   "s": "5cf4a918-e3f6-5c3f-8727-b4f7bcea5bf5",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P39": {
+   "s": "5cf4a918-e3f6-5c3f-8727-b4f7bcea5bf5",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P40": {
+   "s": "c05c199e-03f4-5e39-b200-1931aef9f6a3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P41": {
+   "s": "c05c199e-03f4-5e39-b200-1931aef9f6a3",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "c05c199e-03f4-5e39-b200-1931aef9f6a3",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "c05c199e-03f4-5e39-b200-1931aef9f6a3",
+   "t": 3,
+   "excerpt": "sampled"
+  }
+ }
+}

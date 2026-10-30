@@ -1,0 +1,805 @@
+{
+ "agreement_uuid": "e383c480-5e97-5442-bc91-c3ac8e3b35dc",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Action",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Adjustment Variance",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "AMA",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Arcadia Fuel Cell Project Asset Transfer Agreement",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Arcadia Solar Transfer Agreement",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Assignment Agreement",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Base Purchase Price",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Fundamental Representations",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Parent Guaranty",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Canadian Securities Laws",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "CFIUS",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Charter Documents",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Company",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Companies",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "DAS Agreements",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Data Room",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "AFC Membership Interests",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Arcadia Fuel Cell",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Arcadia Solar",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "AS Membership Interests",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Buyer",
+   "para": "P16",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Buyer Indemnified Parties",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "s9.2"
+  },
+  {
+   "term": "Buyer Related Parties",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "s10.2(b)"
+  },
+  {
+   "term": "Claim Threshold",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s9.4(a)"
+  },
+  {
+   "term": "Class B Membership Interests",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Class B Units",
+   "para": "P26",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Closing",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s2.7"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s2.7"
+  },
+  {
+   "term": "Closing Payment",
+   "para": "P29",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Company Contracts",
+   "para": "P32",
+   "kind": "pointer",
+   "pointer": "s3.9(a)"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P33",
+   "kind": "pointer",
+   "pointer": "s3.10(a)"
+  },
+  {
+   "term": "Completion Deadline",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Deductible",
+   "para": "P40",
+   "kind": "pointer",
+   "pointer": "s9.4(b)"
+  },
+  {
+   "term": "Portfolio Economic Benefits",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Portfolio Leakage Amounts",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Surviving Obligations",
+   "para": "P49",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P7",
+   "head": "schedule",
+   "mention": "4.04",
+   "context": "asset management agreement listed on Schedule 4.04.",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P10",
+   "head": "exhibit",
+   "mention": "F",
+   "context": "substantially in the form of Exhibit F.",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P11",
+   "head": "exhibit",
+   "mention": "G-1",
+   "context": "in the form of Exhibit G-1 or",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P11",
+   "head": "exhibit",
+   "mention": "G-2",
+   "context": "G-1 or Exhibit G-2, as applicable.",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P13",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "in the form attached as Exhibit A;",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P13",
+   "head": "exhibit",
+   "mention": "E",
+   "context": "attached as Exhibit E to the SFGF II LLC",
+   "target": "external"
+  },
+  {
+   "para": "P13",
+   "head": "exhibit",
+   "mention": "F",
+   "context": "attached as Exhibit F to the SFGF limited liability",
+   "target": "external"
+  },
+  {
+   "para": "P13",
+   "head": "exhibit",
+   "mention": "F",
+   "context": "attached as Exhibit F to the SFEE limited liability",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "annex",
+   "mention": "III",
+   "context": "set forth on Annex III.",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "5.01",
+   "context": "of Buyer contained in Section 5.01.",
+   "target": "s5.1"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "9.02",
+   "context": "meaning set forth in Section 9.02.",
+   "target": "s9.2"
+  },
+  {
+   "para": "P19",
+   "head": "exhibit",
+   "mention": "B",
+   "context": "in the form attached as Exhibit B executed by",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "10.02(b)",
+   "context": "meaning set forth in Section 10.02(b).",
+   "target": "s10.2(b)"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "9.04(a)",
+   "context": "meaning set forth in Section 9.04(a).",
+   "target": "s9.4(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "2.07",
+   "context": "meaning set forth in Section 2.07.",
+   "target": "s2.7"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "2.07",
+   "context": "meaning set forth in Section 2.07.",
+   "target": "s2.7"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "2.02",
+   "context": "meaning set forth in Section 2.02.",
+   "target": "s2.2"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "3.09(a)",
+   "context": "meaning set forth in Section 3.09(a).",
+   "target": "s3.9(a)"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "3.10(a)",
+   "context": "meaning set forth in Section 3.10(a).",
+   "target": "s3.10(a)"
+  },
+  {
+   "para": "P34",
+   "head": "schedule",
+   "mention": "3.04(a)",
+   "context": "Subsidiary set forth in Schedule 3.04(a).",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P38",
+   "head": "schedule",
+   "mention": "4.04",
+   "context": "services agreements set forth on Schedule 4.04.",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "9.04(b)",
+   "context": "meaning set forth in Section 9.04(b).",
+   "target": "s9.4(b)"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "6.02",
+   "context": "access pursuant to this Section 6.02 shall be",
+   "target": "s6.2"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "6.02",
+   "context": "information provided pursuant to this Section 6.02.",
+   "target": "s6.2"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "6.02",
+   "context": "activities permitted by this Section 6.02 or any",
+   "target": "s6.2"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "6.02",
+   "context": "or any breach of this Section 6.02.",
+   "target": "s6.2"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "2.02",
+   "context": "in accordance with Section 2.02 and Section",
+   "target": "s2.2"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "2.04",
+   "context": "Section 2.02 and Section 2.04. In such",
+   "target": "s2.4"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "2.04",
+   "context": "adjustment period contemplated by Section 2.04.",
+   "target": "s2.4"
+  },
+  {
+   "para": "P42",
+   "head": "article",
+   "mention": "X",
+   "context": "a termination of this Agreement under Article X.",
+   "target": "a10"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "7.02",
+   "context": "in compliance with this Section 7.02 with respect",
+   "target": "s7.2"
+  },
+  {
+   "para": "P47",
+   "head": "article",
+   "mention": "X",
+   "context": "in accordance with this Article X, this",
+   "target": "a10"
+  },
+  {
+   "para": "P48",
+   "head": "section",
+   "mention": "6.05",
+   "context": "as set forth in Section 6.05, Section",
+   "target": "s6.5"
+  },
+  {
+   "para": "P48",
+   "head": "section",
+   "mention": "6.09",
+   "context": "Section 6.05, Section 6.09, this Article X",
+   "target": "s6.9"
+  },
+  {
+   "para": "P48",
+   "head": "article",
+   "mention": "X",
+   "context": "Section 6.09, this Article X and Article",
+   "target": "a10"
+  },
+  {
+   "para": "P48",
+   "head": "article",
+   "mention": "XI",
+   "context": "this Article X and Article XI; and",
+   "target": "a11"
+  },
+  {
+   "para": "P49",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "for Fraud (clause (a) and clause (b),",
+   "target": "s10.3(a)"
+  },
+  {
+   "para": "P49",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "for Fraud (clause (a) and clause (b),",
+   "target": "s10.3(b)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P41",
+   "count": 2
+  },
+  {
+   "term": "Buyer",
+   "para": "P41",
+   "count": 10
+  },
+  {
+   "term": "Buyer",
+   "para": "P42",
+   "count": 3
+  },
+  {
+   "term": "Buyer",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Buyer",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Buyer",
+   "para": "P46",
+   "count": 2
+  },
+  {
+   "term": "Closing Date",
+   "para": "P43",
+   "count": 3
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P41",
+   "count": 4
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P42",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v1",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "baa57afd-9d92-5fb1-b51f-9ad948ceed2f",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "13477982-5505-57c7-a764-2cda853acf14",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "09f19377-7366-59a3-b0ea-2065a32f2d8f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "d708bcf6-6690-50d5-85d5-ae507d66ffeb",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "d708bcf6-6690-50d5-85d5-ae507d66ffeb",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "d708bcf6-6690-50d5-85d5-ae507d66ffeb",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "d708bcf6-6690-50d5-85d5-ae507d66ffeb",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "5c415cfb-9311-5daf-9561-8eb39a4e739f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "5c415cfb-9311-5daf-9561-8eb39a4e739f",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "5c415cfb-9311-5daf-9561-8eb39a4e739f",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ }
+}

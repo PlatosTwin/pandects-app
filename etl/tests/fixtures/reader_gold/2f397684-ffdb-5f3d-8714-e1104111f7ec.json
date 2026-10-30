@@ -1,0 +1,915 @@
+{
+ "agreement_uuid": "2f397684-ffdb-5f3d-8714-e1104111f7ec",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "401(k) Plan",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s7.7(b)"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s6.2(f)"
+  },
+  {
+   "term": "Agreement",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Articles of Merger",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Average Market Price",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.5(b)"
+  },
+  {
+   "term": "BIF",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s4.1(c)"
+  },
+  {
+   "term": "Business Day",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.4"
+  },
+  {
+   "term": "Cash Conversion Shares",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Cash Election Price",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.5(c)"
+  },
+  {
+   "term": "Cash Percentage",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Cash Proration Factor",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Certificate",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.2"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Change in Dime Recommendation",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s7.3(a)"
+  },
+  {
+   "term": "Closing",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.4"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s2.4"
+  },
+  {
+   "term": "Code",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.2(b)"
+  },
+  {
+   "term": "Controlled Entity",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.2(b)"
+  },
+  {
+   "term": "Covered Employees",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.7(a)"
+  },
+  {
+   "term": "Deemed Shares",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Delaware Secretary",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "DGCL",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Dime",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Dime Cash Election Shares",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Dime Common Stock",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.5(a)"
+  },
+  {
+   "term": "Dime Contract",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.14(a)"
+  },
+  {
+   "term": "Dime Disclosure Schedule",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.2(a)"
+  },
+  {
+   "term": "Dime Insiders",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.12"
+  },
+  {
+   "term": "Dime Member",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.7(f)"
+  },
+  {
+   "term": "Dime Option",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.9(a)"
+  },
+  {
+   "term": "Dime Phantom Stock Plans",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Dime Preferred Stock",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.2(a)"
+  },
+  {
+   "term": "Dime Reports",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.12"
+  },
+  {
+   "term": "Dime Rights",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.5(b)"
+  },
+  {
+   "term": "Dime Savings Bank",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.1(c)"
+  },
+  {
+   "term": "Dime Stock Election Shares",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Dime Stockholders Meeting",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.3"
+  },
+  {
+   "term": "Dime Stock Option Plans",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.9(a)"
+  },
+  {
+   "term": "Director Committee",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.7(f)"
+  },
+  {
+   "term": "Director Umbrella Trusts",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.11(g)"
+  },
+  {
+   "term": "Dissenting Shareholder",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.5(d)"
+  },
+  {
+   "term": "Dissenting Shares",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.5(d)"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Election Deadline",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Election Form",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "ELP",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Employee Committee",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s7.7(f)"
+  },
+  {
+   "term": "Employee Umbrella Trusts",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.11(g)"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.21"
+  },
+  {
+   "term": "ERISA",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.11(a)"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.11(a)"
+  },
+  {
+   "term": "ETC",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.6"
+  },
+  {
+   "term": "Exchange Agent",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Exchange Fund",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Exchange Ratio",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.5(b)"
+  },
+  {
+   "term": "Expense Amount",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s9.2(b)"
+  },
+  {
+   "term": "Extension Notice",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s2.4"
+  },
+  {
+   "term": "FDIC",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.1(c)"
+  },
+  {
+   "term": "FHLB",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.1(c)"
+  },
+  {
+   "term": "Freddie Mac",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.24(b)"
+  },
+  {
+   "term": "GAAP",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.1(a)"
+  },
+  {
+   "term": "Ginnie Mae",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s4.24(b)"
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.4"
+  },
+  {
+   "term": "HOLA",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.1(a)"
+  },
+  {
+   "term": "HUD",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.24(b)"
+  },
+  {
+   "term": "Indemnified Parties",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s7.8(a)"
+  },
+  {
+   "term": "Injunction",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s8.1(e)"
+  },
+  {
+   "term": "Insurance Amount",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s7.8(c)"
+  },
+  {
+   "term": "Liens",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.2(b)"
+  },
+  {
+   "term": "Loans",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s7.15"
+  },
+  {
+   "term": "LTW",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.1(a)"
+  },
+  {
+   "term": "Merger",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.15"
+  },
+  {
+   "term": "NYSE",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.7"
+  },
+  {
+   "term": "Option Conversion Ratio",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.9(a)"
+  },
+  {
+   "term": "OTS",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.4"
+  },
+  {
+   "term": "PBGC",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.11(c)"
+  },
+  {
+   "term": "Per Share Consideration Value",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.5(b)"
+  },
+  {
+   "term": "Plans",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.11(a)"
+  },
+  {
+   "term": "Proxy Statement/Prospectus",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.4"
+  },
+  {
+   "term": "Regulatory Agreement",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.15"
+  },
+  {
+   "term": "Representatives",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s6.2(f)"
+  },
+  {
+   "term": "Requisite Regulatory Approvals",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s8.1(c)"
+  },
+  {
+   "term": "Restricted Share",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.9(b)"
+  },
+  {
+   "term": "Rights Plan",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.2(a)"
+  },
+  {
+   "term": "S-4",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.18"
+  },
+  {
+   "term": "SAIF",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.1(c)"
+  },
+  {
+   "term": "SEC",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.4"
+  },
+  {
+   "term": "Second Merger",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s7.1(b)"
+  },
+  {
+   "term": "Section 16 Information",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s7.12"
+  },
+  {
+   "term": "Securities Act",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.12"
+  },
+  {
+   "term": "Stock Conversion Shares",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Stock Percentage",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Stock Proration Factor",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.1(a)"
+  },
+  {
+   "term": "Superior Proposal",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s6.2(f)"
+  },
+  {
+   "term": "Surviving Company",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.10(k)"
+  },
+  {
+   "term": "Taxes",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.10(j)"
+  },
+  {
+   "term": "Termination Fee",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s9.2(b)"
+  },
+  {
+   "term": "Umbrella Trust Agreements",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.11(g)"
+  },
+  {
+   "term": "VA",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.24(b)"
+  },
+  {
+   "term": "Valuation Period",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.5(b)"
+  },
+  {
+   "term": "Voting/Purchase Agreement",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Warburg",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Warburg Agreement",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s4.2(a)"
+  },
+  {
+   "term": "Warrant Agent",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Warrant Agreement",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Warrant Holder",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s2.6"
+  },
+  {
+   "term": "Washington Mutual",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Washington Mutual Common Stock",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s2.5(a)"
+  },
+  {
+   "term": "Washington Mutual Disclosure Schedule",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s5.2"
+  },
+  {
+   "term": "Washington Mutual Regulatory Agreement",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s5.12"
+  },
+  {
+   "term": "Washington Mutual Reports",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s5.10"
+  },
+  {
+   "term": "Washington Mutual Rights",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s2.5(b)"
+  },
+  {
+   "term": "Washington Mutual Rights Agreement",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s5.2"
+  },
+  {
+   "term": "Washington Mutual Share Price",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s2.7"
+  },
+  {
+   "term": "Washington Secretary",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "WBCA",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "WBCA",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "DGCL",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Merger",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Surviving Company",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Loans",
+   "para": "P12",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "2.2",
+   "context": "(as defined in Section 2.2 hereof), Dime shall",
+   "target": "s2.2"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "5.6",
+   "context": "referred to in this Section 5.6 (including the related",
+   "target": "s5.6"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "7.10",
+   "context": "referred to in Section 7.10 hereof (including the related",
+   "target": "s7.10"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "7.10",
+   "context": "complies, and the financial statements referred to in Section 7.10",
+   "target": "s7.10"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "7.10",
+   "context": "statements referred to in Section 7.10 (including the related",
+   "target": "s7.10"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "7.3",
+   "context": "called by Dime pursuant to Section 7.3 hereof, a",
+   "target": "s7.3"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P8",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P11",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P12",
+   "count": 1
+  },
+  {
+   "term": "Effective Time",
+   "para": "P8",
+   "count": 1
+  },
+  {
+   "term": "GAAP",
+   "para": "P10",
+   "count": 2
+  },
+  {
+   "term": "Merger",
+   "para": "P8",
+   "count": 1
+  },
+  {
+   "term": "Merger",
+   "para": "P11",
+   "count": 1
+  },
+  {
+   "term": "Securities Act",
+   "para": "P11",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 5,
+ "set": "heldout-v3",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "1a4e9931-1437-5052-b098-86f12ab3d260",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "1a4e9931-1437-5052-b098-86f12ab3d260",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "1a4e9931-1437-5052-b098-86f12ab3d260",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "1a4e9931-1437-5052-b098-86f12ab3d260",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "1a4e9931-1437-5052-b098-86f12ab3d260",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "1a4e9931-1437-5052-b098-86f12ab3d260",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "1a4e9931-1437-5052-b098-86f12ab3d260",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "4b437912-f2d1-586b-99d1-2e958ef36904",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "10110b70-2210-5afe-aab6-16068972c461",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "10110b70-2210-5afe-aab6-16068972c461",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "e539ce0b-6ef5-5cc2-9895-49b1e93d33b2",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "3b445f7d-68db-577c-8164-d229789fdf67",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

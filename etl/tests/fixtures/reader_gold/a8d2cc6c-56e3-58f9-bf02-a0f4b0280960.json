@@ -1,0 +1,660 @@
+{
+ "agreement_uuid": "a8d2cc6c-56e3-58f9-bf02-a0f4b0280960",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Business",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "COBRA",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Documents",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Employee",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Costs and Liabilities",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Law",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Permit",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Excluded Contracts",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Former Employee",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Fully Diluted Basis",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Furniture and Equipment",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Body",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Hardware",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Hazardous Material",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Indebtedness",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property Licenses",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "IRS",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge of Parent",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge of Seller",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Law",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Legal Proceeding",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Liability",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Lien",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Order",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Ordinary Course of Business",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Common Stock",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Material Adverse Effect",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Permits",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Patents",
+   "para": "P26",
+   "kind": "paren"
+  },
+  {
+   "term": "Marks",
+   "para": "P26",
+   "kind": "paren"
+  },
+  {
+   "term": "Copyrights",
+   "para": "P26",
+   "kind": "paren"
+  },
+  {
+   "term": "Trade Secrets",
+   "para": "P26",
+   "kind": "paren"
+  },
+  {
+   "term": "Representatives",
+   "para": "P52",
+   "kind": "paren"
+  },
+  {
+   "term": "Seller Adverse Recommendation Change",
+   "para": "P55",
+   "kind": "paren"
+  },
+  {
+   "term": "Seller Adverse Recommendation Notice",
+   "para": "P56",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "1.1",
+   "context": "specified in this Section 1.1:",
+   "target": "s1.1"
+  },
+  {
+   "para": "P19",
+   "head": "schedule",
+   "mention": "1.1",
+   "context": "listed on Company Disclosure Schedule 1.1.",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P25",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "referred to in clauses (i) through (vii)",
+   "target": "inline"
+  },
+  {
+   "para": "P25",
+   "head": "clause",
+   "mention": "(vii)",
+   "context": "clauses (i) through (vii) of any Persons",
+   "target": "inline"
+  },
+  {
+   "para": "P25",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "referred to in clauses (i) through (viii)",
+   "target": "inline"
+  },
+  {
+   "para": "P25",
+   "head": "clause",
+   "mention": "(viii)",
+   "context": "clauses (i) through (viii) of other Persons",
+   "target": "inline"
+  },
+  {
+   "para": "P41",
+   "head": "schedule",
+   "mention": "5.17",
+   "context": "on Company Disclosure Schedule 5.17 hereto and",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P53",
+   "head": "section",
+   "mention": "7.6",
+   "context": "a breach of this Section 7.6 by Seller.",
+   "target": "s7.6"
+  },
+  {
+   "para": "P54",
+   "head": "section",
+   "mention": "7.6",
+   "context": "of Seller set forth in this Section 7.6, Seller",
+   "target": "s7.6"
+  },
+  {
+   "para": "P55",
+   "head": "section",
+   "mention": "7.6(c)",
+   "context": "expressly permitted by this Section 7.6(c), neither",
+   "target": "s7.6(c)"
+  },
+  {
+   "para": "P55",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "described in this clause (i) being referred",
+   "target": "inline"
+  },
+  {
+   "para": "P55",
+   "head": "section",
+   "mention": "7.6(a)",
+   "context": "accordance with Section 7.6(a)). Notwithstanding",
+   "target": "s7.6(a)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P58",
+   "count": 4
+  },
+  {
+   "term": "Business Day",
+   "para": "P53",
+   "count": 1
+  },
+  {
+   "term": "Business Day",
+   "para": "P56",
+   "count": 4
+  },
+  {
+   "term": "Environmental Costs and Liabilities",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Environmental Costs and Liabilities",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Environmental Permit",
+   "para": "P42",
+   "count": 4
+  },
+  {
+   "term": "Environmental Permit",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Hazardous Material",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Hazardous Material",
+   "para": "P45",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2005-14/txt",
+ "para_map": {
+  "P1": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "20fae98a-dbf9-5a16-8cc0-5231169d1ad6",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "635d2679-fb61-5214-a390-728d9f585c72",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "9fd7e135-0130-5616-9ef4-0659c509d619",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "e1a94117-dee6-59d1-9fc5-38b744c5dbac",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "e1a94117-dee6-59d1-9fc5-38b744c5dbac",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P54": {
+   "s": "e1a94117-dee6-59d1-9fc5-38b744c5dbac",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P55": {
+   "s": "e1a94117-dee6-59d1-9fc5-38b744c5dbac",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P56": {
+   "s": "e1a94117-dee6-59d1-9fc5-38b744c5dbac",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P57": {
+   "s": "e1a94117-dee6-59d1-9fc5-38b744c5dbac",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P58": {
+   "s": "2c1c50bb-0a9e-5c14-8b76-4919e4bc7be5",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

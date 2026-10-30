@@ -1,0 +1,439 @@
+{
+ "agreement_uuid": "bd2e4684-fa65-53bb-b06f-c22d3c7e0fb7",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "U.S. Bancorp Common Stock",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Exchange Ratio",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Surviving Corporation Common Stock",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Term Preferred Stock",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Firstar Common Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Trust Account Shares",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "DPC Shares",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Firstar Shareholder Rights",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Firstar Rights Agreement",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Old Certificates",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "New Certificates",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "IRS",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Tax",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Taxes",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "U.S. Bancorp Benefit Plans",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "U.S. Bancorp ERISA Affiliate",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "U.S. Bancorp Reports",
+   "para": "P17",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2.2(d)",
+   "context": "Subject to Sections 2.2(d) and",
+   "target": "s2.2(d)"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2.2(f)",
+   "context": "2.2(d) and 2.2(f), (i) each share",
+   "target": "s2.2(f)"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "4",
+   "context": "pursuant to Section 4 of the Certificate of Designation",
+   "target": "external"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "1.4(e)",
+   "context": "Except as otherwise provided in Section 1.4(e), at and",
+   "target": "s1.4(e)"
+  },
+  {
+   "para": "P5",
+   "head": "article",
+   "mention": "II",
+   "context": "Common Stock referred to in Article II",
+   "target": "a2"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "2.2",
+   "context": "in the manner described in Section 2.2.",
+   "target": "s2.2"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "481",
+   "context": "adjustment pursuant to Section 481 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "3.6",
+   "context": "statements described in Section 3.6 (including the related",
+   "target": "s3.6"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "453",
+   "context": "installment obligation under Section 453 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "162(m)",
+   "context": "disallowed under Section 162(m) of the Code for",
+   "target": "external"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "4001",
+   "context": "within the meaning of Section 4001 of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "401(a)",
+   "context": "meaning of Section 401(a) of the Code is",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3(2)",
+   "context": "term is defined in Section 3(2) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3(37)",
+   "context": "term is defined in Section 3(37) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "412",
+   "context": "accordance with GAAP and Section 412 of the",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "409",
+   "context": "civil penalty assessed pursuant to Section 409 or",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "502(i)",
+   "context": "Section 409 or 502(i) of ERISA or a",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "4975",
+   "context": "imposed pursuant to Section 4975 or",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "4976",
+   "context": "Section 4975 or 4976 of the Code, and",
+   "target": "external"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "280G",
+   "context": "within the meaning of Section 280G of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "5.2",
+   "context": "as otherwise indicated in this Section 5.2, neither",
+   "target": "s5.2"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "5.2(a)",
+   "context": "for purposes of this Section 5.2(a)",
+   "target": "s5.2(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "6.2(b)",
+   "context": "Confidentiality Agreement (as defined in Section 6.2(b))",
+   "target": "s6.2(b)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "368(a)",
+   "context": "within the meaning of Section 368(a) of the Code",
+   "target": "external"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "U.S. Bancorp Common Stock",
+   "para": "P21",
+   "count": 1
+  },
+  {
+   "term": "Term Preferred Stock",
+   "para": "P21",
+   "count": 1
+  },
+  {
+   "term": "Firstar Common Stock",
+   "para": "P20",
+   "count": 1
+  },
+  {
+   "term": "U.S. Bancorp Common Stock",
+   "para": "P20",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "867b940d-bfc1-5237-85ff-cceac4c0aa8b",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "867b940d-bfc1-5237-85ff-cceac4c0aa8b",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "867b940d-bfc1-5237-85ff-cceac4c0aa8b",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "867b940d-bfc1-5237-85ff-cceac4c0aa8b",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "867b940d-bfc1-5237-85ff-cceac4c0aa8b",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "867b940d-bfc1-5237-85ff-cceac4c0aa8b",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "867b940d-bfc1-5237-85ff-cceac4c0aa8b",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "e5209c8e-27ce-5d45-ba0e-35804b88e023",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "e5209c8e-27ce-5d45-ba0e-35804b88e023",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "e5209c8e-27ce-5d45-ba0e-35804b88e023",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "e5209c8e-27ce-5d45-ba0e-35804b88e023",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "d5fb4c02-a67d-58de-9276-1ea3a195c4e6",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "d5fb4c02-a67d-58de-9276-1ea3a195c4e6",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "d5fb4c02-a67d-58de-9276-1ea3a195c4e6",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "d5fb4c02-a67d-58de-9276-1ea3a195c4e6",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "d5fb4c02-a67d-58de-9276-1ea3a195c4e6",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "d7845741-4eca-5ea8-9e6c-4f69e7ff4ad2",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "b3c38532-c7cb-525c-af98-1c43e6ebaf1d",
+   "t": 12,
+   "excerpt": "sampled"
+  }
+ }
+}

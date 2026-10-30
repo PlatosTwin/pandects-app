@@ -1,0 +1,778 @@
+{
+ "agreement_uuid": "6baf72eb-f49b-5cef-ad90-f31e5f605372",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Accounting Firm",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s6.7.9"
+  },
+  {
+   "term": "Accounting Principles",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Acquisition Transaction",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s6.5"
+  },
+  {
+   "term": "Action",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Additional Merger Consideration",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliated Group",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Allocation",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Anti-Corruption Laws",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s4.21.1"
+  },
+  {
+   "term": "Antitrust Laws",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Base Purchase Price",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "CARES Act",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Closing",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Closing Cash",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Closing Debt",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Transaction Expenses",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "COBRA",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Collective Bargaining Agreement",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "s4.17.1"
+  },
+  {
+   "term": "Common Units",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Company",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company 401(k) Plan",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s6.15"
+  },
+  {
+   "term": "Company Equity Interests",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Company Operating Agreement",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Company Plan",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Company Products",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Company Registered Intellectual Property",
+   "para": "P34",
+   "kind": "pointer",
+   "pointer": "s4.11.1"
+  },
+  {
+   "term": "Confidentiality Agreements",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s6.3.1"
+  },
+  {
+   "term": "Covered Party",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s6.6.1"
+  },
+  {
+   "term": "COVID-19",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "COVID-19 Measures",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "D&O Tail",
+   "para": "P39",
+   "kind": "pointer",
+   "pointer": "s6.6.2"
+  },
+  {
+   "term": "D&O Tail Premium",
+   "para": "P40",
+   "kind": "pointer",
+   "pointer": "s6.6.2"
+  },
+  {
+   "term": "Nonparty Affiliate",
+   "para": "P43",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "6.7.9",
+   "context": "“Accounting Firm” is defined in Section 6.7.9",
+   "target": "s6.7.9"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "6.5",
+   "context": "Acquisition Transaction” is defined in Section 6.5",
+   "target": "s6.5"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.6.5",
+   "context": "contemplated by Section 3.6.5 in respect",
+   "target": "s3.6.5"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.7.1",
+   "context": "released to the Equityholders pursuant to Section 3.7.1 and the",
+   "target": "s3.7.1"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.7.2",
+   "context": "pursuant to Section 3.7.2 and Section",
+   "target": "s3.7.2"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "10.14.3",
+   "context": "Section 3.7.2 and Section 10.14.3",
+   "target": "s10.14.3"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "3.4.3",
+   "context": "except with respect to Section 3.4.3, Section",
+   "target": "s3.4.3"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4.15.4",
+   "context": "Section 3.4.3, Section 4.15.4, Section 4.18",
+   "target": "s4.15.4"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4.18",
+   "context": "Section 4.15.4, Section 4.18, Section 4.22",
+   "target": "s4.18"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4.22",
+   "context": "Section 4.18, Section 4.22, Section 6.2.4",
+   "target": "s4.22"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "6.2.4",
+   "context": "Section 4.22, Section 6.2.4, Section 6.3.2",
+   "target": "s6.2.4"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "6.3.2",
+   "context": "Section 6.2.4, Section 6.3.2, Section 6.4",
+   "target": "s6.3.2"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "6.4",
+   "context": "Section 6.3.2, Section 6.4, Section 6.9",
+   "target": "s6.4"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "6.9",
+   "context": "Section 6.4, Section 6.9 and Section 9.2",
+   "target": "s6.9"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "9.2",
+   "context": "6.9 and Section 9.2, and the",
+   "target": "s9.2"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1504(a)",
+   "context": "within the meaning of Code Section 1504(a) or any",
+   "target": "external"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1060",
+   "context": "for purposes of Section 1060 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "4.21.1",
+   "context": "“Anti-Corruption Laws” is defined in Section 4.21.1",
+   "target": "s4.21.1"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "2.3",
+   "context": "“Certificate of Merger” is defined in Section 2.3",
+   "target": "s2.3"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "2.2",
+   "context": "“Closing” is defined in Section 2.2",
+   "target": "s2.2"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "2.2",
+   "context": "“Closing Date” is defined in Section 2.2",
+   "target": "s2.2"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "4.17.1",
+   "context": "Collective Bargaining Agreement” is defined in Section 4.17.1",
+   "target": "s4.17.1"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "6.15",
+   "context": "401(k) Plan” is defined in Section 6.15",
+   "target": "s6.15"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "4.11.1",
+   "context": "Intellectual Property” is defined in Section 4.11.1",
+   "target": "s4.11.1"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "6.3.1",
+   "context": "Confidentiality Agreements” is defined in Section 6.3.1",
+   "target": "s6.3.1"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "6.6.1",
+   "context": "“Covered Party” is defined in Section 6.6.1",
+   "target": "s6.6.1"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "6.6.2",
+   "context": "“D&O Tail” is defined in Section 6.6.2",
+   "target": "s6.6.2"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "6.6.2",
+   "context": "Tail Premium” is defined in Section 6.6.2",
+   "target": "s6.6.2"
+  },
+  {
+   "para": "P43",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "limiting the generality of clause (a), hold",
+   "target": "inline"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "9.2",
+   "context": "provided, that this Section 9.2 shall not prohibit",
+   "target": "s9.2"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "10.14",
+   "context": "Equityholder Representative of Section 10.14 against the",
+   "target": "s10.14"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "10.2",
+   "context": "in breach of this Section 10.2 shall be",
+   "target": "s10.2"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "6.6",
+   "context": "each Covered Party set forth in Section 6.6, (b)",
+   "target": "s6.6"
+  },
+  {
+   "para": "P44",
+   "head": "article",
+   "mention": "3",
+   "context": "consideration payable pursuant to Article 3 at",
+   "target": "a3"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "9.2",
+   "context": "Nonparty Affiliates with respect to Section 9.2, and",
+   "target": "s9.2"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "8.3",
+   "context": "Equityholder Related Parties with respect to Section 8.3, this",
+   "target": "s8.3"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P41",
+   "count": 2
+  },
+  {
+   "term": "Affiliate",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Affiliate",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Affiliate",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P43",
+   "count": 4
+  },
+  {
+   "term": "Company",
+   "para": "P41",
+   "count": 2
+  },
+  {
+   "term": "Company",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P43",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Covered Party",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P43",
+   "count": 5
+  },
+  {
+   "term": "Agreement",
+   "para": "P44",
+   "count": 6
+  },
+  {
+   "term": "Agreement",
+   "para": "P45",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "33bf3669-1d1b-51d2-997c-e9390d963ce7",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "70b83ced-7527-5050-ac98-6ff3c0f01dc1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "70b83ced-7527-5050-ac98-6ff3c0f01dc1",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "e1f871b5-4bfe-525a-975f-4c00ac68aafe",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "8f056cca-8b87-51ba-a01a-5a2099475cfc",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "eff4d2e7-a309-5471-a677-e52750387286",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

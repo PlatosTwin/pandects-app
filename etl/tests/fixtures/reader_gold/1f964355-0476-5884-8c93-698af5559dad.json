@@ -1,0 +1,675 @@
+{
+ "agreement_uuid": "1f964355-0476-5884-8c93-698af5559dad",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Acquisition Inquiry",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Acquisition Transaction",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Adjusted Cumulative EBITDA",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliated",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Authority",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Books and Records",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Business",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "CARES Act",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Cash",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Stock Consideration",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Company Contract",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Company Employment Agreements",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Company IP Rights",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Company IP Rights Agreement",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Company Registered IP",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Consideration",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Contracts",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Current Assets",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Current Liabilities",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Consent",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Control",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Controlling",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Data Privacy and Security Requirements",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Disclosure Schedule",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "$",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Earnout",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Earnout Period",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "EBITDA Percentage",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Employee Plans",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Employment Agreement",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Encumbrance",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Equity Interest",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P40",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.2",
+   "context": "as set forth in Section 2.2",
+   "target": "s2.2"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "2.2",
+   "context": "as set out in Section 2.2.",
+   "target": "s2.2"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "2.2",
+   "context": "finally determined pursuant to Section 2.2, minus",
+   "target": "s2.2"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "within the meaning of Section 3(3) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "exhibit",
+   "mention": "D",
+   "context": "set forth on Exhibit D under the heading",
+   "target": "x-exhibit-d"
+  },
+  {
+   "para": "P27",
+   "head": "exhibit",
+   "mention": "D",
+   "context": "set forth on Exhibit D under the heading",
+   "target": "x-exhibit-d"
+  },
+  {
+   "para": "P37",
+   "head": "exhibit",
+   "mention": "C",
+   "context": "in the form attached hereto as Exhibit C",
+   "target": "x-exhibit-c"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Earnout Period",
+   "para": "P41",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v4",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "0892d46c-6a3e-5ede-8a74-e7ffacd9ad33",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "be341e92-ff85-5a21-8c1a-b45d05ea1420",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "4d2a4d61-c13f-52f4-ab5d-438b078b06fe",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P54": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P55": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P56": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P57": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P58": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P59": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 15,
+   "excerpt": "sampled"
+  },
+  "P60": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 16,
+   "excerpt": "sampled"
+  },
+  "P61": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 17,
+   "excerpt": "sampled"
+  },
+  "P62": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 18,
+   "excerpt": "sampled"
+  },
+  "P63": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 19,
+   "excerpt": "sampled"
+  },
+  "P64": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 20,
+   "excerpt": "sampled"
+  },
+  "P65": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 21,
+   "excerpt": "sampled"
+  },
+  "P66": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 22,
+   "excerpt": "sampled"
+  },
+  "P67": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 23,
+   "excerpt": "sampled"
+  },
+  "P68": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 24,
+   "excerpt": "sampled"
+  },
+  "P69": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 25,
+   "excerpt": "sampled"
+  },
+  "P70": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 26,
+   "excerpt": "sampled"
+  },
+  "P71": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 27,
+   "excerpt": "sampled"
+  },
+  "P72": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 28,
+   "excerpt": "sampled"
+  },
+  "P73": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 29,
+   "excerpt": "sampled"
+  },
+  "P74": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 30,
+   "excerpt": "sampled"
+  },
+  "P75": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 31,
+   "excerpt": "sampled"
+  },
+  "P76": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 32,
+   "excerpt": "sampled"
+  },
+  "P77": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 33,
+   "excerpt": "sampled"
+  },
+  "P78": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 34,
+   "excerpt": "sampled"
+  },
+  "P79": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 35,
+   "excerpt": "sampled"
+  },
+  "P80": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 36,
+   "excerpt": "sampled"
+  },
+  "P81": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 37,
+   "excerpt": "sampled"
+  },
+  "P82": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 38,
+   "excerpt": "sampled"
+  },
+  "P83": {
+   "s": "4fcfd332-7c04-5191-8e1b-dbf39950d7c0",
+   "t": 39,
+   "excerpt": "sampled"
+  }
+ }
+}

@@ -1,0 +1,694 @@
+{
+ "agreement_uuid": "8645c6ff-e3e2-5afc-8150-6ee7b50f66ba",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "2001 Stock Option Plan",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "2004 Stock Option Plan",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "2008 Stock Option Plan",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Accountants",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.11(f)"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s6.2(a)"
+  },
+  {
+   "term": "Action",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s4.27(e)(i)"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliated Group",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s4.17(c)"
+  },
+  {
+   "term": "Aggregate Exercise Price",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s3.1(c)(i)"
+  },
+  {
+   "term": "Aggregate Exercise Proceeds",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s3.1(c)(ii)"
+  },
+  {
+   "term": "Agreed Contingent Payment Amount",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s3.11(e)"
+  },
+  {
+   "term": "Agreement",
+   "para": "P15",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Alternate Equityholders’ Representative",
+   "para": "P16",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Antitrust Laws",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable Non-U.S. Laws and Regulations",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "s4.28(b)(i)"
+  },
+  {
+   "term": "Appraiser",
+   "para": "P19",
+   "kind": "pointer",
+   "pointer": "s3.11(f)"
+  },
+  {
+   "term": "Approvals",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "s4.1(a)"
+  },
+  {
+   "term": "Business Day",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Group",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Bylaws",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Certificates",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s3.4(d)(i)"
+  },
+  {
+   "term": "Charter",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Charter Amendment",
+   "para": "P30",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "CIA",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Claim",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P33",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P34",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Closing Merger Consideration",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s3.1(c)(iii)"
+  },
+  {
+   "term": "COBRA Coverage",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s4.13(e)"
+  },
+  {
+   "term": "Code",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Common Stock",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Company",
+   "para": "P39",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Company Balance Sheet",
+   "para": "P40",
+   "kind": "pointer",
+   "pointer": "s4.11"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.11(f)",
+   "context": "has the meaning set forth in Section 3.11(f)",
+   "target": "s3.11(f)"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "6.2(a)",
+   "context": "has the meaning set forth in Section 6.2(a)",
+   "target": "s6.2(a)"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "4.27(e)(i)",
+   "context": "has the meaning set forth in Section 4.27(e)(i)",
+   "target": "s4.27(e)(i)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.17(c)",
+   "context": "has the meaning set forth in Section 4.17(c)",
+   "target": "s4.17(c)"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "3.1(c)(i)",
+   "context": "has the meaning set forth in Section 3.1(c)(i)",
+   "target": "s3.1(c)(i)"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "3.1(c)(ii)",
+   "context": "has the meaning set forth in Section 3.1(c)(ii)",
+   "target": "s3.1(c)(ii)"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "3.11(e)",
+   "context": "has the meaning set forth in Section 3.11(e)",
+   "target": "s3.11(e)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "4.28(b)(i)",
+   "context": "has the meaning set forth in Section 4.28(b)(i)",
+   "target": "s4.28(b)(i)"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "3.11(f)",
+   "context": "has the meaning set forth in Section 3.11(f)",
+   "target": "s3.11(f)"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "4.1(a)",
+   "context": "has the meaning set forth in Section 4.1(a)",
+   "target": "s4.1(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "2.2",
+   "context": "has the meaning set forth in Section 2.2",
+   "target": "s2.2"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "3.4(d)(i)",
+   "context": "has the meaning set forth in Section 3.4(d)(i)",
+   "target": "s3.4(d)(i)"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "2.2",
+   "context": "has the meaning set forth in Section 2.2",
+   "target": "s2.2"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "2.2",
+   "context": "has the meaning set forth in Section 2.2",
+   "target": "s2.2"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "3.1(c)(iii)",
+   "context": "has the meaning set forth in Section 3.1(c)(iii)",
+   "target": "s3.1(c)(iii)"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "4.13(e)",
+   "context": "has the meaning set forth in Section 4.13(e)",
+   "target": "s4.13(e)"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "4.11",
+   "context": "has the meaning set forth in Section 4.11",
+   "target": "s4.11"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "4.18(b)(ii)",
+   "context": "set forth in Section 4.18(b)(ii) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "4.18(b)(ii)",
+   "context": "Permits listed on Section 4.18(b)(ii) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "280G",
+   "context": "pursuant to the provisions of Section 280G of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "280G",
+   "context": "constitute “parachute payments” pursuant to Section 280G of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "280G",
+   "context": "be “parachute payments” pursuant to Section 280G of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P49",
+   "head": "section",
+   "mention": "280G",
+   "context": "exempt from such treatment under Section 280G of the Code",
+   "target": "external"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Closing",
+   "para": "P51",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P42",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P44",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P45",
+   "count": 6
+  },
+  {
+   "term": "Company",
+   "para": "P46",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P48",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P49",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P50",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P51",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P50",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v1",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "68169cc3-e40f-550f-97a8-262cc174a3cd",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "68169cc3-e40f-550f-97a8-262cc174a3cd",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "68169cc3-e40f-550f-97a8-262cc174a3cd",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "68169cc3-e40f-550f-97a8-262cc174a3cd",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "68169cc3-e40f-550f-97a8-262cc174a3cd",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "68169cc3-e40f-550f-97a8-262cc174a3cd",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "68169cc3-e40f-550f-97a8-262cc174a3cd",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "68169cc3-e40f-550f-97a8-262cc174a3cd",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "47d70cce-4d99-5629-b5bd-95717dcf64f1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "8127d448-146d-5d35-a04d-0d4f852b4356",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "0ba75946-f188-5aab-adf9-e469bae36c9d",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "0ba75946-f188-5aab-adf9-e469bae36c9d",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "0ba75946-f188-5aab-adf9-e469bae36c9d",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ },
+ "rulings": "2026-10-23: user accepted the checker on every dispute"
+}

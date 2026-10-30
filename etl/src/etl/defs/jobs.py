@@ -82,6 +82,7 @@ from etl.defs.i_tx_metadata_asset import (
     tx_metadata_asset,
 )
 from etl.defs.j_embed_sections_asset import embed_sections_asset
+from etl.defs.l_reader_index_asset import reader_index_asset
 from etl.defs.k_tax_module_asset import (
     ingestion_cleanup_a_tax_module_asset,
     ingestion_cleanup_b_tax_module_asset,
@@ -317,6 +318,7 @@ defs = dg.Definitions(
         ingestion_cleanup_d_tx_metadata_offline_asset,
         ingestion_cleanup_d_tx_metadata_web_search_asset,
         embed_sections_asset,
+        reader_index_asset,
         gating_asset,
     ],
     executor=SAFE_ETL_EXECUTOR,

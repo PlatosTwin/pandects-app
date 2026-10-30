@@ -1215,6 +1215,69 @@
         }
       ]
     },
+    "/v1/agreements/{agreement_uuid}/reader-index": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "focus_section_uuid",
+            "description": "Optional section UUID used when redacting anonymous responses to keep a focused neighborhood visible.",
+            "schema": {
+              "type": "string",
+              "example": "5e59453aaa9255c4",
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "neighbor_sections",
+            "description": "Number of neighboring sections to include around `focus_section_uuid` when response XML is redacted.",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "example": 1
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReaderIndexResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "tags": [
+          "agreements"
+        ],
+        "operationId": "getAgreementReaderIndex",
+        "summary": "Retrieve the reader index for an agreement",
+        "description": "Returns the outline, defined terms (declarations and uses) and cross-references of the XML version `/v1/agreements/{agreement_uuid}` serves, as stand-off anchors into that XML; no agreement text is included. For anonymous callers, items inside redacted text are dropped and declarations there are masked, following the same `focus_section_uuid` and `neighbor_sections` as the agreement endpoint. Returns 404 when no index has been built for the current XML version. Supports `If-None-Match`."
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "agreement_uuid",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
     "/v1/agreements/{agreement_uuid}/tax-clauses": {
       "get": {
         "responses": {
@@ -5834,6 +5897,240 @@
         "required": [
           "agreement_uuid",
           "results"
+        ],
+        "additionalProperties": false
+      },
+      "ReaderAnchor": {
+        "type": "object",
+        "properties": {
+          "s": {
+            "type": "string",
+            "description": "Section or article uuid, or a region name (`frontMatter`, `body`, `backMatter`)."
+          },
+          "t": {
+            "type": "integer",
+            "description": "Ordinal of the `<text>` element within that container, in document order."
+          }
+        },
+        "required": [
+          "s"
+        ],
+        "additionalProperties": false
+      },
+      "ReaderOutlineNode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "s4.3(b)"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`article`, `section`, `sub` or `attachment`."
+          },
+          "label": {
+            "type": "string",
+            "example": "4.3(b)"
+          },
+          "title": {
+            "type": "string"
+          },
+          "anchor": {
+            "$ref": "#/components/schemas/ReaderAnchor"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReaderOutlineNode"
+            }
+          }
+        },
+        "required": [
+          "anchor",
+          "id",
+          "kind",
+          "label",
+          "title"
+        ],
+        "additionalProperties": false
+      },
+      "ReaderTermDecl": {
+        "type": "object",
+        "properties": {
+          "anchor": {
+            "$ref": "#/components/schemas/ReaderAnchor"
+          },
+          "span": {
+            "type": "array",
+            "description": "[start, end) in UTF-16 code units.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "kind": {
+            "type": "string",
+            "description": "`means`, `paren` or `pointer`."
+          },
+          "in": {
+            "type": "string",
+            "description": "Where the declaration sits, such as `Section 1.1`."
+          },
+          "as": {
+            "type": "string",
+            "description": "The printed spelling, when it differs from the term's."
+          },
+          "pointer": {
+            "type": "string",
+            "description": "Target of a `has the meaning set forth in` declaration."
+          },
+          "redacted": {
+            "type": "boolean",
+            "description": "True when the declaration is in text the caller cannot read."
+          },
+          "label": {
+            "type": "string",
+            "description": "With `redacted`: where the term is defined, such as `Section 1.1`."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReaderTerm": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "term": {
+            "type": "string"
+          },
+          "decls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReaderTermDecl"
+            }
+          },
+          "confidence": {
+            "type": "string",
+            "description": "`high`, or `low` for common words like \"Law\"."
+          }
+        },
+        "required": [
+          "confidence",
+          "decls",
+          "id",
+          "term"
+        ],
+        "additionalProperties": false
+      },
+      "ReaderXref": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "$ref": "#/components/schemas/ReaderAnchor"
+          },
+          "span": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "text": {
+            "type": "string",
+            "example": "Section 7.2(b)"
+          },
+          "status": {
+            "type": "string",
+            "description": "`resolved`, `section_fallback`, `ambiguous`, `unlocated_attachment`, `disclosure_schedule`, `external` or `unresolved`."
+          },
+          "target": {
+            "type": "string",
+            "description": "Outline id of the target, when linked."
+          },
+          "candidates": {
+            "type": "array",
+            "description": "Outline ids an ambiguous reference could mean.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "at",
+          "span",
+          "status",
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "ReaderIndexResponse": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "integer",
+            "description": "Payload schema version."
+          },
+          "enricher": {
+            "type": "string",
+            "description": "Enricher version that built the index."
+          },
+          "agreement_uuid": {
+            "type": "string"
+          },
+          "xml_version": {
+            "type": "integer",
+            "description": "The XML version the anchors point into."
+          },
+          "outline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReaderOutlineNode"
+            }
+          },
+          "terms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReaderTerm"
+            }
+          },
+          "uses": {
+            "type": "object",
+            "description": "Term uses by text node (`<container>/<t>`): `[start, end, term id]` triples in UTF-16 code units.",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "xrefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReaderXref"
+            }
+          },
+          "stats": {
+            "type": "object",
+            "description": "Counts and resolution rates for this agreement.",
+            "additionalProperties": {}
+          },
+          "is_redacted": {
+            "type": "boolean",
+            "description": "True for anonymous callers: items inside redacted text are dropped or masked."
+          }
+        },
+        "required": [
+          "agreement_uuid",
+          "enricher",
+          "outline",
+          "schema",
+          "stats",
+          "terms",
+          "uses",
+          "xml_version",
+          "xrefs"
         ],
         "additionalProperties": false
       },

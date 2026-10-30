@@ -1,0 +1,744 @@
+{
+ "agreement_uuid": "185ca7e6-1ea7-5312-a2b8-96d3fd7f4c57",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Accounting Fees",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s3.10(c)"
+  },
+  {
+   "term": "Accounts Receivable",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Adjustment Escrow Account",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.4"
+  },
+  {
+   "term": "Adjustment Escrow Amount",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s3.4"
+  },
+  {
+   "term": "Adjustment Escrow Release Date",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Adjustment Time",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "After-Tax-Basis",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Aggregate Preferred Consideration",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s2.4(c)(iii)"
+  },
+  {
+   "term": "Aggregate Series A Preferred Consideration",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s2.4(c)(iii)"
+  },
+  {
+   "term": "Aggregate Series B Preferred Consideration",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s2.4(c)(ii)"
+  },
+  {
+   "term": "Aggregate Series C Preferred Consideration",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s2.4(c)(i)"
+  },
+  {
+   "term": "Agreement",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Alfa Bank Debt",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Alfa Bank Debt Amount",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Allocation Statement",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "s3.3"
+  },
+  {
+   "term": "Amendment and Waiver to Amended and Restated Employment Agreements",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "s8.1(o)"
+  },
+  {
+   "term": "Amendment and Waiver to Amended and Restated Employment and Directorship Agreement",
+   "para": "P19",
+   "kind": "pointer",
+   "pointer": "s8.1(p)"
+  },
+  {
+   "term": "Amendment and Waiver to Employment Agreements",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "s8.1(m)"
+  },
+  {
+   "term": "Amendment and Waiver to Key Employee Retention Bonus and Severance Agreements",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "s8.1(n)"
+  },
+  {
+   "term": "Amtrol Company",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Amtrol Companies",
+   "para": "P22",
+   "kind": "paren"
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Alternative Transaction",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s11.12"
+  },
+  {
+   "term": "Approval Percentage Stockholders",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Assumption Notice",
+   "para": "P26",
+   "kind": "pointer",
+   "pointer": "s10.4(b)"
+  },
+  {
+   "term": "Assumption Period",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s10.4(b)"
+  },
+  {
+   "term": "Balance Sheet Date",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s4.6"
+  },
+  {
+   "term": "Basket",
+   "para": "P29",
+   "kind": "pointer",
+   "pointer": "s10.1(e)"
+  },
+  {
+   "term": "Books and Records",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Business Employee",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P33",
+   "kind": "pointer",
+   "pointer": "s2.2"
+  },
+  {
+   "term": "Chohfi Employment Agreement",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Claim",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s10.3(b)"
+  },
+  {
+   "term": "Closing",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Closing Balance Sheet",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s3.10(a)"
+  },
+  {
+   "term": "Closing Cash",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P39",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Closing Merger Consideration",
+   "para": "P40",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "1.1",
+   "context": "specified in this Section 1.1:",
+   "target": "s1.1"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "3.10(c)",
+   "context": "meaning set forth in Section 3.10(c).",
+   "target": "s3.10(c)"
+  },
+  {
+   "para": "P3",
+   "head": "schedule",
+   "mention": "1.1(a)",
+   "context": "employment set forth on Schedule 1.1(a)) and other",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "3.4",
+   "context": "meaning set forth in Section 3.4.",
+   "target": "s3.4"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3.4",
+   "context": "meaning set forth in Section 3.4.",
+   "target": "s3.4"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.10(d)(iii)",
+   "context": "in accordance with Section 3.10(d)(iii), and of",
+   "target": "s3.10(d)(iii)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.10(b)",
+   "context": "in accordance with Section 3.10(b) or 3.10(c), and",
+   "target": "s3.10(b)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.10(c)",
+   "context": "Section 3.10(b) or 3.10(c), and (ii)",
+   "target": "s3.10(c)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.10(f)",
+   "context": "as provided in Section 3.10(f), the full",
+   "target": "s3.10(f)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.10(d)(i)",
+   "context": "pursuant to Section 3.10(d)(i), and (b)",
+   "target": "s3.10(d)(i)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "10.1",
+   "context": "in accordance with Section 10.1 to the",
+   "target": "s10.1"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.4(c)(iii)",
+   "context": "meaning set forth in Section 2.4(c)(iii).",
+   "target": "s2.4(c)(iii)"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "2.4(c)(iii)",
+   "context": "meaning set forth in Section 2.4(c)(iii).",
+   "target": "s2.4(c)(iii)"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "2.4(c)(ii)",
+   "context": "meaning set forth in Section 2.4(c)(ii).",
+   "target": "s2.4(c)(ii)"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "2.4(c)(i)",
+   "context": "meaning set forth in Section 2.4(c)(i).",
+   "target": "s2.4(c)(i)"
+  },
+  {
+   "para": "P15",
+   "head": "schedule",
+   "mention": "1.1(b)",
+   "context": "set forth on Schedule 1.1(b).",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "3.3",
+   "context": "meaning set forth in Section 3.3.",
+   "target": "s3.3"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "8.1(o)",
+   "context": "meaning set forth in Section 8.1(o).",
+   "target": "s8.1(o)"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "8.1(p)",
+   "context": "meaning set forth in Section 8.1(p).",
+   "target": "s8.1(p)"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "8.1(m)",
+   "context": "meaning set forth in Section 8.1(m).",
+   "target": "s8.1(m)"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "8.1(n)",
+   "context": "meaning set forth in Section 8.1(n).",
+   "target": "s8.1(n)"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "10.4(b)",
+   "context": "meaning set forth in Section 10.4(b).",
+   "target": "s10.4(b)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "10.4(b)",
+   "context": "meaning set forth in Section 10.4(b).",
+   "target": "s10.4(b)"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "4.6",
+   "context": "meaning set forth in Section 4.6.",
+   "target": "s4.6"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "10.1(e)",
+   "context": "meaning set forth in Section 10.1(e).",
+   "target": "s10.1(e)"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "2.2",
+   "context": "meaning set forth in Section 2.2.",
+   "target": "s2.2"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "10.3(b)",
+   "context": "meaning set forth in Section 10.3(b).",
+   "target": "s10.3(b)"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "3.1",
+   "context": "meaning set forth in Section 3.1.",
+   "target": "s3.1"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "3.10(a)",
+   "context": "meaning set forth in Section 3.10(a).",
+   "target": "s3.10(a)"
+  },
+  {
+   "para": "P39",
+   "head": "section",
+   "mention": "3.1",
+   "context": "meaning set forth in Section 3.1.",
+   "target": "s3.1"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "2.4(e)(i)",
+   "context": "in accordance with Section 2.4(e)(i) of this Agreement",
+   "target": "s2.4(e)(i)"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "7.3",
+   "context": "contained in this Section 7.3 shall prevent",
+   "target": "s7.3"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P42",
+   "count": 3
+  },
+  {
+   "term": "Affiliate",
+   "para": "P44",
+   "count": 3
+  },
+  {
+   "term": "Amtrol Company",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Amtrol Company",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P42",
+   "count": 3
+  },
+  {
+   "term": "Agreement",
+   "para": "P43",
+   "count": 7
+  },
+  {
+   "term": "Agreement",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Amtrol Companies",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Amtrol Companies",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Amtrol Companies",
+   "para": "P44",
+   "count": 5
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "01c6a0ec-f548-55eb-864a-c0c15e232e4a",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "c3dc5d98-b21b-5bdf-9d4f-3824103b335e",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "62eabee7-0800-52c3-bb0f-9113eba093d6",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "2eb75df5-2099-5ef3-853f-580692804581",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "2ed56d73-d66a-54af-98d9-1ddf5b11bfad",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

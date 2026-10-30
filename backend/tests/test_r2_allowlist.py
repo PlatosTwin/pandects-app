@@ -34,6 +34,7 @@ _ORM_DEP_TO_TABLE = {
     "LatestSectionsSearch": "latest_sections_search",
     "NaicsSector": "naics_sectors",
     "NaicsSubSector": "naics_sub_sectors",
+    "ReaderIndex": "reader_index",
     "Sections": "sections",
     "SectionTextSearch": "section_text_search",
     "TaxClauseAssignment": "tax_clause_assignments",

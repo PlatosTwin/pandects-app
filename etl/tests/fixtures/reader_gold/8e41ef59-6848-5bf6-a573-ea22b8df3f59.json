@@ -1,0 +1,430 @@
+{
+ "agreement_uuid": "8e41ef59-6848-5bf6-a573-ea22b8df3f59",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Intellectual Property",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "URLs",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Domain Names",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Registered Intellectual Property",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Company Registered Intellectual Property",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Personal Data",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "User Data",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Company Privacy Policy",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "PTO",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Products",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "IP Contracts",
+   "para": "P19",
+   "kind": "paren"
+  },
+  {
+   "term": "Open Source Material",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Parent SEC Reports",
+   "para": "P35",
+   "kind": "paren"
+  },
+  {
+   "term": "Parent Financials",
+   "para": "P36",
+   "kind": "paren"
+  },
+  {
+   "term": "Parent Balance Sheet",
+   "para": "P36",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.7(b)",
+   "context": "Section 2.7(b) of the Company Disclosure Letter sets forth",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.7(c)",
+   "context": "Section 2.7(c) of the Company Disclosure Letter sets forth",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "2.7(g)",
+   "context": "Except as set forth on Section 2.7(g) of the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "2.7(i)",
+   "context": "Section 2.7(i) of the Company Disclosure Letter sets",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "2.7(q)(i)",
+   "context": "Section 2.7(q)(i) of the Company Disclosure Letter accurately",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "2.7(q)(ii)",
+   "context": "Except as set forth in Section 2.7(q)(ii) of the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "3.3(c)",
+   "context": "requirements set forth in Section 3.3(c), conflict with",
+   "target": "s3.3(c)"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "3.3(b)",
+   "context": "obtaining the consents set forth in Section 3.3(b) of",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "3.13",
+   "context": "Parent Material Contract (as defined in Section 3.13), except",
+   "target": "s3.13"
+  },
+  {
+   "para": "P32",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "in the case of clauses (ii) and (iii) above",
+   "target": "inline"
+  },
+  {
+   "para": "P32",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "clauses (ii) and (iii) above, for any such",
+   "target": "inline"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "302",
+   "context": "required pursuant to Sections 302 and 906",
+   "target": "external"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "906",
+   "context": "Sections 302 and 906 of the Sarbanes-Oxley Act",
+   "target": "external"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "404",
+   "context": "with the requirements of Section 404 of the Sarbanes-Oxley Act",
+   "target": "external"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "404",
+   "context": "with the requirements of Section 404 of the Sarbanes-Oxley Act",
+   "target": "external"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "ce3f88d6-6a83-56da-9c53-ec3281f6d386",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "6b9cb43e-2a1b-5074-864b-48f3567eb5d2",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "6b9cb43e-2a1b-5074-864b-48f3567eb5d2",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "6b9cb43e-2a1b-5074-864b-48f3567eb5d2",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "6b9cb43e-2a1b-5074-864b-48f3567eb5d2",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "06f67805-bc30-5892-80e4-57599d43ec53",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P35": {
+   "s": "06f67805-bc30-5892-80e4-57599d43ec53",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P36": {
+   "s": "06f67805-bc30-5892-80e4-57599d43ec53",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P37": {
+   "s": "06f67805-bc30-5892-80e4-57599d43ec53",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P38": {
+   "s": "06f67805-bc30-5892-80e4-57599d43ec53",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P39": {
+   "s": "06f67805-bc30-5892-80e4-57599d43ec53",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P40": {
+   "s": "c02a4835-94ef-52c5-a3a4-0fe9ee75c325",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P41": {
+   "s": "c02a4835-94ef-52c5-a3a4-0fe9ee75c325",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "c02a4835-94ef-52c5-a3a4-0fe9ee75c325",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "c02a4835-94ef-52c5-a3a4-0fe9ee75c325",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "c02a4835-94ef-52c5-a3a4-0fe9ee75c325",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "c02a4835-94ef-52c5-a3a4-0fe9ee75c325",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "f8161d0e-9159-5694-8f9c-519d214a15c5",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

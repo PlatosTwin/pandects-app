@@ -89,6 +89,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agreements/{agreement_uuid}/reader-index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agreement_uuid: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Retrieve the reader index for an agreement
+         * @description Returns the outline, defined terms (declarations and uses) and cross-references of the XML version `/v1/agreements/{agreement_uuid}` serves, as stand-off anchors into that XML; no agreement text is included. For anonymous callers, items inside redacted text are dropped and declarations there are masked, following the same `focus_section_uuid` and `neighbor_sections` as the agreement endpoint. Returns 404 when no index has been built for the current XML version. Supports `If-None-Match`.
+         */
+        get: operations["getAgreementReaderIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/agreements/{agreement_uuid}/tax-clauses": {
         parameters: {
             query?: never;
@@ -1510,6 +1532,81 @@ export interface components {
             agreement_uuid: string;
             results: components["schemas"]["AgreementSectionIndexItem"][];
         };
+        ReaderAnchor: {
+            /** @description Section or article uuid, or a region name (`frontMatter`, `body`, `backMatter`). */
+            s: string;
+            /** @description Ordinal of the `<text>` element within that container, in document order. */
+            t?: number;
+        };
+        ReaderOutlineNode: {
+            /** @example s4.3(b) */
+            id: string;
+            /** @description `article`, `section`, `sub` or `attachment`. */
+            kind: string;
+            /** @example 4.3(b) */
+            label: string;
+            title: string;
+            anchor: components["schemas"]["ReaderAnchor"];
+            children?: components["schemas"]["ReaderOutlineNode"][];
+        };
+        ReaderTermDecl: {
+            anchor?: components["schemas"]["ReaderAnchor"];
+            /** @description [start, end) in UTF-16 code units. */
+            span?: number[];
+            /** @description `means`, `paren` or `pointer`. */
+            kind?: string;
+            /** @description Where the declaration sits, such as `Section 1.1`. */
+            in?: string;
+            /** @description The printed spelling, when it differs from the term's. */
+            as?: string;
+            /** @description Target of a `has the meaning set forth in` declaration. */
+            pointer?: string;
+            /** @description True when the declaration is in text the caller cannot read. */
+            redacted?: boolean;
+            /** @description With `redacted`: where the term is defined, such as `Section 1.1`. */
+            label?: string;
+        };
+        ReaderTerm: {
+            id: number;
+            term: string;
+            decls: components["schemas"]["ReaderTermDecl"][];
+            /** @description `high`, or `low` for common words like "Law". */
+            confidence: string;
+        };
+        ReaderXref: {
+            at: components["schemas"]["ReaderAnchor"];
+            span: number[];
+            /** @example Section 7.2(b) */
+            text: string;
+            /** @description `resolved`, `section_fallback`, `ambiguous`, `unlocated_attachment`, `disclosure_schedule`, `external` or `unresolved`. */
+            status: string;
+            /** @description Outline id of the target, when linked. */
+            target?: string;
+            /** @description Outline ids an ambiguous reference could mean. */
+            candidates?: string[];
+        };
+        ReaderIndexResponse: {
+            /** @description Payload schema version. */
+            schema: number;
+            /** @description Enricher version that built the index. */
+            enricher: string;
+            agreement_uuid: string;
+            /** @description The XML version the anchors point into. */
+            xml_version: number;
+            outline: components["schemas"]["ReaderOutlineNode"][];
+            terms: components["schemas"]["ReaderTerm"][];
+            /** @description Term uses by text node (`<container>/<t>`): `[start, end, term id]` triples in UTF-16 code units. */
+            uses: {
+                [key: string]: number[][];
+            };
+            xrefs: components["schemas"]["ReaderXref"][];
+            /** @description Counts and resolution rates for this agreement. */
+            stats: {
+                [key: string]: unknown;
+            };
+            /** @description True for anonymous callers: items inside redacted text are dropped or masked. */
+            is_redacted?: boolean;
+        };
         TaxClause: {
             /** @description Tax-clause-taxonomy label for each id in `standard_ids`, keyed by id. */
             standard_id_labels: {
@@ -2570,6 +2667,35 @@ export interface operations {
                     "application/json": components["schemas"]["AgreementSectionIndexResponse"];
                 };
             };
+            default: components["responses"]["DEFAULT_ERROR"];
+        };
+    };
+    getAgreementReaderIndex: {
+        parameters: {
+            query?: {
+                /** @description Optional section UUID used when redacting anonymous responses to keep a focused neighborhood visible. */
+                focus_section_uuid?: string | null;
+                /** @description Number of neighboring sections to include around `focus_section_uuid` when response XML is redacted. */
+                neighbor_sections?: number;
+            };
+            header?: never;
+            path: {
+                agreement_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReaderIndexResponse"];
+                };
+            };
+            422: components["responses"]["UNPROCESSABLE_ENTITY"];
             default: components["responses"]["DEFAULT_ERROR"];
         };
     };

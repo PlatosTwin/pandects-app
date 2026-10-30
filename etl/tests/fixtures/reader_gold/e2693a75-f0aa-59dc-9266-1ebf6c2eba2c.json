@@ -1,0 +1,389 @@
+{
+ "agreement_uuid": "e2693a75-f0aa-59dc-9266-1ebf6c2eba2c",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Subsidiaries",
+   "para": "P1",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Contracts",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "Parent Permits",
+   "para": "P14",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "13",
+   "context": "used in Section 13 of the Exchange Act",
+   "target": "external"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "8.14(a)",
+   "context": "persons listed in Section 8.14(a) of the Parent Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "8.14(a)",
+   "context": "individuals listed on Section 8.14(a) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "3.19(a)",
+   "context": "(a) Section 3.19(a) of the Company Disclosure Schedule contains",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "4.7",
+   "context": "anything contained in this Section 4.7, no representation",
+   "target": "s4.7"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "4.7",
+   "context": "to be made in this Section 4.7 in respect of",
+   "target": "s4.7"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "4.4",
+   "context": "matters referenced in Section 4.4 or 4.5, or",
+   "target": "s4.4"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "4.5",
+   "context": "matters referenced in Section 4.4 or 4.5, or",
+   "target": "s4.5"
+  },
+  {
+   "para": "P52",
+   "head": "section",
+   "mention": "8.7",
+   "context": "as provided in this Section 8.7; provided, however, that",
+   "target": "s8.7"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Subsidiaries",
+   "para": "P7",
+   "count": 2
+  },
+  {
+   "term": "Subsidiaries",
+   "para": "P8",
+   "count": 2
+  },
+  {
+   "term": "Subsidiaries",
+   "para": "P10",
+   "count": 6
+  },
+  {
+   "term": "Subsidiaries",
+   "para": "P11",
+   "count": 2
+  },
+  {
+   "term": "Subsidiaries",
+   "para": "P13",
+   "count": 1
+  },
+  {
+   "term": "Subsidiaries",
+   "para": "P14",
+   "count": 2
+  },
+  {
+   "term": "Subsidiaries",
+   "para": "P15",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "3f018b87-8324-5961-a0d3-d522d5221082",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "3f018b87-8324-5961-a0d3-d522d5221082",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "3f018b87-8324-5961-a0d3-d522d5221082",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "3f018b87-8324-5961-a0d3-d522d5221082",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "3f018b87-8324-5961-a0d3-d522d5221082",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "3f018b87-8324-5961-a0d3-d522d5221082",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "94dcb895-63f5-5944-922b-081c24c8cd75",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "94dcb895-63f5-5944-922b-081c24c8cd75",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "94dcb895-63f5-5944-922b-081c24c8cd75",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "94dcb895-63f5-5944-922b-081c24c8cd75",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "94dcb895-63f5-5944-922b-081c24c8cd75",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "94dcb895-63f5-5944-922b-081c24c8cd75",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "da538f2a-ff1c-53d4-9441-8264f62340bc",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "da538f2a-ff1c-53d4-9441-8264f62340bc",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "da538f2a-ff1c-53d4-9441-8264f62340bc",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "da538f2a-ff1c-53d4-9441-8264f62340bc",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "0d7d67ed-10f3-58b1-8eb1-bdbc3eda0539",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "0d7d67ed-10f3-58b1-8eb1-bdbc3eda0539",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "0d7d67ed-10f3-58b1-8eb1-bdbc3eda0539",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "0d7d67ed-10f3-58b1-8eb1-bdbc3eda0539",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "0d7d67ed-10f3-58b1-8eb1-bdbc3eda0539",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "0d7d67ed-10f3-58b1-8eb1-bdbc3eda0539",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P35": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P36": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P37": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P38": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 15,
+   "excerpt": "sampled"
+  },
+  "P39": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 16,
+   "excerpt": "sampled"
+  },
+  "P40": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 17,
+   "excerpt": "sampled"
+  },
+  "P41": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 18,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 19,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 20,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 21,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 22,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 23,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 24,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 25,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 26,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 27,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 28,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "55f294c2-050a-506a-a373-c748f5e01deb",
+   "t": 29,
+   "excerpt": "sampled"
+  }
+ }
+}

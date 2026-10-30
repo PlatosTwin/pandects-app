@@ -1,0 +1,419 @@
+{
+ "agreement_uuid": "2f702363-546e-5b25-9a06-061808a5d59a",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Buyer Indemnified Parties",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Representative",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Environmental Action",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Contamination",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Fastener Environmental Condition",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Fastener Environmental Liability",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Release",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Remedial Action",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Remediation Standards",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "10 3/4% Indenture",
+   "para": "P24",
+   "kind": "paren"
+  },
+  {
+   "term": "Debt Tender Offer",
+   "para": "P24",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "11.5",
+   "context": "Subject to the provisions of Sections 11.5 and",
+   "target": "s11.5"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "11.6",
+   "context": "Sections 11.5 and 11.6, from and after",
+   "target": "s11.6"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "11.6",
+   "context": "Sellers under this Section 11.6 shall terminate on",
+   "target": "s11.6"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "5.3",
+   "context": "in accordance with the terms of Section 5.3",
+   "target": "s5.3"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "11.6",
+   "context": "that are subject to indemnification pursuant to Section 11.6",
+   "target": "s11.6"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "11.6",
+   "context": "indemnification obligation under this Section 11.6, provided, that the",
+   "target": "s11.6"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "11.6",
+   "context": "of any of the Sellers under this Section 11.6.",
+   "target": "s11.6"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "3.9",
+   "context": "Business Real Properties listed on Schedule 3.9",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "11.6",
+   "context": "shall be subject to indemnification under this Section 11.6 (subject",
+   "target": "s11.6"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "11.2(a)(ii)",
+   "context": "indemnification pursuant to Section 11.2(a)(ii) of this Agreement",
+   "target": "s11.2(a)(ii)"
+  },
+  {
+   "para": "P17",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "as a precondition to, clause (i) or (ii)",
+   "target": "inline"
+  },
+  {
+   "para": "P17",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "to, clause (i) or (ii) above.",
+   "target": "inline"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "1.10(b)",
+   "context": "assumed pursuant to Section 1.10(b), the Buyer",
+   "target": "s1.10(b)"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "11.6",
+   "context": "the provisions of this Section 11.6 shall not affect",
+   "target": "s11.6"
+  },
+  {
+   "para": "P21",
+   "head": "article",
+   "mention": "III",
+   "context": "schedules referred to in Article III (other than",
+   "target": "a3"
+  },
+  {
+   "para": "P21",
+   "head": "schedule",
+   "mention": "3.16",
+   "context": "(other than Schedule 3.16 with respect to asbestos",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P21",
+   "head": "article",
+   "mention": "VI",
+   "context": "Hazardous Materials) and Article VI with respect to",
+   "target": "a6"
+  },
+  {
+   "para": "P23",
+   "head": "article",
+   "mention": "IV",
+   "context": "schedules referred to in Article IV with respect to",
+   "target": "a4"
+  },
+  {
+   "para": "P23",
+   "head": "article",
+   "mention": "III",
+   "context": "Sellers contained in Article III and the accuracy",
+   "target": "a3"
+  },
+  {
+   "para": "P23",
+   "head": "article",
+   "mention": "IV",
+   "context": "Buyer contained in Article IV in order to determine",
+   "target": "a4"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "7.3(a)",
+   "context": "conditions set forth in Sections 7.3(a) and",
+   "target": "s7.3(a)"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "7.2(a)",
+   "context": "7.3(a) and 7.2(a), respectively, the schedules",
+   "target": "s7.2(a)"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "5.14(a)",
+   "context": "obligations pursuant to Section 5.14(a) in all respects",
+   "target": "s5.14(a)"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "7.3(a)",
+   "context": "conditions set forth in Sections 7.3(a) and (b)",
+   "target": "s7.3(a)"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "(b)",
+   "context": "7.3(a) and (b) of this Agreement;",
+   "target": "s7.3(b)"
+  },
+  {
+   "para": "P31",
+   "head": "schedule",
+   "mention": "7.3(d)",
+   "context": "consents listed on Schedule 7.3(d) shall have been",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "5.2",
+   "context": "as contemplated by Section 5.2.",
+   "target": "s5.2"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v4",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "f0ffd50d-7445-524a-9b99-095378144e8f",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "092859ef-4708-5d62-9e4e-d52d7407ccff",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "b5dbef6b-57e9-5ced-b693-54e8575818e3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "b5dbef6b-57e9-5ced-b693-54e8575818e3",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "b5dbef6b-57e9-5ced-b693-54e8575818e3",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "a427b9ef-caf8-59b4-9de1-971aa76e5fcb",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "a427b9ef-caf8-59b4-9de1-971aa76e5fcb",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "76c7f802-03a7-5369-b339-f1c539f6db99",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "76c7f802-03a7-5369-b339-f1c539f6db99",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "76c7f802-03a7-5369-b339-f1c539f6db99",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "76c7f802-03a7-5369-b339-f1c539f6db99",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "76c7f802-03a7-5369-b339-f1c539f6db99",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "76c7f802-03a7-5369-b339-f1c539f6db99",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "76c7f802-03a7-5369-b339-f1c539f6db99",
+   "t": 6,
+   "excerpt": "sampled"
+  }
+ }
+}

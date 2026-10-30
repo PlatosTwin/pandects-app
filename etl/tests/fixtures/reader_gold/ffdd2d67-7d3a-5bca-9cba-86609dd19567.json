@@ -1,0 +1,532 @@
+{
+ "agreement_uuid": "ffdd2d67-7d3a-5bca-9cba-86609dd19567",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Class A Liberty Media Group Stock",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Class B Liberty Media Group Stock",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Commission",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Company Common Stock",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Company Disclosure Schedule",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stock Plans",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Company Transaction Documents",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Contribution Agreement",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Covered Entity",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "DGCL",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Eighth Tax Sharing Amendment",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "GECC Facility",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Consent",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Filing",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Hart-Scott Act",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Indebtedness",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Inter-Group Agreement",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Inter-Group Supplement",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Law",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Liberty Media Affiliate",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate of Liberty Media",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Liberty Media Group",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Liberty Media Group Information",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Liberty Media Material Adverse Effect",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Lien",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Merger",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "not_in_filing"
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "NYSE",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Adverse Effect",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Charter",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Common Stock",
+   "para": "P40",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "2.2",
+   "context": "occurs pursuant to Section 2.2.",
+   "target": "s2.2"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.3(a)",
+   "context": "listed in Section 4.3(a) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "2.1(a)",
+   "context": "provided in Section 2.1(a).",
+   "target": "s2.1(a)"
+  },
+  {
+   "para": "P25",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "kind described in the preceding clause (i) which",
+   "target": "inline"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "6.5",
+   "context": "Liberty Media Group described in Section 6.5.",
+   "target": "s6.5"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "2.3(a)(i)",
+   "context": "are entitled pursuant to Section 2.3(a)(i).",
+   "target": "s2.3(a)(i)"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "2.3(b)",
+   "context": "Carryover Options as provided in Section 2.3(b) will,",
+   "target": "s2.3(b)"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "4.21",
+   "context": "Section 4.21 of the Company Disclosure Schedule sets forth",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "7.8",
+   "context": "Nothing in this Section 7.8 shall be deemed",
+   "target": "s7.8"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "7.4",
+   "context": "Company pursuant to Section 7.4 including, without limitation,",
+   "target": "s7.4"
+  },
+  {
+   "para": "P43",
+   "head": "clause",
+   "mention": "(g)",
+   "context": "without limitation, clause (g) thereof.",
+   "target": "s7.4(g)"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "7.10",
+   "context": "Except for Section 7.10, nothing in this Agreement",
+   "target": "s7.10"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P44",
+   "count": 4
+  },
+  {
+   "term": "Company Disclosure Schedule",
+   "para": "P42",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "13f837ec-7246-5850-8eb0-1a015445f99d",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "76dd8eaf-02cc-50bd-82dd-6c3209145e9c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "1527befc-4a19-52ad-bf1d-ad160a2fc3c1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "f3718efd-69dd-5208-84b8-516c3343f63c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "22f5ee68-0c99-539f-abd3-5da3d3f45bd5",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

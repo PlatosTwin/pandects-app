@@ -1,0 +1,359 @@
+{
+ "agreement_uuid": "c296ca88-3feb-5011-a187-4bf2c3233f13",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Merger Consideration",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Option",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Stock Option Plans",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "In the Money Options",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "Out of the Money Option",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "Code",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "Exchange Ratio",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Measurement Price",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Total Weighted Trading Price",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Measurement Period",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Weighted Trading Price",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Total Trading Volume",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Company Transaction Documents",
+   "para": "P13",
+   "kind": "paren"
+  },
+  {
+   "term": "NYSE",
+   "para": "P13",
+   "kind": "paren"
+  },
+  {
+   "term": "Transaction Documents",
+   "para": "P13",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Board",
+   "para": "P14",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Stockholder Approval",
+   "para": "P16",
+   "kind": "paren"
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P18",
+   "kind": "paren"
+  },
+  {
+   "term": "HSR",
+   "para": "P18",
+   "kind": "paren"
+  },
+  {
+   "term": "DLJ",
+   "para": "P21",
+   "kind": "paren"
+  },
+  {
+   "term": "Information Statement",
+   "para": "P22",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Proxy Statement",
+   "para": "P22",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "2.5(b)",
+   "context": "accordance with Section 2.5(b), and Appraisal",
+   "target": "s2.5(b)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "2.5",
+   "context": "provisions of this Section 2.5, the Offer Price",
+   "target": "s2.5"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "422",
+   "context": "to which Section 422 of the Internal Revenue",
+   "target": "external"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "424(a)",
+   "context": "comply with Section 424(a) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.5",
+   "context": "contemplated by this Section 2.5. On the Closing",
+   "target": "s2.5"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "2.5(d)",
+   "context": "accordance with this Section 2.5(d). As soon",
+   "target": "s2.5(d)"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "203",
+   "context": "restrictions of Section 203 of the Delaware Law",
+   "target": "external"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "4.9",
+   "context": "representation in Section 4.9. No other",
+   "target": "s4.9"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "3.3(c)",
+   "context": "matters referred to in Section 3.3(c), any provision",
+   "target": "s3.3(c)"
+  },
+  {
+   "para": "P17",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "in the case of clauses (ii) and (iii) as",
+   "target": "inline"
+  },
+  {
+   "para": "P17",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "in the case of clauses (ii) and (iii) as",
+   "target": "inline"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "4.10",
+   "context": "representation in Section 4.10, the Company and",
+   "target": "s4.10"
+  },
+  {
+   "para": "P22",
+   "head": "schedule",
+   "mention": "14D-9",
+   "context": "reference in the Schedule 14D-9, the Offer",
+   "target": "external"
+  },
+  {
+   "para": "P22",
+   "head": "schedule",
+   "mention": "14D-9",
+   "context": "The Schedule 14D-9, the Information Statement and",
+   "target": "external"
+  },
+  {
+   "para": "P23",
+   "head": "article",
+   "mention": "I",
+   "context": "consideration set forth in Article I of this",
+   "target": "a1"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "6.7",
+   "context": "the provisions of Sections 6.7 and 6.10",
+   "target": "s6.7"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "6.10",
+   "context": "Sections 6.7 and 6.10.",
+   "target": "s6.10"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "5fde691a-9b75-5588-8058-575287526c4e",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "3528a10f-e48d-5385-acb7-76ca292ccfb5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "3528a10f-e48d-5385-acb7-76ca292ccfb5",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "3528a10f-e48d-5385-acb7-76ca292ccfb5",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "3528a10f-e48d-5385-acb7-76ca292ccfb5",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "3528a10f-e48d-5385-acb7-76ca292ccfb5",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "3528a10f-e48d-5385-acb7-76ca292ccfb5",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "3528a10f-e48d-5385-acb7-76ca292ccfb5",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "3528a10f-e48d-5385-acb7-76ca292ccfb5",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "90d8d88b-e9a9-56b7-a0a5-55d550373bee",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "384e9e63-846f-5972-ac71-32c09227be51",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "36d1711f-68ef-5a0d-bb5d-ae368589824f",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

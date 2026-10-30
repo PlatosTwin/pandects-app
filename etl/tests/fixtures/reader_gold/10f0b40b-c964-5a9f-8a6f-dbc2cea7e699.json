@@ -1,0 +1,615 @@
+{
+ "agreement_uuid": "10f0b40b-c964-5a9f-8a6f-dbc2cea7e699",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Acceptable Confidentiality Agreement",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Acquisition Agreement",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliated Practice Documents",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliated Practices",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Anti-Corruption Laws",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Antitrust Laws",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "CARES Act",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "CMS",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "CMS ACO REACH Model",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "CMS Direct Contracting Model",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Company 401(k) Plans",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Company Group",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Company IP Agreements",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stock Plans",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stockholders’ Meeting",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Company Subsidiary",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Convertible Notes",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "COVID-19",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "COVID-19 Measure",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "FCPA",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Federal Health Care Program",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Healthcare Laws",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "HIPAA",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Indenture",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Leased Real Property",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Liens",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Material Affiliated Practice Documents",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Cures Act",
+   "para": "P33",
+   "kind": "paren"
+  },
+  {
+   "term": "Trademarks",
+   "para": "P36",
+   "kind": "paren"
+  },
+  {
+   "term": "Knowledge of the Company",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Company’s Knowledge",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Material Affiliated Practices",
+   "para": "P40",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P41",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "6.03",
+   "context": "required to be made by, Section 6.03 or any other",
+   "target": "s6.3"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "6.03",
+   "context": "accordance with the terms of Section 6.03)",
+   "target": "s6.3"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3.01(c)",
+   "context": "listed on Section 3.01(c) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1115A",
+   "context": "by CMS under Section 1115A of the Social Security",
+   "target": "external"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "1115A",
+   "context": "program established by CMS under Section 1115A of the",
+   "target": "external"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "3.05",
+   "context": "apply to any representations or warranties contained in Section 3.05",
+   "target": "s3.5"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "3.11(j)",
+   "context": "or Section 3.11(j) (or the condition in",
+   "target": "s3.11(j)"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "7.02(a)",
+   "context": "(or the condition in Section 7.02(a) as it relates to",
+   "target": "s7.2(a)"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "3.05",
+   "context": "relates to the representations or warranties contained in Section 3.05",
+   "target": "s3.5"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "3.11(j)",
+   "context": "or Section 3.11(j)), or (E) compliance with",
+   "target": "s3.11(j)"
+  },
+  {
+   "para": "P19",
+   "head": "clause",
+   "mention": "(D)",
+   "context": "exceptions in this clause (D) shall not apply",
+   "target": "inline"
+  },
+  {
+   "para": "P19",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "or (C) of this clause (i) have a disproportionate",
+   "target": "inline"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "414(b)",
+   "context": "determined under Sections 414(b), (c), (m) or",
+   "target": "external"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "(c)",
+   "context": "Sections 414(b), (c), (m) or (o) of",
+   "target": "external"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "(m)",
+   "context": "414(b), (c), (m) or (o) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "(o)",
+   "context": "(m) or (o) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P33",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "each case of the foregoing clauses (i) through",
+   "target": "inline"
+  },
+  {
+   "para": "P33",
+   "head": "clause",
+   "mention": "(xiii)",
+   "context": "clauses (i) through (xiii), all implementing regulations",
+   "target": "inline"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "9.03(a)",
+   "context": "identified in Section 9.03(a) of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "8.01",
+   "context": "terminated in accordance with Section 8.01, the closing",
+   "target": "s8.1"
+  },
+  {
+   "para": "P41",
+   "head": "article",
+   "mention": "VII",
+   "context": "conditions set forth in Article VII (other than those",
+   "target": "a7"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "9.02",
+   "context": "given in accordance with this Section 9.02",
+   "target": "s9.2"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Business Day",
+   "para": "P41",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "fba1591b-02a6-5fc0-a62c-84ed66723670",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "452fe139-74a3-5508-9c8b-7f07b35acf9b",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "dec0f0ae-606e-583c-b389-f99d300e8bb6",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "c8108a43-2e8f-569c-98dd-51e0d8279991",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "a9e8d9ce-4533-5554-978d-110e78fbe101",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "a9e8d9ce-4533-5554-978d-110e78fbe101",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

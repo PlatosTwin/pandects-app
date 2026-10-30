@@ -14,6 +14,7 @@ from sqlalchemy import (
     TEXT,
     Column,
     Integer,
+    LargeBinary,
     MetaData,
     Table,
     and_,
@@ -181,6 +182,17 @@ if _ENABLE_MAIN_DB_REFLECTION and not _SKIP_MAIN_DB_REFLECTION:
         )
     except NoSuchTableError:
         section_text_search_table = None
+    # Smart-reader index (docs/plans/smart-reader.md). It reaches prod with the next
+    # push, so a schema without it must still boot; the endpoint then 404s.
+    try:
+        reader_index_table: Table | None = Table(
+            "reader_index",
+            metadata,
+            schema=_MAIN_SCHEMA_TOKEN,
+            autoload_with=engine,
+        )
+    except NoSuchTableError:
+        reader_index_table = None
     latest_sections_search_standard_ids_table = Table(
         "latest_sections_search_standard_ids",
         metadata,
@@ -412,6 +424,15 @@ else:
         Column("updated_at", TEXT, nullable=False),
         schema=_MAIN_SCHEMA_TOKEN,
     )
+    reader_index_table = Table(
+        "reader_index",
+        metadata,
+        Column("agreement_uuid", CHAR(36), primary_key=True),
+        Column("xml_version", Integer, primary_key=True),
+        Column("enricher_version", TEXT, nullable=False),
+        Column("payload_gz", LargeBinary, nullable=False),
+        schema=_MAIN_SCHEMA_TOKEN,
+    )
     latest_sections_search_standard_ids_table = Table(
         "latest_sections_search_standard_ids",
         metadata,
@@ -584,6 +605,18 @@ class LatestSectionsSearch(db.Model):
     article_title: ClassVar[Mapped[str | None]]
     section_title: ClassVar[Mapped[str | None]]
 
+
+ReaderIndex: type[Any] | None = None
+if reader_index_table is not None:
+
+    class _ReaderIndexModel(db.Model):
+        __table__ = reader_index_table
+        agreement_uuid: ClassVar[Mapped[str]]
+        xml_version: ClassVar[Mapped[int]]
+        enricher_version: ClassVar[Mapped[str]]
+        payload_gz: ClassVar[Mapped[bytes]]
+
+    ReaderIndex = _ReaderIndexModel
 
 SectionTextSearch: type[Any] | None = None
 if section_text_search_table is not None:

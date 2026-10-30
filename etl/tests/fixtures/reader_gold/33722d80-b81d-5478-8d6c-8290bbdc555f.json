@@ -1,0 +1,43 @@
+{
+ "agreement_uuid": "33722d80-b81d-5478-8d6c-8290bbdc555f",
+ "rubric": "v1.5",
+ "declarations": [],
+ "xrefs": [],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 4,
+ "set": "heldout-v4",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "be4a6aa7-4bca-5065-9005-83439067e190",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "ab54e294-ced1-5139-8fe8-ecfd153f8850",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P3": {
+   "s": "689be5ac-8eee-5fdf-923e-96d9c251e600",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P4": {
+   "s": "2cd0cfef-e194-5e73-a7c7-1db7f04af458",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P5": {
+   "s": "7c0b512f-cde4-519d-a939-499c67a99d58",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P6": {
+   "s": "7c0b512f-cde4-519d-a939-499c67a99d58",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

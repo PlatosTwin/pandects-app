@@ -1,0 +1,428 @@
+{
+ "agreement_uuid": "c04b0801-fa85-59e7-aac0-80452a37a51c",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Company Preferred Stock",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Series A Preferred",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Rights",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Rights Agreement",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Stock Plans",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Options",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Deferred Stock Units",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Performance Shares",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Purchase Plan",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Fully-Diluted Shares",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Restricted Stock",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Voting Debt",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Legal Requirements",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Competing Transaction Proposal",
+   "para": "P23",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Adverse Recommendation Change",
+   "para": "P26",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2.2(b)",
+   "context": "Section 2.2(b) of the Company Disclosure Letter sets forth",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "422",
+   "context": "as defined in Section 422 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "409A",
+   "context": "or subject to Section 409A of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "2.2",
+   "context": "otherwise set forth in this Section 2.2, there are",
+   "target": "s2.2"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "2.24",
+   "context": "Section 2.24 of the Company Disclosure Letter sets forth a",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4.1",
+   "context": "as disclosed in Section 4.1 of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4.1(a)",
+   "context": "without limiting the generality of Section 4.1(a), except as",
+   "target": "s4.1(a)"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4.1",
+   "context": "provided in Section 4.1 of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "5.14",
+   "context": "Plan in accordance with Section 5.14, in respect of",
+   "target": "s5.14"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "4.1",
+   "context": "set forth on Section 4.1 of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "4.1",
+   "context": "and described in Section 4.1 of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "4.1",
+   "context": "set forth in Section 4.1 of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P23",
+   "head": "article",
+   "mention": "VII",
+   "context": "in accordance with Article VII, except as otherwise",
+   "target": "a7"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "203",
+   "context": "contained in Section 203 of Delaware Law",
+   "target": "external"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "5.3",
+   "context": "nothing in this Section 5.3 shall in any",
+   "target": "s5.3"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "5.3(a)",
+   "context": "Company has complied with this Section 5.3(a)",
+   "target": "s5.3(a)"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "5.3(b)",
+   "context": "thereafter complies with Section 5.3(b)",
+   "target": "s5.3(b)"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "5.3(a)",
+   "context": "as permitted by Section 5.3(a), to any person",
+   "target": "s5.3(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "5.3",
+   "context": "a breach of Section 5.3 hereof if the Board",
+   "target": "s5.3"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "5.3(a)",
+   "context": "(d) Notwithstanding Section 5.3(a), the Board of Directors",
+   "target": "s5.3(a)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "5.3",
+   "context": "Subsidiaries of this Section 5.3",
+   "target": "s5.3"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Company Rights",
+   "para": "P11",
+   "count": 2
+  },
+  {
+   "term": "Company Options",
+   "para": "P11",
+   "count": 1
+  },
+  {
+   "term": "Performance Shares",
+   "para": "P11",
+   "count": 1
+  },
+  {
+   "term": "Voting Debt",
+   "para": "P11",
+   "count": 4
+  },
+  {
+   "term": "Contract",
+   "para": "P20",
+   "count": 2
+  },
+  {
+   "term": "Contract",
+   "para": "P21",
+   "count": 1
+  },
+  {
+   "term": "Contract",
+   "para": "P22",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "e39d646b-40ed-5d7a-a7d3-3033147aa456",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "e39d646b-40ed-5d7a-a7d3-3033147aa456",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "e39d646b-40ed-5d7a-a7d3-3033147aa456",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "e39d646b-40ed-5d7a-a7d3-3033147aa456",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "360906fa-b415-5917-9cf8-c3a60f4c80ab",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P6": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 15,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "87598c0c-66b3-5317-98c3-043d1f92c863",
+   "t": 16,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "16b6eb4c-84d7-5dc1-978c-4c95a1c5ad93",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "16b6eb4c-84d7-5dc1-978c-4c95a1c5ad93",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "16b6eb4c-84d7-5dc1-978c-4c95a1c5ad93",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "16b6eb4c-84d7-5dc1-978c-4c95a1c5ad93",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "16b6eb4c-84d7-5dc1-978c-4c95a1c5ad93",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "16b6eb4c-84d7-5dc1-978c-4c95a1c5ad93",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "16b6eb4c-84d7-5dc1-978c-4c95a1c5ad93",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "7403c10b-e530-5a9a-b170-354a256682db",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

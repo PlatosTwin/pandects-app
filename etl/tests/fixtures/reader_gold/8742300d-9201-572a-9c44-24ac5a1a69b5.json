@@ -1,0 +1,428 @@
+{
+ "agreement_uuid": "8742300d-9201-572a-9c44-24ac5a1a69b5",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Articles",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Board of Directors",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Board",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Company",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Directors",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Independent Director",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Memorandum",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Merger Agreement",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Month",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Ordinary Resolution",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Ordinary Shares",
+   "para": "P26",
+   "kind": "pointer",
+   "pointer": "attachment_local"
+  },
+  {
+   "term": "Outstanding Voting Stock",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Paid-up",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Register",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Registered Office",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Secretary",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Shareholder",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Special Resolution",
+   "para": "P36",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Specified Period",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Statute",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Voting Stock",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Santa Fe Material Contracts",
+   "para": "P42",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "First",
+   "context": "Table 'A' in the First Schedule to the Statute",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "article",
+   "mention": "III",
+   "context": "has the meaning ascribed to it in Article III",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "40",
+   "context": "maintained in accordance with Section 40 of the Statute",
+   "target": "external"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "38",
+   "context": "the term \"member\" in Section 38 of the Statute",
+   "target": "external"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "6.23",
+   "context": "(a) Section 6.23 of the Santa Fe Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "types described in clauses (i) through (v) being referred",
+   "target": "inline"
+  },
+  {
+   "para": "P42",
+   "head": "clause",
+   "mention": "(v)",
+   "context": "types described in clauses (i) through (v) being referred",
+   "target": "inline"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Effective Time",
+   "para": "P41",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 40,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 41,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 42,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 43,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 44,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 45,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 46,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 47,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 48,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 49,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 50,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 51,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 52,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 53,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 54,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 55,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "43c57ae8-d0e6-559f-b5b3-b5fa25ce7e01",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "43c57ae8-d0e6-559f-b5b3-b5fa25ce7e01",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "43c57ae8-d0e6-559f-b5b3-b5fa25ce7e01",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "9e915dae-ec76-52e7-a43e-19281bfb029c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "ebe9f976-1f41-57bc-b436-672df2bcdceb",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "ebe9f976-1f41-57bc-b436-672df2bcdceb",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "87d4de81-a82a-5402-b355-6f4727f30f95",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "87d4de81-a82a-5402-b355-6f4727f30f95",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

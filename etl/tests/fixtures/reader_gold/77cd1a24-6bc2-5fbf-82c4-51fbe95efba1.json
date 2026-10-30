@@ -1,0 +1,741 @@
+{
+ "agreement_uuid": "77cd1a24-6bc2-5fbf-82c4-51fbe95efba1",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Accredited Investor Questionnaire",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Action",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Aggregate Closing Cash Payment",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Aggregate Closing Immediate Shares",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Aggregate Deferred Locked-Up Shares",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Anti-Corruption Laws",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Assets",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Business Intellectual Property",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Cap",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Cash",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "CERCLA",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Pro Rata Portion",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Company Intellectual Property",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Company IP Agreements",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Company’s Knowledge",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge of the Company",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Company Products and Services",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Company Transaction Expenses",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Confidential Material",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Access Principles",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s6.7"
+  },
+  {
+   "term": "Agreement",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "AI Laws",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s4.12(g)"
+  },
+  {
+   "term": "Backstop Account",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s8.9(a)"
+  },
+  {
+   "term": "Balance Sheet Date",
+   "para": "P15",
+   "kind": "pointer",
+   "pointer": "s4.5(a)"
+  },
+  {
+   "term": "Cash Amount Increase",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "s2.7(d)(ii)"
+  },
+  {
+   "term": "Cash Amount Reduction",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "s2.7(d)(i)"
+  },
+  {
+   "term": "Claim Certificate",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s8.4"
+  },
+  {
+   "term": "Closing",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Closing Company Transaction Expenses",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "s2.7(a)"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P26",
+   "kind": "pointer",
+   "pointer": "s2.3"
+  },
+  {
+   "term": "Closing Indebtedness",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s2.7(a)"
+  },
+  {
+   "term": "Closing Net Working Capital",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s2.7(a)"
+  },
+  {
+   "term": "Closing Re-Audit Costs",
+   "para": "P30",
+   "kind": "pointer",
+   "pointer": "s2.7(a)"
+  },
+  {
+   "term": "Closing Statement",
+   "para": "P31",
+   "kind": "pointer",
+   "pointer": "s2.7(a)"
+  },
+  {
+   "term": "Closing Working Capital Adjustment",
+   "para": "P32",
+   "kind": "pointer",
+   "pointer": "s2.7(a)"
+  },
+  {
+   "term": "Company",
+   "para": "P34",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "IT Systems",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "DCSA",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "NISPOM Rule",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "FCL",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Tax Matter",
+   "para": "P45",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "6.7",
+   "context": "meaning set forth in Section 6.7.",
+   "target": "s6.7"
+  },
+  {
+   "para": "P3",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "attached hereto as Exhibit A, completed and",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "4.19",
+   "context": "solely for purposes of Section 4.19, an Affiliate",
+   "target": "s4.19"
+  },
+  {
+   "para": "P5",
+   "head": "clause",
+   "mention": "(a)",
+   "context": "individual described in clauses (a) and (b) above",
+   "target": "inline"
+  },
+  {
+   "para": "P5",
+   "head": "clause",
+   "mention": "(b)",
+   "context": "individual described in clauses (a) and (b) above",
+   "target": "inline"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.6(b)",
+   "context": "adjusted pursuant to Section 2.6(b).",
+   "target": "s2.6(b)"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "4.12(g)",
+   "context": "meaning set forth in Section 4.12(g).",
+   "target": "s4.12(g)"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "8.9(a)",
+   "context": "meaning set forth in Section 8.9(a).",
+   "target": "s8.9(a)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "4.5(a)",
+   "context": "meaning set forth in Section 4.5(a).",
+   "target": "s4.5(a)"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "2.7(d)(ii)",
+   "context": "meaning set forth in Section 2.7(d)(ii).",
+   "target": "s2.7(d)(ii)"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "2.7(d)(i)",
+   "context": "meaning set forth in Section 2.7(d)(i).",
+   "target": "s2.7(d)(i)"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "8.4",
+   "context": "meaning set forth in Section 8.4.",
+   "target": "s8.4"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "2.3",
+   "context": "meaning set forth in Section 2.3.",
+   "target": "s2.3"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "2.7(a)",
+   "context": "meaning set forth in Section 2.7(a).",
+   "target": "s2.7(a)"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "2.3",
+   "context": "meaning set forth in Section 2.3.",
+   "target": "s2.3"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "2.7(a)",
+   "context": "meaning set forth in Section 2.7(a).",
+   "target": "s2.7(a)"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "2.7(a)",
+   "context": "meaning set forth in Section 2.7(a).",
+   "target": "s2.7(a)"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "2.7(a)",
+   "context": "meaning set forth in Section 2.7(a).",
+   "target": "s2.7(a)"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "2.7(a)",
+   "context": "meaning set forth in Section 2.7(a).",
+   "target": "s2.7(a)"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "2.7(a)",
+   "context": "meaning set forth in Section 2.7(a).",
+   "target": "s2.7(a)"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "6.11",
+   "context": "contemplated by this Section 6.11; (ii) result",
+   "target": "s6.11"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "7.3",
+   "context": "for purposes of this Section 7.3, and that",
+   "target": "s7.3"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "8.3",
+   "context": "governed by Section 8.3 of this Agreement.",
+   "target": "s8.3"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "6225",
+   "context": "within the meaning of Section 6225 of the Code, to",
+   "target": "external"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "6226",
+   "context": "shall make the election under Section 6226 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "6226",
+   "context": "making any push-out election under Section 6226 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "6223",
+   "context": "those terms are used in Section 6223 of the Code and",
+   "target": "external"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "301.6223-1(b)(3)",
+   "context": "Code and Treasury Regulation Section 301.6223-1(b)(3) (or any",
+   "target": "external"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "6226",
+   "context": "as required by Section 6226 of the Code and",
+   "target": "external"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P42",
+   "count": 2
+  },
+  {
+   "term": "Agreement",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P46",
+   "count": 5
+  },
+  {
+   "term": "Closing",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Closing Date",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Code",
+   "para": "P45",
+   "count": 5
+  },
+  {
+   "term": "Company",
+   "para": "P41",
+   "count": 9
+  },
+  {
+   "term": "Company",
+   "para": "P42",
+   "count": 2
+  },
+  {
+   "term": "Company",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P45",
+   "count": 10
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "d71adfce-2c13-52a5-bb09-208c75e81483",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "f5b8026f-90d4-5a0e-8ad0-b69c14233d81",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "1148d907-fb48-57c2-8bb9-e3196176b985",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "1148d907-fb48-57c2-8bb9-e3196176b985",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "1148d907-fb48-57c2-8bb9-e3196176b985",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "7c94bc58-1166-5fb7-9794-ffa35a9c3393",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "50338c1e-d75b-529f-acf7-e0055acb8287",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

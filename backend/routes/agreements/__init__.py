@@ -8,6 +8,8 @@ endpoints and the default filter-options payload keep an in-process
 
 from __future__ import annotations
 
+import gzip
+import json
 import os
 from collections.abc import Hashable
 from typing import cast
@@ -17,6 +19,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 
 from backend.core.caching import ttl_cached
+from backend.redaction import READER_INDEX_REDACTION_VERSION, redact_reader_index
 from backend.routes.agreements.helpers import (
     _agreement_is_public_eligible_expr,
     _cacheable_json_response,
@@ -33,6 +36,7 @@ from backend.schemas.public_api import (
     AgreementsBulkArgsSchema,
     AgreementsIndexQueryArgsSchema,
     AgreementsListResponseSchema,
+    ReaderIndexResponseSchema,
     SectionResponseSchema,
     TaxClauseListResponseSchema,
 )
@@ -209,6 +213,82 @@ def register_agreements_routes(
             if payload is None:
                 abort(404)
             return payload
+
+    @agreements_blp.route("/<string:agreement_uuid>/reader-index")
+    class AgreementReaderIndexResource(MethodView):
+        @agreements_blp.doc(
+            operationId="getAgreementReaderIndex",
+            summary="Retrieve the reader index for an agreement",
+            description=(
+                "Returns the outline, defined terms (declarations and uses) and cross-references "
+                "of the XML version `/v1/agreements/{agreement_uuid}` serves, as stand-off "
+                "anchors into that XML; no agreement text is included. For anonymous callers, "
+                "items inside redacted text are dropped and declarations there are masked, "
+                "following the same `focus_section_uuid` and `neighbor_sections` as the "
+                "agreement endpoint. Returns 404 when no index has been built for the current "
+                "XML version. Supports `If-None-Match`."
+            ),
+        )
+        @agreements_blp.arguments(AgreementArgsSchema, location="query")
+        @agreements_blp.response(200, ReaderIndexResponseSchema)
+        def get(self, args: dict[str, object], agreement_uuid: str) -> Response:
+            ctx = deps._current_access_context()
+            parsed_args = cast(AgreementArgsPayload, cast(object, args))
+            focus_section_uuid = parsed_args.get("focus_section_uuid")
+            if focus_section_uuid is not None:
+                focus_section_uuid = focus_section_uuid.strip()
+                if not deps._SECTION_ID_RE.match(focus_section_uuid):
+                    abort(400, description="Invalid focus_section_uuid.")
+            neighbor_sections = parsed_args["neighbor_sections"]
+            if neighbor_sections < 0 or neighbor_sections > 5:
+                abort(400, description="neighbor_sections must be between 0 and 5.")
+            redact = not ctx.is_authenticated
+            agreement_uuid = agreement_uuid.strip()
+            # versions first: a browser revalidates on every view, and a 304 should not
+            # pull the payload (or, for anonymous callers, the whole XML) from the database
+            row = agreements_service.get_reader_index_row(
+                deps, agreement_uuid, include_payload=False, include_xml=False
+            )
+            if row is None:
+                abort(404)
+            window = f"-r{READER_INDEX_REDACTION_VERSION}-{focus_section_uuid or ''}-{neighbor_sections}"
+
+            def _etag(r: dict[str, object]) -> str:
+                return f"{r['xml_version']}-{r['enricher_version']}" + (window if redact else "")
+
+            etag = _etag(row)
+            if request.if_none_match.contains_weak(etag):
+                resp = Response(status=304)
+            else:
+                row = agreements_service.get_reader_index_row(
+                    deps, agreement_uuid, include_payload=True, include_xml=redact
+                )
+                if row is None:
+                    abort(404)
+                etag = _etag(row)  # the row may have been rebuilt between the two reads
+                body = cast(bytes, row["payload_gz"])
+                if redact:
+                    payload = json.loads(gzip.decompress(body))
+                    payload = redact_reader_index(
+                        payload,
+                        cast(str, row.get("xml") or ""),
+                        focus_section_uuid=focus_section_uuid,
+                        neighbor_sections=neighbor_sections,
+                    )
+                    raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+                    body = gzip.compress(raw, compresslevel=6)
+                if request.accept_encodings.quality("gzip") > 0:
+                    resp = Response(body, status=200, mimetype="application/json")
+                    resp.headers["Content-Encoding"] = "gzip"
+                else:
+                    resp = Response(gzip.decompress(body), status=200, mimetype="application/json")
+            # weak: the same payload is sent gzip-encoded or not
+            resp.set_etag(etag, weak=True)
+            # The payload differs once a caller signs in, so no shared cache keeps it and the
+            # browser revalidates every time; an unchanged index costs a 304.
+            resp.headers["Cache-Control"] = "private, no-cache"
+            resp.vary.add("Accept-Encoding")
+            return resp
 
     @sections_blp.route("/<string:section_uuid>")
     class SectionResource(MethodView):

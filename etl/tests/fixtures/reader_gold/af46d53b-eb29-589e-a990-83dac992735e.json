@@ -1,0 +1,563 @@
+{
+ "agreement_uuid": "af46d53b-eb29-589e-a990-83dac992735e",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Adjustment Litigation",
+   "para": "P1",
+   "kind": "means"
+  },
+  {
+   "term": "Adjustment Litigation Amount",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Agreed Announcement",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Agreed Leakage Amount",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s10.2.3(a)"
+  },
+  {
+   "term": "Agreed Purchase Price Adjustment",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Agreed Terms",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Alternative Debt Commitment Letter",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Anti-Corruption Laws",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "FCPA",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Bribery Act",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Associated Person",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Base Consideration",
+   "para": "P16",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "BDT Group",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Bonuses",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Business",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Business IPR",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Business IT",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Business Warranties",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Business Warranty",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Café Espresso",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "CIT Business",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Claim",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Payment Schedule",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s6.1"
+  },
+  {
+   "term": "Company",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Competent Authority",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Competition Law",
+   "para": "P40",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P4",
+   "head": "clause",
+   "mention": "10.2.3(a)",
+   "context": "has the meaning given to it in Clause 10.2.3(a)",
+   "target": "s10.2.3(a)"
+  },
+  {
+   "para": "P16",
+   "head": "clause",
+   "mention": "3.1",
+   "context": "has the meaning given to it in Clause 3.1",
+   "target": "s3.1"
+  },
+  {
+   "para": "P31",
+   "head": "schedule",
+   "mention": "4",
+   "context": "the warranties set out in Schedule 4",
+   "target": "x-schedule-4"
+  },
+  {
+   "para": "P34",
+   "head": "clause",
+   "mention": "10",
+   "context": "any claim for breach of or under Clause 10",
+   "target": "a10"
+  },
+  {
+   "para": "P37",
+   "head": "clause",
+   "mention": "6.1",
+   "context": "has the meaning given to it in Clause 6.1",
+   "target": "s6.1"
+  },
+  {
+   "para": "P38",
+   "head": "paragraph",
+   "mention": "1",
+   "context": "are set out in paragraph 1 of Schedule",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P38",
+   "head": "schedule",
+   "mention": "1",
+   "context": "set out in paragraph 1 of Schedule 1",
+   "target": "x-schedule-1"
+  },
+  {
+   "para": "P41",
+   "head": "clause",
+   "mention": "5.1",
+   "context": "Clause 5.1 shall not operate so as",
+   "target": "s5.1"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "12",
+   "context": "subject to Part F of Schedule 12",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P46",
+   "head": "clause",
+   "mention": "5.2.2",
+   "context": "provided, that, in respect of Clause 5.2.2, the Seller",
+   "target": "s5.2.2"
+  },
+  {
+   "para": "P47",
+   "head": "clause",
+   "mention": "13.3.1",
+   "context": "(but for this Clause 13.3.1) be liable exceeds",
+   "target": "s13.3.1"
+  },
+  {
+   "para": "P48",
+   "head": "clause",
+   "mention": "13",
+   "context": "subject as provided elsewhere in this Clause 13, the Seller",
+   "target": "a13"
+  },
+  {
+   "para": "P50",
+   "head": "clause",
+   "mention": "19.2.1",
+   "context": "a liability under Clause 19.2.1 it shall give",
+   "target": "s19.2.1"
+  },
+  {
+   "para": "P51",
+   "head": "clause",
+   "mention": "19.2.1",
+   "context": "amounts payable under Clause 19.2.1 and the filing",
+   "target": "s19.2.1"
+  },
+  {
+   "para": "P51",
+   "head": "clause",
+   "mention": "19.2.4",
+   "context": "the liability is payable under Clause 19.2.4.",
+   "target": "s19.2.4"
+  },
+  {
+   "para": "P52",
+   "head": "clause",
+   "mention": "19.2.1",
+   "context": "due date for payment under Clause 19.2.1 shall be",
+   "target": "s19.2.1"
+  },
+  {
+   "para": "P53",
+   "head": "clause",
+   "mention": "19.10",
+   "context": "obligations under this Clause 19.10.",
+   "target": "s19.10"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Business Warranties",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Closing",
+   "para": "P49",
+   "count": 2
+  },
+  {
+   "term": "Closing",
+   "para": "P50",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "uk",
+ "para_map": {
+  "P1": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "b92fb57b-301b-560a-a232-7e73c8c9ef4e",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "caff8e24-8359-5e05-b5f6-89ce06edae9f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "caff8e24-8359-5e05-b5f6-89ce06edae9f",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "caff8e24-8359-5e05-b5f6-89ce06edae9f",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "caff8e24-8359-5e05-b5f6-89ce06edae9f",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "caff8e24-8359-5e05-b5f6-89ce06edae9f",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "caff8e24-8359-5e05-b5f6-89ce06edae9f",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "288ed6f3-0ace-5177-aa84-d39db465e6fc",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "288ed6f3-0ace-5177-aa84-d39db465e6fc",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "61f649c4-93d5-5377-90b3-73fa08cee86a",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "61f649c4-93d5-5377-90b3-73fa08cee86a",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "61f649c4-93d5-5377-90b3-73fa08cee86a",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "61f649c4-93d5-5377-90b3-73fa08cee86a",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "ae50d485-acf5-5ce1-8eb4-ad7903a9c733",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

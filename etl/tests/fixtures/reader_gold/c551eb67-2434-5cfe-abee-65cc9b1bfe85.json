@@ -1,0 +1,348 @@
+{
+ "agreement_uuid": "c551eb67-2434-5cfe-abee-65cc9b1bfe85",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Commercial Affiliate",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Commercial Affiliate Agreement",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Extending Transaction Event",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Knowledge",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Effect",
+   "para": "P9",
+   "kind": "paren"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "FTC",
+   "para": "P14",
+   "kind": "paren"
+  },
+  {
+   "term": "DOJ",
+   "para": "P14",
+   "kind": "paren"
+  },
+  {
+   "term": "Indemnified Parties",
+   "para": "P20",
+   "kind": "paren"
+  },
+  {
+   "term": "Current Annual Premium Amount",
+   "para": "P21",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "3-05",
+   "context": "in accordance with Section 3-05 of Regulation S-X",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "article",
+   "mention": "11",
+   "context": "in accordance with Article 11 of Regulation S-X",
+   "target": "external"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "8.3(g)",
+   "context": "identified on Section 8.3(g) of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "for purposes of clause (i) above, in no",
+   "target": "inline"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "(B)",
+   "context": "the exception in this clause (B) shall not apply",
+   "target": "inline"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "6.2(a)",
+   "context": "term \"Material Adverse Effect\" in Sections 6.2(a) and 6.3(a)",
+   "target": "s6.2(a)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "6.3(a)",
+   "context": "Sections 6.2(a) and 6.3(a) with respect to",
+   "target": "s6.3(a)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.4(b)(i)",
+   "context": "warranties contained in Sections 2.4(b)(i),",
+   "target": "s2.4(b)(i)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.4(b)(ii)",
+   "context": "Sections 2.4(b)(i), 2.4(b)(ii), 3.2(b)(i)",
+   "target": "s2.4(b)(ii)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "3.2(b)(i)",
+   "context": "2.4(b)(ii), 3.2(b)(i) and 3.2(b)(ii)),",
+   "target": "s3.2(b)(i)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "3.2(b)(ii)",
+   "context": "3.2(b)(i) and 3.2(b)(ii)), including, in the case",
+   "target": "s3.2(b)(ii)"
+  },
+  {
+   "para": "P10",
+   "head": "clause",
+   "mention": "(G)",
+   "context": "Material Adverse Effect but for this clause (G).",
+   "target": "inline"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "5.6(a)",
+   "context": "Governmental Entity under this Section 5.6(a) to comply",
+   "target": "s5.6(a)"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "5.6(a)",
+   "context": "filings or application pursuant to Section 5.6(a). Except where",
+   "target": "s5.6(a)"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "5.6(a)",
+   "context": "any filing made pursuant to Section 5.6(a), Parent,",
+   "target": "s5.6(a)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "4.2",
+   "context": "express provisions of Section 4.2 and Section 5.2 hereof",
+   "target": "s4.2"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "5.2",
+   "context": "provisions of Section 4.2 and Section 5.2 hereof",
+   "target": "s5.2"
+  },
+  {
+   "para": "P18",
+   "head": "article",
+   "mention": "VI",
+   "context": "conditions precedent set forth in Article VI to be satisfied",
+   "target": "a6"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "5.15",
+   "context": "set forth in Section 5.15 of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "5.15",
+   "context": "(c) This Section 5.15 is intended to be",
+   "target": "s5.15"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "5.15",
+   "context": "case may be, in this Section 5.15.",
+   "target": "s5.15"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Subsidiary",
+   "para": "P16",
+   "count": 1
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P19",
+   "count": 3
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "d0d60416-c4d6-5aac-8b62-a9c2b3eb4ead",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "3ee55c1f-2742-5565-91b3-ce4db57418e1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "a2b7f8a9-965d-5b80-9c0f-a1ba951b71fe",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "a2b7f8a9-965d-5b80-9c0f-a1ba951b71fe",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "a2b7f8a9-965d-5b80-9c0f-a1ba951b71fe",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "a2b7f8a9-965d-5b80-9c0f-a1ba951b71fe",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "a2b7f8a9-965d-5b80-9c0f-a1ba951b71fe",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "a2b7f8a9-965d-5b80-9c0f-a1ba951b71fe",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "8103b430-4cb4-57d1-970e-2533d6d3f4a6",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "8103b430-4cb4-57d1-970e-2533d6d3f4a6",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "8103b430-4cb4-57d1-970e-2533d6d3f4a6",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "f2b1ded2-589c-5035-bc6b-aeb1e0b76aba",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "f2b1ded2-589c-5035-bc6b-aeb1e0b76aba",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

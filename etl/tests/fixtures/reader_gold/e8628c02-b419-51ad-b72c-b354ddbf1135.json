@@ -1,0 +1,415 @@
+{
+ "agreement_uuid": "e8628c02-b419-51ad-b72c-b354ddbf1135",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Action",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Company Charter Documents",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stock Plans",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Conflict Minerals",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Trademarks",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Patents",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Software",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Copyrights",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Trade Secrets",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Knowledge",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Non-U.S. Laws",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Order",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Person",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Regulatory Authorizations",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Transactions",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P25",
+   "kind": "paren"
+  },
+  {
+   "term": "Certificates",
+   "para": "P25",
+   "kind": "paren"
+  },
+  {
+   "term": "Book-Entry Shares",
+   "para": "P25",
+   "kind": "paren"
+  },
+  {
+   "term": "Cancelled Shares",
+   "para": "P26",
+   "kind": "paren"
+  },
+  {
+   "term": "Dissenting Shares",
+   "para": "P29",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Proxy Statement",
+   "para": "P31",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Disclosure Documents",
+   "para": "P31",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "9.12(i)",
+   "context": "set forth on Section 9.12(i) of the Company Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "3.1(b)",
+   "context": "cancelled pursuant to Section 3.1(b) and (ii) Dissenting",
+   "target": "s3.1(b)"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "3.1",
+   "context": "provided in this Section 3.1 shall be automatically",
+   "target": "s3.1"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "262",
+   "context": "complied with, Section 262 of the DGCL (the",
+   "target": "external"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "262",
+   "context": "provisions of such Section 262 unless and until",
+   "target": "external"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "262",
+   "context": "rights provided in Section 262 of the DGCL and as",
+   "target": "external"
+  },
+  {
+   "para": "P31",
+   "head": "schedule",
+   "mention": "14D-9",
+   "context": "The Schedule 14D-9, the proxy statement (including",
+   "target": "external"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Action",
+   "para": "P32",
+   "count": 4
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P33",
+   "count": 1
+  },
+  {
+   "term": "Order",
+   "para": "P32",
+   "count": 1
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P32",
+   "count": 4
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P33",
+   "count": 2
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P34",
+   "count": 3
+  },
+  {
+   "term": "Affiliate",
+   "para": "P34",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "a30362ac-1322-5bec-825e-b3a417a873eb",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "a94447fc-f29d-526a-8d80-6c70b9b1ac89",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "a94447fc-f29d-526a-8d80-6c70b9b1ac89",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "a94447fc-f29d-526a-8d80-6c70b9b1ac89",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "a94447fc-f29d-526a-8d80-6c70b9b1ac89",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "a94447fc-f29d-526a-8d80-6c70b9b1ac89",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "a94447fc-f29d-526a-8d80-6c70b9b1ac89",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "a94447fc-f29d-526a-8d80-6c70b9b1ac89",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "4df5ca0e-8d3e-5432-9ce1-d3e690d2d7e5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "028527f4-cc88-53c1-8b08-a8f81166ddba",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "028527f4-cc88-53c1-8b08-a8f81166ddba",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "4c54567f-59bb-5297-a7b2-fbf4e695a004",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

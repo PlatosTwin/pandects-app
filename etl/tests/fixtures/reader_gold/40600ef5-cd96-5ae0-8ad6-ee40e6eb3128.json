@@ -1,0 +1,223 @@
+{
+ "agreement_uuid": "40600ef5-cd96-5ae0-8ad6-ee40e6eb3128",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Repurchase Options",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Company's 401(k) Plan",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "TRA \"97",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "SBJPA",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "GATT",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "USERRA",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "RRA",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "Waivers",
+   "para": "P7",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "schedule",
+   "mention": "5.9(a)",
+   "context": "Parent that Schedule 5.9(a) hereto sets forth a",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P1",
+   "head": "schedule",
+   "mention": "5.9(a)",
+   "context": "deliver to Parent an updated Schedule 5.9(a) hereto current",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P1",
+   "head": "schedule",
+   "mention": "5.9(a)(i)",
+   "context": "set forth in Schedule 5.9(a)(i) of the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "422",
+   "context": "as defined in Section 422 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "5.9(d)",
+   "context": "Company shall set forth on Schedule 5.9(d) a list",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "280G",
+   "context": "280G of the Code and the regulations promulgated thereunder). For",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "5.9(d)",
+   "context": "Company shall revise Schedule 5.9(d) to reflect the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "280G",
+   "context": "such date, \"disqualified individuals\" (within the meaning of Section 280G",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "401(a)",
+   "context": "qualified under sections 401(a) and 401(k) of the Code (the",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "401(k)",
+   "context": "qualified under sections 401(a) and 401(k) of the Code (the",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "401(a)",
+   "context": "qualified under sections 401(a) and 401(k) of the Code as",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "401(k)",
+   "context": "qualified under sections 401(a) and 401(k) of the Code as",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "exhibit",
+   "mention": "E",
+   "context": "form attached hereto as Exhibit E (the",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P7",
+   "head": "schedule",
+   "mention": "5.9(f)",
+   "context": "individuals listed on Schedule 5.9(f) hereto and from",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "18a9b217-e94a-5364-9193-c21448d00499",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "18a9b217-e94a-5364-9193-c21448d00499",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "18a9b217-e94a-5364-9193-c21448d00499",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "18a9b217-e94a-5364-9193-c21448d00499",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "18a9b217-e94a-5364-9193-c21448d00499",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "18a9b217-e94a-5364-9193-c21448d00499",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "18a9b217-e94a-5364-9193-c21448d00499",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "18a9b217-e94a-5364-9193-c21448d00499",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "18a9b217-e94a-5364-9193-c21448d00499",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "b65c7c17-54bc-5f98-946c-8758e21c445e",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "21685293-6ec6-54b1-a6e7-1ba8ce08a85e",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "288ac55e-1596-5757-95ed-737587721846",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "288ac55e-1596-5757-95ed-737587721846",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "24258e8d-5b5e-515d-8e25-0c8ae33b9262",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

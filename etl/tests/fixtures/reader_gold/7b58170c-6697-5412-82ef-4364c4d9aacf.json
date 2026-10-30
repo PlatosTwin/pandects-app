@@ -1,0 +1,528 @@
+{
+ "agreement_uuid": "7b58170c-6697-5412-82ef-4364c4d9aacf",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Acquisition Proposal",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Blue Sky Laws",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "CERCLA",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Price",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Effect",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Stock Option Plan",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "ESPP",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "Environmental Claims",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Conditions",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Regulations",
+   "para": "P17",
+   "kind": "paren"
+  },
+  {
+   "term": "Equity Interest",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Expenses",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Facilities",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Hazardous Substances",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "IRS",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Law",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Lien",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Nasdaq",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "NYSE",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Other Filings",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Acquisition Proposal",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Conflicting Proposal",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Parent Material Adverse Effect",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Company Certificate of Incorporation",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Company By-laws",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "FDCA",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "FDA",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Permits",
+   "para": "P42",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P11",
+   "head": "clause",
+   "mention": "(B)",
+   "context": "provided, however, that clause (B) shall not exclude",
+   "target": "inline"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "4.14(b)",
+   "context": "single employer under Section 4.14(b), (c), (m) or",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "(c)",
+   "context": "Section 4.14(b), (c), (m) or (o)",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "(m)",
+   "context": "4.14(b), (c), (m) or (o) of",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "(o)",
+   "context": "(c), (m) or (o) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "13",
+   "context": "as used in Section 13 of the Exchange Act",
+   "target": "external"
+  },
+  {
+   "para": "P32",
+   "head": "section",
+   "mention": "1.2",
+   "context": "set forth on Section 1.2 of the Company Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "4.2(i)",
+   "context": "attached to Section 4.2(i) of the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "4.2(ii)",
+   "context": "attached to Section 4.2(ii) of the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P43",
+   "head": "clause",
+   "mention": "(B)",
+   "context": "with respect to clause (B) for any such conflicts",
+   "target": "inline"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "4.18",
+   "context": "Section 4.18 of the Company Disclosure Schedule contains a complete",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Company Material Adverse Effect",
+   "para": "P43",
+   "count": 4
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P42",
+   "count": 2
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P43",
+   "count": 2
+  },
+  {
+   "term": "Law",
+   "para": "P43",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v3",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "3cf0d1f0-2258-589a-bf44-91dd30be01cb",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "b90e25b8-cd88-53ed-a1de-43ad65f005fa",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "4320f95f-5665-56fb-8c3b-f6caea61a31f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "4320f95f-5665-56fb-8c3b-f6caea61a31f",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "ededefa6-4e59-5a59-a199-28b897a587db",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "b842de9d-4018-5c58-ada3-e630237cb37a",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}
