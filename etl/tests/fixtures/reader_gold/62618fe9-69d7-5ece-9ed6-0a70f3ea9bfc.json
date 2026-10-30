@@ -1,0 +1,282 @@
+{
+ "agreement_uuid": "62618fe9-69d7-5ece-9ed6-0a70f3ea9bfc",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Company Voting Proposal",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Shareholder Approval",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Board",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "PA Anti-Takeover Statutes",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Bankruptcy and Equity Exception",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Liens",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Contract",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "SEC",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Meeting",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "Required Company Shareholder Vote",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Permits",
+   "para": "P7",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "2541",
+   "context": "anti-takeover statutes in Sections 2541 through 2576 inclusive",
+   "target": "external"
+  },
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "2576",
+   "context": "Sections 2541 through 2576 inclusive of the PBCL",
+   "target": "external"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.4(b)",
+   "context": "Except as set forth in Section 3.4(b) of the Company",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P3",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "specified in clauses (i) through (v) of Section 3.4(c)",
+   "target": "s3.4(c)(i)"
+  },
+  {
+   "para": "P3",
+   "head": "clause",
+   "mention": "(v)",
+   "context": "(i) through (v) of Section 3.4(c), conflict",
+   "target": "s3.4(c)(v)"
+  },
+  {
+   "para": "P3",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "in the case of clauses (ii) and (iii) of this",
+   "target": "s3.4(b)(ii)"
+  },
+  {
+   "para": "P3",
+   "head": "clause",
+   "mention": "(iii)",
+   "context": "clauses (ii) and (iii) of this Section 3.4(b) for",
+   "target": "s3.4(b)(iii)"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "13",
+   "context": "under Section 13 of or Rule 14a-12",
+   "target": "external"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "6.5",
+   "context": "as contemplated by Section 6.5 below, and",
+   "target": "s6.5"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "3.16",
+   "context": "Section 3.16 of the Company Disclosure Schedule sets forth",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "6.7",
+   "context": "Except as provided in Section 6.7 (with respect",
+   "target": "s6.7"
+  },
+  {
+   "para": "P10",
+   "head": "article",
+   "mention": "III",
+   "context": "numbered Sections contained in Article III, in the case",
+   "target": "a3"
+  },
+  {
+   "para": "P10",
+   "head": "article",
+   "mention": "IV",
+   "context": "Schedule, or Article IV, in the case of",
+   "target": "a4"
+  },
+  {
+   "para": "P10",
+   "head": "article",
+   "mention": "III",
+   "context": "the corresponding Section in Article III or",
+   "target": "a3"
+  },
+  {
+   "para": "P10",
+   "head": "article",
+   "mention": "IV",
+   "context": "or Article IV, as the case may be, and (b)",
+   "target": "a4"
+  },
+  {
+   "para": "P10",
+   "head": "article",
+   "mention": "III",
+   "context": "other Sections in Article III or",
+   "target": "a3"
+  },
+  {
+   "para": "P10",
+   "head": "article",
+   "mention": "IV",
+   "context": "Article IV, as the case may be, to the extent",
+   "target": "a4"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.4(c)",
+   "context": "(i) through (v) of Section 3.4(c), conflict",
+   "target": "s3.4(c)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.4(b)",
+   "context": "(ii) and (iii) of this Section 3.4(b) for",
+   "target": "s3.4(b)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Governmental Entity",
+   "para": "P7",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v1",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "b6033a53-eb63-573f-82ec-412d7c4ed244",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "b6033a53-eb63-573f-82ec-412d7c4ed244",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "b6033a53-eb63-573f-82ec-412d7c4ed244",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "b6033a53-eb63-573f-82ec-412d7c4ed244",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "b6033a53-eb63-573f-82ec-412d7c4ed244",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "b6033a53-eb63-573f-82ec-412d7c4ed244",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "705378a1-c803-525d-86af-3e581bed21ed",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "fde4f2d5-5fc3-5e31-8d36-ad98b85000d0",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "1179c542-79e9-5b2a-a6ca-62d439f30ae1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "3a90c5c1-565a-5bc2-a67a-70becf6333a7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "3a90c5c1-565a-5bc2-a67a-70becf6333a7",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ },
+ "rulings": [
+  "2026-10-29 rubric v1.3: the Section in \"clauses (i) of Section 3.4(c)\" gets its own label; two added"
+ ]
+}

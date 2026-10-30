@@ -60,6 +60,7 @@ One row per merger agreement. Rows are discovered from SEC EDGAR filings (or the
 - `sections.agreement_uuid` → `agreements.agreement_uuid` (one-to-many)
 - `clauses.agreement_uuid` → `agreements.agreement_uuid` (one-to-many)
 - `xml.agreement_uuid` → `agreements.agreement_uuid` (one-to-many)
+- `reader_index.agreement_uuid` → `agreements.agreement_uuid` (one-to-many)
 - `latest_sections_search.agreement_uuid` → `agreements.agreement_uuid` (one-to-many)
 - `agreement_index_summary.agreement_uuid` ↔ `agreements.agreement_uuid` (one-to-one)
 
@@ -93,6 +94,19 @@ Clause-level spans carved out of sections for clause-taxonomy modules. Each row 
 - `clauses.agreement_uuid` → `agreements.agreement_uuid` (many-to-one)
 - `clauses.section_uuid` → `sections.section_uuid` (many-to-one)
 - `tax_clause_assignments.clause_uuid` → `clauses.clause_uuid` (one-to-many)
+
+## Reader index
+
+A derived index of each agreement's XML that powers the smart reader: the outline, defined terms with their declarations and uses, and cross-references with their resolved targets. It is stand-off markup: every item points into the XML by container uuid, text ordinal and character span, and the XML itself is unchanged.
+
+### `reader_index`
+
+One row per indexed XML version. The index is computed from the latest verified XML and stored as gzip-compressed JSON (`payload_gz`). Join on `xml.agreement_uuid` and `xml.version` with `xml.latest = 1` for the current index of an agreement. A row is rebuilt when the XML version or the enricher version changes.
+
+**Primary key**: `agreement_uuid`, `xml_version`
+
+**Relationships**:
+- `reader_index.agreement_uuid` → `agreements.agreement_uuid` (many-to-one)
 
 ## Section taxonomy
 

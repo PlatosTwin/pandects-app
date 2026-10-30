@@ -1,0 +1,106 @@
+{
+ "agreement_uuid": "80e2685c-9dc4-59e5-b96a-18dd83eb4d7b",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Objection Notice",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Accounting Firm",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "Seller Documents",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "Required Vote",
+   "para": "P8",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.2(a)",
+   "context": "paid at the Closing pursuant to Sections 2.2(a)",
+   "target": "s2.2(a)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "2.2(a)",
+   "context": "distributed to the Shareholders in accordance with Section 2.2(a)",
+   "target": "s2.2(a)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "8.2",
+   "context": "consent of Buyer pursuant to Section 8.2 of this Agreement",
+   "target": "s8.2"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "ec7d3acf-af81-50f4-9d11-f461ea5f2888",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "ec7d3acf-af81-50f4-9d11-f461ea5f2888",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "ec7d3acf-af81-50f4-9d11-f461ea5f2888",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "ec7d3acf-af81-50f4-9d11-f461ea5f2888",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "49075f8d-08de-5a25-821a-28e9dea4a7bb",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P6": {
+   "s": "49075f8d-08de-5a25-821a-28e9dea4a7bb",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "1429c762-4d74-5bca-a6b6-950c246d1186",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "1429c762-4d74-5bca-a6b6-950c246d1186",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "63b9e9e7-be96-5688-b88f-d0dbc9b722a3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "ac3d7e21-1c6a-594f-8427-41dccc41e119",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

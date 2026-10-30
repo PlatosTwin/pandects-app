@@ -1,0 +1,339 @@
+{
+ "agreement_uuid": "50308f9f-fb5d-5b79-a99e-d979040c970e",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Acquisition Proposal",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Cash Election Threshold",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Election Deadline",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Per Share Cash Consideration",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Per Share Merger Consideration",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Per Share Stock Consideration",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Proxy Statement",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Requisite Regulatory Approvals",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Superior Proposal",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Tax",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Taxes",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Willful and Material Breach",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "GBC Voting Common Stock",
+   "para": "P18",
+   "kind": "paren"
+  },
+  {
+   "term": "GBC Non-Voting Common Stock",
+   "para": "P18",
+   "kind": "paren"
+  },
+  {
+   "term": "GBC Common Stock",
+   "para": "P18",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P5",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "with respect to this clause (i), Material Adverse Effect",
+   "target": "inline"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3.3(b)",
+   "context": "warranties in Sections 3.3(b), 3.4,",
+   "target": "s3.3(b)"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "3.4",
+   "context": "Sections 3.3(b), 3.4, 4.3(b) or",
+   "target": "s3.4"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "4.3(b)",
+   "context": "3.4, 4.3(b) or 4.4)",
+   "target": "s4.3(b)"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "4.4",
+   "context": "3.4, 4.3(b) or 4.4)",
+   "target": "s4.4"
+  },
+  {
+   "para": "P5",
+   "head": "clause",
+   "mention": "(E)",
+   "context": "understood that this Clause (E) shall not apply",
+   "target": "inline"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "3.4",
+   "context": "referred to in Section 3.4 or",
+   "target": "s3.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.4",
+   "context": "3.4 or Section 4.4 that are",
+   "target": "s4.4"
+  },
+  {
+   "para": "P11",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "in the case of this clause (ii), for",
+   "target": "inline"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "6.5(c)",
+   "context": "amend the terms of this Agreement pursuant to Section 6.5(c))",
+   "target": "s6.5(c)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "4.2(a)",
+   "context": "4.2(a) of the GBC Disclosure Schedules, there are no outstanding",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "4.2(a)",
+   "context": "4.2(a) of the GBC Disclosure Schedules, no equity-based awards",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "4.2(a)",
+   "context": "4.2(a) of the GBC Disclosure Schedules, there are no voting",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "6.14",
+   "context": "compliance with this Section 6.14.",
+   "target": "s6.14"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Material Adverse Effect",
+   "para": "P19",
+   "count": 1
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P17",
+   "count": 1
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P18",
+   "count": 2
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P19",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "30c7ac34-3918-5532-b818-16f6655ffd0b",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "0c1c33ee-43df-5961-aaa3-d28c0e0c5511",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "7e946186-c0d6-5682-9044-f47098d3741a",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "7e946186-c0d6-5682-9044-f47098d3741a",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "9e076fd9-cead-5e24-a159-e9cd24729244",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "e400dd05-abd4-53ef-a8c7-6abb5d1a60f6",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

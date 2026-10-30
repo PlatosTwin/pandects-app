@@ -1,0 +1,280 @@
+{
+ "agreement_uuid": "054ddbae-a841-5b05-8826-354c3d8f77cc",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Option",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Options",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Company Stock Plan",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Performance Share Award",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Restricted Stock",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Incentive Equity Fund",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing Funds",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Restricted Stock",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "2004 Performance Shares",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "2005 Performance Shares",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "2006 Performance Shares",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Performance Shares",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Securityholders",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Tax",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Equity Commitment Letter",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Debt Commitment Letter",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Debt Financing",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "Financing Commitments",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "Financing",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "Taxes",
+   "para": "P9",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "2.7",
+   "context": "set forth in this Section 2.7 below",
+   "target": "s2.7"
+  },
+  {
+   "para": "P1",
+   "head": "article",
+   "mention": "II",
+   "context": "entitled under this Article II (such",
+   "target": "a2"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2.7",
+   "context": "amounts payable pursuant to this Section 2.7 shall",
+   "target": "s2.7"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "3.10",
+   "context": "Employee Benefit Plans (as defined in Section 3.10)",
+   "target": "s3.10"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2.7",
+   "context": "implement the provisions of this Section 2.7, forms",
+   "target": "s2.7"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.9",
+   "context": "forth in Section 3.9 of the Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "355",
+   "context": "or in part by Section 355 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "1.6011-4(b)(2)",
+   "context": "defined in Treasury Regulation Section 1.6011-4(b)(2)",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "7121",
+   "context": "as described in Section 7121 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1504(a)",
+   "context": "(as defined in Section 1504(a) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.1502-6",
+   "context": "under Treasury Regulation Section 1.1502-6 (or",
+   "target": "external"
+  },
+  {
+   "para": "P13",
+   "head": "article",
+   "mention": "II",
+   "context": "Securityholders are entitled under Article II, (ii)",
+   "target": "a2"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Securityholders",
+   "para": "P13",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 2,
+ "set": "heldout-v4",
+ "stratum": "2005-14/txt",
+ "para_map": {
+  "P1": {
+   "s": "5dd1fcd3-1a22-5b03-9fd8-593ed9624c45",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "5dd1fcd3-1a22-5b03-9fd8-593ed9624c45",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "fa48b58c-c72f-512b-a296-4df1473ab48c",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P4": {
+   "s": "fa48b58c-c72f-512b-a296-4df1473ab48c",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P5": {
+   "s": "fa48b58c-c72f-512b-a296-4df1473ab48c",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P6": {
+   "s": "fa48b58c-c72f-512b-a296-4df1473ab48c",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "fa48b58c-c72f-512b-a296-4df1473ab48c",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "fa48b58c-c72f-512b-a296-4df1473ab48c",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "fa48b58c-c72f-512b-a296-4df1473ab48c",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "367ec733-94a1-5335-bd4b-eee13decbc3e",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "ded127de-7977-5b53-97cc-2d0af1e9850f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "ded127de-7977-5b53-97cc-2d0af1e9850f",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "ded127de-7977-5b53-97cc-2d0af1e9850f",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "fe2f71b2-dc7d-586d-ac57-8cef4823b787",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

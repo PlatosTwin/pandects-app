@@ -1,0 +1,829 @@
+{
+ "agreement_uuid": "2daafa64-db6d-57c5-834d-a84cb1d9c6bf",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "ACA Insurer Taxes",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Accounting Principles",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Accounts Receivable Accrual",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Action",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Adjusted Statutory Capital",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate Contract",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "AlphaCare Stock",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Antitrust Laws",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable Date",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable RBC Entity Accounting Principles",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Assignment and Assumption Agreement and Bill of Sale",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Assumed Employee Plan",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Bankruptcy and Equity Exception",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Cash",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date Cash",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date Indebtedness",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "CMS",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Commercial Agreements",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Commercially Reasonable Efforts",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Confidentiality Agreements",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Control",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Employee Plan",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Enrollee",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Fraud",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Fundamental Representations",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Health Care Programs",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Health Regulatory Laws",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "HIPAA",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "HIPAA Commitments",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Accessible Information",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Transferor Party",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Non-Transferred Asset",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Non-Transferred Liability",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Transferee Party",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Continuation Period",
+   "para": "P46",
+   "kind": "paren"
+  },
+  {
+   "term": "Transferred Employee",
+   "para": "P46",
+   "kind": "paren"
+  },
+  {
+   "term": "Controlled by",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Controlled",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Controlling",
+   "para": "P27",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "9.13",
+   "context": "meaning specified in this Section 9.13",
+   "target": "s9.13"
+  },
+  {
+   "para": "P3",
+   "head": "exhibit",
+   "mention": "B",
+   "context": "methodologies set forth in Exhibit B",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "4.04(a)",
+   "context": "set forth in Section 4.04(a) of the Seller Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P13",
+   "head": "exhibit",
+   "mention": "C",
+   "context": "methodologies set forth in Exhibit C",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P14",
+   "head": "exhibit",
+   "mention": "D",
+   "context": "substantially in the form of Exhibit D",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "2.01(h)",
+   "context": "listed on Section 2.01(h) of the Seller Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "within the meaning of Section 3(3) of the ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "9.13 (a)",
+   "context": "included in Section 9.13 (a) of the Seller Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "3.01",
+   "context": "warranties set forth in Section 3.01) or Section",
+   "target": "s3.1"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "9.13",
+   "context": "or Section 9.13 of the Purchaser Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "3.02",
+   "context": "forth in Section 3.02) had actual knowledge",
+   "target": "s3.2"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "3.01(a)",
+   "context": "warranties in Section 3.01(a) (Organization, Good Standing",
+   "target": "s3.1(a)"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "3.01(b)",
+   "context": "Section 3.01(b) (Capital Structure) Section",
+   "target": "s3.1(b)"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "3.01(c)",
+   "context": "Structure) Section 3.01(c) (Corporate Authority;",
+   "target": "s3.1(c)"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "3.02(a)",
+   "context": "Section 3.02(a) (Organization, Good Standing and",
+   "target": "s3.2(a)"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "3.02(b)",
+   "context": "and Section 3.02(b) (Corporate Authority; Approval)",
+   "target": "s3.2(b)"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "340B",
+   "context": "(J) Section 340B of the Public Health Service",
+   "target": "external"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "7.03(a)",
+   "context": "Subject to Section 7.03(a), for a period",
+   "target": "s7.3(a)"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "4.03",
+   "context": "access pursuant to this Section 4.03. Any such",
+   "target": "s4.3"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "7.03(a)",
+   "context": "provided in Section 7.03(a), each Party shall",
+   "target": "s7.3(a)"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "4.03",
+   "context": "accessed pursuant to this Section 4.03 confidential",
+   "target": "s4.3"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "4.03",
+   "context": "express purposes set forth in this Section 4.03.",
+   "target": "s4.3"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "7.03(a)",
+   "context": "provided in Section 7.03(a), any and all",
+   "target": "s7.3(a)"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "4.10",
+   "context": "Non-Transferred Asset under this Section 4.10 is unable",
+   "target": "s4.10"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "4.10",
+   "context": "This Section 4.10 shall not apply",
+   "target": "s4.10"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "8.01(a)",
+   "context": "set forth below in this Section 8.01(a), effective as",
+   "target": "s8.1(a)"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "8.01(a)",
+   "context": "requirements of Section 8.01(a), comply with any",
+   "target": "s8.1(a)"
+  },
+  {
+   "para": "P48",
+   "head": "section",
+   "mention": "8.01(a)",
+   "context": "obligations under Section 8.01(a), the Purchaser shall",
+   "target": "s8.1(a)"
+  },
+  {
+   "para": "P50",
+   "head": "section",
+   "mention": "8.01(a)",
+   "context": "complies with Section 8.01(a) to each MCC",
+   "target": "s8.1(a)"
+  },
+  {
+   "para": "P50",
+   "head": "section",
+   "mention": "8.01(f)",
+   "context": "set forth on Section 8.01(f) of the Seller Disclosure Letter",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Affiliate",
+   "para": "P41",
+   "count": 7
+  },
+  {
+   "term": "Affiliate",
+   "para": "P42",
+   "count": 3
+  },
+  {
+   "term": "Affiliate",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Affiliate",
+   "para": "P45",
+   "count": 2
+  },
+  {
+   "term": "Affiliate",
+   "para": "P46",
+   "count": 6
+  },
+  {
+   "term": "Affiliate",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Affiliate",
+   "para": "P48",
+   "count": 1
+  },
+  {
+   "term": "Affiliate",
+   "para": "P49",
+   "count": 5
+  },
+  {
+   "term": "Affiliate",
+   "para": "P50",
+   "count": 3
+  },
+  {
+   "term": "Affiliate",
+   "para": "P52",
+   "count": 1
+  },
+  {
+   "term": "Affiliate",
+   "para": "P53",
+   "count": 3
+  },
+  {
+   "term": "Affiliate",
+   "para": "P54",
+   "count": 1
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Assumed Employee Plan",
+   "para": "P53",
+   "count": 4
+  },
+  {
+   "term": "Assumed Employee Plan",
+   "para": "P54",
+   "count": 3
+  },
+  {
+   "term": "Commercially Reasonable Efforts",
+   "para": "P46",
+   "count": 2
+  },
+  {
+   "term": "Employee Plan",
+   "para": "P54",
+   "count": 4
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "01090b50-ff49-5c3d-8cf6-6fdd42daf70e",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "e8d78e49-5d97-556a-ba3d-6ed55357ddcf",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "8ba2b7a9-1c6f-5edb-91ae-679aed46ace9",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "8ba2b7a9-1c6f-5edb-91ae-679aed46ace9",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "1b2d7053-6479-5905-97f8-cba1d0636471",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P54": {
+   "s": "b3d3f73a-a79e-5526-92e0-66f76957fc72",
+   "t": 9,
+   "excerpt": "sampled"
+  }
+ },
+ "rulings": [
+  "v1.5 ruling 4: capitalized correlatives (\"Controlled\", \"Controlling\") are declarations"
+ ]
+}

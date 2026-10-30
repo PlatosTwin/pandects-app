@@ -1,0 +1,770 @@
+{
+ "agreement_uuid": "a621ea6f-4e02-53f4-afff-40d617cf4c01",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Acquired Corporation Contract",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Acquired Corporation Proprietary Asset",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Acquired Corporations",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Articles of Merger",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "Average Parent Trading Price",
+   "para": "P8",
+   "kind": "pointer",
+   "pointer": "s1.5(a)"
+  },
+  {
+   "term": "Closing",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P10",
+   "kind": "pointer",
+   "pointer": "s1.3"
+  },
+  {
+   "term": "Code",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Acquisition Proposal",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Company Acquisition Transaction",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Company Balance Sheet",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "s2.4(b)"
+  },
+  {
+   "term": "Company Balance Sheet Date",
+   "para": "P19",
+   "kind": "pointer",
+   "pointer": "s2.4(b)"
+  },
+  {
+   "term": "Company Common Stock",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Company Disclosure Schedule",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "a2"
+  },
+  {
+   "term": "Company Employee Plans",
+   "para": "P22",
+   "kind": "pointer",
+   "pointer": "s2.12(a)"
+  },
+  {
+   "term": "Company ESPP",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "s2.3(b)"
+  },
+  {
+   "term": "Company Financial Statements",
+   "para": "P24",
+   "kind": "pointer",
+   "pointer": "s2.4(b)"
+  },
+  {
+   "term": "Company Material Contract",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "s2.7(a)"
+  },
+  {
+   "term": "Company Options",
+   "para": "P26",
+   "kind": "pointer",
+   "pointer": "s2.3(b)"
+  },
+  {
+   "term": "Company Organization Documents",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s2.1"
+  },
+  {
+   "term": "Company Preferred Stock",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Company SEC Documents",
+   "para": "P29",
+   "kind": "pointer",
+   "pointer": "s2.4(a)"
+  },
+  {
+   "term": "Company Shareholders' Meeting",
+   "para": "P30",
+   "kind": "pointer",
+   "pointer": "s5.2(a)"
+  },
+  {
+   "term": "Company Stock Certificate",
+   "para": "P31",
+   "kind": "pointer",
+   "pointer": "s1.6"
+  },
+  {
+   "term": "Company Stock Option Plans",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Company Stock Rights",
+   "para": "P33",
+   "kind": "pointer",
+   "pointer": "s2.3(c)"
+  },
+  {
+   "term": "Company Superior Offer",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Company Tax Returns",
+   "para": "P35",
+   "kind": "pointer",
+   "pointer": "s2.11(d)"
+  },
+  {
+   "term": "Company Triggering Event",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Consent",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Continuing Employees",
+   "para": "P40",
+   "kind": "pointer",
+   "pointer": "s5.5"
+  },
+  {
+   "term": "Company Tax Returns",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "Pre-Closing Period",
+   "para": "P48",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "For purposes of the Agreement (including this Exhibit A):",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "2.1",
+   "context": "is defined in Section 2.1 to this Agreement",
+   "target": "s2.1"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "1.3",
+   "context": "is defined in Section 1.3 to this Agreement",
+   "target": "s1.3"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "1.5(a)",
+   "context": "is defined in Section 1.5(a) to this Agreement",
+   "target": "s1.5(a)"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "1.3",
+   "context": "is defined in Section 1.3 to this Agreement",
+   "target": "s1.3"
+  },
+  {
+   "para": "P10",
+   "head": "section",
+   "mention": "1.3",
+   "context": "is defined in Section 1.3 to this Agreement",
+   "target": "s1.3"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "2.4(b)",
+   "context": "is defined in Section 2.4(b) to this Agreement",
+   "target": "s2.4(b)"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "2.4(b)",
+   "context": "is defined in Section 2.4(b) to this Agreement",
+   "target": "s2.4(b)"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "2",
+   "context": "is defined in Section 2 to this Agreement",
+   "target": "a2"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "2.12(a)",
+   "context": "is defined in Section 2.12(a) to this Agreement",
+   "target": "s2.12(a)"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "2.3(b)",
+   "context": "is defined in Section 2.3(b) to this Agreement",
+   "target": "s2.3(b)"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "2.4(b)",
+   "context": "is defined in Section 2.4(b) to this Agreement",
+   "target": "s2.4(b)"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "2.7(a)",
+   "context": "is defined in Section 2.7(a) to this Agreement",
+   "target": "s2.7(a)"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "2.3(b)",
+   "context": "is defined in Section 2.3(b) to this Agreement",
+   "target": "s2.3(b)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "2.1",
+   "context": "is defined in Section 2.1 to this Agreement",
+   "target": "s2.1"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "2.4(a)",
+   "context": "is defined in Section 2.4(a) to this Agreement",
+   "target": "s2.4(a)"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "5.2(a)",
+   "context": "is defined in Section 5.2(a) to this Agreement",
+   "target": "s5.2(a)"
+  },
+  {
+   "para": "P31",
+   "head": "section",
+   "mention": "1.6",
+   "context": "is defined in Section 1.6 to this Agreement",
+   "target": "s1.6"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "2.3(c)",
+   "context": "is defined in Section 2.3(c) to this Agreement",
+   "target": "s2.3(c)"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "2.11(d)",
+   "context": "is defined in Section 2.11(d) to this Agreement",
+   "target": "s2.11(d)"
+  },
+  {
+   "para": "P36",
+   "head": "section",
+   "mention": "4.3",
+   "context": "absent the restriction contained in Section 4.3, the Board",
+   "target": "s4.3"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "4.3",
+   "context": "breaches its obligations under Section 4.3 of this Agreement",
+   "target": "s4.3"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "4.3",
+   "context": "notice provision contained in Section 4.3 which breach",
+   "target": "s4.3"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "5.5",
+   "context": "is defined in Section 5.5 to this Agreement",
+   "target": "s5.5"
+  },
+  {
+   "para": "P45",
+   "head": "schedule",
+   "mention": "2.11(d)",
+   "context": "Schedule 2.11(d) of the Company Disclosure Schedule sets forth",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "355(a)(1)",
+   "context": "defined in Section 355(a)(1) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "1504(a)",
+   "context": "as defined in Section 1504(a) of the Code, filing",
+   "target": "external"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "1.1502-6",
+   "context": "under Treas. Reg. Section 1.1502-6 (or any similar",
+   "target": "external"
+  },
+  {
+   "para": "P48",
+   "head": "section",
+   "mention": "7",
+   "context": "terminated in accordance with Section 7 (the",
+   "target": "a7"
+  },
+  {
+   "para": "P50",
+   "head": "section",
+   "mention": "7.1",
+   "context": "as provided in Section 7.1, this Agreement shall",
+   "target": "s7.1"
+  },
+  {
+   "para": "P50",
+   "head": "section",
+   "mention": "7.2",
+   "context": "that (a) this Section 7.2, Section 7.3",
+   "target": "s7.2"
+  },
+  {
+   "para": "P50",
+   "head": "section",
+   "mention": "7.3",
+   "context": "this Section 7.2, Section 7.3 and Section 8",
+   "target": "s7.3"
+  },
+  {
+   "para": "P50",
+   "head": "section",
+   "mention": "8",
+   "context": "Section 7.3 and Section 8 shall survive the",
+   "target": "a8"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Acquired Corporations",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Acquired Corporations",
+   "para": "P42",
+   "count": 4
+  },
+  {
+   "term": "Acquired Corporations",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Acquired Corporations",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Acquired Corporations",
+   "para": "P45",
+   "count": 6
+  },
+  {
+   "term": "Acquired Corporations",
+   "para": "P46",
+   "count": 2
+  },
+  {
+   "term": "Acquired Corporations",
+   "para": "P47",
+   "count": 4
+  },
+  {
+   "term": "Closing",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Code",
+   "para": "P47",
+   "count": 2
+  },
+  {
+   "term": "Company Balance Sheet",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Company Financial Statements",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Acquired Corporations",
+   "para": "P48",
+   "count": 4
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "dc6a36b2-e402-5f24-a1a0-2fd7e27f8af0",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "dc6a36b2-e402-5f24-a1a0-2fd7e27f8af0",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "dc6a36b2-e402-5f24-a1a0-2fd7e27f8af0",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "dc6a36b2-e402-5f24-a1a0-2fd7e27f8af0",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "dc6a36b2-e402-5f24-a1a0-2fd7e27f8af0",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "dc6a36b2-e402-5f24-a1a0-2fd7e27f8af0",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "dc6a36b2-e402-5f24-a1a0-2fd7e27f8af0",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "23e89a10-378b-54e4-8a49-0957d25efbf7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "23e89a10-378b-54e4-8a49-0957d25efbf7",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "17df0396-f03b-5a4f-a1da-d764a2067605",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "9c506373-10f9-59a0-b640-467ea4c955a4",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "9c506373-10f9-59a0-b640-467ea4c955a4",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "9c506373-10f9-59a0-b640-467ea4c955a4",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ }
+}

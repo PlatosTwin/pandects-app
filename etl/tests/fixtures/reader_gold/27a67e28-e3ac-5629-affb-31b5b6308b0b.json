@@ -1,0 +1,217 @@
+{
+ "agreement_uuid": "27a67e28-e3ac-5629-affb-31b5b6308b0b",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Common Stock",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Common Stockholders",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Series A Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Series B Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Series C Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Series D Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Series E-1 Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Series E-2 Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Series E-3 Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Series E-4 Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Series E-5 Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Series E-6 Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Preferred Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Share",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Shares",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Preferred Stockholders",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Stockholders",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Cash Consideration",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Dissenting Shares",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P11",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P1",
+   "head": "section",
+   "mention": "1.6(c)",
+   "context": "(as defined in Section 1.6(c)), less the Escrow",
+   "target": "s1.6(c)"
+  },
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "1.6",
+   "context": "accordance with this Section 1.6 and in accordance",
+   "target": "s1.6"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "1.6(d)",
+   "context": "(as defined in Section 1.6(d) below), shall automatically",
+   "target": "s1.6(d)"
+  },
+  {
+   "para": "P3",
+   "head": "exhibit",
+   "mention": "1.6(a)(ii)",
+   "context": "as set forth in Exhibit 1.6(a)(ii) (the holders",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.6",
+   "context": "pursuant to this Section 1.6 but, at the",
+   "target": "s1.6"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "1.6",
+   "context": "Consideration as set forth in this Section 1.6, without interest",
+   "target": "s1.6"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "pre2005/html",
+ "para_map": {
+  "P1": {
+   "s": "c9950203-6b3c-5cf6-83eb-728cfff88923",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "c9950203-6b3c-5cf6-83eb-728cfff88923",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "c9950203-6b3c-5cf6-83eb-728cfff88923",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "c9950203-6b3c-5cf6-83eb-728cfff88923",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "c9950203-6b3c-5cf6-83eb-728cfff88923",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "c9950203-6b3c-5cf6-83eb-728cfff88923",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "298c08d8-8092-57b5-853f-ddca76800326",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "eb1e2672-5684-5eae-9f38-5b41fe452d58",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "47b0c034-2085-5402-bb64-6f0fc093b9f0",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "47b0c034-2085-5402-bb64-6f0fc093b9f0",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "47b0c034-2085-5402-bb64-6f0fc093b9f0",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "e1e9fc73-374b-5dfe-b76a-d84ff8f16d31",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

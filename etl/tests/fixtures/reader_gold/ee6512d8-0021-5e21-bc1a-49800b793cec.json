@@ -1,0 +1,699 @@
+{
+ "agreement_uuid": "ee6512d8-0021-5e21-bc1a-49800b793cec",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Action",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s2.10"
+  },
+  {
+   "term": "Affiliate(s)",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Amended Public Warrant",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Amended Sponsor Warrant",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "AMEX",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Cap",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s9.4"
+  },
+  {
+   "term": "Cash Consideration",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s1.2"
+  },
+  {
+   "term": "CGCL",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s1.7(f)"
+  },
+  {
+   "term": "Closing",
+   "para": "P13",
+   "kind": "pointer",
+   "pointer": "s1.9"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "s1.9"
+  },
+  {
+   "term": "COBRA",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Common Stock Exchange Ratio",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "s1.7(a)"
+  },
+  {
+   "term": "Consent",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "s2.5"
+  },
+  {
+   "term": "Contract",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Conversion Shares",
+   "para": "P20",
+   "kind": "pointer",
+   "pointer": "s1.7(a)"
+  },
+  {
+   "term": "Damages",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "s9.2"
+  },
+  {
+   "term": "Deductible",
+   "para": "P22",
+   "kind": "pointer",
+   "pointer": "s9.4"
+  },
+  {
+   "term": "DGA",
+   "para": "P23",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "DGAH",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "DGCL",
+   "para": "P26",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Disclosure Schedules",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Dissent Rights",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s1.7(f)"
+  },
+  {
+   "term": "Dissenting Shares",
+   "para": "P29",
+   "kind": "pointer",
+   "pointer": "s1.7(f)"
+  },
+  {
+   "term": "Environment",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Law",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Voting KW Debt",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Exclusivity Period",
+   "para": "P58",
+   "kind": "paren"
+  },
+  {
+   "term": "Prospect Group",
+   "para": "P58",
+   "kind": "paren"
+  },
+  {
+   "term": "KW Group",
+   "para": "P59",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "2.10",
+   "context": "set forth in Section 2.10 of the Agreement",
+   "target": "s2.10"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "9.4",
+   "context": "set forth in Section 9.4 of the Agreement",
+   "target": "s9.4"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "1.2",
+   "context": "set forth in Section 1.2 of the Agreement",
+   "target": "s1.2"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "1.7(f)",
+   "context": "set forth in Section 1.7(f) of the Agreement",
+   "target": "s1.7(f)"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "1.9",
+   "context": "set forth in Section 1.9 of the Agreement",
+   "target": "s1.9"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "1.9",
+   "context": "set forth in Section 1.9 of the Agreement",
+   "target": "s1.9"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "4980B",
+   "context": "means Code Section 4980B, Part 6 of Subtitle",
+   "target": "external"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "1.7(a)",
+   "context": "set forth in Section 1.7(a) of the Agreement",
+   "target": "s1.7(a)"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "2.5",
+   "context": "set forth in Section 2.5 of the Agreement",
+   "target": "s2.5"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "1.7(a)",
+   "context": "set forth in Section 1.7(a) of the Agreement",
+   "target": "s1.7(a)"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "9.2",
+   "context": "set forth in Section 9.2 of the Agreement",
+   "target": "s9.2"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "9.4",
+   "context": "set forth in Section 9.4 of the Agreement",
+   "target": "s9.4"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "1.7(f)",
+   "context": "set forth in Section 1.7(f) of the Agreement",
+   "target": "s1.7(f)"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "1.7(f)",
+   "context": "set forth in Section 1.7(f) of the Agreement",
+   "target": "s1.7(f)"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "2.1(b)",
+   "context": "in Section 2.1(b) of the KW Disclosure Schedule and included",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "2.1(b)",
+   "context": "in Section 2.1(b) of the KW Disclosure Schedule: (i)",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "368(c)",
+   "context": "within the meaning of Section 368(c) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "368(c)",
+   "context": "KW as defined in Section 368(c) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "368(a)(2)(F)(iii)",
+   "context": "as defined in Section 368(a)(2)(F)(iii) and (iv) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P45",
+   "head": "section",
+   "mention": "(iv)",
+   "context": "as defined in Section 368(a)(2)(F)(iii) and (iv) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "368(a)(3)(A)",
+   "context": "within the meaning of Section 368(a)(3)(A) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "3.9",
+   "context": "disclosed in Section 3.9 of the Prospect Disclosure Schedule",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P57",
+   "head": "section",
+   "mention": "3.9",
+   "context": "the actions described in this Section 3.9",
+   "target": "s3.9"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P58",
+   "count": 2
+  },
+  {
+   "term": "Agreement",
+   "para": "P59",
+   "count": 2
+  },
+  {
+   "term": "Code",
+   "para": "P44",
+   "count": 2
+  },
+  {
+   "term": "Code",
+   "para": "P45",
+   "count": 1
+  },
+  {
+   "term": "Code",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Contract",
+   "para": "P42",
+   "count": 3
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "632a3308-b3f4-58dc-bf36-cc5fb9fa1069",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "632a3308-b3f4-58dc-bf36-cc5fb9fa1069",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "228d20cc-99c5-5b62-ab12-52aa7b319fb9",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "228d20cc-99c5-5b62-ab12-52aa7b319fb9",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "228d20cc-99c5-5b62-ab12-52aa7b319fb9",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "228d20cc-99c5-5b62-ab12-52aa7b319fb9",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P54": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P55": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P56": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P57": {
+   "s": "ebe56ecd-acaa-5fa4-8742-0527e7e698e1",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P58": {
+   "s": "11527ec8-88e1-54b4-9dda-4521ef5b98ee",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P59": {
+   "s": "11527ec8-88e1-54b4-9dda-4521ef5b98ee",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

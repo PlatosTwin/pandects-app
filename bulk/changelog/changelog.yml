@@ -60,6 +60,29 @@ unreleased:
     should read _meta["pandects/requiredScopes"] and _meta["pandects/pagination"].
     Pass sections=["field_inventory", "concept_notes", "tool_limitations"] to
     get_server_capabilities to get the sections the old default included.
+- type: schema
+  severity: minor
+  summary: "New table reader_index: the outline, defined terms and cross-references of each agreement's latest verified XML."
+  details: >
+    One row per indexed XML version (composite key agreement_uuid,
+    xml_version). payload_gz holds gzip-compressed JSON with the outline,
+    defined terms with their declarations and uses, and cross-references with
+    their status and target, all as stand-off anchors (container uuid, text
+    ordinal and UTF-16 span) into that XML. Count columns and
+    body_section_level_rate summarize each row without parsing the payload.
+  refs: []
+- type: api
+  severity: minor
+  summary: "New GET /v1/agreements/{agreement_uuid}/reader-index returns the reader index for the XML version the agreement endpoint serves."
+  details: >
+    The response holds no agreement text, only anchors into the XML that
+    /v1/agreements/{agreement_uuid} returns. It is gzip-encoded when the
+    client accepts it and carries a weak ETag for If-None-Match. For
+    anonymous callers it follows the same focus_section_uuid and
+    neighbor_sections window as the XML: term uses and cross-references in
+    redacted text are left out, and declarations there are reduced to
+    {"redacted": true, "label": "Section 1.1"}. Returns 404 when no index
+    has been built for the current XML version.
   refs: []
 - type: api
   severity: minor

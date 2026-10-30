@@ -1,0 +1,1338 @@
+{
+ "agreement_uuid": "98444543-91c7-5123-8d64-712454c0292e",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Accounts",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Accounts Date",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Agreed Form",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Amended Preliminary Pension Underfunding Statement",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s7.10"
+  },
+  {
+   "term": "ASIC",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "BCPC",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Books and Records",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Bulgarian Commercial Register",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Business Information",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Capitalized Lease",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Claim",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Company Plan",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Competition Authorities",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Completion",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Completion Date",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Computer Systems",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Conditions Precedent",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Condition Precedent",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Confidential Business Information",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Control",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Disclosure Letter",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Disputed Amount",
+   "para": "P5",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "EBITDA",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "EEA",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Employees",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Encumbrance",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Enterprise Value Amount",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Euro",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "European Union",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Executive Management",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Final Net Working Capital",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "Final Pension Underfunding Amount",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s7.10"
+  },
+  {
+   "term": "Financing Agreements",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Financing Agreements Amount",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Indebtedness",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Independent Accounting Firm",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Independent Pensions Expert",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property Rights",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Intercompany Payables",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Intercompany Receivables",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "IRC",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Liability",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Long Stop Date",
+   "para": "P9",
+   "kind": "pointer",
+   "pointer": "s4.3"
+  },
+  {
+   "term": "Losses",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Loss",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Management Accounts",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Change",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Melexis",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Minimum Net Asset Amount",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Initial Period",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Second Period",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Third Period",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Fourth Period",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "Net Intercompany Amount",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Net Working Capital",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Normal Business Hours",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Objection Notice",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "Occurrence Policies",
+   "para": "P11",
+   "kind": "pointer",
+   "pointer": "s12.4"
+  },
+  {
+   "term": "Pension Underfunding",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Benefit Obligations",
+   "para": "P12",
+   "kind": "paren"
+  },
+  {
+   "term": "Pension Schemes",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Preliminary Net Working Capital",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "Preliminary Pension Underfunding Amount",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s7.10"
+  },
+  {
+   "term": "Preliminary Pension Underfunding Statement",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "s7.10"
+  },
+  {
+   "term": "Preliminary Working Capital Statement",
+   "para": "P12",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "Proceedings",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Properties",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Property",
+   "para": "P14",
+   "kind": "paren"
+  },
+  {
+   "term": "Purchaser’s Lawyers",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Purchase Price",
+   "para": "P14",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "Restricted Period",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Sellers’ Lawyers",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Senior Employee",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Sensor-Nite Group",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Sensor-Nite Group Companies",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Sensor Software",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Service Document",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Shares",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Short Form SPA",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "SNI Pledge",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "SNI",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "SN NV",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Sold Sensor-Nite Group Companies",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Specified Accounting Policies",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Specified Pensions Policies",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Spin-Off Agreement",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Targeted Net Working Capital",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Tax or Taxation",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Taxation Authority",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Statute",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Warranties",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Warranty",
+   "para": "P16",
+   "kind": "paren"
+  },
+  {
+   "term": "Transfer",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "UK",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Underfunding Objection Notice",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "s7.10"
+  },
+  {
+   "term": "Underfunding Disputed Amount",
+   "para": "P17",
+   "kind": "pointer",
+   "pointer": "s7.10"
+  },
+  {
+   "term": "Unresolved Claims",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "US GAAP",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "VAT",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Warranties",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Warranty",
+   "para": "P17",
+   "kind": "paren"
+  },
+  {
+   "term": "Xtrion",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Parties",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Clauses",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Introduction",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Schedules",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Purchase Price",
+   "para": "P21",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P3",
+   "head": "clause",
+   "mention": "7.10",
+   "context": "has the meaning given in Clause 7.10;",
+   "target": "s7.10"
+  },
+  {
+   "para": "P4",
+   "head": "clause",
+   "mention": "6",
+   "context": "in accordance with Clause 6;",
+   "target": "a6"
+  },
+  {
+   "para": "P5",
+   "head": "schedule",
+   "mention": "2",
+   "context": "the conditions set out in Schedule 2 (Conditions Precedent)",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P5",
+   "head": "clause",
+   "mention": "7.2",
+   "context": "for the purposes of Clause 7.2 together with",
+   "target": "s7.2"
+  },
+  {
+   "para": "P5",
+   "head": "clause",
+   "mention": "3",
+   "context": "“Disputed Amount” has the meaning given in Clause 3;",
+   "target": "a3"
+  },
+  {
+   "para": "P6",
+   "head": "clause",
+   "mention": "3",
+   "context": "“Final Net Working Capital” has the meaning given in Clause 3;",
+   "target": "a3"
+  },
+  {
+   "para": "P6",
+   "head": "clause",
+   "mention": "7.10",
+   "context": "“Final Pension Underfunding Amount” has the meaning given in Clause 7.10;",
+   "target": "s7.10"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "4.3",
+   "context": "“Long Stop Date” has the meaning given in Clause 4.3;",
+   "target": "s4.3"
+  },
+  {
+   "para": "P9",
+   "head": "clause",
+   "mention": "5.3",
+   "context": "of this Agreement pursuant to Clause 5.3;",
+   "target": "s5.3"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "5",
+   "context": "Warranties set forth in Schedule 5 (The Warranties))",
+   "target": "x-schedule-5"
+  },
+  {
+   "para": "P10",
+   "head": "clause",
+   "mention": "2.4.2",
+   "context": "terminated pursuant to Clause 2.4.2;",
+   "target": "s2.4.2"
+  },
+  {
+   "para": "P11",
+   "head": "clause",
+   "mention": "14.1",
+   "context": "service of any notice pursuant to Clause 14.1,",
+   "target": "s14.1"
+  },
+  {
+   "para": "P11",
+   "head": "clause",
+   "mention": "3",
+   "context": "“Objection Notice” has the meaning given in Clause 3;",
+   "target": "a3"
+  },
+  {
+   "para": "P11",
+   "head": "clause",
+   "mention": "12.4",
+   "context": "“Occurrence Policies” has the meaning given in Clause 12.4.",
+   "target": "s12.4"
+  },
+  {
+   "para": "P12",
+   "head": "clause",
+   "mention": "3",
+   "context": "“Preliminary Net Working Capital” has the meaning given in Clause 3;",
+   "target": "a3"
+  },
+  {
+   "para": "P12",
+   "head": "clause",
+   "mention": "7.10",
+   "context": "“Preliminary Pension Underfunding Amount” has the meaning given in Clause 7.10;",
+   "target": "s7.10"
+  },
+  {
+   "para": "P12",
+   "head": "clause",
+   "mention": "7.10",
+   "context": "“Preliminary Pension Underfunding Statement” has the meaning given in Clause 7.10;",
+   "target": "s7.10"
+  },
+  {
+   "para": "P12",
+   "head": "clause",
+   "mention": "3",
+   "context": "“Preliminary Working Capital Statement” has the meaning given in Clause 3;",
+   "target": "a3"
+  },
+  {
+   "para": "P14",
+   "head": "clause",
+   "mention": "3",
+   "context": "“Purchase Price” has the meaning given in Clause 3;",
+   "target": "a3"
+  },
+  {
+   "para": "P15",
+   "head": "schedule",
+   "mention": "1",
+   "context": "of all of which are set out in Schedule 1",
+   "target": "x-schedule-1"
+  },
+  {
+   "para": "P15",
+   "head": "schedule",
+   "mention": "8",
+   "context": "form set forth in Schedule 8 (Short Form SPA)",
+   "target": "x-schedule-8"
+  },
+  {
+   "para": "P15",
+   "head": "schedule",
+   "mention": "1",
+   "context": "of Schedule 1 (The Sensor-Nite Group Companies); “SN NV”",
+   "target": "x-schedule-1"
+  },
+  {
+   "para": "P15",
+   "head": "schedule",
+   "mention": "1",
+   "context": "as specified under item 2 of Schedule 1",
+   "target": "x-schedule-1"
+  },
+  {
+   "para": "P15",
+   "head": "schedule",
+   "mention": "1",
+   "context": "details of which are set out in Schedule 1",
+   "target": "x-schedule-1"
+  },
+  {
+   "para": "P16",
+   "head": "paragraph",
+   "mention": "17",
+   "context": "statements set out in paragraph 17 of Schedule 5",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P16",
+   "head": "schedule",
+   "mention": "5",
+   "context": "statements set out in paragraph 17 of Schedule 5",
+   "target": "x-schedule-5"
+  },
+  {
+   "para": "P17",
+   "head": "schedule",
+   "mention": "5",
+   "context": "the statements set out in Schedule 5 (The Warranties),",
+   "target": "x-schedule-5"
+  },
+  {
+   "para": "P21",
+   "head": "clause",
+   "mention": "3.2",
+   "context": "adjustments pursuant to Clause 3.2 (the",
+   "target": "s3.2"
+  },
+  {
+   "para": "P22",
+   "head": "clause",
+   "mention": "3.2",
+   "context": "Subject to the adjustment pursuant to Clause 3.2,",
+   "target": "s3.2"
+  },
+  {
+   "para": "P22",
+   "head": "schedule",
+   "mention": "9",
+   "context": "shall be allocated in accordance with Schedule 9",
+   "target": "x-schedule-9"
+  },
+  {
+   "para": "P23",
+   "head": "clause",
+   "mention": "6.5",
+   "context": "the directions set out in Clause 6.5.",
+   "target": "s6.5"
+  },
+  {
+   "para": "P24",
+   "head": "clause",
+   "mention": "2.4.2",
+   "context": "netting out set out in Clause 2.4.2;",
+   "target": "s2.4.2"
+  },
+  {
+   "para": "P25",
+   "head": "paragraph",
+   "mention": "1",
+   "context": "the Conditions Precedent set out in paragraphs 1,",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P25",
+   "head": "paragraph",
+   "mention": "2",
+   "context": "set out in paragraphs 1, 2 and 3",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P25",
+   "head": "paragraph",
+   "mention": "3",
+   "context": "paragraphs 1, 2 and 3 of Part A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P25",
+   "head": "schedule",
+   "mention": "2",
+   "context": "3 of Part A of Schedule 2 (Conditions Precedent)",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P25",
+   "head": "paragraph",
+   "mention": "2.2(xi)",
+   "context": "Condition Precedent set out in paragraph 2.2(xi) of Part A",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P25",
+   "head": "schedule",
+   "mention": "2",
+   "context": "paragraph 2.2(xi) of Part A of Schedule 2 (Conditions Precedent)",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P25",
+   "head": "paragraph",
+   "mention": "4",
+   "context": "satisfaction of paragraph 4 of Part A of Schedule 2",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P25",
+   "head": "schedule",
+   "mention": "2",
+   "context": "satisfaction of paragraph 4 of Part A of Schedule 2",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P25",
+   "head": "paragraph",
+   "mention": "4",
+   "context": "in paragraph 4 of Part A of Schedule 2",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P25",
+   "head": "schedule",
+   "mention": "2",
+   "context": "in paragraph 4 of Part A of Schedule 2",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P26",
+   "head": "paragraph",
+   "mention": "3",
+   "context": "Condition Precedent set out in paragraph 3 (Warranties)",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P26",
+   "head": "schedule",
+   "mention": "2",
+   "context": "(Warranties) of Part A of Schedule 2 (Conditions Precedent)",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P27",
+   "head": "schedule",
+   "mention": "2",
+   "context": "set out in Part B of Schedule 2 (Conditions Precedent).",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P28",
+   "head": "paragraph",
+   "mention": "1",
+   "context": "Condition Precedent set out in paragraph 1 (Competition consents)",
+   "target": "attachment_local"
+  },
+  {
+   "para": "P28",
+   "head": "schedule",
+   "mention": "2",
+   "context": "(Competition consents) of Part C of Schedule 2",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P28",
+   "head": "clause",
+   "mention": "4.2.4",
+   "context": "nothing in this Clause 4.2.4 shall be construed",
+   "target": "s4.2.4"
+  },
+  {
+   "para": "P29",
+   "head": "schedule",
+   "mention": "2",
+   "context": "Conditions Precedent set out in Part A of Schedule 2",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P29",
+   "head": "schedule",
+   "mention": "2",
+   "context": "Condition Precedent set out in Part B of Schedule 2",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P30",
+   "head": "schedule",
+   "mention": "2",
+   "context": "Conditions Precedent set out in Part C of Schedule 2",
+   "target": "x-schedule-2"
+  },
+  {
+   "para": "P31",
+   "head": "clause",
+   "mention": "6",
+   "context": "to take place pursuant to Clause 6, the Purchaser",
+   "target": "a6"
+  },
+  {
+   "para": "P31",
+   "head": "clause",
+   "mention": "5.4",
+   "context": "accordance with this Clause 5.4, the occurrence",
+   "target": "s5.4"
+  },
+  {
+   "para": "P32",
+   "head": "clause",
+   "mention": "13.2.2",
+   "context": "Subject to Clause 13.2.2, each Party shall",
+   "target": "s13.2.2"
+  },
+  {
+   "para": "P36",
+   "head": "clause",
+   "mention": "13.2.1",
+   "context": "Notwithstanding Clause 13.2.1, a Party may disclose",
+   "target": "s13.2.1"
+  },
+  {
+   "para": "P41",
+   "head": "clause",
+   "mention": "13.2.1",
+   "context": "undertaken to comply with Clause 13.2.1 in respect",
+   "target": "s13.2.1"
+  },
+  {
+   "para": "P44",
+   "head": "clause",
+   "mention": "13.2.2(a)",
+   "context": "pursuant to Clause 13.2.2(a), 13.2.2(b), 13.2.2(c)",
+   "target": "s13.2.2(a)"
+  },
+  {
+   "para": "P44",
+   "head": "clause",
+   "mention": "13.2.2(b)",
+   "context": "Clause 13.2.2(a), 13.2.2(b), 13.2.2(c) or",
+   "target": "s13.2.2(b)"
+  },
+  {
+   "para": "P44",
+   "head": "clause",
+   "mention": "13.2.2(c)",
+   "context": "13.2.2(b), 13.2.2(c) or 13.2.2(d), the Party",
+   "target": "s13.2.2(c)"
+  },
+  {
+   "para": "P44",
+   "head": "clause",
+   "mention": "13.2.2(d)",
+   "context": "13.2.2(c) or 13.2.2(d), the Party concerned",
+   "target": "s13.2.2(d)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Business Day",
+   "para": "P22",
+   "count": 1
+  },
+  {
+   "term": "Completion",
+   "para": "P22",
+   "count": 1
+  },
+  {
+   "term": "Completion",
+   "para": "P23",
+   "count": 1
+  },
+  {
+   "term": "Completion",
+   "para": "P24",
+   "count": 1
+  },
+  {
+   "term": "Completion",
+   "para": "P31",
+   "count": 1
+  },
+  {
+   "term": "Conditions Precedent",
+   "para": "P25",
+   "count": 2
+  },
+  {
+   "term": "Conditions Precedent",
+   "para": "P29",
+   "count": 1
+  },
+  {
+   "term": "Conditions Precedent",
+   "para": "P30",
+   "count": 1
+  },
+  {
+   "term": "Euro",
+   "para": "P21",
+   "count": 1
+  },
+  {
+   "term": "Financing Agreements Amount",
+   "para": "P21",
+   "count": 1
+  },
+  {
+   "term": "Financing Agreements Amount",
+   "para": "P23",
+   "count": 1
+  },
+  {
+   "term": "Financing Agreements Amount",
+   "para": "P24",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [
+  {
+   "para": "P17",
+   "head": "clause",
+   "mention": "7.10",
+   "context": "“Underfunding Objection Notice” has the meaning given in Clause 7.10;",
+   "target": "s7.10"
+  },
+  {
+   "para": "P17",
+   "head": "clause",
+   "mention": "7.10",
+   "context": "“Underfunding Disputed Amount” has the meaning given in Clause 7.10;",
+   "target": "s7.10"
+  }
+ ],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "uk",
+ "para_map": {
+  "P1": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "752ce977-9921-5a03-b72f-4963cc9afe4d",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "a8e53f67-c969-5a9d-8422-5adbf9738cde",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "a8e53f67-c969-5a9d-8422-5adbf9738cde",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "a8e53f67-c969-5a9d-8422-5adbf9738cde",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "a8e53f67-c969-5a9d-8422-5adbf9738cde",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "8bd26632-cac1-5712-964e-f05775de9dfd",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "8bd26632-cac1-5712-964e-f05775de9dfd",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "8bd26632-cac1-5712-964e-f05775de9dfd",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "8bd26632-cac1-5712-964e-f05775de9dfd",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "8bd26632-cac1-5712-964e-f05775de9dfd",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "8bd26632-cac1-5712-964e-f05775de9dfd",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "fd9b903d-3c61-5984-a448-def424921bec",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P35": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P36": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P37": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P38": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P39": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P40": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P41": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "b42f26fa-3057-52f4-93d3-c83ec354b1f0",
+   "t": 12,
+   "excerpt": "sampled"
+  }
+ },
+ "pending_disputes": [
+  {
+   "section": "declarations",
+   "draft": {
+    "term": "Share Purchase Documents",
+    "para": "P15",
+    "kind": "paren"
+   },
+   "checker": {
+    "term": "Share Purchase Documents",
+    "para": "P15",
+    "kind": "means"
+   },
+   "type": "disagree",
+   "reason": "Glossary entry ('the “Share Purchase Documents” this Agreement, ...'), not a parenthetical."
+  },
+  {
+   "section": "xrefs",
+   "draft": null,
+   "checker": {
+    "para": "P17",
+    "head": "clause",
+    "mention": "7.10",
+    "context": "“Underfunding Objection Notice” has the meaning given in Clause 7.10;",
+    "target": "s7.10"
+   },
+   "type": "missing",
+   "reason": "Pointer cross-reference in P17 not labeled."
+  },
+  {
+   "section": "xrefs",
+   "draft": null,
+   "checker": {
+    "para": "P17",
+    "head": "clause",
+    "mention": "7.10",
+    "context": "“Underfunding Disputed Amount” has the meaning given in Clause 7.10;",
+    "target": "s7.10"
+   },
+   "type": "missing",
+   "reason": "Pointer cross-reference in P17 not labeled."
+  }
+ ]
+}

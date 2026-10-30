@@ -1,0 +1,195 @@
+{
+ "agreement_uuid": "0108e423-93c1-586f-bdd2-6bb7a73c67a5",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Shares",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Initial Shares",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Subsequent Shares",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Permits",
+   "para": "P18",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P9",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "except as otherwise indicated in Exhibit A",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P10",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "except as referenced in Exhibit A",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P10",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "and are listed on Exhibit A",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "6.1",
+   "context": "will be sought under Section 6.1 above",
+   "target": "s6.1"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "2.2",
+   "context": "owing to Sellers pursuant to Section 2.2 above",
+   "target": "s2.2"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "0bda0d9d-6c6c-5666-9b67-b8052b22ce79",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P3": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P4": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P5": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P6": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 15,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 16,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 17,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 18,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "e593ee28-941c-5f3c-bcca-42cdfdc721b7",
+   "t": 19,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "37a34954-c30b-5f32-b0ac-d1dc932bc883",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "81f9c567-ae8f-58e7-89e8-08274477ceca",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "8cf09836-745e-557c-81ae-b6ad39a08dd7",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "8cf09836-745e-557c-81ae-b6ad39a08dd7",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

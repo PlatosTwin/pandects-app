@@ -1,0 +1,552 @@
+{
+ "agreement_uuid": "ad7a582f-2003-5348-8bc4-e2b0f89f6e4e",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Acquisition",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "AcquisitionCo",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Annual Financials",
+   "para": "P16",
+   "kind": "pointer",
+   "pointer": "s3.1(q)"
+  },
+  {
+   "term": "Arrangement",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Arrangement Resolution",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Articles of Arrangement",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Board",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Bump Transactions",
+   "para": "P22",
+   "kind": "pointer",
+   "pointer": "s5.2(b)"
+  },
+  {
+   "term": "Cash Consideration",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "CBCA",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Certificate of Arrangement",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "CFIUS",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "CFIUS Clearance",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P29",
+   "kind": "pointer",
+   "pointer": "s2.4"
+  },
+  {
+   "term": "Code",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "COGEH",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Commissioner of Competition",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Common Shareholders",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Common Shareholders’ Vote",
+   "para": "P34",
+   "kind": "pointer",
+   "pointer": "s2.3(b)"
+  },
+  {
+   "term": "Common Shares",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Company",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Company Assets",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Company Cash Unit Plans",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Company Cash Units",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Company Circular",
+   "para": "P40",
+   "kind": "means"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "7.3(c)",
+   "context": "for the purposes of Section 7.3(c), the foregoing",
+   "target": "s7.3(c)"
+  },
+  {
+   "para": "P12",
+   "head": "paragraph",
+   "mention": "(e)",
+   "context": "“20% or more” in paragraph (e) above and",
+   "target": "inline"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "3.1(q)",
+   "context": "ascribed thereto in Section 3.1(q) [Company Financial Statements]",
+   "target": "s3.1(q)"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "192",
+   "context": "provisions of section 192 of the CBCA on",
+   "target": "external"
+  },
+  {
+   "para": "P22",
+   "head": "section",
+   "mention": "5.2(b)",
+   "context": "ascribed thereto in Section 5.2(b) [Pre-Acquisition Reorganizations]",
+   "target": "s5.2(b)"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "721",
+   "context": "are not subject to Section 721 of Exon-Florio,",
+   "target": "external"
+  },
+  {
+   "para": "P29",
+   "head": "section",
+   "mention": "2.4",
+   "context": "ascribed thereto in Section 2.4 [Filing Articles",
+   "target": "s2.4"
+  },
+  {
+   "para": "P34",
+   "head": "section",
+   "mention": "2.3(b)",
+   "context": "ascribed thereto in Section 2.3(b) [Interim Order]",
+   "target": "s2.3(b)"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "2.7",
+   "context": "Subject to compliance with Section 2.7 [Preparation of",
+   "target": "s2.7"
+  },
+  {
+   "para": "P42",
+   "head": "section",
+   "mention": "2.7(a)",
+   "context": "and, subject to Section 2.7(a) [Preparation of the Company",
+   "target": "s2.7(a)"
+  },
+  {
+   "para": "P18",
+   "head": "schedule",
+   "mention": "A",
+   "context": "form set forth in Schedule “A” hereto",
+   "target": "not_in_filing"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P42",
+   "count": 2
+  },
+  {
+   "term": "Agreement",
+   "para": "P43",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P45",
+   "count": 3
+  },
+  {
+   "term": "Agreement",
+   "para": "P46",
+   "count": 2
+  },
+  {
+   "term": "Agreement",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P48",
+   "count": 3
+  },
+  {
+   "term": "Agreement",
+   "para": "P49",
+   "count": 2
+  },
+  {
+   "term": "Board",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Common Shares",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Common Shares",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Company Assets",
+   "para": "P47",
+   "count": 1
+  },
+  {
+   "term": "Company Assets",
+   "para": "P49",
+   "count": 1
+  },
+  {
+   "term": "Company Cash Units",
+   "para": "P44",
+   "count": 4
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "9a8db8b0-f36c-5222-a03a-affb58988b86",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "34bdc477-e283-59c9-93bc-1966101e0c23",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "a19f4e3b-501b-5482-bd17-a38eac845498",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "a19f4e3b-501b-5482-bd17-a38eac845498",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "ffe1d72a-b213-5798-91bd-f18682a51612",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "970b50d1-ba10-5a7a-b394-6e46b1586db0",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "970b50d1-ba10-5a7a-b394-6e46b1586db0",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "970b50d1-ba10-5a7a-b394-6e46b1586db0",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "970b50d1-ba10-5a7a-b394-6e46b1586db0",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "970b50d1-ba10-5a7a-b394-6e46b1586db0",
+   "t": 4,
+   "excerpt": "sampled"
+  }
+ },
+ "rulings": [
+  "2026-10-29 rubric v1.4 (user): a clause or paragraph of a definition is `inline`",
+  "2026-10-29: user accepted the checker's side on every dispute"
+ ]
+}

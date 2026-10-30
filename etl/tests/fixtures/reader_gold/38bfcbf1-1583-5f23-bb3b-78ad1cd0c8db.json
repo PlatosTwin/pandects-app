@@ -1,0 +1,144 @@
+{
+ "agreement_uuid": "38bfcbf1-1583-5f23-bb3b-78ad1cd0c8db",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Financial Statements",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Interim Financial Statements",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Financial Statements",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "Balance Sheet",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Balance Sheet Date",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Interim Balance Sheet",
+   "para": "P2",
+   "kind": "paren"
+  },
+  {
+   "term": "Interim Balance Sheet Date",
+   "para": "P2",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "4.10",
+   "context": "Section 4.10 of the Disclosure Schedules contains a correct",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P16",
+   "head": "article",
+   "mention": "VI",
+   "context": "filing any Tax Return pursuant to this Article VI or",
+   "target": "a6"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2015+/html",
+ "para_map": {
+  "P1": {
+   "s": "dccb0cd8-a143-5fae-9608-935338594e2f",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "dccb0cd8-a143-5fae-9608-935338594e2f",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "485e9b11-84ba-5469-9b51-1aa5a13bf11d",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P4": {
+   "s": "485e9b11-84ba-5469-9b51-1aa5a13bf11d",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P5": {
+   "s": "1a9c1c73-c87a-5e62-923e-177b2ad15953",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P6": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "380d4036-d15e-5d77-b990-fe84a2b93686",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "25737177-bf87-56d6-ad78-e25ea3123ec4",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

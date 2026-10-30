@@ -1,0 +1,634 @@
+{
+ "agreement_uuid": "76b77434-cb05-5b69-a3d8-660f3f5088dd",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Additional Employees",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s4.19(b)"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Annual Incentive Plan",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Benefit Plans",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Bonds",
+   "para": "P7",
+   "kind": "pointer",
+   "pointer": "s8.15"
+  },
+  {
+   "term": "Business",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Capital Expenditures",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Capital Expenditures Target",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Cash Equivalents",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Capital Expenditures",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Certificate",
+   "para": "P16",
+   "kind": "pointer",
+   "pointer": "s2.6(a)"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Indebtedness",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Statement Review",
+   "para": "P19",
+   "kind": "pointer",
+   "pointer": "s2.7"
+  },
+  {
+   "term": "Closing Working Capital",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "COBRA",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "s4.15(g)"
+  },
+  {
+   "term": "Code",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Companies",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Company Assets",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Company Employees",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "s8.9(a)"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "DLH",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "DLH Guaranty",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "DOJ",
+   "para": "P30",
+   "kind": "pointer",
+   "pointer": "s8.3(b)"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P31",
+   "kind": "pointer",
+   "pointer": "s1.1"
+  },
+  {
+   "term": "ERISA",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Estimated Closing Capital Expenditures",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Estimated Closing Indebtedness",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Estimated Closing Working Capital",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Existing Litigation",
+   "para": "P37",
+   "kind": "pointer",
+   "pointer": "s9.1(d)"
+  },
+  {
+   "term": "Federal Power Act",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "FERC",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Final Order",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Leases",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Owned Real Property",
+   "para": "P42",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P2",
+   "head": "section",
+   "mention": "4.19(b)",
+   "context": "has the meaning specified in Section 4.19(b) hereof",
+   "target": "s4.19(b)"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3(2)",
+   "context": "(as defined in Section 3(2) of ERISA)",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3(37)",
+   "context": "(as defined in Section 3(37) of ERISA and",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "4001(a)(3)",
+   "context": "ERISA and Section 4001(a)(3) of ERISA), all",
+   "target": "external"
+  },
+  {
+   "para": "P6",
+   "head": "section",
+   "mention": "3(1)",
+   "context": "(as defined in Section 3(1) of ERISA) and",
+   "target": "external"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "8.15",
+   "context": "has the meaning specified in Section 8.15 hereof",
+   "target": "s8.15"
+  },
+  {
+   "para": "P11",
+   "head": "schedule",
+   "mention": "1.1-A",
+   "context": "projects of the Companies identified on Schedule 1.1-A hereto",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "1.1-A",
+   "context": "as set forth on Schedule 1.1-A hereto",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "2.6(a)",
+   "context": "has the meaning specified in Section 2.6(a) hereof",
+   "target": "s2.6(a)"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "7.1(b)",
+   "context": "the conditions specified in Sections 7.1(b) and",
+   "target": "s7.1(b)"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "7.2(b)",
+   "context": "Sections 7.1(b) and 7.2(b) hereof have been satisfied",
+   "target": "s7.2(b)"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "2.7",
+   "context": "has the meaning specified in Section 2.7 hereof",
+   "target": "s2.7"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "4.15(g)",
+   "context": "has the meaning specified in Section 4.15(g) hereof",
+   "target": "s4.15(g)"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "8.9(a)",
+   "context": "has the meaning specified in Section 8.9(a) hereof",
+   "target": "s8.9(a)"
+  },
+  {
+   "para": "P29",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "substantially in the form attached as Exhibit A hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "8.3(b)",
+   "context": "has the meaning specified in Section 8.3(b) hereof",
+   "target": "s8.3(b)"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "414",
+   "context": "single employer under Section 414 of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P33",
+   "head": "section",
+   "mention": "4001(a)(14)",
+   "context": "of the Code or Section 4001(a)(14) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P37",
+   "head": "section",
+   "mention": "9.1 (d)",
+   "context": "has the meaning specified in Section 9.1 (d) hereof",
+   "target": "s9.1(d)"
+  },
+  {
+   "para": "P41",
+   "head": "schedule",
+   "mention": "4.8",
+   "context": "Material Contracts listed on Schedule 4.8 hereto, all",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P41",
+   "head": "schedule",
+   "mention": "4.6(a)",
+   "context": "are listed on Schedule 4.6(a) hereto (collectively,",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "4.6(b)",
+   "context": "properties described on Schedule 4.6(b) hereto (collectively,",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P43",
+   "head": "schedule",
+   "mention": "4.14",
+   "context": "Except as disclosed on Schedule 4.14 hereto, (a)",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Closing",
+   "para": "P44",
+   "count": 1
+  },
+  {
+   "term": "Companies",
+   "para": "P41",
+   "count": 6
+  },
+  {
+   "term": "Companies",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Companies",
+   "para": "P43",
+   "count": 6
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "189c7196-9744-54af-83ca-0d7fff1b428d",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "75725523-456a-5734-b1b2-cb4c52882e77",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "75725523-456a-5734-b1b2-cb4c52882e77",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "d0bab97c-e19c-5d95-9de2-caee903bedd3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "afdf3c30-b230-55b9-bc77-0554b94124c3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "6046b1fb-845f-5ac2-87ba-15ea70cdabe0",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ },
+ "rulings": [
+  "v1.5 ruling 7: a singular use of a plural-declared term counts (\"any Company\" for \"Companies\"); Companies recounted"
+ ]
+}

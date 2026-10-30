@@ -1,0 +1,223 @@
+{
+ "agreement_uuid": "4be10641-1c2e-5503-a4b2-794bf4bf7fff",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Acquisition Proposal",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Encumbrances",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Law",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Order",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Securities Act",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Tax",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Taxes",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Taxable",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Taxing Authority",
+   "para": "P11",
+   "kind": "paren"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P14",
+   "kind": "paren"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P14",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P11",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "described in clause (i) of this sentence as a result",
+   "target": "inline"
+  },
+  {
+   "para": "P11",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "described in clause (i) or (ii) of this sentence",
+   "target": "inline"
+  },
+  {
+   "para": "P11",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "described in clause (i) or (ii) of this sentence",
+   "target": "inline"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "9.4",
+   "context": "not defined in this Section 9.4 shall have the",
+   "target": "s9.4"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "1.10",
+   "context": "Notwithstanding Section 1.10, in the event that",
+   "target": "s1.10"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "253",
+   "context": "in accordance with Section 253 of the DGCL",
+   "target": "external"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Order",
+   "para": "P16",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "3b3929d6-4206-5c30-b095-f14d20119bc5",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "481afe80-977e-58d9-a83e-dd79269c09c8",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "32ff41c2-dd53-5a16-83ea-462ab18fcce3",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "1f1e0270-39c6-52a7-a45c-348cee4ec079",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "1400f08c-220f-5fce-96cb-cdce960d5c20",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

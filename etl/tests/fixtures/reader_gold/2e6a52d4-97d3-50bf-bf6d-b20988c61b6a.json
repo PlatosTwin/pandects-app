@@ -1,0 +1,532 @@
+{
+ "agreement_uuid": "2e6a52d4-97d3-50bf-bf6d-b20988c61b6a",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Antitrust Laws",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable Laws",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Cash",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Certificate",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Common Stock",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Common Shareholder",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Communications Act",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Communications Laws",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Company Disclosure Schedule",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Company Transaction Costs",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Consents",
+   "para": "P18",
+   "kind": "means"
+  },
+  {
+   "term": "Disclosure Schedules",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "DOJ",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Employee Benefit Plan",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "ERISA",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "FCC",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "FTC",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "GAAP",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "Hazardous Substances",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Indebtedness",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Indemnification Claim",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Indemnification Escrow Account",
+   "para": "P33",
+   "kind": "pointer",
+   "pointer": "external"
+  },
+  {
+   "term": "Indemnification Escrow Agent",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Indemnification Escrow Agreement",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Indemnification Escrow Distribution",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Indemnified Persons",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Indemnifying Person",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Indemnification Escrow Amount",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Parent Indemnification Claim",
+   "para": "P42",
+   "kind": "paren"
+  },
+  {
+   "term": "Securityholder Indemnification Claim",
+   "para": "P45",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "3(3)",
+   "context": "within the meaning of Section 3(3) of ERISA",
+   "target": "external"
+  },
+  {
+   "para": "P36",
+   "head": "exhibit",
+   "mention": "D",
+   "context": "attached as Exhibit D hereto, entered into",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "2.9",
+   "context": "Securityholders pursuant to Section 2.9 and shall",
+   "target": "s2.9"
+  },
+  {
+   "para": "P41",
+   "head": "article",
+   "mention": "X",
+   "context": "indemnification pursuant to Article X",
+   "target": "a10"
+  },
+  {
+   "para": "P42",
+   "head": "article",
+   "mention": "X",
+   "context": "set forth in this Article X, from",
+   "target": "a10"
+  },
+  {
+   "para": "P43",
+   "head": "section",
+   "mention": "3.1",
+   "context": "made by the Company in Section 3.1, or",
+   "target": "s3.1"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "3.2",
+   "context": "Merger Subsidiary in Section 3.2, or in",
+   "target": "s3.2"
+  },
+  {
+   "para": "P47",
+   "head": "clause",
+   "mention": "(ii)",
+   "context": "in the case of this clause (ii), which",
+   "target": "inline"
+  },
+  {
+   "para": "P48",
+   "head": "section",
+   "mention": "9.3",
+   "context": "Except as contemplated by Section 9.3, the parties hereto",
+   "target": "s9.3"
+  },
+  {
+   "para": "P48",
+   "head": "section",
+   "mention": "9.3",
+   "context": "contemplated by Section 9.3, the parties shall be",
+   "target": "s9.3"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Indemnification Escrow Account",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Indemnification Escrow Agent",
+   "para": "P41",
+   "count": 2
+  },
+  {
+   "term": "Indemnification Escrow Agreement",
+   "para": "P41",
+   "count": 2
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v4",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 40,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "3c2e4fc2-cc47-50d3-a560-75912eae4f0f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "e99b8bb1-5ac6-5f95-b09b-6dec75691319",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "e99b8bb1-5ac6-5f95-b09b-6dec75691319",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "e99b8bb1-5ac6-5f95-b09b-6dec75691319",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "c1321bea-3c62-55fe-85e1-20298f607d82",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "c1321bea-3c62-55fe-85e1-20298f607d82",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "c1321bea-3c62-55fe-85e1-20298f607d82",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "2645da86-9b52-50b9-a645-cc91cf561e69",
+   "t": 0,
+   "excerpt": "sampled"
+  }
+ }
+}

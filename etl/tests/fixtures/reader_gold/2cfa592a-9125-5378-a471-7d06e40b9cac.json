@@ -1,0 +1,704 @@
+{
+ "agreement_uuid": "2cfa592a-9125-5378-a471-7d06e40b9cac",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "Affiliate",
+   "para": "P2",
+   "kind": "means"
+  },
+  {
+   "term": "Applicable Law",
+   "para": "P3",
+   "kind": "means"
+  },
+  {
+   "term": "Authority",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Benefit Plan",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Business Day",
+   "para": "P6",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Conditions",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Company Shares",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Company Share Certificates",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Company's Audited Consolidated Financial Statements",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Company's Audited Consolidated Interim Financial Statements",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Condition Precedent",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Consulting Business",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Consulting Employees",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Control",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Controlling",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Controlled",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Covenants",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Data Room",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Domination and Profit and Loss Transfer Agreement",
+   "para": "P19",
+   "kind": "means"
+  },
+  {
+   "term": "Encumbrance",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Euro Exchange Rate",
+   "para": "P21",
+   "kind": "means"
+  },
+  {
+   "term": "Financial Statements",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Authority",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Governmental Authorization",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Group Companies",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Group Company",
+   "para": "P25",
+   "kind": "means"
+  },
+  {
+   "term": "Insolvency Proceedings",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Intellectual Property Rights",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Issued Share Amount",
+   "para": "P28",
+   "kind": "means"
+  },
+  {
+   "term": "KCF",
+   "para": "P29",
+   "kind": "means"
+  },
+  {
+   "term": "KCS",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "KPMG DTG",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Manager",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Change",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Non-Competition Agreement",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Outstanding Share Amount",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Partner",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "Person",
+   "para": "P38",
+   "kind": "means"
+  },
+  {
+   "term": "Proceeding",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Properties",
+   "para": "P40",
+   "kind": "means"
+  },
+  {
+   "term": "Base Purchase Price",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Base Purchase Price per Share",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing Date Payment",
+   "para": "P43",
+   "kind": "paren"
+  },
+  {
+   "term": "Financing",
+   "para": "P43",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing Consideration Payment",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "Base Cash Price",
+   "para": "P46",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing Date Cash Amount",
+   "para": "P46",
+   "kind": "paren"
+  },
+  {
+   "term": "Equity Consideration",
+   "para": "P47",
+   "kind": "paren"
+  },
+  {
+   "term": "KCI Common Stock",
+   "para": "P47",
+   "kind": "paren"
+  },
+  {
+   "term": "Exchange Shares",
+   "para": "P47",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P7",
+   "head": "article",
+   "mention": "Three",
+   "context": "set forth in Article Three of this Agreement",
+   "target": "a3"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "7.03-A",
+   "context": "which are attached as Schedule 7.03-A",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P11",
+   "head": "schedule",
+   "mention": "7.03-B",
+   "context": "which are attached as Schedule 7.03-B",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "6.03",
+   "context": "(aufschiebende Bedingung) set forth in Section 6.03",
+   "target": "s6.3"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "2.01",
+   "context": "other than in Sections 2.01, 3.03, 5.03",
+   "target": "s2.1"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "3.03",
+   "context": "Sections 2.01, 3.03, 5.03 (a) and",
+   "target": "s3.3"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "5.03 (a)",
+   "context": "3.03, 5.03 (a) and 6.02 (e)",
+   "target": "s5.3(a)"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "6.02 (e)",
+   "context": "5.03 (a) and 6.02 (e) and the Purchaser",
+   "target": "s6.2(e)"
+  },
+  {
+   "para": "P16",
+   "head": "section",
+   "mention": "2.02",
+   "context": "Purchaser (other than in Section 2.02), respectively",
+   "target": "s2.2"
+  },
+  {
+   "para": "P17",
+   "head": "schedule",
+   "mention": "1.01",
+   "context": "attached hereto as Schedule 1.01, provided however that",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P35",
+   "head": "schedule",
+   "mention": "5.03 (a)",
+   "context": "in the form as attached in Schedule 5.03 (a).",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P40",
+   "head": "schedule",
+   "mention": "7.07",
+   "context": "are set out in Schedule 7.07.",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "2.03",
+   "context": "mechanism set forth in Section 2.03 of this Agreement",
+   "target": "s2.3"
+  },
+  {
+   "para": "P43",
+   "head": "paragraph",
+   "mention": "(i)",
+   "context": "provided for in this paragraph (i) is, however,",
+   "target": "s2.2(b)(i)"
+  },
+  {
+   "para": "P45",
+   "head": "paragraph",
+   "mention": "(ii)",
+   "context": "as set forth in this paragraph (ii) as permitted",
+   "target": "s2.2(b)(ii)"
+  },
+  {
+   "para": "P45",
+   "head": "clause",
+   "mention": "(i)",
+   "context": "as permitted in clause (i) above, the Purchaser",
+   "target": "s2.2(b)(i)"
+  },
+  {
+   "para": "P47",
+   "head": "section",
+   "mention": "2.04",
+   "context": "accordance with the provisions of Section 2.04.",
+   "target": "s2.4"
+  },
+  {
+   "para": "P48",
+   "head": "schedule",
+   "mention": "7.04-A",
+   "context": "and except as disclosed in Schedule 7.04-A, the business",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P48",
+   "head": "schedule",
+   "mention": "7.04-B",
+   "context": "Except as disclosed in Schedule 7.04-B, between March",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P50",
+   "head": "article",
+   "mention": "8",
+   "context": "for indemnification pursuant to Article 8, (c)",
+   "target": "a8"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Applicable Law",
+   "para": "P49",
+   "count": 1
+  },
+  {
+   "term": "Company Shares",
+   "para": "P41",
+   "count": 2
+  },
+  {
+   "term": "KPMG DTG",
+   "para": "P50",
+   "count": 3
+  },
+  {
+   "term": "KPMG DTG",
+   "para": "P51",
+   "count": 3
+  },
+  {
+   "term": "KPMG DTG",
+   "para": "P52",
+   "count": 2
+  },
+  {
+   "term": "Material Adverse Change",
+   "para": "P48",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 3,
+ "set": "heldout-v3",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "5a978e18-1c00-5559-8f48-b3d963df6bdf",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "110d07d3-dc6b-5e90-87a6-441f4b1a639a",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "110d07d3-dc6b-5e90-87a6-441f4b1a639a",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "110d07d3-dc6b-5e90-87a6-441f4b1a639a",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "110d07d3-dc6b-5e90-87a6-441f4b1a639a",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "110d07d3-dc6b-5e90-87a6-441f4b1a639a",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "110d07d3-dc6b-5e90-87a6-441f4b1a639a",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "110d07d3-dc6b-5e90-87a6-441f4b1a639a",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "f5b7fd59-93d2-5a03-88ac-ac59d5065428",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "c181d27a-359d-554f-9a03-c742b90aae05",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "f474ab23-8295-592c-92f9-8171458936c1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "f474ab23-8295-592c-92f9-8171458936c1",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "f474ab23-8295-592c-92f9-8171458936c1",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ },
+ "rulings": [
+  "v1.5 ruling 5: a lowercase-first correlative (\"to Control\") is not a declaration"
+ ]
+}

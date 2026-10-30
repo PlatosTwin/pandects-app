@@ -1,0 +1,733 @@
+{
+ "agreement_uuid": "c55efec3-1294-5cf5-9cf1-10adeb7f70f5",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Accounting Firm",
+   "para": "P3",
+   "kind": "pointer",
+   "pointer": "s3.2(b)"
+  },
+  {
+   "term": "Action",
+   "para": "P4",
+   "kind": "means"
+  },
+  {
+   "term": "Affiliate",
+   "para": "P5",
+   "kind": "means"
+  },
+  {
+   "term": "Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Ancillary Agreements",
+   "para": "P7",
+   "kind": "means"
+  },
+  {
+   "term": "Asset Transfer Agreement",
+   "para": "P8",
+   "kind": "means"
+  },
+  {
+   "term": "Asset Transferees",
+   "para": "P9",
+   "kind": "means"
+  },
+  {
+   "term": "Asset Transferors",
+   "para": "P10",
+   "kind": "means"
+  },
+  {
+   "term": "Assumed Liabilities",
+   "para": "P11",
+   "kind": "means"
+  },
+  {
+   "term": "Assurance",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Base Purchase Price",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Books and Records",
+   "para": "P18",
+   "kind": "pointer",
+   "pointer": "s7.9(a)"
+  },
+  {
+   "term": "Benefit Plans",
+   "para": "P19",
+   "kind": "pointer",
+   "pointer": "s5.9"
+  },
+  {
+   "term": "Business Day",
+   "para": "P20",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer",
+   "para": "P21",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Buyer Material Adverse Effect",
+   "para": "P22",
+   "kind": "means"
+  },
+  {
+   "term": "Buyer Tax Act",
+   "para": "P23",
+   "kind": "means"
+  },
+  {
+   "term": "Cash Amount",
+   "para": "P24",
+   "kind": "means"
+  },
+  {
+   "term": "Cap",
+   "para": "P25",
+   "kind": "pointer",
+   "pointer": "s10.5"
+  },
+  {
+   "term": "Claims",
+   "para": "P26",
+   "kind": "means"
+  },
+  {
+   "term": "Closing",
+   "para": "P27",
+   "kind": "pointer",
+   "pointer": "s4.1"
+  },
+  {
+   "term": "Closing Adjustment Amounts",
+   "para": "P28",
+   "kind": "pointer",
+   "pointer": "s3.2(a)"
+  },
+  {
+   "term": "Closing Balance Sheet Principles",
+   "para": "P30",
+   "kind": "means"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P31",
+   "kind": "means"
+  },
+  {
+   "term": "Code",
+   "para": "P32",
+   "kind": "means"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P33",
+   "kind": "means"
+  },
+  {
+   "term": "Contract",
+   "para": "P34",
+   "kind": "means"
+  },
+  {
+   "term": "Corresponding Saving",
+   "para": "P35",
+   "kind": "means"
+  },
+  {
+   "term": "Damage",
+   "para": "P36",
+   "kind": "means"
+  },
+  {
+   "term": "Data Room",
+   "para": "P37",
+   "kind": "means"
+  },
+  {
+   "term": "De Minimis Amount",
+   "para": "P38",
+   "kind": "pointer",
+   "pointer": "s10.5"
+  },
+  {
+   "term": "Designated Buyers",
+   "para": "P39",
+   "kind": "means"
+  },
+  {
+   "term": "Eastern Europe",
+   "para": "P40",
+   "kind": "pointer",
+   "pointer": "s7.20(b)"
+  },
+  {
+   "term": "Permits",
+   "para": "P43",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.2(b)",
+   "context": "meaning set forth in Section 3.2(b).",
+   "target": "s3.2(b)"
+  },
+  {
+   "para": "P8",
+   "head": "exhibit",
+   "mention": "D",
+   "context": "attached as Exhibit D hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P9",
+   "head": "exhibit",
+   "mention": "C",
+   "context": "Persons set forth on Exhibit C who are",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P10",
+   "head": "exhibit",
+   "mention": "C",
+   "context": "Persons set forth on Exhibit C, as may",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P12",
+   "head": "section",
+   "mention": "7.12",
+   "context": "allocated to VPI pursuant to Section 7.12;",
+   "target": "s7.12"
+  },
+  {
+   "para": "P13",
+   "head": "section",
+   "mention": "7.12",
+   "context": "Contractual Liabilities pursuant to Section 7.12; and",
+   "target": "s7.12"
+  },
+  {
+   "para": "P14",
+   "head": "section",
+   "mention": "1.1(1)",
+   "context": "set forth on Section 1.1(1) of the Seller's Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P18",
+   "head": "section",
+   "mention": "7.9(a)",
+   "context": "meaning set forth in Section 7.9(a).",
+   "target": "s7.9(a)"
+  },
+  {
+   "para": "P19",
+   "head": "section",
+   "mention": "5.9",
+   "context": "meaning set forth in Section 5.9.",
+   "target": "s5.9"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "7.6",
+   "context": "referenced in Section 7.6 item 1 of",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "7.19(b)",
+   "context": "set forth in Section 7.19(b) of the Seller's Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "7.19(b)",
+   "context": "pursuant to Section 7.19(b) of this Agreement",
+   "target": "s7.19(b)"
+  },
+  {
+   "para": "P25",
+   "head": "section",
+   "mention": "10.5",
+   "context": "meaning set forth in Section 10.5.",
+   "target": "s10.5"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "4.1",
+   "context": "meaning set forth in Section 4.1.",
+   "target": "s4.1"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "3.2(a)",
+   "context": "meaning set forth in Section 3.2(a).",
+   "target": "s3.2(a)"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.2",
+   "context": "set forth in Section 3.2 of the Seller's Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.2",
+   "context": "specified on Section 3.2 of the Seller's Disclosure Letter, GAAP",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.2",
+   "context": "on Section 3.2 of the Seller's Disclosure Letter, with any",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.2",
+   "context": "on Section 3.2 of the Seller's Disclosure Letter to be",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P30",
+   "head": "section",
+   "mention": "3.2",
+   "context": "in favor of Section 3.2 of the Seller's Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "7.16",
+   "context": "to which Section 7.16 or Section 11.1(a) relates",
+   "target": "s7.16"
+  },
+  {
+   "para": "P35",
+   "head": "section",
+   "mention": "11.1(a)",
+   "context": "Section 7.16 or Section 11.1(a) relates",
+   "target": "s11.1(a)"
+  },
+  {
+   "para": "P38",
+   "head": "section",
+   "mention": "10.5",
+   "context": "meaning set forth in Section 10.5.",
+   "target": "s10.5"
+  },
+  {
+   "para": "P40",
+   "head": "section",
+   "mention": "7.20(b)",
+   "context": "meaning set forth in Section 7.20(b).",
+   "target": "s7.20(b)"
+  },
+  {
+   "para": "P44",
+   "head": "section",
+   "mention": "7.6",
+   "context": "contemplated by this Agreement, including Section 7.6 or",
+   "target": "s7.6"
+  },
+  {
+   "para": "P58",
+   "head": "section",
+   "mention": "7.21(a)",
+   "context": "restrictions set forth in Section 7.21(a) shall not",
+   "target": "s7.21(a)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P42",
+   "count": 1
+  },
+  {
+   "term": "Agreement",
+   "para": "P44",
+   "count": 4
+  },
+  {
+   "term": "Agreement",
+   "para": "P53",
+   "count": 1
+  },
+  {
+   "term": "Buyer",
+   "para": "P41",
+   "count": 1
+  },
+  {
+   "term": "Buyer",
+   "para": "P44",
+   "count": 2
+  },
+  {
+   "term": "Buyer",
+   "para": "P51",
+   "count": 1
+  },
+  {
+   "term": "Buyer",
+   "para": "P57",
+   "count": 1
+  },
+  {
+   "term": "Buyer",
+   "para": "P58",
+   "count": 2
+  },
+  {
+   "term": "Closing Date",
+   "para": "P44",
+   "count": 2
+  },
+  {
+   "term": "Closing Date",
+   "para": "P57",
+   "count": 1
+  },
+  {
+   "term": "Designated Buyers",
+   "para": "P46",
+   "count": 1
+  },
+  {
+   "term": "Asset Transfer Agreement",
+   "para": "P57",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "2005-14/html",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 38,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 39,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "9ae11480-9165-5960-ae5a-9097ba638df1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "cff789ce-7a97-5d1b-bd27-ebbf168847af",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "cff789ce-7a97-5d1b-bd27-ebbf168847af",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P54": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P55": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P56": {
+   "s": "30ebf638-1018-5838-88e2-47a6bb41833f",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P57": {
+   "s": "f240aad6-9210-563f-b816-caa8e7d454a6",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P58": {
+   "s": "f240aad6-9210-563f-b816-caa8e7d454a6",
+   "t": 1,
+   "excerpt": "sampled"
+  }
+ }
+}

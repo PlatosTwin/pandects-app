@@ -1,0 +1,426 @@
+{
+ "agreement_uuid": "fad0c1d1-3f12-517c-8942-0131eebb3b32",
+ "rubric": "v1.5",
+ "declarations": [
+  {
+   "term": "ESTIMATED INDEBTEDNESS",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "ESTIMATED CASH BALANCE",
+   "para": "P1",
+   "kind": "paren"
+  },
+  {
+   "term": "REVIEW ACCOUNTANTS",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "FINAL ADJUSTMENT",
+   "para": "P8",
+   "kind": "paren"
+  },
+  {
+   "term": "FY 2005 FINANCIAL STATEMENTS",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "LOCAL GAAP",
+   "para": "P10",
+   "kind": "paren"
+  },
+  {
+   "term": "INTERIM 2006 FINANCIAL STATEMENTS",
+   "para": "P12",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "2.3(b)(i)",
+   "context": "time period set forth in Section 2.3(b)(i) after the",
+   "target": "s2.3(b)(i)"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "2.3",
+   "context": "final and binding for the purposes of this Section 2.3.",
+   "target": "s2.3"
+  },
+  {
+   "para": "P7",
+   "head": "section",
+   "mention": "2.3",
+   "context": "for the purposes of this Section 2.3, absent gross",
+   "target": "s2.3"
+  },
+  {
+   "para": "P8",
+   "head": "section",
+   "mention": "2.3",
+   "context": "pursuant to the provisions of this Section 2.3, the amount",
+   "target": "s2.3"
+  },
+  {
+   "para": "P9",
+   "head": "section",
+   "mention": "2.3",
+   "context": "for the purposes of this Section 2.3 (whether in",
+   "target": "s2.3"
+  },
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "5.5 (a)",
+   "context": "such as set out in Schedule 5.5 (a)) which",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P12",
+   "head": "schedule",
+   "mention": "5.5 (c)",
+   "context": "such as set out in Schedule 5.5 (c))",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P14",
+   "head": "schedule",
+   "mention": "5.5 (e)",
+   "context": "except as set forth in Schedule 5.5 (e), the Target",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P15",
+   "head": "schedule",
+   "mention": "5.23(a)",
+   "context": "for information purposes as Schedule 5.23(a), is a list",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P16",
+   "head": "schedule",
+   "mention": "5.23(b)(i)",
+   "context": "except as set forth in Schedule 5.23(b)(i), will be paid",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P17",
+   "head": "article",
+   "mention": "VIII",
+   "context": "indemnification provisions of Article VIII, (i) the difference",
+   "target": "a8"
+  },
+  {
+   "para": "P17",
+   "head": "section",
+   "mention": "8.4",
+   "context": "a single Claim (as defined in Section 8.4) even if",
+   "target": "s8.4"
+  },
+  {
+   "para": "P17",
+   "head": "schedule",
+   "mention": "5.23(b)(ii)",
+   "context": "those described in Schedule 5.23(b)(ii). The Controlling Shareholder",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "5.1",
+   "context": "warranty mentioned in Section 5.1, Section 5.2,",
+   "target": "s5.1"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "5.2",
+   "context": "Section 5.1, Section 5.2, Section 5.3 and",
+   "target": "s5.2"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "5.3",
+   "context": "Section 5.2, Section 5.3 and paragraphs (a)",
+   "target": "s5.3"
+  },
+  {
+   "para": "P24",
+   "head": "paragraph",
+   "mention": "(a)",
+   "context": "Section 5.3 and paragraphs (a) to (h) of",
+   "target": "s5.4(a)"
+  },
+  {
+   "para": "P24",
+   "head": "paragraph",
+   "mention": "(h)",
+   "context": "paragraphs (a) to (h) of Section 5.4",
+   "target": "s5.4(h)"
+  },
+  {
+   "para": "P24",
+   "head": "section",
+   "mention": "5.4",
+   "context": "(h) of Section 5.4 of this Agreement,",
+   "target": "s5.4"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "5.4",
+   "context": "contained in Sections 5.4 to 5.25 of",
+   "target": "s5.4"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "5.25",
+   "context": "Sections 5.4 to 5.25 of this Agreement",
+   "target": "s5.25"
+  },
+  {
+   "para": "P26",
+   "head": "section",
+   "mention": "3.4(a)",
+   "context": "issued pursuant to Section 3.4(a), or (ii)",
+   "target": "s3.4(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "8.1(a)",
+   "context": "provided for in Section 8.1(a) and Section",
+   "target": "s8.1(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "8.1(b)",
+   "context": "8.1(a) and Section 8.1(b) shall, save as",
+   "target": "s8.1(b)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "8.2",
+   "context": "otherwise provided in Section 8.2, terminate on the",
+   "target": "s8.2"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "8.2",
+   "context": "otherwise provided in Section 8.2, be made by",
+   "target": "s8.2"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "8.1(a)",
+   "context": "made by the Buyer under Section 8.1(a) or Section",
+   "target": "s8.1(a)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "8.1(b)",
+   "context": "8.1(a) or Section 8.1(b) thereafter), except that",
+   "target": "s8.1(b)"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "8.4",
+   "context": "the requirements of Section 8.4 or Section 8.5,",
+   "target": "s8.4"
+  },
+  {
+   "para": "P27",
+   "head": "section",
+   "mention": "8.5",
+   "context": "Section 8.4 or Section 8.5, as the case",
+   "target": "s8.5"
+  },
+  {
+   "para": "P27",
+   "head": "article",
+   "mention": "VIII",
+   "context": "determined pursuant to this Article VIII and the Buyer",
+   "target": "a8"
+  },
+  {
+   "para": "P27",
+   "head": "article",
+   "mention": "VIII",
+   "context": "required in accordance with this Article VIII.",
+   "target": "a8"
+  },
+  {
+   "para": "P28",
+   "head": "section",
+   "mention": "8.1(c)",
+   "context": "principles set forth in Section 8.1(c), the Sellers'",
+   "target": "s8.1(c)"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v3",
+ "stratum": "2005-14/txt",
+ "para_map": {
+  "P1": {
+   "s": "07065310-b72d-5156-998a-609d1f968127",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "07065310-b72d-5156-998a-609d1f968127",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "07065310-b72d-5156-998a-609d1f968127",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "07065310-b72d-5156-998a-609d1f968127",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "07065310-b72d-5156-998a-609d1f968127",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "07065310-b72d-5156-998a-609d1f968127",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "07065310-b72d-5156-998a-609d1f968127",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "07065310-b72d-5156-998a-609d1f968127",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "07065310-b72d-5156-998a-609d1f968127",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "3ef12eb9-f0b6-596b-b9fe-32814c041491",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "3ef12eb9-f0b6-596b-b9fe-32814c041491",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "3ef12eb9-f0b6-596b-b9fe-32814c041491",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "3ef12eb9-f0b6-596b-b9fe-32814c041491",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "3ef12eb9-f0b6-596b-b9fe-32814c041491",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "68a010ac-f5e7-543e-9605-2388677e6470",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "68a010ac-f5e7-543e-9605-2388677e6470",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "68a010ac-f5e7-543e-9605-2388677e6470",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "68a010ac-f5e7-543e-9605-2388677e6470",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "cc272b95-b113-5728-aa03-eebfd293e4c5",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "cc272b95-b113-5728-aa03-eebfd293e4c5",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "cc272b95-b113-5728-aa03-eebfd293e4c5",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "cc272b95-b113-5728-aa03-eebfd293e4c5",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "cc272b95-b113-5728-aa03-eebfd293e4c5",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "eb9fad2a-a433-57d0-bac5-04905890e561",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "eb9fad2a-a433-57d0-bac5-04905890e561",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "eb9fad2a-a433-57d0-bac5-04905890e561",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "eb9fad2a-a433-57d0-bac5-04905890e561",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "eb9fad2a-a433-57d0-bac5-04905890e561",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "eb9fad2a-a433-57d0-bac5-04905890e561",
+   "t": 5,
+   "excerpt": "sampled"
+  }
+ }
+}

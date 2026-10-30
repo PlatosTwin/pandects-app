@@ -1,0 +1,368 @@
+{
+ "agreement_uuid": "df342ced-51f5-59d0-905d-b327546b05dc",
+ "rubric": "v1.2",
+ "declarations": [
+  {
+   "term": "Finisar Common Stock",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Demeter Common Stock",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Common Exchange Ratio",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Demeter Preferred Stock",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Preferred Exchange Ratio",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Exchange Ratios",
+   "para": "P4",
+   "kind": "paren"
+  },
+  {
+   "term": "Demeter Options",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Demeter Option Plan",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Liens",
+   "para": "P17",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "10.2",
+   "context": "Subsidiary (as defined in Section 10.2) of Finisar",
+   "target": "s10.2"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "2.2",
+   "context": "Subject to Sections 2.2 and 2.3,",
+   "target": "s2.2"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "2.3",
+   "context": "Sections 2.2 and 2.3, (i) each issued",
+   "target": "s2.3"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "2.1(b)",
+   "context": "2.1(b)) shall be converted into the right to receive 0.2626777",
+   "target": "s2.1(b)"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "2.1(b)",
+   "context": "2.1(b)) shall be converted into the right to receive 0.2705051",
+   "target": "s2.1(b)"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "6.15",
+   "context": "adjustment, as provided in Section 6.15.",
+   "target": "s6.15"
+  },
+  {
+   "para": "P4",
+   "head": "section",
+   "mention": "2.2",
+   "context": "in accordance with Section 2.2, without interest",
+   "target": "s2.2"
+  },
+  {
+   "para": "P5",
+   "head": "section",
+   "mention": "6.10",
+   "context": "Assumed Options in accordance with Section 6.10.",
+   "target": "s6.10"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "3.8",
+   "context": "any action described in this Section 3.8 or which",
+   "target": "s3.8"
+  },
+  {
+   "para": "P39",
+   "head": "paragraph",
+   "mention": "(a)",
+   "context": "described in paragraphs (a) through (q) above",
+   "target": "s5.1(a)"
+  },
+  {
+   "para": "P39",
+   "head": "paragraph",
+   "mention": "(q)",
+   "context": "paragraphs (a) through (q) above, or any",
+   "target": "s5.1(q)"
+  }
+ ],
+ "term_uses": [
+  {
+   "term": "Demeter Common Stock",
+   "para": "P11",
+   "count": 1
+  },
+  {
+   "term": "Demeter Common Stock",
+   "para": "P25",
+   "count": 1
+  },
+  {
+   "term": "Demeter Options",
+   "para": "P25",
+   "count": 1
+  }
+ ],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v1",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "682c265a-41e8-5cc5-9608-1d6a610b56b6",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "682c265a-41e8-5cc5-9608-1d6a610b56b6",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "682c265a-41e8-5cc5-9608-1d6a610b56b6",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "682c265a-41e8-5cc5-9608-1d6a610b56b6",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "682c265a-41e8-5cc5-9608-1d6a610b56b6",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P7": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P8": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P9": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P10": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P11": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P12": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P13": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P14": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P15": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P16": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P17": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P18": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P19": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P20": {
+   "s": "fbcf2eb1-dd64-5ec7-99ba-37f6edcb8a02",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P21": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P22": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P23": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P24": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P25": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P26": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P27": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P28": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P29": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P30": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P31": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P32": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P33": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 12,
+   "excerpt": "sampled"
+  },
+  "P34": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 13,
+   "excerpt": "sampled"
+  },
+  "P35": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 14,
+   "excerpt": "sampled"
+  },
+  "P36": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 15,
+   "excerpt": "sampled"
+  },
+  "P37": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 16,
+   "excerpt": "sampled"
+  },
+  "P38": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 17,
+   "excerpt": "sampled"
+  },
+  "P39": {
+   "s": "4237d63b-4aca-5021-8ee9-1d9c7cda2ad0",
+   "t": 18,
+   "excerpt": "sampled"
+  },
+  "P40": {
+   "s": "1b6aa30f-1d04-55e9-9a12-6502a966a985",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P41": {
+   "s": "ec032fde-0b6b-5526-bfcf-64886c4b33cc",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "ec032fde-0b6b-5526-bfcf-64886c4b33cc",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "ec032fde-0b6b-5526-bfcf-64886c4b33cc",
+   "t": 2,
+   "excerpt": "sampled"
+  }
+ }
+}

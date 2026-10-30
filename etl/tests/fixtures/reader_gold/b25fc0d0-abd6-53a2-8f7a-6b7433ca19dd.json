@@ -1,0 +1,762 @@
+{
+ "agreement_uuid": "b25fc0d0-abd6-53a2-8f7a-6b7433ca19dd",
+ "rubric": "v1.3",
+ "declarations": [
+  {
+   "term": "Fourth Amendment",
+   "para": "P3",
+   "kind": "paren"
+  },
+  {
+   "term": "Partnership",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "Second Restated Partnership Agreement",
+   "para": "P5",
+   "kind": "paren"
+  },
+  {
+   "term": "General Partner",
+   "para": "P6",
+   "kind": "paren"
+  },
+  {
+   "term": "Merger Agreement",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "New Limited Partners",
+   "para": "P7",
+   "kind": "paren"
+  },
+  {
+   "term": "Aggregate Protected Amount",
+   "para": "P12",
+   "kind": "means"
+  },
+  {
+   "term": "Indirect Owner",
+   "para": "P13",
+   "kind": "means"
+  },
+  {
+   "term": "Obligated Partner",
+   "para": "P14",
+   "kind": "means"
+  },
+  {
+   "term": "Partner Nonrecourse Debt",
+   "para": "P15",
+   "kind": "means"
+  },
+  {
+   "term": "Protected Amount",
+   "para": "P16",
+   "kind": "means"
+  },
+  {
+   "term": "Recourse Liabilities",
+   "para": "P17",
+   "kind": "means"
+  },
+  {
+   "term": "Series B Preferred Units",
+   "para": "P18",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "Closing Date",
+   "para": "P41",
+   "kind": "paren"
+  },
+  {
+   "term": "JP Preferred Stock",
+   "para": "P44",
+   "kind": "paren"
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P45",
+   "kind": "paren"
+  },
+  {
+   "term": "GGP Series D Preferred Stock",
+   "para": "P48",
+   "kind": "paren"
+  },
+  {
+   "term": "GGP Series E Preferred Stock",
+   "para": "P48",
+   "kind": "paren"
+  },
+  {
+   "term": "GGP Series F Preferred Stock",
+   "para": "P48",
+   "kind": "paren"
+  },
+  {
+   "term": "DGCL",
+   "para": "P48",
+   "kind": "paren"
+  },
+  {
+   "term": "Certificate",
+   "para": "P50",
+   "kind": "paren"
+  },
+  {
+   "term": "Material Contract",
+   "para": "P55",
+   "kind": "means"
+  },
+  {
+   "term": "Indebtedness",
+   "para": "P55",
+   "kind": "means"
+  },
+  {
+   "term": "Tax Protection Agreement",
+   "para": "P63",
+   "kind": "means"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P65",
+   "kind": "paren"
+  }
+ ],
+ "xrefs": [
+  {
+   "para": "P10",
+   "head": "schedule",
+   "mention": "A",
+   "context": "(including without limitation in attached Schedule A) shall have",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P11",
+   "head": "section",
+   "mention": "1.1",
+   "context": "Additional Definitions. Section 1.1 of the Second Restated",
+   "target": "external"
+  },
+  {
+   "para": "P14",
+   "head": "exhibit",
+   "mention": "D",
+   "context": "listed as Obligated Partners on Exhibit D attached hereto",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P15",
+   "head": "section",
+   "mention": "1.704-2(b)(4)",
+   "context": "liability as defined in Regulations Section 1.704-2(b)(4).",
+   "target": "external"
+  },
+  {
+   "para": "P16",
+   "head": "exhibit",
+   "mention": "D",
+   "context": "Obligated Partner on Exhibit D hereto and made",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P20",
+   "head": "schedule",
+   "mention": "A",
+   "context": "as are described on Schedule A, attached hereto and",
+   "target": "x-schedule-a"
+  },
+  {
+   "para": "P20",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "set forth opposite its name on Exhibit A, attached hereto",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "8.2",
+   "context": "provisions of Sections 8.2, 8.4, 9.1, 9.2 and 9.3 thereof",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "8.4",
+   "context": "provisions of Sections 8.2, 8.4, 9.1, 9.2 and 9.3 thereof",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "9.1",
+   "context": "provisions of Sections 8.2, 8.4, 9.1, 9.2 and 9.3 thereof",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "9.2",
+   "context": "provisions of Sections 8.2, 8.4, 9.1, 9.2 and 9.3 thereof",
+   "target": "external"
+  },
+  {
+   "para": "P20",
+   "head": "section",
+   "mention": "9.3",
+   "context": "provisions of Sections 8.2, 8.4, 9.1, 9.2 and 9.3 thereof",
+   "target": "external"
+  },
+  {
+   "para": "P21",
+   "head": "section",
+   "mention": "7.8",
+   "context": "The following new Section 7.8 is hereby added to",
+   "target": "external"
+  },
+  {
+   "para": "P23",
+   "head": "section",
+   "mention": "7.8(b)",
+   "context": "Except as provided in the next sentence and Section 7.8(b),",
+   "target": "external"
+  },
+  {
+   "para": "P26",
+   "head": "clause",
+   "mention": "(ii)(A)",
+   "context": "set forth in clause (ii)(A) or (B) of this paragraph",
+   "target": "inline"
+  },
+  {
+   "para": "P26",
+   "head": "clause",
+   "mention": "(B)",
+   "context": "set forth in clause (ii)(A) or (B) of this paragraph",
+   "target": "inline"
+  },
+  {
+   "para": "P27",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "5. New Exhibit A.",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P27",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "Exhibit A to the Second Restated Partnership Agreement,",
+   "target": "external"
+  },
+  {
+   "para": "P27",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "and the Exhibit A in the form attached hereto",
+   "target": "x-exhibit-a"
+  },
+  {
+   "para": "P28",
+   "head": "exhibit",
+   "mention": "C",
+   "context": "Exhibit C of the Second Restated Partnership Agreement, describing",
+   "target": "external"
+  },
+  {
+   "para": "P28",
+   "head": "exhibit",
+   "mention": "C",
+   "context": "the Exhibit C in the form attached hereto",
+   "target": "x-exhibit-c"
+  },
+  {
+   "para": "P41",
+   "head": "article",
+   "mention": "6",
+   "context": "waiver of the conditions set forth in Article 6)",
+   "target": "a6"
+  },
+  {
+   "para": "P41",
+   "head": "section",
+   "mention": "6.1",
+   "context": "the conditions set forth in Section 6.1 (the",
+   "target": "s6.1"
+  },
+  {
+   "para": "P46",
+   "head": "section",
+   "mention": "1.7(b)",
+   "context": "to be canceled in accordance with Section 1.7(b)), shall be",
+   "target": "s1.7(b)"
+  },
+  {
+   "para": "P48",
+   "head": "section",
+   "mention": "1.7(b)",
+   "context": "canceled in accordance with Section 1.7(b)) shall be converted",
+   "target": "s1.7(b)"
+  },
+  {
+   "para": "P50",
+   "head": "section",
+   "mention": "1.8",
+   "context": "in accordance with Section 1.8, the Surviving Company",
+   "target": "s1.8"
+  },
+  {
+   "para": "P55",
+   "head": "section",
+   "mention": "2.18",
+   "context": "For purposes of this Section 2.18, \"Indebtedness\" shall",
+   "target": "s2.18"
+  },
+  {
+   "para": "P55",
+   "head": "schedule",
+   "mention": "2.18(a)",
+   "context": "Schedule 2.18(a) to the JP Disclosure Schedule sets",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P57",
+   "head": "section",
+   "mention": "2.18(a)",
+   "context": "requirements of Section 2.18(a), Schedule 2.18(b) to",
+   "target": "s2.18(a)"
+  },
+  {
+   "para": "P57",
+   "head": "schedule",
+   "mention": "2.18(b)",
+   "context": "Schedule 2.18(b) to the JP Disclosure Letter sets forth each",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P57",
+   "head": "schedule",
+   "mention": "2.18(b)",
+   "context": "except as set forth on Schedule 2.18(b) to the JP",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P58",
+   "head": "schedule",
+   "mention": "2.18(c)",
+   "context": "Except as set forth in Schedule 2.18(c) to the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P59",
+   "head": "schedule",
+   "mention": "2.18(d)",
+   "context": "described in Schedule 2.18(d) to the JP Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P60",
+   "head": "schedule",
+   "mention": "2.18(e)",
+   "context": "Schedule 2.18(e) to the JP Disclosure Letter lists",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P61",
+   "head": "schedule",
+   "mention": "2.18(f)",
+   "context": "(f) Schedule 2.18(f) to the JP Disclosure Letter",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P62",
+   "head": "schedule",
+   "mention": "2.18(g)",
+   "context": "Except as set forth in Schedule 2.18(g) to the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P63",
+   "head": "schedule",
+   "mention": "2.18(h)",
+   "context": "Except as set forth in Schedule 2.18(h) to the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P64",
+   "head": "section",
+   "mention": "704(c)",
+   "context": "book-tax disparities under Section 704(c) of the Code",
+   "target": "external"
+  },
+  {
+   "para": "P64",
+   "head": "section",
+   "mention": "752",
+   "context": "JP Subsidiary under Section 752 of the Code.",
+   "target": "external"
+  },
+  {
+   "para": "P65",
+   "head": "schedule",
+   "mention": "2.18(i)",
+   "context": "Except as set forth in Schedule 2.18(i) to the",
+   "target": "disclosure_schedule"
+  },
+  {
+   "para": "P66",
+   "head": "schedule",
+   "mention": "2.18(j)",
+   "context": "listed in Schedule 2.18(j) to the JP Disclosure Letter",
+   "target": "disclosure_schedule"
+  }
+ ],
+ "term_uses": [],
+ "excluded_xrefs": [],
+ "xml_version": 1,
+ "set": "heldout-v2",
+ "stratum": "pre2005/txt",
+ "para_map": {
+  "P1": {
+   "s": "backMatter",
+   "t": 0,
+   "excerpt": "definitions"
+  },
+  "P2": {
+   "s": "backMatter",
+   "t": 1,
+   "excerpt": "definitions"
+  },
+  "P3": {
+   "s": "backMatter",
+   "t": 2,
+   "excerpt": "definitions"
+  },
+  "P4": {
+   "s": "backMatter",
+   "t": 3,
+   "excerpt": "definitions"
+  },
+  "P5": {
+   "s": "backMatter",
+   "t": 4,
+   "excerpt": "definitions"
+  },
+  "P6": {
+   "s": "backMatter",
+   "t": 5,
+   "excerpt": "definitions"
+  },
+  "P7": {
+   "s": "backMatter",
+   "t": 6,
+   "excerpt": "definitions"
+  },
+  "P8": {
+   "s": "backMatter",
+   "t": 7,
+   "excerpt": "definitions"
+  },
+  "P9": {
+   "s": "backMatter",
+   "t": 8,
+   "excerpt": "definitions"
+  },
+  "P10": {
+   "s": "backMatter",
+   "t": 9,
+   "excerpt": "definitions"
+  },
+  "P11": {
+   "s": "backMatter",
+   "t": 10,
+   "excerpt": "definitions"
+  },
+  "P12": {
+   "s": "backMatter",
+   "t": 11,
+   "excerpt": "definitions"
+  },
+  "P13": {
+   "s": "backMatter",
+   "t": 12,
+   "excerpt": "definitions"
+  },
+  "P14": {
+   "s": "backMatter",
+   "t": 13,
+   "excerpt": "definitions"
+  },
+  "P15": {
+   "s": "backMatter",
+   "t": 14,
+   "excerpt": "definitions"
+  },
+  "P16": {
+   "s": "backMatter",
+   "t": 15,
+   "excerpt": "definitions"
+  },
+  "P17": {
+   "s": "backMatter",
+   "t": 16,
+   "excerpt": "definitions"
+  },
+  "P18": {
+   "s": "backMatter",
+   "t": 17,
+   "excerpt": "definitions"
+  },
+  "P19": {
+   "s": "backMatter",
+   "t": 18,
+   "excerpt": "definitions"
+  },
+  "P20": {
+   "s": "backMatter",
+   "t": 19,
+   "excerpt": "definitions"
+  },
+  "P21": {
+   "s": "backMatter",
+   "t": 20,
+   "excerpt": "definitions"
+  },
+  "P22": {
+   "s": "backMatter",
+   "t": 21,
+   "excerpt": "definitions"
+  },
+  "P23": {
+   "s": "backMatter",
+   "t": 22,
+   "excerpt": "definitions"
+  },
+  "P24": {
+   "s": "backMatter",
+   "t": 23,
+   "excerpt": "definitions"
+  },
+  "P25": {
+   "s": "backMatter",
+   "t": 24,
+   "excerpt": "definitions"
+  },
+  "P26": {
+   "s": "backMatter",
+   "t": 25,
+   "excerpt": "definitions"
+  },
+  "P27": {
+   "s": "backMatter",
+   "t": 26,
+   "excerpt": "definitions"
+  },
+  "P28": {
+   "s": "backMatter",
+   "t": 27,
+   "excerpt": "definitions"
+  },
+  "P29": {
+   "s": "backMatter",
+   "t": 28,
+   "excerpt": "definitions"
+  },
+  "P30": {
+   "s": "backMatter",
+   "t": 29,
+   "excerpt": "definitions"
+  },
+  "P31": {
+   "s": "backMatter",
+   "t": 30,
+   "excerpt": "definitions"
+  },
+  "P32": {
+   "s": "backMatter",
+   "t": 31,
+   "excerpt": "definitions"
+  },
+  "P33": {
+   "s": "backMatter",
+   "t": 32,
+   "excerpt": "definitions"
+  },
+  "P34": {
+   "s": "backMatter",
+   "t": 33,
+   "excerpt": "definitions"
+  },
+  "P35": {
+   "s": "backMatter",
+   "t": 34,
+   "excerpt": "definitions"
+  },
+  "P36": {
+   "s": "backMatter",
+   "t": 35,
+   "excerpt": "definitions"
+  },
+  "P37": {
+   "s": "backMatter",
+   "t": 36,
+   "excerpt": "definitions"
+  },
+  "P38": {
+   "s": "backMatter",
+   "t": 37,
+   "excerpt": "definitions"
+  },
+  "P39": {
+   "s": "backMatter",
+   "t": 42,
+   "excerpt": "definitions"
+  },
+  "P40": {
+   "s": "backMatter",
+   "t": 43,
+   "excerpt": "definitions"
+  },
+  "P41": {
+   "s": "3752ef8b-763e-54eb-8349-ce60f5e00051",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P42": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P43": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P44": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P45": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P46": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P47": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P48": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P49": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P50": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P51": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P52": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P53": {
+   "s": "5d5999b6-8dac-5d78-bfb6-82524ae3f41f",
+   "t": 11,
+   "excerpt": "sampled"
+  },
+  "P54": {
+   "s": "3a716fa1-6108-58a3-bbe1-0925aedcec93",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P55": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 0,
+   "excerpt": "sampled"
+  },
+  "P56": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 1,
+   "excerpt": "sampled"
+  },
+  "P57": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 2,
+   "excerpt": "sampled"
+  },
+  "P58": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 3,
+   "excerpt": "sampled"
+  },
+  "P59": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 4,
+   "excerpt": "sampled"
+  },
+  "P60": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 5,
+   "excerpt": "sampled"
+  },
+  "P61": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 6,
+   "excerpt": "sampled"
+  },
+  "P62": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 7,
+   "excerpt": "sampled"
+  },
+  "P63": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 8,
+   "excerpt": "sampled"
+  },
+  "P64": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 9,
+   "excerpt": "sampled"
+  },
+  "P65": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 10,
+   "excerpt": "sampled"
+  },
+  "P66": {
+   "s": "80e6ac1d-a6cb-5e56-a26f-fa6d932da0f1",
+   "t": 11,
+   "excerpt": "sampled"
+  }
+ }
+}

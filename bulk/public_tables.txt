@@ -22,6 +22,7 @@ latest_sections_search
 latest_sections_search_standard_ids
 naics_sectors
 naics_sub_sectors
+reader_index
 sections
 summary_data
 tax_clause_assignments
