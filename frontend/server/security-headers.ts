@@ -16,8 +16,11 @@ export const FRONTEND_CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
   // script-src lists the exact inline-script SHA-256s plus the script-loading
   // origins we actually use. No 'unsafe-inline' — an XSS that injects a fresh
-  // inline <script> is blocked.
-  `script-src 'self' ${SCRIPT_HASH_SOURCES} https://www.googletagmanager.com https://static.airtable.com https://accounts.google.com https://challenges.cloudflare.com`,
+  // inline <script> is blocked. static.cloudflareinsights.com is the Web
+  // Analytics beacon Cloudflare injects at the edge. Production nginx adds a
+  // per-request nonce on top of this for Cloudflare's bot-detection script
+  // (see nginx.conf).
+  `script-src 'self' ${SCRIPT_HASH_SOURCES} https://www.googletagmanager.com https://static.airtable.com https://accounts.google.com https://challenges.cloudflare.com https://static.cloudflareinsights.com`,
   // connect-src / img-src / frame-src are narrowed to the hosts the SPA, its
   // embedded analytics/captcha scripts, and the OAuth/Airtable iframes actually
   // need. Broaden cautiously if a legitimate request is blocked — never to
