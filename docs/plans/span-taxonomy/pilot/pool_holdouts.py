@@ -1,11 +1,15 @@
 """Pooled scores across holdouts (plan section 7.20): the bars of section 9.2 checked on the sum
 of several holdouts' counts, so that a field reaches enough cases to judge.
 
-Each ARG is D:ARM:GOLD, or D:ARM:GOLD:SPLIT to score one manifest split. Detection sums true and false positives and negatives; scalar fields
+Each ARG is D:ARM:GOLD, or D:ARM:GOLD:SPLIT to score one manifest split, or FILE.json#KEY for a
+pooled result saved earlier (KEY a dotted path, e.g. m9_v213_results.json#pooled_us_142_after), used
+when the holdouts behind it are no longer on disk (plan section 7.25). Detection sums true and false positives and negatives; scalar fields
 sum agreements right and compared; set fields sum the matches behind set F1. Scalar fields carry
-an exact one-sided 95% lower bound on accuracy.
+an exact one-sided 95% lower bound on accuracy. A saved result keeps set F1 but not the matches behind
+it, so when one is pooled, set F1 is the mean of the inputs' set F1 weighted by agreements compared,
+and the field is marked set_f1_approx.
 
-Usage: python3 pool_holdouts.py D1:ARM:GOLD[:SPLIT] D2:ARM:GOLD[:SPLIT] ...
+Usage: python3 pool_holdouts.py D1:ARM:GOLD[:SPLIT] D2:ARM:GOLD[:SPLIT] [FILE.json#KEY] ...
 """
 import json, math, os, sys
 from collections import defaultdict
@@ -25,23 +29,41 @@ def lower_bound(k, n, alpha=0.05):
     return round(lo, 3)
 
 
+def saved(spec):
+    """A pooled result saved by this script, in score_v2's shape, with set F1 in place of its counts."""
+    path, key = spec.split("#", 1)
+    r = json.load(open(path))
+    for k in key.split("."):
+        r = r[k]
+    return {"agreements": r["agreements"], "detection": r["detection"],
+            "fields": {k: [v["right"], v["n"]] for k, v in r["fields"].items()},
+            "set_field_f1": {k: v["set_f1"] for k, v in r["fields"].items() if "set_f1" in v}}
+
+
 def pool(specs):
     det = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0, "tn": 0})
     fld, setc = defaultdict(lambda: [0, 0]), defaultdict(lambda: [0, 0, 0])
-    agreements = 0
+    setw = defaultdict(lambda: [0.0, 0])  # set F1 weighted by agreements compared, and the weight
+    agreements, approx = 0, False
     for spec in specs:
-        D, arm, gold, split = (spec.split(":") + [None])[:4]
-        r = score_v2.main(D, arm, gold, split)
+        if "#" in spec:
+            r, approx = saved(spec), True
+        else:
+            D, arm, gold, split = (spec.split(":") + [None])[:4]
+            r = score_v2.main(D, arm, gold, split)
         agreements += r["agreements"]
         for c, d in r["detection"].items():
             for k in ("tp", "fp", "fn", "tn"):
                 det[c][k] += d[k]
         for k, (ok, n) in r["fields"].items():
             fld[k][0] += ok; fld[k][1] += n
-        for k, v in r["set_field_counts"].items():
+        for k, v in r.get("set_field_counts", {}).items():
             for i in range(3):
                 setc[k][i] += v[i]
-    out = {"holdouts": specs, "agreements": agreements, "detection": {}, "fields": {}}
+        for k, f1 in r["set_field_f1"].items():
+            setw[k][0] += f1 * r["fields"][k][1]; setw[k][1] += r["fields"][k][1]
+    out = {"holdouts": specs, "agreements": agreements, "detection": {}, "fields": {},
+           "set_field_counts": {k: v for k, v in sorted(setc.items())} if not approx else None}
     for c, d in det.items():
         p, r = d["tp"] / max(d["tp"] + d["fp"], 1), d["tp"] / max(d["tp"] + d["fn"], 1)
         out["detection"][c] = dict(d, precision=round(p, 3), recall=round(r, 3),
@@ -49,7 +71,9 @@ def pool(specs):
                                    meets_bar=p >= 0.95 and r >= 0.95)
     for k, (ok, n) in sorted(fld.items()):
         e = {"right": ok, "n": n, "accuracy": round(ok / n, 3) if n else None, "lower95": lower_bound(ok, n)}
-        if k in setc:
+        if approx and k in setw:
+            e["set_f1"], e["set_f1_approx"] = round(setw[k][0] / max(setw[k][1], 1), 3), True
+        elif k in setc:
             tp, pr, g = setc[k]
             e["set_f1"] = round(2 * tp / max(pr + g, 1), 3)
         score = e.get("set_f1", e["accuracy"])
