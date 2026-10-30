@@ -233,6 +233,29 @@ Table clauses {
   Note: 'Clause-level spans carved out of sections for clause-taxonomy modules. Each row is a contiguous span of a section\'s text. Only sections relevant to a module are carved; currently the only module is `tax`.'
 }
 
+Table reader_index {
+  agreement_uuid char(36) [not null, note: 'Agreement the index belongs to (composite PK with `xml_version`).']
+  xml_version int(11) [not null, note: 'The `xml.version` this index was computed from (composite PK with `agreement_uuid`).']
+  enricher_version varchar(16) [not null, note: 'Version of the enricher that built the row; rows from older enrichers are rebuilt.']
+  text_hash char(64) [not null, note: 'SHA-256 of the XML the row was built from, to detect an XML version rewritten in place.']
+  payload_gz longblob [not null, note: 'Gzip-compressed UTF-8 JSON: `outline` (articles, sections, subsections and attachments with anchors), `terms` (each with its declarations), `uses` (term uses grouped by text node) and `xrefs` (each mention with a status such as `resolved`, `external` or `disclosure_schedule`, and a target outline id). Anchors are `{"s": container uuid or region, "t": text ordinal}`, and spans are UTF-16 code-unit offsets into the entity-decoded text.']
+  n_terms int(11) [not null, note: 'Number of defined terms in the payload.']
+  n_term_uses int(11) [not null, note: 'Number of term uses in the payload.']
+  n_xrefs int(11) [not null, note: 'Number of cross-reference mentions in the payload.']
+  n_xrefs_resolved int(11) [not null, note: 'Cross-references linked to a target in this agreement.']
+  n_xrefs_unresolved int(11) [not null, note: 'Internal-looking cross-references that found no target.']
+  body_section_level_rate decimal(5,4) [note: 'Share of internal body cross-references (not external or disclosure-schedule) that link at section level or better; a low value usually means broken section structure in the XML. NULL when the body has no references.']
+  created_date datetime(3) [not null, default: `utc_timestamp(3)`, note: 'When the row was built (UTC).']
+
+  indexes {
+    (agreement_uuid, xml_version) [pk]
+    enricher_version [name: 'idx_reader_index_enricher']
+    body_section_level_rate [name: 'idx_reader_index_rate']
+  }
+
+  Note: 'One row per indexed XML version. The index is computed from the latest verified XML and stored as gzip-compressed JSON (`payload_gz`). Join on `xml.agreement_uuid` and `xml.version` with `xml.latest = 1` for the current index of an agreement. A row is rebuilt when the XML version or the enricher version changes.'
+}
+
 Table taxonomy_l1 {
   standard_id char(16) [pk, not null, note: 'Primary key; 16-character hex identifier.']
   label char(128) [note: 'Human-readable category name.']
@@ -624,6 +647,10 @@ TableGroup agreements_and_documents {
   clauses
 }
 
+TableGroup reader_index {
+  reader_index
+}
+
 TableGroup section_taxonomy {
   taxonomy_l1
   taxonomy_l2
@@ -675,6 +702,7 @@ Ref: sections.agreement_uuid > agreements.agreement_uuid
 Ref: clauses.agreement_uuid > agreements.agreement_uuid
 Ref: clauses.section_uuid > sections.section_uuid
 Ref: xml.agreement_uuid > agreements.agreement_uuid
+Ref: reader_index.agreement_uuid > agreements.agreement_uuid
 Ref: taxonomy_l2.parent_id > taxonomy_l1.standard_id
 Ref: taxonomy_l3.parent_id > taxonomy_l2.standard_id
 Ref: tax_clause_taxonomy_l2.parent_id > tax_clause_taxonomy_l1.standard_id

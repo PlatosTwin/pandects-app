@@ -1049,6 +1049,48 @@ def get_agreement(
     return payload
 
 
+def get_reader_index_row(
+    deps: AgreementsDeps, agreement_uuid: str, *, include_xml: bool
+) -> dict[str, object] | None:
+    """The stored reader index for the XML version `get_agreement` serves.
+
+    None when the agreement is not public, the table is not in this schema yet,
+    or the index has not been built for the current XML version. ``payload_gz`` is
+    the gzip-compressed JSON as the ETL stored it."""
+    reader_index = deps.ReaderIndex
+    if reader_index is None:
+        return None
+    agreements = deps.Agreements
+    xml = deps.XML
+    columns: list[object] = [
+        reader_index.xml_version.label("xml_version"),
+        reader_index.enricher_version.label("enricher_version"),
+        reader_index.payload_gz.label("payload_gz"),
+    ]
+    if include_xml:
+        columns.append(xml.xml.label("xml"))
+    row = (
+        deps.db.session.query(*columns)
+        .select_from(agreements)
+        .join(xml, deps._agreement_latest_xml_join_condition())
+        .join(
+            reader_index,
+            and_(
+                reader_index.agreement_uuid == xml.agreement_uuid,
+                reader_index.xml_version == xml.version,
+            ),
+        )
+        .filter(
+            agreements.agreement_uuid == agreement_uuid,
+            agreement_is_public_eligible_expr(agreements),
+        )
+        .first()
+    )
+    if row is None:
+        return None
+    return deps._row_mapping_as_dict(cast(object, row))
+
+
 def list_agreement_sections(deps: AgreementsDeps, agreement_uuid: str) -> dict[str, object] | None:
     agreements = deps.Agreements
     sections = deps.Sections

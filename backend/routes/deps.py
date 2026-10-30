@@ -242,6 +242,8 @@ class AgreementsDeps:
     _to_int: ToIntProtocol
     _year_from_filing_date_value: Callable[[object], int | None]
     db: Any
+    # None until the reader_index table exists in the serving schema.
+    ReaderIndex: Any = None
 
 
 @dataclass(frozen=True)

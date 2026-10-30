@@ -1,7 +1,8 @@
 import unittest
 import xml.etree.ElementTree as ET
+from typing import Any
 
-from backend.redaction import redact_agreement_xml
+from backend.redaction import redact_agreement_xml, redact_reader_index
 
 
 class TestXmlRedaction(unittest.TestCase):
@@ -84,3 +85,43 @@ class TestXmlRedaction(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestReaderIndexRedaction(unittest.TestCase):
+    XML = """<document uuid="doc">
+  <body>
+    <article uuid="a1"><text>Preamble</text>
+      <section uuid="s1"><text>KEEP</text></section>
+      <section uuid="s2"><text>HIDE</text><section uuid="s2n"><text>NESTED</text></section></section>
+    </article>
+  </body>
+  <backMatter><text>Exhibit A</text></backMatter>
+</document>"""
+
+    def _payload(self) -> dict[str, Any]:
+        return {
+            "outline": [],
+            "terms": [
+                {"id": 0, "term": "A", "decls": [{"anchor": {"s": "s1", "t": 0}, "in": "Section 1.1"}]},
+                {"id": 1, "term": "B", "decls": [{"anchor": {"s": "s2n", "t": 0}, "in": "Section 1.2"}]},
+            ],
+            "uses": {"s1/0": [[0, 1, 1]], "s2n/0": [[0, 1, 0]], "a1/0": [[0, 1, 0]], "backMatter/0": [[0, 1, 0]]},
+            "xrefs": [],
+        }
+
+    def test_hidden_containers_follow_the_xml_redaction(self) -> None:
+        out = redact_reader_index(self._payload(), self.XML, focus_section_uuid="s1", neighbor_sections=0)
+        self.assertEqual(sorted(out["uses"]), ["backMatter/0", "s1/0"])
+        self.assertEqual(out["terms"][0]["decls"][0]["in"], "Section 1.1")
+        self.assertEqual(out["terms"][1]["decls"], [{"redacted": True, "label": "Section 1.2"}])
+
+    def test_a_nested_section_stays_hidden_with_its_parent(self) -> None:
+        # s2n is within one of s1 in document order, but redact_agreement_xml drops it with s2
+        out = redact_reader_index(self._payload(), self.XML, focus_section_uuid="s2n", neighbor_sections=0)
+        self.assertNotIn("s2n/0", out["uses"])
+        self.assertNotIn("NESTED", redact_agreement_xml(self.XML, focus_section_uuid="s2n", neighbor_sections=0))
+
+    def test_the_input_payload_is_not_changed(self) -> None:
+        payload = self._payload()
+        _ = redact_reader_index(payload, self.XML, focus_section_uuid=None, neighbor_sections=1)
+        self.assertIn("s1/0", payload["uses"])

@@ -1,4 +1,5 @@
 import base64
+import gzip
 import json
 import os
 import tempfile
@@ -420,6 +421,7 @@ class MainRoutesTests(unittest.TestCase):
                 conn.execute(text("DELETE FROM sections"))
                 conn.execute(text("DELETE FROM agreement_counsel"))
                 conn.execute(text("DELETE FROM counsel"))
+                conn.execute(text("DELETE FROM reader_index"))
                 conn.execute(text("DELETE FROM xml"))
                 conn.execute(text("DELETE FROM agreements"))
                 conn.execute(text("DELETE FROM agreement_filter_option_summary"))
@@ -1565,6 +1567,111 @@ class MainRoutesTests(unittest.TestCase):
         self.assertTrue(body.get("is_redacted"))
         xml = body.get("xml", "")
         self.assertIn("[REDACTED]", xml)
+
+    _KEEP = "00000000-0000-0000-0000-000000000001"
+    _HIDE = "00000000-0000-0000-0000-000000000003"
+
+    def _seed_reader_index(self, *, xml_version: int = 2) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "schema": 1,
+            "enricher": "0.4.0",
+            "agreement_uuid": "a1",
+            "xml_version": xml_version,
+            "outline": [
+                {
+                    "id": "s1.2",
+                    "kind": "section",
+                    "label": "1.2",
+                    "title": "Definitions",
+                    "anchor": {"s": self._HIDE},
+                    "children": [
+                        {"id": "s1.2(a)", "kind": "sub", "label": "1.2(a)", "title": "HIDE", "anchor": {"s": self._HIDE, "t": 0}}
+                    ],
+                }
+            ],
+            "terms": [
+                {
+                    "id": 0,
+                    "term": "Company",
+                    "decls": [{"anchor": {"s": self._HIDE, "t": 0}, "span": [0, 4], "kind": "paren", "in": "Section 1.2"}],
+                    "confidence": "high",
+                }
+            ],
+            "uses": {f"{self._KEEP}/0": [[0, 4, 0]], f"{self._HIDE}/0": [[0, 4, 0]]},
+            "xrefs": [
+                {"at": {"s": self._KEEP, "t": 0}, "span": [0, 4], "text": "Section 1.2", "status": "resolved", "target": "s1.2"},
+                {"at": {"s": self._HIDE, "t": 0}, "span": [0, 4], "text": "Section 1.1", "status": "unresolved"},
+            ],
+            "stats": {"n_terms": 1},
+        }
+        raw = json.dumps(payload).encode("utf-8")
+        with self.app.app_context():
+            with self.app_module.db.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO reader_index (agreement_uuid, xml_version, enricher_version, payload_gz) "
+                        "VALUES ('a1', :v, '0.4.0', :p)"
+                    ),
+                    {"v": xml_version, "p": gzip.compress(raw)},
+                )
+        return payload
+
+    def _api_key_headers(self) -> dict[str, str]:
+        with self.app.app_context():
+            user = self.app_module.AuthUser()
+            user.id = "00000000-0000-0000-0000-0000000000b7"
+            user.email = "reader-index@example.com"
+            user.password_hash = "not-used"
+            user.email_verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            self.app_module.db.session.add(user)
+            self.app_module.db.session.commit()
+            _, api_key = self.app_module._create_api_key(user_id=user.id, name="reader-index")
+        return {"X-API-Key": api_key}
+
+    def test_reader_index_404_without_a_row_for_the_served_version(self):
+        client = self.app.test_client()
+        self.assertEqual(client.get("/v1/agreements/a1/reader-index").status_code, 404)
+        # a row for an older XML version is not served
+        _ = self._seed_reader_index(xml_version=1)
+        self.assertEqual(client.get("/v1/agreements/a1/reader-index").status_code, 404)
+        self.assertEqual(client.get("/v1/agreements/missing/reader-index").status_code, 404)
+
+    def test_reader_index_full_for_authenticated_callers(self):
+        payload = self._seed_reader_index()
+        client = self.app.test_client()
+        headers = self._api_key_headers()
+        res = client.get("/v1/agreements/a1/reader-index", headers=headers)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json(), payload)
+        self.assertEqual(res.headers["Cache-Control"], "private, no-cache")
+        etag = res.headers["ETag"]
+        self.assertEqual(etag, 'W/"2-0.4.0"')
+
+        gz = client.get("/v1/agreements/a1/reader-index", headers={**headers, "Accept-Encoding": "gzip"})
+        self.assertEqual(gz.headers.get("Content-Encoding"), "gzip")
+        self.assertEqual(json.loads(gzip.decompress(gz.get_data())), payload)
+
+        cached = client.get("/v1/agreements/a1/reader-index", headers={**headers, "If-None-Match": etag})
+        self.assertEqual(cached.status_code, 304)
+
+    def test_reader_index_redacts_for_anonymous_callers(self):
+        _ = self._seed_reader_index()
+        client = self.app.test_client()
+        res = client.get(f"/v1/agreements/a1/reader-index?focus_section_uuid={self._KEEP}&neighbor_sections=0")
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertTrue(body["is_redacted"])
+        self.assertEqual(body["terms"][0]["decls"], [{"redacted": True, "label": "Section 1.2"}])
+        self.assertEqual(list(body["uses"]), [f"{self._KEEP}/0"])
+        self.assertEqual([x["text"] for x in body["xrefs"]], ["Section 1.2"])
+        self.assertEqual(body["outline"][0]["children"][0]["title"], "")
+        self.assertNotIn("HIDE", res.get_data(as_text=True))
+        # the redacted variant has its own validator
+        self.assertNotEqual(res.headers["ETag"], 'W/"2-0.4.0"')
+
+        wide = client.get(f"/v1/agreements/a1/reader-index?focus_section_uuid={self._KEEP}&neighbor_sections=1")
+        self.assertEqual(len(wide.get_json()["xrefs"]), 2)
+        self.assertEqual(client.get("/v1/agreements/a1/reader-index?neighbor_sections=9").status_code, 400)
 
     def test_public_agreement_endpoints_exclude_gated_unverified_agreements(self):
         with self.app.app_context():

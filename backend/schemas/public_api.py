@@ -583,3 +583,77 @@ __all__ = [
     "TaxClauseListResponseSchema",
     "TaxClauseSchema",
 ]
+
+
+class ReaderAnchorSchema(Schema):
+    s = fields.Str(
+        required=True,
+        metadata={"description": "Section or article uuid, or a region name (`frontMatter`, `body`, `backMatter`)."},
+    )
+    t = fields.Int(metadata={"description": "Ordinal of the `<text>` element within that container, in document order."})
+
+
+class ReaderOutlineNodeSchema(Schema):
+    id = fields.Str(required=True, metadata={"example": "s4.3(b)"})
+    kind = fields.Str(required=True, metadata={"description": "`article`, `section`, `sub` or `attachment`."})
+    label = fields.Str(required=True, metadata={"example": "4.3(b)"})
+    title = fields.Str(required=True)
+    anchor = fields.Nested(ReaderAnchorSchema, required=True)
+    children = fields.List(fields.Nested(lambda: ReaderOutlineNodeSchema()))
+
+
+class ReaderTermDeclSchema(Schema):
+    anchor = fields.Nested(ReaderAnchorSchema)
+    span = fields.List(fields.Int(), metadata={"description": "[start, end) in UTF-16 code units."})
+    kind = fields.Str(metadata={"description": "`means`, `paren` or `pointer`."})
+    in_ = fields.Str(data_key="in", metadata={"description": "Where the declaration sits, such as `Section 1.1`."})
+    as_ = fields.Str(data_key="as", metadata={"description": "The printed spelling, when it differs from the term's."})
+    pointer = fields.Str(metadata={"description": "Target of a `has the meaning set forth in` declaration."})
+    redacted = fields.Bool(metadata={"description": "True when the declaration is in text the caller cannot read."})
+    label = fields.Str(metadata={"description": "With `redacted`: where the term is defined, such as `Section 1.1`."})
+
+
+class ReaderTermSchema(Schema):
+    id = fields.Int(required=True)
+    term = fields.Str(required=True)
+    decls = fields.List(fields.Nested(ReaderTermDeclSchema), required=True)
+    confidence = fields.Str(required=True, metadata={"description": "`high`, or `low` for common words like \"Law\"."})
+
+
+class ReaderXrefSchema(Schema):
+    at = fields.Nested(ReaderAnchorSchema, required=True)
+    span = fields.List(fields.Int(), required=True)
+    text = fields.Str(required=True, metadata={"example": "Section 7.2(b)"})
+    status = fields.Str(
+        required=True,
+        metadata={
+            "description": (
+                "`resolved`, `section_fallback`, `ambiguous`, `unlocated_attachment`, "
+                "`disclosure_schedule`, `external` or `unresolved`."
+            )
+        },
+    )
+    target = fields.Str(metadata={"description": "Outline id of the target, when linked."})
+    candidates = fields.List(fields.Str(), metadata={"description": "Outline ids an ambiguous reference could mean."})
+
+
+class ReaderIndexResponseSchema(Schema):
+    schema_ = fields.Int(required=True, data_key="schema", metadata={"description": "Payload schema version."})
+    enricher = fields.Str(required=True, metadata={"description": "Enricher version that built the index."})
+    agreement_uuid = fields.Str(required=True)
+    xml_version = fields.Int(required=True, metadata={"description": "The XML version the anchors point into."})
+    outline = fields.List(fields.Nested(ReaderOutlineNodeSchema), required=True)
+    terms = fields.List(fields.Nested(ReaderTermSchema), required=True)
+    uses = fields.Dict(
+        keys=fields.Str(),
+        values=fields.List(fields.List(fields.Int())),
+        required=True,
+        metadata={
+            "description": "Term uses by text node (`<container>/<t>`): `[start, end, term id]` triples in UTF-16 code units."
+        },
+    )
+    xrefs = fields.List(fields.Nested(ReaderXrefSchema), required=True)
+    stats = fields.Dict(required=True, metadata={"description": "Counts and resolution rates for this agreement."})
+    is_redacted = fields.Bool(
+        metadata={"description": "True for anonymous callers: items inside redacted text are dropped or masked."}
+    )
