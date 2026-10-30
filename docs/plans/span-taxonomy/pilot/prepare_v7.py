@@ -54,6 +54,8 @@ FUNDS_BODY = re.compile(r"\b(cash|funds|funding|capital resources|financial reso
 FINANCING = re.compile(r"\bfinancing\b", re.I)
 # v4.select and v4.resolve read these module patterns at call time
 CAP_TERMS = r"|maximum|\blimit|\bcap\b|cap amount" + r"|drop dead|long ?stop|cut-?off date|excepted rep|specified rep|material\s*adverse|material impact"
+# 7.32: fee amounts defined under other names, and an MAE abbreviated ("Snacks Business MAE", M13 967bef44)
+CAP_TERMS += r"|termination (?:compensation|payment)|\bdeposit\b|\bMAE\b"
 v4.TERMS = re.compile(v4.TERMS.pattern + CAP_TERMS, re.I)
 v4.RESOLVE = re.compile(v4.RESOLVE.pattern + CAP_TERMS, re.I)
 v4.DEFINED = re.compile(r"[\"“]([^\"”:]{2,80})(?::[\"”]|[\"”]\s*:\s|[\"”](\s+of any \w+)?\s*(shall\s+)?"
@@ -87,8 +89,10 @@ BUYER = re.compile(r"\b(?:Parent|Purchasers?|Buyers?|Acquir(?:er|or|ing)|Merger 
 CONDITIONS = re.compile(r"\bconditions?\b", re.I)
 LOWER_MAE = re.compile(r"\bmaterial\s+adverse\s+(?:effect|change|impact)\b")  # lowercase: undefined, not the defined term
 # an MAE defined inline with a qualifier before "means": 'a "Material Adverse Effect" with respect to any Person means'
-MAE_TERM = r"Material\s*(?:Adverse\s+(?:Effect|Change)|Impact)"  # "Material Impact": a target MAE without the usual words (M12 daef34e9)
-INLINE_MAE = re.compile(r"[\"“](?:\w+\s+){0,3}" + MAE_TERM + r"[\"”][^.;]{1,60}?\b(?:means|shall mean)\b")
+MAE_TERM = r"Material\s*(?:Adverse\s+(?:Effect|Change)|Impact)|\bMAE\b"  # "Material Impact": a target MAE without the usual words (M12 daef34e9)
+# '"X Material Adverse Effect" ... means', or 'will be deemed to have a "Material Adverse Effect" on' (M13 a621ea6f)
+INLINE_MAE = re.compile(r"[\"“](?:\w+\s+){0,3}(?:" + MAE_TERM + r")[\"”][^.;]{1,60}?\b(?:means|shall mean)\b"
+                        r"|deemed to (?:have|be) (?:had )?(?:a |an )?[\"“](?:" + MAE_TERM + r")[\"”]")
 
 
 def mae_sections(layer):
@@ -149,6 +153,24 @@ def mae_definition_leaves(layer, groups, leaf_keep, limit=6):
             keep(lf)
 
 
+def undefined_mae_leaves(layer, groups, leaf_keep):
+    """With no MAE defined anywhere, the paragraphs of any party's representations that use the
+    undefined lowercase one (plan section 7.32, M13 2c3e8ffb), not their whole sections."""
+    # a capitalized MAE term is a defined one, however it is defined (7989f883), but not a heading
+    # such as "(d) No Material Adverse Change." (2c3e8ffb)
+    if re.search(MAE_TERM, re.sub(r"\bNo (?:" + MAE_TERM + r")\s*\.", "", layer["text"])):
+        return
+    secs = {s["uuid"]: s for s in layer["sections"]}
+    for lf in layer["leaves"]:
+        s = secs[lf["section"]]
+        if not (REPS.search(s["article"] or "") or REPS.search(s["title"] or "")) or not LOWER_MAE.search(layer["text"][lf["start"]:lf["end"]]):
+            continue
+        if s["uuid"] in groups and leaf_keep.get(s["uuid"]) is None:
+            continue  # kept whole already
+        leaf_keep.setdefault(s["uuid"], set()).add(id(lf))
+        groups[s["uuid"]] = groups.get(s["uuid"], set()) | {"deal_risk"}
+
+
 def extend_definitions(layer, leaf_keep, limit=6):
     """Keep the paragraphs a kept definition runs on into, up to the next quoted term."""
     by_sec = {}
@@ -192,6 +214,7 @@ def select(layer):
         groups.setdefault(uuid, {"deal_risk"})
     extend_definitions(layer, leaf_keep)
     mae_definition_leaves(layer, groups, leaf_keep)
+    undefined_mae_leaves(layer, groups, leaf_keep)
     return groups, leaf_keep
 
 

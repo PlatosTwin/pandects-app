@@ -3,7 +3,8 @@ saw the text for but did not apply in the definition-resolution re-check (sectio
 
 - v2.2 rule 12: a fee trigger on an adverse recommendation change also gets
   `recommendation_failure` when the agreement's definition of that change includes failing
-  to make, include or reaffirm the recommendation.
+  to make, include or reaffirm the recommendation, and the trigger uses that defined term (a
+  termination right that lists the actions itself does not take in the failure limb; 7.32).
 - v2.3 rule 2: a cap of "the Purchase Price" (or merger consideration, consideration shares,
   or 100% of the price) is `pct_of_purchase_price` 100, unless the model already coded a
   percentage or a formula, or the price is followed by "less" or "minus" (v2.8 rule 7).
@@ -16,7 +17,8 @@ saw the text for but did not apply in the definition-resolution re-check (sectio
   `breach_no_tail` (plan section 7.17); on a reverse fee it is `buyer_breach` (section 7.19).
 - v2.5 rule 3: a buyer funds representation that counts the buyer's own cash ("together with
   any available cash", "cash on hand", "marketable securities") adds `cash_on_hand` to committed
-  financing (plan section 7.14). Contingency covenants ("In the event ... becomes unavailable",
+  financing (plan section 7.14). Cash of the target ("available cash of the Company") is not the
+  buyer's and is left alone (7.32). Contingency covenants ("In the event ... becomes unavailable",
   substitute financing) are not representations and are left alone.
 - v2.5 rule 6 and v2.8 rule 8: an indemnity paid "first" from an escrow, holdback, policy or note
   and then by the sellers (or "the first source of payment") makes `escrow_sole_recourse` false
@@ -85,7 +87,7 @@ def logical_lines(lines):
 
 def rec_change_definitions(lines):
     """Text of each recommendation-change definition: the defining line up to the term, plus the
-    earlier list items and lead-in line when the term closes a list."""
+    earlier list items and lead-in line when the term closes a list, with the term it defines."""
     lines = logical_lines(lines)
     out = []
     for i, l in enumerate(lines):
@@ -102,20 +104,21 @@ def rec_change_definitions(lines):
                     body.insert(0, lines[j])
                     if not ITEM.match(lines[j]):
                         break
-            out.append(body)
+            out.append((m.group(1), body))
     return out
 
 
 def failure_phrase(lines):
-    """The first verbatim failure-to-recommend phrase in a recommendation-change definition."""
-    for body in rec_change_definitions(lines):
+    """The first verbatim failure-to-recommend phrase in a recommendation-change definition, and
+    the term that definition defines."""
+    for term, body in rec_change_definitions(lines):
         for t in body:
             m = FAIL.search(t) or AFFIRM_REQUEST.search(t)
             if m:
                 phrase = m.group(0).strip().rstrip(",;(")
                 while " " in phrase and not any(phrase in l for l in lines):
                     phrase = phrase.rsplit(" ", 1)[0].rstrip(",;(")  # keep the quote on one line
-                return phrase
+                return phrase, term
     return None
 
 
@@ -125,10 +128,15 @@ def check_recommendation_failure(inst, lines, log, full_lines=None):
     codes = [t.get("code") for t in inst.get("triggers") or [] if isinstance(t, dict)]
     if "adverse_recommendation_change" not in codes or "recommendation_failure" in codes:
         return
-    phrase = failure_phrase(lines) or (full_lines is not None and failure_phrase(full_lines))
-    if not phrase:
+    found = failure_phrase(lines) or (full_lines is not None and failure_phrase(full_lines))
+    if not found:
         return
+    phrase, term = found
     arc = next(t for t in inst["triggers"] if isinstance(t, dict) and t.get("code") == "adverse_recommendation_change")
+    # 7.32: only when the trigger uses the defined term; a right that lists the actions itself does
+    # not take in the definition's failure limb (M13 0a91852c)
+    if term.lower() not in f"{arc.get('text') or ''} {arc.get('quote') or ''}".lower():
+        return
     inst["triggers"].append({"code": "recommendation_failure", "text": phrase, "quote": phrase,
                              "tail": copy.deepcopy(arc.get("tail")), "postcheck": "v2.2 rule 12"})
     log.append({"concept": inst["concept"], "rule": "v2.2 rule 12", "added": phrase})
@@ -175,6 +183,7 @@ OWN_CASH = re.compile(r"cash on hand|available cash|cash and cash equivalents|ca
                       re.I)
 BUYER = re.compile(r"\b(?:Parent|Buyer|Purchaser|Acquir\w*|Merger Sub|Pubco|SPAC)\b")
 PAYABLE = re.compile(r"\b(?:consummate|pay|payment|amounts? payable|Merger Consideration|Purchase Price|obligations)\b", re.I)
+TARGET_CASH = re.compile(r"(?:cash|funds)[^.;]{0,30}?\bof (?:the )?(?:Company|Target|Seller)s?\b|(?:Company|Target|Seller)['’]s (?:available )?cash", re.I)
 CONTINGENCY = re.compile(r"^\s*(?:\(\w{1,4}\)\s*)?(?:in the event|if|provided)\b|becomes? unavailable|\bdeposit|substitut", re.I)
 
 
@@ -185,7 +194,8 @@ def funds_rep_with_cash(cand):
             continue
         for sent in re.split(r"(?<=[.;])\s+", line):
             if (SUFFICIENT.search(sent) and OWN_CASH.search(sent) and BUYER.search(sent) and PAYABLE.search(sent)
-                    and not CONTINGENCY.search(sent)):
+                    and not CONTINGENCY.search(sent)
+                    and not TARGET_CASH.search(sent)):  # 7.32: the target's cash is not the buyer's (M13 de5d8138)
                 return sent[:300]
     return None
 

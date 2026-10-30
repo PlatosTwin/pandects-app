@@ -169,3 +169,40 @@ class MaeDefinitionLeaves(unittest.TestCase):  # plan section 7.30
     def test_no_mae_keeps_nothing(self):
         L = defs("“Indebtedness” means any obligation for borrowed money.")
         self.assertEqual(self.kept(L), [])
+
+    def test_abbreviated_mae(self):  # 967bef44 (7.32)
+        L = defs("“Snacks Business MAE” means any circumstance that has a material adverse effect on the Snacks Business.")
+        self.assertEqual(len(self.kept(L)), 1)
+
+    def test_deemed_form(self):  # a621ea6f (7.32)
+        L = defs('An event will be deemed to have a "Material Adverse Effect" on, or shall be deemed to be "materially adverse" to, '
+                 "any Person if it had a material adverse effect on the business of such Person.", title="EXHIBIT A CERTAIN DEFINITIONS")
+        self.assertEqual(len(self.kept(L)), 1)
+
+
+class FeeTermsUnderOtherNames(unittest.TestCase):  # 7.32: a0e138bb, 9dae91bb
+    def test_resolved(self):
+        for term in ("Company Termination Compensation", "Parent Termination Payment", "Deposit"):
+            self.assertTrue(v4.RESOLVE.search(term), term)
+
+
+class UndefinedMaeLeaves(unittest.TestCase):  # 7.32: 2c3e8ffb
+    def kept(self, L):
+        groups, leaf_keep = {}, {}
+        prepare_v7.undefined_mae_leaves(L, groups, leaf_keep)
+        return sorted(groups)
+
+    def test_target_representation_with_no_defined_mae(self):
+        L = sections(("s1", "ARTICLE 2 REPRESENTATIONS AND WARRANTIES OF SELLER", "2.1 Representations of Seller.",
+                      "Since December 31, 2022, there has not been any material adverse change in the Business."),
+                     ("s2", "ARTICLE 4 CONDITIONS PRECEDENT", "4.2 Conditions to Obligations of Buyer.",
+                      "(d) No Material Adverse Change. There shall have been no material adverse change in the Business."))
+        self.assertEqual(self.kept(L), ["s1"])
+
+    def test_defined_mae_anywhere_leaves_it_alone(self):  # 7989f883: defined in a form the patterns do not read
+        L = sections(("s1", "ARTICLE IV REPRESENTATIONS AND WARRANTIES OF BERGEN", "4.5 Conflicts.",
+                      "except as would not have a material adverse effect on Bergen."),
+                     ("s2", "ARTICLE IV REPRESENTATIONS AND WARRANTIES OF BERGEN", "4.1 Organization.",
+                      "would not reasonably be expected to have a Material Adverse Effect (as defined in Section 9.3) on Bergen."))
+        self.assertEqual(self.kept(L), [])
+

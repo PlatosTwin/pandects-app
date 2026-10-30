@@ -6,7 +6,7 @@ Run: python3 -m unittest test_postchecks   (from this directory)
 """
 import os, sys, unittest
 sys.path.insert(0, os.path.dirname(__file__))
-from postchecks import apply
+from postchecks import REC_TERM, apply
 
 # e3f57a62: the term closes a list whose item (ii) is the failure
 E3F = """@@ S64 | ARTICLE V COVENANTS | Section 5.5 Exclusive Dealing. | groups=resolved
@@ -49,6 +49,15 @@ def fee(*codes):
             "triggers": [{"code": c, "text": "", "quote": "", "tail": None} for c in codes]}]}
 
 
+def arc_fee(text, *codes):
+    """fee(...) whose adverse_recommendation_change trigger quotes the termination right as using
+    the agreement's defined term, as real termination rights do (7.32)."""
+    doc = fee("adverse_recommendation_change", *codes)
+    term = REC_TERM.search(text.replace("\n", " ")).group(1)  # the term may be split across lines
+    doc["instances"][0]["triggers"][0]["quote"] = f"the Company Board shall have made a {term}"
+    return doc
+
+
 def codes(doc, concept="ma.termination.fee.target"):
     inst = next(i for i in doc["instances"] if i["concept"] == concept)
     return [t["code"] for t in inst.get("triggers", [])]
@@ -56,7 +65,7 @@ def codes(doc, concept="ma.termination.fee.target"):
 
 class RecommendationFailure(unittest.TestCase):
     def check(self, text, expect):
-        out, log = apply(fee("adverse_recommendation_change", "superior_proposal_termination"), text)
+        out, log = apply(arc_fee(text, "superior_proposal_termination"), text)
         self.assertEqual("recommendation_failure" in codes(out), expect)
         if expect:
             added = out["instances"][0]["triggers"][-1]["quote"]
@@ -93,10 +102,16 @@ class RecommendationFailure(unittest.TestCase):
         self.check(RUN_ON, True)
 
     def test_definition_read_from_the_full_text(self):  # fdaa819a
-        out, log = apply(fee("adverse_recommendation_change"), CITED_ONLY, full=CITED_ONLY + "\n" + E3F)
+        out, log = apply(arc_fee(E3F), CITED_ONLY, full=CITED_ONLY + "\n" + E3F)
         self.assertIn("recommendation_failure", codes(out))
         self.assertEqual(out["instances"][0]["triggers"][-1]["quote"],
                          "fail to include the Company Recommendation in the Shareholder Materials")
+
+    def test_right_that_lists_the_actions_is_left_alone(self):  # 0a91852c (7.32)
+        doc = fee("adverse_recommendation_change", "superior_proposal_termination")
+        doc["instances"][0]["triggers"][0]["quote"] = "shall have withdrawn or modified in any manner adverse to Parent its recommendation"
+        out, log = apply(doc, E3F)
+        self.assertEqual(log, [])
 
     def test_full_text_without_a_failure_is_left_alone(self):
         out, log = apply(fee("adverse_recommendation_change"), CITED_ONLY, full=CITED_ONLY + "\n" + NO_FAILURE)
@@ -381,6 +396,13 @@ class CashOnHand(unittest.TestCase):
     def test_already_coded(self):
         out, log = apply(financing("debt", "cash_on_hand"), F019)
         self.assertEqual((committed(out), log), (["debt", "cash_on_hand"], []))
+
+    def test_target_cash_is_left_alone(self):  # de5d8138 (7.32)
+        rep = ("@@ S53 | x | y | groups=deal_risk\nThe aggregate proceeds contemplated to be provided by the Financing Letters will be "
+               "sufficient, together with available cash of the Company, to consummate the Transactions and to make all payments "
+               "required to be made in connection therewith by Parent or Merger Sub.")
+        out, log = apply(financing("debt"), rep)
+        self.assertEqual(log, [])
 
     def test_substitute_financing_covenant_is_left_alone(self):  # 0d305abd
         cov = ("@@ S74 | x | y | groups=deal_risk\nParent shall have the right to substitute commitments for all or any portion of "
