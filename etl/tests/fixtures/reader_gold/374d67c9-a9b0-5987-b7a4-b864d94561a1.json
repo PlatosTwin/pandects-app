@@ -48,6 +48,12 @@
    "term": "Public Benefit Plans",
    "para": "P12",
    "kind": "paren"
+  },
+  {
+   "term": "Event of Default",
+   "para": "P22",
+   "kind": "pointer",
+   "pointer": "external"
   }
  ],
  "xrefs": [
@@ -325,18 +331,7 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "Event of Default",
-    "para": "P22",
-    "kind": "pointer",
-    "pointer": "external"
-   },
-   "type": "missing",
-   "reason": "Quoted capitalized term tied to an outside definition ('as defined in the Public Indenture and the Public Credit Facility'), same shape as a pointer to another document."
-  }
+ "rulings": [
+  "2026-10-29: user accepted the checker's side on every dispute"
  ]
 }

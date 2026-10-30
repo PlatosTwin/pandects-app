@@ -391,7 +391,7 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **0** | Design and prototype | Done: decisions in Section 11 |
-| **1. Enricher** (in progress, 10.1) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
+| **1. Enricher** (in progress, 10.1–10.5; launch-bar metrics met on gold, not yet blind) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
@@ -619,7 +619,7 @@ A second audit of what these changes did on the same 600 agreements first found 
 
 These are fit to the gold they were fixed against. The only blind number for this enricher would come from a third batch.
 
-**v2 recall** is held down by one rubric question. 17 of the 25 misses are clauses inside a definition: "clauses (a) through (c)" of the Initial Marketing Period definition (`dd824313`), "clauses (a), (b), and (d) in the definition thereof" (`a79d5ac8`) and "paragraph (e) above" (`ad7a582f`). The drafters labeled them `s1.1(a)` and so on, but Section 1.1 has no such subsections, and in `dd824313` its real (a) is a different paragraph. The enricher leaves them unlinked on purpose. If they become `inline`, as below, v2 recall is 98.1% (422/430).
+**v2 recall** is held down by one rubric question. 17 of the 25 misses are clauses inside a definition: "clauses (a) through (c)" of the Initial Marketing Period definition (`dd824313`), "clauses (a), (b), and (d) in the definition thereof" (`a79d5ac8`) and "paragraph (e) above" (`ad7a582f`). The drafters labeled them `s1.1(a)` and so on, but Section 1.1 has no such subsections, and in `dd824313` its real (a) is a different paragraph. The enricher leaves them unlinked on purpose. As `inline` (ruling 1 below), v2 recall is 98.1% (422/430).
 
 **Corpus run** (read-only, all 11,790 latest verified XMLs, enricher 0.3.0):
 
@@ -636,23 +636,35 @@ These are fit to the gold they were fixed against. The only blind number for thi
 - **Per-agreement rates:** the median body section-level rate is 88.7% (from 87.5%), the mean 86.7%.
 - **Health tail:** 216 agreements below 50%, 394 below 70% and 1,417 below 80%.
 
-**Open v2 disputes** (10, in the fixtures' `pending_disputes`), with recommended rulings:
+**Rulings (2026-10-29).** The user accepted every recommended ruling, now in rubric v1.4:
 
-1. **Clauses inside a definition** (`dd824313` ×2 plus the 17 agreed labels above): `inline`, a new rubric line ("a clause or paragraph of a definition is `inline` until definitions have paragraph targets").
-2. **Drafting typos** (`b04ab879` "Sections 12(a) and 12(b)" inside 12.3, and `465d70b2` "this Section 4.04" inside 4.03): label the printed number, so `not_in_filing` or the printed target. The enricher cannot know intent, and the reader should not guess either.
-3. **The checker's side** on the remaining six:
-   - `$` in `25b7de22`, as rubric v1.2 allows.
-   - "Event of Default" (as defined in another document) is an `external` pointer in `374d67c9`.
-   - Exhibits A and B are `not_in_filing` in `7c81d0e8`, whose outline has no back matter.
-   - The quote marks come off the "A" mention in `ad7a582f`.
-   - Schedule A of another document is `external` in `b7196dcd`.
+1. **Clauses inside a definition** are `inline`. This covers the 17 labels above, the two disputed "this clause (b)/(c)" mentions in `dd824313`, `f4b4ba89`'s "clauses (i) through (x)" of definition (q) and pilot `dcaec060`'s "clauses (f) or (g) of the definition".
+2. **Drafting typos** are labeled by the printed number. `b04ab879`'s "Sections 12(a) and 12(b)" are `not_in_filing`.
+3. **The checker's side** on the other six.
+4. **The smaller defaults:**
+   - an all-caps legend is not a use;
+   - an "[omitted]" attachment is `not_in_filing`;
+   - the head-word list stays closed;
+   - a trailing period inside the quotes is dropped unless it ends an abbreviation.
 
-Smaller questions the checkers raised, with recommended defaults:
+No v2 disputes remain.
 
-- All-caps "THIS AGREEMENT" is not a use.
-- An attachment heading marked "[omitted]" is `not_in_filing`.
-- "subparagraph", "subclause" and "para" stay outside the head-word list.
-- A period inside the closing quote is dropped unless it ends an abbreviation ("U.S.", "Corp.").
+**Score under the rulings** (US filings; v2 and v1 are fit to the gold they were fixed against):
+
+| Metric | Held-out v2 | Held-out v1 | Pilot | Launch bar |
+|---|---|---|---|---|
+| Xref link precision | 99.8% (422/423) | 100% (412/412) | 100% (97/97) | ≥ 99% |
+| Xref in-document recall | 98.1% (422/430) | 98.8% (412/417) | 100% (97/97) | ≥ 95% |
+| Declaration precision / recall | 99.9% / 98.1% | 99.6% / 99.1% | 100% / 100% | ≥ 98% / ≥ 95% |
+| Term-use precision / recall | 98.8% / 99.6% | 98.0% / 100% | 100% / 97.3% | ≥ 97% / ≥ 90% |
+
+The pilot column now leaves out the UK agreement `03f4e108`, as the held-out columns always have.
+
+**Remaining for Phase 1:**
+
+1. A third held-out batch of about 30 agreements, scored blind against enricher 0.3.0, is the only clean check on the post-v2 fixes. It costs about 2.7M subagent tokens.
+2. Turning the health CSV into the validation-queue report format.
+3. The `Article III` miss in an Articles of Association glossary: glossary-exhibit detection cannot yet tell the agreement's own glossary from an attached charter's.
 
 ## 11. Decisions (2026-10-22)
 

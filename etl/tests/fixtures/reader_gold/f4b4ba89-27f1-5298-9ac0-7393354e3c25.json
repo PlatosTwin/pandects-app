@@ -231,14 +231,14 @@
    "head": "clause",
    "mention": "(i)",
    "context": "except, with respect to clauses (i) through (x)",
-   "target": "s1.1(q)(i)"
+   "target": "inline"
   },
   {
    "para": "P39",
    "head": "clause",
    "mention": "(x)",
    "context": "clauses (i) through (x), to the extent",
-   "target": "s1.1(q)(x)"
+   "target": "inline"
   },
   {
    "para": "P45",
@@ -909,5 +909,8 @@
    "t": 8,
    "excerpt": "sampled"
   }
- }
+ },
+ "rulings": [
+  "2026-10-29 rubric v1.4 (user): a clause or paragraph of a definition is `inline`"
+ ]
 }

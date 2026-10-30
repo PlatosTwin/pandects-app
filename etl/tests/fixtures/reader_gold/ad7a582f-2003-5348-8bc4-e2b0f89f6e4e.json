@@ -156,7 +156,7 @@
    "head": "paragraph",
    "mention": "(e)",
    "context": "“20% or more” in paragraph (e) above and",
-   "target": "s1.1(e)"
+   "target": "inline"
   },
   {
    "para": "P16",
@@ -213,6 +213,13 @@
    "mention": "2.7(a)",
    "context": "and, subject to Section 2.7(a) [Preparation of the Company",
    "target": "s2.7(a)"
+  },
+  {
+   "para": "P18",
+   "head": "schedule",
+   "mention": "A",
+   "context": "form set forth in Schedule “A” hereto",
+   "target": "not_in_filing"
   }
  ],
  "term_uses": [
@@ -287,15 +294,7 @@
    "count": 4
   }
  ],
- "excluded_xrefs": [
-  {
-   "para": "P18",
-   "head": "schedule",
-   "mention": "“A”",
-   "context": "form set forth in Schedule “A” hereto",
-   "target": "not_in_filing"
-  }
- ],
+ "excluded_xrefs": [],
  "xml_version": 1,
  "set": "heldout-v2",
  "stratum": "2005-14/html",
@@ -546,25 +545,8 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P18",
-    "head": "schedule",
-    "mention": "“A”",
-    "context": "form set forth in Schedule “A” hereto",
-    "target": "not_in_filing"
-   },
-   "checker": {
-    "para": "P18",
-    "head": "schedule",
-    "mention": "A",
-    "context": "form set forth in Schedule “A” hereto",
-    "target": "not_in_filing"
-   },
-   "type": "disagree",
-   "reason": "Mention is the number/letter as printed without the head word; the curly quotes around A are punctuation, not part of the identifier."
-  }
+ "rulings": [
+  "2026-10-29 rubric v1.4 (user): a clause or paragraph of a definition is `inline`",
+  "2026-10-29: user accepted the checker's side on every dispute"
  ]
 }

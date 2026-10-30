@@ -493,6 +493,20 @@
    "mention": "11.3",
    "context": "jurisdiction in this Section 11.3.",
    "target": "s11.3"
+  },
+  {
+   "para": "P5",
+   "head": "exhibit",
+   "mention": "A",
+   "context": "described on Exhibit A hereto.",
+   "target": "not_in_filing"
+  },
+  {
+   "para": "P23",
+   "head": "exhibit",
+   "mention": "B",
+   "context": "substantially in the form of Exhibit B attached hereto",
+   "target": "not_in_filing"
   }
  ],
  "term_uses": [
@@ -547,22 +561,7 @@
    "count": 2
   }
  ],
- "excluded_xrefs": [
-  {
-   "para": "P5",
-   "head": "exhibit",
-   "mention": "A",
-   "context": "described on Exhibit A hereto.",
-   "target": "x-exhibit-a"
-  },
-  {
-   "para": "P23",
-   "head": "exhibit",
-   "mention": "B",
-   "context": "substantially in the form of Exhibit B attached hereto",
-   "target": "x-exhibit-b"
-  }
- ],
+ "excluded_xrefs": [],
  "xml_version": 2,
  "set": "heldout-v2",
  "stratum": "2005-14/html",
@@ -818,44 +817,7 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P5",
-    "head": "exhibit",
-    "mention": "A",
-    "context": "described on Exhibit A hereto.",
-    "target": "x-exhibit-a"
-   },
-   "checker": {
-    "para": "P5",
-    "head": "exhibit",
-    "mention": "A",
-    "context": "described on Exhibit A hereto.",
-    "target": "not_in_filing"
-   },
-   "type": "disagree",
-   "reason": "Outline lists no back-matter attachments, so Exhibit A is not in the filing (ruling 2026-10-23)."
-  },
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P23",
-    "head": "exhibit",
-    "mention": "B",
-    "context": "substantially in the form of Exhibit B attached hereto",
-    "target": "x-exhibit-b"
-   },
-   "checker": {
-    "para": "P23",
-    "head": "exhibit",
-    "mention": "B",
-    "context": "substantially in the form of Exhibit B attached hereto",
-    "target": "not_in_filing"
-   },
-   "type": "disagree",
-   "reason": "Outline lists no back-matter attachments, so Exhibit B is not in the filing."
-  }
+ "rulings": [
+  "2026-10-29: user accepted the checker's side on every dispute"
  ]
 }

@@ -338,10 +338,7 @@
    "mention": "12.4(b)",
    "context": "consent as provided in Section 12.4(b) (DEFENSE COSTS) below",
    "target": "s12.4(b)"
-  }
- ],
- "term_uses": [],
- "excluded_xrefs": [
+  },
   {
    "para": "P55",
    "head": "section",
@@ -357,6 +354,8 @@
    "target": "not_in_filing"
   }
  ],
+ "term_uses": [],
+ "excluded_xrefs": [],
  "xml_version": 1,
  "set": "heldout-v2",
  "stratum": "pre2005/txt",
@@ -662,44 +661,7 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P55",
-    "head": "section",
-    "mention": "12(a)",
-    "context": "set forth in Sections 12(a) and 12(b) do not",
-    "target": "not_in_filing"
-   },
-   "checker": {
-    "para": "P55",
-    "head": "section",
-    "mention": "12(a)",
-    "context": "set forth in Sections 12(a) and 12(b) do not",
-    "target": "s12.3(a)"
-   },
-   "type": "disagree",
-   "reason": "Inside s12.3(c), 'Sections 12(a) and 12(b)' plainly means the Basket in 12.3(a); a careful lawyer reads it as s12.3(a), not a missing section (needs ruling)."
-  },
-  {
-   "section": "xrefs",
-   "draft": {
-    "para": "P55",
-    "head": "section",
-    "mention": "12(b)",
-    "context": "set forth in Sections 12(a) and 12(b) do not",
-    "target": "not_in_filing"
-   },
-   "checker": {
-    "para": "P55",
-    "head": "section",
-    "mention": "12(b)",
-    "context": "set forth in Sections 12(a) and 12(b) do not",
-    "target": "s12.3(b)"
-   },
-   "type": "disagree",
-   "reason": "Same drafting slip: 12(b) is the Maximum Indemnification Amount limitation in 12.3(b) (needs ruling)."
-  }
+ "rulings": [
+  "2026-10-29 rubric v1.4 (user): a drafting typo is labeled by the printed number, so \"Sections 12(a) and 12(b)\" inside 12.3 are not_in_filing"
  ]
 }

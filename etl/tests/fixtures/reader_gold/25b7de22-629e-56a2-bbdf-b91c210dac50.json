@@ -740,6 +740,11 @@
    "term": "Company Stockholders’ Meeting",
    "para": "P40",
    "kind": "paren"
+  },
+  {
+   "term": "$",
+   "para": "P1",
+   "kind": "means"
   }
  ],
  "xrefs": [
@@ -1160,17 +1165,7 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "$",
-    "para": "P1",
-    "kind": "means"
-   },
-   "type": "missing",
-   "reason": "P1 says references to “dollars” or “$” are references to US lawful money; the rubric lets a term start with $; lowercase “dollars” is not a declaration."
-  }
+ "rulings": [
+  "2026-10-29: user accepted the checker's side on every dispute"
  ]
 }

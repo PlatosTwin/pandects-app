@@ -248,21 +248,21 @@
    "head": "clause",
    "mention": "(a)",
    "context": "set forth in clauses (a), (b), and (d)",
-   "target": "s1.1(a)"
+   "target": "inline"
   },
   {
    "para": "P17",
    "head": "clause",
    "mention": "(b)",
    "context": "in clauses (a), (b), and (d) in",
-   "target": "s1.1(b)"
+   "target": "inline"
   },
   {
    "para": "P17",
    "head": "clause",
    "mention": "(d)",
    "context": "(a), (b), and (d) in the definition",
-   "target": "s1.1(d)"
+   "target": "inline"
   },
   {
    "para": "P22",
@@ -968,5 +968,8 @@
    "t": 2,
    "excerpt": "sampled"
   }
- }
+ },
+ "rulings": [
+  "2026-10-29 rubric v1.4 (user): a clause or paragraph of a definition is `inline`"
+ ]
 }

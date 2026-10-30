@@ -273,14 +273,14 @@
    "head": "clause",
    "mention": "(f)",
    "context": "pursuant to clauses (f) or (g) of the",
-   "target": "s1.1"
+   "target": "inline"
   },
   {
    "para": "P7",
    "head": "clause",
    "mention": "(g)",
    "context": "clauses (f) or (g) of the definition",
-   "target": "s1.1"
+   "target": "inline"
   },
   {
    "para": "P7",
@@ -845,5 +845,8 @@
    "excerpt": "sampled"
   }
  },
- "rulings": "2026-10-23: user accepted recommended rulings 1-5 (gold_rubric.md v1.2)"
+ "rulings": [
+  "2026-10-23: user accepted recommended rulings 1-5 (gold_rubric.md v1.2)",
+  "2026-10-29 rubric v1.4 (user): a clause or paragraph of a definition is `inline`"
+ ]
 }

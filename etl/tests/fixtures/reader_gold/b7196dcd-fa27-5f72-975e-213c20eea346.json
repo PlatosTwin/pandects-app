@@ -386,6 +386,13 @@
    "mention": "5.15",
    "context": "pursuant to this Section 5.15, which parachute",
    "target": "s5.15"
+  },
+  {
+   "para": "P16",
+   "head": "schedule",
+   "mention": "A",
+   "context": "on Schedule A to such Reinvestment",
+   "target": "external"
   }
  ],
  "term_uses": [
@@ -420,15 +427,7 @@
    "count": 2
   }
  ],
- "excluded_xrefs": [
-  {
-   "para": "P16",
-   "head": "schedule",
-   "mention": "A",
-   "context": "on Schedule A to such Reinvestment",
-   "target": "external"
-  }
- ],
+ "excluded_xrefs": [],
  "xml_version": 1,
  "set": "heldout-v2",
  "stratum": "2015+/html",
@@ -699,19 +698,7 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "xrefs",
-   "draft": null,
-   "checker": {
-    "para": "P16",
-    "head": "schedule",
-    "mention": "A",
-    "context": "on Schedule A to such Reinvestment",
-    "target": "external"
-   },
-   "type": "missing",
-   "reason": "Schedule A to each Reinvestment Agreement is a schedule of another document."
-  }
+ "rulings": [
+  "2026-10-29: user accepted the checker's side on every dispute"
  ]
 }
