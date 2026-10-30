@@ -342,3 +342,44 @@
     }
   }
 }
+
+@layer components {
+  /* Smart reader overlay (docs/plans/smart-reader.md, Section 6.5). Thousands
+     of these render per agreement, so they are classes, not utility strings. */
+  .reader-term {
+    @apply cursor-pointer rounded-sm underline decoration-foreground/35 decoration-dotted decoration-1 underline-offset-[3px] hover:bg-primary/10 hover:decoration-primary print:no-underline;
+  }
+
+  .reader-term[data-active="true"] {
+    @apply bg-primary/10 decoration-primary;
+  }
+
+  .reader-xref {
+    @apply rounded-sm text-primary underline decoration-primary/40 underline-offset-[3px] hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:text-inherit print:no-underline;
+  }
+
+  /* A cross-reference or "Go to definition" target, marked for a moment. */
+  .reader-flash {
+    animation: reader-flash 1.8s ease-out;
+  }
+
+  @keyframes reader-flash {
+    0%,
+    35% {
+      background-color: hsl(var(--primary) / 0.14);
+      box-shadow: 0 0 0 4px hsl(var(--primary) / 0.14);
+    }
+    100% {
+      background-color: transparent;
+      box-shadow: 0 0 0 4px transparent;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reader-flash {
+      animation: none;
+      outline: 2px solid hsl(var(--primary) / 0.4);
+      outline-offset: 2px;
+    }
+  }
+}

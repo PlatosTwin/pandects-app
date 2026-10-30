@@ -16,6 +16,16 @@ import {
   type XMLNode,
   type XmlNodeMeta,
 } from "@/lib/xml-parser";
+import {
+  anchorText,
+  buildReaderOverlay,
+  collectTextAnchors,
+  isLinkedXref,
+  type OverlayRange,
+  type ReaderIndex,
+  type ReaderOverlay,
+} from "@/lib/reader-index";
+import type { TermHighlightMode } from "@/components/reader/reader-preferences";
 
 interface XMLRendererProps {
   xmlContent: string;
@@ -40,6 +50,15 @@ interface XMLRendererProps {
   revealRequest?: { uuid: string; seq: number } | null;
   /** Per-section heading actions (agreement mode, `<section>` nodes only). Must be stable. */
   renderSectionActions?: (section: { uuid: string; title: string }) => ReactNode;
+  /**
+   * Smart-reader index for this XML (agreement mode). Term uses and
+   * cross-references render as `.reader-term` / `.reader-xref` spans; the
+   * reader handles their events by delegation.
+   */
+  readerIndex?: ReaderIndex | null;
+  termMode?: TermHighlightMode;
+  /** Called with the overlay built from `readerIndex` (null without one). */
+  onOverlayChange?: (overlay: ReaderOverlay | null) => void;
 }
 
 const EMPTY_SET: ReadonlySet<string> = new Set<string>();
@@ -139,6 +158,10 @@ interface SharedNodeProps {
   matchedSectionUuids: ReadonlySet<string>;
   currentMatchUuid: string | null;
   renderSectionActions?: (section: { uuid: string; title: string }) => ReactNode;
+  overlay: ReaderOverlay | null;
+  /** `<text>` tag node -> anchor key, only while there is an overlay. */
+  anchorKeys: Map<XMLNode, string> | null;
+  termMode: TermHighlightMode;
 }
 
 interface XMLNodeViewProps extends SharedNodeProps {
@@ -251,6 +274,9 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
     matchedSectionUuids,
     currentMatchUuid,
     renderSectionActions,
+    overlay,
+    anchorKeys,
+    termMode,
   } = props;
 
   if (node.type === "text") {
@@ -300,6 +326,9 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
     matchedSectionUuids,
     currentMatchUuid,
     renderSectionActions,
+    overlay,
+    anchorKeys,
+    termMode,
   };
 
   if (mode === "agreement" && node.tagName === "metadata") {
@@ -340,9 +369,30 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
         </div>
       );
     } else {
-      // In agreement mode, just render content without tags
+      // In agreement mode, just render content without tags. With a reader
+      // index the leading text gets its term and cross-reference spans,
+      // except while find is open (find marks win).
+      const anchor = anchorKeys?.get(node);
+      const ranges = anchor && !findRegex ? overlay?.rangesByKey.get(anchor) : undefined;
+      const [first, ...rest] = node.children ?? [];
+      if (ranges && first?.type === "text") {
+        return (
+          <div className="my-1 leading-relaxed" data-anchor={anchor}>
+            <span
+              className={
+                isMobile
+                  ? "whitespace-pre-line break-words [overflow-wrap:anywhere]"
+                  : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+              }
+            >
+              {renderOverlayText(anchorText(first.content), ranges, overlay!, termMode)}
+            </span>
+            {renderNodeList(rest, depth + 1, node.tagName, shared)}
+          </div>
+        );
+      }
       return (
-        <div className="my-1 leading-relaxed">
+        <div className="my-1 leading-relaxed" data-anchor={anchor}>
           {renderNodeList(node.children, depth + 1, node.tagName, shared)}
         </div>
       );
@@ -577,6 +627,48 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
   );
 }
 
+function renderOverlayText(
+  text: string,
+  ranges: OverlayRange[],
+  overlay: ReaderOverlay,
+  termMode: TermHighlightMode,
+): ReactNode[] {
+  const out: ReactNode[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    let element: ReactNode = null;
+    if (range.kind === "xref") {
+      if (isLinkedXref(range.xref)) {
+        element = (
+          <a
+            key={range.start}
+            href={`#${encodeURIComponent(range.xref.target!)}`}
+            className="reader-xref"
+            data-xref-index={range.index}
+          >
+            {text.slice(range.start, range.end)}
+          </a>
+        );
+      }
+    } else if (termMode !== "off") {
+      const term = overlay.termsById.get(range.termId);
+      if (term && (termMode === "all" || term.confidence !== "low")) {
+        element = (
+          <span key={range.start} className="reader-term" data-term-id={range.termId}>
+            {text.slice(range.start, range.end)}
+          </span>
+        );
+      }
+    }
+    if (!element) continue;
+    if (range.start > cursor) out.push(text.slice(cursor, range.start));
+    out.push(element);
+    cursor = range.end;
+  }
+  if (cursor < text.length) out.push(text.slice(cursor));
+  return out;
+}
+
 function regexHits(regex: RegExp, text: string): boolean {
   regex.lastIndex = 0;
   const hit = regex.test(text);
@@ -626,7 +718,9 @@ function xmlNodeViewPropsEqual(
     prev.mode !== next.mode ||
     prev.isMobile !== next.isMobile ||
     prev.meta !== next.meta ||
-    prev.onToggleCollapse !== next.onToggleCollapse
+    prev.onToggleCollapse !== next.onToggleCollapse ||
+    prev.overlay !== next.overlay ||
+    prev.termMode !== next.termMode
   ) {
     return false;
   }
@@ -677,19 +771,36 @@ export function XMLRenderer({
   currentMatchUuid = null,
   revealRequest = null,
   renderSectionActions,
+  readerIndex = null,
+  termMode = "distinctive",
+  onOverlayChange,
 }: XMLRendererProps) {
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
+  const parsedDocument = useMemo(() => parseXMLContent(xmlContent), [xmlContent]);
   const {
     nodes: parsedXML,
     meta,
     uuidPaths,
   } = useMemo(() => {
-    const parsed = parseXMLContent(xmlContent);
     const nodes = showBodyOnly
-      ? (findFirstTagNode(parsed, "body")?.children ?? parsed)
-      : parsed;
+      ? (findFirstTagNode(parsedDocument, "body")?.children ?? parsedDocument)
+      : parsedDocument;
     return { nodes, ...buildXmlTreeIndex(nodes) };
-  }, [showBodyOnly, xmlContent]);
+  }, [parsedDocument, showBodyOnly]);
+
+  // Anchors follow the whole document, so the body-only view keeps them.
+  const { overlay, anchorKeys } = useMemo(() => {
+    if (!readerIndex || mode !== "agreement") return { overlay: null, anchorKeys: null };
+    const anchors = collectTextAnchors(parsedDocument);
+    return {
+      overlay: buildReaderOverlay(readerIndex, anchors),
+      anchorKeys: anchors.keyByNode,
+    };
+  }, [mode, parsedDocument, readerIndex]);
+
+  useEffect(() => {
+    onOverlayChange?.(overlay);
+  }, [onOverlayChange, overlay]);
 
   // Path-based collapse ids shift when the rendered tree changes, so reset
   // collapse state whenever the document or the body-only view changes.
@@ -767,6 +878,9 @@ export function XMLRenderer({
     matchedSectionUuids: matchedSectionUuids ?? EMPTY_SET,
     currentMatchUuid,
     renderSectionActions,
+    overlay,
+    anchorKeys,
+    termMode,
   };
 
   return (

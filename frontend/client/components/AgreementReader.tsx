@@ -7,8 +7,9 @@ import {
   useTransition,
 } from "react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import {
+  ArrowLeft,
   FileSearch,
   Info,
   ListTree,
@@ -17,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { StarButton } from "@/components/StarButton";
-import { useAgreementQuery, useAgreementSections } from "@/hooks/use-agreement";
+import { useAgreementQuery, useAgreementSections, useReaderIndex } from "@/hooks/use-agreement";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useScrollSpy } from "@/hooks/use-scroll-spy";
@@ -55,7 +56,22 @@ import { useTaxonomy } from "@/hooks/use-taxonomy";
 import { indexClauseTypePaths } from "@/lib/clause-type-index";
 import { ReaderDetails } from "@/components/reader/ReaderDetails";
 import { SectionActions } from "@/components/reader/SectionActions";
-import { readContentsOpen, writeContentsOpen } from "@/components/reader/reader-preferences";
+import {
+  isSmartReaderEnabled,
+  readContentsOpen,
+  readTermHighlightMode,
+  writeContentsOpen,
+  writeTermHighlightMode,
+  type TermHighlightMode,
+} from "@/components/reader/reader-preferences";
+import { ReaderOverlayLayer, outlineNodeName } from "@/components/reader/ReaderOverlayLayer";
+import {
+  anchorKey,
+  outlineTrail,
+  type ReaderOutlineNode,
+  type ReaderOverlay,
+  type ReaderXref,
+} from "@/lib/reader-index";
 import { extractSectionPlainText, sectionShortLabel } from "@/components/reader/section-text";
 import { useFindInDocument } from "@/components/reader/use-find-in-document";
 import { useMediaQuery } from "@/components/reader/use-media-query";
@@ -74,6 +90,7 @@ import {
 } from "@/lib/format-utils";
 import { formatIndustry } from "@/lib/naics";
 import { prefersReducedMotion } from "@/lib/scroll";
+import { decodeXmlEntities } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
 
 interface AgreementReaderProps {
@@ -108,6 +125,38 @@ function indexDocumentSections(xml: string): Map<string, DocSectionInfo> {
     map.set(uuid, { title: match[2].match(TITLE_ATTR_RE)?.[1] ?? "", order: order++ });
   }
   return map;
+}
+
+/** Containers that are regions, not sections; the scroll-spy ids them by element id. */
+const REGION_CONTAINERS = new Set(["frontMatter", "tableOfContents", "body", "sigPages", "backMatter"]);
+const FLASH_MS = 1800;
+
+/** History state the smart reader puts on entries it creates or leaves. */
+interface ReaderHistoryState {
+  /** Scroll position to restore when the user comes Back to this entry. */
+  readerY?: number;
+  /** Set on the entry a cross-reference pushed: the outline id it went to. */
+  readerJump?: string;
+  /** "Section 5.2(c)": where that cross-reference was. */
+  readerBack?: string;
+}
+
+function spyIdFor(container: string): string {
+  return REGION_CONTAINERS.has(container) ? `agreement-region-${container}` : container;
+}
+
+/** The section, or subsection, an anchor key sits in, for the Back chip. */
+function placeOfAnchor(overlay: ReaderOverlay, key: string): string | null {
+  const cut = key.lastIndexOf("/");
+  const container = key.slice(0, cut);
+  const t = Number(key.slice(cut + 1));
+  const node = overlay.outlineByUuid.get(container);
+  if (!node) return null;
+  let place: ReaderOutlineNode = node;
+  for (const child of node.children ?? []) {
+    if (child.anchor.s === container && child.anchor.t != null && child.anchor.t <= t) place = child;
+  }
+  return outlineNodeName(place);
 }
 
 function errorFromMessage(message: string | null) {
@@ -186,6 +235,15 @@ export function AgreementReader({
     null,
   );
   const [stickyBottom, setStickyBottom] = useState(SITE_NAV_HEIGHT + 48);
+  // ---- Smart reader (flagged) ---------------------------------------------
+  const [smartReader] = useState(isSmartReaderEnabled);
+  const [termMode, setTermModeState] = useState<TermHighlightMode>(readTermHighlightMode);
+  const [overlay, setOverlay] = useState<ReaderOverlay | null>(null);
+  const readerIndex = useReaderIndex(agreementUuid, focusSectionUuid, smartReader);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const historyState = (location.state ?? null) as ReaderHistoryState | null;
   // The document renders in a transition so a 500-section agreement doesn't
   // freeze the header while it mounts; the skeleton stays up meanwhile.
   const [renderedXml, setRenderedXml] = useState<string | null>(null);
@@ -198,6 +256,8 @@ export function AgreementReader({
   const stickyBottomRef = useRef(stickyBottom);
   const revealSeqRef = useRef(0);
   const jumpTimerRef = useRef<number | null>(null);
+  const flashTimerRef = useRef<number | null>(null);
+  const handledLocationKeyRef = useRef<string | null>(null);
 
   const xml = agreement?.xml ?? null;
   const docReady = xml !== null && renderedXml === xml;
@@ -206,6 +266,11 @@ export function AgreementReader({
     if (xml === null) return;
     startDocTransition(() => setRenderedXml(xml));
   }, [xml]);
+
+  const setTermMode = useCallback((mode: TermHighlightMode) => {
+    setTermModeState(mode);
+    writeTermHighlightMode(mode);
+  }, []);
 
   const setContentsOpen = useCallback((open: boolean) => {
     setContentsOpenState(open);
@@ -308,17 +373,32 @@ export function AgreementReader({
     [finishJump],
   );
 
-  const scrollToSection = useCallback(
-    (sectionUuid: string, options?: { instant?: boolean }) => {
+  const flashElement = useCallback((element: Element) => {
+    if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+    element.classList.remove("reader-flash");
+    // Restart the animation when the same target is flashed twice.
+    void (element as HTMLElement).offsetWidth;
+    element.classList.add("reader-flash");
+    flashTimerRef.current = window.setTimeout(() => element.classList.remove("reader-flash"), FLASH_MS);
+  }, []);
+
+  /**
+   * Expand the collapsed ancestors of `container` (a section/article uuid or
+   * a region), then scroll to the element `selector` finds.
+   */
+  const scrollToTarget = useCallback(
+    (
+      selector: string,
+      container: string,
+      options?: { instant?: boolean; flash?: boolean },
+    ) => {
       revealSeqRef.current += 1;
-      setRevealRequest({ uuid: sectionUuid, seq: revealSeqRef.current });
-      setJumpingUuid(sectionUuid);
-      notifyJump(sectionUuid);
+      setRevealRequest({ uuid: container, seq: revealSeqRef.current });
+      setJumpingUuid(container);
+      notifyJump(spyIdFor(container));
       setTocSheetOpen(false);
       const attempt = (retriesLeft: number) => {
-        const element = contentRef.current?.querySelector(
-          `[data-section-uuid="${sectionUuid}"]`,
-        );
+        const element = contentRef.current?.querySelector(selector);
         if (!element) {
           // The target may sit inside a collapsed article: the reveal request
           // expands it on the next render, so retry briefly.
@@ -327,10 +407,61 @@ export function AgreementReader({
           return;
         }
         scrollToElement(element, options?.instant ?? false);
+        if (options?.flash) flashElement(element);
       };
       attempt(6);
     },
-    [finishJump, notifyJump, scrollToElement],
+    [finishJump, flashElement, notifyJump, scrollToElement],
+  );
+
+  const scrollToSection = useCallback(
+    (sectionUuid: string, options?: { instant?: boolean }) =>
+      scrollToTarget(`[data-section-uuid="${sectionUuid}"]`, sectionUuid, options),
+    [scrollToTarget],
+  );
+
+  const scrollToTextAnchor = useCallback(
+    (key: string, container: string, options?: { instant?: boolean }) =>
+      scrollToTarget(`[data-anchor="${CSS.escape(key)}"]`, container, { ...options, flash: true }),
+    [scrollToTarget],
+  );
+
+  /** Jump to an outline node: sections and articles by uuid, subsections by text anchor. */
+  const jumpToOutline = useCallback(
+    (id: string, options?: { instant?: boolean }): boolean => {
+      const node = overlay?.outlineById.get(id);
+      if (!node) return false;
+      if (node.anchor.t == null) scrollToSection(node.anchor.s, options);
+      else scrollToTextAnchor(anchorKey(node.anchor), node.anchor.s, options);
+      return true;
+    },
+    [overlay, scrollToSection, scrollToTextAnchor],
+  );
+
+  // A cross-reference jump is a history entry: Back returns to the citing
+  // text (the entry left behind keeps its scroll position), and the new
+  // entry's hash is the target's outline id, so the URL can be shared.
+  const followXref = useCallback(
+    (xref: ReaderXref, source: HTMLElement) => {
+      if (!xref.target || !overlay?.outlineById.has(xref.target)) return;
+      const sourceKey = source.closest("[data-anchor]")?.getAttribute("data-anchor");
+      const here = { pathname: window.location.pathname, search: window.location.search };
+      navigate(
+        { ...here, hash: window.location.hash },
+        { replace: true, state: { ...historyState, readerY: window.scrollY } satisfies ReaderHistoryState },
+      );
+      navigate(
+        { ...here, hash: `#${encodeURIComponent(xref.target)}` },
+        {
+          state: {
+            readerJump: xref.target,
+            readerBack: (sourceKey && placeOfAnchor(overlay, sourceKey)) || undefined,
+          } satisfies ReaderHistoryState,
+        },
+      );
+      jumpToOutline(xref.target);
+    },
+    [historyState, jumpToOutline, navigate, overlay],
   );
 
   const scrollToAnchor = useCallback(
@@ -347,9 +478,45 @@ export function AgreementReader({
   useEffect(
     () => () => {
       if (jumpTimerRef.current !== null) window.clearTimeout(jumpTimerRef.current);
+      if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
     },
     [],
   );
+
+  // Back/Forward and deep links. Entries this reader pushed are handled where
+  // they're pushed; a POP restores the scroll position the entry was left at,
+  // or resolves its `#s4.3(b)` hash through the outline. On first load a
+  // focus section (from search) wins over a hash.
+  useEffect(() => {
+    if (!overlay || !docReady) return;
+    if (handledLocationKeyRef.current === location.key) return;
+    const isFirst = handledLocationKeyRef.current === null;
+    handledLocationKeyRef.current = location.key;
+    if (navigationType !== "POP") return;
+    if (historyState?.readerY != null) {
+      window.scrollTo({ top: historyState.readerY });
+      return;
+    }
+    if (isFirst && focusSectionUuid) return;
+    const hash = location.hash.slice(1);
+    if (!hash) return;
+    let id = hash;
+    try {
+      id = decodeURIComponent(hash);
+    } catch {
+      // A malformed escape: try the raw hash.
+    }
+    jumpToOutline(id, { instant: isFirst });
+  }, [
+    docReady,
+    focusSectionUuid,
+    historyState,
+    jumpToOutline,
+    location.hash,
+    location.key,
+    navigationType,
+    overlay,
+  ]);
 
   // A new focus (e.g. a pasted section link within the same agreement)
   // becomes the current match.
@@ -441,6 +608,27 @@ export function AgreementReader({
 
   // ---- Panels ----------------------------------------------------------------
   const showContentsPanel = isDesktopContents && contentsOpen;
+
+  // Breadcrumb for the section the scroll-spy says is current.
+  const breadcrumb = useMemo(() => {
+    const node = spyActiveId ? overlay?.outlineByUuid.get(spyActiveId) : undefined;
+    if (!overlay || !node) return null;
+    return outlineTrail(overlay, node.id).map((item) => ({
+      id: item.id,
+      text:
+        item.kind === "article"
+          ? outlineNodeName(item)
+          : decodeXmlEntities(item.title) || outlineNodeName(item),
+    }));
+  }, [overlay, spyActiveId]);
+
+  const subsectionsFor = useCallback(
+    (sectionUuid: string) =>
+      (overlay?.outlineByUuid.get(sectionUuid)?.children ?? []).filter(
+        (child) => child.kind === "sub",
+      ),
+    [overlay],
+  );
   const toggleContents = () => {
     if (isDesktopContents) setContentsOpen(!contentsOpen);
     else setTocSheetOpen(true);
@@ -572,6 +760,8 @@ export function AgreementReader({
       visibleSectionUuids={visibleSectionUuids}
       matchedSectionUuids={matchedSet}
       sectionIndexError={sectionIndexError}
+      subsectionsFor={overlay ? subsectionsFor : undefined}
+      onSubsectionClick={(id) => jumpToOutline(id)}
     />
   );
 
@@ -734,6 +924,22 @@ export function AgreementReader({
                   <DropdownMenuRadioItem value="large">Large</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
+                {overlay ? (
+                  <>
+                    <DropdownMenuLabel>Defined terms</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={termMode}
+                      onValueChange={(value) => setTermMode(value as TermHighlightMode)}
+                    >
+                      <DropdownMenuRadioItem value="distinctive">Underline</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="all">
+                        Underline all, incl. common words
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                  </>
+                ) : null}
                 <DropdownMenuItem
                   onSelect={() => {
                     const href = `${window.location.origin}${buildAgreementHref({ agreementUuid })}`;
@@ -764,6 +970,33 @@ export function AgreementReader({
               </div>
             ) : null}
           </div>
+
+          {/* The row is kept while there is an index, even outside any
+              section, so the sticky header doesn't change height mid-scroll. */}
+          {overlay ? (
+            <nav
+              aria-label="Current section"
+              className="-mt-1 hidden h-6 min-w-0 text-xs text-muted-foreground md:block"
+            >
+              <ol className="flex min-w-0 items-center gap-1.5">
+                {(breadcrumb ?? []).map((item, index) => (
+                  <li key={item.id} className="flex min-w-0 items-center gap-1.5">
+                    {index > 0 ? <span aria-hidden="true">›</span> : null}
+                    <button
+                      type="button"
+                      className="min-w-0 truncate rounded-sm hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => jumpToOutline(item.id)}
+                      aria-current={
+                        index === (breadcrumb?.length ?? 0) - 1 ? "location" : undefined
+                      }
+                    >
+                      {item.text}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          ) : null}
 
           {/* Match strip: under the header on md+, a floating bar on phones so
               the sticky chrome stays one row. */}
@@ -895,6 +1128,9 @@ export function AgreementReader({
                     currentMatchUuid={currentMatchUuid}
                     revealRequest={revealRequest}
                     renderSectionActions={renderSectionActions}
+                    readerIndex={readerIndex}
+                    termMode={termMode}
+                    onOverlayChange={setOverlay}
                   />
                 ) : (
                   <div role="status" className="space-y-3">
@@ -922,6 +1158,32 @@ export function AgreementReader({
           <div className="py-2">{contents}</div>
         </SheetContent>
       </Sheet>
+
+      {overlay && docReady ? (
+        <ReaderOverlayLayer
+          overlay={overlay}
+          containerRef={contentRef}
+          isMobile={isMobile}
+          onFollowXref={followXref}
+          onGoToAnchor={(key, container) => scrollToTextAnchor(key, container)}
+        />
+      ) : null}
+
+      {overlay && historyState?.readerJump ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(
+            "fixed left-1/2 z-30 -translate-x-1/2 gap-1.5 rounded-full bg-background shadow-overlay print:hidden",
+            showMatchStrip ? "max-md:bottom-20 md:bottom-6" : "bottom-6",
+          )}
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {historyState.readerBack ? `Back to ${historyState.readerBack}` : "Back"}
+        </Button>
+      ) : null}
 
       <Sheet open={detailsSheetOpen} onOpenChange={setDetailsSheetOpen}>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">

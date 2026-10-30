@@ -1,0 +1,411 @@
+{
+ "texts": {
+  "frontMatter/0": "EXECUTION VERSION – Confidential",
+  "body/0": "AGREEMENT AND PLAN OF MERGER (this “Agreement”), dated as of May 1, 2024, among Alpha & Omega Holdings, Inc., a Delaware corporation (“Parent”), and Beta Corp. 𝔅 Ltd., a Delaware corporation (the “Company”).",
+  "body/1": "WHEREAS, the parties intend the merger to qualify under § 368(a) of the Code, as described in Section 1.1 and Section 2.1(b);",
+  "art-1/0": "This Article I applies to the “Company” and to Parent.",
+  "sec-1-1/0": "(a) “Business Day” means any day other than a Saturday — or Sunday — on which banks in New York are open; “Closing” has the meaning set forth in Section 2.1.",
+  "sec-1-1/1": "“Material Adverse Effect” means any change that is material to the Company 𝔅 & its Subsidiaries, see Section 2.1(b).",
+  "sec-1-1/2": "(b) Each Business Day of the Company is a “Trading Day”.",
+  "art-1/1": "Text in a section without a uuid stays in the article container; the Closing occurs on a Business Day.",
+  "sec-2-1/0": "(a) The Closing shall take place on the second Business Day after the conditions in Section 1.1 are satisfied.",
+  "sec-2-1/1": "(b) At the Closing, the Company and Parent shall deliver the documents described in Section 2.1(a).",
+  "backMatter/0": "Exhibit A – Form of Certificate; the Company’s charter, Section 1.1."
+ },
+ "payload": {
+  "outline": [
+   {
+    "id": "a1",
+    "kind": "article",
+    "label": "I",
+    "title": "ARTICLE I DEFINITIONS",
+    "anchor": {
+     "s": "art-1"
+    },
+    "children": [
+     {
+      "id": "s1.1",
+      "kind": "section",
+      "label": "1.1",
+      "title": "Section 1.1 Definitions.",
+      "anchor": {
+       "s": "sec-1-1"
+      },
+      "children": [
+       {
+        "id": "s1.1(a)",
+        "kind": "sub",
+        "label": "1.1(a)",
+        "title": "(a) “Business Day” means any day other than a Saturday — or Sunday — on which ba",
+        "anchor": {
+         "s": "sec-1-1",
+         "t": 0
+        }
+       },
+       {
+        "id": "s1.1(b)",
+        "kind": "sub",
+        "label": "1.1(b)",
+        "title": "(b) Each Business Day of the Company is a “Trading Day”.",
+        "anchor": {
+         "s": "sec-1-1",
+         "t": 2
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "a2",
+    "kind": "article",
+    "label": "II",
+    "title": "ARTICLE II THE MERGER",
+    "anchor": {
+     "s": "art-2"
+    },
+    "children": [
+     {
+      "id": "s2.1",
+      "kind": "section",
+      "label": "2.1",
+      "title": "Section 2.1 Closing.",
+      "anchor": {
+       "s": "sec-2-1"
+      },
+      "children": [
+       {
+        "id": "s2.1(a)",
+        "kind": "sub",
+        "label": "2.1(a)",
+        "title": "(a) The Closing shall take place on the second Business Day after the conditions",
+        "anchor": {
+         "s": "sec-2-1",
+         "t": 0
+        }
+       },
+       {
+        "id": "s2.1(b)",
+        "kind": "sub",
+        "label": "2.1(b)",
+        "title": "(b) At the Closing, the Company and Parent shall deliver the documents described",
+        "anchor": {
+         "s": "sec-2-1",
+         "t": 1
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "x-exhibit-a",
+    "kind": "attachment",
+    "label": "A",
+    "title": "Exhibit A – Form of Certificate; the Company’s charter, Section 1.1.",
+    "anchor": {
+     "s": "backMatter",
+     "t": 0
+    }
+   }
+  ],
+  "terms": [
+   {
+    "id": 0,
+    "term": "Agreement",
+    "decls": [
+     {
+      "anchor": {
+       "s": "body",
+       "t": 0
+      },
+      "span": [
+       36,
+       45
+      ],
+      "kind": "paren",
+      "in": "body"
+     }
+    ],
+    "confidence": "low"
+   },
+   {
+    "id": 1,
+    "term": "Parent",
+    "decls": [
+     {
+      "anchor": {
+       "s": "body",
+       "t": 0
+      },
+      "span": [
+       135,
+       141
+      ],
+      "kind": "paren",
+      "in": "body"
+     }
+    ],
+    "confidence": "high"
+   },
+   {
+    "id": 2,
+    "term": "Company",
+    "decls": [
+     {
+      "anchor": {
+       "s": "body",
+       "t": 0
+      },
+      "span": [
+       198,
+       205
+      ],
+      "kind": "paren",
+      "in": "body"
+     }
+    ],
+    "confidence": "high"
+   },
+   {
+    "id": 3,
+    "term": "Business Day",
+    "decls": [
+     {
+      "anchor": {
+       "s": "sec-1-1",
+       "t": 0
+      },
+      "span": [
+       5,
+       17
+      ],
+      "kind": "means",
+      "in": "Section 1.1"
+     }
+    ],
+    "confidence": "high"
+   },
+   {
+    "id": 4,
+    "term": "Closing",
+    "decls": [
+     {
+      "anchor": {
+       "s": "sec-1-1",
+       "t": 0
+      },
+      "span": [
+       107,
+       114
+      ],
+      "kind": "pointer",
+      "in": "Section 1.1",
+      "pointer": "Section 2.1"
+     }
+    ],
+    "confidence": "high"
+   },
+   {
+    "id": 5,
+    "term": "Material Adverse Effect",
+    "decls": [
+     {
+      "anchor": {
+       "s": "sec-1-1",
+       "t": 1
+      },
+      "span": [
+       1,
+       24
+      ],
+      "kind": "element",
+      "in": "Section 1.1"
+     }
+    ],
+    "confidence": "high"
+   }
+  ],
+  "uses": {
+   "art-1/0": [
+    [
+     47,
+     53,
+     1
+    ]
+   ],
+   "sec-1-1/1": [
+    [
+     67,
+     74,
+     2
+    ]
+   ],
+   "sec-1-1/2": [
+    [
+     9,
+     21,
+     3
+    ],
+    [
+     29,
+     36,
+     2
+    ]
+   ],
+   "art-1/1": [
+    [
+     69,
+     76,
+     4
+    ],
+    [
+     89,
+     101,
+     3
+    ]
+   ],
+   "sec-2-1/0": [
+    [
+     8,
+     15,
+     4
+    ],
+    [
+     47,
+     59,
+     3
+    ]
+   ],
+   "sec-2-1/1": [
+    [
+     11,
+     18,
+     4
+    ],
+    [
+     24,
+     31,
+     2
+    ],
+    [
+     36,
+     42,
+     1
+    ]
+   ],
+   "backMatter/0": [
+    [
+     37,
+     46,
+     2
+    ]
+   ]
+  },
+  "xrefs": [
+   {
+    "at": {
+     "s": "body",
+     "t": 1
+    },
+    "span": [
+     94,
+     105
+    ],
+    "text": "Section 1.1",
+    "status": "resolved",
+    "target": "s1.1"
+   },
+   {
+    "at": {
+     "s": "body",
+     "t": 1
+    },
+    "span": [
+     110,
+     124
+    ],
+    "text": "Section 2.1(b)",
+    "status": "resolved",
+    "target": "s2.1(b)"
+   },
+   {
+    "at": {
+     "s": "art-1",
+     "t": 0
+    },
+    "span": [
+     5,
+     14
+    ],
+    "text": "Article I",
+    "status": "resolved",
+    "target": "a1"
+   },
+   {
+    "at": {
+     "s": "sec-1-1",
+     "t": 0
+    },
+    "span": [
+     145,
+     156
+    ],
+    "text": "Section 2.1",
+    "status": "resolved",
+    "target": "s2.1"
+   },
+   {
+    "at": {
+     "s": "sec-1-1",
+     "t": 1
+    },
+    "span": [
+     102,
+     116
+    ],
+    "text": "Section 2.1(b)",
+    "status": "resolved",
+    "target": "s2.1(b)"
+   },
+   {
+    "at": {
+     "s": "sec-2-1",
+     "t": 0
+    },
+    "span": [
+     84,
+     95
+    ],
+    "text": "Section 1.1",
+    "status": "resolved",
+    "target": "s1.1"
+   },
+   {
+    "at": {
+     "s": "sec-2-1",
+     "t": 1
+    },
+    "span": [
+     84,
+     98
+    ],
+    "text": "Section 2.1(a)",
+    "status": "resolved",
+    "target": "s2.1(a)"
+   },
+   {
+    "at": {
+     "s": "backMatter",
+     "t": 0
+    },
+    "span": [
+     56,
+     67
+    ],
+    "text": "Section 1.1",
+    "status": "unresolved"
+   }
+  ]
+ }
+}
