@@ -924,7 +924,8 @@ The reader uses the index behind a flag. The flag is on in development and on a 
 
 - **Anchors.** `client/lib/reader-index.ts` walks the parsed XML the same way `_collect_texts` does. It gives every `<text>` element its `<container>/<t>` key and the text the enricher read.
 - **Contract test.** One fixture, `etl/tests/fixtures/reader_offset_contract/`, has entities, a non-breaking space, a non-BMP character, a `<definition>`, a page marker and a section without a uuid. The pytest and the vitest both check it, so a change on either side fails one of them. The test caught one real difference on its first run: an escaped `&#160;` is decoded before the non-breaking-space replacement on the enricher side, and the reader now does the same.
-- **Every range is checked before it renders.** A cross-reference has to slice to exactly its printed text. A term use has to share all but its last two characters with the term, which covers plurals, possessives and singulars of plural terms. Anything that doesn't line up is dropped. A stale index, or an anonymous document whose ordinals moved, therefore loses underlines rather than drawing them on the wrong words.
+- **Every range and anchor is checked before it is used.** Declarations and subsection anchors are checked too: the text at a subsection's anchor has to start like its outline title. Anonymous redaction can shift ordinals in a container that holds a section without a uuid, and a misaligned declaration then shows only where it is defined. A jump whose exact paragraph never renders lands on its section or region.
+- **Range checks in detail.** A cross-reference has to slice to exactly its printed text. A term use has to share all but its last two characters with the term, which covers plurals, possessives and singulars of plural terms. Anything that doesn't line up is dropped. A stale index, or an anonymous document whose ordinals moved, therefore loses underlines rather than drawing them on the wrong words.
 - **Terms.** Terms get a dotted underline. Low-confidence terms are hidden by default (decision 11.7), and the More menu offers Underline / Underline all / Off, remembered per browser.
   - A 300 ms hover, or a click, opens one shared popover. It shows the definition excerpt, "Go to definition" and the use count.
   - On phones, a tap opens a bottom sheet.
@@ -933,7 +934,7 @@ The reader uses the index behind a flag. The flag is on in development and on a 
   - Following one pushes a history entry with the target's outline id as the hash (`#s4.5(a)`), and a "Back to Section 1.1(a)" chip appears.
   - The browser's Back restores the exact scroll position.
   - Subsection targets flash briefly.
-- **Deep links.** A `#s6.4` hash on load resolves through the outline. `?focusSectionUuid=` still wins when both are present.
+- **Deep links.** A `#s6.4` hash on load resolves through the outline. It wins over `?focusSectionUuid=` for where the page opens, so a URL copied after following a cross-reference opens where it was copied. The focus section still sets the anonymous redaction window and the match marker.
 - **Contents and breadcrumb.** The current section lists its subsections in Contents. A breadcrumb row (Article › Section) sits in the sticky header on md+, and its height stays the same as you scroll.
 - **Find.** While find is open, text renders without the overlay, so find marks win.
 

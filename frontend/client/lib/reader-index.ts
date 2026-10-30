@@ -95,6 +95,13 @@ export interface ReaderOverlay {
   outlinePath: Map<string, string[]>;
   /** Section or article uuid -> its outline node. */
   outlineByUuid: Map<string, ReaderOutlineNode>;
+  /**
+   * Declarations and subsection outline nodes whose anchor points at the text
+   * they claim (see buildReaderOverlay). Others get no preview and no jump to
+   * the exact paragraph.
+   */
+  alignedDecls: Set<ReaderTermDecl>;
+  alignedOutline: Set<string>;
   /** Anchor key -> non-overlapping ranges in document order. */
   rangesByKey: Map<string, OverlayRange[]>;
   textByKey: Map<string, string>;
@@ -142,6 +149,8 @@ export function buildReaderOverlay(index: ReaderIndex, anchors: TextAnchors): Re
     outlineById: new Map(),
     outlinePath: new Map(),
     outlineByUuid: new Map(),
+    alignedDecls: new Set(),
+    alignedOutline: new Set(),
     rangesByKey: new Map(),
     textByKey: anchors.textByKey,
   };
@@ -188,6 +197,28 @@ export function buildReaderOverlay(index: ReaderIndex, anchors: TextAnchors): Re
       kept.push(range);
     }
     overlay.rangesByKey.set(key, kept);
+  }
+
+  // Redaction can shift ordinals in a container that holds a uuid-less
+  // section, so a declaration or subsection anchor may name a different
+  // paragraph in the XML the reader holds. Check them like uses.
+  for (const term of index.terms) {
+    for (const decl of term.decls) {
+      if (!decl.anchor || decl.anchor.t == null || decl.span?.length !== 2) continue;
+      const text = anchors.textByKey.get(anchorKey(decl.anchor));
+      const slice = text?.slice(decl.span[0], decl.span[1]);
+      if (slice !== undefined && [term.term, decl.as].some((t) => t && spanMatchesTerm(slice, t))) {
+        overlay.alignedDecls.add(decl);
+      }
+    }
+  }
+  for (const node of overlay.outlineById.values()) {
+    if (node.anchor.t == null) continue;
+    const text = anchors.textByKey.get(anchorKey(node.anchor));
+    const head = (s: string) => s.replace(/\s+/g, " ").trim().slice(0, 24);
+    if (text !== undefined && head(text) === head(decodeXmlEntities(node.title))) {
+      overlay.alignedOutline.add(node.id);
+    }
   }
   return overlay;
 }

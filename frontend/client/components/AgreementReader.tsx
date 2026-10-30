@@ -392,6 +392,11 @@ export function AgreementReader({
       container: string,
       options?: { instant?: boolean; flash?: boolean },
     ) => {
+      // When the exact target never renders (redacted, or outside the
+      // body-only view) land on its section or region instead.
+      const fallback = REGION_CONTAINERS.has(container)
+        ? `#agreement-region-${container}`
+        : `[data-section-uuid="${CSS.escape(container)}"]`;
       revealSeqRef.current += 1;
       setRevealRequest({ uuid: container, seq: revealSeqRef.current });
       setJumpingUuid(container);
@@ -402,7 +407,12 @@ export function AgreementReader({
         if (!element) {
           // The target may sit inside a collapsed article: the reveal request
           // expands it on the next render, so retry briefly.
-          if (retriesLeft > 0) window.setTimeout(() => attempt(retriesLeft - 1), 80);
+          if (retriesLeft > 0) {
+            window.setTimeout(() => attempt(retriesLeft - 1), 80);
+            return;
+          }
+          const container = contentRef.current?.querySelector(fallback);
+          if (container) scrollToElement(container, options?.instant ?? false);
           else finishJump();
           return;
         }
@@ -431,11 +441,19 @@ export function AgreementReader({
     (id: string, options?: { instant?: boolean }): boolean => {
       const node = overlay?.outlineById.get(id);
       if (!node) return false;
-      if (node.anchor.t == null) scrollToSection(node.anchor.s, options);
+      if (node.anchor.t == null || !overlay?.alignedOutline.has(id)) {
+        scrollToTarget(
+          REGION_CONTAINERS.has(node.anchor.s)
+            ? `#agreement-region-${node.anchor.s}`
+            : `[data-section-uuid="${CSS.escape(node.anchor.s)}"]`,
+          node.anchor.s,
+          options,
+        );
+      }
       else scrollToTextAnchor(anchorKey(node.anchor), node.anchor.s, options);
       return true;
     },
-    [overlay, scrollToSection, scrollToTextAnchor],
+    [overlay, scrollToTarget, scrollToTextAnchor],
   );
 
   // A cross-reference jump is a history entry: Back returns to the citing
@@ -485,8 +503,10 @@ export function AgreementReader({
 
   // Back/Forward and deep links. Entries this reader pushed are handled where
   // they're pushed; a POP restores the scroll position the entry was left at,
-  // or resolves its `#s4.3(b)` hash through the outline. On first load a
-  // focus section (from search) wins over a hash.
+  // or resolves its `#s4.3(b)` hash through the outline. A hash also wins
+  // over a focus section on first load, so a URL copied after following a
+  // cross-reference opens where it was copied; the focus still sets the
+  // redaction window and the match marker.
   useEffect(() => {
     if (!overlay || !docReady) return;
     if (handledLocationKeyRef.current === location.key) return;
@@ -497,7 +517,6 @@ export function AgreementReader({
       window.scrollTo({ top: historyState.readerY });
       return;
     }
-    if (isFirst && focusSectionUuid) return;
     const hash = location.hash.slice(1);
     if (!hash) return;
     let id = hash;
@@ -509,7 +528,6 @@ export function AgreementReader({
     jumpToOutline(id, { instant: isFirst });
   }, [
     docReady,
-    focusSectionUuid,
     historyState,
     jumpToOutline,
     location.hash,

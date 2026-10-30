@@ -110,7 +110,8 @@ export function ReaderOverlayLayer({
       if (!target) return;
       if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
       closeTimer.current = null;
-      if (activeRef.current?.element === target.element) return;
+      // A card opened by a click stays put until dismissed.
+      if (activeRef.current?.pinned || activeRef.current?.element === target.element) return;
       if (openTimer.current !== null) window.clearTimeout(openTimer.current);
       openTimer.current = window.setTimeout(() => setActive(target), OPEN_DELAY_MS);
     };
@@ -124,6 +125,10 @@ export function ReaderOverlayLayer({
     };
 
     const onClick = (event: MouseEvent) => {
+      // Cmd/Ctrl/Shift-click keeps the browser's own link handling (new tab).
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
       const target = targetOf(event);
       if (!target) return;
       event.preventDefault();
@@ -222,6 +227,11 @@ export function ReaderOverlayLayer({
         className="w-[min(26rem,calc(100vw-2rem))] p-4 text-sm"
         // A hover preview must not pull focus out of the text.
         onOpenAutoFocus={(event) => event.preventDefault()}
+        // A click on the open card's own term toggles it closed in onClick;
+        // treating it as an outside click would close and then reopen it.
+        onPointerDownOutside={(event) => {
+          if (active?.element.contains(event.target as Node)) event.preventDefault();
+        }}
         onCloseAutoFocus={(event) => event.preventDefault()}
         onPointerEnter={() => {
           if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
@@ -238,7 +248,9 @@ export function ReaderOverlayLayer({
 function SignInHint() {
   return (
     <Link
-      to={buildAccountPathWithNext(`${window.location.pathname}${window.location.search}`)}
+      to={buildAccountPathWithNext(
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+      )}
       className="font-medium text-primary underline underline-offset-2"
     >
       Sign in to read it
@@ -278,7 +290,8 @@ function TermCard({
           );
         }
         const key = anchorKey(decl.anchor);
-        const text = overlay.textByKey.get(key);
+        const aligned = overlay.alignedDecls.has(decl);
+        const text = aligned ? overlay.textByKey.get(key) : undefined;
         const preview = text && !text.includes(REDACTED_TEXT) ? excerpt(text, decl.span?.[0] ?? 0) : null;
         return (
           <div key={i} className="space-y-1.5">
@@ -293,14 +306,16 @@ function TermCard({
                 {preview.truncated ? "…" : null}
               </p>
             ) : null}
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => onGoToAnchor(key, decl.anchor!.s)}
-            >
-              Go to definition
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
+            {aligned ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => onGoToAnchor(key, decl.anchor!.s)}
+              >
+                Go to definition
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
         );
       })}
@@ -330,8 +345,13 @@ function XrefCard({
   const node = xref?.target ? overlay.outlineById.get(xref.target) : undefined;
   if (!xref || !node) return null;
   const isSub = node.anchor.t != null;
-  const text = overlay.textByKey.get(anchorKey(node.anchor));
-  const hidden = text?.includes(REDACTED_TEXT) ?? false;
+  const text = isSub && !overlay.alignedOutline.has(node.id)
+    ? undefined
+    : overlay.textByKey.get(anchorKey(node.anchor));
+  // A redacted section keeps one placeholder paragraph, so a subsection
+  // inside it has no text of its own; its section's first paragraph says so.
+  const hidden =
+    (text ?? overlay.textByKey.get(`${node.anchor.s}/0`) ?? "").includes(REDACTED_TEXT);
   const preview = text && !hidden ? excerpt(text, 0, 320) : null;
   const heading = isSub ? outlineNodeName(node) : decodeXmlEntities(node.title) || outlineNodeName(node);
   return (

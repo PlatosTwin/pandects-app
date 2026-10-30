@@ -74,6 +74,36 @@ describe("reader index anchor contract", () => {
   });
 });
 
+describe("declaration and subsection anchors", () => {
+  const anchors = collectTextAnchors(parseXMLContent(xml));
+
+  it("accepts every declaration and subsection of the enricher's payload", () => {
+    const overlay = buildReaderOverlay(indexFrom(expected.payload), anchors);
+    const decls = expected.payload.terms.flatMap((term) => term.decls).filter((d) => d.anchor?.t != null);
+    expect(overlay.alignedDecls.size).toBe(decls.length);
+    const subs = [...overlay.outlineById.values()].filter((node) => node.anchor.t != null);
+    expect(subs.length).toBeGreaterThan(0);
+    expect(subs.every((node) => overlay.alignedOutline.has(node.id))).toBe(true);
+  });
+
+  it("rejects a declaration or subsection whose ordinal moved", () => {
+    const moved = structuredClone(expected.payload);
+    for (const term of moved.terms) {
+      for (const decl of term.decls) if (decl.anchor?.t != null) decl.anchor.t += 1;
+    }
+    const shiftOutline = (nodes: typeof moved.outline) => {
+      for (const node of nodes) {
+        if (node.anchor.t != null) node.anchor.t += 1;
+        shiftOutline(node.children ?? []);
+      }
+    };
+    shiftOutline(moved.outline);
+    const overlay = buildReaderOverlay(indexFrom(moved), anchors);
+    expect(overlay.alignedDecls.size).toBe(0);
+    expect(overlay.alignedOutline.size).toBe(0);
+  });
+});
+
 describe("excerpt", () => {
   it("starts at the sentence holding the offset and cuts at a word", () => {
     const text = `First sentence. ${"word ".repeat(200)}`;
