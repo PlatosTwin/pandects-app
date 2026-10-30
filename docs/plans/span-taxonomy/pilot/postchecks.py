@@ -64,9 +64,24 @@ def lines_of(cand):
     return cand.split("\n")
 
 
+def logical_lines(lines):
+    """Rejoin a sentence the text layer split across lines: a line that starts in lowercase, or
+    follows a line with an unclosed quotation mark, continues the line before it (M10 0e2268be,
+    bcf14416, where the recommendation-change term closes a list two lines long)."""
+    out = []
+    for l in lines:
+        if out and not l.startswith("@@") and not out[-1].startswith("@@") and not ITEM.match(l) and (
+                l[:1].islower() or out[-1].count("\u201c") > out[-1].count("\u201d")):
+            out[-1] += " " + l
+        else:
+            out.append(l)
+    return out
+
+
 def rec_change_definitions(lines):
     """Text of each recommendation-change definition: the defining line up to the term, plus the
     earlier list items and lead-in line when the term closes a list."""
+    lines = logical_lines(lines)
     out = []
     for i, l in enumerate(lines):
         if l.startswith("@@"):
@@ -92,15 +107,20 @@ def failure_phrase(lines):
         for t in body:
             m = FAIL.search(t) or AFFIRM_REQUEST.search(t)
             if m:
-                return m.group(0).strip().rstrip(",;(")
+                phrase = m.group(0).strip().rstrip(",;(")
+                while " " in phrase and not any(phrase in l for l in lines):
+                    phrase = phrase.rsplit(" ", 1)[0].rstrip(",;(")  # keep the quote on one line
+                return phrase
     return None
 
 
-def check_recommendation_failure(inst, lines, log):
+def check_recommendation_failure(inst, lines, log, full_lines=None):
+    """full_lines, the whole text, is read when the candidates hold no such definition: stage 1
+    does not always keep it (M10 fdaa819a)."""
     codes = [t.get("code") for t in inst.get("triggers") or [] if isinstance(t, dict)]
     if "adverse_recommendation_change" not in codes or "recommendation_failure" in codes:
         return
-    phrase = failure_phrase(lines)
+    phrase = failure_phrase(lines) or (full_lines is not None and failure_phrase(full_lines))
     if not phrase:
         return
     arc = next(t for t in inst["triggers"] if isinstance(t, dict) and t.get("code") == "adverse_recommendation_change")
@@ -191,6 +211,12 @@ FIRST_SOURCE = re.compile(r"\bfirst source of (?:payment|recovery)", re.I)
 HELD = re.compile(r"escrow|holdback|hold-?back|r&w|policy|promissory|note\b|shares|retention|insurance", re.I)
 INDEMNITY = re.compile(r"indemn|\blosses\b|\bdamages\b|adverse consequences", re.I)
 ADJUSTMENT = re.compile(r"adjustment|working capital|true-?up|expense fund|purchase price", re.I)
+# v2.5 rule 6: an escrow-then-sellers order for fundamental-representation claims alone, or for a
+# holder's own breach ("from the breaching Participating Holder"), leaves the escrow sole recourse
+# for the general representations (M10 e1533237, ec5c1541)
+FUNDAMENTAL_ONLY = re.compile(r"Fundamental (?:Representations|Reps|Warranties)", re.I)
+OWN_BREACH = re.compile(r"\bthe breaching\b", re.I)
+GENERAL_TOO = re.compile(r"other than (?:the |any )?Fundamental|non-?fundamental|General Representations", re.I)
 THEN_SELLERS = re.compile(r"(?:\band then\b|,\s*then\b|\bthereafter\b|\bsecond(?:ly)?\b|\bfinally\b|\bbefore any\b)[^.]{0,250}?"
                           r"\b(?:sellers?|stockholders?|shareholders?|holders?|indemnitors?|members?|equityholders?|"
                           r"securityholders?|owners?|out-of-pocket|directly|indemnifying part)", re.I)
@@ -205,7 +231,9 @@ def recourse_beyond_escrow(lines):
     for s in sentences(lines):
         m = FIRST.search(s)
         if (m and HELD.search(s) and INDEMNITY.search(s) and not ADJUSTMENT.search(s)
-                and (FIRST_SOURCE.search(s) or THEN_SELLERS.search(s[m.start():]))):
+                and not (FUNDAMENTAL_ONLY.search(s) and not GENERAL_TOO.search(s))
+                and (FIRST_SOURCE.search(s) or THEN_SELLERS.search(s[m.start():]))
+                and not OWN_BREACH.search((THEN_SELLERS.search(s[m.start():]) or m).group(0))):
             return "v2.8 rule 8", s[:300]
     for s in sentences(lines):
         if SETOFF.search(s) and NOT_EXCLUSIVE.search(s):
@@ -540,7 +568,7 @@ def apply(doc, cand, full=None):
         if inst.get("finding") != "present":
             continue
         if inst["concept"] in ("ma.termination.fee.target", "ma.termination.expense_reimbursement"):
-            check_recommendation_failure(inst, lines, log)
+            check_recommendation_failure(inst, lines, log, full_lines)
         if inst["concept"] in ("ma.termination.fee.target", "ma.termination.expense_reimbursement"):
             check_meeting_breach(inst, log)
             check_cited_meeting_breach(inst, titles, log)

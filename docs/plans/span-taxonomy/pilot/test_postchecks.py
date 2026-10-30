@@ -23,6 +23,20 @@ C28 = """@@ S40 | ARTICLE VI COVENANTS | Section 6.5 No Solicitation | groups=te
 F305 = """@@ S90 | ARTICLE VIII COVENANTS | Section 8.3 No Solicitation | groups=termination
 (c) Except as expressly permitted by this Section 8.3 the Company Board shall not (i) withhold, withdraw, modify or qualify, in any manner adverse to Parent or Purchaser, the Board Recommendation (it being understood that the Company Board may refrain from taking a position with respect to an Acquisition Proposal until the close of business of the tenth (10th) Business Day following a written request by Parent to the Company Board to affirm the Board Recommendation after the first public announcement of such Acquisition Proposal without such action being considered an adverse modification), (ii) approve, authorize or recommend any Acquisition Proposal (any action described in clause (i) or clause (ii), a “Change in Recommendation”) or (iii) enter into any letter of intent."""
 
+# bcf14416: the defined term is split across two lines of the text layer
+SPLIT_TERM = """@@ S40 | ARTICLE IV COVENANTS | Section 4.5 No Solicitation | groups=termination
+(f) Except as set forth in this Section 4.5(f), the Company Board shall not: (i) (A) fail to make, withhold, withdraw, amend, qualify or modify in a manner adverse to Parent the Company Board Recommendation; (B) fail to include the Company Board Recommendation in the Proxy Statement, when mailed (each of the actions described in clauses (A) and (B) referred to as a “Change in Company Board
+Recommendation”) or (ii) cause or permit the Company to enter into any agreement with respect to an Acquisition Proposal."""
+
+# 0e2268be: the definition sentence runs on to a line that starts in lowercase
+RUN_ON = """@@ S56 | ARTICLE V Additional Covenants and Agreements | Section 5.02 No Solicitation; Change in Recommendation. | groups=termination
+(d) Neither the Board of Directors of the Company nor any committee thereof shall (i) (A) withhold or withdraw the Company Board Recommendation, (B) fail to recommend against acceptance of any tender offer within ten Business Days of commencement thereof, (C) fail to reaffirm the Company Board Recommendation within ten days of a written request made by Parent to do so, or (y) elect to take no position with respect to a Takeover Proposal until the close of business on the tenth Business Day after the commencement
+of such Takeover Proposal (any action described in this clause (i) being referred to as an “Adverse Recommendation Change”) or (ii) approve any Takeover Proposal."""
+
+# fdaa819a: the candidates cite the term; its definition is only in the full text
+CITED_ONLY = """@@ S80 | ARTICLE VIII TERMINATION | Section 8.1 Termination | groups=termination
+(c) by SMBK, if SCB shall have made an Adverse Recommendation Action."""
+
 NO_FAILURE = """@@ S90 | ARTICLE VIII COVENANTS | Section 8.3 No Solicitation | groups=termination
 “Change in Recommendation” has the meaning set forth in Section 8.3(c), and the Company shall not fail to include the Board Recommendation in the Proxy Statement.
 (c) The Company Board shall not (i) withhold, withdraw, modify or qualify, in any manner adverse to Parent, the Board Recommendation, (ii) approve or recommend any Acquisition Proposal (any action described in clause (i) or clause (ii), a “Change in Recommendation”).
@@ -71,6 +85,22 @@ class RecommendationFailure(unittest.TestCase):
     def test_already_coded(self):
         out, log = apply(fee("adverse_recommendation_change", "recommendation_failure"), E3F)
         self.assertEqual(log, [])
+
+    def test_term_split_across_lines(self):  # bcf14416
+        self.check(SPLIT_TERM, True)
+
+    def test_definition_runs_on_to_the_next_line(self):  # 0e2268be
+        self.check(RUN_ON, True)
+
+    def test_definition_read_from_the_full_text(self):  # fdaa819a
+        out, log = apply(fee("adverse_recommendation_change"), CITED_ONLY, full=CITED_ONLY + "\n" + E3F)
+        self.assertIn("recommendation_failure", codes(out))
+        self.assertEqual(out["instances"][0]["triggers"][-1]["quote"],
+                         "fail to include the Company Recommendation in the Shareholder Materials")
+
+    def test_full_text_without_a_failure_is_left_alone(self):
+        out, log = apply(fee("adverse_recommendation_change"), CITED_ONLY, full=CITED_ONLY + "\n" + NO_FAILURE)
+        self.assertNotIn("recommendation_failure", codes(out))
 
 
 def cap(quote, basis="fixed", amount=35e6, pct=None):
@@ -230,6 +260,18 @@ class EscrowSoleRecourse(unittest.TestCase):
 
     def test_adverbial_then_is_left_alone(self):  # 320c861f: "then remaining outstanding"
         out, log = apply(escrow_cap({"value": True, "quote": "x"}), S + "The indemnity obligation of the Escrow Participants shall be satisfied first by reducing the principal amount of the Stockholder Term B Loan by the amount of such Distribution Entitlement, up to the principal amount of the Stockholder Term B Loan then remaining outstanding.")
+        self.assertIs(recourse(out), True)
+
+    def test_fundamental_representations_only_is_left_alone(self):  # e1533237 (v2.5 rule 6)
+        out, log = apply(escrow_cap({"value": True, "quote": "x"}), S + "(d) For Losses incurred based on breaches of or inaccuracies in any of the Fundamental Representations, the Buyer Indemnitees shall be entitled to recovery, first, from the Indemnity Escrow Amount and then from the Sellers, severally and not jointly.")
+        self.assertIs(recourse(out), True)
+
+    def test_other_than_fundamental_still_fires(self):
+        out, log = apply(escrow_cap({"value": True, "quote": "x"}), S + "(d) For Losses based on breaches of the representations and warranties (other than the Fundamental Representations), the Buyer Indemnitees shall be entitled to recovery, first, from the Indemnity Escrow Amount and then from the Sellers.")
+        self.assertEqual((recourse(out), log[-1]["rule"]), (False, "v2.8 rule 8"))
+
+    def test_breaching_holder_is_left_alone(self):  # ec5c1541: a holder's own breach, not the general reps
+        out, log = apply(escrow_cap({"value": True, "quote": "x"}), S + "(ii) Losses arising pursuant to (A) Section 9.2.2(a) will be satisfied only from the following sources and only in the following order of priority: (1) first, from the Indemnity Escrow Account (until exhausted), (2) second, the R&W Insurance Policy, and (3) lastly, from the breaching Participating Holder directly.")
         self.assertIs(recourse(out), True)
 
     def test_non_exclusive_setoff(self):  # d166d547
