@@ -29,6 +29,11 @@ saw the text for but did not apply in the definition-resolution re-check (sectio
   to make or include its recommendation becomes `recommendation_failure`, and a
   `buyer_recommendation_change` whose cited termination clause also covers that failure gets
   `recommendation_failure` beside it.
+- v2.1 rule 11: when two parties' shares both convert into one issuer's stock, payors and payees
+  coded `both` that name a party get the rule's side: target-side, or buyer-side for a party the
+  issuer is a subsidiary of. With no such owner, a reverse fee whose payors are all target-side
+  beside a target fee is dropped; with one, a target fee the owner pays becomes a reverse fee
+  (plan section 7.30). This check reads the whole agreement and only recodes.
 
 Each check reads only the candidates file the extractor saw, so every quote it adds is
 verbatim from one of its lines. Changed entries carry "postcheck": "<rule>".
@@ -563,6 +568,99 @@ def check_expense_labeled_fee(insts, lines, log):
         log.append({"concept": c, "rule": "expense-labeled fee", "moved": [a.get("amount") for a in amounts if isinstance(a, dict)]})
 
 
+NOT_END = r"(?:[^.]|\.(?!\s))"  # within a sentence: a period not followed by a space ("$0.01", "Section 4.4")
+NAME = r"[A-Z][\w&-]*(?: [A-Z][\w&-]*){0,2}?"
+CONVERTS = re.compile(r"\b[Ee]ach (?:issued and outstanding )?(?:share of |ordinary share of )?(?:the )?(" + NAME + r")"
+                      r" (?:Common Stock|Ordinary Shares?|Shares?|Stock|Capital Stock)\b" + NOT_END + r"{0,300}?"
+                      r"\bconverted into\b" + NOT_END + r"{0,200}?\bshares? of\s+(?:the\s+)?(?:"
+                      r"common stock" + NOT_END + r"{0,60}?\bof\s+(" + NAME + r")\b|(" + NAME + r")\s+(?:Common Stock|Ordinary|Stock)\b)")
+NOT_PARTY = re.compile(r"Merger Sub|\bSub[AB]?\b|Surviving|Merger Subsidiar|Holdco Sub", re.I)
+
+
+def double_conversion(full_lines):
+    """v2.1 rule 11 in a two-sided holding-company merger: the issuer whose stock two or more
+    parties' shares convert into, those parties, and the one of them that owns the issuer, if the
+    text says one does ("a newly formed Subsidiary of Solstice", "capital stock of which is owned by
+    Allscripts"). None when fewer than two parties convert into the same issuer."""
+    text = "\n".join(full_lines)
+    by_issuer = {}
+    for m in CONVERTS.finditer(text):
+        x, y = m.group(1), m.group(2) or m.group(3)
+        if x != y and not NOT_PARTY.search(x) and not NOT_PARTY.search(y):
+            by_issuer.setdefault(y, set()).add(x)
+    issuer, parties = max(by_issuer.items(), key=lambda t: len(t[1]), default=(None, set()))
+    if len(parties) < 2:
+        return None
+    owners = {p for p in parties if re.search(r"\b" + re.escape(issuer) + r",? (?:is|was|has been) (?:a|an)\b" + NOT_END + r"{0,200}?"
+                                             r"(?:[Ss]ubsidiary of|owned by)\s+(?:the\s+)?" + re.escape(p) + r"\b", text)}
+    return {"issuer": issuer, "parties": parties, "owner": next(iter(owners)) if len(owners) == 1 else None}
+
+
+def party_side(term, moe):
+    """The side v2.1 rule 11 gives a payor or payee named by term, or None if it names no party."""
+    if not isinstance(term, str):
+        return None
+    if re.search(r"\b" + re.escape(moe["issuer"]) + r"\b", term):
+        return "buyer_side"
+    for p in moe["parties"]:
+        if re.search(r"\b" + re.escape(p) + r"\b", term):
+            return "buyer_side" if p == moe["owner"] else "target_side"
+    return None
+
+
+def check_double_conversion(insts, full_lines, log):
+    """In a two-sided holding-company merger the extractor tends to code both companies `both`
+    and split a mutual fee into a target fee plus a reciprocal reverse fee (M11 76955f6e, M12
+    7989f883). Recode the sides of fee and reimbursement payors and payees that name a party, and
+    when no party owns the issuer, drop a reverse fee whose payors are all target-side companies
+    beside a target fee: their mutual fee is a fee between two targets (v2.1 rule 11)."""
+    moe = double_conversion(full_lines)
+    if not moe:
+        return
+    fees = ("ma.termination.fee.target", "ma.termination.fee.reverse", "ma.termination.expense_reimbursement")
+    for inst in insts:
+        if inst.get("finding") != "present" or inst["concept"] not in fees:
+            continue
+        for role in ("payor", "payee"):
+            for e in inst.get(role) or []:
+                side = party_side(e.get("defined_term"), moe) if isinstance(e, dict) else None
+                if side and e.get("side") == "both":
+                    e["side"], e["postcheck"] = side, "v2.1 rule 11"
+                    log.append({"concept": inst["concept"], "rule": "v2.1 rule 11", "recoded": f"{role} {e.get('defined_term')} -> {side}"})
+    by = {i["concept"]: i for i in insts}
+    rev, tgt = by.get("ma.termination.fee.reverse"), by.get("ma.termination.fee.target")
+    payors = [e for e in (rev or {}).get("payor") or [] if isinstance(e, dict)]
+    if (moe["owner"] is None and rev and tgt and rev.get("finding") == "present" and tgt.get("finding") == "present"
+            and payors and all(e.get("side") == "target_side" for e in payors)):
+        note, scope = rev.get("notes") or "", rev.get("scope_reviewed", [])
+        rev.clear()
+        rev.update({"concept": "ma.termination.fee.reverse", "finding": "absent", "scope_reviewed": scope,
+                    "notes": (f"Both {' and '.join(sorted(moe['parties']))} convert into {moe['issuer']} stock, so both are"
+                              " target-side; their mutual fee is recorded in ma.termination.fee.target (v2.1 rule 11, post-check). "
+                              + note).strip(),
+                    "postcheck": "v2.1 rule 11"})
+        log.append({"concept": "ma.termination.fee.reverse", "rule": "v2.1 rule 11", "dropped": "reverse fee between two target-side companies"})
+    payors = [e for e in (tgt or {}).get("payor") or [] if isinstance(e, dict)]
+    if (moe["owner"] and tgt and rev and tgt.get("finding") == "present" and rev.get("finding") == "absent"
+            and payors and all(e.get("side") == "buyer_side" for e in payors)):
+        # the owner of the issuer pays: a reverse fee, `general` since no target fee mirrors it (v2.1 rule 12)
+        moved = copy.deepcopy(tgt)
+        for t in moved.get("triggers") or []:
+            if isinstance(t, dict) and t.get("code") == "adverse_recommendation_change":
+                t["code"] = "buyer_recommendation_change"
+        moved.update({"concept": "ma.termination.fee.reverse", "postcheck": "v2.1 rule 11",
+                      "kind": {"code": "general", "text": f"paid by {moe['owner']}, which owns the issuer {moe['issuer']}"},
+                      "guarantee": {"code": "not_stated"}, "liability_cap": "not_stated",
+                      "specific_performance_interaction": {"code": "not_stated"}})
+        rev.clear()
+        rev.update(moved)
+        tgt.clear()
+        tgt.update({"concept": "ma.termination.fee.target", "finding": "absent", "scope_reviewed": moved.get("scope_reviewed", []),
+                    "notes": f"{moe['owner']} owns {moe['issuer']}, the issuer, so it is buyer-side and its fee is a reverse fee"
+                             " (v2.1 rule 11, post-check).", "postcheck": "v2.1 rule 11"})
+        log.append({"concept": "ma.termination.fee.target", "rule": "v2.1 rule 11", "moved": "to ma.termination.fee.reverse"})
+
+
 def apply(doc, cand, full=None):
     """Return (checked copy of doc, change log). full, the whole agreement text, lets section
     numbers resolve to sections stage 1 did not keep."""
@@ -571,6 +669,7 @@ def apply(doc, cand, full=None):
     titles = section_titles(full_lines)
     insts, figures = doc["instances"], stated_figures(cand)
     check_expense_labeled_fee(insts, lines, log)
+    check_double_conversion(insts, full_lines, log)
     for inst in insts:
         if inst.get("finding") != "present":
             continue

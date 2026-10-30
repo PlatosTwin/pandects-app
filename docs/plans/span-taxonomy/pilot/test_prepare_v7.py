@@ -2,7 +2,7 @@
 
 Run: python3 -m unittest test_prepare_v7   (from this directory)
 """
-import os, sys, unittest
+import os, re, sys, unittest
 sys.path.insert(0, os.path.dirname(__file__))
 import prepare_v7  # noqa: F401  (patches prepare_v4.DEFINED)
 import prepare_v4 as v4
@@ -130,3 +130,42 @@ class MaeSections(unittest.TestCase):  # plan section 7.28
                      ("s3", "ARTICLE I DEFINITIONS", "Section 1.1 Definitions.",
                       '"Parent Material Adverse Effect" means a material adverse effect on Parent.'))
         self.assertEqual(prepare_v7.mae_sections(L), set())
+
+
+def defs(*paras, section="defs", title="Section 1.1 Definitions."):
+    """A definitions section of one leaf per paragraph; a paragraph opening with a quoted term defines it."""
+    text, leaves = "", []
+    for p in paras:
+        start = len(text)
+        text += p + "\n"
+        m = re.match(r'[“"]([^”"]+)[”"]', p)
+        leaves.append({"kind": "definition" if m else "text", "term": m.group(1).lower() if m else None,
+                       "start": start, "end": start + len(p), "section": section})
+    return {"text": text, "sections": [{"uuid": section, "title": title, "article": "ARTICLE I", "start": 0, "end": len(text)}],
+            "leaves": leaves}
+
+
+class MaeDefinitionLeaves(unittest.TestCase):  # plan section 7.30
+    def kept(self, L):
+        groups, leaf_keep = {}, {}
+        prepare_v7.mae_definition_leaves(L, groups, leaf_keep)
+        return sorted(L["text"][lf["start"]:lf["end"]][:20] for lf in L["leaves"] if id(lf) in leaf_keep.get(lf["section"], set()))
+
+    def test_term_the_definition_names(self):  # 41b903c1: the carve-outs are an "Excluded Matter"
+        L = defs("“Excluded Matter” means any one or more of the following: (a) general economic conditions.",
+                 "“Indebtedness” means any obligation for borrowed money.",
+                 "“Material Adverse Effect” means any Effect that has a material adverse effect on the Company, other than an Excluded Matter.")
+        self.assertEqual(self.kept(L), ["“Excluded Matter” me", "“Material Adverse Ef"])
+
+    def test_inline_reference_in_an_interpretation_section(self):  # 775de59e
+        L = defs('In this Agreement, any reference to a "Material Adverse Effect" with respect to any entity or group of entities '
+                 "means any event that is materially adverse to such entity.", title="9.2 Interpretation.")
+        self.assertEqual(len(self.kept(L)), 1)
+
+    def test_material_impact(self):  # daef34e9: a target MAE named without "Adverse"
+        L = defs("“Material Impact” means any impact that is material and adverse to the Projects.")
+        self.assertEqual(len(self.kept(L)), 1)
+
+    def test_no_mae_keeps_nothing(self):
+        L = defs("“Indebtedness” means any obligation for borrowed money.")
+        self.assertEqual(self.kept(L), [])

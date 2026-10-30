@@ -32,6 +32,10 @@ buyer sits in a buyer representation or a closing condition, so those sections a
 use it, as is a section that defines the MAE inline with a qualifier ('a "Material Adverse Effect"
 with respect to any Person means').
 
+From the M12 MAE misses (plan section 7.30): an MAE defined inline in an interpretation section is kept,
+"Material Impact" counts as an MAE term, and the definitions of terms an MAE definition names (its
+carve-outs as an "Excluded Matter") are kept with it.
+
 Usage: python3 prepare_v7.py holdout.tsv OUT
        python3 prepare_v7.py --rebuild D OUT   (stage 1 again from D/layer, candidates to OUT)
 """
@@ -49,7 +53,7 @@ FUNDS_BODY = re.compile(r"\b(cash|funds|funding|capital resources|financial reso
                         r"\b(cash|funds|funding|financial resources)\b", re.I)
 FINANCING = re.compile(r"\bfinancing\b", re.I)
 # v4.select and v4.resolve read these module patterns at call time
-CAP_TERMS = r"|maximum|\blimit|\bcap\b|cap amount" + r"|drop dead|long ?stop|cut-?off date|excepted rep|specified rep|material\s*adverse"
+CAP_TERMS = r"|maximum|\blimit|\bcap\b|cap amount" + r"|drop dead|long ?stop|cut-?off date|excepted rep|specified rep|material\s*adverse|material impact"
 v4.TERMS = re.compile(v4.TERMS.pattern + CAP_TERMS, re.I)
 v4.RESOLVE = re.compile(v4.RESOLVE.pattern + CAP_TERMS, re.I)
 v4.DEFINED = re.compile(r"[\"“]([^\"”:]{2,80})(?::[\"”]|[\"”]\s*:\s|[\"”](\s+of any \w+)?\s*(shall\s+)?"
@@ -83,7 +87,8 @@ BUYER = re.compile(r"\b(?:Parent|Purchasers?|Buyers?|Acquir(?:er|or|ing)|Merger 
 CONDITIONS = re.compile(r"\bconditions?\b", re.I)
 LOWER_MAE = re.compile(r"\bmaterial\s+adverse\s+(?:effect|change|impact)\b")  # lowercase: undefined, not the defined term
 # an MAE defined inline with a qualifier before "means": 'a "Material Adverse Effect" with respect to any Person means'
-INLINE_MAE = re.compile(r"[\"“](?:\w+\s+){0,3}Material\s*Adverse\s+(?:Effect|Change)[\"”][^.;]{1,60}?\b(?:means|shall mean)\b")
+MAE_TERM = r"Material\s*(?:Adverse\s+(?:Effect|Change)|Impact)"  # "Material Impact": a target MAE without the usual words (M12 daef34e9)
+INLINE_MAE = re.compile(r"[\"“](?:\w+\s+){0,3}" + MAE_TERM + r"[\"”][^.;]{1,60}?\b(?:means|shall mean)\b")
 
 
 def mae_sections(layer):
@@ -106,6 +111,42 @@ def mae_sections(layer):
         if (buyer_reps or CONDITIONS.search(title) or CONDITIONS.search(article)) and any(LOWER_MAE.search(x) for x in body):
             out.add(s["uuid"])
     return out
+
+
+def mae_definition_leaves(layer, groups, leaf_keep, limit=6):
+    """MAE text stage 1 missed on M12 (plan section 7.30): an MAE defined inline in an interpretation
+    or definitions section that the definition patterns do not read ('any reference to a "Material
+    Adverse Effect" with respect to any entity ... means', 775de59e), and the definitions of terms an
+    MAE definition names, such as its carve-outs ("Excluded Matter", 41b903c1)."""
+    text, by_sec = layer["text"], {}
+    for lf in layer["leaves"]:
+        by_sec.setdefault(lf["section"], []).append(lf)
+    kept = lambda lf: lf["section"] in groups and (leaf_keep.get(lf["section"]) is None or id(lf) in leaf_keep[lf["section"]])
+    keep = lambda lf: (leaf_keep.setdefault(lf["section"], set()).add(id(lf)),
+                       groups.__setitem__(lf["section"], groups.get(lf["section"], set()) | {"resolved"}))
+    body = []  # the text of each MAE definition, with the paragraphs it runs on into
+    for sec, leaves in by_sec.items():
+        for i, lf in enumerate(leaves):
+            t = text[lf["start"]:lf["end"]]
+            if not (INLINE_MAE.search(t) or any(re.search(MAE_TERM, x, re.I) for x in v4.leaf_terms(lf))):
+                continue
+            if not kept(lf):
+                keep(lf)
+            body.append(t)
+            for x in leaves[i + 1:i + 1 + limit]:
+                xt = text[x["start"]:x["end"]]
+                if NEW_DEF.match(xt):
+                    break
+                if not kept(x):
+                    keep(x)
+                body.append(xt)
+    body = "\n".join(body)
+    for lf in layer["leaves"]:
+        if lf["kind"] != "definition" or kept(lf):
+            continue
+        terms = [x for x in v4.leaf_terms(lf) if x and not re.search(MAE_TERM, x, re.I)]  # stored lowercase
+        if any(re.search(r"(?<!\w)" + re.escape(x) + r"(?!\w)", body, re.I) for x in terms):
+            keep(lf)
 
 
 def extend_definitions(layer, leaf_keep, limit=6):
@@ -150,6 +191,7 @@ def select(layer):
     for uuid in mae_sections(layer):
         groups.setdefault(uuid, {"deal_risk"})
     extend_definitions(layer, leaf_keep)
+    mae_definition_leaves(layer, groups, leaf_keep)
     return groups, leaf_keep
 
 

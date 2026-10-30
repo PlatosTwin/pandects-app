@@ -670,3 +670,58 @@ class MarketingPeriodExtension(unittest.TestCase):  # v2.13 rule 4
                                    "by all parties entitled to the benefit of such conditions prior to the Termination Date")
         out, log = apply(outside(e), "")
         self.assertEqual(log, [])
+
+
+# 7989f883: both companies convert into a new parent that they own together
+MOE = """WHEREAS, AmeriSource and Bergen have caused Parent to be organized under the laws of the State of Delaware.
+(a) Each share of Bergen Common Stock (as defined in Section 4.4) issued and outstanding immediately prior to the Effective Time shall be converted into and represent 0.37 (the "Bergen Exchange Ratio") shares of common stock, par value $0.01 per share, of Parent together with any corresponding associated rights.
+(c) Each share of AmeriSource Common Stock issued and outstanding immediately prior to the Effective Time shall be converted into and represent one (the "AmeriSource Exchange Ratio") share of Parent Common Stock.
+(e) Each share of common stock of AmeriSource Merger Sub shall be converted into one share of common stock of AmeriSource Surviving Corporation."""
+# 76955f6e: the issuer is a subsidiary of one of the converting parties
+OWNED = """WHEREAS, the Company is a newly formed Subsidiary of Solstice created for the purpose of consummating the transactions contemplated by this Agreement;
+(ii) Each share of Solstice Common Stock issued and outstanding immediately prior to the Effective Time shall be converted into the right to receive one (1) share of Company Common Stock.
+(ii) Each Glass Share issued and outstanding immediately prior to the Effective Time shall be converted into the right to receive a share of Company Common Stock."""
+# an ordinary merger: one company's shares convert into the buyer's
+ONE_SIDED = """(a) Each share of Company Common Stock issued and outstanding immediately prior to the Effective Time shall be converted into the right to receive 0.5 shares of Parent Common Stock.
+(b) Each share of common stock of Merger Sub shall be converted into one share of common stock of the Surviving Corporation."""
+
+
+def party(term, side="both"):
+    return {"side": side, "entity": "company", "defined_term": term}
+
+
+def moe_fees(target_payors, reverse_payors=None, payee_side="both"):
+    t = {"concept": "ma.termination.fee.target", "finding": "present", "scope_reviewed": ["S1"], "payor": target_payors,
+         "payee": [party("AmeriSource", payee_side)], "triggers": [{"code": "adverse_recommendation_change", "quote": "x"}]}
+    r = ({"concept": "ma.termination.fee.reverse", "finding": "present", "scope_reviewed": ["S1"], "payor": reverse_payors,
+          "kind": {"code": "reciprocal"}} if reverse_payors else
+         {"concept": "ma.termination.fee.reverse", "finding": "absent", "scope_reviewed": ["S1"]})
+    return {"instances": [t, r]}
+
+
+def by_concept(doc):
+    return {i["concept"]: i for i in doc["instances"]}
+
+
+class DoubleConversion(unittest.TestCase):  # v2.1 rule 11
+    def test_jointly_owned_parent(self):  # 7989f883: both target-side, the mirrored reverse fee dropped
+        out, log = apply(moe_fees([party("Bergen")], [party("AmeriSource")]), "", MOE)
+        c = by_concept(out)
+        self.assertEqual([e["side"] for e in c["ma.termination.fee.target"]["payor"]], ["target_side"])
+        self.assertEqual(c["ma.termination.fee.reverse"]["finding"], "absent")
+
+    def test_parent_owned_by_one_party(self):  # 76955f6e: the owner pays, so the fee is a reverse fee
+        out, log = apply(moe_fees([party("Solstice")]), "", OWNED)
+        c = by_concept(out)
+        self.assertEqual(c["ma.termination.fee.target"]["finding"], "absent")
+        rev = c["ma.termination.fee.reverse"]
+        self.assertEqual((rev["finding"], rev["kind"]["code"], rev["payor"][0]["side"]), ("present", "general", "buyer_side"))
+        self.assertEqual(rev["triggers"][0]["code"], "buyer_recommendation_change")
+
+    def test_ordinary_merger_is_left_alone(self):
+        out, log = apply(moe_fees([party("Company")], [party("Parent")]), "", ONE_SIDED)
+        self.assertEqual(log, [])
+
+    def test_sides_already_coded_are_left_alone(self):
+        out, log = apply(moe_fees([party("Bergen", "target_side")], payee_side="target_side"), "", MOE)
+        self.assertEqual(log, [])
