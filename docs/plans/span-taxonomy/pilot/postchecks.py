@@ -467,11 +467,18 @@ def check_cited_regulatory_condition(inst, titles, full_lines, log):
             log.append({"concept": inst["concept"], "rule": "v2.13 rule 3", "recoded": t[:120]})
 
 
+def ext_quotes(e):
+    """The verbatim text of an extension: its quotes, without the extractor's own paraphrase."""
+    c = e.get("condition") if isinstance(e.get("condition"), dict) else {}
+    return " ".join(x for x in (c.get("quote"), e.get("quote")) if isinstance(x, str))
+
+
 def check_marketing_period_extension(inst, log):
-    """Rule 4: an `other` extension that runs to the end of a marketing or financing period."""
+    """Rule 4: an `other` extension that runs to the end of a marketing or financing period, in the quoted text
+    (the extractor's paraphrase can name a financing period the clause does not: e20827af, plan section 7.28)."""
     for e in inst.get("extensions") or []:
         c = e.get("condition") if isinstance(e, dict) else None
-        if isinstance(c, dict) and c.get("code") == "other" and MARKETING.search(ext_text(e)):
+        if isinstance(c, dict) and c.get("code") == "other" and MARKETING.search(ext_quotes(e)):
             c["code"], e["postcheck"] = "marketing_period", "v2.13 rule 4"
             log.append({"concept": inst["concept"], "rule": "v2.13 rule 4", "recoded": ext_text(e)[:120]})
 

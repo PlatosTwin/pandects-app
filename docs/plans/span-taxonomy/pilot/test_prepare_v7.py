@@ -90,3 +90,43 @@ class OutsideDateCitations(unittest.TestCase):  # plan section 7.24
     def test_citation_outside_an_extension_is_ignored(self):
         L = self.layer("Any notice under Section 10.2 shall be given in writing.")
         self.assertEqual(prepare_v7.outside_date_citations(L), set())
+
+
+def sections(*secs):
+    """A layer of one-leaf sections, each (uuid, article, title, text)."""
+    text, out, leaves = "", [], []
+    for uuid, article, title, body in secs:
+        start = len(text)
+        text += body + "\n"
+        out.append({"uuid": uuid, "title": title, "article": article, "start": start, "end": len(text)})
+        leaves.append({"kind": "text", "term": None, "start": start, "end": start + len(body), "section": uuid})
+    return {"text": text, "sections": out, "leaves": leaves}
+
+
+class MaeSections(unittest.TestCase):  # plan section 7.28
+    def test_buyer_representation(self):  # a709ba58
+        L = sections(("s1", "3. REPRESENTATIONS AND WARRANTIES OF PURCHASER AND PARENT.", "3.5 Proceedings; Orders.",
+                      "There is no Proceeding that would reasonably be expected to have a material adverse effect on the ability of "
+                      "Purchaser or Parent to comply with or perform any of their respective covenants."))
+        self.assertEqual(prepare_v7.mae_sections(L), {"s1"})
+
+    def test_closing_condition(self):  # eb974262
+        L = sections(("s1", "ARTICLE VI CONDITIONS TO MERGER", "Section 6.3 Additional Company Conditions.",
+                      "except as would not reasonably be expected to prevent or have a material adverse effect on the ability of "
+                      "Merger Subsidiary or Parent to consummate the Transactions."))
+        self.assertEqual(prepare_v7.mae_sections(L), {"s1"})
+
+    def test_inline_definition_with_a_qualifier(self):  # 326a76e2
+        L = sections(("s1", "ARTICLE 3 REPRESENTATIONS OF THE COMPANY", "SECTION 3.1 Corporate Existence and Power.",
+                      'For purposes of this Agreement, a "Material Adverse Effect" with respect to any Person means a material '
+                      "adverse effect on the financial condition, business or results of operations of such Person."))
+        self.assertEqual(prepare_v7.mae_sections(L), {"s1"})
+
+    def test_target_representation_and_defined_term_are_left_alone(self):
+        L = sections(("s1", "ARTICLE IV REPRESENTATIONS AND WARRANTIES OF THE COMPANY", "Section 4.7 Litigation.",
+                      "There is no Proceeding that would have a material adverse effect on the Company."),
+                     ("s2", "ARTICLE VII CONDITIONS", "Section 7.2 Conditions to Obligations of Parent.",
+                      "Since the date hereof there shall not have occurred a Company Material Adverse Effect."),
+                     ("s3", "ARTICLE I DEFINITIONS", "Section 1.1 Definitions.",
+                      '"Parent Material Adverse Effect" means a material adverse effect on Parent.'))
+        self.assertEqual(prepare_v7.mae_sections(L), set())

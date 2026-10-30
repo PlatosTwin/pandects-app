@@ -661,3 +661,12 @@ class MarketingPeriodExtension(unittest.TestCase):  # v2.13 rule 4
         out, log = apply(outside(ext("other", "the End Date shall be automatically extended to the date that is five Business Days "
                                               "after the end of the Financing Period")), "")
         self.assertEqual(exts(out), [("marketing_period", 1)])
+
+    def test_financing_period_only_in_the_paraphrase(self):  # e20827af: all conditions met, closing pending
+        e = ext("other", "the Company may, by written notice delivered to Parent, extend the Termination Date from time to time "
+                         "by a maximum of one (1) additional one (1) month period",
+                "all Section 7.1 and 7.2 conditions satisfied or waived before the Termination Date (e.g., during the financing period)")
+        e["condition"]["quote"] = ("conditions set forth in Section 7.1 and Section 7.2 shall have been satisfied or duly waived "
+                                   "by all parties entitled to the benefit of such conditions prior to the Termination Date")
+        out, log = apply(outside(e), "")
+        self.assertEqual(log, [])

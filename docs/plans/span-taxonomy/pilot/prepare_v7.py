@@ -27,6 +27,11 @@ From the M7 to M9 extension misses (plan section 7.24): a sentence that extends 
 often names its condition only by section number ("other than the condition set forth in
 Section 7.1(b)"), so the sections such a sentence cites are kept whole.
 
+From the M11 MAE misses (plan section 7.28): an undefined lowercase "material adverse effect" on the
+buyer sits in a buyer representation or a closing condition, so those sections are kept when they
+use it, as is a section that defines the MAE inline with a qualifier ('a "Material Adverse Effect"
+with respect to any Person means').
+
 Usage: python3 prepare_v7.py holdout.tsv OUT
        python3 prepare_v7.py --rebuild D OUT   (stage 1 again from D/layer, candidates to OUT)
 """
@@ -74,6 +79,35 @@ def outside_date_citations(layer):
     return cited
 
 
+BUYER = re.compile(r"\b(?:Parent|Purchasers?|Buyers?|Acquir(?:er|or|ing)|Merger Sub\w*|Acquisition (?:Sub|Corp)\w*)\b", re.I)
+CONDITIONS = re.compile(r"\bconditions?\b", re.I)
+LOWER_MAE = re.compile(r"\bmaterial\s+adverse\s+(?:effect|change|impact)\b")  # lowercase: undefined, not the defined term
+# an MAE defined inline with a qualifier before "means": 'a "Material Adverse Effect" with respect to any Person means'
+INLINE_MAE = re.compile(r"[\"“](?:\w+\s+){0,3}Material\s*Adverse\s+(?:Effect|Change)[\"”][^.;]{1,60}?\b(?:means|shall mean)\b")
+
+
+def mae_sections(layer):
+    """Sections stage 1 missed MAE text in on M11 (plan section 7.28): a section of the buyer's representations, or a
+    closing-conditions section, that uses "material adverse effect" in lowercase (an undefined buyer-side MAE,
+    schema v2.12 rule 3), and a section outside the definitions that defines the MAE inline with a qualifier."""
+    by_sec = {}
+    for lf in layer["leaves"]:
+        by_sec.setdefault(lf["section"], []).append(lf)
+    out = set()
+    for s in layer["sections"]:
+        article, title = s["article"] or "", s["title"] or ""
+        if DEFS_TITLE.search(f"{title} {article}") or s["uuid"].startswith("exhibit:"):
+            continue
+        body = [layer["text"][l["start"]:l["end"]] for l in by_sec.get(s["uuid"], [])]
+        if any(INLINE_MAE.search(x) for x in body):
+            out.add(s["uuid"])
+            continue
+        buyer_reps = REPS.search(article) and BUYER.search(article) or REPS.search(title) and BUYER.search(title)
+        if (buyer_reps or CONDITIONS.search(title) or CONDITIONS.search(article)) and any(LOWER_MAE.search(x) for x in body):
+            out.add(s["uuid"])
+    return out
+
+
 def extend_definitions(layer, leaf_keep, limit=6):
     """Keep the paragraphs a kept definition runs on into, up to the next quoted term."""
     by_sec = {}
@@ -113,6 +147,8 @@ def select(layer):
         sec = next(s for s in secs if s["uuid"] == uuid)
         if uuid not in groups and not DEFS_TITLE.search(f"{sec['title'] or ''} {sec['article'] or ''}"):
             groups[uuid] = {"outside_date"}
+    for uuid in mae_sections(layer):
+        groups.setdefault(uuid, {"deal_risk"})
     extend_definitions(layer, leaf_keep)
     return groups, leaf_keep
 
