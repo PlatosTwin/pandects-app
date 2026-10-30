@@ -240,6 +240,126 @@ class XrefTests(unittest.TestCase):
         x = _xrefs(build_reader_index(xml))["clause (a)"]
         self.assertEqual((x["status"], x["target"]), ("resolved", "s7.2(a)"))
 
+    def test_qualified_clause_lists_fall_back_to_the_named_section(self) -> None:
+        xml = _doc(
+            _section("s3", "Section 3.4 Consents", "(a) none.", "(c) filings.")
+            + _section("s5", "Section 5.1 Refs", "Except the filings in clauses (i) through (v) of Section 3.4(c), none.")
+        )
+        x = _xrefs(build_reader_index(xml))
+        self.assertEqual((x["clauses (i)"]["status"], x["clauses (i)"]["target"]), ("section_fallback", "s3.4(c)"))
+        self.assertEqual(x["Section 3.4(c)"]["target"], "s3.4(c)")
+
+    def test_spaced_enumerators_and_capitalized_heads(self) -> None:
+        xml = _doc(
+            _article("a7", "ARTICLE VII CONDITIONS", _section("s71", "Section 7.1 Mutual", "(a) approval."))
+            + _article(
+                "a8",
+                "ARTICLE VIII TERMINATION",
+                _section("s81", "Section 8.1 Termination", "ARTICLE VII applies; see Sections 7.1 (a) and 8.1, and the conditions set forth in ARTICLE VII."),
+            )
+        )
+        x = _xrefs(build_reader_index(xml))
+        self.assertEqual(x["Sections 7.1 (a)"]["target"], "s7.1(a)")
+        self.assertEqual(x["8.1"]["target"], "s8.1")
+        # the paragraph-opening "ARTICLE VII" is treated as a heading; the later one links
+        arts = [r for r in build_reader_index(xml)["xrefs"] if r["text"] == "ARTICLE VII"]
+        self.assertEqual([r["target"] for r in arts], ["a7"])
+
+    def test_tables_of_contents_and_backward_items_are_not_linked(self) -> None:
+        xml = _doc(
+            _section("s32", "Section 3.2 Deposit", "(b) escrow.", "(d) release.")
+            + _section(
+                "s91",
+                "Section 9.1 Refs",
+                "SECTION 3.1 Shelf 8 SECTION 3.2 Incidental Registrations 10 SECTION 3.3 Piggyback 12",
+                "Payable upon the earlier of (a) its release under Section 3.2 (d), or (b) the termination of this Agreement.",
+            )
+        )
+        p = build_reader_index(xml)
+        self.assertFalse([r for r in p["xrefs"] if r["text"].startswith("SECTION")])
+        self.assertNotIn("(b)", _xrefs(p))
+        self.assertEqual(_xrefs(p)["Section 3.2 (d)"]["target"], "s3.2(d)")
+
+
+class DeclarationPatternTests(unittest.TestCase):
+    def _decls(self, *texts: str) -> dict[str, str]:
+        p = build_reader_index(_doc(_section("s1", "Section 1.1 Definitions", *texts)))
+        return {t["term"]: t["decls"][0]["kind"] for t in p["terms"]}
+
+    def test_runs_of_terms_and_qualifiers_before_means(self) -> None:
+        d = self._decls(
+            "(bb) “Tax” or “Taxes” means any tax.",
+            "An \"Affiliate\" of any Person shall mean any controlled Person.",
+            "\"Material Adverse Effect\" on or with respect to the Company means a change.",
+            "\"Liberty Media Affiliate,\" \"Affiliate of Liberty Media\" and similar phrases shall mean Liberty.",
+            "“dollars” or “$” means lawful money.",
+        )
+        for term in ("Tax", "Taxes", "Affiliate", "Material Adverse Effect", "Liberty Media Affiliate", "Affiliate of Liberty Media", "$"):
+            self.assertEqual(d.get(term), "means", term)
+        self.assertNotIn("dollars", d)
+
+    def test_correlatives_references_and_the_term(self) -> None:
+        d = self._decls(
+            "“Control” means power. “Controlled”, “Controlling” and “under common Control with” have correlative meanings.",
+            "All references to “$” or “dollar” are to U.S. dollars.",
+            "(o) the term “Person” or “person” shall include individuals.",
+            "except for the use of the term \"Closing Date\" in Sections 6.2 and 6.3.",
+            "“cGMP” means current good manufacturing practice.",
+        )
+        for term in ("Controlled", "Controlling", "$", "Person", "cGMP"):
+            self.assertEqual(d.get(term), "means", term)
+        self.assertNotIn("under common Control with", d)
+        self.assertNotIn("Closing Date", d)
+
+    def test_parentheticals_ending_in_a_term(self) -> None:
+        d = self._decls(
+            "This Agreement (this “Agreement”) is made (the time the Merger becomes effective being the “Effective Time”).",
+            "Cash (the “Cash Consideration” and together with the Stock Consideration, the “Merger Consideration”).",
+            "Liability (clause (a) and clause (b), collectively, the “Surviving Obligations”).",
+            "Groups (a \"Past Group\", together with Current Groups, an \"Affiliated Group\").",
+            "Ratios (the \"Preferred Ratio\" and, collectively with the \"Common Ratio,\" the \"Exchange Ratios\").",
+            "Debt (as defined in the “Credit Agreement”).",
+        )
+        for term in ("Agreement", "Effective Time", "Cash Consideration", "Merger Consideration", "Surviving Obligations", "Past Group", "Affiliated Group", "Preferred Ratio", "Exchange Ratios"):
+            self.assertEqual(d.get(term), "paren", term)
+        self.assertNotIn("Common Ratio", d)
+        self.assertNotIn("Credit Agreement", d)
+
+    def test_chained_as_clauses_and_sentence_breaks(self) -> None:
+        d = self._decls(
+            "The balance sheet is referred to herein as the “Balance Sheet” and the date thereof as the “Balance Sheet Date”.",
+            "Each is referred to herein as a “Material Contract” and collectively, the “Material Contracts”.",
+            "Payments are also deemed to be \"Benefit Rights.\" \"FUNDED PLAN\" means a plan.",
+        )
+        for term in ("Balance Sheet", "Balance Sheet Date", "Material Contract", "Material Contracts"):
+            self.assertEqual(d.get(term), "paren", term)
+        self.assertEqual(d.get("FUNDED PLAN"), "means")
+        self.assertNotIn("Benefit Rights", d)
+
+    def test_corpus_audit_false_positives(self) -> None:
+        d = self._decls(
+            'The representations in Section 2.1 ("Due Incorporation, Etc.") and Section 2.3 ("Capitalization") survive.',
+            "(f) references to “Schedules” shall be to the Company Disclosure Schedule.",
+            "1. Each reference to “Chairman of the Board” shall be amended to state “Executive Chairman.”",
+            "except that references to “15%” and “85%” shall be replaced by “50%.”",
+            "Buyer (“Vandalia Corp.”) and the United States (the “U.S.”) agree.",
+        )
+        for term in ("Due Incorporation, Etc", "Capitalization", "Schedules", "Chairman of the Board", "85%", "50%"):
+            self.assertNotIn(term, d)
+        self.assertEqual(d.get("Vandalia Corp."), "paren")
+        self.assertEqual(d.get("U.S."), "paren")
+
+    def test_pointers_to_the_preamble_are_pointers(self) -> None:
+        p = build_reader_index(
+            _doc(
+                '<section uuid="s1" title="Section 1.1 Definitions">'
+                '<definition term="Buyer"><text>“Buyer” shall have the meaning set forth in the introductory paragraph.</text></definition>'
+                "<text>“Merger” shall have the meaning specified in the preamble hereto.</text></section>"
+            )
+        )
+        self.assertEqual(_term(p, "Buyer")["decls"][0]["kind"], "pointer")
+        self.assertEqual(_term(p, "Merger")["decls"][0]["pointer"], "preamble")
+
 
 class AnchorTests(unittest.TestCase):
     def test_text_inside_definition_counts_toward_the_ordinal(self) -> None:

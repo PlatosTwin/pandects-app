@@ -261,6 +261,11 @@
    "term": "Controlled",
    "para": "P63",
    "kind": "means"
+  },
+  {
+   "term": "cGMP",
+   "para": "P21",
+   "kind": "means"
   }
  ],
  "xrefs": [
@@ -1039,5 +1044,8 @@
    "t": 0,
    "excerpt": "sampled"
   }
- }
+ },
+ "rulings": [
+  "2026-10-29 rubric v1.3: a lowercase-first acronym with an internal capital (cGMP) is a declaration"
+ ]
 }

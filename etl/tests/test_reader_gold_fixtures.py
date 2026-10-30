@@ -30,7 +30,9 @@ class ReaderGoldFixtureTests(unittest.TestCase):
                 for d in g["declarations"]:
                     self.assertIn(d["para"], paras)
                     self.assertIn(d["kind"], {"means", "paren", "pointer"})
-                    self.assertFalse(d["term"][:1].islower(), d["term"])
+                    # lowercase-first only for acronyms with an internal capital ("cGMP", rubric v1.3)
+                    t = d["term"]
+                    self.assertTrue(not t[:1].islower() or (" " not in t and any(c.isupper() for c in t[1:])), t)
                 for x in g["xrefs"]:
                     self.assertIn(x["para"], paras)
                     self.assertIn(x["mention"], x["context"])

@@ -27,7 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-ENRICHER_VERSION = "0.1.0"
+ENRICHER_VERSION = "0.2.0"
 PAYLOAD_SCHEMA = 1
 
 # Regions whose text is indexed for term uses and cross-references. The table of
@@ -163,6 +163,15 @@ def _enum_kind(tok: str) -> str:
     if tok.islower():
         return "roman" if tok in _LOWER_ROMANS else "alpha"
     return "ROMAN" if tok.lower() in _LOWER_ROMANS and len(tok) > 1 else "ALPHA"
+
+
+def _enum_ordinal(tok: str) -> int:
+    kind = _enum_kind(tok)
+    if kind == "digit":
+        return int(tok)
+    if kind in ("roman", "ROMAN"):
+        return _roman_to_int(tok.upper()) or 0
+    return ord(tok.lower()[0]) * 10 + len(tok)  # (a) < (b) < (aa)
 
 
 def _classify_tokens(tokens: list[str], prev_by_level: list[tuple[str, str]]) -> list[str]:
@@ -339,25 +348,152 @@ def _container_label(tn: _Text) -> str:
 
 _Q_OPEN = "“\""
 _Q_CLOSE = "”\""
-_TERM = r"[A-Z0-9][^“”\"]{0,80}?"
-# "Foo" means / shall mean / is defined as / as used herein
-DEF_MEANS = re.compile(
-    rf"[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}]\s*(?:\([^)]*\)\s*)?(?:,\s*)?(?:shall\s+)?(?:means?\b|is defined(?!\s+in\b)|as used herein)",
+_TERM = r"[A-Z0-9$][^“”\"]{0,80}?"
+# Run declarations: a run of quoted terms ('"Tax" or "Taxes"', '"Liberty Media Affiliate," "Affiliate
+# of Liberty Media" and similar phrases') before a keyword declares each of them. Quotes are paired
+# first (_quoted_spans), then the run is walked back from the keyword, so matching stays linear.
+# "Foo" means / shall mean / is defined as / as used herein, also after a short qualifier
+# ('"Affiliate" of any Person means', '"Material Adverse Effect" on the Company means')
+DEF_MEANS_KW = re.compile(r"(?:shall\s+)?(?:means?\b|is defined(?!\s+in\b)|as used herein)")
+_MEANS_GAP = re.compile(
+    r"\s*(?:\([^)]*\)\s*)?(?:,\s*)?(?:(?:of|on|for|in respect of|with respect to|on or with respect to)\s+[^“”\".;:()]{1,60}?\s+)?"
 )
+# "Controlled" and "Controlling" have correlative meanings; the terms "X" and "Y" have meanings
+# that correspond to the foregoing
+DEF_CORRELATIVE_KW = re.compile(
+    r"(?:shall\s+)?(?:have|has)\s+(?:the\s+)?(?:correlative|correlated|corresponding|meanings?\s+(?:that\s+)?correspond)"
+)
+_CORRELATIVE_GAP = re.compile(r"\s*,?\s*")
+_RUN_JOIN = re.compile(r"\s*,?\s*(?:(?:or|and|and/or)\s+)?")
+_RUN_TAIL = re.compile(r"\s+and\s+similar\s+(?:phrases|terms)")
+_RUN_LOOKBACK = 120
+
+
+# "U.S.", "Vandalia Corp.": the final period belongs to the term
+_ABBREV_END = re.compile(r"(?:\b[A-Z]\.[A-Z]\.|\b(?:Corp|Inc|Co|Ltd|Bros|L\.P|N\.A|S\.A)\.)$")
+
+
+def _quoted_spans(text: str) -> list[tuple[int, int]]:
+    """(start, end) of the inside of each quoted phrase. Curly quotes pair by direction; straight
+    quotes pair in order. A trailing comma or period inside the quotes is not part of the phrase."""
+    spans: list[tuple[int, int]] = []
+    open_at: int | None = None
+    for i, ch in enumerate(text):
+        if ch == "“" or (ch == '"' and open_at is None):
+            open_at = i + 1
+        elif (ch == "”" or ch == '"') and open_at is not None:
+            end = i
+            while end > open_at and text[end - 1] in ",." and not _ABBREV_END.search(text, open_at, end):
+                end -= 1
+            if 0 < end - open_at <= 80:
+                spans.append((open_at, end))
+            open_at = None
+    return spans
+
+
+def _run_before(text: str, spans: list[tuple[int, int]], pos: int, gap: re.Pattern[str]) -> list[tuple[int, int]]:
+    """The run of quoted spans that ends just before ``pos``, joined by commas, "or" and "and"."""
+    i = next((k for k in range(len(spans) - 1, -1, -1) if spans[k][1] < pos), None)
+    if i is None:
+        return []
+    # skip a trailing comma/period and the closing quote
+    between = text[spans[i][1] : pos].lstrip(",.")[1:]
+    m_tail = _RUN_TAIL.match(between)
+    if m_tail:
+        between = between[m_tail.end() :]
+    if len(between) > _RUN_LOOKBACK or not gap.fullmatch(between):
+        return []
+    run = [spans[i]]
+    while i > 0:
+        prev = spans[i - 1]
+        # text between the previous closing quote and this opening quote
+        trail = text[prev[1] : prev[1] + 1]
+        joint = text[prev[1] : spans[i][0] - 1].lstrip(",.")[1:]
+        # a period inside the quotes ends the sentence; bare whitespace joins only '"X," "Y"'
+        comma = trail == "," or joint.lstrip().startswith(",")
+        if trail == "." or not _RUN_JOIN.fullmatch(joint) or (not joint.strip() and not comma):
+            break
+        run.insert(0, prev)
+        i -= 1
+    # a letter or digit right before the first opening quote means the quotes are mispaired
+    first_open = run[0][0] - 1
+    if first_open > 0 and (text[first_open - 1].isalnum()):
+        return []
+    return run
 # (the "Company"), (each, a "Party"), (collectively, the "Sellers"), ("Parent")
 DEF_PAREN = re.compile(
-    rf"\(\s*(?:(?:together|collectively|individually|each|each of which|any such|such|hereinafter|herein)[^{_Q_OPEN})]*?\s+)?(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}](?:\s*(?:or|and)\s+(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}])?\s*\)",
+    rf"\(\s*(?:(?:together|collectively|individually|each|each of which|any such|such|hereinafter|herein)[^{_Q_OPEN})]*?\s+)?(?:the\s+|a\s+|an\s+|this\s+)?[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}](?:\s*(?:or|and)\s+(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}])?\s*\)",
 )
 # (the entity so determined, the "EBITDA Expert"), (jointly, a "Parent Corporate Event")
 DEF_PAREN_LEADIN = re.compile(rf"\(\s*[^()“”\"]{{1,80}}?,\s*(?:the|a|an)\s+[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}]\s*\)")
+# a quoted term inside a parenthetical that ends with a quoted term: "(the time ... being the
+# "Effective Time")", "(the "Cash Consideration" and together with ..., the "Merger Consideration")"
+_PAREN_TAIL_TERM = re.compile(rf"[{_Q_OPEN}][^{_Q_OPEN}{_Q_CLOSE}]{{1,80}}[,.]?[{_Q_CLOSE}]\s*$")
+_PAREN_TERM = re.compile(rf"(?:^|(?<=[\s,(]))(?:(\w+)\s+)?(?:the|a|an|this)\s+[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]|^\s*[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]")
+# "the X" after these words refers to a term ("as defined in the "Credit Agreement"", "together
+# with the "Common Exchange Ratio"") rather than declaring it
+_PAREN_REF_WORDS = frozenset("of in under to by with from for into on at pursuant per than".split())
+_PAREN_MAX = 400
 # referred to herein as "Compaq Broad Plans", being referred to herein as the "Merger Effective Time"
 DEF_AS = re.compile(rf"\b(?:referred\s+to|defined)\s+(?:herein\s+|hereinafter\s+|below\s+)?as\s+(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]")
-# the term "Material Adverse Effect," when used ..., means
-DEF_THE_TERM = re.compile(rf"\bthe\s+term\s+[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]")
+# '... referred to herein as the "Balance Sheet" and the date thereof as the "Balance Sheet Date"',
+# '... referred to herein as a "Material Contract" and collectively, the "Material Contracts"'
+_AS_MORE = re.compile(
+    rf"\s*(?:,\s*)?(?:and|or)\s+(?:[^.;“”\"]{{0,80}}?\bas\s+|(?:collectively|together|individually|each)\s*,?\s*)(?:the\s+|a\s+|an\s+)?[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]"
+)
+# the term "Material Adverse Effect," when used ..., means; not "the use of the term "X" in Section 6.2"
+DEF_THE_TERM = re.compile(
+    rf"\bthe\s+term\s+[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}](?:\s*or\s+[{_Q_OPEN}][^{_Q_OPEN}{_Q_CLOSE}]{{1,80}}[{_Q_CLOSE}])?\s*,?\s*(?:(?:when|as)\s+used\b[^.;]{{0,160}}?,?\s*)?(?:shall\s+)?(?:means?\b|refers?\s+to\b|includes?\b|include\b)"
+)
+# All references to "$" or "dollar" are to U.S. dollars
+DEF_REFERENCES = re.compile(
+    rf"\breferences?\s+(?:[^“”\".;]{{0,40}}?\s+)?to\s+[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}](?:\s*,?\s*(?:or|and)\s+[{_Q_OPEN}]([^{_Q_OPEN}{_Q_CLOSE}]{{1,80}}?)[,.]?[{_Q_CLOSE}])?\s+(?:are|is|shall\s+be|means?)\b"
+)
 # "Foo" has the meaning set forth in Section 3.2 / is defined in Section 3.2
 DEF_POINTER = re.compile(
     rf"[{_Q_OPEN}]({_TERM})[{_Q_CLOSE}]\s*(?:shall\s+)?(?:has|have|is)\s+(?:the\s+meanings?\s+(?:set\s+forth|given|ascribed|assigned|specified)\s+(?:to\s+(?:it|such term|them)\s+)?in|defined\s+in)\s+(Section|Article|Exhibit|Schedule|Annex)\s+([0-9A-Z.()]*[0-9A-Z)])",
 )
+# "Buyer" shall have the meaning set forth in the introductory paragraph / the Preamble / the Parent
+# Charter: a pointer whose target is not a numbered provision
+DEF_POINTER_OTHER = re.compile(
+    rf"[{_Q_OPEN}]({_TERM})[,.]?[{_Q_CLOSE}]\s*(?:shall\s+)?(?:has|have)\s+the\s+meanings?\s+(?:set\s+forth|given|ascribed|assigned|specified|provided)"
+    + r"(?:\s+(?:to\s+(?:it|such\s+term|them)|thereto|therefor))?\s+(?:in|on|by)\s+(?:the\s+)?([^.;“”\"]{1,60}?)\s*(?:hereto|hereof)?\s*[.;]?\s*$"
+)
+
+
+_NUMBER_LIKE = re.compile(r"[\d$.,%\s]+")
+# a quoted section title after its number, 'Section 2.3 ("Capitalization, Etc.")', is not a declaration
+_TITLE_AFTER_NUMBER = re.compile(r"\b(?:Sections?|Articles?)\s+[\dIVXLC][\w.()]*\s*\(\s*[“\"]$")
+
+
+def _is_term(t: str) -> bool:
+    """A declared term starts with a capital, a digit or a symbol ("$"), or is a lowercase-first
+    acronym with an internal capital ("cGMP"). Lowercase words ("dollars", "control") are not terms."""
+    if not t or ";" in t or (t != "$" and _NUMBER_LIKE.fullmatch(t)):
+        return False
+    if t[0].isupper() or t[0].isdigit() or t[0] == "$":
+        return True
+    return " " not in t and any(ch.isupper() for ch in t[1:])
+
+
+def _paren_terms(text: str) -> list[tuple[str, int, int]]:
+    """Terms declared inside parentheticals that end with a quoted term."""
+    out: list[tuple[str, int, int]] = []
+    stack: list[int] = []
+    for i, ch in enumerate(text):
+        if ch == "(":
+            stack.append(i)
+        elif ch == ")" and stack:
+            start = stack.pop()
+            body = text[start + 1 : i]
+            if len(body) > _PAREN_MAX or not _PAREN_TAIL_TERM.search(body):
+                continue
+            for m in _PAREN_TERM.finditer(body):
+                g = 2 if m.group(2) else 3
+                if m.group(1) and m.group(1).lower() in _PAREN_REF_WORDS:
+                    continue
+                out.append((m.group(g).strip(), start + 1 + m.start(g), start + 1 + m.end(g)))
+    return out
 # Glossary layout: 'Acquisition Proposal. "Acquisition Proposal" shall mean ...'. The
 # leading heading repeats the term; it is not a use. f_xml.py does not tag these
 # as <definition> yet (design decision 11.5), so the enricher catches them here.
@@ -399,8 +535,11 @@ def _collect_declarations(root: ET.Element, texts: list[_Text], by_el: dict[ET.E
             # a glossary pointer wrapped in <definition> ("X" has the meaning set forth in ...) is
             # still a pointer
             pm = DEF_POINTER.match(tn.text.lstrip())
+            om = DEF_POINTER_OTHER.match(tn.text.lstrip())
             if pm:
                 found.append(_Decl(m.group(1).strip(), "pointer", tn, m.start(1), m.end(1), f"{pm.group(2)} {pm.group(3)}"))
+            elif om:
+                found.append(_Decl(m.group(1).strip(), "pointer", tn, m.start(1), m.end(1), om.group(2).strip()))
             else:
                 found.append(_Decl(m.group(1).strip(), "element", tn, m.start(1), m.end(1)))
     for tn in texts:
@@ -410,22 +549,49 @@ def _collect_declarations(root: ET.Element, texts: list[_Text], by_el: dict[ET.E
         for m in DEF_POINTER.finditer(tn.text):
             pointer_starts.add(m.start())
             found.append(_Decl(m.group(1).strip(), "pointer", tn, m.start(1), m.end(1), f"{m.group(2)} {m.group(3)}"))
-        for m in DEF_MEANS.finditer(tn.text):
-            if m.start() not in pointer_starts:
-                found.append(_Decl(m.group(1).strip(), "means", tn, m.start(1), m.end(1)))
+        off = len(tn.text) - len(tn.text.lstrip())
+        om = DEF_POINTER_OTHER.match(tn.text, off)
+        if om:
+            pointer_starts.add(off)
+            found.append(_Decl(om.group(1).strip(), "pointer", tn, om.start(1), om.end(1), om.group(2).strip()))
+        # a run of quoted terms before "means" or "have correlative meanings" declares each of them
+        spans = _quoted_spans(tn.text)
+        for kw, gap in ((DEF_MEANS_KW, _MEANS_GAP), (DEF_CORRELATIVE_KW, _CORRELATIVE_GAP)):
+            for m in kw.finditer(tn.text):
+                run = _run_before(tn.text, spans, m.start(), gap)
+                if run and run[0][0] - 1 in pointer_starts:
+                    continue
+                for a, b in run:
+                    found.append(_Decl(tn.text[a:b].strip(), "means", tn, a, b))
         for m in DEF_PAREN.finditer(tn.text):
             for g in (1, 2):
                 if m.group(g):
                     found.append(_Decl(m.group(g).strip(), "paren", tn, m.start(g), m.end(g)))
-        for rx in (DEF_PAREN_LEADIN, DEF_AS):
-            for m in rx.finditer(tn.text):
-                found.append(_Decl(m.group(1).strip(), "paren", tn, m.start(1), m.end(1)))
+        for term, a, b in _paren_terms(tn.text):
+            found.append(_Decl(term, "paren", tn, a, b))
+        for m in DEF_PAREN_LEADIN.finditer(tn.text):
+            found.append(_Decl(m.group(1).strip(), "paren", tn, m.start(1), m.end(1)))
+        for m in DEF_AS.finditer(tn.text):
+            found.append(_Decl(m.group(1).strip(), "paren", tn, m.start(1), m.end(1)))
+            pos = m.end()
+            while (more := _AS_MORE.match(tn.text, pos)) is not None:
+                found.append(_Decl(more.group(1).strip(), "paren", tn, more.start(1), more.end(1)))
+                pos = more.end()
         for m in DEF_THE_TERM.finditer(tn.text):
             found.append(_Decl(m.group(1).strip(), "means", tn, m.start(1), m.end(1)))
+        for m in DEF_REFERENCES.finditer(tn.text):
+            # only symbols ("$", "US$"): 'references to "Schedules" shall be to ...' and 'each reference
+            # to "Chairman of the Board" shall be amended' are not definitions
+            for g in (1, 2):
+                if m.group(g) and not m.group(g)[0].isalpha():
+                    found.append(_Decl(m.group(g).strip(), "means", tn, m.start(g), m.end(g)))
     # one declaration per (term, text node), the strongest kind wins
     best: dict[tuple[str, str, int], _Decl] = {}
     for d in found:
-        if not 2 <= len(d.term) <= 80:
+        if d.kind == "paren" and _TITLE_AFTER_NUMBER.search(d.tn.text, max(0, d.start - 40), d.start):
+            continue
+        # "$" is the one single-character term (rubric v1.2)
+        if not (2 <= len(d.term) <= 80 or d.term == "$") or not _is_term(d.term):
             continue
         k = (d.term, d.tn.s, d.tn.t)
         if k not in best or _KIND_RANK[d.kind] < _KIND_RANK[best[k].kind]:
@@ -484,8 +650,8 @@ OTHER_DOC = re.compile(
 # "Code Section 409A", "Treasury Regulations Section 1.368-2" (from the kirkland ingester)
 AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.)|§)\s*$")
 SEC_FORM = re.compile(r"^(?:\d{2}[A-Z](?:-\d+)?|TO|13E-3)$")
-REF_HEAD = re.compile(r"\b(Sections?|Articles?|Exhibits?|Schedules?|Annex(?:es)?|Appendix|Appendices|clauses?|paragraphs?)\s+(?=[\dIVXLC(A-Z])")
-REF_ITEM = re.compile(r"(\d+[A-Z]?(?:-\d+)?(?:\.\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
+REF_HEAD = re.compile(r"\b(Sections?|Articles?|SECTIONS?|ARTICLES?|Exhibits?|Schedules?|Annex(?:es)?|Appendix|Appendices|clauses?|paragraphs?)\s+(?=[\dIVXLC(A-Z])")
+REF_ITEM = re.compile(r"(\d+[A-Z]?(?:-\d+)?(?:\.\d+[A-Z]?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 REF_JOIN = re.compile(r"\s*(?:,\s*(?:and|or)?\s*|\s+(?:and|or|through|to|and/or)\s+|\s*[\-–]\s*)")
 QUALIFIED = re.compile(r"\s+(?:of|in)\s+(?:this\s+)?Section\s+(\d+[A-Z]?(?:\.\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
 SECTION_TARGET = re.compile(r"(\d+[A-Z]?(?:\.\d+[A-Z]?)*)((?:\([A-Za-z0-9]+\))*)$")
@@ -504,13 +670,19 @@ class _Ref:
     relative: bool = False
     status: str = ""
     detail: str = ""
+    qualified: bool = False  # "clause (ii) of Section 4.2": the section is printed next to it
 
 
 def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
     refs: list[_Ref] = []
     prev_run: list[_Ref] = []
     prev_end: int | None = None
+    # a paragraph with three or more all-caps heads is a table of contents, often of another document
+    caps_toc = sum(1 for m in REF_HEAD.finditer(text) if m.group(1).isupper()) >= 3
     for hm in REF_HEAD.finditer(text):
+        # an all-caps "ARTICLE VII" that opens the paragraph is a heading, not a reference
+        if hm.group(1).isupper() and (caps_toc or not text[: hm.start()].strip()):
+            continue
         head = hm.group(1).lower().rstrip("s")
         head = _HEAD_NORM.get(head, head)
         pos = hm.end()
@@ -528,7 +700,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             im = REF_ITEM.match(text, item_pos)
             if not im:
                 break
-            item = im.group(1)
+            item = re.sub(r"\s", "", im.group(1))  # "6.2 (a)" is "6.2(a)"
             if not first and item.startswith("("):
                 # a relative member "(c)" only continues the run when the previous item ends in
                 # an enumerator of the same kind: "414(b), (c)" yes; "7.6(b), (ii) Everest" no
@@ -536,6 +708,9 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 pm = re.search(r"\(([A-Za-z0-9]{1,6})\)$", prev)
                 tok_m = ENUM_TOKEN.match(item)
                 if not pm or tok_m is None or _enum_kind(pm.group(1)) != _enum_kind(tok_m.group(1)):
+                    break
+                # "Section 3.2(d), or (b) the termination": a list moves forward; (b) after (d) is a new item
+                if _enum_ordinal(tok_m.group(1)) <= _enum_ordinal(pm.group(1)):
                     break
                 run.append(_Ref(head, prev[: pm.start()] + item, im.start(), im.end(), im.start(), relative=True))
                 pos = im.end()
@@ -578,6 +753,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 if r.target.startswith("(") and not r.status:
                     r.head, r.target = "section", qm.group(1) + r.target
                     r.base_end = r.start  # never fall back on a clause-only span
+                    r.qualified = True
         for r in run:
             if r.head == "schedule" and SEC_FORM.match(r.target):
                 r.status = "external"
@@ -628,6 +804,15 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         sub = ol.subs.get(base + subs)
         if sub is not None:
             return "resolved", sub.id, None
+        if ref.qualified:
+            # "clauses (i) through (v) of Section 3.4(c)" with no paragraph-level target: link the
+            # deepest printed ancestor that exists, which the reader sees named right there
+            parts = re.findall(r"\([A-Za-z0-9]+\)", subs)
+            for k in range(len(parts) - 1, 0, -1):
+                anc = ol.subs.get(base + "".join(parts[:k]))
+                if anc is not None:
+                    return "section_fallback", anc.id, None
+            return "section_fallback", nodes[0].id, None
         if ref.relative or ref.base_end <= ref.start:
             return "unresolved", None, None
         return "section_fallback", nodes[0].id, None
@@ -775,7 +960,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
             status, target, cands = _resolve(r, ol, tn, sec_text)
             if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
                 status, target, r.detail = "unresolved", None, "inline"
-            end = r.base_end if status == "section_fallback" else r.end
+            end = r.base_end if status == "section_fallback" and not r.qualified else r.end
             x: dict[str, Any] = {"at": {"s": tn.s, "t": tn.t}, "span": tn.span(r.start, end), "text": tn.text[r.start : end], "status": status}
             if target:
                 x["target"] = target

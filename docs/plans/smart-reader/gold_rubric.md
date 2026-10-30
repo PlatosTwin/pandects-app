@@ -1,4 +1,4 @@
-# Reader-index gold labeling rubric (v1.2)
+# Reader-index gold labeling rubric (v1.3)
 
 Used to label the gold set in docs/plans/smart-reader.md Section 9. A drafter labels one packet; a checker reviews the draft. Label what a careful lawyer reading the filing would say, **not** what a regex would find. You never see the enricher's output.
 
@@ -29,10 +29,10 @@ Every term declared in the definitions excerpt, and every parenthetical or inlin
 
 - `"Acquisition Proposal" means...` and `Acquisition Proposal. "Acquisition Proposal" shall mean...` → kind `means`.
 - `(the "Company")`, `(each, a "Party")` → kind `paren`.
-- `"Closing Date" has the meaning set forth in Section 2.2` → kind `pointer`, with `pointer` set to the target id (`s2.2`). A pointer target is always a target id or a no-target value from the list above, never a paragraph id like `P18`. When a pointer names another term ("has the meaning given in the definition of Environmental Laws"), point to the section holding that definition. *(ruling 2026-10-23)*
-- The term is the text inside the quotes, exactly as printed (case, punctuation). If one parenthetical declares two terms (`("Parent" or "Buyer")`), list two entries.
+- `"Closing Date" has the meaning set forth in Section 2.2` → kind `pointer`, with `pointer` set to the target id (`s2.2`). A pointer to the preamble or recitals ("has the meaning set forth in the introductory paragraph") has `pointer` set to `preamble`. *(v1.3)* A pointer target is always a target id or a no-target value from the list above, never a paragraph id like `P18`. When a pointer names another term ("has the meaning given in the definition of Environmental Laws"), point to the section holding that definition. *(ruling 2026-10-23)*
+- The term is the text inside the quotes, exactly as printed (case, punctuation). If one parenthetical or one definition declares two terms (`("Parent" or "Buyer")`, `"Tax" or "Taxation" means`), list two entries. *(v1.3)*
 - Do not label quoted words that are not declarations (`the word "including"`, titles of other documents, a statute's official title after "commonly referred to as").
-- A term starts with a capital letter, a digit or a symbol such as `$`. Lowercase correlatives ("control", "controlled", "controlling") are not declarations. *(ruling 2026-10-23)*
+- A term starts with a capital letter, a digit or a symbol such as `$`. Lowercase correlatives ("control", "controlled", "controlling") are not declarations. *(ruling 2026-10-23)* A lowercase-first acronym with an internal capital (`"cGMP" means`) is a declaration. *(v1.3)*
 - Single-letter formula variables (`Where "N" is the aggregate amount...`) are not declarations. *(ruling 2026-10-23)*
 
 ### 2. Cross-references (`xrefs`)
@@ -47,7 +47,7 @@ Every reference mention in the 4 sampled sections and the definitions excerpt th
   - `head`: lowercase singular head word (`section`, `article`, `clause`, `paragraph`, `exhibit`, `schedule`, `annex`, `appendix`).
   - `target`: an id or one of the no-target values above.
 - **Rules for the target:**
-  - Qualified clauses: "clause (ii) of Section 4.2" → `s4.2(ii)`.
+  - Qualified clauses: "clause (ii) of Section 4.2" → `s4.2(ii)`, and the "Section 4.2" it names gets its own entry (`s4.2`). *(v1.3)*
   - Local clauses: "clause (a) above" referring to subsection (a) of the current section → `s{current}(a)`. If it refers to an item enumerated inline in the same paragraph, use `inline`.
   - "of this Agreement" and "hereof" mean this filing. In an exhibit that is the agreement's own glossary, a bare "Section 5.4" means the agreement's Section 5.4.
   - UK drafting: "clause 9.4" is a section (`s9.4`), and "clause 5" is the top-level clause (`a5`).
@@ -56,7 +56,7 @@ Every reference mention in the 4 sampled sections and the definitions excerpt th
 
 ### 3. Term uses (`term_uses`)
 
-Pick 5 terms declared in the definitions excerpt that are **used at least once in the sampled sections**: go through the excerpt in order and take every second qualifying term until you have 5 (fewer if fewer qualify). For each, count its uses in each of the 4 sampled sections. (v1 took the 1st, 5th, 10th... terms, which left 3 of 5 pilot agreements with no term-use labels.)
+Pick 5 terms declared in the definitions excerpt that are **used at least once in the sampled sections**: go through the excerpt in order and take the 1st, 3rd, 5th... qualifying term until you have 5. If that gives fewer than 5, fill up with the skipped qualifying terms in order; if fewer than 5 qualify at all, take every one. *(v1.3)* For each, count its uses in each of the 4 sampled sections. (v1 took the 1st, 5th, 10th... terms, which left 3 of 5 pilot agreements with no term-use labels.)
 
 - A use is the defined term used in its defined sense. Plurals and possessives count ("Acquisition Proposals", "Parent's"). Capitalized as defined.
 - Not a use: the declaration itself, a lowercase ordinary-English use ("the law"), part of a longer defined term ("Parent" inside "Parent Material Adverse Effect" when that is its own defined term), or text inside quotes.
@@ -69,7 +69,7 @@ Write a single JSON file:
 ```json
 {
   "agreement_uuid": "...",
-  "rubric": "v1",
+  "rubric": "v1.3",
   "declarations": [{"term": "...", "para": "P3", "kind": "means|paren|pointer", "pointer": "s2.2"}],
   "xrefs": [{"para": "P7", "head": "section", "mention": "7.2(b)", "context": "subject to Section 7.2(b) and the", "target": "s7.2(b)"}],
   "term_uses": [{"term": "...", "para": "P20", "count": 2}],

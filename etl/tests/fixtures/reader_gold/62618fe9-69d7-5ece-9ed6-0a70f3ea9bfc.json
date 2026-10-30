@@ -192,6 +192,20 @@
    "mention": "IV",
    "context": "Article IV, as the case may be, to the extent",
    "target": "a4"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.4(c)",
+   "context": "(i) through (v) of Section 3.4(c), conflict",
+   "target": "s3.4(c)"
+  },
+  {
+   "para": "P3",
+   "head": "section",
+   "mention": "3.4(b)",
+   "context": "(ii) and (iii) of this Section 3.4(b) for",
+   "target": "s3.4(b)"
   }
  ],
  "term_uses": [
@@ -261,5 +275,8 @@
    "t": 1,
    "excerpt": "sampled"
   }
- }
+ },
+ "rulings": [
+  "2026-10-29 rubric v1.3: the Section in \"clauses (i) of Section 3.4(c)\" gets its own label; two added"
+ ]
 }
