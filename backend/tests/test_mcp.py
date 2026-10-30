@@ -152,8 +152,10 @@ def _normalized_tools_snapshot(tools: list[dict[str, object]]) -> list[dict[str,
     return [
         {
             "name": tool["name"],
+            "title": tool["title"],
             "description": tool["description"],
             "annotations": tool["annotations"],
+            "_meta": tool["_meta"],
             "inputSchema": tool["inputSchema"],
             "outputSchema": tool["outputSchema"],
         }
@@ -168,6 +170,7 @@ def _normalized_capabilities_snapshot(payload: dict[str, object]) -> dict[str, o
         "auth_help": payload["auth_help"],
         "field_inventory": payload["field_inventory"],
         "concept_notes": payload["concept_notes"],
+        "tool_index": payload["tool_index"],
         "tool_limitations": payload["tool_limitations"],
         "tools": [
             {
@@ -1120,6 +1123,8 @@ class McpTests(unittest.TestCase):
         self.assertIn("progress-token-abc", events[1])
         self.assertIn('"result"', events[2])
         self.assertIn('"structuredContent"', events[2])
+        final = json.loads(events[2].split("data: ", 1)[1])["result"]
+        self.assertEqual(json.loads(final["content"][1]["text"]), final["structuredContent"])
 
     def test_progress_token_without_sse_preference_uses_regular_json(self):
         client = self.app.test_client()
@@ -1450,7 +1455,28 @@ class McpTests(unittest.TestCase):
         self.assertIsInstance(body["result"]["content"][0]["text"], str)
         structured = body["result"]["structuredContent"]
         self.assertEqual(structured["results"][0]["agreement_uuid"], "a1")
+        # Content-only clients (e.g. the Anthropic API MCP connector) never show
+        # structuredContent to the model, so the data is mirrored as JSON text.
+        self.assertEqual(len(body["result"]["content"]), 2)
+        self.assertEqual(json.loads(body["result"]["content"][1]["text"]), structured)
         self.assertTrue(any("mcp_tool_call" in line for line in log_context.output))
+
+    def test_oversized_result_is_not_mirrored_into_content(self):
+        # Full-text XML pages reach tens of MB; a second copy in content would raise
+        # peak memory on the 1 GB serving VM, so the mirror is replaced by a note.
+        from backend.mcp.routes import helpers
+        from backend.mcp.tools.dispatch import McpToolResult
+
+        big = McpToolResult(text="Returned 1 agreement(s).", structured_content={"xml": "x" * 300_000})
+        payload = helpers._tool_call_result(big)
+        content = cast(list[dict[str, str]], payload["content"])
+        self.assertIn("too large to repeat", content[1]["text"])
+        self.assertLess(len(content[1]["text"]), 1000)
+        self.assertIs(payload["structuredContent"], big.structured_content)
+
+        small = McpToolResult(text="ok", structured_content={"a": "é"})
+        small_content = cast(list[dict[str, str]], helpers._tool_call_result(small)["content"])
+        self.assertEqual(small_content[1]["text"], '{"a":"é"}')
 
     def test_output_contract_violation_returns_jsonrpc_server_error(self):
         import backend.mcp.tools as tools_module
@@ -1559,14 +1585,16 @@ class McpTests(unittest.TestCase):
             "100M - 250M",
             search_agreements_schema["properties"]["transaction_price_total"]["items"]["enum"],
         )
+        # _search_agreements pages by `page` and never returns XML.
+        self.assertNotIn("cursor", search_agreements_schema["properties"])
+        self.assertNotIn("include_xml", search_agreements_schema["properties"])
         search_agreements_tool = next(tool for tool in res.get_json()["result"]["tools"] if tool["name"] == "search_agreements")
-        self.assertIn("examples", search_agreements_tool)
         self.assertIn("outputSchema", search_agreements_tool)
         self.assertIn("returned_count", search_agreements_tool["outputSchema"]["properties"])
         self.assertIn("count_metadata", search_agreements_tool["outputSchema"]["properties"])
         self.assertIn("interpretation", search_agreements_tool["outputSchema"]["properties"])
-        self.assertEqual(search_agreements_tool["annotations"]["pagination"], "page")
-        self.assertIn("agreements:search", search_agreements_tool["annotations"]["requiredScopes"])
+        self.assertEqual(search_agreements_tool["_meta"]["pandects/pagination"], "page")
+        self.assertIn("agreements:search", search_agreements_tool["_meta"]["pandects/requiredScopes"])
 
         search_sections_schema = tools["search_sections"]
         self.assertIn("target_counsel", search_sections_schema["properties"])
@@ -2714,6 +2742,149 @@ class McpTests(unittest.TestCase):
         declared = res.get_json()["result"]["structuredContent"]["server"]["resources_supported"]
         self.assertEqual(declared, bool(resources))
 
+    def test_tools_list_is_self_describing_for_tool_search(self):
+        # Tool-search hosts load one tool definition at a time and show the model only
+        # name, description and inputSchema, so each description must carry its own
+        # selection guidance, fit the 4,096-character cut, and annotations must be the
+        # standard MCP behavior hints rather than custom keys hosts never surface.
+        import backend.mcp.tools as tools_module
+
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 403, "method": "tools/list"},
+        )
+        self.assertEqual(res.status_code, 200)
+        tools = res.get_json()["result"]["tools"]
+        specs = tools_module._tool_spec_map()
+        self.assertEqual([tool["name"] for tool in tools], [spec.name for spec in tools_module._tool_specs()])
+        for tool in tools:
+            spec = specs[tool["name"]]
+            with self.subTest(tool=tool["name"]):
+                self.assertTrue(tool["title"])
+                self.assertLessEqual(len(tool["description"]), 4096)
+                self.assertTrue(tool["description"].startswith(spec.description))
+                self.assertIn(spec.selection_hint, tool["description"])
+                for note in spec.negative_guidance:
+                    self.assertIn(note, tool["description"])
+                self.assertEqual(
+                    set(tool["annotations"]),
+                    {"title", "readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"},
+                )
+                self.assertEqual(tool["annotations"]["readOnlyHint"], tool["name"] != "submit_feedback")
+                self.assertFalse(tool["annotations"]["destructiveHint"])
+                self.assertEqual(tool["_meta"]["pandects/requiredScopes"], list(spec.scopes))
+                self.assertNotIn("examples", tool)
+
+    def test_tool_input_schemas_fit_codex_compaction_budget(self):
+        # Codex re-serializes each MCP input schema into its own JsonSchema type
+        # (codex-rs/tools/src/json_schema/types.rs keeps only the keys below) and, when
+        # the result exceeds 5,000 bytes, strips every argument description from it
+        # (codex-rs/tools/src/json_schema/compaction.rs). Over budget, a Codex model
+        # sees search_sections with no guidance on text_query, standard_id or filters.
+        import backend.mcp.tools as tools_module
+
+        codex_kept_keys = {
+            "$ref", "type", "description", "encrypted", "enum", "items", "minItems",
+            "properties", "required", "additionalProperties", "anyOf", "oneOf", "allOf",
+            "$defs", "definitions",
+        }
+
+        def codex_normalized(schema: object) -> object:
+            if not isinstance(schema, dict):
+                return schema
+            normalized: dict[str, object] = {}
+            for key, value in cast(dict[str, object], schema).items():
+                if key not in codex_kept_keys:
+                    continue
+                if key == "properties":
+                    normalized[key] = {
+                        name: codex_normalized(child)
+                        for name, child in cast(dict[str, object], value).items()
+                    }
+                elif key in {"items", "additionalProperties"}:
+                    normalized[key] = codex_normalized(value)
+                else:
+                    normalized[key] = value
+            return normalized
+
+        for spec in tools_module._tool_specs():
+            with self.subTest(tool=spec.name):
+                size = len(
+                    json.dumps(
+                        codex_normalized(spec.input_schema), separators=(",", ":"), ensure_ascii=False
+                    ).encode()
+                )
+                self.assertLessEqual(size, 5000)
+
+    def test_initialize_instructions_map_every_tool(self):
+        from backend.mcp.tools.instructions import SERVER_INSTRUCTIONS
+        import backend.mcp.tools as tools_module
+
+        client = self.app.test_client()
+        res = client.post(
+            "/mcp",
+            headers={"Authorization": self._bearer()},
+            json={"jsonrpc": "2.0", "id": 404, "method": "initialize"},
+        )
+        instructions = res.get_json()["result"]["instructions"]
+        self.assertEqual(instructions, SERVER_INSTRUCTIONS)
+        # Claude Code cuts server instructions past 4,096 characters.
+        self.assertLessEqual(len(instructions), 4096)
+        # With tool search, instructions and bare tool names are all the model sees up
+        # front; a tool missing from the task map is one it will rarely think to load.
+        for spec in tools_module._tool_specs():
+            self.assertRegex(instructions, rf"\b{spec.name}\b")
+
+    def test_server_capabilities_default_is_compact_index(self):
+        import backend.mcp.tools as tools_module
+
+        res = self._call_tool("get_server_capabilities", {})
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual(
+            payload["sections_returned"],
+            ["server", "auth_help", "changelog", "tool_index", "workflows"],
+        )
+        for heavy_section in ("field_inventory", "concept_notes", "tool_limitations", "tools"):
+            self.assertNotIn(heavy_section, payload)
+            self.assertIn(heavy_section, payload["sections_available"])
+        self.assertEqual(
+            [entry["name"] for entry in payload["tool_index"]],
+            [spec.name for spec in tools_module._tool_specs()],
+        )
+        self.assertNotIn("unrecognized_tool_names", payload)
+        self.assertLess(len(json.dumps(payload)), 15000)
+
+    def test_server_capabilities_tool_names_narrows_tool_sections(self):
+        res = self._call_tool(
+            "get_server_capabilities",
+            {
+                "sections": ["tool_index", "tool_limitations", "tools"],
+                "tool_names": ["search_sections", "no_such_tool"],
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.get_json()["result"]["structuredContent"]
+        self.assertEqual([tool["name"] for tool in payload["tools"]], ["search_sections"])
+        self.assertEqual([entry["name"] for entry in payload["tool_index"]], ["search_sections"])
+        self.assertEqual({entry["tool"] for entry in payload["tool_limitations"]}, {"search_sections"})
+        self.assertEqual(payload["unrecognized_tool_names"], ["no_such_tool"])
+        # The opt-in full record keeps the long argument text tools/list trims for Codex.
+        self.assertIn(
+            "Boolean punctuation",
+            payload["tools"][0]["input_schema"]["properties"]["text_query"]["description"],
+        )
+
+        typo = self._call_tool("get_server_capabilities", {"sections": ["server", "tool_idx"]})
+        typo_payload = typo.get_json()["result"]["structuredContent"]
+        self.assertEqual(typo_payload["sections_returned"], ["server"])
+        self.assertEqual(typo_payload["unrecognized_sections"], ["tool_idx"])
+
+        bad = self._call_tool("get_server_capabilities", {"tool_names": "search_sections"})
+        self.assertEqual(bad.get_json()["error"]["code"], -32602)
+
     def test_tools_list_contract_snapshot(self):
         client = self.app.test_client()
         res = client.post(
@@ -2729,7 +2900,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(tools, expected)
 
     def test_server_capabilities_snapshot(self):
-        res = self._call_tool("get_server_capabilities", {"sections": ["server", "auth_help", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools"]})
+        res = self._call_tool("get_server_capabilities", {"sections": ["server", "auth_help", "tool_index", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools"]})
         self.assertEqual(res.status_code, 200)
         payload = _normalized_capabilities_snapshot(res.get_json()["result"]["structuredContent"])
         snapshot_path = os.path.join(os.path.dirname(__file__), "fixtures", "mcp_server_capabilities_snapshot.json")

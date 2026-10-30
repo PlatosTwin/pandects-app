@@ -59,6 +59,8 @@ Optional check:
 codex mcp list
 ```
 
+Recent Codex versions keep MCP tools out of the model's context until its `tool_search` tool loads them. Codex shows the model the Pandects server instructions, which map each research task to the tools for it, so you rarely need to name a tool. If Codex does not pick up the right one, name it in your prompt by its bare name, for example "use search_sections"; Codex's search does not currently match the prefixed `mcp__pandects__search_sections` form.
+
 ## Claude Code
 
 Add the server:
@@ -74,6 +76,8 @@ Then open MCP inside Claude Code:
 ```
 
 Then authenticate the `pandects` server inside the MCP UI and finish the browser sign-in flow.
+
+Claude Code loads MCP tools on demand through tool search: at the start of a session Claude sees only the tool names and the server instructions, and loads a tool's full definition when a task needs it. If you use Pandects in nearly every session and want its tools loaded up front, set `"alwaysLoad": true` on the `pandects` entry in your MCP configuration; this costs context in every conversation.
 
 ## Supported Clients Right Now
 

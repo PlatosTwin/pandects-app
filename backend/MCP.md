@@ -164,11 +164,18 @@ curl -X POST https://api.pandects.org/mcp \
 
 ## Current Tool Surface
 
-23 tools ship today. This file deliberately does not list them: a hand-maintained
-inventory here fell 20 tools behind the server before anyone noticed. The
-authoritative list is whatever `tools/list` returns, and the maintained prose
-description lives in `docs/docs/mcp/technical-details.md`. `get_server_capabilities`
-returns the same inventory with per-tool selection hints and negative guidance.
+This file deliberately does not list the tools: a hand-maintained inventory here
+fell 20 tools behind the server before anyone noticed. The authoritative list is
+whatever `tools/list` returns, and the maintained prose description lives in
+`docs/docs/mcp/technical-details.md`.
+
+The surface is built for progressive tool discovery (hosts that show the model only
+tool names plus the `initialize` instructions and load a definition on demand); see
+"Progressive Tool Discovery" in that file. When adding a tool: give it a `title`, a
+description that leads with the words a search would match, a `selection_hint` and
+`negative_guidance` (both are appended to the description `tools/list` serves), and
+name it under the right job in `backend/mcp/tools/instructions.py`. Tests fail if a
+description or the instructions pass 4,096 characters, or if the instructions miss a tool.
 
 Every tool declares its own required scopes in `backend/mcp/tools/__init__.py`; the
 four scopes are:

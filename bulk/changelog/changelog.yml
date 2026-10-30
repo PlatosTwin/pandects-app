@@ -21,6 +21,45 @@
 # minor = additive/cosmetic.
 
 unreleased:
+- type: mcp
+  severity: breaking
+  summary: "MCP tools are tuned for progressive tool discovery in Claude and Codex: self-contained descriptions, standard annotations, a task-to-tool map in the instructions, a compact get_server_capabilities default, and result data in the text content."
+  details: >
+    Clients that load tool definitions on demand (tool search) show the model
+    only tool names and the server instructions up front, then one tool at a
+    time. Each tools/list description now ends with that tool's "Use when"
+    guidance and an "Avoid" list, which before lived only in annotations and
+    get_server_capabilities. annotations now carries only the standard MCP
+    hints (title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint);
+    the custom selectionHint, negativeGuidance, pagination and requiredScopes
+    keys are gone, with scopes and pagination moved to _meta as
+    pandects/requiredScopes and pandects/pagination. Each tool gains a title,
+    the non-standard top-level examples field is removed from tools/list, and
+    filter arguments that had no description now have one. The initialize
+    instructions map every tool to the job it does. get_server_capabilities
+    with no arguments now returns a compact index (server, auth_help,
+    changelog, a new one-line-per-tool tool_index, workflows, and
+    sections_available); field_inventory, concept_notes and tool_limitations
+    must be requested by name, and a new tool_names argument narrows the
+    per-tool sections. Tool results now carry the data as JSON in a second
+    text block after the one-line summary, so clients that show the model
+    only content (not structuredContent) get the data too; results over
+    250,000 characters get a short note there instead. The
+    pandects://capabilities resource returns the same compact index. On
+    search_sections, search_agreements, list_agreements and
+    search_tax_clauses, argument descriptions are shorter so each input
+    schema fits the 5,000 bytes Codex allows before it strips all of them,
+    and transaction_price_stock, transaction_price_cash and
+    transaction_price_assets no longer repeat the bucket enum (their labels
+    are the ones on transaction_price_total; other values are still
+    rejected). search_agreements no longer advertises cursor or include_xml,
+    which it accepted but ignored. get_server_capabilities reports unknown
+    section names under unrecognized_sections.
+  migration: >
+    Clients that read annotations.requiredScopes or annotations.pagination
+    should read _meta["pandects/requiredScopes"] and _meta["pandects/pagination"].
+    Pass sections=["field_inventory", "concept_notes", "tool_limitations"] to
+    get_server_capabilities to get the sections the old default included.
 - type: schema
   severity: minor
   summary: "New table reader_index: the outline, defined terms and cross-references of each agreement's latest verified XML."

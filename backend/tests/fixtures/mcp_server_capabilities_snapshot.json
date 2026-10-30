@@ -296,12 +296,12 @@
         "representation": "first_class_section_field"
       },
       {
+        "name": "text_query",
         "applies_to_tools": [
           "search_sections"
         ],
-        "name": "text_query",
-        "representation": "derived_from_text",
-        "source_table_or_surface": "section_text_search"
+        "source_table_or_surface": "section_text_search",
+        "representation": "derived_from_text"
       }
     ],
     "taxonomy_assignment_fields": [
@@ -407,7 +407,259 @@
       ],
       "representation": "not_represented",
       "canonical_or_proxy": "proxy",
-      "scope_note": "The corpus is SEC-filed, predominantly public-target M&A exhibits sourced from EDGAR; private-deal language is largely absent, so any language-frequency study inherits that skew. target_type is the closest filter for public/private, not an exact proxy for deal population. The same underlying deal can also appear as multiple filings -- both parties file, and amendments and closing re-filings add further copies -- and there is currently no deal-level dedupe key, so a filing count is not a deal count."
+      "scope_note": "The corpus is SEC-filed M&A exhibits sourced from EDGAR, so every deal has an SEC filer, usually a public party; deals between two private companies are largely absent, so any language-frequency study inherits that skew. target_type is the closest filter for public/private, not an exact proxy for deal population. The same underlying deal can also appear as multiple filings -- both parties file, and amendments and closing re-filings add further copies -- and there is currently no deal-level dedupe key, so a filing count is not a deal count."
+    }
+  ],
+  "tool_index": [
+    {
+      "name": "search_agreements",
+      "title": "Search agreements",
+      "use_when": "Use for exploratory lookup when you may combine free-text discovery with filters and only need shallow pagination.",
+      "required_scopes": [
+        "agreements:search"
+      ],
+      "pagination": "page",
+      "read_only": true
+    },
+    {
+      "name": "search_sections",
+      "title": "Search clause sections",
+      "use_when": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "page",
+      "read_only": true
+    },
+    {
+      "name": "search_tax_clauses",
+      "title": "Search tax clauses",
+      "use_when": "Use for corpus-wide tax-clause retrieval by tax taxonomy node; pair with suggest_clause_families(taxonomy='tax_clauses'). Unrecognized tax_standard_id values are ignored and reported under interpretation.unrecognized_tax_standard_ids — check for that block before reading an empty result as a real absence.",
+      "required_scopes": [
+        "agreements:read"
+      ],
+      "pagination": "page",
+      "read_only": true
+    },
+    {
+      "name": "list_agreements",
+      "title": "List agreements by exact filters",
+      "use_when": "Use when filters are already known and you expect to paginate deeply or export exact result sets.",
+      "required_scopes": [
+        "agreements:search"
+      ],
+      "pagination": "cursor",
+      "read_only": true
+    },
+    {
+      "name": "list_agreement_sections",
+      "title": "List an agreement's sections",
+      "use_when": "Use after identifying one agreement and before calling get_section. Use list_agreement_sections_batch when you have multiple agreement UUIDs.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "page",
+      "read_only": true
+    },
+    {
+      "name": "list_agreement_sections_batch",
+      "title": "List sections for many agreements",
+      "use_when": "Use when you already have multiple agreement UUIDs and need all their section structures at once.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_agreement",
+      "title": "Get agreement",
+      "use_when": "Use when you already know the exact agreement UUID and need the agreement payload or XML.",
+      "required_scopes": [
+        "agreements:read"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_agreements_batch",
+      "title": "Get agreements in batch",
+      "use_when": "Use when you already hold multiple agreement UUIDs and need their metadata rows at once; replaces N calls to get_agreement.",
+      "required_scopes": [
+        "agreements:read"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_section",
+      "title": "Get section",
+      "use_when": "Use when you already have a section UUID and want the exact section payload.",
+      "required_scopes": [
+        "agreements:read"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_agreement_tax_clauses",
+      "title": "Get an agreement's tax clauses",
+      "use_when": "Use for agreement-level tax clause extraction once you know the agreement UUID.",
+      "required_scopes": [
+        "agreements:read"
+      ],
+      "pagination": "page",
+      "read_only": true
+    },
+    {
+      "name": "get_section_tax_clauses",
+      "title": "Get a section's tax clauses",
+      "use_when": "Use for section-level tax clause extraction when you already have a section UUID.",
+      "required_scopes": [
+        "agreements:read"
+      ],
+      "pagination": "page",
+      "read_only": true
+    },
+    {
+      "name": "list_filter_options",
+      "title": "List filter values",
+      "use_when": "Use first when you need canonical filter values or need to translate plural catalog groups into retrieval parameter names.",
+      "required_scopes": [
+        "agreements:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "suggest_clause_families",
+      "title": "Map a concept to clause taxonomy",
+      "use_when": "Use when you know the legal concept but not the right taxonomy id.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_section_snippet",
+      "title": "Get section snippet",
+      "use_when": "Use after search_sections when you need a quick excerpt for comparison or quoting.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_section_snippets_batch",
+      "title": "Get section snippets in batch",
+      "use_when": "Use when comparing clause language across many sections; replaces N calls to get_section_snippet.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_sections_batch",
+      "title": "Get sections in batch",
+      "use_when": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_server_metrics",
+      "title": "Server metrics",
+      "use_when": "Use for operational monitoring and to see which MCP tools are slow or error-prone.",
+      "required_scopes": [
+        "agreements:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_server_capabilities",
+      "title": "Server reference guide",
+      "use_when": "Use when you need a machine-readable guide to tool choice, field coverage, concept mapping, scopes, or multi-step research workflows.",
+      "required_scopes": [
+        "agreements:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_clause_taxonomy",
+      "title": "Clause taxonomy tree",
+      "use_when": "Use when you need valid standard_id values for section taxonomy filtering.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_tax_clause_taxonomy",
+      "title": "Tax clause taxonomy tree",
+      "use_when": "Use when you need tax-clause taxonomy ids before calling a tax-clause retrieval tool.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_counsel_catalog",
+      "title": "Law firm catalog",
+      "use_when": "Use when you need canonical firm names before counsel-filtered agreement or section retrieval. Pass query= to avoid fetching the full catalog.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_naics_catalog",
+      "title": "NAICS industry catalog",
+      "use_when": "Use to map an industry description to the NAICS code the industry filters expect; prefer list_filter_options, which returns the in-use codes and their labels directly.",
+      "required_scopes": [
+        "sections:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_agreements_summary",
+      "title": "Corpus size summary",
+      "use_when": "Use for top-level corpus sizing before deeper analysis.",
+      "required_scopes": [
+        "agreements:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "get_agreement_trends",
+      "title": "Deal trends by year",
+      "use_when": "Use for aggregated corpus analytics rather than document retrieval.",
+      "required_scopes": [
+        "agreements:search"
+      ],
+      "pagination": "none",
+      "read_only": true
+    },
+    {
+      "name": "submit_feedback",
+      "title": "Send feedback to the maintainer",
+      "use_when": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
+      "required_scopes": [
+        "agreements:search"
+      ],
+      "pagination": "none",
+      "read_only": false
     }
   ],
   "tool_limitations": [
@@ -429,7 +681,7 @@
     {
       "tool": "search_sections",
       "use_when": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
-      "do_not_use_for": "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first."
+      "do_not_use_for": "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes, and the concept_notes section of get_server_capabilities, first."
     },
     {
       "tool": "search_sections",
@@ -589,7 +841,7 @@
     {
       "tool": "get_sections_batch",
       "use_when": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section.",
-      "do_not_use_for": "Limited to 10 sections per call; split into multiple calls for larger sets."
+      "do_not_use_for": "Do not pass more than 10 sections in one call; split larger sets into multiple calls."
     },
     {
       "tool": "get_sections_batch",
@@ -598,8 +850,13 @@
     },
     {
       "tool": "get_server_capabilities",
-      "use_when": "Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows.",
-      "do_not_use_for": "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly."
+      "use_when": "Use when you need a machine-readable guide to tool choice, field coverage, concept mapping, scopes, or multi-step research workflows.",
+      "do_not_use_for": "Do not guess whether a concept is canonical or proxy-based when the concept_notes section can tell you directly."
+    },
+    {
+      "tool": "get_server_capabilities",
+      "use_when": "Use when you need a machine-readable guide to tool choice, field coverage, concept mapping, scopes, or multi-step research workflows.",
+      "do_not_use_for": "Do not request every section by default; start from the compact index and fetch the sections a task needs."
     },
     {
       "tool": "submit_feedback",
@@ -612,9 +869,9 @@
       "do_not_use_for": "Do not include user personal data, credentials, or full document texts in feedback; tool names, arguments, and short excerpts are enough."
     },
     {
-      "do_not_use_for": "Do not file one submission per minor variation of the same issue; consolidate related observations into a single report.",
       "tool": "submit_feedback",
-      "use_when": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping."
+      "use_when": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
+      "do_not_use_for": "Do not file one submission per minor variation of the same issue; consolidate related observations into a single report."
     }
   ],
   "tools": [
@@ -694,23 +951,50 @@
               "2020"
             ]
           },
-          "cursor": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Opaque cursor from a previous agreements listing response."
-          },
-          "include_xml": {
-            "type": "boolean",
-            "description": "When true, include full agreement XML for each result."
-          },
           "year": {
             "type": "array",
             "items": {
               "type": "integer"
             },
             "description": "Agreement filing years to include."
+          },
+          "year_min": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1900,
+            "maximum": 2100,
+            "description": "Earliest filing year to include (inclusive). Use with year_max for a range; use year for specific individual years."
+          },
+          "year_max": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1900,
+            "maximum": 2100,
+            "description": "Latest filing year to include (inclusive). Use with year_min for a range."
+          },
+          "filed_after": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Include only agreements with filing_date >= this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_min.",
+            "examples": [
+              "2022-06-01"
+            ]
+          },
+          "filed_before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Include only agreements with filing_date < this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_max.",
+            "examples": [
+              "2024-01-01"
+            ]
           },
           "target": {
             "type": "array",
@@ -752,77 +1036,20 @@
           "transaction_price_stock": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_price_cash": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_price_assets": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_consideration": {
             "type": "array",
@@ -956,44 +1183,6 @@
               "type": "string"
             },
             "description": "Filter to agreements where the firm appears on either side (target or acquirer). Use instead of target_counsel + acquirer_counsel when side is unknown."
-          },
-          "year_min": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "minimum": 1900,
-            "maximum": 2100,
-            "description": "Earliest filing year to include (inclusive). Use with year_max for a range; use year for specific individual years."
-          },
-          "year_max": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "minimum": 1900,
-            "maximum": 2100,
-            "description": "Latest filing year to include (inclusive). Use with year_min for a range."
-          },
-          "filed_after": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Include only agreements with filing_date >= this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_min.",
-            "examples": [
-              "2022-06-01"
-            ]
-          },
-          "filed_before": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Include only agreements with filing_date < this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_max.",
-            "examples": [
-              "2024-01-01"
-            ]
           },
           "fields": {
             "type": "array",
@@ -1277,7 +1466,7 @@
       "selection_hint": "Use for literal clause-text retrieval, taxonomy-based retrieval, and agreement-section sampling. Pass include_snippet=true to read the matching language directly; text_query automatically focuses snippets when snippet_focus_terms is omitted.",
       "negative_guidance": [
         "Do not use this tool as a source of normalized document-level facts; it returns clause text and metadata attached to matching sections.",
-        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes and concept guidance first.",
+        "Do not assume taxonomy hits are always canonical for the user concept; inspect interpretation notes, and the concept_notes section of get_server_capabilities, first.",
         "Do not treat literal text search as semantic search: use suggest_clause_families for concepts and text_query for words or phrases that should actually appear in the clause.",
         "Do not pass raw boolean-search operators, leading wildcards, or infix wildcards. Choose text_match_mode and use only a trailing * for word-prefix matching.",
         "Do not follow this tool with get_section_snippets_batch for sections it just returned; pass include_snippet=true instead and save the round-trip.",
@@ -1424,77 +1613,20 @@
           "transaction_price_stock": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_price_cash": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_price_assets": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_consideration": {
             "type": "array",
@@ -1652,6 +1784,29 @@
             "description": "Filter to one section UUID.",
             "example": "5e59453aaa9255c4"
           },
+          "text_query": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Case-insensitive literal section-text query (maximum 256 characters and 24 terms). Append `*` only to the end of a word for prefix matching; at most four prefix terms are allowed and each prefix stem must contain at least three characters. Boolean punctuation is treated as a separator.",
+            "example": "material adverse effect",
+            "maxLength": 256,
+            "examples": [
+              "reasonable best efforts",
+              "sandbag*"
+            ]
+          },
+          "text_match_mode": {
+            "type": "string",
+            "enum": [
+              "phrase",
+              "all_terms",
+              "any_terms"
+            ],
+            "description": "Text matching behavior. `phrase` preserves term order; `all_terms` requires every term; `any_terms` requires at least one term.",
+            "example": "phrase"
+          },
           "count_mode": {
             "type": "string",
             "enum": [
@@ -1716,29 +1871,6 @@
             "minimum": 120,
             "maximum": 1200,
             "description": "Maximum characters per snippet (120-1200). Only applies when include_snippet is true. Defaults to 400 to keep result pages compact."
-          },
-          "text_match_mode": {
-            "description": "Text matching behavior. `phrase` preserves term order; `all_terms` requires every term; `any_terms` requires at least one term.",
-            "enum": [
-              "phrase",
-              "all_terms",
-              "any_terms"
-            ],
-            "example": "phrase",
-            "type": "string"
-          },
-          "text_query": {
-            "description": "Case-insensitive literal section-text query (maximum 256 characters and 24 terms). Append `*` only to the end of a word for prefix matching; at most four prefix terms are allowed and each prefix stem must contain at least three characters. Boolean punctuation is treated as a separator.",
-            "example": "material adverse effect",
-            "examples": [
-              "reasonable best efforts",
-              "sandbag*"
-            ],
-            "maxLength": 256,
-            "type": [
-              "string",
-              "null"
-            ]
           }
         },
         "additionalProperties": false
@@ -1888,6 +2020,10 @@
             "type": "integer",
             "description": "Distinct agreements represented on this result page only."
           },
+          "total_agreement_count": {
+            "type": "integer",
+            "description": "Exact distinct agreements across the complete filtered result set. Present only when count_mode=exact."
+          },
           "standard_id_labels": {
             "type": "object",
             "additionalProperties": {
@@ -2034,10 +2170,6 @@
               "heuristics_used",
               "notes"
             ]
-          },
-          "total_agreement_count": {
-            "description": "Exact distinct agreements across the complete filtered result set. Present only when count_mode=exact.",
-            "type": "integer"
           }
         },
         "additionalProperties": true,
@@ -2162,77 +2294,20 @@
           "transaction_price_stock": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_price_cash": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_price_assets": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_consideration": {
             "type": "array",
@@ -2708,6 +2783,44 @@
             },
             "description": "Agreement filing years to include."
           },
+          "year_min": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1900,
+            "maximum": 2100,
+            "description": "Earliest filing year to include (inclusive). Use with year_max for a range; use year for specific individual years."
+          },
+          "year_max": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1900,
+            "maximum": 2100,
+            "description": "Latest filing year to include (inclusive). Use with year_min for a range."
+          },
+          "filed_after": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Include only agreements with filing_date >= this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_min.",
+            "examples": [
+              "2022-06-01"
+            ]
+          },
+          "filed_before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Include only agreements with filing_date < this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_max.",
+            "examples": [
+              "2024-01-01"
+            ]
+          },
           "target": {
             "type": "array",
             "items": {
@@ -2748,77 +2861,20 @@
           "transaction_price_stock": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_price_cash": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_price_assets": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "0 - 100M",
-                "100M - 250M",
-                "250M - 500M",
-                "500M - 750M",
-                "750M - 1B",
-                "1B - 2B",
-                "2B - 5B",
-                "5B - 10B",
-                "10B - 20B",
-                "20B+"
-              ]
-            },
-            "description": "Transaction-price bucket filters.",
-            "examples": [
-              [
-                "100M - 250M",
-                "250M - 500M"
-              ]
-            ]
+              "type": "string"
+            }
           },
           "transaction_consideration": {
             "type": "array",
@@ -2952,44 +3008,6 @@
               "type": "string"
             },
             "description": "Filter to agreements where the firm appears on either side (target or acquirer). Use instead of target_counsel + acquirer_counsel when side is unknown."
-          },
-          "year_min": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "minimum": 1900,
-            "maximum": 2100,
-            "description": "Earliest filing year to include (inclusive). Use with year_max for a range; use year for specific individual years."
-          },
-          "year_max": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "minimum": 1900,
-            "maximum": 2100,
-            "description": "Latest filing year to include (inclusive). Use with year_min for a range."
-          },
-          "filed_after": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Include only agreements with filing_date >= this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_min.",
-            "examples": [
-              "2022-06-01"
-            ]
-          },
-          "filed_before": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Include only agreements with filing_date < this date (ISO 8601: YYYY-MM-DD). Provides sub-year precision over year_max.",
-            "examples": [
-              "2024-01-01"
-            ]
           },
           "fields": {
             "type": "array",
@@ -5255,19 +5273,22 @@
         "type": "object",
         "properties": {
           "concept": {
-            "type": "string"
+            "type": "string",
+            "description": "Plain-English M&A legal concept or clause type, e.g. 'MAE carveouts', 'no-shop', 'reverse termination fee', 'tax-free reorganization'."
           },
           "taxonomy": {
             "type": "string",
             "enum": [
               "clauses",
               "tax_clauses"
-            ]
+            ],
+            "description": "`clauses` (default) returns 16-hex standard_id nodes for search_sections; `tax_clauses` returns dotted tax.* ids for search_tax_clauses."
           },
           "top_k": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 10
+            "maximum": 10,
+            "description": "Number of ranked suggestions to return (1-10)."
           }
         },
         "additionalProperties": false,
@@ -5697,7 +5718,7 @@
       "selection_hint": "Use when you need full section XML for multiple sections at once; replaces N calls to get_section.",
       "negative_guidance": [
         "Do not use for snippets or excerpts — use get_section_snippets_batch instead.",
-        "Limited to 10 sections per call; split into multiple calls for larger sets.",
+        "Do not pass more than 10 sections in one call; split larger sets into multiple calls.",
         "Do not assume returned_count equals the number of section_uuids you passed: a uuid that matches no section is omitted and reported under unresolved_section_uuids, so check that block before reading the shorter list as the answer."
       ],
       "response_examples": [
@@ -5998,9 +6019,10 @@
         "agreements:search"
       ],
       "pagination": "none",
-      "selection_hint": "Use when you need a machine-readable guide to tool choice, filters, scopes, and supported workflows.",
+      "selection_hint": "Use when you need a machine-readable guide to tool choice, field coverage, concept mapping, scopes, or multi-step research workflows.",
       "negative_guidance": [
-        "Do not guess whether a concept is canonical or proxy-based when this tool can tell you directly."
+        "Do not guess whether a concept is canonical or proxy-based when the concept_notes section can tell you directly.",
+        "Do not request every section by default; start from the compact index and fetch the sections a task needs."
       ],
       "response_examples": [
         {
@@ -6010,6 +6032,12 @@
               "name": "pandects-mcp",
               "transport": "http_jsonrpc"
             },
+            "tool_index": [
+              {
+                "name": "search_sections",
+                "title": "Search clause sections"
+              }
+            ],
             "workflows": [
               {
                 "name": "discover agreements by counsel"
@@ -6018,9 +6046,8 @@
             "sections_returned": [
               "server",
               "auth_help",
-              "field_inventory",
-              "concept_notes",
-              "tool_limitations",
+              "changelog",
+              "tool_index",
               "workflows"
             ]
           }
@@ -6046,6 +6073,7 @@
                 "server",
                 "auth_help",
                 "changelog",
+                "tool_index",
                 "field_inventory",
                 "concept_notes",
                 "tool_limitations",
@@ -6053,15 +6081,26 @@
                 "tools"
               ]
             },
-            "description": "Subset of capability sections to return. Valid values: server, auth_help, changelog, field_inventory, concept_notes, tool_limitations, workflows, tools. Defaults to all sections except `tools` (which is large). Pass `[\"tools\"]` or include `tools` explicitly if you need full per-tool schemas.",
+            "description": "Subset of capability sections to return. Valid values: server, auth_help, changelog, tool_index, field_inventory, concept_notes, tool_limitations, workflows, tools. Defaults to the compact index: server, auth_help, changelog, tool_index, workflows. `tools` is large; pair it with tool_names.",
             "default": [
               "server",
               "auth_help",
               "changelog",
-              "field_inventory",
-              "concept_notes",
-              "tool_limitations",
+              "tool_index",
               "workflows"
+            ]
+          },
+          "tool_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Restrict tool_index, tool_limitations and tools to these tool names. Names that match no tool are reported under unrecognized_tool_names.",
+            "examples": [
+              [
+                "search_sections",
+                "suggest_clause_families"
+              ]
             ]
           }
         },
@@ -6346,6 +6385,44 @@
               ]
             }
           },
+          "tool_index": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "use_when": {
+                  "type": "string"
+                },
+                "required_scopes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "pagination": {
+                  "type": "string"
+                },
+                "read_only": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "title",
+                "use_when",
+                "required_scopes",
+                "pagination",
+                "read_only"
+              ]
+            }
+          },
           "tool_limitations": {
             "type": "array",
             "items": {
@@ -6553,11 +6630,31 @@
             "items": {
               "type": "string"
             }
+          },
+          "sections_available": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "unrecognized_tool_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unrecognized_sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false,
         "required": [
-          "sections_returned"
+          "sections_returned",
+          "sections_available"
         ]
       }
     },
