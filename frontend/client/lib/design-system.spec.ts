@@ -46,9 +46,11 @@ describe("design system", () => {
     expect(offenders).toEqual([]);
   });
 
-  // The nav, footer, page shells and the reader share one frame (Search uses
-  // app-frame-bleed, nav included). A copied max-width literal is how search
-  // and the nav drifted apart.
+  // The nav, footer, page shells and the reader share one frame (Search's
+  // workspace uses app-frame-bleed). A copied max-width literal is how search
+  // and the nav drifted apart. The nav never swaps frames per route: that
+  // shifted the logo and links whenever you moved between Search and any
+  // other page.
   it("sizes page frames with app-frame only", () => {
     const offenders = sources
       .filter(({ source }) => /(?<![\w-])max-w-7xl(?![\w-])/.test(source))
@@ -57,9 +59,12 @@ describe("design system", () => {
     for (const file of ["components/Navigation.tsx", "components/Footer.tsx", "components/PageShell.tsx"]) {
       expect(fs.readFileSync(path.join(clientRoot, file), "utf8"), file).toContain("app-frame");
     }
-    for (const file of ["components/Navigation.tsx", "pages/search/SearchQueryBar.tsx"]) {
-      expect(fs.readFileSync(path.join(clientRoot, file), "utf8"), file).toContain("app-frame-bleed");
-    }
+    expect(fs.readFileSync(path.join(clientRoot, "pages/search/SearchQueryBar.tsx"), "utf8")).toContain(
+      "app-frame-bleed",
+    );
+    expect(fs.readFileSync(path.join(clientRoot, "components/Navigation.tsx"), "utf8")).not.toContain(
+      "app-frame-bleed",
+    );
   });
 
   // Stacked segments touch, so two neighbors of similar lightness (green on
