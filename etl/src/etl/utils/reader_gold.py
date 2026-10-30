@@ -242,8 +242,10 @@ def score(xml: str, gold: dict[str, Any], para_map: dict[str, dict[str, Any]]) -
     gold_terms = {u["term"] for u in gold.get("term_uses", [])}
     gold_counts = {(u["term"], para_map[u["para"]]["s"], para_map[u["para"]]["t"]): int(u["count"]) for u in gold.get("term_uses", [])}
     sampled = {(a["s"], a["t"]) for a in para_map.values() if a.get("excerpt", "sampled") == "sampled"}
+    # an index-table row can print a term in another case than its declaration ("Company" for "COMPANY")
+    term_id_ci = {k.casefold(): v for k, v in term_id.items()}
     for term in gold_terms:
-        tid = term_id.get(term)
+        tid = term_id.get(term, term_id_ci.get(term.casefold()))
         for (s, t) in sampled:
             sys_n = sum(1 for u in payload["uses"].get(f"{s}/{t}", []) if u[2] == tid) if tid is not None else 0
             g_n = gold_counts.get((term, s, t), 0)

@@ -1,6 +1,6 @@
 {
  "agreement_uuid": "76b77434-cb05-5b69-a3d8-660f3f5088dd",
- "rubric": "v1.4",
+ "rubric": "v1.5",
  "declarations": [
   {
    "term": "Additional Employees",
@@ -384,12 +384,17 @@
   {
    "term": "Companies",
    "para": "P41",
-   "count": 1
+   "count": 6
   },
   {
    "term": "Companies",
    "para": "P42",
    "count": 1
+  },
+  {
+   "term": "Companies",
+   "para": "P43",
+   "count": 6
   }
  ],
  "excluded_xrefs": [],
@@ -622,5 +627,8 @@
    "t": 0,
    "excerpt": "sampled"
   }
- }
+ },
+ "rulings": [
+  "v1.5 ruling 7: a singular use of a plural-declared term counts (\"any Company\" for \"Companies\"); Companies recounted"
+ ]
 }

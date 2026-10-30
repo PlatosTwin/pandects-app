@@ -1,6 +1,6 @@
 {
  "agreement_uuid": "818da315-103e-581a-b81c-4c5a320ebb90",
- "rubric": "v1.4",
+ "rubric": "v1.5",
  "declarations": [
   {
    "term": "Affiliate",
@@ -306,6 +306,20 @@
    "mention": "13E-3",
    "context": "Transaction Statement on Schedule 13E-3 (together",
    "target": "external"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "13E-3",
+   "context": "Proxy Statement and the Schedule 13E-3 will comply",
+   "target": "external"
+  },
+  {
+   "para": "P42",
+   "head": "schedule",
+   "mention": "13E-3",
+   "context": "in the Proxy Statement and the Schedule 13E-3 based",
+   "target": "external"
   }
  ],
  "term_uses": [
@@ -345,22 +359,7 @@
    "count": 1
   }
  ],
- "excluded_xrefs": [
-  {
-   "para": "P42",
-   "head": "schedule",
-   "mention": "13E-3",
-   "context": "Proxy Statement and the Schedule 13E-3 will comply",
-   "target": "external"
-  },
-  {
-   "para": "P42",
-   "head": "schedule",
-   "mention": "13E-3",
-   "context": "in the Proxy Statement and the Schedule 13E-3 based",
-   "target": "external"
-  }
- ],
+ "excluded_xrefs": [],
  "xml_version": 1,
  "set": "heldout-v3",
  "stratum": "2015+/html",
@@ -596,32 +595,7 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "xrefs",
-   "draft": null,
-   "checker": {
-    "para": "P42",
-    "head": "schedule",
-    "mention": "13E-3",
-    "context": "Proxy Statement and the Schedule 13E-3 will comply",
-    "target": "external"
-   },
-   "type": "missing",
-   "reason": "Head word Schedule plus number naming the SEC Schedule 13E-3; a defined-term use is still a reference mention."
-  },
-  {
-   "section": "xrefs",
-   "draft": null,
-   "checker": {
-    "para": "P42",
-    "head": "schedule",
-    "mention": "13E-3",
-    "context": "in the Proxy Statement and the Schedule 13E-3 based",
-    "target": "external"
-   },
-   "type": "missing",
-   "reason": "Same: second use of 'the Schedule 13E-3' referring to the SEC schedule."
-  }
+ "rulings": [
+  "v1.5 ruling 1: a defined term named like a head word and number (\"the Schedule 13E-3\") is an external xref"
  ]
 }

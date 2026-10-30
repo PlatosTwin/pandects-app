@@ -1,7 +1,499 @@
 {
  "agreement_uuid": "7f2ffe23-cae8-5805-8a28-af53fd549480",
- "rubric": "v1.4",
+ "rubric": "v1.5",
  "declarations": [
+  {
+   "term": "Acquisition Agreement",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.5(b)"
+  },
+  {
+   "term": "Acquisition Proposal",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.9(b)"
+  },
+  {
+   "term": "Affected Employees",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.14(a)"
+  },
+  {
+   "term": "Agreement",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Alternative Transaction",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s5.5(b)"
+  },
+  {
+   "term": "Audited Company Financial Statements",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s3.8(b)"
+  },
+  {
+   "term": "Bankruptcy Code",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s3.25"
+  },
+  {
+   "term": "Blue Sky Laws",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s3.5"
+  },
+  {
+   "term": "Buyer",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Certificate",
+   "para": "P2",
+   "kind": "pointer",
+   "pointer": "s1.4(c)"
+  },
+  {
+   "term": "Certificate of Merger",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.2"
+  },
+  {
+   "term": "Chapter 11 Cases",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.25"
+  },
+  {
+   "term": "Closing",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.2"
+  },
+  {
+   "term": "Code",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.7(e)"
+  },
+  {
+   "term": "Committed Stockholders",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company 10-Qs",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.8(b)"
+  },
+  {
+   "term": "Company 401(k) Plan",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.14(a)"
+  },
+  {
+   "term": "Company 2004 10-K",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.8(b)"
+  },
+  {
+   "term": "Company Benefit Plan",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.16"
+  },
+  {
+   "term": "Company Benefit Plans",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.16"
+  },
+  {
+   "term": "Company Bylaws",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Company Certificate of Incorporation",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Company Common Stock",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Company Disclosure Letter",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "Company Financial Statements",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.8(b)"
+  },
+  {
+   "term": "Company Licenses",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.7(c)"
+  },
+  {
+   "term": "Company Material Licenses",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.7(b)"
+  },
+  {
+   "term": "Company Options",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.6"
+  },
+  {
+   "term": "Company Permitted Lien",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.11"
+  },
+  {
+   "term": "Company SEC Reports",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "Company Stock Option Plan",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.6"
+  },
+  {
+   "term": "Company Stockholders",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Confidentiality Agreement",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.2(a)"
+  },
+  {
+   "term": "D&O Insurance",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.7(b)"
+  },
+  {
+   "term": "DGCL",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Dissenting Shares",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.5(a)"
+  },
+  {
+   "term": "Effective Time",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.2"
+  },
+  {
+   "term": "Environmental Laws",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.18(a)"
+  },
+  {
+   "term": "ERISA",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.16"
+  },
+  {
+   "term": "ERISA Affiliate",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.16"
+  },
+  {
+   "term": "Exchange Act",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "FAA",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.7(c)"
+  },
+  {
+   "term": "FCC",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.7(a)"
+  },
+  {
+   "term": "Fund",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s1.7(a)"
+  },
+  {
+   "term": "GAAP",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.4"
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.5"
+  },
+  {
+   "term": "HSR Act",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.5"
+  },
+  {
+   "term": "Indemnified Parties",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.7(a)"
+  },
+  {
+   "term": "Indentures",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.24(a)"
+  },
+  {
+   "term": "Independent Advisor",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.3(c)"
+  },
+  {
+   "term": "Independent Advisor Engagement Letter",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s5.10(e)"
+  },
+  {
+   "term": "Intellectual Property Rights",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.19(e)"
+  },
+  {
+   "term": "Law",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.4"
+  },
+  {
+   "term": "Licenses",
+   "para": "P4",
+   "kind": "pointer",
+   "pointer": "s3.7(b)"
+  },
+  {
+   "term": "Litigation",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.13"
+  },
+  {
+   "term": "Material Adverse Effect",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.4"
+  },
+  {
+   "term": "Material Contract",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.14(a)"
+  },
+  {
+   "term": "Merger",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Merger Consideration",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s1.4(a)"
+  },
+  {
+   "term": "NLRB",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.17(a)"
+  },
+  {
+   "term": "Option Consideration",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s1.6"
+  },
+  {
+   "term": "Parent",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Paying Agent",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s1.7(a)"
+  },
+  {
+   "term": "Preferred Stock",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.2"
+  },
+  {
+   "term": "Proxy Statement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.15"
+  },
+  {
+   "term": "Report",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.8(a)"
+  },
+  {
+   "term": "Representatives",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s5.2(a)"
+  },
+  {
+   "term": "SEC",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "Securities Act",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "a3"
+  },
+  {
+   "term": "SOX Act",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.8(a)"
+  },
+  {
+   "term": "Stockholders Agreement",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "preamble"
+  },
+  {
+   "term": "Stockholders' Meeting",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.15"
+  },
+  {
+   "term": "Subsequent Determination",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s5.5(b)"
+  },
+  {
+   "term": "Subsidiary",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.1"
+  },
+  {
+   "term": "Superior Proposal",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s5.5(b)"
+  },
+  {
+   "term": "Surviving Corporation",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s1.1"
+  },
+  {
+   "term": "Tax",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.10"
+  },
+  {
+   "term": "Tax Return",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.10"
+  },
+  {
+   "term": "Taxes",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.10"
+  },
+  {
+   "term": "Termination Fee",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s7.2(b)"
+  },
+  {
+   "term": "Unaudited Company Financial Statements",
+   "para": "P6",
+   "kind": "pointer",
+   "pointer": "s3.8(b)"
+  },
   {
    "term": "STOCKHOLDERS' MEETING",
    "para": "P8",
@@ -55,7 +547,53 @@
    "target": "a3"
   }
  ],
- "term_uses": [],
+ "term_uses": [
+  {
+   "term": "Agreement",
+   "para": "P13",
+   "count": 2
+  },
+  {
+   "term": "Company",
+   "para": "P8",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P9",
+   "count": 5
+  },
+  {
+   "term": "Company",
+   "para": "P10",
+   "count": 3
+  },
+  {
+   "term": "Company",
+   "para": "P11",
+   "count": 1
+  },
+  {
+   "term": "Company",
+   "para": "P12",
+   "count": 13
+  },
+  {
+   "term": "Governmental Entity",
+   "para": "P9",
+   "count": 1
+  },
+  {
+   "term": "NLRB",
+   "para": "P9",
+   "count": 1
+  },
+  {
+   "term": "Proxy Statement",
+   "para": "P8",
+   "count": 2
+  }
+ ],
  "excluded_xrefs": [],
  "xml_version": 1,
  "set": "heldout-v3",
@@ -126,5 +664,8 @@
    "t": 0,
    "excerpt": "sampled"
   }
- }
+ },
+ "rulings": [
+  "v1.5 ruling 8: each row of the Section 8.13 TERM/SECTION index is a pointer declaration (82 added); term uses redone (relabeled by Opus, 2026-10-29)"
+ ]
 }

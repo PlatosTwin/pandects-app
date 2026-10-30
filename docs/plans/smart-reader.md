@@ -391,7 +391,7 @@ Every `reader_index` row carries counts, so we can rank agreements by unresolved
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **0** | Design and prototype | Done: decisions in Section 11 |
-| **1. Enricher** (in progress, 10.1–10.6; blind on held-out v3, all launch-bar metrics met except term-use precision, which waits on a rubric ruling) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
+| **1. Enricher** (in progress, 10.1–10.6; all launch-bar metrics met blind on held-out v3 under rubric v1.5) | `reader_index.py` module, gold set, eval harness, asset, local table, glossary-layout detection in the enricher (not `f_xml.py`, see 11.5) | Launch-bar metrics on gold; full local corpus run; health report |
 | **2. API** | Endpoint, redaction filter, ETag, gzip, schema docs, serving schema, OpenAPI | Backend tests incl. redaction; live endpoint check after the push |
 | **3. Reader** | Parser keeps attributes; TOC from outline and breadcrumb; xref links, previews and history; term popovers; a settings toggle; behind a flag | Vitest incl. offset-contract fixture; manual pass on 5 long agreements, phone and desktop |
 | **4. Extensions** | Attachment segmentation in back matter, statute links, range expansion, MCP terms-in-section, enriched-XML bulk export, `content-visibility` and virtualization if measured slow | Each on its own |
@@ -719,7 +719,7 @@ The checkers were much quieter than in v2. Across 30 agreements they raised 11 d
 - 2 in `e6ba82d1`: "Company" inside "Continental Stock Transfer & Trust Company" and "Investment Company Act".
 - 1 in `3cb5bafb`: "Agreement" inside the undefined "Ancillary Agreement".
 
-**Open rulings** (recommendations first):
+**Rulings** (recommendations as put to the user):
 
 1. **"the Schedule 13E-3" as a defined term** (`818da315`, 2 missing): label these as `external` xrefs, as the checker did. Links are unaffected.
 2. **A pointer to another document** ("Calculation Agent … in the Confirmations", `fd7b948a`): `external`, as the checker did.
@@ -729,6 +729,24 @@ The checkers were much quieter than in v2. Across 30 agreements they raised 11 d
 6. **Lowercase "person"** as a use of an all-caps PERSON (`c6be02c1`, 3 rows): not a use, as the checker did.
 7. **A singular use of a term declared in the plural** ("Company" for "Companies", "Ancillary Agreement" for "Ancillary Agreements"): it counts. The rubric is silent. The drafters of `6baf72eb`, `8df32dde`, `2cfa592a` and `fd7b948a` already counted it, and `76b77434`'s did not. Counting it would recount `76b77434` and put term-use precision at about 99%.
 8. **A TERM/SECTION index table** (`7f2ffe23`, `6f3a18a2`, `2f397684`): each row is a pointer declaration, as two of the three drafters read it. `7f2ffe23` would need its roughly 100 pointers and its term uses relabeled. Pointers affect only pointer coverage and which terms the term-use sample takes, not declaration precision or recall.
+
+**Rulings (2026-10-29).** The user accepted all eight, now in rubric v1.5. Rulings 1–6 took the checker's side. For ruling 7, `76b77434`'s "Companies" uses were recounted: 13 instead of 2, all "Company" or "Companies’" in the defined sense. For ruling 8, `7f2ffe23`'s index got 82 pointers, and an Opus agent redid its term uses (5 terms, 28 uses). The index prints "Company" and "Proxy Statement" where the declarations print "COMPANY" and "PROXY STATEMENT", so the scorer now matches a gold term to an enricher term case-insensitively when there is no exact match. The enricher is unchanged. No v3 disputes remain.
+
+| Metric (US filings) | Held-out v3, blind, under v1.5 | Held-out v2 | Held-out v1 | Pilot | Launch bar |
+|---|---|---|---|---|---|
+| Xref link precision | 99.2% (369/372) | 99.8% (422/423) | 100% (412/412) | 100% (97/97) | ≥ 99% |
+| Xref in-document recall | 95.8% (369/385) | 98.1% (422/430) | 98.8% (412/417) | 100% (97/97) | ≥ 95% |
+| Declaration precision / recall | 99.6% (687/690) / 97.9% (687/702) | 99.9% / 98.1% | 99.6% / 99.1% | 100% / 100% | ≥ 98% / ≥ 95% |
+| Term-use precision / recall | 99.3% (417/420) / 99.5% (417/419) | 98.8% / 99.6% | 98.0% / 100% | 100% / 97.3% | ≥ 97% / ≥ 90% |
+
+Only the v3 column is blind. Rescoring v1, v2 and the pilot under v1.5 changed none of their numbers.
+
+What is left before calling the enricher done:
+- **Link recall** is 0.8 points above the bar. Its misses are the forms listed above: lowercase head words, lists with a parenthetical after each item, spelled-out numbers, and local "this paragraph (i)".
+- **The 15 missed declaration forms** listed above.
+- **The two non-US agreements'** glossary forms (`476ff715`'s flattened term/definition table), which are out of scope for headline numbers.
+
+Fixing any of these would be fit to v3, so a fourth batch would be needed for a new blind number.
 
 **Accepted without dispute:**
 - dotted subsection ids (`s6.7.9`) for numbers the outline does not list;

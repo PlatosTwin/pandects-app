@@ -1,6 +1,6 @@
 {
  "agreement_uuid": "2daafa64-db6d-57c5-834d-a84cb1d9c6bf",
- "rubric": "v1.4",
+ "rubric": "v1.5",
  "declarations": [
   {
    "term": "ACA Insurer Taxes",
@@ -231,6 +231,21 @@
    "term": "Transferred Employee",
    "para": "P46",
    "kind": "paren"
+  },
+  {
+   "term": "Controlled by",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Controlled",
+   "para": "P27",
+   "kind": "means"
+  },
+  {
+   "term": "Controlling",
+   "para": "P27",
+   "kind": "means"
   }
  ],
  "xrefs": [
@@ -808,39 +823,7 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "Controlled by",
-    "para": "P27",
-    "kind": "means"
-   },
-   "type": "missing",
-   "reason": "Capitalized correlative declared by 'The terms ... shall have correlative meanings'; only lowercase correlatives are excluded."
-  },
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "Controlled",
-    "para": "P27",
-    "kind": "means"
-   },
-   "type": "missing",
-   "reason": "Capitalized correlative declared by 'The terms ... shall have correlative meanings'; only lowercase correlatives are excluded."
-  },
-  {
-   "section": "declarations",
-   "draft": null,
-   "checker": {
-    "term": "Controlling",
-    "para": "P27",
-    "kind": "means"
-   },
-   "type": "missing",
-   "reason": "Capitalized correlative declared by 'The terms ... shall have correlative meanings'; only lowercase correlatives are excluded."
-  }
+ "rulings": [
+  "v1.5 ruling 4: capitalized correlatives (\"Controlled\", \"Controlling\") are declarations"
  ]
 }

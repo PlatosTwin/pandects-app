@@ -1,6 +1,6 @@
 {
  "agreement_uuid": "9b99c57c-54f0-5707-9103-8d358b06f12c",
- "rubric": "v1.4",
+ "rubric": "v1.5",
  "declarations": [
   {
    "term": "2020 Financial Statements",
@@ -471,6 +471,13 @@
    "mention": "1.263(a)-5",
    "context": "Treasury Regulations Section 1.263(a)-5, unless otherwise required",
    "target": "external"
+  },
+  {
+   "para": "P3",
+   "head": "annex",
+   "mention": "A",
+   "context": "to which this Annex A is attached will",
+   "target": "x-annex-a"
   }
  ],
  "term_uses": [
@@ -520,15 +527,7 @@
    "count": 2
   }
  ],
- "excluded_xrefs": [
-  {
-   "para": "P3",
-   "head": "annex",
-   "mention": "A",
-   "context": "to which this Annex A is attached will",
-   "target": "x-annex-a"
-  }
- ],
+ "excluded_xrefs": [],
  "xml_version": 1,
  "set": "heldout-v3",
  "stratum": "2015+/html",
@@ -754,19 +753,7 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "xrefs",
-   "draft": null,
-   "checker": {
-    "para": "P3",
-    "head": "annex",
-    "mention": "A",
-    "context": "to which this Annex A is attached will",
-    "target": "x-annex-a"
-   },
-   "type": "missing",
-   "reason": "Annex A head-word reference in the glossary lead-in; ANNEX A is in the outline's back matter."
-  }
+ "rulings": [
+  "v1.5 ruling 3: \"this Annex A\" in the glossary is x-annex-a (drafter missed it)"
  ]
 }

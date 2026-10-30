@@ -1,6 +1,6 @@
 {
  "agreement_uuid": "c6be02c1-e102-5881-bf15-cf9686f665ab",
- "rubric": "v1.4",
+ "rubric": "v1.5",
  "declarations": [
   {
    "term": "AFFILIATE",
@@ -325,39 +325,7 @@
    "excerpt": "sampled"
   }
  },
- "pending_disputes": [
-  {
-   "section": "term_uses",
-   "draft": {
-    "term": "PERSON",
-    "para": "P7",
-    "count": 2
-   },
-   "checker": null,
-   "type": "remove",
-   "reason": "Lowercase 'person' is not the defined term PERSON used as capitalized; rubric excludes lowercase ordinary-English uses"
-  },
-  {
-   "section": "term_uses",
-   "draft": {
-    "term": "PERSON",
-    "para": "P8",
-    "count": 2
-   },
-   "checker": null,
-   "type": "remove",
-   "reason": "Lowercase 'person' is not the defined term PERSON used as capitalized; rubric excludes lowercase ordinary-English uses"
-  },
-  {
-   "section": "term_uses",
-   "draft": {
-    "term": "PERSON",
-    "para": "P18",
-    "count": 4
-   },
-   "checker": null,
-   "type": "remove",
-   "reason": "Lowercase 'person' is not the defined term PERSON used as capitalized; rubric excludes lowercase ordinary-English uses"
-  }
+ "rulings": [
+  "v1.5 ruling 6: lowercase \"person\" is not a use of the all-caps PERSON"
  ]
 }
