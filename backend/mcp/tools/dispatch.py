@@ -36,6 +36,10 @@ class McpToolSpec:
     redaction_behavior: str
     fulltext_scope: str | None
     handler: Callable[..., McpToolResult]
+    # Display name for tools/list (MCP `title`).
+    title: str
+    # Drives the standard MCP behavior annotations (readOnlyHint, idempotentHint).
+    read_only: bool = True
 
 
 def _require_scope(principal: McpPrincipal, scope: str) -> None:

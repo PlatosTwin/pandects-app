@@ -1200,6 +1200,21 @@ def _concept_note_schema() -> dict[str, object]:
     )
 
 
+def _tool_index_entry_schema() -> dict[str, object]:
+    return _object_schema(
+        {
+            "name": {"type": "string"},
+            "title": {"type": "string"},
+            "use_when": {"type": "string"},
+            "required_scopes": _array_of({"type": "string"}),
+            "pagination": {"type": "string"},
+            "read_only": {"type": "boolean"},
+        },
+        required=["name", "title", "use_when", "required_scopes", "pagination", "read_only"],
+        additional_properties=False,
+    )
+
+
 def _tool_limitation_schema() -> dict[str, object]:
     return _object_schema(
         {
@@ -1264,12 +1279,16 @@ def _server_capabilities_output_schema() -> dict[str, object]:
             ),
             "field_inventory": _field_inventory_schema(),
             "concept_notes": _array_of(_concept_note_schema()),
+            "tool_index": _array_of(_tool_index_entry_schema()),
             "tool_limitations": _array_of(_tool_limitation_schema()),
             "tools": _array_of(_tool_capabilities_output_schema()),
             "workflows": _array_of(_workflow_output_schema()),
             "sections_returned": _array_of({"type": "string"}),
+            "sections_available": _object_schema({}, additional_properties={"type": "string"}),
+            "unrecognized_tool_names": _array_of({"type": "string"}),
+            "unrecognized_sections": _array_of({"type": "string"}),
         },
-        required=["sections_returned"],
+        required=["sections_returned", "sections_available"],
         additional_properties=False,
     )
 

@@ -64,8 +64,21 @@ _FIELD_REPRESENTATION_VALUES = (
     "derived_from_text",
     "not_represented",
 )
-_CAPABILITIES_SECTIONS_ALL = ("server", "auth_help", "changelog", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools")
-_CAPABILITIES_SECTIONS_DEFAULT = ("server", "auth_help", "changelog", "field_inventory", "concept_notes", "tool_limitations", "workflows")
+_CAPABILITIES_SECTIONS_ALL = ("server", "auth_help", "changelog", "tool_index", "field_inventory", "concept_notes", "tool_limitations", "workflows", "tools")
+# Progressive disclosure: the default is a compact index (a few thousand characters);
+# the reference sections behind it are fetched by name when a task needs them.
+_CAPABILITIES_SECTIONS_DEFAULT = ("server", "auth_help", "changelog", "tool_index", "workflows")
+_CAPABILITIES_SECTION_DESCRIPTIONS: dict[str, str] = {
+    "server": "Server identity and the names of the discovery, introspection, metrics and feedback tools.",
+    "auth_help": "What to do when the bearer token is missing or expired, and which scope unlocks full text.",
+    "changelog": "Latest dataset/schema release, whether it was breaking, and where the full changelog lives.",
+    "tool_index": "One line per tool: name, title, when to use it, required scopes, pagination, read-only flag.",
+    "field_inventory": "Which agreement, section and taxonomy fields exist and which tools accept each one.",
+    "concept_notes": "How common M&A concepts (no-shop, fiduciary out, MAE carveouts, ...) map onto tools, plus corpus provenance caveats.",
+    "tool_limitations": "Every tool's negative guidance as a flat list (the same text each tool description carries).",
+    "workflows": "Ready-made multi-step research recipes as tool sequences.",
+    "tools": "Full per-tool records: schemas, examples, response examples, access and limits. Large; narrow it with tool_names.",
+}
 _TRENDS_SECTIONS_ALL = ("ownership", "target_industries", "pairings", "naics_catalog")
 # pairings (every industry x industry cell) and naics_catalog (full hierarchy) are
 # large; exclude them by default so the response stays small enough for an LLM context.
