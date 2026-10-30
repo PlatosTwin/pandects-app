@@ -243,15 +243,29 @@ def register_agreements_routes(
             if neighbor_sections < 0 or neighbor_sections > 5:
                 abort(400, description="neighbor_sections must be between 0 and 5.")
             redact = not ctx.is_authenticated
-            row = agreements_service.get_reader_index_row(deps, agreement_uuid.strip(), include_xml=redact)
+            agreement_uuid = agreement_uuid.strip()
+            # versions first: a browser revalidates on every view, and a 304 should not
+            # pull the payload (or, for anonymous callers, the whole XML) from the database
+            row = agreements_service.get_reader_index_row(
+                deps, agreement_uuid, include_payload=False, include_xml=False
+            )
             if row is None:
                 abort(404)
-            etag = f"{row['xml_version']}-{row['enricher_version']}"
-            if redact:
-                etag += f"-r{READER_INDEX_REDACTION_VERSION}-{focus_section_uuid or ''}-{neighbor_sections}"
+            window = f"-r{READER_INDEX_REDACTION_VERSION}-{focus_section_uuid or ''}-{neighbor_sections}"
+
+            def _etag(r: dict[str, object]) -> str:
+                return f"{r['xml_version']}-{r['enricher_version']}" + (window if redact else "")
+
+            etag = _etag(row)
             if request.if_none_match.contains_weak(etag):
                 resp = Response(status=304)
             else:
+                row = agreements_service.get_reader_index_row(
+                    deps, agreement_uuid, include_payload=True, include_xml=redact
+                )
+                if row is None:
+                    abort(404)
+                etag = _etag(row)  # the row may have been rebuilt between the two reads
                 body = cast(bytes, row["payload_gz"])
                 if redact:
                     payload = json.loads(gzip.decompress(body))

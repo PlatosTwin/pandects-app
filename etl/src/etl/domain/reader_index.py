@@ -117,8 +117,10 @@ def _collect_texts(root: ET.Element) -> tuple[list[_Text], dict[ET.Element, _Tex
 
 
 def text_hash(xml: str) -> str:
-    """SHA-256 over the document's text nodes. Guards against in-place rewrites of
-    one XML version; attribute-only rewrites (taxonomy standardId) leave it alone."""
+    """SHA-256 over the document's text nodes, stored so an in-place rewrite of one
+    XML version can be detected (attribute-only rewrites such as taxonomy standardId
+    leave it alone). The asset does not compare it yet: today only those
+    attribute-only rewrites keep a version number."""
     root = ET.fromstring(xml)
     h = hashlib.sha256()
     for el in root.iter("text"):

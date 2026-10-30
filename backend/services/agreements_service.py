@@ -1050,13 +1050,15 @@ def get_agreement(
 
 
 def get_reader_index_row(
-    deps: AgreementsDeps, agreement_uuid: str, *, include_xml: bool
+    deps: AgreementsDeps, agreement_uuid: str, *, include_payload: bool, include_xml: bool
 ) -> dict[str, object] | None:
     """The stored reader index for the XML version `get_agreement` serves.
 
     None when the agreement is not public, the table is not in this schema yet,
-    or the index has not been built for the current XML version. ``payload_gz`` is
-    the gzip-compressed JSON as the ETL stored it."""
+    or the index has not been built for the current XML version. With
+    ``include_payload``, ``payload_gz`` is the gzip-compressed JSON as the ETL
+    stored it; without it only the versions come back, which is enough to answer
+    a revalidation."""
     reader_index = deps.ReaderIndex
     if reader_index is None:
         return None
@@ -1065,8 +1067,9 @@ def get_reader_index_row(
     columns: list[object] = [
         reader_index.xml_version.label("xml_version"),
         reader_index.enricher_version.label("enricher_version"),
-        reader_index.payload_gz.label("payload_gz"),
     ]
+    if include_payload:
+        columns.append(reader_index.payload_gz.label("payload_gz"))
     if include_xml:
         columns.append(xml.xml.label("xml"))
     row = (

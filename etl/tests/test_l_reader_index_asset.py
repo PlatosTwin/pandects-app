@@ -5,9 +5,11 @@ import unittest
 from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any, Iterator, cast
+from unittest.mock import patch
 
 from dagster import AssetExecutionContext, build_op_context
 
+from etl.defs import l_reader_index_asset
 from etl.defs.l_reader_index_asset import _run_reader_index, reader_index_queue_sql
 from etl.defs.resources import DBResource, PipelineConfig, QueueRunMode
 from etl.domain.reader_index import ENRICHER_VERSION, reader_index_row
@@ -109,6 +111,18 @@ class ReaderIndexAssetTests(unittest.TestCase):
         self.assertEqual(processed, ["a-1", "a-3"])
         self.assertEqual(sorted(engine.written), ["a-1", "a-3"])
         self.assertTrue(all(p["enricher_version"] == ENRICHER_VERSION for p in engine.queue_params))
+
+    def test_an_enricher_error_skips_only_that_agreement(self) -> None:
+        engine = _FakeEngine({"a-1": XML, "a-2": XML.replace("a-1", "a-2"), "a-3": XML.replace("a-1", "a-3")})
+
+        def row_or_fail(xml: str, *, agreement_uuid: str, xml_version: int) -> dict[str, Any]:
+            if agreement_uuid == "a-2":
+                raise IndexError("enricher bug")
+            return reader_index_row(xml, agreement_uuid=agreement_uuid, xml_version=xml_version)
+
+        with patch.object(l_reader_index_asset, "reader_index_row", row_or_fail):
+            processed = _run(engine, batch_size=3)
+        self.assertEqual(processed, ["a-1", "a-3"])
 
     def test_fails_fast_without_the_table(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "reader_index"):

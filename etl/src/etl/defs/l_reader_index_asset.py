@@ -130,6 +130,11 @@ def _run_reader_index(
                     # verified XML should always parse; leave the row missing and keep going
                     failed.append(agreement_uuid)
                     context.log.warning("%s: %s did not parse: %s", log_prefix, agreement_uuid, exc)
+                except Exception:
+                    # an enricher bug on one agreement must not stop the queue behind it, which
+                    # is ordered by uuid and would hit the same agreement on every rerun
+                    failed.append(agreement_uuid)
+                    context.log.exception("%s: enricher failed on %s", log_prefix, agreement_uuid)
             if staged:
                 upsert_reader_index(conn, schema, staged)
                 processed.extend(row["agreement_uuid"] for row in staged)

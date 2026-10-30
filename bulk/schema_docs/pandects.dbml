@@ -237,7 +237,7 @@ Table reader_index {
   agreement_uuid char(36) [not null, note: 'Agreement the index belongs to (composite PK with `xml_version`).']
   xml_version int(11) [not null, note: 'The `xml.version` this index was computed from (composite PK with `agreement_uuid`).']
   enricher_version varchar(16) [not null, note: 'Version of the enricher that built the row; rows from older enrichers are rebuilt.']
-  text_hash char(64) [not null, note: 'SHA-256 of the XML the row was built from, to detect an XML version rewritten in place.']
+  text_hash char(64) [not null, note: 'SHA-256 over the text of the XML the row was built from. Compare it with the current XML to tell whether that version\'s text was rewritten in place after the row was built.']
   payload_gz longblob [not null, note: 'Gzip-compressed UTF-8 JSON: `outline` (articles, sections, subsections and attachments with anchors), `terms` (each with its declarations), `uses` (term uses grouped by text node) and `xrefs` (each mention with a status such as `resolved`, `external` or `disclosure_schedule`, and a target outline id). Anchors are `{"s": container uuid or region, "t": text ordinal}`, and spans are UTF-16 code-unit offsets into the entity-decoded text.']
   n_terms int(11) [not null, note: 'Number of defined terms in the payload.']
   n_term_uses int(11) [not null, note: 'Number of term uses in the payload.']

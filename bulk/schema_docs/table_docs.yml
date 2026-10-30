@@ -176,7 +176,10 @@ tables:
       agreement_uuid: Agreement the index belongs to (composite PK with `xml_version`).
       xml_version: The `xml.version` this index was computed from (composite PK with `agreement_uuid`).
       enricher_version: Version of the enricher that built the row; rows from older enrichers are rebuilt.
-      text_hash: SHA-256 of the XML the row was built from, to detect an XML version rewritten in place.
+      text_hash: >-
+        SHA-256 over the text of the XML the row was built from. Compare it
+        with the current XML to tell whether that version's text was rewritten
+        in place after the row was built.
       payload_gz: >-
         Gzip-compressed UTF-8 JSON: `outline` (articles, sections,
         subsections and attachments with anchors), `terms` (each with its

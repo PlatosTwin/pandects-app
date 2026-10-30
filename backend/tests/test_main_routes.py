@@ -1636,6 +1636,23 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(client.get("/v1/agreements/a1/reader-index").status_code, 404)
         self.assertEqual(client.get("/v1/agreements/missing/reader-index").status_code, 404)
 
+    def test_reader_index_absent_when_the_table_is_not_in_the_schema(self):
+        # prod gets the table with a later push; until then the model is None and the endpoint 404s
+        from dataclasses import replace
+
+        from backend.services import agreements_service
+
+        _ = self._seed_reader_index()
+        with self.app.app_context():
+            deps = self.app_module._build_route_deps()[1]
+            self.assertIsNotNone(
+                agreements_service.get_reader_index_row(deps, "a1", include_payload=False, include_xml=False)
+            )
+            no_table = replace(deps, ReaderIndex=None)
+            self.assertIsNone(
+                agreements_service.get_reader_index_row(no_table, "a1", include_payload=True, include_xml=True)
+            )
+
     def test_reader_index_full_for_authenticated_callers(self):
         payload = self._seed_reader_index()
         client = self.app.test_client()

@@ -907,7 +907,12 @@ Rulings 1, 2, 3, 6 and 7 apply rules already in rubric v1.5. Ruling 4 is new, an
 
 **Still to do before Phase 3 can use it:**
 
-1. **Get the table into prod.** It reaches prod with the next push: `push_to_r2.sh` and then `restore_prod.sh`. Then check that the table exists in the serving schema, and call the live endpoint, as the memory note on the serving schema requires.
+1. **Get the table into prod.** It goes out with the next push, in this order:
+   1. **Redeploy pandects-bulk.** The restore checks the dump's public table set against the `public_tables.txt` baked into that image, so a stale image aborts the restore.
+   2. **Push and restore.** Run `push_to_r2.sh`, then `restore_prod.sh`.
+   3. **Restart the API machines.** The backend reflects `reader_index` once at boot, and a suspended machine resumes with the old reflection. Until a restart, the endpoint keeps returning 404.
+   4. **Check prod.** Confirm the table exists in the serving schema, and call the live endpoint.
+   5. **Check prod disk.** The table is about 590 MB, and rows for superseded XML versions are never pruned, so check the prod volume's headroom before the first restore.
 2. **Health report.** Turn the health numbers into the validation-queue report, decision 11.6.
 3. **Glossary miss.** Fix the glossary-exhibit miss in Articles of Association, from 10.5.
 
