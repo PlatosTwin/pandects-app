@@ -172,8 +172,9 @@ and the reader use, so the title always lines up with the logo. Change
 the width there only; `lib/design-system.spec.ts` fails on a copied
 `max-w-7xl`. Search is the exception: a full-bleed workspace with the
 filter rail flush against the screen edge, like most search UIs. Its query
-bar and, on Search, the navigation bar use `app-frame-bleed` (`global.css`),
-so the logo and the controls share edges at every width. Pick one `layout`;
+bar uses `app-frame-bleed` (`global.css`). The navigation bar stays on
+`app-frame` on every route, Search included, so it never shifts when you
+change pages; never switch the nav's frame per route. Pick one `layout`;
 it sets the page's single reading measure. Never add per-paragraph `max-w-NNch` caps inside it.
 
 | `layout` | Content width | Use for |
