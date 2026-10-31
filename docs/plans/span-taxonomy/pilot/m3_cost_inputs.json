@@ -1,0 +1,66 @@
+{
+ "basis": {
+  "agreements": 11780,
+  "corpus_avg_xml_chars": 343185,
+  "holdout_avg_xml_chars": 315996,
+  "scale": 1.086,
+  "holdout_sample": "M11 to M13, 150 agreements, sizes from candidates/, out/sonnet/, router/outline/ and router/picks/",
+  "candidate_chars_mean_holdout": 112369,
+  "candidate_chars_p10_med_p90_max": [
+   59852,
+   104372,
+   180134,
+   335176
+  ],
+  "prompt_chars": 55500,
+  "output_json_chars_mean": 19164,
+  "outline_chars_mean_holdout": 43873,
+  "picks_chars_mean": 413,
+  "chars_per_token_range": [
+   3.0,
+   4.0
+  ],
+  "thinking_tokens_range": [
+   0,
+   10000
+  ],
+  "prices_per_mtok_batch": {
+   "sonnet_in": 1.0,
+   "sonnet_cache_read": 0.1,
+   "sonnet_cache_write_1h": 2.0,
+   "sonnet_out": 5.0,
+   "haiku_in": 0.05,
+   "haiku_out": 0.25
+  }
+ },
+ "per_agreement": {
+  "low": {
+   "sonnet_in_tokens": 30509,
+   "prompt_tokens": 13875,
+   "out_tokens": 4791,
+   "sonnet_usd": 0.0559,
+   "haiku_picker_usd": 0.00066,
+   "haiku_extractor_usd": 0.0028
+  },
+  "high": {
+   "sonnet_in_tokens": 40679,
+   "prompt_tokens": 18500,
+   "out_tokens": 16388,
+   "sonnet_usd": 0.1411,
+   "haiku_picker_usd": 0.00138,
+   "haiku_extractor_usd": 0.0071
+  }
+ },
+ "pass": {
+  "low": {
+   "sonnet_usd": 658,
+   "haiku_picker_usd": 8,
+   "haiku_extractor_usd": 33
+  },
+  "high": {
+   "sonnet_usd": 1662,
+   "haiku_picker_usd": 16,
+   "haiku_extractor_usd": 83
+  }
+ }
+}
