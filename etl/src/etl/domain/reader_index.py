@@ -254,7 +254,8 @@ def _lettered_groups(texts: list[str]) -> bool:
     """Whether a section is split into lettered groups "A.", "B.", ... of its own "(a)" paragraphs.
 
     The groups run A, B, C from the first, at least two of them; "A." comes before any enumerated
-    paragraph, and each group's list starts over at (a). An "A." list nested inside "(n)" is not a group.
+    paragraph, and each group's list starts over at (a), (1) or (A), or at (i) unless that (i) only
+    continues an (h) or runs on to (j). An "A." list nested inside "(n)" is not a group.
     """
     letters: list[str] = []
     expect_first = False  # the paragraph after a group header, if enumerated, opens a list
