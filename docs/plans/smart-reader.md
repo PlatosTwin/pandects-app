@@ -984,6 +984,33 @@ The 58 `sections_tagged_as_articles` agreements stay in the report, since that c
 
 **Prod.** Pushing 0.5.0 rows is part of the next data push (10.8): the asset recomputes every row whose enricher version is older.
 
+### 10.11 Enricher 0.6.0: letter suffixes (2026-10-30)
+
+10.10 left "letter-suffix sections" open. A scan of the 0.5.0 corpus showed that a real "Section 2.4A" already resolves (134 references) when the outline has that section. Most unresolved references of that shape were statutes (Section 409A, 280G, Minn. Stat. 302A, NYSE 303A). Fewer than 100 references were the agreement's own, and they had three causes:
+
+- **Lettered paragraph groups.** Some sections split into "A. Before the Acceptance Time:", "B. After …", each group with its own (a), (b) list. The agreement cites them as "Section 8.1A(d)" or "Section 5.3(A)(a)". The outline now has group nodes `8.1(A)` with their paragraphs under them as `8.1(A)(d)`.
+  - **When a section counts as grouped.** It needs at least two groups running A, B, C…, with "A." before any enumerated paragraph, and each group's list starting over at (a), (1) or (A). An (i) also counts as a start, unless the list before it ended at (h) or the next item is (j).
+  - **What this rules out.** "A." lists nested inside an (n) item, and "(A)" enumerators, are not groups.
+  - **Resolving.** "Section 8.1A(d)", where there is no section 8.1A, resolves only through a real group. "Section 8.1(t)" resolves to the one group that has a (t). When two groups both have one, it falls back to the section.
+- **Glued text.** "Section 6.4Section 6.3(a)" was read as section "6.4S". A head glued to the number before it now starts its own reference, and the glued number is dropped. The same change finds heads after stray characters, as in "ýýSection 6.17".
+- **Disclosure Memorandum.** "Section 6.12 of the Disclosure Memorandum" is a disclosure-schedule reference. Before, it linked to the agreement's own Section 6.12, which in those agreements is the rep that the memorandum section qualifies (60 agreements, about 1,800 references).
+
+**Gold.** All 125 fixtures are unchanged: 1,928 exact links, 128 section links, 2 wrong. The gold set has no grouped sections.
+
+**Corpus.** Run locally over all 11,790 agreements, with 0 failures. A dry-run diff against 0.5.0 changed about 105 agreements:
+- 60 for the Disclosure Memorandum;
+- about 270 references newly or more precisely linked through groups;
+- about 30 garbled glued references dropped.
+
+Two adversarial reviews found 11 ways the first draft linked wrongly or lost a link. They included a crash when a section number is duplicated, and "(A)" paragraphs treated as groups. All 11 are fixed and have tests.
+
+**Known limits:**
+- A clause "(b)" in a section where two groups both have a (b) stays ambiguous.
+- An "A./B." list that introduces a section's own (a), (b) list nests those paragraphs under group B in the outline. Links still land on the right paragraphs.
+- Consistent Roman schemes ("Section VIII.2(e)") are still open.
+
+**Prod.** Pushing 0.6.0 rows is part of the next data push. The asset recomputes every row whose enricher version is older.
+
 ## 11. Decisions (2026-10-22)
 
 The user answered the open questions on 2026-10-22. Items 3, 6 and 7 use the defaults proposed in the hand-off, and the user did not object to them.
