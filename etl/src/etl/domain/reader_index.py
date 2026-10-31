@@ -27,7 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-ENRICHER_VERSION = "0.5.0"
+ENRICHER_VERSION = "0.6.0"
 PAYLOAD_SCHEMA = 1
 
 # Regions whose text is indexed for term uses and cross-references. The table of
@@ -142,6 +142,9 @@ ENUM_PREFIX = re.compile(r"^\s*((?:\([A-Za-z0-9]{1,6}\)\s*)+)")
 ENUM_TOKEN = re.compile(r"\(([A-Za-z0-9]{1,6})\)")
 # "5.16.1 ..." or "Section 5.16.1 ...": a paragraph numbered as a dotted subsection
 DECIMAL_PARA = re.compile(r"^\s*(?:(?:Section|SECTION|Sec\.|§)\s*)?(\d+(?:\.\d+){2,})\.?\s")
+# "A. No Solicitation." opening a paragraph: a lettered group of the section's "(a)" paragraphs,
+# cited as "Section 5.3A(a)" or "Section 5.3(A)(a)"
+GROUP_PARA = re.compile(r"^\s*([A-Z])\.\s+\S")
 # "1.1 ..." opening a paragraph: a section the XML parse left untagged
 SECTION_PARA = re.compile(r"^\s*\d+\.\d+[.\s]")
 ATTACHMENT_HEADING = re.compile(
@@ -246,6 +249,31 @@ class _Outline:
         return f"{base}~{n}"
 
 
+def _lettered_groups(texts: list[str]) -> bool:
+    """Whether a section is split into lettered groups "A.", "B.", ... of its own "(a)" paragraphs.
+
+    The groups run A, B, C from the first, at least two of them; "A." comes before any enumerated
+    paragraph, and each group's list starts over at (a). An "A." list nested inside "(n)" is not a group.
+    """
+    letters: list[str] = []
+    expect_first = False  # the paragraph after a group header, if enumerated, opens a list
+    for txt in texts:
+        gm = GROUP_PARA.match(txt)
+        if gm:
+            letters.append(gm.group(1))
+            expect_first = True
+            continue
+        pm = ENUM_PREFIX.match(txt)
+        if not pm:
+            continue
+        if not letters:
+            return False
+        if expect_first and ENUM_TOKEN.findall(pm.group(1))[0] not in ("a", "1", "i", "A"):
+            return False
+        expect_first = False
+    return len(letters) >= 2 and "".join(letters) == "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[: len(letters)]
+
+
 def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline:
     ol = _Outline()
 
@@ -270,6 +298,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         base = num  # the latest dotted paragraph ("5.16.1") owns the "(a)" paragraphs after it
         outer: list[tuple[str, str]] = []  # the section-level stack from before the first dotted paragraph
         foreign = False  # after a dotted paragraph numbered for another section: record nothing
+        groups = _lettered_groups([tn.text for t_el in el.iter("text") if (tn := by_el.get(t_el))])
         for t_el in el.iter("text"):
             tn = by_el.get(t_el)
             if tn is None:
@@ -292,6 +321,15 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                 continue
             if foreign:
                 continue
+            gm = GROUP_PARA.match(txt) if groups and base == num else None
+            if gm:
+                key = f"{num}({gm.group(1)})"
+                if key not in ol.subs:
+                    sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t})
+                    ol.subs[key] = sub
+                    node.children.append(sub)
+                stack = [("GROUP", gm.group(1))]
+                continue
             pm = ENUM_PREFIX.match(txt)
             if not pm:
                 continue
@@ -299,8 +337,9 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             # "(b)" after "(a) ...: 5.16.1 ... 5.16.2 ..." continues the section's own list
             if base != num and outer and _follows(outer[0], tokens[0]) and not (stack and _follows(stack[0], tokens[0])):
                 base, stack = num, outer[:1]
-            kinds = _classify_tokens(tokens, stack)
-            level = next((i for i, (k, _) in enumerate(stack) if k == kinds[0]), len(stack))
+            g = 1 if stack and stack[0][0] == "GROUP" else 0  # the group letter stays above every level
+            kinds = _classify_tokens(tokens, stack[g:])
+            level = next((i for i, (k, _) in enumerate(stack) if i >= g and k == kinds[0]), len(stack))
             stack = stack[:level]
             for k, tok in zip(kinds, tokens):
                 stack.append((k, tok))
@@ -804,7 +843,7 @@ STATUTE = re.compile(
 )
 DISCLOSURE = re.compile(
     # "of the Seller’s Disclosure Letter", "item 1 of the ...", "Disclosure ----- Schedule" across a page break
-    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter))|Schedules)\b",
+    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum))|Schedules)\b",
 )
 DISCLOSURE_BEFORE = re.compile(r"(?i:disclosure)\s+(?:Schedules?|Letter|Memorandum)\s*$")
 LOWER_HEAD_OTHER = re.compile(r"^[\d:.()A-Za-z]*\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant\s+to)\s+(?:the\s+|such\s+|its\s+|their\s+)?(?!this\b|Agreement\b|hereof\b)[A-Z]")
@@ -824,11 +863,13 @@ OTHER_DOC = re.compile(
 AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.)|§)\s*$")
 SEC_FORM = re.compile(r"^(?:\d{2}[A-Z](?:-\d+)?|TO|13E-3)$")
 # lowercase "section 3.5" and "article VI" are references too (rubric v1.4 lists the head words, not their case)
-REF_HEAD = re.compile(r"\b(Sections?|Articles?|SECTIONS?|ARTICLES?|sections?|articles?|Exhibits?|Schedules?|Annex(?:es)?|Appendix|Appendices|clauses?|paragraphs?)\s+(?=[\dIVXLC(A-Z])")
+# "Section 6.4Section 6.3(a)": a head glued to the number before it still starts a reference
+REF_HEAD = re.compile(r"(?<![A-Za-z])(Sections?|Articles?|SECTIONS?|ARTICLES?|sections?|articles?|Exhibits?|Schedules?|Annex(?:es)?|Appendix|Appendices|clauses?|paragraphs?)\s+(?=[\dIVXLC(A-Z])")
 _SPELLED: tuple[str, ...] = tuple("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split())
 # "Article Three"
 SPELLED_ITEM = re.compile(r"(" + "|".join(w.capitalize() + "|" + w.upper() for w in _SPELLED) + r")\b")
-REF_ITEM = re.compile(r"(\d+[A-Z]?(?:-\d+)?(?:\.\d+[A-Z]?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
+# a letter suffix ("2.4A", "Schedule 13Ds") is not the start of a glued word ("6.4Section", "3.3Assets")
+REF_ITEM = re.compile(r"(\d+(?:[A-Z](?![a-z]{2}))?(?:-\d+)?(?:\.\d+(?:[A-Z](?![a-z]{2}))?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 # "(other than Sections 1.1, 6.2 (a)), 6.6 (f)": a list can step out of the parenthetical it started in
 RELATIVE_FOLLOW = re.compile(
     r"\s*(?:[,;.)]|$)|\s+(?:and|or|of|through|to|hereof|hereto|herein|thereof|above|below|shall|will|is|are|has|have|was|were|would|may|applies|apply)\b"
@@ -892,6 +933,8 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             if not im:
                 break
             item = re.sub(r"\s", "", im.group(1))  # "6.2 (a)" is "6.2(a)"
+            if item[-1].isdigit() and re.match(r"[A-Z][a-z]", text[im.end() : im.end() + 2]):
+                break  # "Section 6.4Section 6.3(a)", "Section 3.3Assets": the number runs into a word
             if not first and item.startswith("("):
                 # a relative member "(c)" only continues the run when the previous item ends in
                 # an enumerator of the same kind: "414(b), (c)" yes; "7.6(b), (ii) Everest" no
@@ -1014,6 +1057,14 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                 return "resolved", ol.subs[base + subs].id, None
             if base in ol.subs:  # "Section 5.16.1(c)" where 5.16.1 has no paragraph (c)
                 return "section_fallback", ol.subs[base].id, None
+            # "Section 8.1A(d)" with no section 8.1A: paragraph (d) of group "A." in Section 8.1
+            gm = re.fullmatch(r"(\d+(?:\.\d+)+)([A-Z])", base)
+            if gm and len(ol.sections.get(gm.group(1), [])) == 1:
+                group = f"{gm.group(1)}({gm.group(2)})"
+                if group + subs in ol.subs:
+                    return "resolved", ol.subs[group + subs].id, None
+                if group in ol.subs:
+                    return "section_fallback", ol.subs[group].id, None
             # "Section 8" in agreements whose top level is "SECTION 8"
             if "." not in base and not subs and base in ol.articles:
                 arts = ol.articles[base]
@@ -1031,6 +1082,10 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         sub = ol.subs.get(base + subs)
         if sub is not None:
             return "resolved", sub.id, None
+        # "Section 2.14(t)" in a section split into lettered groups: the one group that has a (t)
+        in_groups = [ol.subs[k] for g in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if f"{base}({g})" in ol.subs and (k := f"{base}({g}){subs}") in ol.subs]
+        if len(in_groups) == 1:
+            return "resolved", in_groups[0].id, None
         if ref.qualified:
             # "clauses (i) through (v) of Section 3.4(c)" with no paragraph-level target: link the
             # deepest printed ancestor that exists, which the reader sees named right there
