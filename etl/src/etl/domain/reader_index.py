@@ -235,6 +235,7 @@ class _Outline:
     # (container, ordinal) of paragraphs that became dotted subsection nodes ("5.16.1 ...")
     numbered_paras: set[tuple[str, int]] = field(default_factory=set)
     attachments: dict[str, _Node] = field(default_factory=dict)  # "exhibit a" -> node
+    groups: set[str] = field(default_factory=set)  # lettered group keys: "8.1(A)"
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
 
@@ -257,6 +258,7 @@ def _lettered_groups(texts: list[str]) -> bool:
     """
     letters: list[str] = []
     expect_first = False  # the paragraph after a group header, if enumerated, opens a list
+    last_alpha = ""  # "(i)" right after "(h)" continues the list rather than starting one
     for txt in texts:
         gm = GROUP_PARA.match(txt)
         if gm:
@@ -268,9 +270,12 @@ def _lettered_groups(texts: list[str]) -> bool:
             continue
         if not letters:
             return False
-        if expect_first and ENUM_TOKEN.findall(pm.group(1))[0] not in ("a", "1", "i", "A"):
+        tok = ENUM_TOKEN.findall(pm.group(1))[0]
+        if expect_first and not (tok in ("a", "1", "A") or (tok == "i" and last_alpha != "h")):
             return False
         expect_first = False
+        if len(tok) == 1 and tok.islower():
+            last_alpha = tok
     return len(letters) >= 2 and "".join(letters) == "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[: len(letters)]
 
 
@@ -328,6 +333,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                     sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t})
                     ol.subs[key] = sub
                     node.children.append(sub)
+                ol.groups.add(key)
                 stack = [("GROUP", gm.group(1))]
                 continue
             pm = ENUM_PREFIX.match(txt)
@@ -335,8 +341,14 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                 continue
             tokens = ENUM_TOKEN.findall(pm.group(1))
             # "(b)" after "(a) ...: 5.16.1 ... 5.16.2 ..." continues the section's own list
-            if base != num and outer and _follows(outer[0], tokens[0]) and not (stack and _follows(stack[0], tokens[0])):
-                base, stack = num, outer[:1]
+            og = 1 if outer and outer[0][0] == "GROUP" else 0
+            if (
+                base != num
+                and len(outer) > og
+                and _follows(outer[og], tokens[0])
+                and not (stack and _follows(stack[0], tokens[0]))
+            ):
+                base, stack = num, outer[: og + 1]
             g = 1 if stack and stack[0][0] == "GROUP" else 0  # the group letter stays above every level
             kinds = _classify_tokens(tokens, stack[g:])
             level = next((i for i, (k, _) in enumerate(stack) if i >= g and k == kinds[0]), len(stack))
@@ -868,8 +880,9 @@ REF_HEAD = re.compile(r"(?<![A-Za-z])(Sections?|Articles?|SECTIONS?|ARTICLES?|se
 _SPELLED: tuple[str, ...] = tuple("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split())
 # "Article Three"
 SPELLED_ITEM = re.compile(r"(" + "|".join(w.capitalize() + "|" + w.upper() for w in _SPELLED) + r")\b")
-# a letter suffix ("2.4A", "Schedule 13Ds") is not the start of a glued word ("6.4Section", "3.3Assets")
-REF_ITEM = re.compile(r"(\d+(?:[A-Z](?![a-z]{2}))?(?:-\d+)?(?:\.\d+(?:[A-Z](?![a-z]{2}))?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
+# a letter suffix ("2.4A", "Section 409Aof") is not the start of a glued head ("6.4Section 6.3(a)")
+_SUFFIX = r"(?:[A-Z](?!ections?\b|ECTIONS?\b|rticles?\b|RTICLES?\b|chedules?\b|xhibits?\b|nnex))"
+REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 # "(other than Sections 1.1, 6.2 (a)), 6.6 (f)": a list can step out of the parenthetical it started in
 RELATIVE_FOLLOW = re.compile(
     r"\s*(?:[,;.)]|$)|\s+(?:and|or|of|through|to|hereof|hereto|herein|thereof|above|below|shall|will|is|are|has|have|was|were|would|may|applies|apply)\b"
@@ -1035,6 +1048,12 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
     return refs
 
 
+def _in_one_group(ol: _Outline, base: str, subs: str) -> _Node | None:
+    """"Section 2.14(t)" in a section split into lettered groups: the one group that has a (t)."""
+    hits = [ol.subs[k] for g in ol.groups if g.startswith(base + "(") and (k := g + subs) in ol.subs]
+    return hits[0] if len(hits) == 1 else None
+
+
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
     """Returns (status, target id, ambiguous candidates)."""
     if ref.status:
@@ -1061,9 +1080,9 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             gm = re.fullmatch(r"(\d+(?:\.\d+)+)([A-Z])", base)
             if gm and len(ol.sections.get(gm.group(1), [])) == 1:
                 group = f"{gm.group(1)}({gm.group(2)})"
-                if group + subs in ol.subs:
+                if group in ol.groups and group + subs in ol.subs:
                     return "resolved", ol.subs[group + subs].id, None
-                if group in ol.subs:
+                if group in ol.groups:
                     return "section_fallback", ol.subs[group].id, None
             # "Section 8" in agreements whose top level is "SECTION 8"
             if "." not in base and not subs and base in ol.articles:
@@ -1073,6 +1092,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                 return "resolved", arts[0].id, None
             # "Section 2(c)" in a flat agreement whose item 2 has no paragraph (c) of its own
             if "." not in base and subs and base in ol.flat_articles and len(ol.articles[base]) == 1:
+                if (one := _in_one_group(ol, base, subs)) is not None:
+                    return "resolved", one.id, None
                 return "section_fallback", ol.articles[base][0].id, None
             return "unresolved", None, None
         if len(nodes) > 1:
@@ -1082,10 +1103,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         sub = ol.subs.get(base + subs)
         if sub is not None:
             return "resolved", sub.id, None
-        # "Section 2.14(t)" in a section split into lettered groups: the one group that has a (t)
-        in_groups = [ol.subs[k] for g in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if f"{base}({g})" in ol.subs and (k := f"{base}({g}){subs}") in ol.subs]
-        if len(in_groups) == 1:
-            return "resolved", in_groups[0].id, None
+        if (one := _in_one_group(ol, base, subs)) is not None:
+            return "resolved", one.id, None
         if ref.qualified:
             # "clauses (i) through (v) of Section 3.4(c)" with no paragraph-level target: link the
             # deepest printed ancestor that exists, which the reader sees named right there
