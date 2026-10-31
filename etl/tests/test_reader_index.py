@@ -430,6 +430,196 @@ class ReaderHealthShapeTests(unittest.TestCase):
         self.assertEqual(refs[(1, "Section 2.1.1")]["status"], "disclosure_schedule")
 
 
+class LetterSuffixTests(unittest.TestCase):
+    """"Section 8.1A(d)": lettered paragraph groups and glued text (0.6.0)."""
+
+    def _status(self, xml: str) -> dict[str, tuple[str, str | None]]:
+        return {r["text"]: (r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]}
+
+    def test_lettered_groups_own_their_paragraphs(self) -> None:
+        refs = self._status(
+            _doc(
+                _section(
+                    "s81", "Section 8.1 Termination", "This Agreement may be terminated:",
+                    "A. before the Acceptance Time:", "(a) by consent;", "(b) by either party:", "(i) at the Outside Date;",
+                    "B. after the Acceptance Time:", "(a) by Parent;",
+                )
+                + _section(
+                    "s82", "Section 8.2 Effect",
+                    "Under Section 8.1A(b)(i), Section 8.1B, Section 8.1(A)(a) and Section 8.1C(a); not Section 8.1(a).",
+                )
+            )
+        )
+        self.assertEqual(refs["Section 8.1A(b)(i)"], ("resolved", "s8.1(A)(b)(i)"))
+        self.assertEqual(refs["Section 8.1B"], ("resolved", "s8.1(B)"))
+        self.assertEqual(refs["Section 8.1(A)(a)"], ("resolved", "s8.1(A)(a)"))
+        # no group C: left unlinked rather than sent to Section 8.1
+        self.assertEqual(refs["Section 8.1C(a)"], ("unresolved", None))
+        # "(a)" in a grouped section does not say which group when both have one
+        self.assertEqual(refs["Section 8.1"], ("section_fallback", "s8.1"))
+
+    def test_a_paragraph_in_only_one_group_resolves(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("s214", "Section 2.14 Reps", "A. Solely for purposes of this Section:", "B. Except as disclosed:", "(a) one.", "(t) taxes.")
+                + _section("s61", "Section 6.1 Refs", "See Section 2.14(t).")
+            )
+        )
+        self.assertEqual(refs["Section 2.14(t)"], ("resolved", "s2.14(B)(t)"))
+
+    def test_one_lettered_paragraph_is_not_a_group(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("s53", "Section 5.3 X", "A. Smith shall serve.", "(a) one.", "(b) two.")
+                + _section("s61", "Section 6.1 Refs", "See Section 5.3(b) and Section 5.3A.")
+            )
+        )
+        self.assertEqual(refs["Section 5.3(b)"], ("resolved", "s5.3(b)"))
+        self.assertEqual(refs["Section 5.3A"], ("unresolved", None))
+
+    def test_lettered_list_inside_a_paragraph_is_not_a_group(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("s31", "Section 3.1 Reps", "(a) Organization.", "(b) Compliance:", "A. first.", "B. second.", "(c) Taxes.")
+                + _section("s26", "Section 2.6 Price", "A. an increase;", "B. a decrease;", "(b) Adjustment.")
+                + _section("s61", "Section 6.1 Refs", "See Section 3.1(c) and Section 2.6(b).")
+            )
+        )
+        self.assertEqual(refs["Section 3.1(c)"], ("resolved", "s3.1(c)"))
+        # the groups' lists start at (a); a "(b)" right after "B." is the section's own
+        self.assertEqual(refs["Section 2.6(b)"], ("resolved", "s2.6(b)"))
+
+    def test_real_letter_suffix_sections_still_resolve(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("s24", "Section 2.4 Price", "(a) x.")
+                + _section("s24a", "Section 2.4A Earnout", "(a) y.")
+                + _section("s61", "Section 6.1 Refs", "See Section 2.4A(a).", "Under Section 409A of the Code.")
+            )
+        )
+        self.assertEqual(refs["Section 2.4A(a)"], ("resolved", "s2.4A(a)"))
+        self.assertEqual(refs["Section 409A"][0], "external")
+
+    def test_glued_words_are_not_letter_suffixes(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("s63", "Section 6.3 A", "(a) x.")
+                + _section("s64", "Section 6.4 B", "y.")
+                + _section(
+                    "s11", "Section 1.1 Refs",
+                    "subject to Section 6.4Section 6.3(a), resolved.",
+                )
+            )
+        )
+        self.assertEqual(refs["Section 6.3(a)"], ("resolved", "s6.3(a)"))
+        self.assertFalse(any(t.startswith("Section 6.4") for t in refs))
+
+    def test_lowercase_word_glued_to_a_suffix_keeps_the_reference(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("s24a", "Section 2.4A Earnout", "x.")
+                + _section("s61", "Section 6.1 Refs", "subject to Section 2.4Aand the rest.", "Under Section 409Aof the Code.")
+            )
+        )
+        self.assertEqual(refs["Section 2.4A"], ("resolved", "s2.4A"))
+        self.assertEqual(refs["Section 409A"][0], "external")
+
+    def test_groups_and_dotted_paragraphs(self) -> None:
+        refs = self._status(
+            _doc(
+                _section(
+                    "s516", "Section 5.16 Employees", "A. General.", "(a) one, as follows:", "5.16.1 Dotted one.",
+                    "5.16.2 Dotted two.", "(b) two.", "(c) three.", "B. Benefits.", "(a) four.", "(b) five.",
+                )
+                + _section("s61", "Section 6.1 Refs", "See Section 5.16A(c) and Section 5.16B(b) and Section 5.16(c).")
+            )
+        )
+        self.assertEqual(refs["Section 5.16A(c)"], ("resolved", "s5.16(A)(c)"))
+        self.assertEqual(refs["Section 5.16B(b)"], ("resolved", "s5.16(B)(b)"))
+        self.assertEqual(refs["Section 5.16(c)"], ("resolved", "s5.16(A)(c)"))
+
+    def test_list_running_on_into_the_next_letter_is_not_grouped(self) -> None:
+        refs = self._status(
+            _doc(
+                _section(
+                    "s31", "Section 3.1 Reps", "A. Corporate Matters.", *[f"({c}) item." for c in "abcdefgh"],
+                    "B. Business Matters.", "(i) nine.", "(j) ten.",
+                )
+                + _section("s61", "Section 6.1 Refs", "See Section 3.1(j).")
+            )
+        )
+        self.assertEqual(refs["Section 3.1(j)"], ("resolved", "s3.1(j)"))
+
+    def test_flat_article_groups(self) -> None:
+        refs = self._status(
+            _doc(
+                _article("a2", "2. Covenants", "".join(f"<text>{t}</text>" for t in ("A. Pre-Closing.", "(a) x.", "(b) y.", "B. Post-Closing.", "(a) z.", "(b) w.", "(c) v.")))
+                + _article("a3", "3. Refs", "<text>Under Section 2(c).</text>")
+            )
+        )
+        self.assertEqual(refs["Section 2(c)"], ("resolved", "s2(B)(c)"))
+
+    def test_groups_of_a_pruned_section_do_not_crash(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("x", "Section 8 One", "a.")
+                + _section("y", "Section 8 Two", "b.")
+                + _section("z", "Section 8.1 T", "A. before:", "(a) one;", "B. after:", "(a) two;")
+                + _section("r", "Section 9.1 Refs", "See Section 8.1A.")
+            )
+        )
+        self.assertEqual(refs["Section 8.1A"], ("unresolved", None))
+
+    def test_group_lookup_inside_qualified_and_clause_references(self) -> None:
+        refs = self._status(
+            _doc(
+                _section(
+                    "s81", "Section 8.1 T", "A. before:", "(a) one;", "(b) two:", "(A) x;", "(B) y.",
+                    "(c) three, as follows (i) x and (ii) y.", "B. after:", "(a) four;", "(d) five.",
+                    "Subject to clause (B) above.",
+                )
+                + _section("s82", "Section 8.2 Refs", "Under clause (ii) of Section 8.1(c).")
+            )
+        )
+        self.assertEqual(refs["clause (B)"], ("resolved", "s8.1(A)(b)(B)"))
+        self.assertEqual(refs["clause (ii)"], ("section_fallback", "s8.1(A)(c)"))
+
+    def test_exhibit_glued_to_a_word_keeps_the_reference(self) -> None:
+        p = build_reader_index(_doc(_section("s1", "Section 1.1 X", "See Exhibit A-1Form of Note."), back="<text>Exhibit A-1</text>"))
+        self.assertEqual([r["text"] for r in p["xrefs"]], ["Exhibit A-1"])
+
+    def test_nested_romans_under_h_do_not_make_groups(self) -> None:
+        refs = self._status(
+            _doc(
+                _section(
+                    "s31", "Section 3.1 Reps", "A. Corporate Matters.", *[f"({c}) item." for c in "abcdefg"],
+                    "(h) item, including:", "(i) sub one;", "(ii) sub two.", "B. Business Matters.", "(i) nine.", "(j) ten.",
+                )
+                + _section("s61", "Section 6.1 Refs", "See Section 3.1(j).")
+            )
+        )
+        self.assertEqual(refs["Section 3.1(j)"], ("resolved", "s3.1(j)"))
+
+    def test_uppercase_enumerators_are_not_groups(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("s81", "Section 8.1 T", "(A) by consent;", "(1) first;", "(2) second;", "(B) by Parent.")
+                + _section("s82", "Section 8.2 Refs", "Under Section 8.1A(2).", "Under Section 8.1(2).")
+            )
+        )
+        self.assertEqual(refs["Section 8.1A(2)"], ("unresolved", None))
+        self.assertEqual(refs["Section 8.1"], ("section_fallback", "s8.1"))
+
+    def test_disclosure_memorandum_is_a_disclosure_schedule(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("s612", "Section 6.12 Permits", "Section 6.12 of the Disclosure Memorandum lists permits.")
+                + _section("s61", "Section 6.1 Refs", "Except as set forth in Section 6.12 of the Disclosure Memorandum.")
+            )
+        )
+        self.assertEqual(refs["Section 6.12"][0], "disclosure_schedule")
+
+
 class DeclarationPatternTests(unittest.TestCase):
     def _decls(self, *texts: str) -> dict[str, str]:
         p = build_reader_index(_doc(_section("s1", "Section 1.1 Definitions", *texts)))
