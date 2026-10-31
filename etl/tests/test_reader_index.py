@@ -559,6 +559,47 @@ class LetterSuffixTests(unittest.TestCase):
         )
         self.assertEqual(refs["Section 2(c)"], ("resolved", "s2(B)(c)"))
 
+    def test_groups_of_a_pruned_section_do_not_crash(self) -> None:
+        refs = self._status(
+            _doc(
+                _section("x", "Section 8 One", "a.")
+                + _section("y", "Section 8 Two", "b.")
+                + _section("z", "Section 8.1 T", "A. before:", "(a) one;", "B. after:", "(a) two;")
+                + _section("r", "Section 9.1 Refs", "See Section 8.1A.")
+            )
+        )
+        self.assertEqual(refs["Section 8.1A"], ("unresolved", None))
+
+    def test_group_lookup_inside_qualified_and_clause_references(self) -> None:
+        refs = self._status(
+            _doc(
+                _section(
+                    "s81", "Section 8.1 T", "A. before:", "(a) one;", "(b) two:", "(A) x;", "(B) y.",
+                    "(c) three, as follows (i) x and (ii) y.", "B. after:", "(a) four;", "(d) five.",
+                    "Subject to clause (B) above.",
+                )
+                + _section("s82", "Section 8.2 Refs", "Under clause (ii) of Section 8.1(c).")
+            )
+        )
+        self.assertEqual(refs["clause (B)"], ("resolved", "s8.1(A)(b)(B)"))
+        self.assertEqual(refs["clause (ii)"], ("section_fallback", "s8.1(A)(c)"))
+
+    def test_exhibit_glued_to_a_word_keeps_the_reference(self) -> None:
+        p = build_reader_index(_doc(_section("s1", "Section 1.1 X", "See Exhibit A-1Form of Note."), back="<text>Exhibit A-1</text>"))
+        self.assertEqual([r["text"] for r in p["xrefs"]], ["Exhibit A-1"])
+
+    def test_nested_romans_under_h_do_not_make_groups(self) -> None:
+        refs = self._status(
+            _doc(
+                _section(
+                    "s31", "Section 3.1 Reps", "A. Corporate Matters.", *[f"({c}) item." for c in "abcdefg"],
+                    "(h) item, including:", "(i) sub one;", "(ii) sub two.", "B. Business Matters.", "(i) nine.", "(j) ten.",
+                )
+                + _section("s61", "Section 6.1 Refs", "See Section 3.1(j).")
+            )
+        )
+        self.assertEqual(refs["Section 3.1(j)"], ("resolved", "s3.1(j)"))
+
     def test_uppercase_enumerators_are_not_groups(self) -> None:
         refs = self._status(
             _doc(

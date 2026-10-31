@@ -259,6 +259,7 @@ def _lettered_groups(texts: list[str]) -> bool:
     letters: list[str] = []
     expect_first = False  # the paragraph after a group header, if enumerated, opens a list
     last_alpha = ""  # "(i)" right after "(h)" continues the list rather than starting one
+    opened_with_i = False  # a group whose list goes "(i)", "(j)" is an alpha list run on from the last group
     for txt in texts:
         gm = GROUP_PARA.match(txt)
         if gm:
@@ -273,6 +274,9 @@ def _lettered_groups(texts: list[str]) -> bool:
         tok = ENUM_TOKEN.findall(pm.group(1))[0]
         if expect_first and not (tok in ("a", "1", "A") or (tok == "i" and last_alpha != "h")):
             return False
+        if opened_with_i and tok == "j":
+            return False
+        opened_with_i = expect_first and tok == "i"
         expect_first = False
         if len(tok) == 1 and tok.islower():
             last_alpha = tok
@@ -426,6 +430,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
     if dup:
         prefixes = tuple(dup)
         ol.subs = {k: v for k, v in ol.subs.items() if not k.startswith(prefixes)}
+        ol.groups = {k for k in ol.groups if k in ol.subs}
     return ol
 
 
@@ -882,6 +887,7 @@ _SPELLED: tuple[str, ...] = tuple("one two three four five six seven eight nine 
 SPELLED_ITEM = re.compile(r"(" + "|".join(w.capitalize() + "|" + w.upper() for w in _SPELLED) + r")\b")
 # a letter suffix ("2.4A", "Section 409Aof") is not the start of a glued head ("6.4Section 6.3(a)")
 _SUFFIX = r"(?:[A-Z](?!ections?\b|ECTIONS?\b|rticles?\b|RTICLES?\b|chedules?\b|xhibits?\b|nnex))"
+GLUED_HEAD = re.compile(r"(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Schedules?|Exhibits?|Annex)\b")
 REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 # "(other than Sections 1.1, 6.2 (a)), 6.6 (f)": a list can step out of the parenthetical it started in
 RELATIVE_FOLLOW = re.compile(
@@ -946,8 +952,8 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             if not im:
                 break
             item = re.sub(r"\s", "", im.group(1))  # "6.2 (a)" is "6.2(a)"
-            if item[-1].isdigit() and re.match(r"[A-Z][a-z]", text[im.end() : im.end() + 2]):
-                break  # "Section 6.4Section 6.3(a)", "Section 3.3Assets": the number runs into a word
+            if item[-1].isdigit() and GLUED_HEAD.match(text, im.end()):
+                break  # "Section 6.4Section 6.3(a)": the number runs into the next reference
             if not first and item.startswith("("):
                 # a relative member "(c)" only continues the run when the previous item ends in
                 # an enumerator of the same kind: "414(b), (c)" yes; "7.6(b), (ii) Everest" no
@@ -1110,7 +1116,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             # deepest printed ancestor that exists, which the reader sees named right there
             parts = re.findall(r"\([A-Za-z0-9]+\)", subs)
             for k in range(len(parts) - 1, 0, -1):
-                anc = ol.subs.get(base + "".join(parts[:k]))
+                anc = ol.subs.get(base + "".join(parts[:k])) or _in_one_group(ol, base, "".join(parts[:k]))
                 if anc is not None:
                     return "section_fallback", anc.id, None
             return "section_fallback", nodes[0].id, None
@@ -1143,7 +1149,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             ref.detail = "inline"
             return "unresolved", None, None
         if cur and t.startswith("("):
-            cands = [k for k in ol.subs if k.startswith(cur + "(") and k.endswith(t)]
+            cands = [k for k in ol.subs if k.startswith(cur + "(") and k.endswith(t) and k not in ol.groups]
             if len(cands) == 1:
                 return "resolved", ol.subs[cands[0]].id, None
             if len(cands) > 1:
