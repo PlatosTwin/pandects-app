@@ -507,6 +507,23 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertIn("<pageUUID>page-12</pageUUID>", section_55_xml)
         self.assertIn("<page>11</page>", section_55_xml)
 
+    def test_strip_subsection_tags_keeps_section_that_mentions_subsection_number(self) -> None:
+        text = (
+            "<section>Section 11.10. Escrow Agent.</section> Body. "
+            "<section>Section 11.11. Disbursements from Section 11.1.4 Escrow Account</section> Body."
+        )
+        self.assertEqual(f_xml.strip_subsection_section_tags(text), text)
+
+    def test_strip_subsection_tags_unwraps_real_subsection_headings(self) -> None:
+        cases = {
+            "<section>11.1.4 Escrow Account</section> Body.": "11.1.4 Escrow Account Body.",
+            "<section>Section 2.3.1. Closing Deliveries</section> Body.": "Section 2.3.1. Closing Deliveries Body.",
+            "<section>  § 4.2.1.3 Notices</section>": "  § 4.2.1.3 Notices",
+        }
+        for tagged, expected in cases.items():
+            with self.subTest(tagged=tagged):
+                self.assertEqual(f_xml.strip_subsection_section_tags(tagged), expected)
+
     def test_convert_to_xml_restores_space_in_glued_heading_titles(self) -> None:
         tagged_text = (
             "<article>ARTICLE VIDEFINITIONS</article>"

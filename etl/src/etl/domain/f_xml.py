@@ -73,7 +73,13 @@ def add_metadata_nodes(
 
 
 SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.DOTALL)
-SUBSECTION_NUMBER_RE = re.compile(r"\b\d+\.\d+\.\d+(?:\.\d+)*\b")
+# A heading whose own number is three or more levels deep ("11.1.4 Escrow",
+# "Section 2.3.1."), anchored at the start of the title so a section that only
+# mentions one ("Section 11.11. Disbursements from Section 11.1.4 Escrow
+# Account") keeps its tag.
+SUBSECTION_NUMBER_RE = re.compile(
+    r"^\s*(?:(?:Section|SECTION|section|Sec\.|SEC\.|§)\s*)?\d+\.\d+\.\d+(?:\.\d+)*(?!\d)"
+)
 ARTICLE_TAG_RE = re.compile(r"<article\b")
 INLINE_MARKER_RE = re.compile(r"(<pageUUID>.*?</pageUUID>|<page>.*?</page>)", re.DOTALL)
 SIGNATURE_FIELD_LABEL_RE = re.compile(r"^(?P<label>By|Name|Title|Its):?$", re.IGNORECASE)
@@ -105,6 +111,10 @@ def strip_subsection_section_tags(tagged_text: str) -> str:
     """
     Remove <section> tags from subsection headings like 1.2.3 or 1.2.3.4.
 
+    Only a title that starts with such a number is unwrapped; a section title
+    that merely mentions one ("Section 11.11. Disbursements from Section
+    11.1.4 Escrow Account") keeps its tag.
+
     Args:
         tagged_text: Tagged text that may include <section> headings.
 
@@ -114,7 +124,7 @@ def strip_subsection_section_tags(tagged_text: str) -> str:
 
     def replace(match: re.Match[str]) -> str:
         inner = match.group(1)
-        if SUBSECTION_NUMBER_RE.search(inner):
+        if SUBSECTION_NUMBER_RE.match(inner):
             return inner
         return match.group(0)
 
