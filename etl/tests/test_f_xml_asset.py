@@ -1222,6 +1222,22 @@ class XMLVerifyAssetTests(unittest.TestCase):
             ("ARTICLE IV A DDITIONAL AGREEMENTS", 4.0),
             ("ARTICLE 2 T HE MERGER", 2.0),
             ("ARTICLE VI X YLOPHONE AND W IDGET MATTERS", 6.0),
+            # accented fragments
+            ("ARTICLE I D ÉFINITIONS", 1.0),
+            ("ARTICLE VI G ARANTIES", 6.0),
+            ("ARTICLE II D ÉFINITIONS ET G ARANTIES", 2.0),
+            # single-word titles outside the word list
+            ("ARTICLE VII N ON-COMPETITION", 7.0),
+            ("ARTICLE X A RBITRATION", 10.0),
+            ("ARTICLE 6 F INANCING", 6.0),
+            ("ARTICLE IX S EVERABILITY.", 9.0),
+            # a standalone later letter is not a split
+            ("ARTICLE 4 B HOLDCO CLASS B SHARES", 4.5),
+            ("ARTICLE 4 B HOLDCO SERIES A PREFERRED", 4.5),
+            ("ARTICLE 4 B HOLDCO PLAN B ASSETS", 4.5),
+            ("ARTICLE 4 B HOLDCO S CORPORATION MATTERS", 4.5),
+            ("ARTICLE 4 B RESERVED", 4.5),
+            ("ARTICLE III B Sellers", 3.5),
             # ... while real suffixes, with or without a title, still parse
             ("ARTICLE IV A", 4.5),
             ("ARTICLE II B. REPRESENTATIONS AND WARRANTIES", 2.5),
@@ -1343,23 +1359,32 @@ class XMLVerifyAssetTests(unittest.TestCase):
         self.assertEqual(after, Counter({XML_REASON_ARTICLE_NUMBER_GAP: 2}))
         self.assertTrue(_safe_hard_rule_improvement(before, after))
 
-    def test_find_hard_rule_violations_excuses_unmentioned_article_skip(self) -> None:
+    def test_find_hard_rule_violations_flags_every_article_skip(self) -> None:
         def gap_count(numbers: list[int], **kwargs: str) -> int:
             return sum(
                 v.reason_code == XML_REASON_ARTICLE_NUMBER_GAP
                 for v in find_hard_rule_violations(self._gap_xml(numbers, **kwargs))
             )
 
-        # The source skips Article 5 and never mentions it: a genuine skip.
-        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7]), 0)
-        self.assertEqual(gap_count([1, 2, 3, 4, 7, 8]), 0)
-        # Any mention of the missing number in the body or TOC keeps the gap.
-        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], folded_text="as set forth in Article V hereof"), 1)
-        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], folded_text="5. COVENANTS The parties agree."), 1)
-        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], folded_text="subject to Section 5.2"), 1)
-        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], toc="5.1 Covenants 6.1 Termination"), 1)
-        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], toc="ARTICLE V COVENANTS"), 1)
-        # A skip of three or more numbers is never excused.
+        # Absence of the missing number never excuses a gap: a folded heading takes
+        # forms no mention search can prove absent, so a genuine skip is hand-accepted.
+        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7]), 1)
+        for folded_text in (
+            "5. Indemnification. The Seller shall indemnify the Buyer.",
+            "Section 5. Indemnification. The Seller shall indemnify the Buyer.",
+            "5 Indemnification The Seller shall indemnify the Buyer.",
+            "5\tINDEMNIFICATION The Seller shall indemnify the Buyer.",
+            "A RTICLE V I NDEMNIFICATION The Seller shall indemnify the Buyer.",
+            "ARTICLE FIVE INDEMNIFICATION The Seller shall indemnify the Buyer.",
+        ):
+            with self.subTest(folded_text=folded_text):
+                self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], folded_text=folded_text), 1)
+        # A TOC line with a page number (212a13a9: "15 Covenants 30") doesn't excuse it either.
+        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], toc="5 Covenants 30"), 1)
+        # Two folded articles in a row: one violation per missing number.
+        self.assertEqual(
+            gap_count([1, 2, 3, 4, 7, 8], folded_text="5. Covenants. Text. 6. Termination. Text."), 2
+        )
         self.assertEqual(gap_count([1, 2, 3, 4, 8, 9]), 3)
 
     def test_find_hard_rule_violations_letter_suffixed_section_keeps_counter(self) -> None:

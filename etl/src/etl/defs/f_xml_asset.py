@@ -153,8 +153,17 @@ ARTICLE_A_VARIANT_RE = re.compile(
 )
 # Small caps split off a word's first letter ("ARTICLE V R EPRESENTATIONS"); see
 # _space_letter_is_split_title_word. Case-sensitive: small caps extract as capitals.
-ARTICLE_SPLIT_TITLE_FRAGMENT_RE = re.compile(r"[ \t]+(?P<fragment>[A-Z]{2,})(?![A-Za-z])")
-ARTICLE_LATER_SPLIT_WORD_RE = re.compile(r"\s(?![AI]\s)[A-Z][ \t]+[A-Z]{2,}(?![A-Za-z])")
+ARTICLE_SPLIT_TITLE_FRAGMENT_RE = re.compile(r"[ \t]+(?P<fragment>[^\W\d_]{2,})(?![^\W\d_])")
+ARTICLE_LATER_SPLIT_WORD_RE = re.compile(
+    r"(?P<before>[^\W\d_]*)\s(?P<letter>[^\W\d_])[ \t]+(?P<fragment>[^\W\d_]{2,})(?![^\W\d_])"
+)
+# A lone capital that stands on its own in a title, not a split word: "CLASS B SHARES",
+# "SERIES A", "PLAN B", "S CORPORATION", and the words "A" and "I".
+ARTICLE_STANDALONE_LETTERS = frozenset({"A", "I", "S"})
+ARTICLE_STANDALONE_LETTER_PREFIXES = frozenset({"CLASS", "SERIES", "PLAN"})
+# A single-word title whose letter plus fragment makes a word this long is a split
+# ("N ON-COMPETITION" -> "NON", "A RBITRATION", "F INANCING", "S EVERABILITY").
+ARTICLE_SPLIT_SINGLE_WORD_MIN_LEN = 6
 # Words that open article titles in the corpus (most frequent first words, plus the
 # words they pair with), used to tell a small-caps split from a letter suffix.
 ARTICLE_TITLE_WORDS = frozenset(
@@ -169,6 +178,7 @@ ARTICLE_TITLE_WORDS = frozenset(
     GUARANTY INDEMNIFICATION INDEMNITY INSURANCE INTERIM INTERPRETATION INVALIDITY JOINT
     LIABILITY LIMITATIONS MATTERS MERGER MERGERS MISCELLANEOUS MUTUAL NOTICES OBLIGATIONS
     OFFER OTHER PARENT PARTIES PAYMENT PAYMENTS POST PRE PROVISIONS PURCHASE PURCHASER
+    DELETED OMITTED RESERVED
     REGISTRATION REGULATORY REMEDIES REPRESENTATION REPRESENTATIONS RESTRICTIVE RIGHTS
     SALE SECTION SELLER SELLERS SHARE SHARES SPECIFIC STOCKHOLDER STOCKHOLDERS SURVIVAL
     TAX TAXES TERM TERMINATION TERMS THE THIRD TITLE TRANSACTIONS TRANSFER TRANSFERS
@@ -549,23 +559,47 @@ def _space_letter_is_split_title_word(title: str, v_match: re.Match[str]) -> boo
     """Whether a space-letter "suffix" is really the first letter of a small-caps title
     word that extraction split off ("ARTICLE V R EPRESENTATIONS").
 
-    It is a split when the uppercase fragment after the letter is not itself a known
-    article-title word and either the letter joined to it is one, or a later word in the
-    title is split the same way. Real suffixes ("3 C REPRESENTATIONS", "3 A
-    REPRESENTATIONS", "IV A", "II A. REPRESENTATIONS") still parse.
+    It is a split when the uppercase fragment after the letter ("EPRESENTATIONS",
+    "ÉFINITIONS") is not itself a known article-title word and any of these holds:
+      - the letter joined to it is a known article-title word ("REPRESENTATIONS");
+      - the title is that one word and the joined word is long ("A RBITRATION",
+        "N ON-COMPETITION");
+      - a later word in the title is split the same way ("... AND W ARRANTIES"), not
+        counting a standalone letter ("CLASS B SHARES", "S CORPORATION").
+    Real suffixes ("3 C REPRESENTATIONS", "3 A REPRESENTATIONS", "IV A",
+    "II A. REPRESENTATIONS", "4 B HOLDCO CLASS B SHARES") still parse.
     """
-    if v_match.group("space") is None:
+    letter = v_match.group("space")
+    if letter is None:
         return False
     fragment = ARTICLE_SPLIT_TITLE_FRAGMENT_RE.match(title, v_match.end())
     if fragment is None:
         return False
     word = fragment.group("fragment")
-    if word in ARTICLE_TITLE_WORDS:
+    if word != word.upper() or word in ARTICLE_TITLE_WORDS:
         return False
-    if f"{v_match.group('space').upper()}{word}" in ARTICLE_TITLE_WORDS:
+    letter = letter.upper()
+    if f"{letter}{word}" in ARTICLE_TITLE_WORDS:
+        return True
+    rest = title[v_match.end():].strip().rstrip(".:;,")
+    if (
+        re.fullmatch(r"[^\W\d_]+(?:-[^\W\d_]+)*", rest)
+        and rest == rest.upper()
+        and len(letter + rest.replace("-", "")) >= ARTICLE_SPLIT_SINGLE_WORD_MIN_LEN
+    ):
         return True
     # Small caps usually split every word: "R EPRESENTATIONS AND W ARRANTIES".
-    return ARTICLE_LATER_SPLIT_WORD_RE.search(title, fragment.end()) is not None
+    for later in ARTICLE_LATER_SPLIT_WORD_RE.finditer(title, fragment.end()):
+        later_letter, later_word = later.group("letter"), later.group("fragment")
+        if (
+            later_letter.isupper()
+            and later_letter not in ARTICLE_STANDALONE_LETTERS
+            and later.group("before").upper() not in ARTICLE_STANDALONE_LETTER_PREFIXES
+            and later_word == later_word.upper()
+            and later_word not in ARTICLE_TITLE_WORDS
+        ):
+            return True
+    return False
 
 
 def _article_sort_key(title: str) -> float | None:
@@ -1148,50 +1182,7 @@ def _target_section_non_sequential_page_uuids(
     return current_page_uuids
 
 
-MAX_ABSENT_ARTICLE_SKIP = 2
-ROMAN_NUMERAL_STEPS = (
-    (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"),
-    (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
-)
-
-
-def _int_to_roman(value: int) -> str:
-    parts: List[str] = []
-    for step, numeral in ROMAN_NUMERAL_STEPS:
-        count, value = divmod(value, step)
-        parts.append(numeral * count)
-    return "".join(parts)
-
-
-def _article_number_mentioned(
-    root: ET.Element,
-    article_num: int,
-    toc_sequences: Dict[int, List[int]],
-) -> bool:
-    """Whether the TOC lists sections N.x, or the body or TOC names Article N (arabic or
-    roman), Section N.x, a section numbered N.x, or a bare "N. HEADING" article heading."""
-    if article_num in toc_sequences:
-        return True
-    roman = _int_to_roman(article_num)
-    pattern = re.compile(
-        rf"\bARTICLES?\s+(?:{article_num}|{roman})(?!\w)"
-        rf"|\bSECTIONS?\s+{article_num}\s*\.\s*\d"
-        rf"|^\s*{article_num}\s*\.\s*\d"
-        rf"|(?<![\w.$,]){article_num}\s*\.\s+(?-i:[A-Z]{{2,}})\b",
-        re.IGNORECASE | re.MULTILINE,
-    )
-    values = _iter_body_number_search_values(root)
-    toc = root.find("tableOfContents")
-    if toc is not None:
-        values = values + _iter_nonempty_text_nodes(toc)
-    return any(pattern.search(value) is not None for value in values)
-
-
-def _article_number_gap_violations(
-    root: ET.Element,
-    articles: List[ET.Element],
-    toc_sequences: Dict[int, List[int]],
-) -> List[XMLHardRuleViolation]:
+def _article_number_gap_violations(articles: List[ET.Element]) -> List[XMLHardRuleViolation]:
     """Flag adjacent whole-number articles whose numbers skip (Article 8 then Article 10).
 
     An untagged article heading folds the whole article into the previous one, and the
@@ -1201,9 +1192,9 @@ def _article_number_gap_violations(
 
     One violation is emitted per missing number, so a repair that restores an article
     in the middle of a gap (8, 12 -> 8, 10, 12) lowers the count instead of splitting
-    one violation into two. A short skip (one or two numbers) that neither the body
-    nor the TOC ever mentions is a genuine source skip and is excused, mirroring the
-    section-gap excuse.
+    one violation into two. No skip is excused by the missing number's absence: folded
+    headings take too many forms ("5. Indemnification.", "A RTICLE V", "ARTICLE FIVE")
+    to prove a number absent, so a genuine source skip is hand-accepted.
     """
     violations: List[XMLHardRuleViolation] = []
     previous: Tuple[int, ET.Element] | None = None
@@ -1218,27 +1209,22 @@ def _article_number_gap_violations(
         if previous is not None and article_num > previous[0] + 1:
             previous_num, previous_elem = previous
             missing_numbers = list(range(previous_num + 1, article_num))
-            genuine_source_skip = len(missing_numbers) <= MAX_ABSENT_ARTICLE_SKIP and not any(
-                _article_number_mentioned(root, missing_num, toc_sequences)
-                for missing_num in missing_numbers
+            missing = ", ".join(str(n) for n in missing_numbers)
+            page_uuids = _merge_page_uuid_targets(
+                _collect_page_uuids(previous_elem),
+                _collect_page_uuids(article_elem)[:1],
             )
-            if not genuine_source_skip:
-                missing = ", ".join(str(n) for n in missing_numbers)
-                page_uuids = _merge_page_uuid_targets(
-                    _collect_page_uuids(previous_elem),
-                    _collect_page_uuids(article_elem)[:1],
-                )
-                for _ in missing_numbers:
-                    violations.append(
-                        XMLHardRuleViolation(
-                            reason_code=XML_REASON_ARTICLE_NUMBER_GAP,
-                            reason_detail=(
-                                f"Article number gap: {article_elem.attrib.get('title', '')[:200]!r} follows "
-                                f"{previous_elem.attrib.get('title', '')[:200]!r}; missing {missing}."
-                            ),
-                            page_uuids=page_uuids,
-                        )
+            for _ in missing_numbers:
+                violations.append(
+                    XMLHardRuleViolation(
+                        reason_code=XML_REASON_ARTICLE_NUMBER_GAP,
+                        reason_detail=(
+                            f"Article number gap: {article_elem.attrib.get('title', '')[:200]!r} follows "
+                            f"{previous_elem.attrib.get('title', '')[:200]!r}; missing {missing}."
+                        ),
+                        page_uuids=page_uuids,
                     )
+                )
         previous = (article_num, article_elem)
     return violations
 
@@ -1403,7 +1389,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
         else:
             prev_key = key
 
-    violations.extend(_article_number_gap_violations(root, articles, toc_sequences))
+    violations.extend(_article_number_gap_violations(articles))
 
     empty_article_count = 0
     empty_article_page_uuids: List[str] = []
