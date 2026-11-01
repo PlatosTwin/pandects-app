@@ -67,10 +67,20 @@ On top of that, each kind needs its own evidence that it is a running line:
   tagged heading or precede a preamble opener. At most one copy per page edge is
   removed (the outermost), only on the residue's dominant edge, and only when it
   is outermost. Clean page tags on the line are kept.
+  - On most of its pages the line must be the outermost line left after the
+    other rules, or sit directly under such a stripped running line. Only
+    legends, dates and lines carrying a page tag stack deeper (multi-line
+    legends); other lines never cascade in once the lines above them go.
+  - The residue's first copy stays unless it is on the first body page: an
+    embedded schedule's header or table row is real text where it first appears.
   - Left alone: single words other than "page"/"back" (word-per-line text,
     defined terms), lines with no letters or digits (rules, blanks), and lines
     without digits that end like a clause (".", ";", ":", ","), unless they are a
-    confidentiality or omission legend.
+    confidentiality or omission legend. Also page-break boilerplate ("[Signature
+    Page Follows]", "[Remainder of page ...]", "intentionally left blank"),
+    signature-block lines ("By:", "Name:", "Title:", "/s/"), "(continued)" lines,
+    lone enumerators ("(a)", "(iv)", and "(1)" unless beside a page tag), and
+    lines that open with Exhibit, Schedule, Annex or Appendix.
 
 Removed lines are dropped whole (except a kept ``<page>`` tag); no other text on
 the page changes.
@@ -94,6 +104,7 @@ Known limitations (each needs a coincidence the rules cannot see through):
 """
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 EDGE_LINE_WINDOW = 3
@@ -692,9 +703,27 @@ def _line_residue(line: str) -> tuple[str, str | None]:
     return " ".join(residue.split()), (" ".join(kept) or None)
 
 
-def _residue_is_eligible(residue: str) -> bool:
+# Lines that repeat on many pages but belong to the agreement's own structure:
+# page-break boilerplate, signature blocks, continued-table markers, enumerators
+# and exhibit/schedule captions.
+_REPEATED_LINE_EXCLUDED_RES = [
+    re.compile(r"\[[^\]]*(?:remainder\s+of|signature\s+page|left\s+blank)[^\]]*\]?", re.IGNORECASE),
+    re.compile(r".*\bintentionally\s+(?:left\s+)?blank\b.*", re.IGNORECASE),
+    re.compile(r"(?:by|name|title|its)\s*:.*|/s/.*", re.IGNORECASE),
+    re.compile(r".*\(\s*cont(?:inued|['’]d|\.)?\s*\).*|continued\b.*", re.IGNORECASE),
+    re.compile(r"\(?(?:[a-z]{1,2}|[ivxlc]{1,6}|[A-Z]{1,2}|[IVXLC]{1,6})[.)]", re.IGNORECASE),
+    re.compile(r"(?:exhibit|schedule|annex|appendix)\b.*", re.IGNORECASE),
+]
+_DIGIT_ENUMERATOR_RE = re.compile(r"\(?\d{1,3}[.)]")
+
+
+def _residue_is_eligible(residue: str, keep: str | None = None) -> bool:
     if not residue or len(residue) > MAX_REPEATED_LINE_CHARS or "<" in residue or ">" in residue:
         return False
+    if any(pattern.fullmatch(residue) for pattern in _REPEATED_LINE_EXCLUDED_RES):
+        return False
+    if keep is None and _DIGIT_ENUMERATOR_RE.fullmatch(residue):
+        return False  # a lone "(1)" or "2." is an enumerator unless it sits beside a page tag
     if not any(ch.isalnum() for ch in residue):
         return False  # rules and blanks ("-----", "[______]") are left alone
     if " " not in residue and residue.isalpha() and residue.lower() not in _SINGLE_WORD_FURNITURE:
@@ -703,6 +732,22 @@ def _residue_is_eligible(residue: str) -> bool:
     if not has_digit and residue[-1] in ".;:," and not _LEGEND_WORD_RE.search(residue):
         return False  # reads as a sentence or clause of body text
     return True
+
+
+_DATE_LINE_RE = re.compile(
+    r"(?:\d{1,2}(?:/\d{1,2})?\.?\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"
+    r"(?:\s+\d{1,2},?)?\s+\d{4}",
+    re.IGNORECASE,
+)
+
+
+def _stacks_deeper(residue: str, copies: list[_Candidate]) -> bool:
+    """A line that may sit under two or more stripped running lines."""
+    return bool(
+        _LEGEND_WORD_RE.search(residue)
+        or _DATE_LINE_RE.fullmatch(residue)
+        or any(c.keep is not None for c in copies)
+    )
 
 
 def _repeated_edge_lines(
@@ -721,6 +766,7 @@ def _repeated_edge_lines(
     needed = max(MIN_TITLE_PAGES, MIN_TITLE_PAGE_SHARE * len(page_texts))
     headings = _heading_texts(page_texts)
     by_residue: dict[str, list[_Candidate]] = {}
+    outer_line: dict[tuple[int, int], int] = {}
     page_lines = [text.split("\n") for text in page_texts]
     for page_index, lines in enumerate(page_lines):
         countable = _countable_indexes(lines)
@@ -740,16 +786,22 @@ def _repeated_edge_lines(
             if _OTHER_TAG_RE.search(line):
                 continue
             residue, keep = _line_residue(line)
-            if not _residue_is_eligible(residue):
+            if not _residue_is_eligible(residue, keep):
                 continue
             # Titles with page numbers and bare agreement titles have their own rule.
             title_kind = running_title_kind(residue)
             if title_kind == "titled_page_number" or (title_kind == "title" and keep is None):
                 continue
-            by_residue.setdefault(residue, []).append(
-                _Candidate(page_index, index, "repeated_line", line.strip(), side, rank, keep=keep)
-            )
-    accepted: list[_Candidate] = []
+            # Rank once the lines already stripped by the other rules are gone.
+            edge_side = countable if side == "top" else countable[::-1]
+            outer = edge_side[: edge_side.index(index)]
+            removed = removed_by_page.get(page_index, set())
+            effective = [i for i in outer if i not in removed]
+            candidate = _Candidate(page_index, index, "repeated_line", line.strip(), side, len(effective), keep=keep)
+            by_residue.setdefault(residue, []).append(candidate)
+            if effective:
+                outer_line[(page_index, index)] = effective[-1]
+    copies_by_residue: dict[str, list[_Candidate]] = {}
     for residue, group in by_residue.items():
         if len({c.page_index for c in group}) < needed or residue.lower() in headings:
             continue
@@ -764,7 +816,42 @@ def _repeated_edge_lines(
         dominant = _dominant_side(list(outermost.values()))
         if dominant is None:
             continue
-        accepted += [c for c in outermost.values() if c.side == dominant]
+        copies = [c for c in outermost.values() if c.side == dominant]
+        # The residue's first copy stays unless it is on the first body page:
+        # a schedule header or table row repeated on later pages is real text
+        # where it first appears, and a schedule never opens the agreement.
+        first_page = min(c.page_index for c in group)
+        if first_page > 0:
+            copies = [c for c in copies if c.page_index != first_page]
+        copies_by_residue[residue] = copies
+
+    def mostly(copies: list[_Candidate], ok: Callable[[_Candidate], bool]) -> list[_Candidate]:
+        good = [c for c in copies if ok(c)]
+        return good if copies and 2 * len(good) > len(copies) else []
+
+    # The line must be the outermost one left on most of its pages, or sit right
+    # under such a running line. Only legends, dates and lines that carry a page
+    # tag stack deeper (multi-line legends, "Project X / date / version"
+    # headers); other lines never cascade in once the lines above them go.
+    accepted: list[_Candidate] = []
+    accepted_lines: set[tuple[int, int]] = set()
+    pending = dict(copies_by_residue)
+
+    def under_accepted(candidate: _Candidate, max_rank: int) -> bool:
+        if candidate.rank == 0:
+            return True
+        above = outer_line.get((candidate.page_index, candidate.line_index))
+        return candidate.rank <= max_rank and (candidate.page_index, above) in accepted_lines
+
+    for max_rank in (0, 1, EDGE_LINE_WINDOW, EDGE_LINE_WINDOW):
+        for residue, copies in list(pending.items()):
+            if max_rank > 1 and not _stacks_deeper(residue, copies):
+                continue
+            good = mostly(copies, lambda c: under_accepted(c, max_rank))
+            if good:
+                accepted += good
+                accepted_lines.update((c.page_index, c.line_index) for c in good)
+                del pending[residue]
     return accepted
 
 

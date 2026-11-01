@@ -540,7 +540,7 @@ class RepeatedLineTests(unittest.TestCase):
 
         result = strip_page_furniture(pages)
 
-        self.assertEqual(result.page_texts[0], "Body text 0 begins here\nmiddle line 0\nBody text 0 ends here")
+        self.assertEqual(result.page_texts[1], "Body text 1 begins here\nmiddle line 1\nBody text 1 ends here")
 
     def test_single_words_rules_and_blanks_are_kept(self) -> None:
         for line in ["each", "Agreement", "----------", "[______]"]:
@@ -553,7 +553,7 @@ class RepeatedLineTests(unittest.TestCase):
 
         result = strip_page_furniture(pages)
 
-        self.assertEqual(result.page_texts[0], "Body text 0 begins here\nmiddle line 0\nBody text 0 ends here")
+        self.assertEqual(result.page_texts[1], "Body text 1 begins here\nmiddle line 1\nBody text 1 ends here")
 
     def test_repeated_line_equal_to_a_tagged_heading_is_kept(self) -> None:
         pages = self._pages("Project Horizon", None)
@@ -570,6 +570,55 @@ class RepeatedLineTests(unittest.TestCase):
 
         self.assertEqual(result.page_texts, pages)
 
+
+    def test_schedule_header_and_identical_row_keep_their_first_copy(self) -> None:
+        # An embedded schedule after the body: the header and a row repeat on
+        # every continuation page, and the schedule's first page is real text.
+        pages = [f"Body {i} begins\nBody {i} middle\nBody {i} ends" for i in range(2)] + [
+            f"Holder Number of Shares\nAcme Holdings LLC 1,000\nBeta Partners LP {i},500\nGamma Fund {i}\nRow end {i}"
+            for i in range(8)
+        ]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[2], pages[2])
+
+    def test_line_below_two_running_lines_does_not_cascade(self) -> None:
+        pages = [
+            f"Project Beaker - SPA\nSeller Disclosure Letter v2\nAcme Holdings LLC 1,000\nBody {i}\nMore {i}\nEnd {i}"
+            for i in range(8)
+        ]
+
+        result = strip_page_furniture(pages)
+
+        self.assertTrue(all("Acme Holdings LLC 1,000" in text for text in result.page_texts))
+
+    def test_three_line_legend_is_removed_whole(self) -> None:
+        # 0d8e4ef9: the legend's third line sits under two stripped legend lines.
+        legend = "PORTIONS OF THIS DOCUMENT MARKED BY [***] HAVE BEEN\nOMITTED PURSUANT TO A REQUEST FOR CONFIDENTIAL TREATMENT\nCONFIDENTIAL PORTIONS FILED SEPARATELY WITH THE COMMISSION"
+        pages = self._pages(legend, None)
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[1], "Body text 1 begins here\nmiddle line 1\nBody text 1 ends here")
+
+    def test_structural_repeated_lines_are_kept(self) -> None:
+        cases = [
+            ("(continued)", None),
+            ("Schedule 3.1 (continued)", None),
+            ("(a)", None),
+            ("Exhibit A \u2013 Form of Joinder Agreement", None),
+            (None, "By: ____________________"),
+            (None, "Name: John Smith"),
+            (None, "/s/ John Smith"),
+            (None, "[Signature Page Follows]"),
+            (None, "[Remainder of page intentionally left blank]"),
+            (None, "This page intentionally left blank"),
+        ]
+        for top, bottom in cases:
+            with self.subTest(line=top or bottom):
+                pages = self._pages(top, bottom)
+                self.assertEqual(strip_page_furniture(pages).page_texts, pages)
 
 class GenerateXmlStripsFurnitureTests(unittest.TestCase):
     def test_section_text_has_no_running_headers(self) -> None:
