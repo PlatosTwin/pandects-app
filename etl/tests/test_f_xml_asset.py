@@ -301,11 +301,37 @@ class XMLVerifyAssetTests(unittest.TestCase):
             self._normalized_text_without_heading_tags(repaired_text),
         )
 
+    def test_safe_xml_tag_repairs_insert_heading_after_sentence_end_or_capitalized_clause(self) -> None:
+        for interim, expected in (
+            (
+                "has the meaning set out in the background. 1.2 Option Rights has the meaning set out below.",
+                "<section>1.2 Option Rights has the meaning set out below.</section>",
+            ),
+            (
+                "the rules promulgated thereunder 1.2 IFRS International Financial Reporting Standards.",
+                "<section>1.2 IFRS International Financial Reporting Standards.</section>",
+            ),
+            (
+                "Interim text.\n\n1.2 To the extent that any steps remain, the parties shall complete them.",
+                "<section>1.2 To the extent that any steps remain, the parties shall complete them.</section>",
+            ),
+        ):
+            with self.subTest(interim=interim):
+                tagged_output = self._five_article_text(
+                    "".join(["<section>1.1 First</section>", interim, "<section>1.3 Third</section>"])
+                )
+                repaired_df = _apply_safe_xml_tag_repairs_to_df(self._xml_build_df(tagged_output))
+                after_counts, _ = _hard_rule_result_for_df(repaired_df)
+                self.assertEqual(after_counts, {})
+                self.assertIn(expected, cast(str, repaired_df.iloc[0]["tagged_output"]))
+
     def test_safe_xml_tag_repairs_do_not_promote_mid_sentence_cross_references(self) -> None:
         for interim in (
             "Exchange Ratio. Subject to Section 1.2, each share shall be converted.",
             "Nothing in\nSection 1.2, however, shall be deemed to amend the schedules.",
             "Except as set forth in\nSection 1.2 of the Company Disclosure Schedule.",
+            "The Seller shall comply.\nSection 1.2 shall not apply to the Buyer.",
+            "the matters contemplated by clause 1.2 (Transferring Contracts) had been completed.",
         ):
             with self.subTest(interim=interim):
                 tagged_output = self._five_article_text(

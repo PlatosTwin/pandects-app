@@ -15,8 +15,12 @@ from dataclasses import dataclass, field
 SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.IGNORECASE | re.DOTALL)
 ARTICLE_TAG_RE = re.compile(r"<article>(.*?)</article>", re.IGNORECASE | re.DOTALL)
 STRUCTURAL_OPEN_RE = re.compile(r"(?=<section>|<article>|<page>|<pageUUID>)", re.IGNORECASE)
+# Lowercase on purpose: "12.1 To the extent ..." is a clause heading, "2.2 to the contrary" a reference.
 CROSS_REFERENCE_CONTINUATION_RE = re.compile(
-    r"\s*(?:[,;)\]]|(?:of|and|or|to|through|hereof|hereto|above|below)\b)",
+    r"\s*(?:[,;)\]]|(?:of|and|or|to|through|hereof|hereto|above|below|shall|will|may|is|are)\b)"
+)
+CROSS_REFERENCE_LEAD_WORD_RE = re.compile(
+    r"\b(?:sections?|clauses?|paragraphs?|articles?|schedules?|exhibits?|and|or|to|through|in|under|of|with|by|see|per)$",
     re.IGNORECASE,
 )
 OMITTED_HEADING_FRAGMENT_RE = re.compile(
@@ -466,12 +470,21 @@ def unwrap_inline_section_reference_tags(tagged_text: str) -> tuple[str, XMLTagR
 
 
 def _match_starts_line_heading(tagged_text: str, match: re.Match[str]) -> bool:
-    """A heading starts its own line; a number mid-sentence or followed by a comma
-    or "of" is a cross-reference ("Subject to Section 2.2, each share ...")."""
-    line_start = tagged_text.rfind("\n", 0, match.start()) + 1
-    if tagged_text[line_start : match.start()].strip():
+    """A heading starts a line or follows the end of a sentence or tag on its line
+    ("... in the background. 1.2 2014 Option Rights has the meaning ..."). A bare
+    number may also run on after a definition that ends without a period ("...
+    thereunder 1.40 IFRS means ..."). "Section N.N" mid-sentence, a bare number after
+    a reference word, or a number followed by a comma or "of" is a cross-reference
+    ("Subject to Section 2.2, each share ...")."""
+    if CROSS_REFERENCE_CONTINUATION_RE.match(tagged_text, match.end()) is not None:
         return False
-    return CROSS_REFERENCE_CONTINUATION_RE.match(tagged_text, match.end()) is None
+    line_start = tagged_text.rfind("\n", 0, match.start()) + 1
+    before = tagged_text[line_start : match.start()].rstrip()
+    if not before or before.endswith((".", ";", ":", ">")):
+        return True
+    if match.group(0).lower().startswith("section"):
+        return False
+    return CROSS_REFERENCE_LEAD_WORD_RE.search(before) is None
 
 
 def insert_missing_section_heading_tags(
