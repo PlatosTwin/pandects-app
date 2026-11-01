@@ -3,6 +3,7 @@ import json
 import re
 import unittest
 import xml.etree.ElementTree as ET
+from collections import Counter
 from datetime import date
 from types import SimpleNamespace
 from typing import cast
@@ -31,6 +32,7 @@ from etl.defs.f_xml_asset import (
     _extract_article_number,
     _hard_rule_result_for_df,
     _render_tag_tree_from_root,
+    _safe_hard_rule_improvement,
     _reason_rows_changed,
     _apply_xml_verify_batch_output,
     find_hard_rule_violations,
@@ -1214,6 +1216,20 @@ class XMLVerifyAssetTests(unittest.TestCase):
             ("ARTICLE VII N/A", 7.0),
             ("ARTICLE 10 R&W INSURANCE POLICY; RECOURSE", 10.0),
             ("ARTICLE 4 A - B MATTERS", 4.0),
+            # a small-caps title split after its first letter is not a suffix
+            ("ARTICLE V R EPRESENTATIONS", 5.0),
+            ("ARTICLE V R EPRESENTATIONS AND W ARRANTIES OF THE C OMPANY", 5.0),
+            ("ARTICLE IV A DDITIONAL AGREEMENTS", 4.0),
+            ("ARTICLE 2 T HE MERGER", 2.0),
+            ("ARTICLE VI X YLOPHONE AND W IDGET MATTERS", 6.0),
+            # ... while real suffixes, with or without a title, still parse
+            ("ARTICLE IV A", 4.5),
+            ("ARTICLE II B. REPRESENTATIONS AND WARRANTIES", 2.5),
+            ("ARTICLE 3 A REPRESENTATIONS AND WARRANTIES OF THE SELLING UNIT HOLDERS", 3.5),
+            ("ARTICLE 3 C REPRESENTATIONS, WARRANTIES AND COVENANTS OF THE NORTHSTAR SHAREHOLDER", 3.5),
+            ("ARTICLE 3 D NORTHSTAR GP REPS", 3.5),
+            ("ARTICLE 5A", 5.5),
+            ("ARTICLE III-A", 3.5),
         ]
         for title, expected in cases:
             with self.subTest(title=title):
@@ -1286,7 +1302,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
                 <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
                 <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
-                <article title="ARTICLE IV"><section title="Section 4.1 Fourth"><pageUUID>page-4</pageUUID></section></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth"><text>Fourth text.</text><text>ARTICLE V COVENANTS</text><text>Folded text.</text><pageUUID>page-4</pageUUID></section></article>
                 <article title="ARTICLE VI"><section title="Section 6.1 Sixth"><pageUUID>page-6</pageUUID></section></article>
               </body>
             </document>
@@ -1300,10 +1316,80 @@ class XMLVerifyAssetTests(unittest.TestCase):
         self.assertIn("missing 5", gaps[0].reason_detail)
         self.assertEqual(gaps[0].page_uuids, ("page-4", "page-6"))
 
+    def _gap_xml(self, numbers: list[int], *, folded_text: str = "", toc: str = "") -> ET.Element:
+        articles = "".join(
+            f'<article title="ARTICLE {n}"><section title="Section {n}.1 Only">'
+            + (f"<text>{folded_text}</text>" if i == 0 else "")
+            + f"<pageUUID>page-{n}</pageUUID></section></article>"
+            for i, n in enumerate(numbers)
+        )
+        toc_xml = f"<tableOfContents><text>{toc}</text></tableOfContents>" if toc else ""
+        return ET.fromstring(f"<document>{toc_xml}<body>{articles}</body></document>")
+
+    def test_article_gap_repair_inside_a_gap_is_a_safe_improvement(self) -> None:
+        # fa7c1533: restoring an article in the middle of a gap splits one gap into two.
+        # With one violation per missing number, the count drops and the repair is kept.
+        folded = "ARTICLE 6 ARTICLE 7 ARTICLE 8"
+        before = Counter(
+            v.reason_code
+            for v in find_hard_rule_violations(self._gap_xml([1, 2, 3, 4, 5, 9, 10], folded_text=folded))
+        )
+        after = Counter(
+            v.reason_code
+            for v in find_hard_rule_violations(self._gap_xml([1, 2, 3, 4, 5, 7, 9, 10], folded_text=folded))
+        )
+
+        self.assertEqual(before, Counter({XML_REASON_ARTICLE_NUMBER_GAP: 3}))
+        self.assertEqual(after, Counter({XML_REASON_ARTICLE_NUMBER_GAP: 2}))
+        self.assertTrue(_safe_hard_rule_improvement(before, after))
+
+    def test_find_hard_rule_violations_excuses_unmentioned_article_skip(self) -> None:
+        def gap_count(numbers: list[int], **kwargs: str) -> int:
+            return sum(
+                v.reason_code == XML_REASON_ARTICLE_NUMBER_GAP
+                for v in find_hard_rule_violations(self._gap_xml(numbers, **kwargs))
+            )
+
+        # The source skips Article 5 and never mentions it: a genuine skip.
+        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7]), 0)
+        self.assertEqual(gap_count([1, 2, 3, 4, 7, 8]), 0)
+        # Any mention of the missing number in the body or TOC keeps the gap.
+        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], folded_text="as set forth in Article V hereof"), 1)
+        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], folded_text="5. COVENANTS The parties agree."), 1)
+        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], folded_text="subject to Section 5.2"), 1)
+        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], toc="5.1 Covenants 6.1 Termination"), 1)
+        self.assertEqual(gap_count([1, 2, 3, 4, 6, 7], toc="ARTICLE V COVENANTS"), 1)
+        # A skip of three or more numbers is never excused.
+        self.assertEqual(gap_count([1, 2, 3, 4, 8, 9]), 3)
+
+    def test_find_hard_rule_violations_letter_suffixed_section_keeps_counter(self) -> None:
+        def nonseq(section_titles: list[str]) -> list[str]:
+            sections = "".join(f'<section title="{t}" pageUUID="p" />' for t in section_titles)
+            root = ET.fromstring(
+                "<document><body>"
+                + "".join(
+                    f'<article title="ARTICLE {n}"><section title="Section {n}.1 Only" pageUUID="p{n}" /></article>'
+                    for n in range(1, 4)
+                )
+                + f'<article title="ARTICLE 4">{sections}</article>'
+                + '<article title="ARTICLE 5"><section title="Section 5.1 Only" pageUUID="p5" /></article>'
+                + "</body></document>"
+            )
+            return [v.reason_detail for v in find_hard_rule_violations(root)]
+
+        self.assertEqual(nonseq(["4.1 A", "4.2 B", "4.3 C", "4.3A Inserted"]), [])
+        self.assertEqual(nonseq(["4.1 A", "4.2 B", "4.3 C", "4.3A Inserted", "4.3B Also", "4.4 D"]), [])
+        self.assertEqual(nonseq(["Section 4.1 A", "Section 4.1-A Inserted", "Section 4.2 B"]), [])
+        # A glued title is not a suffix, and the counter still catches a real gap.
+        self.assertEqual(len(nonseq(["4.1 A", "4.2 B", "4.3A Inserted", "4.7 E"])), 1)
+        self.assertEqual(len(nonseq(["4.1 A", "4.2Additional", "4.3 C"])), 0)
+
     def test_find_hard_rule_violations_article_gap_allows_suffix_and_unparsed_titles(self) -> None:
         for titles in (
             ("ARTICLE I", "ARTICLE II", "ARTICLE III", "ARTICLE III-A", "ARTICLE IV", "ARTICLE V"),
             ("ARTICLE I", "ARTICLE II", "ARTICLE IIIREPRESENTATIONS", "ARTICLE IV", "ARTICLE V"),
+            # Small caps split "REPRESENTATIONS"; this is Article V, not V-A, so 5 is not missing.
+            ("ARTICLE I", "ARTICLE II", "ARTICLE III", "ARTICLE IV", "ARTICLE V R EPRESENTATIONS", "ARTICLE VI"),
         ):
             with self.subTest(titles=titles):
                 violations = find_hard_rule_violations(self._articles_xml(*titles))
@@ -1386,6 +1472,31 @@ class XMLVerifyAssetTests(unittest.TestCase):
             "DocuSign Envelope ID: 70C8F090-AD7D-4389-882C-37454BD442AE",
             "Be it known, that before me, the undersigned notary, personally came and appeared the President.",
             "I N W ITNESS W HEREOF, each party has duly executed and delivered this Agreement as of the date first above written.",
+        )
+
+        self.assertEqual(find_hard_rule_violations(root), [])
+
+    def test_find_hard_rule_violations_rejects_counterparts_provision_on_signature_page(self) -> None:
+        for provision in (
+            "This Agreement may be executed in counterparts, each of which shall be deemed an original.",
+            "9.14 Counterparts. This Agreement may be executed in one or more counterparts.",
+            # "this agreement" in lowercase still marks a provision
+            "(c) Delivery of this agreement by electronic transmission constitutes due delivery.",
+        ):
+            with self.subTest(provision=provision):
+                root = self._sig_page_xml(
+                    provision,
+                    "IN WITNESS WHEREOF, the parties have executed this Agreement as of the date first written above.",
+                )
+                self.assertEqual(
+                    [v.reason_code for v in find_hard_rule_violations(root)], [XML_REASON_SIG_PAGE_BODY_TEXT]
+                )
+
+    def test_find_hard_rule_violations_accepts_counterpart_signature_page_captions(self) -> None:
+        root = self._sig_page_xml(
+            "Counterpart signature page to this Agreement and Plan of Merger.",
+            "Signature Page to this Stock Purchase Agreement among the parties named herein.",
+            "IN WITNESS WHEREOF, the parties have executed this Agreement as of the date first written above.",
         )
 
         self.assertEqual(find_hard_rule_violations(root), [])

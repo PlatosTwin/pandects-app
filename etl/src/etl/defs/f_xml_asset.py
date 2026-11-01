@@ -97,13 +97,18 @@ SIG_PAGE_WITNESS_RE = re.compile(
     r"I\s*N\s+W\s*I\s*T\s*N\s*E\s*S\s*S\s+W\s*H\s*E\s*R\s*E\s*O\s*F", re.IGNORECASE
 )
 SIG_PAGE_NON_BODY_LINE_RE = re.compile(
-    r"signature\s+page|counterpart|docusign|remainder\s+of|intentionally|confiden|omitted|redact|"
+    r"docusign|remainder\s+of|intentionally|confiden|omitted|redact|"
     r"\bSEC\b|securities\s+and\s+exchange|\bpage\s+\d|table\s+of\s+contents|execution\s+(?:version|copy)|"
     r"notary|before\s+me|acknowledg",
     re.IGNORECASE,
 )
+# "Counterpart" and "signature page" mark a caption ("Counterpart Signature Page to the
+# Merger Agreement") only on a line with no operative verb; the final Counterparts
+# provision ("This Agreement may be executed in counterparts ...") is body text.
+SIG_PAGE_CAPTION_WORD_RE = re.compile(r"signature\s+page|counterpart", re.IGNORECASE)
+SIG_PAGE_OPERATIVE_VERB_RE = re.compile(r"\b(?:shall|will|may|hereby)\b", re.IGNORECASE)
 SIG_PAGE_PROVISION_WORD_RE = re.compile(
-    r"\b(?:shall|will|may|is|are|be|been|has|have|hereunder|hereby)\b|\bthis\s+Agreement\b"
+    r"\b(?:shall|will|may|is|are|be|been|has|have|hereunder|hereby)\b|(?i:\bthis\s+Agreement\b)"
 )
 XML_VERIFY_BATCH_SCOPE_DEFAULT = "default"
 XML_VERIFY_BATCH_SCOPE_REPAIR = "repair"
@@ -146,10 +151,35 @@ ARTICLE_A_VARIANT_RE = re.compile(
     r")",
     re.IGNORECASE,
 )
+# Small caps split off a word's first letter ("ARTICLE V R EPRESENTATIONS"); see
+# _space_letter_is_split_title_word. Case-sensitive: small caps extract as capitals.
+ARTICLE_SPLIT_TITLE_FRAGMENT_RE = re.compile(r"[ \t]+(?P<fragment>[A-Z]{2,})(?![A-Za-z])")
+ARTICLE_LATER_SPLIT_WORD_RE = re.compile(r"\s(?![AI]\s)[A-Z][ \t]+[A-Z]{2,}(?![A-Za-z])")
+# Words that open article titles in the corpus (most frequent first words, plus the
+# words they pair with), used to tell a small-caps split from a letter suffix.
+ARTICLE_TITLE_WORDS = frozenset(
+    """
+    ACCESS ACQUISITION ACTIONS ADDITIONAL ADJUSTMENT ADJUSTMENTS AGREEMENT AGREEMENTS
+    AMENDMENT AMENDMENTS ANNOUNCEMENTS ARRANGEMENT ASSETS ASSIGNMENT ASSUMPTION BANKRUPTCY
+    BENEFIT BENEFITS BOARD BUYER BUYERS CAPITAL CERTAIN CERTIFICATE CLOSING COMPANY
+    COMPLETION CONDITIONS CONDUCT CONFIDENTIALITY CONSIDERATION CONSTRUCTION CONVERSION
+    COSTS COUNTERPARTS COVENANTS DEFINED DEFINITIONS DELIVERIES DELIVERY DESCRIPTION
+    DIRECTORS DISPUTE DISPUTES EFFECT EFFECTS EMPLOYEE EMPLOYEES EMPLOYMENT ENTIRE
+    ENVIRONMENTAL ESCROW EXCHANGE EXPENSES FURTHER GENERAL GOVERNANCE GOVERNING GUARANTEE
+    GUARANTY INDEMNIFICATION INDEMNITY INSURANCE INTERIM INTERPRETATION INVALIDITY JOINT
+    LIABILITY LIMITATIONS MATTERS MERGER MERGERS MISCELLANEOUS MUTUAL NOTICES OBLIGATIONS
+    OFFER OTHER PARENT PARTIES PAYMENT PAYMENTS POST PRE PROVISIONS PURCHASE PURCHASER
+    REGISTRATION REGULATORY REMEDIES REPRESENTATION REPRESENTATIONS RESTRICTIVE RIGHTS
+    SALE SECTION SELLER SELLERS SHARE SHARES SPECIFIC STOCKHOLDER STOCKHOLDERS SURVIVAL
+    TAX TAXES TERM TERMINATION TERMS THE THIRD TITLE TRANSACTIONS TRANSFER TRANSFERS
+    TREATMENT WAIVER WAIVERS WARRANTIES
+    """.split()
+)
 SECTION_NUMBER_RE = re.compile(
     r"^\s*(?:SECTIONS?\s+)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)",
     re.IGNORECASE,
 )
+SECTION_LETTER_SUFFIX_RE = re.compile(r"(?:-?[A-Z]|\([A-Z]\))(?![A-Za-z])")
 TOC_SECTION_NUMBER_RE = re.compile(
     r"(?<!\d)(?:SECTIONS?\s+)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)(?!\s*\.\s*\d)",
     re.IGNORECASE,
@@ -515,6 +545,29 @@ def _extract_article_number_from_elem(article_elem: ET.Element) -> int | None:
     return None
 
 
+def _space_letter_is_split_title_word(title: str, v_match: re.Match[str]) -> bool:
+    """Whether a space-letter "suffix" is really the first letter of a small-caps title
+    word that extraction split off ("ARTICLE V R EPRESENTATIONS").
+
+    It is a split when the uppercase fragment after the letter is not itself a known
+    article-title word and either the letter joined to it is one, or a later word in the
+    title is split the same way. Real suffixes ("3 C REPRESENTATIONS", "3 A
+    REPRESENTATIONS", "IV A", "II A. REPRESENTATIONS") still parse.
+    """
+    if v_match.group("space") is None:
+        return False
+    fragment = ARTICLE_SPLIT_TITLE_FRAGMENT_RE.match(title, v_match.end())
+    if fragment is None:
+        return False
+    word = fragment.group("fragment")
+    if word in ARTICLE_TITLE_WORDS:
+        return False
+    if f"{v_match.group('space').upper()}{word}" in ARTICLE_TITLE_WORDS:
+        return True
+    # Small caps usually split every word: "R EPRESENTATIONS AND W ARRANTIES".
+    return ARTICLE_LATER_SPLIT_WORD_RE.search(title, fragment.end()) is not None
+
+
 def _article_sort_key(title: str) -> float | None:
     """Return a sortable float for an article title.
 
@@ -536,7 +589,7 @@ def _article_sort_key(title: str) -> float | None:
             return None
         return base + 0.5
     v_match = ARTICLE_A_VARIANT_RE.match(title)
-    if v_match is not None:
+    if v_match is not None and not _space_letter_is_split_title_word(title, v_match):
         token = v_match.group("number")
         base = int(token) if token.isdigit() else _roman_to_int(token)
         if base is None:
@@ -564,6 +617,16 @@ def _extract_section_numbers(title: str) -> Tuple[int, int] | None:
     article_num = int(match.group("article"))
     section_num = int(match.group("section"))
     return article_num, section_num
+
+
+def _section_title_has_letter_suffix(title: str) -> bool:
+    """Whether the section number carries a letter suffix (4.3A, 4.3-A, 4.3(A)), as an
+    inserted section does. The letter must stand alone, so "4.3Additional" (a glued
+    title) is not a suffix."""
+    match = SECTION_NUMBER_RE.match(title)
+    if match is None:
+        return False
+    return SECTION_LETTER_SUFFIX_RE.match(title, match.end()) is not None
 
 
 def _article_uses_local_one_section_numbering(section_children: List[ET.Element]) -> bool:
@@ -1084,13 +1147,62 @@ def _target_section_non_sequential_page_uuids(
     return current_page_uuids
 
 
-def _article_number_gap_violations(articles: List[ET.Element]) -> List[XMLHardRuleViolation]:
+MAX_ABSENT_ARTICLE_SKIP = 2
+ROMAN_NUMERAL_STEPS = (
+    (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"),
+    (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+)
+
+
+def _int_to_roman(value: int) -> str:
+    parts: List[str] = []
+    for step, numeral in ROMAN_NUMERAL_STEPS:
+        count, value = divmod(value, step)
+        parts.append(numeral * count)
+    return "".join(parts)
+
+
+def _article_number_mentioned(
+    root: ET.Element,
+    article_num: int,
+    toc_sequences: Dict[int, List[int]],
+) -> bool:
+    """Whether the TOC lists sections N.x, or the body or TOC names Article N (arabic or
+    roman), Section N.x, a section numbered N.x, or a bare "N. HEADING" article heading."""
+    if article_num in toc_sequences:
+        return True
+    roman = _int_to_roman(article_num)
+    pattern = re.compile(
+        rf"\bARTICLES?\s+(?:{article_num}|{roman})(?!\w)"
+        rf"|\bSECTIONS?\s+{article_num}\s*\.\s*\d"
+        rf"|^\s*{article_num}\s*\.\s*\d"
+        rf"|(?<![\w.$,]){article_num}\s*\.\s+(?-i:[A-Z]{{2,}})\b",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    values = _iter_body_number_search_values(root)
+    toc = root.find("tableOfContents")
+    if toc is not None:
+        values = values + _iter_nonempty_text_nodes(toc)
+    return any(pattern.search(value) is not None for value in values)
+
+
+def _article_number_gap_violations(
+    root: ET.Element,
+    articles: List[ET.Element],
+    toc_sequences: Dict[int, List[int]],
+) -> List[XMLHardRuleViolation]:
     """Flag adjacent whole-number articles whose numbers skip (Article 8 then Article 10).
 
     An untagged article heading folds the whole article into the previous one, and the
     tree still passes the order check. A-suffix articles (III-A) neither open nor close
     a gap; an article whose title doesn't parse resets the check, since it may be the
     missing number.
+
+    One violation is emitted per missing number, so a repair that restores an article
+    in the middle of a gap (8, 12 -> 8, 10, 12) lowers the count instead of splitting
+    one violation into two. A short skip (one or two numbers) that neither the body
+    nor the TOC ever mentions is a genuine source skip and is excused, mirroring the
+    section-gap excuse.
     """
     violations: List[XMLHardRuleViolation] = []
     previous: Tuple[int, ET.Element] | None = None
@@ -1104,20 +1216,28 @@ def _article_number_gap_violations(articles: List[ET.Element]) -> List[XMLHardRu
         article_num = int(key)
         if previous is not None and article_num > previous[0] + 1:
             previous_num, previous_elem = previous
-            missing = ", ".join(str(n) for n in range(previous_num + 1, article_num))
-            violations.append(
-                XMLHardRuleViolation(
-                    reason_code=XML_REASON_ARTICLE_NUMBER_GAP,
-                    reason_detail=(
-                        f"Article number gap: {article_elem.attrib.get('title', '')[:200]!r} follows "
-                        f"{previous_elem.attrib.get('title', '')[:200]!r}; missing {missing}."
-                    ),
-                    page_uuids=_merge_page_uuid_targets(
-                        _collect_page_uuids(previous_elem),
-                        _collect_page_uuids(article_elem)[:1],
-                    ),
-                )
+            missing_numbers = list(range(previous_num + 1, article_num))
+            genuine_source_skip = len(missing_numbers) <= MAX_ABSENT_ARTICLE_SKIP and not any(
+                _article_number_mentioned(root, missing_num, toc_sequences)
+                for missing_num in missing_numbers
             )
+            if not genuine_source_skip:
+                missing = ", ".join(str(n) for n in missing_numbers)
+                page_uuids = _merge_page_uuid_targets(
+                    _collect_page_uuids(previous_elem),
+                    _collect_page_uuids(article_elem)[:1],
+                )
+                for _ in missing_numbers:
+                    violations.append(
+                        XMLHardRuleViolation(
+                            reason_code=XML_REASON_ARTICLE_NUMBER_GAP,
+                            reason_detail=(
+                                f"Article number gap: {article_elem.attrib.get('title', '')[:200]!r} follows "
+                                f"{previous_elem.attrib.get('title', '')[:200]!r}; missing {missing}."
+                            ),
+                            page_uuids=page_uuids,
+                        )
+                    )
         previous = (article_num, article_elem)
     return violations
 
@@ -1153,6 +1273,8 @@ def _provision_lines_before_witness(text: str) -> List[str]:
     for raw_line in text[: witness.start()].split("\n"):
         line = raw_line.strip()
         if not re.search(r"[a-z]", line) or SIG_PAGE_NON_BODY_LINE_RE.search(line):
+            continue
+        if SIG_PAGE_CAPTION_WORD_RE.search(line) and not SIG_PAGE_OPERATIVE_VERB_RE.search(line):
             continue
         if re.fullmatch(r"\[.*\]|\(.*\)", line):
             continue
@@ -1280,7 +1402,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
         else:
             prev_key = key
 
-    violations.extend(_article_number_gap_violations(articles))
+    violations.extend(_article_number_gap_violations(root, articles, toc_sequences))
 
     empty_article_count = 0
     empty_article_page_uuids: List[str] = []
@@ -1349,7 +1471,11 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                         page_uuids=mismatch_page_uuids,
                     )
                 )
-            if section_num != expected_section_num:
+            if _section_title_has_letter_suffix(section_title):
+                # An inserted section (4.3A after 4.3) sits outside the numbering:
+                # it neither checks nor advances the counter.
+                pass
+            elif section_num != expected_section_num:
                 toc_suppresses_nonseq = (
                     article_num in toc_consistent_articles
                     or toc_has_matching_local_gap(
