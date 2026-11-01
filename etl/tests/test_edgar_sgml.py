@@ -249,6 +249,52 @@ class StripEdgarSgmlTests(unittest.TestCase):
         )
         self.assertEqual(strip_edgar_sgml(proxy, page_type="back_matter", page_order=82), proxy)
 
+    def test_questionnaire_answer_lines_are_kept(self) -> None:
+        # f5cad225, page 88 (back matter)
+        rule = "-" * 30
+        text = (
+            "1. RESIDENCE INFORMATION. Please provide your full legal name, residence address, "
+            "phone number, and Social Security Number.\n\n" + rule + "\n\n"
+            "2. PERSONAL INFORMATION. Please indicate the state which issued your driver's "
+            "license and the state in which you are registered to vote.\n\n" + rule + "\n\n1."
+        )
+        result = strip_edgar_sgml_with_report(text, page_type="back_matter", page_order=88)
+        self.assertEqual(result.text, text)
+        self.assertEqual(
+            [r for _, r in result.rule_lines_kept], ["questionnaire_answer", "questionnaire_answer"]
+        )
+        # The same prompt on a cover page, or followed by prose, is not an answer line.
+        self.assertEqual(
+            strip_edgar_sgml(text, page_type="front_matter", page_order=1).count(rule), 0
+        )
+        prose = "Please deliver the notice to the address below.\n\n" + rule + "\n\nThe parties agree."
+        self.assertNotIn(rule, strip_edgar_sgml(prose, page_type="back_matter", page_order=88))
+
+    def test_questionnaire_answer_after_attach_a_separate_sheet_is_kept(self) -> None:
+        # f5cad225, page 90 (back matter)
+        rule = "-" * 30
+        text = (
+            "8. Please indicate prior experience in investing in companies like Parent (attach a "
+            "separate sheet of paper if you require more space).\n\n" + rule + "\n\n"
+            "9. Please indicate any other relevant investment experience.\n\n" + rule + "\n\n3."
+        )
+        self.assertEqual(strip_edgar_sgml(text, page_type="back_matter", page_order=90), text)
+
+    def test_form_prompt_blanks_are_kept(self) -> None:
+        for prev, nxt, page in (
+            # 20807cc2, page 100: stock power
+            ("(Insert assignee's social security or tax identification number) (Insert address "
+             "and zip code of assignee)", "and irrevocably appoints:", 100),
+            # ae3d83e0, page 57
+            ("JOINT OWNER (if any)", "-2-", 57),
+            # bffef94a, page 85
+            ("Dated: December [ ], 2001", "Number of shares of common stock of the Company", 85),
+        ):
+            text = prev + "\n\n" + "-" * 27 + "\n\n" + nxt
+            self.assertEqual(strip_edgar_sgml(text, page_type="back_matter", page_order=page), text)
+            # On a cover page the same lines are title borders.
+            self.assertNotIn("-" * 27, strip_edgar_sgml(text, page_type="front_matter", page_order=1))
+
     def test_rule_next_to_a_signatory_name_is_kept_after_page_two(self) -> None:
         rule = "-" * 35
         text = "VIEWPOINT INTERNATIONAL, INC.\n\n" + rule

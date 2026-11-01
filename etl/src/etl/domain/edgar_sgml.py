@@ -112,6 +112,15 @@ _FORM_WORD_RE = re.compile(r"\b(?:Initials|Signature)\b")
 _BLANKISH_LINE_RE = re.compile(r"[-_ ]{10,}")
 _UNDERSCORE_BLANK_RE = re.compile(r"_{4,}")
 _SIGNATORY_MAX_CHARS = 60
+# A form prompt whose answer is the blank below it: "(Insert address and zip
+# code of assignee)", "JOINT OWNER (if any)", "Dated: December [ ], 2001".
+_FORM_PROMPT_RE = re.compile(r"\(Insert\b|\(if any\)|attach a separate sheet|^Dated:", re.IGNORECASE)
+# An investor-questionnaire question: "6. Please describe your educational
+# background ...". Its answer blank is followed by the next question.
+_QUESTION_RE = re.compile(r"\bPlease\b.*\.$")
+_NUMBERED_PROMPT_RE = re.compile(r"^(?:\d{1,3}\.|\((?:[ivx]{1,5}|[a-z])\))\s")
+# A trailing page number ("3", "1.", "-2-") ends the page, like a blank line.
+_PAGE_NUMBER_RE = re.compile(r"^-?\s*[0-9ivx]{1,4}\.?\s*-?$", re.IGNORECASE)
 
 
 @dataclass
@@ -143,6 +152,24 @@ def _keep_rule_line(
     past_cover = None if page_order is None else page_order > 2
     if prev_line is not None and prev_line.endswith((":", ",")):
         return "after_colon_or_comma"
+    # Form prompts live in back-matter forms; a cover page's "Dated:" line sits
+    # between title borders, and a "=" line is decoration.
+    if past_cover and "=" not in line and prev_line is not None and _FORM_PROMPT_RE.search(prev_line):
+        return "form_prompt"
+    if (
+        past_cover
+        and "=" not in line
+        and prev_line is not None
+        and _QUESTION_RE.search(prev_line)
+        and (
+            next_line is None
+            or _PAGE_NUMBER_RE.match(next_line)
+            or _NUMBERED_PROMPT_RE.match(next_line)
+            or _QUESTION_RE.search(next_line)
+            or _BLANKISH_LINE_RE.fullmatch(next_line)
+        )
+    ):
+        return "questionnaire_answer"
     for neighbor in (prev_line, next_line):
         if neighbor is None:
             continue
