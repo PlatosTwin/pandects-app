@@ -140,6 +140,7 @@ def _keep_rule_line(
     line: str, prev_line: str | None, next_line: str | None, *, page_order: int | None
 ) -> str | None:
     """Return why a rule line outside a text table is a blank to keep, else None."""
+    past_cover = None if page_order is None else page_order > 2
     if prev_line is not None and prev_line.endswith((":", ",")):
         return "after_colon_or_comma"
     for neighbor in (prev_line, next_line):
@@ -148,12 +149,14 @@ def _keep_rule_line(
         if _FORM_LABEL_RE.match(neighbor) or _FORM_WORD_RE.search(neighbor):
             return "form_label"
         # A stack of dash lines is a column of blanks (witness addresses); a "="
-        # line is decoration, so it never counts as a blank itself.
-        if "=" not in line and (
+        # line is decoration, so it never counts as a blank itself. Cover pages
+        # (the first three) stack dash borders around the title, so they do not
+        # count either.
+        if "=" not in line and past_cover is not False and (
             _BLANKISH_LINE_RE.fullmatch(neighbor) or _UNDERSCORE_BLANK_RE.search(neighbor)
         ):
             return "next_to_blank"
-    if page_order is not None and page_order > 2:
+    if past_cover and "=" not in line:
         for neighbor in (prev_line, next_line):
             if neighbor is not None and _is_short_all_caps_name(neighbor):
                 return "signatory_name"

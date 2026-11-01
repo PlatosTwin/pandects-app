@@ -154,6 +154,19 @@ class StripEdgarSgmlTests(unittest.TestCase):
         result = strip_edgar_sgml_with_report(text, page_type="front_matter", page_order=1)
         self.assertEqual(result.lines_removed, [EQ, dash, dash, EQ])
 
+    def test_stacked_cover_borders_are_removed(self) -> None:
+        # 52358497, page 1 (front matter)
+        rule = "-" * 80
+        text = "EXHIBIT 2.1\n\n" + rule + "\n\n" + rule + "\n\nASSET PURCHASE AGREEMENT"
+        result = strip_edgar_sgml_with_report(text, page_type="front_matter", page_order=1)
+        self.assertEqual(result.lines_removed, [rule, rule])
+
+    def test_equals_border_around_an_exhibit_title_is_removed_after_page_two(self) -> None:
+        # 424dbca3, page 106 (back matter): exhibit cover inside the filing.
+        text = "EXHIBIT B-1\n\n" + EQ + "\n\nDOMESTIC DISTRIBUTION AGREEMENT\n\nAS OF [ ], 2005\n\n" + EQ
+        result = strip_edgar_sgml_with_report(text, page_type="back_matter", page_order=106)
+        self.assertEqual(result.lines_removed, [EQ, EQ])
+
     def test_footnote_separator_is_removed(self) -> None:
         # f8698e9e, page 11 (body)
         text = (
