@@ -58,6 +58,8 @@ class FurnitureKindTests(unittest.TestCase):
             "(10)",
             "New York, NY 10036",
             "PA 19103",
+            "USD 1000000",
+            "EUR 2500000.00",
             "Exhibit A",
             "<section>Section 5.4 Confidentiality.</section>",
             "<page>12</page>",
@@ -132,13 +134,107 @@ class StripPageFurnitureTests(unittest.TestCase):
 
     def test_never_changes_words_on_other_lines(self) -> None:
         pages = [
-            "\n".join(["EXECUTION COPY", "", "  The Company shall    pay  the fee.  ", "12"]) for _ in range(3)
+            "\n".join(["EXECUTION COPY", "", "  The Company shall    pay  the fee.  ", str(i + 1)]) for i in range(3)
         ]
 
         result = strip_page_furniture(pages)
 
         for text in result.page_texts:
             self.assertEqual(text, "\n  The Company shall    pay  the fee.  ")
+
+    def test_numbered_clause_above_unnumbered_heading_is_kept(self) -> None:
+        pages = [f"Body text {i}.\n{i + 1}" for i in range(5)]
+        pages.append("12\n<section>Miscellaneous</section>\nThe parties agree as follows.")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[:5], [f"Body text {i}." for i in range(5)])
+        self.assertEqual(result.page_texts[5], pages[5])
+
+    def test_page_number_above_letter_numbered_heading_is_removed(self) -> None:
+        pages = [f"Body text {i}.\n{i + 1}" for i in range(5)]
+        pages.append("6\n<section>B. Representations.</section> The parties agree.")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[5], "<section>B. Representations.</section> The parties agree.")
+
+    def test_number_off_the_page_sequence_is_kept(self) -> None:
+        pages = [f"Body text {i}.\n{i + 1}" for i in range(5)]
+        pages.append("Body text.\nNumber of Shares held by Holder:\n100")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[5], pages[5])
+
+    def test_only_one_page_number_per_page_edge(self) -> None:
+        pages = [f"Body text {i}.\n{i + 1}" for i in range(5)]
+        pages.append("Body text.\nItems:\n4\n5\n6")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[5], "Body text.\nItems:\n4\n5")
+
+    def test_list_numbers_off_sequence_in_numbered_agreement_are_kept(self) -> None:
+        pages = [f"Body text {i}.\nfooter\n{i + 1}" for i in range(5)]
+        pages.append("Body text.\nItems:\n1\n2\n3")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[5], pages[5])
+
+    def test_list_numbers_without_page_sequence_are_kept(self) -> None:
+        pages = ["Intro text.", "Items:\n1\n2\n3", "More text."]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+        self.assertEqual(result.removed, [])
+
+    def test_constant_number_is_not_a_page_sequence(self) -> None:
+        pages = [f"Body text {i}.\n100" for i in range(4)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_banner_heading_after_clause_number_is_kept(self) -> None:
+        pages = ["12.\nCONFIDENTIAL\nEach party shall keep the terms confidential." for _ in range(3)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_banner_below_stripped_furniture_is_removed(self) -> None:
+        pages = [f"Table of Contents\nCONFIDENTIAL\nBody text {i}." for i in range(3)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, [f"Body text {i}." for i in range(3)])
+
+    def test_numeric_ids_need_identical_text(self) -> None:
+        amounts = ["250000.00", "300000.00", "410000.00"]
+        pages = [f"The fee is set out below.\n{amount}" for amount in amounts]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+        same = [f"Body text {i}.\n33067829.14" for i in range(3)]
+        self.assertEqual(strip_page_furniture(same).page_texts, [f"Body text {i}." for i in range(3)])
+
+    def test_unmarked_ids_with_trailing_page_numbers_are_removed(self) -> None:
+        for doc_id in ["51175158.1", "ASIA 34949044"]:
+            with self.subTest(doc_id=doc_id):
+                pages = [f"Body text {i}.\n{doc_id} {i + 2}" for i in range(3)]
+                self.assertEqual(strip_page_furniture(pages).page_texts, [f"Body text {i}." for i in range(3)])
+
+    def test_banner_above_a_tagged_page_number_line_is_outermost(self) -> None:
+        pages = [f"Body text {i}.\nExecution Version\n\nPage <page>{i + 1}</page>" for i in range(3)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, [f"Body text {i}.\n\nPage <page>{i + 1}</page>" for i in range(3)])
 
 
 class GenerateXmlStripsFurnitureTests(unittest.TestCase):
@@ -180,6 +276,41 @@ class GenerateXmlStripsFurnitureTests(unittest.TestCase):
             ["All notices shall be in writing", "and delivered by hand.", "Notices are effective on receipt."],
         )
         self.assertEqual([p.text for p in section.iter("pageUUID")], ["body-0", "body-1", "body-2"])
+        self.assertEqual([p.text for p in root.iter("pageUUID")], ["body-0", "body-1", "body-2"])
+        self.assertEqual(root.find(".//section").attrib.get("pageUUID"), "body-0")
+
+    def test_page_uuid_order_and_count_unchanged_by_strip(self) -> None:
+        agreement_uuid = "33333333-3333-3333-3333-333333333333"
+        texts = ["<article>ARTICLE I GENERAL</article>\n<section>1.1 Terms.</section>\nText one.\n1"]
+        texts += [f"Text {i}.\n{i}" for i in range(2, 7)]
+        texts.append("Table of Contents")  # one-off, so it is kept
+        rows = [
+            {
+                "agreement_uuid": agreement_uuid,
+                "page_uuid": f"p-{i:02d}",
+                "page_order": i,
+                "raw_page_content": "",
+                "source_page_type": "body",
+                "gold_label": None,
+                "tagged_output": t,
+                "url": "https://example.com/agreement",
+                "filing_date": date(2024, 1, 1),
+                "source_is_txt": True,
+                "source_is_html": False,
+            }
+            for i, t in enumerate(texts)
+        ]
+        df = pd.DataFrame(rows)
+
+        xml_rows, failures = f_xml.generate_xml(df)
+
+        self.assertEqual(failures, [])
+        root = ET.fromstring(xml_rows[0].xml)
+        self.assertEqual([p.text for p in root.iter("pageUUID")], [f"p-{i:02d}" for i in range(len(texts))])
+        body_text = [t.text for t in root.iter("text")]
+        self.assertNotIn("1", body_text)
+        self.assertNotIn("6", body_text)
+        self.assertIn("Table of Contents", body_text)
 
 
 if __name__ == "__main__":
