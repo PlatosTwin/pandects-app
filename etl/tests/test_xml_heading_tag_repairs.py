@@ -1085,3 +1085,7 @@ class SentenceSplitReReviewTests(unittest.TestCase):
         ):
             with self.subTest(inner=inner):
                 self.assertIn(self._title(inner, follow), {inner, inner.split()[0]})
+
+    def test_is_followed_by_an_adverb_is_not_a_definition(self) -> None:
+        # b2a8c999.
+        self.assertEqual(self._title("12.6 Time is", " expressly of the essence of this Agreement."), "12.6")

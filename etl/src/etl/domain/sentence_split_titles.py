@@ -424,7 +424,12 @@ def _repair_sentence_split_title(
         # "Claim Notice is defined in clause 10." + "4"
         or re.match(rf"^(?P<term>[^.;:]*?\S){_HSPACE}+(?:is|are){_HSPACE}+defined{_HSPACE}+in\b", rest)
     )
-    if run_on_term is not None and _norm(run_on_term.group("term").split()[0]) in _NOT_A_TERM_START:
+    follow_first = _norm(follow.split()[0]) if follow.split() else ""
+    if run_on_term is not None and (
+        _norm(run_on_term.group("term").split()[0]) in _NOT_A_TERM_START
+        or _ADVERB_RE.fullmatch(follow_first)  # "Time is" + " expressly of the essence"
+        or follow_first in ("of", "not", "to", "in", "subject")
+    ):
         run_on_term = None  # "This Agreement is" + " intended ...", "It is" + " agreed ..."
     if run_on_term is not None and len(run_on_term.group("term").split()) <= 5:
         return result(len(run_on_term.group("term"))) if _is_title_case(run_on_term.group("term")) else None
