@@ -752,6 +752,74 @@ class FusedFurnitureTests(unittest.TestCase):
         self.assertEqual(result.page_texts[2], pages[2])
 
 
+class FusedFurnitureReviewReproTests(unittest.TestCase):
+    """Review of f87e6773: synthetic pages where the fused rules cut real words."""
+
+    @staticmethod
+    def _numbered(page_two: str, count: int = 6) -> list[str]:
+        # Tagged pages 1..count around an untagged page 3 (index 2).
+        pages = [f"<page>{i + 1}</page> Body text {i} with several words here" for i in range(count)]
+        pages[2] = page_two
+        return pages
+
+    def _assert_page_two_kept(self, page_two: str) -> None:
+        pages = self._numbered(page_two)
+        self.assertEqual(strip_page_furniture(pages).page_texts[2], page_two)
+
+    def test_p1_number_before_a_unit_noun_is_kept(self) -> None:
+        self._assert_page_two_kept("3 months after the Closing Date, the Buyer shall deliver the statement")
+
+    def test_p2_number_after_exceed_is_kept(self) -> None:
+        self._assert_page_two_kept("the aggregate amount of all such payments shall not exceed 3")
+
+    def test_p4_page_number_already_on_its_own_line_is_kept(self) -> None:
+        self._assert_page_two_kept("3 Business Days notice is required\nmore body text here\n3")
+
+    def test_p5_same_number_at_both_edges_is_kept(self) -> None:
+        self._assert_page_two_kept("3 Holders of record shall receive notice under Section 3")
+
+    def test_p6_number_after_section_is_kept(self) -> None:
+        self._assert_page_two_kept("as further described in the provisions of Section 3")
+
+    def test_d1_footer_extension_stops_at_a_clause_word(self) -> None:
+        pages = [f"Body text {i} begins here\nclause {i} binds the Parties. NAI-5005005981v11" for i in range(8)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[2], "Body text 2 begins here\nclause 2 binds the Parties.")
+
+    def test_d1_footer_extension_text_used_elsewhere_is_kept(self) -> None:
+        pages = [f"Body text {i} begins here\nsigned {i} by ACME CORP NAI-5005005981v11" for i in range(8)]
+        pages[4] = "ACME CORP shall pay\nmore\nsigned 4 by ACME CORP NAI-5005005981v11"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[2], "Body text 2 begins here\nsigned 2 by ACME CORP")
+
+    def test_d2_number_beside_a_doc_id_on_few_copies_is_kept(self) -> None:
+        pages = [f"NAI-5005005981v11 recommend text {i} here and more" for i in range(8)]
+        pages[2] = "NAI-5005005981v11 3 shares of the Company were issued"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[2], "3 shares of the Company were issued")
+
+    def test_d3_word_with_a_long_number_is_not_a_doc_id(self) -> None:
+        pages = [f"Loan-1234567 is outstanding on page {i} of the schedule" for i in range(8)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_r1_learned_words_without_a_number_are_not_cut_from_a_line(self) -> None:
+        pages = [f"Body {i} begins here\nmiddle {i}\nBody {i} ends here\nProject Beaker - SPA" for i in range(8)]
+        pages[5] = "Body 5 begins here\nmiddle\nthe Buyer shall deliver the closing statement for Project Beaker - SPA"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[5], pages[5])
+
+
 class GenerateXmlStripsFurnitureTests(unittest.TestCase):
     def test_section_text_has_no_running_headers(self) -> None:
         agreement_uuid = "22222222-2222-2222-2222-222222222222"

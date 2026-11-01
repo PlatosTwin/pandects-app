@@ -90,14 +90,19 @@ Furniture fused into a body line (run after the line rules, on their output):
   repeated line, a running title with a page number) is cut from the very start
   or end of an edge-window line, its page number tagged or bare. A copy that is
   a whole line is removed only when its page number is bare (the line rules
-  could not match it); other whole-line copies were kept on purpose.
-- A document-management ID token (letters plus 6+ digits with a separator or
-  version, or ####-####-####) at the start or end of edge lines on at least
-  half of the body pages and on 5 pages, with the page number beside it when the
-  number fits the agreement's page sequence. An ID at the end of a line also
-  takes the rest of its footer: tokens printed before it on at least 80% of its
-  line-end copies ("WA", "DB1/", "(c) King & Wood Mallesons Share Sale
-  Agreement") and page numbers there that fit the sequence.
+  could not match it); other whole-line copies were kept on purpose. A
+  template needs a page-number slot or a document ID: words alone ("Classified
+  as Secret") can also end a body sentence.
+- A document-management ID token (6+ digits with a version, all-caps letters or
+  a \\ / : separator before 6+ digits, or ####-####-####; never "Loan-1234567")
+  at the start or end of edge lines on at least half of the body pages and on 5
+  pages. The page number beside it goes only when it fits the agreement's page
+  sequence and at least half of the ID's copies carry a fitting number on that
+  side. The ID also takes the rest of its footer, read away from the body text:
+  tokens printed beside it on at least 80% of those copies ("WA", "DB1/",
+  "CAN_DMS:", "(c) King & Wood Mallesons Share Sale Agreement") and page
+  numbers there that fit the sequence. A word that ends a clause ("Parties.")
+  stops it, and the footer words must occur nowhere else in the body pages.
 - Both are skipped for the whole agreement when the text also occurs anywhere
   else in the body pages (mid-line, or on a non-edge line), and a confirmed
   line shorter than ``MIN_FUSED_CHARS`` is never cut unless it is a document ID.
@@ -105,7 +110,11 @@ Furniture fused into a body line (run after the line rules, on their output):
   body lines.
 - An untagged page number that is the first word of a page's first line (or
   last word of its last line), on a page with no page number of its own, when
-  the nearest tagged pages before and after give that exact number.
+  the nearest tagged pages before and after give that exact number. Not when
+  the page already shows that number in its edge window (a bare line, or the
+  word at the other edge), when a unit follows it at the top ("12 months",
+  "12 Business Days", "12 shares", "12%"), or when a reference word precedes it
+  at the bottom ("shall not exceed 12", "Section 12", "$ 12").
 
 Only the furniture substring goes; the whitespace it leaves is collapsed.
 
@@ -1009,7 +1018,9 @@ _KEPT_TAG_RE = re.compile(r"<page>\s*\d{1,4}\s*</page>", re.IGNORECASE)
 # Bare digit runs never count.
 _FUSED_DOC_ID_RE = re.compile(
     r"(?:[A-Za-z][A-Za-z0-9_-]{0,11}[-\\/:_])?\d{6,}(?:\.?v\.?\d{1,4}|[._]\d{1,4}){1,2}"
-    r"|[A-Za-z][A-Za-z0-9_-]{0,11}[-\\/:_]\d{6,}"
+    # Letters then 6+ digits and no version: all-caps letters, or a \ / : separator
+    # (NAI-5005005981, EAST\1234567), never a word like "Loan-1234567".
+    r"|[A-Z][A-Z0-9_-]{0,11}[-_]\d{6,}|[A-Za-z][A-Za-z0-9_-]{0,11}[\\/:]\d{6,}"
     r"|\d{4}-\d{4}-\d{4}(?:\.?v?\.?\d{1,4})?"
 )
 
@@ -1024,6 +1035,8 @@ def _template_from_removed_line(candidate: _Candidate) -> tuple[re.Pattern[str],
             return None  # a bare title also reads as body text ("... this Agreement and Plan of Merger")
     literal = " ".join(t for t in tokens if t != _NUMBER_SLOT)
     is_doc_id = candidate.kind == "doc_id" or any(_FUSED_DOC_ID_RE.fullmatch(t) for t in tokens)
+    if _NUMBER_SLOT not in tokens and not is_doc_id:
+        return None  # words alone ("Classified as Secret") can also end a body sentence
     if len(literal.replace(" ", "")) < MIN_FUSED_CHARS and not is_doc_id:
         return None
     if not any(ch.isalpha() for ch in literal) and not is_doc_id:
@@ -1188,30 +1201,36 @@ def _strip_fused_doc_ids(result: FurnitureStripResult) -> None:
         found = _fused_matches(page_texts, pattern)
         if not found:
             continue
-        # A page number beside the ID goes only when it fits one page sequence.
+        # A page number beside the ID goes only when it fits one page sequence,
+        # and only on a side where at least half of the ID's copies carry a
+        # fitting number ("NAI-... 69", "33 WA ..."); otherwise the ID goes alone.
+        copies: list[tuple[tuple[int, int], int, int, int, str, str]] = []
         offsets: dict[int, int] = {}
         for (page_index, line_index), spans in found.items():
             line = page_texts[page_index].split("\n")[line_index]
             for start, end in spans:
                 text = line[start:end]
-                id_start = text.index(doc_id)
-                number = text[:id_start].strip() or text[id_start + len(doc_id):].strip()
-                if number:
-                    offsets[int(number) - page_index] = offsets.get(int(number) - page_index, 0) + 1
+                id_abs = start + text.index(doc_id)
+                head, tail = line[start:id_abs].strip(), line[id_abs + len(doc_id):end].strip()
+                copies.append(((page_index, line_index), start, end, id_abs, head, tail))
+                for number in (head, tail):
+                    if number:
+                        offsets[int(number) - page_index] = offsets.get(int(number) - page_index, 0) + 1
         best = max(offsets.items(), key=lambda item: item[1])[0] if offsets else None
+
+        def fits(number: str, page_index: int) -> bool:
+            return bool(number) and best is not None and int(number) - page_index == best
+
+        # Pages that print their number in a <page> tag need no bare number.
+        untagged = [c for c in copies if not _CLEAN_PAGE_TAG_RE.search(page_texts[c[0][0]])]
+        share = MIN_TITLE_PAGE_SHARE * len(untagged)
+        head_side = bool(untagged) and sum(1 for c in untagged if fits(c[4], c[0][0])) >= share
+        tail_side = bool(untagged) and sum(1 for c in untagged if fits(c[5], c[0][0])) >= share
         trimmed: dict[tuple[int, int], list[tuple[int, int]]] = {}
-        for (page_index, line_index), spans in found.items():
-            line = page_texts[page_index].split("\n")[line_index]
-            for start, end in spans:
-                text = line[start:end]
-                id_start = text.index(doc_id)
-                head, tail = text[:id_start].strip(), text[id_start + len(doc_id):].strip()
-                number = head or tail
-                if number and best is not None and int(number) - page_index == best:
-                    trimmed.setdefault((page_index, line_index), []).append((start, end))
-                else:
-                    id_abs = start + id_start
-                    trimmed.setdefault((page_index, line_index), []).append((id_abs, id_abs + len(doc_id)))
+        for key, start, end, id_abs, head, tail in copies:
+            new_start = start if head_side and fits(head, key[0]) else id_abs
+            new_end = end if tail_side and fits(tail, key[0]) else id_abs + len(doc_id)
+            trimmed.setdefault(key, []).append((new_start, new_end))
         _apply_fused(result, _with_footer_prefix(page_texts, trimmed, best), "fused_doc_id")
 
 
@@ -1260,6 +1279,8 @@ def _with_footer_prefix(
                     copies.append((key, index, line))
         if len(copies) < MIN_TITLE_PAGES:
             continue
+        snapshots = [{key: list(spans) for key, spans in out.items()}]
+        steps: list[str | None] = []  # the shared tokens taken, None for a page-number step
         active = {(key, index) for key, index, _ in copies}
         for _ in range(MAX_FOOTER_PREFIX_TOKENS):
             tokens: dict[tuple[tuple[int, int], int], tuple[str, int]] = {}
@@ -1279,8 +1300,9 @@ def _with_footer_prefix(
                     value = int(number.group("n")) - key[0]
                     offsets[value] = offsets.get(value, 0) + 1
             token, count = max(counts.items(), key=lambda item: item[1]) if counts else ("", 0)
-            if count >= 0.8 * len(copies) and _FOOTER_TOKEN_RE.fullmatch(token) and not _FOOTER_NUMBER_RE.fullmatch(token):
+            if count >= 0.8 * len(copies) and _is_footer_token(token):
                 take = {k for k, (t, _) in tokens.items() if t == token}
+                steps.append(token)
             elif offsets and max(offsets.values()) >= MIN_TITLE_PAGE_SHARE * len(copies):
                 best = max(offsets.items(), key=lambda item: item[1])[0]
                 take = set()
@@ -1288,6 +1310,7 @@ def _with_footer_prefix(
                     number = _FOOTER_NUMBER_RE.fullmatch(t)
                     if number is not None and int(number.group("n")) - k[0][0] == best:
                         take.add(k)
+                steps.append(None)
             else:
                 break
             for key, index in take:
@@ -1295,7 +1318,59 @@ def _with_footer_prefix(
                 position = tokens[(key, index)][1]
                 out[key][index] = (position, end) if direction == "back" else (start, position)
             active = take
+            snapshots.append({key: list(spans) for key, spans in out.items()})
+        # Keep the longest extension whose footer words occur nowhere else.
+        kept = len(steps)
+        while kept and not _footer_text_is_unique(page_texts, snapshots[kept], steps[:kept], direction):
+            kept -= 1
+        out = snapshots[kept]
     return out
+
+
+def _is_footer_token(token: str) -> bool:
+    """A shared token that may belong to a footer, never a word that ends a clause
+    ("Parties.", "Company,"); "Dok.nr.", "CAN_DMS:" and "DB1/" still qualify."""
+    if not _FOOTER_TOKEN_RE.fullmatch(token) or _FOOTER_NUMBER_RE.fullmatch(token):
+        return False
+    return not (token[-1] in ".;," and token[:-1].isalpha())
+
+
+def _footer_text_is_unique(
+    page_texts: list[str],
+    spans_by_line: dict[tuple[int, int], list[tuple[int, int]]],
+    steps: list[str | None],
+    direction: str,
+) -> bool:
+    """The footer words taken beside the ID (between page numbers) occur nowhere
+    in the body pages except on the lines that carry the ID."""
+    footer_lines = set(spans_by_line)
+    ordered = steps[::-1] if direction == "back" else steps
+    phrases: list[str] = []
+    current: list[str] = []
+    for step in ordered + [None]:
+        if step is None:
+            if current:
+                phrases.append(" ".join(current))
+            current = []
+        else:
+            current.append(step)
+    for phrase in phrases:
+        pattern = re.compile(r"(?<!\S)" + r"\s+".join(re.escape(word) for word in phrase.split(" ")) + r"(?!\S)")
+        for page_index, text in enumerate(page_texts):
+            for line_index, line in enumerate(text.split("\n")):
+                if (page_index, line_index) not in footer_lines and pattern.search(line):
+                    return False
+    return True
+
+
+# A number that opens a page and is followed by one of these words is a quantity
+# ("12 months after ..."); one that ends a page after one of these is a reference
+# or amount ("... shall not exceed 12", "... Section 12").
+_FUSED_NUMBER_UNIT_RE = re.compile(
+    r"(?:months?|days?|years?|weeks?|hours?|business|calendar|trading|percent|%|shares?|million|billion)\W*",
+    re.IGNORECASE,
+)
+_FUSED_NUMBER_LEAD_RE = re.compile(r"(?:exceeds?|than|within|least|approximately|sections?|article|\$)", re.IGNORECASE)
 
 
 def _strip_fused_page_numbers(result: FurnitureStripResult, tagged: dict[int, int]) -> None:
@@ -1314,13 +1389,20 @@ def _strip_fused_page_numbers(result: FurnitureStripResult, tagged: dict[int, in
             continue
         depths = _heading_depths(lines)
         first, last = countable[0], countable[-1]
-        tokens = lines[first].split()
-        if len(tokens) > 3 and tokens[0] == expected and depths[first][0] == 0:
-            lines[first] = " ".join(tokens[1:])
+        top, bottom = lines[first].split(), lines[last].split()
+        # The page's number already printed elsewhere in its edge window (a bare
+        # line, or the word at the other edge): the fused word is text.
+        if any(lines[i].strip() == expected for i in _edge_line_indexes(lines)):
+            continue
+        if top and bottom and top[0] == expected and bottom[-1] == expected:
+            continue
+        top_hit = len(top) > 3 and top[0] == expected and depths[first][0] == 0
+        bottom_hit = len(bottom) > 3 and bottom[-1] == expected and depths[last][1] == 0
+        if top_hit and not _FUSED_NUMBER_UNIT_RE.fullmatch(top[1]):
+            lines[first] = " ".join(top[1:])
+        elif bottom_hit and not _FUSED_NUMBER_LEAD_RE.fullmatch(bottom[-2]):
+            lines[last] = " ".join(bottom[:-1])
         else:
-            tokens = lines[last].split()
-            if not (len(tokens) > 3 and tokens[-1] == expected and depths[last][1] == 0):
-                continue
-            lines[last] = " ".join(tokens[:-1])
+            continue
         result.page_texts[page_index] = "\n".join(lines)
         result.removed.append(RemovedFurnitureLine(page_index=page_index, line=expected, kind="fused_page_number"))
