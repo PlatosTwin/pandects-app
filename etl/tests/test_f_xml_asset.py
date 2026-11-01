@@ -279,7 +279,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
             "".join(
                 [
                     "<section>1.1 First</section>",
-                    "Interim text. Section 1.2 Missing Section. More text.",
+                    "Interim text.\nSection 1.2 Missing Section. More text.\n",
                     "<section>1.3 Third</section>",
                 ]
             )
@@ -293,7 +293,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
         self.assertGreater(sum(before_counts.values()), 0)
         self.assertEqual(after_counts, {})
         repaired_text = cast(str, repaired_df.iloc[0]["tagged_output"])
-        self.assertIn("<section>Section 1.2 Missing Section. More text.</section>", repaired_text)
+        self.assertIn("<section>Section 1.2 Missing Section.</section> More text.", repaired_text)
         self.assertEqual(
             self._normalized_text_without_heading_tags(tagged_output),
             self._normalized_text_without_heading_tags(repaired_text),

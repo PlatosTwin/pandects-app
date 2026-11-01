@@ -129,14 +129,22 @@ class XMLTagRepairStats:
 
 
 def _section_heading_pattern(article_num: int, section_num: int) -> re.Pattern[str]:
+    """Match a printed section number that can start a heading.
+
+    The number must be followed by the end of the line, a tag, or (after an
+    optional period or dash) a heading-like token: an uppercase letter, a
+    quote, a bracket, or a number after a space ("1.2 2014 Option Rights"). Cross-reference followers such as ``,``, ``(a)``, ``)``, ``;`` or a
+    lowercase word (``of``, ``and``, ``date hereof``) never match.
+    """
     pattern = (
-        rf"(?<![\d.])(?:Section\s+)?{article_num}\s*\.\s*0*{section_num}"
-        r"(?!\s*\.\s*\d)(?=\b|[\s.;:,\)\]\-])"
+        rf"(?<![\d.])(?:(?:Section|SECTION|section)\s+)?{article_num}\s*\.\s*0*{section_num}"
+        r"(?!\s*\.\s*\d)(?!\d)"
+        r"(?=[ \t\u00a0]*[.:]?[ \t\u00a0]*(?:[-\u2013\u2014][ \t\u00a0]*)?"
+        r"(?:$|<|[A-Z\[\x22\x27\u201c\u201d\u2018\u2019])|[ \t\u00a0]+\d)"
     )
-    return re.compile(
-        pattern,
-        re.IGNORECASE,
-    )
+    # Case-sensitive on purpose: the follower check needs a real uppercase
+    # letter. MULTILINE lets "$" accept a number alone at the end of a line.
+    return re.compile(pattern, re.MULTILINE)
 
 
 def _roman_to_int(value: str) -> int | None:
@@ -461,28 +469,169 @@ def unwrap_inline_section_reference_tags(tagged_text: str) -> tuple[str, XMLTagR
     return INLINE_SECTION_REFERENCE_TAG_RE.sub(repl, tagged_text), stats
 
 
+# Text allowed between the start of a line and an inserted section heading:
+# whitespace, page markers, heading tags, and a bare page number ("12", "- 12 -").
+# Text extracted from HTML often runs a whole article onto one line, so the end
+# of a sentence (". ", "; ", ": ") also counts as a line start.
+MISSING_HEADING_SENTENCE_START_RE = re.compile(r"[.;:][ \t\u00a0]+$")
+MISSING_HEADING_LINE_PREFIX_RE = re.compile(
+    r"^(?:\s|<pageUUID>[^<]*</pageUUID>|<page>[^<]*</page>|</?(?:section|article)>)*"
+    r"(?:[-\u2013\u2014]?[ \t]*\d{1,3}[ \t]*[-\u2013\u2014]?[ \t]+)?$",
+    re.IGNORECASE,
+)
+# End of a heading's title sentence on a line that also carries body text:
+# a period (or colon) followed by whitespace and an uppercase-led sentence. A
+# single capital letter before the period ("U.S.") and common abbreviations do
+# not end the title.
+MISSING_HEADING_TITLE_END_RE = re.compile(
+    r"(?<![\s.][A-Z])(?<!\bInc)(?<!\bNo)(?<!\bCo)(?<!\bLtd)(?<!\bCorp)[.:]"
+    r"(?=[ \t\u00a0]+[A-Z\x22\u201c(])"
+)
+MISSING_HEADING_TITLE_MAX_CHARS = 250
+# A title sentence longer than this is body text, not a heading.
+MISSING_HEADING_SENTENCE_MAX_CHARS = 150
+# Opening quote of a defined term ("1.70 “UCC” means ..."): the title is the term.
+MISSING_HEADING_DEFINED_TERM_RE = re.compile(
+    r"[\x22\u201c\u201d]([^\x22\u201c\u201d\n<]{1,120})[\x22\u201c\u201d]"
+)
+_TITLE_WORD_RE = re.compile(r"[A-Za-z][A-Za-z'\u2019-]*")
+_TITLE_SMALL_WORDS = frozenset(
+    "a an and as at by for from in of on or the to under upon with".split()
+)
+
+
+def _looks_like_prose(title: str) -> bool:
+    """True for the start of a body sentence rather than a heading.
+
+    Headings are short or Title Case ("Merger Consideration; Conversion of
+    Shares"); an untitled clause reads as a sentence ("All references in this
+    Agreement to ...").
+    """
+    if len(title) <= 60:
+        return False
+    words = [w for w in _TITLE_WORD_RE.findall(title) if w.lower() not in _TITLE_SMALL_WORDS]
+    if not words:
+        return False
+    capitalized = sum(1 for w in words if w[0].isupper())
+    return capitalized / len(words) < 0.5
+
+
+def _is_title_case(title: str) -> bool:
+    words = [w for w in _TITLE_WORD_RE.findall(title) if w.lower() not in _TITLE_SMALL_WORDS]
+    if not words:
+        return False
+    capitalized = sum(1 for w in words if w[0].isupper())
+    return capitalized / len(words) >= 0.8
+
+
+# Mid-line, a heading may follow a table cell or a reference ("... Section
+# 10.4(d) 1.2 Other Capitalized Terms. For all ...") but never a lowercase word
+# ("aware on the 1.40 date", "thereunder 1.40 IFRS").
+MISSING_HEADING_AFTER_LOWERCASE_WORD_RE = re.compile(r"[a-z][\w'\u2019]*[,]?[ \t\u00a0]+$")
+MISSING_HEADING_MID_LINE_TITLE_MAX_CHARS = 100
+
+
+def _missing_heading_title_end(tagged_text: str, start: int, number_end: int) -> int | None:
+    """Return where an inserted section heading tag should close, or None.
+
+    The title is the heading line: from the number to the end of its line (or
+    the next tag); a number printed alone on its line takes the next non-empty
+    line. Then:
+    - a defined term ("1.70 “UCC” means ...") ends the title after the term;
+    - a short first sentence ("2.2 Merger Consideration. At the ...") ends it;
+    - a line that reads as prose, or is longer than
+      MISSING_HEADING_TITLE_MAX_CHARS, is an untitled clause: the title is the
+      number alone and the line stays body text.
+    """
+    limit = tagged_text.find("<", number_end)
+    if limit < 0:
+        limit = len(tagged_text)
+    after_number = re.compile(r"[ \t\u00a0]*[.:]?[ \t\u00a0]*(?:[-\u2013\u2014][ \t\u00a0]*)?").match(
+        tagged_text, number_end
+    )
+    title_from = after_number.end() if after_number else number_end
+    number_only_end = title_from
+    while number_only_end > number_end and tagged_text[number_only_end - 1] in " \t\u00a0-\u2013\u2014":
+        number_only_end -= 1
+    line_end = tagged_text.find("\n", title_from, limit)
+    if line_end < 0:
+        line_end = limit
+    if not tagged_text[title_from:line_end].strip():
+        # Number printed alone: the title is the next non-empty line.
+        next_line = re.compile(r"\s*").match(tagged_text, line_end, limit)
+        title_from = next_line.end() if next_line else line_end
+        if title_from >= limit:
+            return None
+        line_end = tagged_text.find("\n", title_from, limit)
+        if line_end < 0:
+            line_end = limit
+    term = MISSING_HEADING_DEFINED_TERM_RE.match(tagged_text, title_from, line_end)
+    if term is not None:
+        return term.end()
+    end = line_end
+    sentence_end = MISSING_HEADING_TITLE_END_RE.search(tagged_text, title_from, line_end)
+    if sentence_end is not None and sentence_end.end() - title_from <= MISSING_HEADING_SENTENCE_MAX_CHARS:
+        end = sentence_end.end()
+    while end > start and tagged_text[end - 1] in " \t\u00a0\r":
+        end -= 1
+    title = tagged_text[title_from:end]
+    if end - start > MISSING_HEADING_TITLE_MAX_CHARS or _looks_like_prose(title):
+        return number_only_end
+    return end
+
+
 def insert_missing_section_heading_tags(
     tagged_text: str,
     gaps: Iterable[SectionGap],
 ) -> tuple[str, XMLTagRepairStats]:
+    """Tag an untagged section heading whose number fills a numbering gap.
+
+    A heading qualifies at the start of a line (after whitespace, page markers
+    or a bare page number) or right after the end of a sentence; elsewhere on a
+    line only a short Title Case heading sentence that does not follow a
+    lowercase word qualifies ("... 10.4(d) 1.2 Other Capitalized Terms. For").
+    The number must also be followed by a heading-like token (see
+    _section_heading_pattern), so mid-sentence
+    cross-references ("Subject to Section 2.2, ...") are never promoted. The
+    inserted tag closes at the end of the heading's title (see
+    _missing_heading_title_end); the rest stays body text.
+    """
     stats = XMLTagRepairStats()
     candidates: list[tuple[int, int]] = []
+    lowered = tagged_text.lower()
     for gap in gaps:
         if gap.found <= gap.expected:
             continue
         pattern = _section_heading_pattern(gap.article_num, gap.expected)
         for match in pattern.finditer(tagged_text):
             stats.attempts["insert_missing_section_heading_tags"] += 1
-            before = tagged_text[: match.start()]
-            if before.lower().rfind("<section>") > before.lower().rfind("</section>"):
+            before = lowered[: match.start()]
+            if before.rfind("<section>") > before.rfind("</section>"):
                 continue
-            if before.lower().rfind("<article>") > before.lower().rfind("</article>"):
+            if before.rfind("<article>") > before.rfind("</article>"):
                 continue
-            tail = tagged_text[match.start() :]
-            close_match = STRUCTURAL_OPEN_RE.search(tail, pos=max(1, match.end() - match.start()))
-            if close_match is None or close_match.start() <= 0:
+            line_start = tagged_text.rfind("\n", 0, match.start()) + 1
+            line_prefix = tagged_text[line_start : match.start()]
+            at_line_start = (
+                MISSING_HEADING_LINE_PREFIX_RE.match(line_prefix) is not None
+                or MISSING_HEADING_SENTENCE_START_RE.search(line_prefix) is not None
+            )
+            if not at_line_start and MISSING_HEADING_AFTER_LOWERCASE_WORD_RE.search(line_prefix):
                 continue
-            candidates.append((match.start(), match.start() + close_match.start()))
+            end = _missing_heading_title_end(tagged_text, match.start(), match.end())
+            if end is None or end < match.end():
+                continue
+            if not at_line_start:
+                # Mid-line: only a short Title Case heading sentence qualifies.
+                title = tagged_text[match.end() : end].strip(" \t\u00a0.:-\u2013\u2014")
+                if (
+                    not tagged_text[:end].endswith(".")
+                    or not title
+                    or end - match.start() > MISSING_HEADING_MID_LINE_TITLE_MAX_CHARS
+                    or not _is_title_case(title)
+                ):
+                    continue
+            candidates.append((match.start(), end))
 
     if not candidates:
         return tagged_text, stats
@@ -498,8 +647,8 @@ def insert_missing_section_heading_tags(
     for start, end in merged:
         pieces.append(tagged_text[last:start])
         pieces.append("<section>")
-        pieces.append(tagged_text[start:end].rstrip())
-        pieces.append("</section>\n\n")
+        pieces.append(tagged_text[start:end])
+        pieces.append("</section>")
         last = end
         stats.applied["insert_missing_section_heading_tags"] += 1
     pieces.append(tagged_text[last:])

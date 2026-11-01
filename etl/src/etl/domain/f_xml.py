@@ -13,6 +13,9 @@ from bs4.element import Comment, Tag
 
 from etl.domain.g_sections import clean_article_title
 from etl.domain.g_sections import clean_section_title
+from etl.domain.heading_titles import article_title_number
+from etl.domain.heading_titles import normalize_glued_article_title
+from etl.domain.heading_titles import normalize_glued_section_title
 
 
 @dataclass
@@ -830,11 +833,24 @@ def convert_to_xml(
     current_article = None
     section_count = 0
     article_count = 0
+    previous_article_number: int | None = None
 
     for i, m in enumerate(matches):
         tag = m.group(1)
         raw_title = m.group(2).strip()
         title = " ".join(raw_title.split())
+        # Restore the space a glued heading lost ("ARTICLE IVREPRESENTATIONS",
+        # "Section 5.1Closing"); the title is otherwise the printed text.
+        if tag == "article":
+            title = normalize_glued_article_title(
+                title,
+                previous_article_number + 1 if previous_article_number is not None else None,
+            )
+            parsed_number = article_title_number(title)
+            if parsed_number is not None:
+                previous_article_number = parsed_number
+        else:
+            title = normalize_glued_section_title(title)
         source_page_uuid = heading_page_uuid(m.start())
 
         _, end = m.span()

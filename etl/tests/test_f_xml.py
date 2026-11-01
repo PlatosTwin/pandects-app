@@ -507,6 +507,27 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertIn("<pageUUID>page-12</pageUUID>", section_55_xml)
         self.assertIn("<page>11</page>", section_55_xml)
 
+    def test_convert_to_xml_restores_space_in_glued_heading_titles(self) -> None:
+        tagged_text = (
+            "<article>ARTICLE VIDEFINITIONS</article>"
+            "<section>Section 6.1Closing.</section>Body."
+            "<article>ARTICLE VIIINDEMNIFICATION</article>"
+            "<section>7.1 Survival.</section>Body."
+        )
+        xml_str = f_xml.convert_to_xml(
+            tagged_text=tagged_text,
+            agreement_uuid="11111111-1111-1111-1111-111111111111",
+            filing_date=date(2024, 1, 1),
+            url="https://example.com",
+            source_format="html",
+        )
+        root = ET.fromstring(xml_str)
+        titles = [elem.attrib["title"] for elem in root.iter() if elem.tag in {"article", "section"}]
+        self.assertEqual(
+            titles,
+            ["ARTICLE VI DEFINITIONS", "Section 6.1 Closing.", "ARTICLE VII INDEMNIFICATION", "7.1 Survival."],
+        )
+
 
 if __name__ == "__main__":
     _ = unittest.main()
