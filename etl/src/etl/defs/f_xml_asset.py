@@ -131,10 +131,18 @@ ARTICLE_A_NUMBER_RE = re.compile(
     re.IGNORECASE,
 )
 # Handles separator variants of A-suffix articles: III-A, III.A, V(B), 3 C.
-# The space-letter form (3 C) requires a word boundary after the letter so it
-# doesn't greedily match the first letter of a following word (e.g. "3 CONDITIONS").
+# The space-letter form (3 C, II A.) counts as a suffix only when the letter,
+# optionally followed by a period, ends the title or is followed by whitespace
+# and a word that starts the title. That keeps it from matching the first letter
+# of a following word ("3 CONDITIONS"), an abbreviation ("10 U.S. EMPLOYMENT"),
+# a placeholder ("VII N/A") or an ampersand term ("10 R&W INSURANCE").
 ARTICLE_A_VARIANT_RE = re.compile(
-    r"^\s*ARTICLE\s+(?P<number>[IVXLCDM]+|\d+)(?:[-.](?P<dash>[A-Z])|\((?P<paren>[A-Z])\)|[ \t]+(?P<space>[A-Z]))(?=\b|[\s.:)\-]|$)",
+    r"^\s*ARTICLE\s+(?P<number>[IVXLCDM]+|\d+)"
+    r"(?:"
+    r"[-.](?P<dash>[A-Z])(?=\b|[\s.:)\-]|$)"
+    r"|\((?P<paren>[A-Z])\)(?=\b|[\s.:)\-]|$)"
+    r"|[ \t]+(?P<space>[A-Z])(?=\.?(?:\s*$|\s+[^\W_]|\s+[(\"'\u201c\u2018\[]))"
+    r")",
     re.IGNORECASE,
 )
 SECTION_NUMBER_RE = re.compile(

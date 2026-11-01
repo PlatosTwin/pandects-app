@@ -1158,6 +1158,20 @@ class XMLVerifyAssetTests(unittest.TestCase):
             # space-letter must not greedily match first letter of next word
             ("ARTICLE 3 CONDITIONS PRECEDENT", 3.0),
             ("ARTICLE 3 CLOSING", 3.0),
+            # space-letter followed by a period and a title word is still a suffix
+            ("ARTICLE II A. REPRESENTATIONS AND WARRANTIES", 2.5),
+            ("ARTICLE 3 A", 3.5),
+            # genuine suffix forms from the corpus stay suffixes
+            ("ARTICLE 5A COVENANTS", 5.5),
+            ("ARTICLE 5A. ADDITIONAL COVENANTS", 5.5),
+            ("ARTICLE III-A REPRESENTATIONS AND WARRANTIES OF THE SELLERS", 3.5),
+            ("SECTION 8A. CONDITIONS TO SELLERS' OBLIGATIONS.", 8.5),
+            # a letter in an abbreviation, placeholder or ampersand term is not a suffix
+            ("ARTICLE 10 U.S. EMPLOYMENT MATTERS", 10.0),
+            ("ARTICLE 10 U.K. MATTERS", 10.0),
+            ("ARTICLE VII N/A", 7.0),
+            ("ARTICLE 10 R&W INSURANCE POLICY; RECOURSE", 10.0),
+            ("ARTICLE 4 A - B MATTERS", 4.0),
         ]
         for title, expected in cases:
             with self.subTest(title=title):
@@ -1252,6 +1266,26 @@ class XMLVerifyAssetTests(unittest.TestCase):
             with self.subTest(titles=titles):
                 violations = find_hard_rule_violations(self._articles_xml(*titles))
                 self.assertFalse(any(v.reason_code == XML_REASON_ARTICLE_NUMBER_GAP for v in violations))
+
+    def test_find_hard_rule_violations_article_gap_ignores_abbreviation_and_placeholder_letters(self) -> None:
+        # "VII N/A" and "10 U.S. ..." are articles 7 and 10, not the suffix articles 7.5 and 10.5,
+        # so the gap rule must not report 7 or 10 missing.
+        roman = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX")
+        for titles in (
+            tuple(f"ARTICLE {n}" for n in roman[:6]) + ("ARTICLE VII N/A", "ARTICLE VIII"),
+            tuple(f"ARTICLE {n}" for n in range(1, 10))
+            + ("ARTICLE 10 U.S. EMPLOYMENT MATTERS", "ARTICLE 11"),
+            tuple(f"ARTICLE {n}" for n in range(1, 10))
+            + ("ARTICLE 10 R&amp;W INSURANCE POLICY; RECOURSE", "ARTICLE 11"),
+        ):
+            with self.subTest(titles=titles):
+                violations = find_hard_rule_violations(self._articles_xml(*titles))
+                self.assertFalse(
+                    any(
+                        v.reason_code in (XML_REASON_ARTICLE_NUMBER_GAP, XML_REASON_ARTICLES_OUT_OF_ORDER)
+                        for v in violations
+                    )
+                )
 
     def test_find_hard_rule_violations_excuses_only_short_absent_forward_skips(self) -> None:
         def violations_for(section_numbers: list[int]) -> list[str]:
