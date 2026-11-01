@@ -478,7 +478,7 @@ _SPLIT_REFERENCE_START_RE = re.compile(
     r"^(?:Sections?|Clauses?|Articles?|Annex(?:es)?|Schedules?|Paragraphs?|Exhibits?)\b"
 )
 # A title glued to the first word of its text: "Calculation of LossesNotwithstanding".
-_SPLIT_GLUED_OPENER_RE = re.compile(r"[a-z’')](?P<opener>[A-Z][a-z]+)$")
+_SPLIT_GLUED_OPENER_RE = re.compile(r"[a-z’')](?P<opener>[A-Z][a-z]+)(?:[^\S\r\n]+[A-Za-z]+){0,2}$")
 _SPLIT_GLUED_OPENERS = frozenset("the each nothing neither none promptly following".split())
 # The subject of a clause printed straight after a run-in heading with no period
 # ("Section 4.7 Financing Parent" + " has delivered ...").
@@ -567,7 +567,8 @@ def _repair_sentence_split_title(inner: str, follow: str) -> tuple[str, str] | N
         return None
     glued = _SPLIT_GLUED_OPENER_RE.search(rest)
     if glued is not None and re.match(r"[^\S\r\n]+[a-z]", follow) is not None:
-        if glued.group("opener").lower() in _SENTENCE_OPENERS | _SPLIT_GLUED_OPENERS:
+        opener = glued.group("opener")
+        if opener.lower() in _SENTENCE_OPENERS | _SPLIT_GLUED_OPENERS or re.fullmatch(_SPLIT_PARTY_WORDS, opener):
             # "Calculation of LossesNotwithstanding" + " anything ...": the source
             # printed the title with no space before the first word of the text.
             cut = number.end() + glued.start("opener")

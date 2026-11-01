@@ -815,3 +815,17 @@ class SentenceSplitSectionTitleTests(unittest.TestCase):
             "<section>6.5</section> Seller shall",
             self._repair("<section>6.5 Seller</section> shall deliver the Shares."),
         )
+
+    def test_glued_title_before_party_or_short_phrase_is_split(self) -> None:
+        self.assertIn(
+            "<section>5.6. Spin-Out</section>Parent shall take",
+            self._repair("<section>5.6. Spin-OutParent</section> shall take the following actions"),
+        )
+        self.assertIn(
+            "<section>2.4. SRx Meeting</section>Subject to the terms",
+            self._repair("<section>2.4. SRx MeetingSubject to</section> the terms of this Agreement:"),
+        )
+        self.assertIn(
+            "<section>6.4. Notice and Cure Provisions</section>Each Party will give",
+            self._repair("<section>6.4. Notice and Cure ProvisionsEach Party</section> will give prompt notice"),
+        )
