@@ -1103,10 +1103,16 @@ class SentenceSplitThirdReviewTests(SentenceSplitReReviewTests):
         )
 
     def test_rejected_short_layout_heading_is_never_stripped(self) -> None:
+        # A bold heading with a quote is rejected by the layout but is still a heading, not a sentence.
+        raw = "<p>2.1 <b>Company “Know-How”</b></p><p>The Company owns all Know-How.</p>"
+        self.assertNotEqual(
+            self._title("2.1 Company “Know-How” The Company", " owns all Know-How.", raw), "2.1"
+        )
+        # A bold heading ending in a comma falls through to the comma trim.
         raw = "<p>4.4 <b>Escrow Release Procedure,</b></p><p>The Escrow Agent shall release the funds.</p>"
         self.assertEqual(
             self._title("4.4 Escrow Release Procedure, The Escrow Agent", " shall release the funds.", raw),
-            "4.4 Escrow Release Procedure, The Escrow Agent",
+            "4.4 Escrow Release Procedure",
         )
 
     def test_title_ends_before_the_sections_own_first_subsection(self) -> None:
@@ -1162,4 +1168,23 @@ class SentenceSplitThirdReviewTests(SentenceSplitReReviewTests):
         self.assertNotEqual(
             self._title("6.6 Schiedsgutachterverfahren", " 6.6 Expert Proceedings 6.6.1 Die Parteien"),
             "6.6 Schiedsgutachterverfahren 6.6 Expert Proceedings",
+        )
+
+    def test_rejected_layout_lead_in_or_run_in_heading_still_falls_through(self) -> None:
+        raw = (
+            "<p>3.12 <u>No Undisclosed Liabilities</u>, (Except for liabilities which will be incurred as a result"
+            " of this transaction), there are no liabilities of Company.</p>"
+        )
+        self.assertEqual(
+            self._title(
+                "3.12 No Undisclosed Liabilities, (Except for liabilities",
+                " which will be incurred as a result of this transaction), there are no liabilities of Company.",
+                raw,
+            ),
+            "3.12 No Undisclosed Liabilities",
+        )
+        raw = "<p>3.4 The Suspensive Conditions in:</p><p>3.4.1 clauses 3.1.2 and 3.1.3 are stipulated</p>"
+        self.assertEqual(
+            self._title("3.4 The Suspensive Conditions", " in:\n\n3.4.1 clauses 3.1.2 and 3.1.3 are stipulated", raw),
+            "3.4",
         )

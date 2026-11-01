@@ -523,6 +523,10 @@ def _repair_sentence_split_title(
                     and len(words) <= 8
                     and _CLAUSE_VERB_RE.search(heading) is None
                     and not after[:1].islower()
+                    # A lead-in or a run-in heading is not set off: "The Suspensive Conditions in:" + " 3.4.1",
+                    # "<u>No Undisclosed Liabilities</u>, (Except ...".
+                    and heading.rstrip()[-1:] not in ",:;("
+                    and _norm(words[-1]) not in _TITLE_SMALL_WORDS
                     and (_is_title_case(heading) or _norm(words[0]) not in _SENTENCE_START_WORDS)
                 ):
                     return None  # a short set-off heading we cannot place: never strip it
