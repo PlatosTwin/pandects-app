@@ -275,8 +275,10 @@ class XMLGenerationTests(unittest.TestCase):
 
         self.assertEqual(
             lines[0],
-            "IN WITNESS WHEREOF the parties have hereunto caused this Agreement "
-            "to be duly executed as of the date first above written.",
+            (
+                "IN WITNESS WHEREOF the parties have hereunto caused this Agreement "
+                "to be duly executed as of the date first above written."
+            ),
         )
         self.assertIn("ENCORE MEDICAL CORPORATION", lines)
         self.assertIn("By: /s/ Harry L. Zimmerman", lines)
@@ -416,6 +418,196 @@ class XMLGenerationTests(unittest.TestCase):
         ]
 
         self.assertEqual(lines, ["BACK", "Back Bay Capital LLC", "BACK"])
+
+    def test_format_signature_html_like_screen_joins_letters_across_unstyled_float_none(
+        self,
+    ) -> None:
+        # 98b575c0: the "ç" sits in a span styled "display: inline ! important; float: none".
+        raw_html = """
+        <table><tr>
+          <td><div>By:</div></td>
+          <td>/s/ <font>F<font style="font-size: 10pt;">ran<font style="color: rgb(0, 0, 0);
+            word-spacing: 0px; display: inline ! important; float: none;">çois Locoh-Donou<br/>
+          </font></font></font></td>
+        </tr><tr>
+          <td><div>Name:</div></td>
+          <td><font>F<font style="font-size: 10pt;">ran<font style="display: inline ! important;
+            float: none;">çois L</font>ocoh-Donou</font></font></td>
+        </tr></table>
+        <p><font style="float: left">By:</font>Jane Doe</p>
+        """
+
+        lines = [
+            line
+            for line in f_xml.format_signature_html_like_screen(raw_html).splitlines()
+            if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "By: /s/ François Locoh-Donou",
+                "Name: François Locoh-Donou",
+                "By: Jane Doe",
+            ],
+        )
+
+    def test_format_signature_text_like_screen_keeps_by_empty_before_next_signer_block(
+        self,
+    ) -> None:
+        # 0904d542: each empty "By:" is followed by the next signer entity and its own "By:".
+        text = "\n\n".join(
+            [
+                "SUN MICROSYSTEMS, INC.",
+                "By:",
+                "STANFORD ACQUISITION CORPORATION",
+                "By:",
+                "STORAGE TECHNOLOGY CORPORATION",
+                "By:",
+                "Patrick J. Martin",
+                "PURCHASER:",
+                "RYERSON TULL, INC.",
+                "By:",
+                "51",
+            ]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "SUN MICROSYSTEMS, INC.",
+                "By:",
+                "STANFORD ACQUISITION CORPORATION",
+                "By:",
+                "STORAGE TECHNOLOGY CORPORATION",
+                "By: Patrick J. Martin",
+                "PURCHASER:",
+                "RYERSON TULL, INC.",
+                "By:",
+                "51",
+            ],
+        )
+
+    def test_format_signature_text_like_screen_keeps_empty_title_before_sentence_or_entity(
+        self,
+    ) -> None:
+        # c5ac8b6f: an empty Title: was followed by a sentence or the next entity.
+        sentence = (
+            "The following executes this Agreement as the Management Representative "
+            "solely to obtain the benefit of the indemnities provided to him in Section 15.23."
+        )
+        entity = (
+            "EDGESTONE CAPITAL EQUITY PARTNERS, INC., as general partner or agent for "
+            "and on behalf of EDGESTONE CAPITAL EQUITY FUND, L.P."
+        )
+        text = "\n".join(
+            [
+                "EDGESTONE CAPITAL PARTNERS INC.",
+                "By:",
+                "Name:",
+                "Title:",
+                "",
+                sentence,
+                "",
+                "Name:",
+                "Title:",
+                "",
+                "CAMERON CAPITAL CORPORATION",
+                "By:",
+                "Name: Steve Hudson",
+                "Title: President",
+                "",
+                "Name:",
+                "Title:",
+                "",
+                entity,
+            ]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "EDGESTONE CAPITAL PARTNERS INC.",
+                "By:",
+                "Name:",
+                "Title:",
+                sentence,
+                "Name:",
+                "Title:",
+                "CAMERON CAPITAL CORPORATION",
+                "By:",
+                "Name: Steve Hudson",
+                "Title: President",
+                "Name:",
+                "Title:",
+                entity,
+            ],
+        )
+
+    def test_format_signature_text_like_screen_normalizes_label_left_empty(self) -> None:
+        text = "\n".join(
+            ["BY:", "PRINTED NAME:", "TITLE", "", "KM INVESTMENT CORPORATION", "Its", "46"]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            ["By:", "PRINTED NAME:", "Title:", "KM INVESTMENT CORPORATION", "Its:", "46"],
+        )
+
+    def test_format_signature_text_like_screen_still_fills_ordinary_continuations(
+        self,
+    ) -> None:
+        text = "\n".join(
+            [
+                "ACME FUND, L.P.",
+                "By:",
+                "ACME GP, LLC",
+                "Its: General Partner",
+                "By:",
+                "/s/ Jane Doe",
+                "Name:",
+                "JANE DOE",
+                "Title:",
+                "CO-CHIEF EXECUTIVE OFFICER",
+                "",
+                "BETA HOLDINGS, INC.",
+                "By:",
+                "/s/ John Roe",
+                "Title:",
+                "President of the Company",
+            ]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "ACME FUND, L.P.",
+                "By: ACME GP, LLC",
+                "Its: General Partner",
+                "By: /s/ Jane Doe",
+                "Name: JANE DOE",
+                "Title: CO-CHIEF EXECUTIVE OFFICER",
+                "BETA HOLDINGS, INC.",
+                "By: /s/ John Roe",
+                "Title: President of the Company",
+            ],
+        )
 
     def test_generate_xml_reformats_html_signature_raw_page_content(self) -> None:
         agreement_uuid = "11111111-1111-1111-1111-111111111111"

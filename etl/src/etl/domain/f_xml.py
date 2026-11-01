@@ -104,13 +104,29 @@ SIGNATURE_HTML_INLINE_TAGS = {
     "sup", "tt", "u", "var",
 }
 # An inline element styled to take its own room ("padding-right:107pt",
-# "display:inline-block;width:36pt") is laid out like a separate cell.
+# "display:inline-block;width:36pt") is laid out like a separate cell. "float: none"
+# and "display: inline" leave the element in the text flow.
 SIGNATURE_HTML_SPACED_STYLE_RE = re.compile(
-    r"(?:^|;)\s*(?:padding|margin|width|float|position|display\s*:\s*(?:block|inline-block|table|flex))",
+    (
+        r"(?:^|;)\s*(?:padding|margin|width|position|float\s*:\s*(?:left|right)|"
+        r"display\s*:\s*(?:block|inline-block|table|flex))"
+    ),
     re.IGNORECASE,
 )
+# An entity name in caps ("CAMERON CAPITAL CORPORATION", "ACME PARTNERS, INC., as
+# general partner ...") opens a signer block, so it is no field's value.
+SIGNATURE_ENTITY_TOKEN_RE = re.compile(
+    (
+        r"(?<!\bTHE )\b(?:INC|INCORPORATED|CORP|CORPORATION|LLC|L\.L\.C|LTD|LIMITED|COMPANY|"
+        r"LP|L\.P|LLP|L\.L\.P|PLC|N\.V|B\.V|S\.A|GMBH|HOLDINGS)(?![\w-])\.?"
+    )
+)
+SIGNATURE_SENTENCE_MIN_WORDS = 12
+# A party-role header ("PURCHASER:", "SELLERS:") or a bare page number ("51").
+SIGNATURE_NON_FIELD_VALUE_RE = re.compile(r"[A-Z][A-Z'’&,. ()-]{1,40}:|\d{1,3}")
 _SIGNATURE_SOFT_BREAK = "\x00"
-_SIGNATURE_INLINE_JOIN_RE = re.compile(r"(?<=[A-Za-z])\x00+(?=[A-Za-z])")
+# Letters in any script ("Fran<font>çois</font>"): word characters minus digits and "_".
+_SIGNATURE_INLINE_JOIN_RE = re.compile(r"(?<=[^\W\d_])\x00+(?=[^\W\d_])")
 # EDGAR navigation links such as <a href="#toc">BACK</a> at the top of a page.
 SIGNATURE_HTML_NAV_LINK_TEXT_RE = re.compile(r"(?:back|return\s+to\s+top)", re.IGNORECASE)
 XML_INVALID_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
@@ -717,7 +733,34 @@ def _should_join_signature_entity_lines(left: str, right: str) -> bool:
     return bool(SIGNATURE_ENTITY_SUFFIX_RE.search(right))
 
 
-def _signature_continuation_value(lines: list[str], start_index: int) -> tuple[str, int] | None:
+def _signature_starts_entity(line: str) -> bool:
+    """True for a line that opens with an entity name in caps."""
+    words = line.split()
+    head = " ".join(words[:8])
+    letters = [ch for ch in head if ch.isalpha()]
+    if len(letters) < 4:
+        return False
+    if sum(1 for ch in letters if ch.isupper()) / len(letters) < 0.8:
+        return False
+    return SIGNATURE_ENTITY_TOKEN_RE.search(head) is not None
+
+
+def _signature_looks_like_sentence(line: str) -> bool:
+    if re.match(r"in\s+witness\b", line, re.IGNORECASE):
+        return True
+    words = line.split()
+    if len(words) < SIGNATURE_SENTENCE_MIN_WORDS:
+        return False
+    return sum(1 for word in words if word[:1].islower()) >= 4
+
+
+def _is_signature_by_label(line: str) -> bool:
+    match = SIGNATURE_FIELD_LABEL_RE.fullmatch(line) or SIGNATURE_FIELD_WITH_VALUE_RE.match(line)
+    return bool(match) and match.group("label").lower() == "by"
+
+
+def _signature_next_line(lines: list[str], start_index: int) -> tuple[str, int] | None:
+    """The next non-empty line, unless it is a bare label or a known non-value."""
     index = start_index
     while index < len(lines) and not lines[index]:
         index += 1
@@ -732,6 +775,43 @@ def _signature_continuation_value(lines: list[str], start_index: int) -> tuple[s
     ):
         return None
     return value, index
+
+
+def _signature_line_starts_next_block(
+    lines: list[str], index: int, label: str | None
+) -> bool:
+    """True when lines[index] is not the value of an empty field label.
+
+    That is another field with its value, a party-role header, a page number,
+    a sentence, or an entity name in caps that starts the next signer block.
+    """
+    value = lines[index]
+    if (
+        SIGNATURE_FIELD_WITH_VALUE_RE.match(value)
+        or SIGNATURE_NON_FIELD_VALUE_RE.fullmatch(value)
+        or _signature_looks_like_sentence(value)
+    ):
+        return True
+    if not _signature_starts_entity(value):
+        return False
+    if label is None or label.lower() != "by":
+        return True
+    # "By:" may name an intermediate signer ("By: ACME GP LLC, its general
+    # partner"), unless the entity is followed by its own "By:" line.
+    next_index = index + 1
+    while next_index < len(lines) and not lines[next_index]:
+        next_index += 1
+    return next_index < len(lines) and _is_signature_by_label(lines[next_index])
+
+
+def _signature_continuation_value(
+    lines: list[str], start_index: int, label: str | None = None
+) -> tuple[str, int] | None:
+    """The value on the next non-empty line for an empty field label, or None."""
+    candidate = _signature_next_line(lines, start_index)
+    if candidate is None or _signature_line_starts_next_block(lines, candidate[1], label):
+        return None
+    return candidate
 
 
 def format_signature_text_like_screen(text: str) -> str:
@@ -757,9 +837,16 @@ def format_signature_text_like_screen(text: str) -> str:
         label_match = SIGNATURE_FIELD_LABEL_RE.fullmatch(line)
         if label_match:
             label = _format_signature_label(label_match.group("label"))
-            continuation = _signature_continuation_value(lines, index + 1)
-            if continuation is not None:
-                value, value_index = continuation
+            candidate = _signature_next_line(lines, index + 1)
+            if candidate is not None:
+                value, value_index = candidate
+                if _signature_line_starts_next_block(
+                    lines, value_index, label_match.group("label")
+                ):
+                    # The field is empty; the next line opens something else.
+                    formatted.append(label)
+                    index += 1
+                    continue
                 formatted.append(f"{label} {value}")
                 index = value_index + 1
                 continue
@@ -773,7 +860,7 @@ def format_signature_text_like_screen(text: str) -> str:
             continue
 
         if line.lower() == "by":
-            continuation = _signature_continuation_value(lines, index + 1)
+            continuation = _signature_continuation_value(lines, index + 1, "by")
             if continuation is not None:
                 value, value_index = continuation
                 if SIGNATURE_VALUE_RE.search(value):
