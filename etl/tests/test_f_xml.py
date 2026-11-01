@@ -250,6 +250,173 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertNotIn("( Signature Page )", formatted)
         self.assertNotIn("[ SIGNATURE PAGE TO AGREEMENT AND PLAN OF MERGER ]", formatted)
 
+    def test_format_signature_html_like_screen_keeps_text_before_table_in_unclosed_paragraph(
+        self,
+    ) -> None:
+        # EDGAR leaves the <p> unclosed, so html.parser nests the tables inside
+        # it and the opening sentence is loose text in that paragraph.
+        raw_html = """
+        <div>
+        <p align="left">IN WITNESS WHEREOF the parties have hereunto caused this Agreement
+        to be duly executed as of the date first above written.
+        <table>
+          <tr><td></td><td colspan="3">ENCORE MEDICAL CORPORATION<br/></td></tr>
+          <tr><td></td><td>By:</td><td>/s/ Harry L. Zimmerman</td></tr>
+          <tr><td></td><td colspan="3">Name: Harry L. Zimmerman</td></tr>
+        </table>
+        <table>
+          <tr><td></td><td colspan="3">EMPI, INC.<br/></td></tr>
+          <tr><td></td><td>By:</td><td>/s/ H. Philip Vierling</td></tr>
+        </table>
+        </div>
+        """
+
+        lines = f_xml.format_signature_html_like_screen(raw_html).splitlines()
+
+        self.assertEqual(
+            lines[0],
+            "IN WITNESS WHEREOF the parties have hereunto caused this Agreement "
+            "to be duly executed as of the date first above written.",
+        )
+        self.assertIn("ENCORE MEDICAL CORPORATION", lines)
+        self.assertIn("By: /s/ Harry L. Zimmerman", lines)
+        self.assertIn("EMPI, INC.", lines)
+        self.assertIn("By: /s/ H. Philip Vierling", lines)
+
+    def test_format_signature_html_like_screen_keeps_loose_text_between_tables(self) -> None:
+        raw_html = """
+        <p>
+        <table><tr><td>ACME CORP.</td></tr><tr><td>By:</td><td>/s/ Jane Doe</td></tr></table>
+        The undersigned <b>Principal Shareholders</b> are executing this Agreement solely for Section 14.15.
+        <table><tr><td>MPI HOLDINGS, LLC</td></tr></table>
+        """
+
+        lines = f_xml.format_signature_html_like_screen(raw_html).splitlines()
+
+        self.assertEqual(
+            [line for line in lines if line],
+            [
+                "ACME CORP.",
+                "By: /s/ Jane Doe",
+                "The undersigned Principal Shareholders are executing this Agreement solely for Section 14.15.",
+                "MPI HOLDINGS, LLC",
+            ],
+        )
+
+    def test_format_signature_html_like_screen_joins_small_caps(self) -> None:
+        raw_html = """
+        <p>I<small>N</small> W<small>ITNESS</small> W<small>HEREOF</small>, the Parties
+        hereto have executed this Agreement.</p>
+        <div><table>
+          <tr><td colspan="3"><p><b>B<small>UYER</small></b></p><p>Thor Industries, Inc.</p></td></tr>
+          <tr><td>By:</td><td></td><td>/s/ Robert W. Martin</td></tr>
+          <tr><td>P<small>RINTED</small>&#160;N<small>AME</small>:</td><td></td>
+              <td>R<small>OBERT</small> W. M<small>ARTIN</small></td></tr>
+          <tr><td><font>T</font><font style="font-size:9pt">ITLE</font>:</td><td></td><td>CEO</td></tr>
+          <tr><td>Na<font style="DISPLAY: inline">me:   Jordan Hitch</font></td></tr>
+        </table></div>
+        """
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertIn(
+            "IN WITNESS WHEREOF, the Parties hereto have executed this Agreement.",
+            formatted,
+        )
+        self.assertIn("BUYER Thor Industries, Inc.", formatted)
+        self.assertIn("PRINTED NAME: ROBERT W. MARTIN", formatted)
+        self.assertIn("Title: CEO", formatted)
+        self.assertIn("Name: Jordan Hitch", formatted)
+        self.assertNotRegex(formatted, r"\b[B-Z] [A-Z]{2,}")
+
+    def test_format_signature_html_like_screen_ignores_doctype_and_comments(self) -> None:
+        raw_html = """<!DOCTYPE html><!-- page 54 -->
+        <p>IN WITNESS WHEREOF, the parties have signed.<!-- hidden -->
+        <table><tr><td>ACME CORP.</td></tr></table>
+        """
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertEqual(
+            [line for line in formatted.splitlines() if line],
+            ["IN WITNESS WHEREOF, the parties have signed.", "ACME CORP."],
+        )
+
+    def test_format_signature_html_like_screen_keeps_gap_between_adjacent_inline_fields(
+        self,
+    ) -> None:
+        raw_html = """
+        <p><font style="padding-right:107pt"><font>By:</font></font><font><font>/s/ Steven D. Barnhart</font></font></p>
+        <p><font>Name:</font><font>Steven D. Barnhart</font></p>
+        <p><font style="display:inline-block;width:36pt">By:</font>Mason Wells Buyout Partners IV, LLC</p>
+        <p>DiModica<u>__________</u></p>
+        """
+
+        lines = [
+            line
+            for line in f_xml.format_signature_html_like_screen(raw_html).splitlines()
+            if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "By: /s/ Steven D. Barnhart",
+                "Name: Steven D. Barnhart",
+                "By: Mason Wells Buyout Partners IV, LLC",
+                "DiModica __________",
+            ],
+        )
+
+    def test_format_signature_html_like_screen_still_separates_block_elements(self) -> None:
+        raw_html = """
+        <table><tr>
+          <td><p>ACME CORP.</p><p>By:</p></td>
+          <td><div>/s/ Jane Doe</div><br/><div>Jane Doe</div></td>
+        </tr></table>
+        """
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertIn("ACME CORP. By: /s/ Jane Doe Jane Doe", formatted)
+
+    def test_format_signature_html_like_screen_drops_back_navigation_links(self) -> None:
+        raw_html = """
+        <div style="text-align:center"><a href="#toc">BACK</a></div>
+        <div><a href="#TOC">Back
+        </a></div>
+        <p><a href="#top">Return to top</a></p>
+        <p>IN WITNESS WHEREOF, the parties have signed.</p>
+        <table><tr><td>ACME CORP.</td></tr><tr><td>By:</td><td>/s/ Jane Doe</td></tr></table>
+        """
+
+        lines = [
+            line
+            for line in f_xml.format_signature_html_like_screen(raw_html).splitlines()
+            if line
+        ]
+
+        self.assertEqual(
+            lines,
+            ["IN WITNESS WHEREOF, the parties have signed.", "ACME CORP.", "By: /s/ Jane Doe"],
+        )
+
+    def test_format_signature_html_like_screen_keeps_other_back_links(self) -> None:
+        # Only an internal anchor whose sole text is the navigation label is dropped.
+        raw_html = """
+        <p><a href="https://www.sec.gov/">BACK</a></p>
+        <p><a href="#s1">Back Bay Capital LLC</a></p>
+        <p><a>BACK</a></p>
+        """
+
+        lines = [
+            line
+            for line in f_xml.format_signature_html_like_screen(raw_html).splitlines()
+            if line
+        ]
+
+        self.assertEqual(lines, ["BACK", "Back Bay Capital LLC", "BACK"])
+
     def test_generate_xml_reformats_html_signature_raw_page_content(self) -> None:
         agreement_uuid = "11111111-1111-1111-1111-111111111111"
         df = pd.DataFrame(

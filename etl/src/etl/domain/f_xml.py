@@ -9,7 +9,7 @@ from datetime import date
 from xml.parsers.expat import ExpatError
 
 from bs4 import BeautifulSoup
-from bs4.element import Comment, Tag
+from bs4.element import Comment, NavigableString, PageElement, PreformattedString, Tag
 
 from etl.domain.g_sections import clean_article_title
 from etl.domain.g_sections import clean_section_title
@@ -95,6 +95,24 @@ SIGNATURE_ENTITY_SUFFIX_RE = re.compile(
     re.IGNORECASE,
 )
 SIGNATURE_HTML_STRUCTURAL_TAGS = {"div", "p", "table", "tr", "td", "th"}
+# Inline elements: EDGAR writes small caps as "I<small>N</small> W<small>ITNESS</small>"
+# and splits words across font runs ("Na<font>me:</font>"), so an inline boundary
+# between two letters is no word gap.
+SIGNATURE_HTML_INLINE_TAGS = {
+    "a", "abbr", "b", "big", "cite", "code", "del", "em", "font", "i", "ins",
+    "kbd", "mark", "q", "s", "samp", "small", "span", "strike", "strong", "sub",
+    "sup", "tt", "u", "var",
+}
+# An inline element styled to take its own room ("padding-right:107pt",
+# "display:inline-block;width:36pt") is laid out like a separate cell.
+SIGNATURE_HTML_SPACED_STYLE_RE = re.compile(
+    r"(?:^|;)\s*(?:padding|margin|width|float|position|display\s*:\s*(?:block|inline-block|table|flex))",
+    re.IGNORECASE,
+)
+_SIGNATURE_SOFT_BREAK = "\x00"
+_SIGNATURE_INLINE_JOIN_RE = re.compile(r"(?<=[A-Za-z])\x00+(?=[A-Za-z])")
+# EDGAR navigation links such as <a href="#toc">BACK</a> at the top of a page.
+SIGNATURE_HTML_NAV_LINK_TEXT_RE = re.compile(r"(?:back|return\s+to\s+top)", re.IGNORECASE)
 XML_INVALID_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
 
 
@@ -152,8 +170,40 @@ def _toc_visible_text(tag: Tag) -> str:
     return _normalize_toc_cell_text(tag.get_text(separator=" ", strip=False))
 
 
+def _signature_is_inline(tag: Tag) -> bool:
+    if tag.name not in SIGNATURE_HTML_INLINE_TAGS:
+        return False
+    return SIGNATURE_HTML_SPACED_STYLE_RE.search(str(tag.get("style") or "")) is None
+
+
+def _signature_raw_text(node: PageElement, parts: list[str]) -> None:
+    """Append a node's text, with a gap around block elements and line breaks
+    and a soft break around inline elements."""
+    if isinstance(node, NavigableString):
+        # Comments, doctypes, CDATA and processing instructions are not visible.
+        if not isinstance(node, PreformattedString):
+            parts.append(str(node))
+        return
+    if not isinstance(node, Tag):
+        return
+    boundary = _SIGNATURE_SOFT_BREAK if _signature_is_inline(node) else " "
+    parts.append(boundary)
+    for child in node.children:
+        _signature_raw_text(child, parts)
+    parts.append(boundary)
+
+
+def _signature_nodes_text(nodes: list[PageElement]) -> str:
+    """Visible text of nodes; a soft break between letters joins them and is a space elsewhere."""
+    parts: list[str] = []
+    for node in nodes:
+        _signature_raw_text(node, parts)
+    text = _SIGNATURE_INLINE_JOIN_RE.sub("", "".join(parts))
+    return _normalize_toc_cell_text(text.replace(_SIGNATURE_SOFT_BREAK, " "))
+
+
 def _signature_visible_text(tag: Tag) -> str:
-    return _normalize_toc_cell_text(tag.get_text(separator=" ", strip=False))
+    return _signature_nodes_text([tag])
 
 
 def _split_toc_page_label(text: str) -> list[str]:
@@ -559,30 +609,74 @@ def _signature_table_to_lines(table: Tag) -> list[str]:
 
 
 def _signature_html_blocks(node: Tag) -> list[str]:
+    """Text blocks of a node, in order.
+
+    Loose text and inline elements that sit directly in a container next to its
+    tables or paragraphs form a block of their own. EDGAR pages often leave a
+    <p> unclosed before a <table>, so html.parser nests the table inside the
+    paragraph, and the opening "IN WITNESS WHEREOF" sentence is loose text in
+    that <p>.
+    """
     blocks: list[str] = []
-    for child in node.find_all(recursive=False):
+    inline_run: list[PageElement] = []
+
+    def flush_inline_run() -> None:
+        if inline_run:
+            text = _signature_nodes_text(inline_run)
+            if text:
+                blocks.append(text)
+            inline_run.clear()
+
+    for child in node.children:
+        if not isinstance(child, Tag):
+            if isinstance(child, NavigableString) and not isinstance(child, PreformattedString):
+                inline_run.append(child)
+            continue
+
         if child.name == "table":
+            flush_inline_run()
             table_lines = _signature_table_to_lines(child)
             if table_lines:
                 blocks.append("\n".join(table_lines))
             continue
 
-        if any(
+        has_structural_children = any(
             grandchild.name in SIGNATURE_HTML_STRUCTURAL_TAGS
             for grandchild in child.find_all(recursive=False)
-        ):
+        )
+        if _signature_is_inline(child) and not has_structural_children:
+            inline_run.append(child)
+            continue
+
+        flush_inline_run()
+        if has_structural_children:
             blocks.extend(_signature_html_blocks(child))
             continue
 
         text = _signature_visible_text(child)
         if text:
             blocks.append(text)
+    flush_inline_run()
     return blocks
+
+
+def _remove_signature_nav_links(soup: BeautifulSoup) -> None:
+    """Drop internal navigation links whose only text is BACK, Back or Return to top."""
+    for link in list(soup.find_all("a")):
+        if link.decomposed:
+            continue
+        href = str(link.get("href") or "").strip()
+        if not href.startswith("#"):
+            continue
+        text = _normalize_toc_cell_text(link.get_text(separator=" ", strip=False))
+        if SIGNATURE_HTML_NAV_LINK_TEXT_RE.fullmatch(text):
+            link.decompose()
 
 
 def format_signature_html_like_screen(raw_html: str) -> str:
     soup = BeautifulSoup(raw_html, "html.parser")
     _remove_toc_nonvisible_nodes(soup)
+    _remove_signature_nav_links(soup)
 
     blocks = _signature_html_blocks(soup.body or soup)
     if not blocks:
