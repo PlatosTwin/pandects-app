@@ -507,6 +507,44 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertIn("<pageUUID>page-12</pageUUID>", section_55_xml)
         self.assertIn("<page>11</page>", section_55_xml)
 
+    def test_strip_subsection_tags_keeps_section_that_mentions_subsection_number(self) -> None:
+        text = (
+            "<section>Section 11.10. Escrow Agent.</section> Body. "
+            "<section>Section 11.11. Disbursements from Section 11.1.4 Escrow Account</section> Body."
+        )
+        self.assertEqual(f_xml.strip_subsection_section_tags(text), text)
+
+    def test_strip_subsection_tags_unwraps_real_subsection_headings(self) -> None:
+        cases = {
+            "<section>11.1.4 Escrow Account</section> Body.": "11.1.4 Escrow Account Body.",
+            "<section>Section 2.3.1. Closing Deliveries</section> Body.": "Section 2.3.1. Closing Deliveries Body.",
+            "<section>  § 4.2.1.3 Notices</section>": "  § 4.2.1.3 Notices",
+        }
+        for tagged, expected in cases.items():
+            with self.subTest(tagged=tagged):
+                self.assertEqual(f_xml.strip_subsection_section_tags(tagged), expected)
+
+    def test_convert_to_xml_restores_space_in_glued_heading_titles(self) -> None:
+        tagged_text = (
+            "<article>ARTICLE VIDEFINITIONS</article>"
+            "<section>Section 6.1Closing.</section>Body."
+            "<article>ARTICLE VIIINDEMNIFICATION</article>"
+            "<section>7.1 Survival.</section>Body."
+        )
+        xml_str = f_xml.convert_to_xml(
+            tagged_text=tagged_text,
+            agreement_uuid="11111111-1111-1111-1111-111111111111",
+            filing_date=date(2024, 1, 1),
+            url="https://example.com",
+            source_format="html",
+        )
+        root = ET.fromstring(xml_str)
+        titles = [elem.attrib["title"] for elem in root.iter() if elem.tag in {"article", "section"}]
+        self.assertEqual(
+            titles,
+            ["ARTICLE VI DEFINITIONS", "Section 6.1 Closing.", "ARTICLE VII INDEMNIFICATION", "7.1 Survival."],
+        )
+
 
 if __name__ == "__main__":
     _ = unittest.main()
