@@ -1383,6 +1383,9 @@ class XMLVerifyAssetTests(unittest.TestCase):
         # A glued title is not a suffix, and the counter still catches a real gap.
         self.assertEqual(len(nonseq(["4.1 A", "4.2 B", "4.3A Inserted", "4.7 E"])), 1)
         self.assertEqual(len(nonseq(["4.1 A", "4.2Additional", "4.3 C"])), 0)
+        # A parenthesized letter is the section's first clause (1dc9d853: "8.03(A)").
+        self.assertEqual(len(nonseq(["4.1 A", "4.2 B", "4.3(A) C", "4.4 D"])), 0)
+        self.assertEqual(len(nonseq(["4.1 A", "4.2 B", "4.2(A) C", "4.3 D"])), 1)
 
     def test_find_hard_rule_violations_article_gap_allows_suffix_and_unparsed_titles(self) -> None:
         for titles in (

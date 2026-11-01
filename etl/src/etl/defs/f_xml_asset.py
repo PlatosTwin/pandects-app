@@ -179,7 +179,7 @@ SECTION_NUMBER_RE = re.compile(
     r"^\s*(?:SECTIONS?\s+)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)",
     re.IGNORECASE,
 )
-SECTION_LETTER_SUFFIX_RE = re.compile(r"(?:-?[A-Z]|\([A-Z]\))(?![A-Za-z])")
+SECTION_LETTER_SUFFIX_RE = re.compile(r"-?[A-Z](?![A-Za-z])")
 TOC_SECTION_NUMBER_RE = re.compile(
     r"(?<!\d)(?:SECTIONS?\s+)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)(?!\s*\.\s*\d)",
     re.IGNORECASE,
@@ -620,9 +620,10 @@ def _extract_section_numbers(title: str) -> Tuple[int, int] | None:
 
 
 def _section_title_has_letter_suffix(title: str) -> bool:
-    """Whether the section number carries a letter suffix (4.3A, 4.3-A, 4.3(A)), as an
-    inserted section does. The letter must stand alone, so "4.3Additional" (a glued
-    title) is not a suffix."""
+    """Whether the section number carries a letter suffix (4.3A, 4.3-A), as an inserted
+    section does. The letter must stand alone, so "4.3Additional" (a glued title) is
+    not a suffix, and a parenthesized letter ("8.03(A) Indemnification") is the section's
+    first clause, not an inserted section."""
     match = SECTION_NUMBER_RE.match(title)
     if match is None:
         return False
