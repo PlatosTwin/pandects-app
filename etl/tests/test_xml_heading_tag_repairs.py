@@ -759,3 +759,19 @@ class SentenceSplitSectionTitleTests(unittest.TestCase):
             "<section>16.1</section> Subject to Clause 16.2 the",
             self._repair("<section>16.1 Subject to Clause 16.</section>2 the Seller shall indemnify."),
         )
+
+    def test_title_glued_to_first_word_of_text_is_split(self) -> None:
+        # 448ba341, page 71: the source prints "Calculation of LossesNotwithstanding".
+        self.assertIn(
+            "<section>Section 11.5. Calculation of Losses</section>Notwithstanding anything contained",
+            self._repair(
+                "<section>Section 11.5. Calculation of LossesNotwithstanding</section> anything contained in this "
+                "Agreement, all materiality qualifications shall be disregarded."
+            ),
+        )
+        for text in (
+            "<section>3.4 McDonald</section> shall be the agent.",
+            "<section>2.1 Calculation of LossesNotwithstanding</section> Anything contained.",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(repair_sentence_split_section_titles(text)[0], text)

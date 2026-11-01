@@ -477,7 +477,10 @@ _SPLIT_CLAUSE_VERB_RE = re.compile(
 _SPLIT_REFERENCE_START_RE = re.compile(
     r"^(?:Sections?|Clauses?|Articles?|Annex(?:es)?|Schedules?|Paragraphs?|Exhibits?)\b"
 )
-_SPLIT_RUN_ON_TERM_RE = re.compile(r"^(?P<term>.*?\S)[^\S\r\n]+(?:means|shall mean)$")
+# A title glued to the first word of its text: "Calculation of LossesNotwithstanding".
+_SPLIT_GLUED_OPENER_RE = re.compile(r"[a-z’')](?P<opener>[A-Z][a-z]+)$")
+_SPLIT_GLUED_OPENERS = frozenset("the each nothing neither none promptly following".split())
+_SPLIT_RUN_ON_TERM_RE =re.compile(r"^(?P<term>.*?\S)[^\S\r\n]+(?:means|shall mean)$")
 
 
 def _split_heading_end(text: str, limit: int) -> int | None:
@@ -556,6 +559,13 @@ def _repair_sentence_split_title(inner: str, follow: str) -> tuple[str, str] | N
     rest = inner[number.end() :]
     if not rest.strip() or re.search(r"[\x22“”]", rest):
         return None
+    glued = _SPLIT_GLUED_OPENER_RE.search(rest)
+    if glued is not None and re.match(r"[^\S\r\n]+[a-z]", follow) is not None:
+        if glued.group("opener").lower() in _SENTENCE_OPENERS | _SPLIT_GLUED_OPENERS:
+            # "Calculation of LossesNotwithstanding" + " anything ...": the source
+            # printed the title with no space before the first word of the text.
+            cut = number.end() + glued.start("opener")
+            return inner[:cut], inner[cut:] + follow
     last, nxt = inner[-1:], follow[:1]
     split_token = (
         (re.search(r"\d\.?$", rest) is not None and nxt.isdigit())
