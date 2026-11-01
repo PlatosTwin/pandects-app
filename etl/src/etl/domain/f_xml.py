@@ -9,10 +9,14 @@ from datetime import date
 from xml.parsers.expat import ExpatError
 
 from bs4 import BeautifulSoup
-from bs4.element import Comment, Tag
+from bs4.element import Comment, NavigableString, PageElement, PreformattedString, Tag
 
 from etl.domain.g_sections import clean_article_title
 from etl.domain.g_sections import clean_section_title
+from etl.domain.heading_titles import article_title_number
+from etl.domain.heading_titles import normalize_glued_article_title
+from etl.domain.heading_titles import normalize_glued_section_title
+from etl.domain.page_furniture import strip_page_furniture
 
 
 @dataclass
@@ -70,7 +74,13 @@ def add_metadata_nodes(
 
 
 SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.DOTALL)
-SUBSECTION_NUMBER_RE = re.compile(r"\b\d+\.\d+\.\d+(?:\.\d+)*\b")
+# A heading whose own number is three or more levels deep ("11.1.4 Escrow",
+# "Section 2.3.1."), anchored at the start of the title so a section that only
+# mentions one ("Section 11.11. Disbursements from Section 11.1.4 Escrow
+# Account") keeps its tag.
+SUBSECTION_NUMBER_RE = re.compile(
+    r"^\s*(?:(?:Section|SECTION|section|Sec\.|SEC\.|§)\s*)?\d+\.\d+\.\d+(?:\.\d+)*(?!\d)"
+)
 ARTICLE_TAG_RE = re.compile(r"<article\b")
 INLINE_MARKER_RE = re.compile(r"(<pageUUID>.*?</pageUUID>|<page>.*?</page>)", re.DOTALL)
 SIGNATURE_FIELD_LABEL_RE = re.compile(r"^(?P<label>By|Name|Title|Its):?$", re.IGNORECASE)
@@ -95,12 +105,83 @@ SIGNATURE_ENTITY_SUFFIX_RE = re.compile(
     re.IGNORECASE,
 )
 SIGNATURE_HTML_STRUCTURAL_TAGS = {"div", "p", "table", "tr", "td", "th"}
+# Inline elements: EDGAR writes small caps as "I<small>N</small> W<small>ITNESS</small>"
+# and splits words across font runs ("Na<font>me:</font>"), so an inline boundary
+# between two letters is no word gap.
+SIGNATURE_HTML_INLINE_TAGS = {
+    "a", "abbr", "b", "big", "cite", "code", "del", "em", "font", "i", "ins",
+    "kbd", "mark", "q", "s", "samp", "small", "span", "strike", "strong", "sub",
+    "sup", "tt", "u", "var",
+}
+# An inline element styled to take its own room ("padding-right:107pt",
+# "display:inline-block;width:36pt") is laid out like a separate cell. "float: none"
+# and "display: inline" leave the element in the text flow.
+SIGNATURE_HTML_SPACED_STYLE_RE = re.compile(
+    (
+        r"(?:^|;)\s*(?:padding|margin|width|position|float\s*:\s*(?:left|right)|"
+        r"display\s*:\s*(?:block|inline-block|table|flex))"
+    ),
+    re.IGNORECASE,
+)
+# An entity name in caps ("CAMERON CAPITAL CORPORATION", "ACME PARTNERS, INC., as
+# general partner ...") opens a signer block, so it is no field's value.
+SIGNATURE_ENTITY_TOKEN_RE = re.compile(
+    (
+        r"(?<!\bTHE )\b(?:INC|INCORPORATED|CORP|CORPORATION|LLC|L\.L\.C|LTD|LIMITED|COMPANY|"
+        r"LP|L\.P|LLP|L\.L\.P|PLC|N\.V|B\.V|S\.A|GMBH|HOLDINGS)(?![\w-])\.?"
+    )
+)
+SIGNATURE_SENTENCE_MIN_WORDS = 12
+# A value that opens with an office ("Executive Vice President, ...", "GENERAL
+# PARTNER OF ACME HOLDINGS LP") is a title, not a sentence or an entity.
+SIGNATURE_TITLE_LEAD_RE = re.compile(
+    (
+        r"^(?:(?:senior|executive|group|first|second)\s+)*(?:vice\s+)?"
+        r"(?:president|chief\b|ceo\b|cfo\b|coo\b|manager\b|"
+        r"managing\s+(?:member|director|partner)|general\s+partner|general\s+counsel|"
+        r"sole\s+member|member\b|director\b|secretary|treasurer|trustee|authori[sz]ed\b|"
+        r"attorney|chairman|chair\b|officer|partner\b|principal\b|controller)(?![\w'’])"
+    ),
+    re.IGNORECASE,
+)
+# "in his capacity as ...", "solely in its capacity as ...", "as Sellers' Representative".
+SIGNATURE_CAPACITY_LEAD_RE = re.compile(
+    r"^(?:(?:solely\s+)?in\s+(?:his|her|its|their)\s+capacity|as\s)",
+    re.IGNORECASE,
+)
+# "ACME FUND GP, LLC, ITS GENERAL PARTNER": an intermediate signer is a By: value.
+SIGNATURE_INTERMEDIATE_SIGNER_RE = re.compile(
+    (
+        r"\b(?:its|as)\s+(?:sole\s+|general\s+|managing\s+)?"
+        r"(?:general\s+partner|manager|managing\s+member|sole\s+member|member|trustee|attorney)"
+    ),
+    re.IGNORECASE,
+)
+# A party-role header ("PURCHASER:", "SELLERS:") or a bare page number ("51").
+SIGNATURE_NON_FIELD_VALUE_RE = re.compile(r"[A-Z][A-Z'’&,. ()-]{1,40}:|\d{1,3}")
+_SIGNATURE_SOFT_BREAK = "\x00"
+# Letters in any script ("Fran<font>çois</font>"): word characters minus digits and "_".
+_SIGNATURE_INLINE_JOIN_RE = re.compile(r"(?<=([^\W\d_]))\x00+(?=([^\W\d_]))")
+_SIGNATURE_CJK_RE = re.compile(r"[぀-ヿ㐀-鿿가-힯豈-﫿]")
+
+
+def _signature_inline_join(match: re.Match[str]) -> str:
+    """Join two letters of the same script; keep the gap at a Latin/CJK change."""
+    left_cjk = _SIGNATURE_CJK_RE.match(match.group(1)) is not None
+    right_cjk = _SIGNATURE_CJK_RE.match(match.group(2)) is not None
+    return "" if left_cjk == right_cjk else _SIGNATURE_SOFT_BREAK
+# EDGAR navigation links such as <a href="#toc">BACK</a> at the top of a page.
+SIGNATURE_HTML_NAV_LINK_TEXT_RE = re.compile(r"(?:back|return\s+to\s+top)", re.IGNORECASE)
 XML_INVALID_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
 
 
 def strip_subsection_section_tags(tagged_text: str) -> str:
     """
     Remove <section> tags from subsection headings like 1.2.3 or 1.2.3.4.
+
+    Only a title that starts with such a number is unwrapped; a section title
+    that merely mentions one ("Section 11.11. Disbursements from Section
+    11.1.4 Escrow Account") keeps its tag.
 
     Args:
         tagged_text: Tagged text that may include <section> headings.
@@ -111,7 +192,7 @@ def strip_subsection_section_tags(tagged_text: str) -> str:
 
     def replace(match: re.Match[str]) -> str:
         inner = match.group(1)
-        if SUBSECTION_NUMBER_RE.search(inner):
+        if SUBSECTION_NUMBER_RE.match(inner):
             return inner
         return match.group(0)
 
@@ -152,8 +233,40 @@ def _toc_visible_text(tag: Tag) -> str:
     return _normalize_toc_cell_text(tag.get_text(separator=" ", strip=False))
 
 
+def _signature_is_inline(tag: Tag) -> bool:
+    if tag.name not in SIGNATURE_HTML_INLINE_TAGS:
+        return False
+    return SIGNATURE_HTML_SPACED_STYLE_RE.search(str(tag.get("style") or "")) is None
+
+
+def _signature_raw_text(node: PageElement, parts: list[str]) -> None:
+    """Append a node's text, with a gap around block elements and line breaks
+    and a soft break around inline elements."""
+    if isinstance(node, NavigableString):
+        # Comments, doctypes, CDATA and processing instructions are not visible.
+        if not isinstance(node, PreformattedString):
+            parts.append(str(node))
+        return
+    if not isinstance(node, Tag):
+        return
+    boundary = _SIGNATURE_SOFT_BREAK if _signature_is_inline(node) else " "
+    parts.append(boundary)
+    for child in node.children:
+        _signature_raw_text(child, parts)
+    parts.append(boundary)
+
+
+def _signature_nodes_text(nodes: list[PageElement]) -> str:
+    """Visible text of nodes; a soft break between letters joins them and is a space elsewhere."""
+    parts: list[str] = []
+    for node in nodes:
+        _signature_raw_text(node, parts)
+    text = _SIGNATURE_INLINE_JOIN_RE.sub(_signature_inline_join, "".join(parts))
+    return _normalize_toc_cell_text(text.replace(_SIGNATURE_SOFT_BREAK, " "))
+
+
 def _signature_visible_text(tag: Tag) -> str:
-    return _normalize_toc_cell_text(tag.get_text(separator=" ", strip=False))
+    return _signature_nodes_text([tag])
 
 
 def _split_toc_page_label(text: str) -> list[str]:
@@ -559,30 +672,74 @@ def _signature_table_to_lines(table: Tag) -> list[str]:
 
 
 def _signature_html_blocks(node: Tag) -> list[str]:
+    """Text blocks of a node, in order.
+
+    Loose text and inline elements that sit directly in a container next to its
+    tables or paragraphs form a block of their own. EDGAR pages often leave a
+    <p> unclosed before a <table>, so html.parser nests the table inside the
+    paragraph, and the opening "IN WITNESS WHEREOF" sentence is loose text in
+    that <p>.
+    """
     blocks: list[str] = []
-    for child in node.find_all(recursive=False):
+    inline_run: list[PageElement] = []
+
+    def flush_inline_run() -> None:
+        if inline_run:
+            text = _signature_nodes_text(inline_run)
+            if text:
+                blocks.append(text)
+            inline_run.clear()
+
+    for child in node.children:
+        if not isinstance(child, Tag):
+            if isinstance(child, NavigableString) and not isinstance(child, PreformattedString):
+                inline_run.append(child)
+            continue
+
         if child.name == "table":
+            flush_inline_run()
             table_lines = _signature_table_to_lines(child)
             if table_lines:
                 blocks.append("\n".join(table_lines))
             continue
 
-        if any(
+        has_structural_children = any(
             grandchild.name in SIGNATURE_HTML_STRUCTURAL_TAGS
             for grandchild in child.find_all(recursive=False)
-        ):
+        )
+        if _signature_is_inline(child) and not has_structural_children:
+            inline_run.append(child)
+            continue
+
+        flush_inline_run()
+        if has_structural_children:
             blocks.extend(_signature_html_blocks(child))
             continue
 
         text = _signature_visible_text(child)
         if text:
             blocks.append(text)
+    flush_inline_run()
     return blocks
+
+
+def _remove_signature_nav_links(soup: BeautifulSoup) -> None:
+    """Drop internal navigation links whose only text is BACK, Back or Return to top."""
+    for link in list(soup.find_all("a")):
+        if link.decomposed:
+            continue
+        href = str(link.get("href") or "").strip()
+        if not href.startswith("#"):
+            continue
+        text = _normalize_toc_cell_text(link.get_text(separator=" ", strip=False))
+        if SIGNATURE_HTML_NAV_LINK_TEXT_RE.fullmatch(text):
+            link.decompose()
 
 
 def format_signature_html_like_screen(raw_html: str) -> str:
     soup = BeautifulSoup(raw_html, "html.parser")
     _remove_toc_nonvisible_nodes(soup)
+    _remove_signature_nav_links(soup)
 
     blocks = _signature_html_blocks(soup.body or soup)
     if not blocks:
@@ -623,7 +780,44 @@ def _should_join_signature_entity_lines(left: str, right: str) -> bool:
     return bool(SIGNATURE_ENTITY_SUFFIX_RE.search(right))
 
 
-def _signature_continuation_value(lines: list[str], start_index: int) -> tuple[str, int] | None:
+def _signature_starts_entity(line: str) -> bool:
+    """True for a line that opens with an entity name in caps."""
+    # An office lead is a title only with "of" or "for" ("GENERAL PARTNER OF ACME LP");
+    # "PRINCIPAL FINANCIAL GROUP, INC." is an entity.
+    if SIGNATURE_TITLE_LEAD_RE.match(line) and re.search(r"\b(?:of|for)\b", line, re.IGNORECASE):
+        return False
+    words = line.split()
+    head = " ".join(words[:8])
+    letters = [ch for ch in head if ch.isalpha()]
+    if len(letters) < 4:
+        return False
+    if sum(1 for ch in letters if ch.isupper()) / len(letters) < 0.8:
+        return False
+    return SIGNATURE_ENTITY_TOKEN_RE.search(head) is not None
+
+
+def _signature_looks_like_sentence(line: str) -> bool:
+    if re.match(r"in\s+witness\b", line, re.IGNORECASE):
+        return True
+    if (
+        line[:1].islower()
+        or SIGNATURE_CAPACITY_LEAD_RE.match(line)
+        or SIGNATURE_TITLE_LEAD_RE.match(line)
+    ):
+        return False
+    words = line.split()
+    if len(words) < SIGNATURE_SENTENCE_MIN_WORDS:
+        return False
+    return sum(1 for word in words if word[:1].islower()) >= 4
+
+
+def _is_signature_by_label(line: str) -> bool:
+    match = SIGNATURE_FIELD_LABEL_RE.fullmatch(line) or SIGNATURE_FIELD_WITH_VALUE_RE.match(line)
+    return bool(match) and match.group("label").lower() == "by"
+
+
+def _signature_next_line(lines: list[str], start_index: int) -> tuple[str, int] | None:
+    """The next non-empty line, unless it is a bare label or a known non-value."""
     index = start_index
     while index < len(lines) and not lines[index]:
         index += 1
@@ -638,6 +832,45 @@ def _signature_continuation_value(lines: list[str], start_index: int) -> tuple[s
     ):
         return None
     return value, index
+
+
+def _signature_line_starts_next_block(
+    lines: list[str], index: int, label: str | None
+) -> bool:
+    """True when lines[index] is not the value of an empty field label.
+
+    That is another field with its value, a party-role header, a page number,
+    a sentence, or an entity name in caps that starts the next signer block.
+    """
+    value = lines[index]
+    if (
+        SIGNATURE_FIELD_WITH_VALUE_RE.match(value)
+        or SIGNATURE_NON_FIELD_VALUE_RE.fullmatch(value)
+        or _signature_looks_like_sentence(value)
+    ):
+        return True
+    if not _signature_starts_entity(value):
+        return False
+    if label is None or label.lower() != "by":
+        return True
+    # "By:" may name an intermediate signer ("By: ACME GP LLC, its general
+    # partner"), unless the entity is followed by its own "By:" line.
+    if SIGNATURE_INTERMEDIATE_SIGNER_RE.search(value):
+        return False
+    next_index = index + 1
+    while next_index < len(lines) and not lines[next_index]:
+        next_index += 1
+    return next_index < len(lines) and _is_signature_by_label(lines[next_index])
+
+
+def _signature_continuation_value(
+    lines: list[str], start_index: int, label: str | None = None
+) -> tuple[str, int] | None:
+    """The value on the next non-empty line for an empty field label, or None."""
+    candidate = _signature_next_line(lines, start_index)
+    if candidate is None or _signature_line_starts_next_block(lines, candidate[1], label):
+        return None
+    return candidate
 
 
 def format_signature_text_like_screen(text: str) -> str:
@@ -663,9 +896,16 @@ def format_signature_text_like_screen(text: str) -> str:
         label_match = SIGNATURE_FIELD_LABEL_RE.fullmatch(line)
         if label_match:
             label = _format_signature_label(label_match.group("label"))
-            continuation = _signature_continuation_value(lines, index + 1)
-            if continuation is not None:
-                value, value_index = continuation
+            candidate = _signature_next_line(lines, index + 1)
+            if candidate is not None:
+                value, value_index = candidate
+                if _signature_line_starts_next_block(
+                    lines, value_index, label_match.group("label")
+                ):
+                    # The field is empty; the next line opens something else.
+                    formatted.append(label)
+                    index += 1
+                    continue
                 formatted.append(f"{label} {value}")
                 index = value_index + 1
                 continue
@@ -679,7 +919,7 @@ def format_signature_text_like_screen(text: str) -> str:
             continue
 
         if line.lower() == "by":
-            continuation = _signature_continuation_value(lines, index + 1)
+            continuation = _signature_continuation_value(lines, index + 1, "by")
             if continuation is not None:
                 value, value_index = continuation
                 if SIGNATURE_VALUE_RE.search(value):
@@ -830,11 +1070,24 @@ def convert_to_xml(
     current_article = None
     section_count = 0
     article_count = 0
+    previous_article_number: int | None = None
 
     for i, m in enumerate(matches):
         tag = m.group(1)
         raw_title = m.group(2).strip()
         title = " ".join(raw_title.split())
+        # Restore the space a glued heading lost ("ARTICLE IVREPRESENTATIONS",
+        # "Section 5.1Closing"); the title is otherwise the printed text.
+        if tag == "article":
+            title = normalize_glued_article_title(
+                title,
+                previous_article_number + 1 if previous_article_number is not None else None,
+            )
+            parsed_number = article_title_number(title)
+            if parsed_number is not None:
+                previous_article_number = parsed_number
+        else:
+            title = normalize_glued_section_title(title)
         source_page_uuid = heading_page_uuid(m.start())
 
         _, end = m.span()
@@ -1123,8 +1376,12 @@ def generate_xml(
             body_rows = temp[temp["_xml_page_type"] == "body"]
             if not body_rows.empty:
                 body_el = ET.SubElement(root, "body")
+                body_page_texts = strip_page_furniture(
+                    [_xml_page_text(r) for _, r in body_rows.iterrows()]
+                ).page_texts
                 body_text = "\n".join(
-                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
+                    f"{page_text}<pageUUID>{page_uuid}</pageUUID>"
+                    for page_text, page_uuid in zip(body_page_texts, body_rows["page_uuid"].to_list())
                 )
                 body_text = strip_subsection_section_tags(body_text)
                 tmp_xml = convert_to_xml(
