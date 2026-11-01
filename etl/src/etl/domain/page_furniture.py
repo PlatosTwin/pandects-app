@@ -55,6 +55,23 @@ On top of that, each kind needs its own evidence that it is a running line:
   one copy per page edge goes (the outermost), and only on the title's dominant
   edge.
 
+- Page labels: a line that is only a label glued to a tagged page number
+  ("Page <page>12</page>") at a page edge, on ``MIN_REPEAT_PAGES`` pages, loses
+  the label word; the ``<page>`` tag stays.
+- Any other repeated edge line (deal names, firm names, legends, document IDs in
+  other formats, split counters such as "Page <page>2</page> of 23"): the exact
+  residue, meaning the line with its clean ``<page>`` tags taken out and any other
+  ``<page>`` tag unwrapped ("<page>4848-</page>1716-0445" is the ID
+  "4848-1716-0445"), sits at a page edge on at least ``MIN_TITLE_PAGE_SHARE`` of
+  the body pages and on ``MIN_TITLE_PAGES`` pages. The residue must not equal a
+  tagged heading or precede a preamble opener. At most one copy per page edge is
+  removed (the outermost), only on the residue's dominant edge, and only when it
+  is outermost. Clean page tags on the line are kept.
+  - Left alone: single words other than "page"/"back" (word-per-line text,
+    defined terms), lines with no letters or digits (rules, blanks), and lines
+    without digits that end like a clause (".", ";", ":", ","), unless they are a
+    confidentiality or omission legend.
+
 Removed lines are dropped whole (except a kept ``<page>`` tag); no other text on
 the page changes.
 
@@ -643,6 +660,135 @@ def _running_titles(
     return accepted
 
 
+# A whole line that is a page label glued to a tagged page number: "Page <page>12</page>".
+_PAGE_LABEL_LINE_RE = re.compile(r"(?:page|Page|PAGE)\s*(?P<tag><page>\s*\d{1,4}\s*</page>)")
+_ANY_PAGE_TAG_RE = re.compile(r"<page>(?P<inner>.*?)</page>", re.IGNORECASE | re.DOTALL)
+_OTHER_TAG_RE = re.compile(r"</?(?!page>)[a-zA-Z]+>")
+# Single words repeat at page edges when text is broken word-per-line, or as a
+# defined term; only these two are page furniture.
+_SINGLE_WORD_FURNITURE = {"page", "back"}
+# Legend words: a legend sentence repeated on most pages is furniture, not text.
+_LEGEND_WORD_RE = re.compile(r"confidential|omitted|redacted", re.IGNORECASE)
+MAX_REPEATED_LINE_CHARS = 100
+
+
+def _line_residue(line: str) -> tuple[str, str | None]:
+    """The furniture text of a line and the genuine page tags to keep.
+
+    Clean page-number tags (``<page>12</page>``) are taken out and returned to be
+    kept; any other <page> tag is unwrapped into the residue, since its content is
+    not a page number ("<page>4898-</page>3834-0359.9" is the document ID
+    "4898-3834-0359.9")."""
+    kept: list[str] = []
+
+    def take(match: re.Match[str]) -> str:
+        tag = match.group(0)
+        if _CLEAN_PAGE_TAG_RE.fullmatch(tag) and re.fullmatch(r"\s*(?:page\s*)?[-\u2013\u2014]?\s*\d{1,4}\s*[-\u2013\u2014]?\s*", match.group("inner"), re.IGNORECASE):
+            kept.append(tag)
+            return " "
+        return match.group("inner")
+
+    residue = _ANY_PAGE_TAG_RE.sub(take, line)
+    return " ".join(residue.split()), (" ".join(kept) or None)
+
+
+def _residue_is_eligible(residue: str) -> bool:
+    if not residue or len(residue) > MAX_REPEATED_LINE_CHARS or "<" in residue or ">" in residue:
+        return False
+    if not any(ch.isalnum() for ch in residue):
+        return False  # rules and blanks ("-----", "[______]") are left alone
+    if " " not in residue and residue.isalpha() and residue.lower() not in _SINGLE_WORD_FURNITURE:
+        return False  # a single word: word-per-line body text ("each") or a defined term ("Agreement")
+    has_digit = any(ch.isdigit() for ch in residue)
+    if not has_digit and residue[-1] in ".;:," and not _LEGEND_WORD_RE.search(residue):
+        return False  # reads as a sentence or clause of body text
+    return True
+
+
+def _repeated_edge_lines(
+    page_texts: list[str], removed_by_page: dict[int, set[int]]
+) -> list[_Candidate]:
+    """Any other line repeated, word for word, at the edges of most body pages.
+
+    The exact residue (the line without its genuine page tags) must sit at a page
+    edge on at least MIN_TITLE_PAGE_SHARE of the body pages and on MIN_TITLE_PAGES
+    pages, never equal a tagged heading, and not be followed by a preamble opener.
+    At most one copy per page edge goes (the outermost), only on the residue's
+    dominant edge, and only when every line between it and the edge is also
+    being stripped. Bare agreement titles and titles with page numbers are left
+    to the running-title rule.
+    """
+    needed = max(MIN_TITLE_PAGES, MIN_TITLE_PAGE_SHARE * len(page_texts))
+    headings = _heading_texts(page_texts)
+    by_residue: dict[str, list[_Candidate]] = {}
+    page_lines = [text.split("\n") for text in page_texts]
+    for page_index, lines in enumerate(page_lines):
+        countable = _countable_indexes(lines)
+        if not countable:
+            continue
+        inside = _lines_inside_headings(lines)
+        positions: dict[int, tuple[str, int]] = {}
+        for rank, index in enumerate(countable[:EDGE_LINE_WINDOW]):
+            positions[index] = ("top", rank)
+        for rank, index in enumerate(reversed(countable[-EDGE_LINE_WINDOW:])):
+            if index not in positions or rank < positions[index][1]:
+                positions[index] = ("bottom", rank)
+        for index, (side, rank) in positions.items():
+            if index in inside or index in removed_by_page.get(page_index, set()):
+                continue
+            line = lines[index]
+            if _OTHER_TAG_RE.search(line):
+                continue
+            residue, keep = _line_residue(line)
+            if not _residue_is_eligible(residue):
+                continue
+            # Titles with page numbers and bare agreement titles have their own rule.
+            title_kind = running_title_kind(residue)
+            if title_kind == "titled_page_number" or (title_kind == "title" and keep is None):
+                continue
+            by_residue.setdefault(residue, []).append(
+                _Candidate(page_index, index, "repeated_line", line.strip(), side, rank, keep=keep)
+            )
+    accepted: list[_Candidate] = []
+    for residue, group in by_residue.items():
+        if len({c.page_index for c in group}) < needed or residue.lower() in headings:
+            continue
+        outermost: dict[tuple[int, str], _Candidate] = {}
+        for candidate in group:
+            following = _next_nonblank(page_lines[candidate.page_index], candidate.line_index)
+            if following is not None and _PREAMBLE_START_RE.match(following):
+                continue
+            key = (candidate.page_index, candidate.side)
+            if key not in outermost or candidate.rank < outermost[key].rank:
+                outermost[key] = candidate
+        dominant = _dominant_side(list(outermost.values()))
+        if dominant is None:
+            continue
+        accepted += [c for c in outermost.values() if c.side == dominant]
+    return accepted
+
+
+def _page_label_lines(page_texts: list[str]) -> list[_Candidate]:
+    """ "Page <page>12</page>" lines at a page edge: the label word goes, the tag stays.
+
+    The line must be among the first or last EDGE_LINE_WINDOW non-empty lines, and
+    the agreement must carry such labels on MIN_REPEAT_PAGES pages."""
+    found: list[_Candidate] = []
+    for page_index, text in enumerate(page_texts):
+        lines = text.split("\n")
+        nonempty = [i for i, line in enumerate(lines) if line.strip()]
+        edge = set(nonempty[:EDGE_LINE_WINDOW]) | set(nonempty[-EDGE_LINE_WINDOW:])
+        for index in sorted(edge):
+            match = _PAGE_LABEL_LINE_RE.fullmatch(lines[index].strip())
+            if match is not None:
+                found.append(
+                    _Candidate(page_index, index, "page_label", lines[index].strip(), "top", 0, keep=match.group("tag"))
+                )
+    if len({c.page_index for c in found}) < MIN_REPEAT_PAGES:
+        return []
+    return found
+
+
 def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
     """Remove running headers/footers from the edges of an agreement's body pages.
 
@@ -692,7 +838,19 @@ def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
     titles = [c for c in titles if outermost(c, title_lines_by_page)]
     for candidate in titles:
         candidate.kind = "running_title"
+        removed_by_page.setdefault(candidate.page_index, set()).add(candidate.line_index)
     accepted += titles
+
+    repeated = _repeated_edge_lines(page_texts, removed_by_page)
+    for _ in range(2):
+        repeated_lines_by_page: dict[int, set[int]] = {}
+        for candidate in repeated:
+            repeated_lines_by_page.setdefault(candidate.page_index, set()).add(candidate.line_index)
+        repeated = [c for c in repeated if outermost(c, repeated_lines_by_page)]
+    accepted += repeated
+
+    already = {(c.page_index, c.line_index) for c in accepted}
+    accepted += [c for c in _page_label_lines(page_texts) if (c.page_index, c.line_index) not in already]
 
     drop: dict[int, dict[int, _Candidate]] = {}
     for candidate in accepted:

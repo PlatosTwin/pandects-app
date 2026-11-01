@@ -325,7 +325,8 @@ class StripPageFurnitureTests(unittest.TestCase):
 
         result = strip_page_furniture(pages)
 
-        self.assertEqual(result.page_texts, [f"Body text {i}.\n\nPage <page>{i + 1}</page>" for i in range(3)])
+        # The "Page" label also goes; the <page> tag stays.
+        self.assertEqual(result.page_texts, [f"Body text {i}.\n\n<page>{i + 1}</page>" for i in range(3)])
 
 
 class RunningTitleTests(unittest.TestCase):
@@ -350,9 +351,10 @@ class RunningTitleTests(unittest.TestCase):
 
         result = strip_page_furniture(pages)
 
-        self.assertEqual(result.page_texts[0], pages[0])
+        # The "page" label goes from every page; the <page> tag stays.
+        self.assertEqual(result.page_texts[0], "Share Sale Agreement\nBody text 0.\nMore text.\nEven more.\n<page>1</page>")
         for i in range(1, 8):
-            self.assertEqual(result.page_texts[i], f"Body text {i}.\nMore text.\nEven more.\npage <page>{i + 1}</page>")
+            self.assertEqual(result.page_texts[i], f"Body text {i}.\nMore text.\nEven more.\n<page>{i + 1}</page>")
 
     def test_title_on_too_few_pages_is_kept(self) -> None:
         pages = [f"Body text {i}.\nMore text.\nEven more.\nLast line." for i in range(12)]
@@ -471,6 +473,102 @@ class RunningTitleTests(unittest.TestCase):
         for line, kind in cases.items():
             with self.subTest(line=line):
                 self.assertEqual(running_title_kind(line), kind)
+
+
+class RepeatedLineTests(unittest.TestCase):
+    @staticmethod
+    def _pages(top: str | None, bottom: str | None, count: int = 8) -> list[str]:
+        pages = []
+        for i in range(count):
+            lines = [f"Body text {i} begins here", f"middle line {i}", f"Body text {i} ends here"]
+            if top is not None:
+                lines.insert(0, top.format(n=i + 1))
+            if bottom is not None:
+                lines.append(bottom.format(n=i + 1))
+            pages.append("\n".join(lines))
+        return pages
+
+    def test_page_label_word_goes_and_tag_stays(self) -> None:
+        pages = self._pages(None, "Page <page>{n}</page>")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[2], "Body text 2 begins here\nmiddle line 2\nBody text 2 ends here\n<page>3</page>")
+        self.assertEqual({r.kind for r in result.removed}, {"page_label"})
+
+    def test_split_page_counter_keeps_only_the_tag(self) -> None:
+        # fbdc39d9: "Page <page>2</page> of 23" left " of 23" in the served text.
+        pages = self._pages(None, "Page <page>{n}</page> of 23")
+
+        result = strip_page_furniture(pages)
+
+        self.assertTrue(result.page_texts[4].endswith("\n<page>5</page>"))
+
+    def test_partly_tagged_document_id_is_removed_whole(self) -> None:
+        # 039890a0: the tagger read "4848-" of the ID 4848-1716-0445 as a page number.
+        pages = self._pages(None, "<page>4848-</page>1716-0445")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[1], "Body text 1 begins here\nmiddle line 1\nBody text 1 ends here")
+
+    def test_deal_name_header_and_doc_id_footer_are_removed(self) -> None:
+        pages = self._pages("Project Beaker - SPA", "AMS6540051 168372-0004")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[3], "Body text 3 begins here\nmiddle line 3\nBody text 3 ends here")
+
+    def test_line_on_fewer_than_half_the_pages_is_kept(self) -> None:
+        pages = self._pages(None, None, count=12)
+        for i in range(5):
+            pages[i] += "\nProject Beaker - SPA"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_repeated_body_sentence_is_kept(self) -> None:
+        pages = self._pages(None, "The parties agree to the foregoing.")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_repeated_legend_sentence_is_removed(self) -> None:
+        pages = self._pages(None, "*** Confidential Treatment Requested.")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[0], "Body text 0 begins here\nmiddle line 0\nBody text 0 ends here")
+
+    def test_single_words_rules_and_blanks_are_kept(self) -> None:
+        for line in ["each", "Agreement", "----------", "[______]"]:
+            with self.subTest(line=line):
+                pages = self._pages(line, None)
+                self.assertEqual(strip_page_furniture(pages).page_texts, pages)
+
+    def test_back_link_word_is_removed(self) -> None:
+        pages = self._pages("BACK", None)
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[0], "Body text 0 begins here\nmiddle line 0\nBody text 0 ends here")
+
+    def test_repeated_line_equal_to_a_tagged_heading_is_kept(self) -> None:
+        pages = self._pages("Project Horizon", None)
+        pages[3] = "Project Horizon\n<article>Project Horizon</article>\nBody text."
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_repeated_line_inside_the_page_is_kept(self) -> None:
+        pages = [f"Top {i}\nNext {i}\nThird {i}\nProject Beaker - SPA\nFifth {i}\nSixth {i}\nSeventh {i}" for i in range(8)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
 
 
 class GenerateXmlStripsFurnitureTests(unittest.TestCase):
