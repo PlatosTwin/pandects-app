@@ -566,6 +566,77 @@ class XMLGenerationTests(unittest.TestCase):
             ["By:", "PRINTED NAME:", "Title:", "KM INVESTMENT CORPORATION", "Its:", "46"],
         )
 
+    def test_format_signature_text_like_screen_fills_title_and_capacity_values(self) -> None:
+        # 9576169c page b3df3f20: a capacity line is the Title value, not a sentence.
+        icore = (
+            "in his capacity as the representative for the Unitholders of "
+            "ICORE HealthCare, LLC"
+        )
+        long_title = (
+            "Executive Vice President, General Counsel and Secretary of the Company "
+            "and its Subsidiaries"
+        )
+        text = "\n".join(
+            [
+                "Name: Raju Mantena",
+                "Title:",
+                icore,
+                "",
+                "Name: Jane Doe",
+                "Title:",
+                long_title,
+                "",
+                "Name: John Roe",
+                "Title:",
+                "GENERAL PARTNER OF ACME HOLDINGS LP",
+                "",
+                "By: /s/ Ann Poe",
+                "Its:",
+                "MANAGING MEMBER OF ACME CAPITAL LLC",
+                "",
+                "ACME FUND, L.P.",
+                "By:",
+                "ACME FUND GP, LLC, ITS GENERAL PARTNER",
+                "By:",
+                "/s/ Max Moe",
+                "",
+                "By:",
+                "GENERAL ELECTRIC CAPITAL CORPORATION",
+                "By: /s/ [Illegible]",
+            ]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "Name: Raju Mantena",
+                f"Title: {icore}",
+                "Name: Jane Doe",
+                f"Title: {long_title}",
+                "Name: John Roe",
+                "Title: GENERAL PARTNER OF ACME HOLDINGS LP",
+                "By: /s/ Ann Poe",
+                "Its: MANAGING MEMBER OF ACME CAPITAL LLC",
+                "ACME FUND, L.P.",
+                "By: ACME FUND GP, LLC, ITS GENERAL PARTNER",
+                "By: /s/ Max Moe",
+                "By:",
+                "GENERAL ELECTRIC CAPITAL CORPORATION",
+                "By: /s/ [Illegible]",
+            ],
+        )
+
+    def test_format_signature_html_like_screen_keeps_gap_at_script_change(self) -> None:
+        raw_html = "<p>By: /s/ Wang<font>王</font>小<font>明</font> Li<font>ly</font></p>"
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertEqual(formatted, "By: /s/ Wang 王小明 Lily")
+
     def test_format_signature_text_like_screen_still_fills_ordinary_continuations(
         self,
     ) -> None:

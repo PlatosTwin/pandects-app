@@ -122,11 +122,44 @@ SIGNATURE_ENTITY_TOKEN_RE = re.compile(
     )
 )
 SIGNATURE_SENTENCE_MIN_WORDS = 12
+# A value that opens with an office ("Executive Vice President, ...", "GENERAL
+# PARTNER OF ACME HOLDINGS LP") is a title, not a sentence or an entity.
+SIGNATURE_TITLE_LEAD_RE = re.compile(
+    (
+        r"^(?:(?:senior|executive|group|first|second)\s+)*(?:vice\s+)?"
+        r"(?:president|chief\b|ceo\b|cfo\b|coo\b|manager\b|"
+        r"managing\s+(?:member|director|partner)|general\s+partner|general\s+counsel|"
+        r"sole\s+member|member\b|director\b|secretary|treasurer|trustee|authori[sz]ed\b|"
+        r"attorney|chairman|chair\b|officer|partner\b|principal\b|controller)"
+    ),
+    re.IGNORECASE,
+)
+# "in his capacity as ...", "solely in its capacity as ...", "as Sellers' Representative".
+SIGNATURE_CAPACITY_LEAD_RE = re.compile(
+    r"^(?:(?:solely\s+)?in\s+(?:his|her|its|their)\s+capacity|as\s)",
+    re.IGNORECASE,
+)
+# "ACME FUND GP, LLC, ITS GENERAL PARTNER": an intermediate signer is a By: value.
+SIGNATURE_INTERMEDIATE_SIGNER_RE = re.compile(
+    (
+        r"\b(?:its|as)\s+(?:sole\s+|general\s+|managing\s+)?"
+        r"(?:general\s+partner|manager|managing\s+member|sole\s+member|member|trustee|attorney)"
+    ),
+    re.IGNORECASE,
+)
 # A party-role header ("PURCHASER:", "SELLERS:") or a bare page number ("51").
 SIGNATURE_NON_FIELD_VALUE_RE = re.compile(r"[A-Z][A-Z'’&,. ()-]{1,40}:|\d{1,3}")
 _SIGNATURE_SOFT_BREAK = "\x00"
 # Letters in any script ("Fran<font>çois</font>"): word characters minus digits and "_".
-_SIGNATURE_INLINE_JOIN_RE = re.compile(r"(?<=[^\W\d_])\x00+(?=[^\W\d_])")
+_SIGNATURE_INLINE_JOIN_RE = re.compile(r"(?<=([^\W\d_]))\x00+(?=([^\W\d_]))")
+_SIGNATURE_CJK_RE = re.compile(r"[぀-ヿ㐀-鿿가-힯豈-﫿]")
+
+
+def _signature_inline_join(match: re.Match[str]) -> str:
+    """Join two letters of the same script; keep the gap at a Latin/CJK change."""
+    left_cjk = _SIGNATURE_CJK_RE.match(match.group(1)) is not None
+    right_cjk = _SIGNATURE_CJK_RE.match(match.group(2)) is not None
+    return "" if left_cjk == right_cjk else _SIGNATURE_SOFT_BREAK
 # EDGAR navigation links such as <a href="#toc">BACK</a> at the top of a page.
 SIGNATURE_HTML_NAV_LINK_TEXT_RE = re.compile(r"(?:back|return\s+to\s+top)", re.IGNORECASE)
 XML_INVALID_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
@@ -214,7 +247,7 @@ def _signature_nodes_text(nodes: list[PageElement]) -> str:
     parts: list[str] = []
     for node in nodes:
         _signature_raw_text(node, parts)
-    text = _SIGNATURE_INLINE_JOIN_RE.sub("", "".join(parts))
+    text = _SIGNATURE_INLINE_JOIN_RE.sub(_signature_inline_join, "".join(parts))
     return _normalize_toc_cell_text(text.replace(_SIGNATURE_SOFT_BREAK, " "))
 
 
@@ -735,6 +768,8 @@ def _should_join_signature_entity_lines(left: str, right: str) -> bool:
 
 def _signature_starts_entity(line: str) -> bool:
     """True for a line that opens with an entity name in caps."""
+    if SIGNATURE_TITLE_LEAD_RE.match(line):
+        return False
     words = line.split()
     head = " ".join(words[:8])
     letters = [ch for ch in head if ch.isalpha()]
@@ -748,6 +783,12 @@ def _signature_starts_entity(line: str) -> bool:
 def _signature_looks_like_sentence(line: str) -> bool:
     if re.match(r"in\s+witness\b", line, re.IGNORECASE):
         return True
+    if (
+        line[:1].islower()
+        or SIGNATURE_CAPACITY_LEAD_RE.match(line)
+        or SIGNATURE_TITLE_LEAD_RE.match(line)
+    ):
+        return False
     words = line.split()
     if len(words) < SIGNATURE_SENTENCE_MIN_WORDS:
         return False
@@ -798,6 +839,8 @@ def _signature_line_starts_next_block(
         return True
     # "By:" may name an intermediate signer ("By: ACME GP LLC, its general
     # partner"), unless the entity is followed by its own "By:" line.
+    if SIGNATURE_INTERMEDIATE_SIGNER_RE.search(value):
+        return False
     next_index = index + 1
     while next_index < len(lines) and not lines[next_index]:
         next_index += 1
