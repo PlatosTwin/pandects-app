@@ -769,9 +769,35 @@ class SentenceSplitSectionTitleTests(unittest.TestCase):
                 "Agreement, all materiality qualifications shall be disregarded."
             ),
         )
+        self.assertEqual(
+            repair_sentence_split_section_titles("<section>3.4 Notice to McDonald</section>\n\nThe Seller.")[0],
+            "<section>3.4 Notice to McDonald</section>\n\nThe Seller.",
+        )
+        text = "<section>2.1 Calculation of LossesNotwithstanding</section> Anything contained."
+        self.assertEqual(repair_sentence_split_section_titles(text)[0], text)
+
+    def test_title_case_subject_followed_by_its_verb_is_not_a_title(self) -> None:
+        # f28b4547 and bb29051b: "The Buyer" + " may ...", "Each of the Warranties" + " is ...".
+        self.assertIn("<section>7.9</section> The Buyer may", self._repair("<section>7.9 The Buyer</section> may (in addition) rescind."))
+        self.assertIn(
+            "<section>8.1</section> Each of the Institutional Sellers severally warrants",
+            self._repair("<section>8.1 Each of the Institutional Sellers</section> severally warrants to the Buyer that"),
+        )
+        self.assertIn(
+            "<section>6.1</section> Completion of this agreement shall",
+            self._repair("<section>6.1 Completion of</section> this agreement shall take place on the Completion Date"),
+        )
+
+    def test_cross_references_tagged_as_headings_are_left_for_unwrap_repairs(self) -> None:
         for text in (
-            "<section>3.4 McDonald</section> shall be the agent.",
-            "<section>2.1 Calculation of LossesNotwithstanding</section> Anything contained.",
+            "except as set forth in <section>Section 3.11 of the Disclosure Schedules describes</section> all services",
+            "<section>Section 3.11 of the Disclosure Schedules describes</section> all material affiliated services",
+            "<section>Section 13.2, Section 13.</section>3, Section 15.17 and Section 15.19(c), and any claim",
+            "<section>4.6, no representation</section> or warranty is made by Parent",
         ):
             with self.subTest(text=text):
                 self.assertEqual(repair_sentence_split_section_titles(text)[0], text)
+
+    def test_complete_title_case_heading_is_kept_before_its_verb(self) -> None:
+        text = "<section>Section 4.10. Related Person Transactions.</section> there are no Contracts with"
+        self.assertEqual(repair_sentence_split_section_titles(text)[0], text)

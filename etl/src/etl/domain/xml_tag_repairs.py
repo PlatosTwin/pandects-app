@@ -510,6 +510,8 @@ def _split_run_is_heading(joined: str, run_end: int) -> bool:
     obligations Coeur covenants ..."); a run of names ending at a repeated name
     is the clause's own subject ("Orezone and New Orezone hereby covenant ...")."""
     after = joined[run_end:].split()
+    if after and len(_strip_word(after[0])) > 1 and _strip_word(after[0]).isupper():
+        return False  # "Perestroika AS shall ...": part of a name, not the opener "As"
     if after and _strip_word(after[0]).lower() in _SENTENCE_OPENERS:
         return True
     run_words = [_strip_word(w) for w in joined[:run_end].split()]
@@ -572,17 +574,28 @@ def _repair_sentence_split_title(inner: str, follow: str) -> tuple[str, str] | N
         or (last in "’'" and nxt.islower())
         or (last.isalnum() and (nxt.islower() or nxt.isdigit()))
     )
+    rest_words = rest.split()
     continues = re.match(r"[^\S\r\n]+(?P<c>\S)", follow)
     sentence_runs_on = (
         continues is not None
-        and (continues.group("c").islower() or continues.group("c").isdigit())
+        and (
+            continues.group("c").islower()
+            or continues.group("c").isdigit()
+            or re.match(r"[^\S\r\n]+\([a-z]{2,}\b", follow) is not None  # " (as named above ...)"
+        )
         and _SPLIT_DEFINING_VERB_RE.match(follow) is None
         and re.match(r"[^\S\r\n]+\([a-z0-9]{1,4}\)", follow) is None
     )
     if not split_token and not sentence_runs_on:
         return None
-    if not split_token and _is_title_case(rest):
-        return None  # "4.1 Organization" + " and Good Standing": a heading split, not a sentence
+    # The clause's verb follows the tag: "The Buyer" + " may ...", "Each of the
+    # Institutional Sellers" + " severally warrants ...".
+    verb_follows = _SPLIT_CLAUSE_VERB_RE.search(" ".join(follow.split()[:2])) is not None
+    sentence_shaped = verb_follows or _strip_word(rest_words[-1]).lower() in _TITLE_SMALL_WORDS
+    if not split_token and _is_title_case(rest) and (not sentence_shaped or rest.rstrip()[-1:] in ".:"):
+        # "4.1 Organization" + " and Good Standing": a heading split, not a sentence;
+        # "Related Person Transactions." + " there are ...": a complete heading.
+        return None
     if split_token and not re.search(r"\d\.?$", rest) and _is_title_case(rest) and not last in "’'":
         return None
 
@@ -606,6 +619,7 @@ def _repair_sentence_split_title(inner: str, follow: str) -> tuple[str, str] | N
         and heading_end is not None
         and heading_end > len(rest)
         and _SPLIT_CLAUSE_VERB_RE.search(joined[:heading_end]) is None
+        and not joined[:heading_end].rstrip().endswith(":")
         and (
             _is_title_case(joined[:heading_end])
             or (joined[heading_end : heading_end + 1] == "\n" and _looks_like_split_heading(joined[:heading_end]))
@@ -667,6 +681,14 @@ def repair_sentence_split_section_titles(tagged_text: str) -> tuple[str, XMLTagR
 
     def repl(match: re.Match[str]) -> str:
         stats.attempts["repair_sentence_split_section_titles"] += 1
+        line_start = tagged_text.rfind("\n", 0, match.start()) + 1
+        if tagged_text[line_start : match.start()].strip():
+            # Mid-line: a cross-reference tagged as a heading ("... except as set
+            # forth in <section>Section 3.11 of the Disclosure Schedules ..."),
+            # which the later unwrap repairs handle.
+            return match.group(0)
+        if re.match(r"\s*(?:\S+\s+)?\d+(?:\.\d+)*(?:[,;]|\.?\s+of\s)", match.group("inner")):
+            return match.group(0)  # "Section 13.2, Section 13.3 ...", "Section 3.11 of the ..."
         repaired = _repair_sentence_split_title(match.group("inner"), match.group("follow"))
         if repaired is None:
             return match.group(0)

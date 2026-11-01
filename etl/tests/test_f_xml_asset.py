@@ -101,9 +101,9 @@ class XMLVerifyAssetTests(unittest.TestCase):
         tagged_output = self._five_article_text(
             "".join(
                 [
-                    "<section>1.1 First</section>",
-                    "<section>1.2 A party’</section>s exercise of any right is at its discretion. ",
-                    "<section>1.3 Subject to clauses</section> 1.4 and 1.5, no party may assign. ",
+                    "<section>1.1 First</section>\n\n",
+                    "<section>1.2 A party’</section>s exercise of any right is at its discretion.\n\n",
+                    "<section>1.3 Subject to clauses</section> 1.4 and 1.5, no party may assign.\n\n",
                     "<section>1.4 Fourth</section>",
                 ]
             )
