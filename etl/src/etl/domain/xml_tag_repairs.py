@@ -15,6 +15,10 @@ from dataclasses import dataclass, field
 SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.IGNORECASE | re.DOTALL)
 ARTICLE_TAG_RE = re.compile(r"<article>(.*?)</article>", re.IGNORECASE | re.DOTALL)
 STRUCTURAL_OPEN_RE = re.compile(r"(?=<section>|<article>|<page>|<pageUUID>)", re.IGNORECASE)
+CROSS_REFERENCE_CONTINUATION_RE = re.compile(
+    r"\s*(?:[,;)\]]|(?:of|and|or|to|through|hereof|hereto|above|below)\b)",
+    re.IGNORECASE,
+)
 OMITTED_HEADING_FRAGMENT_RE = re.compile(
     r"(?:\[?\s*(?:intentionally\s+)?(?:omitted|deleted|reserved)\.?\s*\]?|\*{3,})",
     re.IGNORECASE,
@@ -461,6 +465,15 @@ def unwrap_inline_section_reference_tags(tagged_text: str) -> tuple[str, XMLTagR
     return INLINE_SECTION_REFERENCE_TAG_RE.sub(repl, tagged_text), stats
 
 
+def _match_starts_line_heading(tagged_text: str, match: re.Match[str]) -> bool:
+    """A heading starts its own line; a number mid-sentence or followed by a comma
+    or "of" is a cross-reference ("Subject to Section 2.2, each share ...")."""
+    line_start = tagged_text.rfind("\n", 0, match.start()) + 1
+    if tagged_text[line_start : match.start()].strip():
+        return False
+    return CROSS_REFERENCE_CONTINUATION_RE.match(tagged_text, match.end()) is None
+
+
 def insert_missing_section_heading_tags(
     tagged_text: str,
     gaps: Iterable[SectionGap],
@@ -473,6 +486,8 @@ def insert_missing_section_heading_tags(
         pattern = _section_heading_pattern(gap.article_num, gap.expected)
         for match in pattern.finditer(tagged_text):
             stats.attempts["insert_missing_section_heading_tags"] += 1
+            if not _match_starts_line_heading(tagged_text, match):
+                continue
             before = tagged_text[: match.start()]
             if before.lower().rfind("<section>") > before.lower().rfind("</section>"):
                 continue

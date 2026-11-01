@@ -18,6 +18,8 @@ from etl.defs.f_xml_asset import (
     XML_REASON_SECTION_NON_SEQUENTIAL,
     XML_REASON_SECTION_TITLE_INVALID_NUMBERING,
     XML_REASON_LLM_INVALID,
+    XML_REASON_ARTICLE_NUMBER_GAP,
+    XML_REASON_SIG_PAGE_BODY_TEXT,
     XML_REASON_ARTICLES_OUT_OF_ORDER,
     XML_REASON_TOO_FEW_ARTICLES,
     XML_REASON_TOO_MANY_EMPTY_ARTICLES,
@@ -279,7 +281,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
             "".join(
                 [
                     "<section>1.1 First</section>",
-                    "Interim text. Section 1.2 Missing Section. More text.",
+                    "Interim text.\n\nSection 1.2 Missing Section. More text.",
                     "<section>1.3 Third</section>",
                 ]
             )
@@ -298,6 +300,22 @@ class XMLVerifyAssetTests(unittest.TestCase):
             self._normalized_text_without_heading_tags(tagged_output),
             self._normalized_text_without_heading_tags(repaired_text),
         )
+
+    def test_safe_xml_tag_repairs_do_not_promote_mid_sentence_cross_references(self) -> None:
+        for interim in (
+            "Exchange Ratio. Subject to Section 1.2, each share shall be converted.",
+            "Nothing in\nSection 1.2, however, shall be deemed to amend the schedules.",
+            "Except as set forth in\nSection 1.2 of the Company Disclosure Schedule.",
+        ):
+            with self.subTest(interim=interim):
+                tagged_output = self._five_article_text(
+                    "".join(["<section>1.1 First</section>", interim, "<section>1.3 Third</section>"])
+                )
+                repaired_df = _apply_safe_xml_tag_repairs_to_df(self._xml_build_df(tagged_output))
+                after_counts, _ = _hard_rule_result_for_df(repaired_df)
+                repaired_text = cast(str, repaired_df.iloc[0]["tagged_output"])
+                self.assertNotIn("<section>Section 1.2", repaired_text)
+                self.assertEqual(after_counts[XML_REASON_SECTION_NON_SEQUENTIAL], 1)
 
     def test_safe_xml_tag_repairs_fix_body_start_article_heading_tags(self) -> None:
         tagged_output = (
@@ -387,7 +405,8 @@ class XMLVerifyAssetTests(unittest.TestCase):
         after_counts, _ = _hard_rule_result_for_df(repaired_df)
 
         self.assertGreater(sum(before_counts.values()), 0)
-        self.assertEqual(after_counts, {})
+        # "5. INVALIDITY" stays folded into article 4 (it's untagged), so the article gap remains.
+        self.assertEqual(after_counts, {XML_REASON_ARTICLE_NUMBER_GAP: 1})
         repaired_text = cast(str, repaired_df.iloc[0]["tagged_output"])
         self.assertIn("<article>4. CONTINUING EFFECT</article>", repaired_text)
         self.assertEqual(
@@ -470,7 +489,8 @@ class XMLVerifyAssetTests(unittest.TestCase):
             "<article>ARTICLE I</article><section>1.1 First</section>"
             "<article>ARTICLE II</article><section>2.1 Second</section>"
             "<article>ARTICLE III</article>"
-            "<section>Section 3.28 Prior Section</section>"
+            + "".join(f"<section>Section 3.{n} Filler</section>" for n in range(1, 28))
+            + "<section>Section 3.28 Prior Section</section>"
             "<section>Section 3.2 9 Representations and Warranties Relating to Captive Subsidiary.</section>"
             "<section>Section 3.30 Following Section</section>"
             "<article>ARTICLE IV</article><section>4.1 Fourth</section>"
@@ -496,8 +516,10 @@ class XMLVerifyAssetTests(unittest.TestCase):
             "<article>ARTICLE II</article><section>2.1 Second</section>"
             "<article>ARTICLE III</article><section>3.1 Third</section>"
             "<article>ARTICLE IV</article><section>4.1 Fourth</section>"
-            "<article>ARTICLE XIV</article>"
-            "<section>Section 14.4 Prior Section</section>"
+            + "".join(f"<article>ARTICLE {n}</article><section>{n}.1 Filler</section>" for n in range(5, 14))
+            + "<article>ARTICLE XIV</article>"
+            + "".join(f"<section>Section 14.{n} Filler</section>" for n in range(1, 4))
+            + "<section>Section 14.4 Prior Section</section>"
             "<section>Section 1 4.5 Middle Section</section>"
             "<section>Section 14.6 Following Section</section>"
         )
@@ -518,7 +540,8 @@ class XMLVerifyAssetTests(unittest.TestCase):
             "<article>ARTICLE II</article><section>2.1 Second</section>"
             "<article>ARTICLE III</article><section>3.1 Third</section>"
             "<article>ARTICLE IV</article>"
-            "<section>Section 4.11 Prior Section</section>"
+            + "".join(f"<section>Section 4.{n} Filler</section>" for n in range(1, 11))
+            + "<section>Section 4.11 Prior Section</section>"
             "<section>Section 4.1 3 Middle Section</section>"
             "<section>Section 4.14 Following Section</section>"
             "<article>ARTICLE V</article><section>5.1 Fifth</section>"
@@ -666,7 +689,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
         tagged_output = (
             "<article>ARTICLE I</article><section>Section1.1 First</section>"
             "<article>ARTICLE II</article><section>Section2.1 Second</section>"
-            "<article>ARTICLE III</article><section>Section3.14 Agreements with Regulatory Agencies.</section>"
+            "<article>ARTICLE III</article><section>Section3.1 Agreements with Regulatory Agencies.</section>"
             "<article>ARTICLE IV</article><section>Section4.1 Fourth</section>"
             "<article>ARTICLE V</article><section>Section5.1 Fifth</section>"
         )
@@ -679,8 +702,8 @@ class XMLVerifyAssetTests(unittest.TestCase):
         self.assertGreater(before_counts[XML_REASON_SECTION_TITLE_INVALID_NUMBERING], 0)
         self.assertEqual(after_counts, {})
         repaired_text = cast(str, repaired_df.iloc[0]["tagged_output"])
-        self.assertIn("<section>Section 3.14 Agreements with Regulatory Agencies.</section>", repaired_text)
-        self.assertNotIn("Section3.14", repaired_text)
+        self.assertIn("<section>Section 3.1 Agreements with Regulatory Agencies.</section>", repaired_text)
+        self.assertNotIn("Section3.1", repaired_text)
 
     def test_safe_xml_tag_repairs_unwraps_inline_section_reference_tag(self) -> None:
         tagged_output = (
@@ -865,16 +888,16 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 <article title="Article II TRANSACTIONS" order="2">
                   <section title="Section 2.1 The Merger." order="1" pageUUID="page-2" />
                 </article>
-                <article title="Article XI CONDITIONS TO OBLIGATIONS OF PARTIES" order="11">
+                <article title="Article III CONDITIONS TO OBLIGATIONS OF PARTIES" order="3">
                   <section title="Section 1.1 Conditions to the Obligations of Each Party." order="1" pageUUID="page-11" />
                   <section title="Section 1.2 Conditions to the Obligations of Parent Parties." order="2" pageUUID="page-11" />
                   <section title="Section 1.3 Conditions to the Obligations of the Blockers and the Company." order="3" pageUUID="page-11" />
                 </article>
-                <article title="Article XII TERMINATION" order="12">
+                <article title="Article IV TERMINATION" order="4">
                   <section title="Section 1.1 Termination." order="1" pageUUID="page-12" />
                   <section title="Section 1.2 Effect of Termination." order="2" pageUUID="page-12" />
                 </article>
-                <article title="Article XIII MISCELLANEOUS" order="13">
+                <article title="Article V MISCELLANEOUS" order="5">
                   <section title="Section 1.1 Amendment and Waiver." order="1" pageUUID="page-13" />
                   <section title="Section 1.2 Notices." order="2" pageUUID="page-13" />
                   <section title="Section 1.3 Assignment." order="3" pageUUID="page-13" />
@@ -929,9 +952,9 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
                 <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
                 <article title="ARTICLE IV"><section title="Section 4.1 Fourth" pageUUID="page-4" /></article>
-                <article title="ARTICLE VII">
-                  <section title="Sections 7.1 Survival" pageUUID="page-7" />
-                  <section title="sections 7.2 Indemnification of the Purchaser Indemnitees." pageUUID="page-7" />
+                <article title="ARTICLE V">
+                  <section title="Sections 5.1 Survival" pageUUID="page-7" />
+                  <section title="sections 5.2 Indemnification of the Purchaser Indemnitees." pageUUID="page-7" />
                 </article>
               </body>
             </document>
@@ -1161,6 +1184,113 @@ class XMLVerifyAssetTests(unittest.TestCase):
         self.assertFalse(
             any(v.reason_code == XML_REASON_ARTICLES_OUT_OF_ORDER for v in violations)
         )
+
+    def _articles_xml(self, *titles: str) -> ET.Element:
+        articles = "".join(
+            f'<article title="{title}"><section title="Section {i}.1 Only" pageUUID="page-{i}" /></article>'
+            for i, title in enumerate(titles, start=1)
+        )
+        return ET.fromstring(f"<document><body>{articles}</body></document>")
+
+    def test_find_hard_rule_violations_rejects_article_number_gap(self) -> None:
+        root = ET.fromstring(
+            """
+            <document>
+              <body>
+                <article title="ARTICLE I"><section title="Section 1.1 First" pageUUID="page-1" /></article>
+                <article title="ARTICLE II"><section title="Section 2.1 Second" pageUUID="page-2" /></article>
+                <article title="ARTICLE III"><section title="Section 3.1 Third" pageUUID="page-3" /></article>
+                <article title="ARTICLE IV"><section title="Section 4.1 Fourth"><pageUUID>page-4</pageUUID></section></article>
+                <article title="ARTICLE VI"><section title="Section 6.1 Sixth"><pageUUID>page-6</pageUUID></section></article>
+              </body>
+            </document>
+            """
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        gaps = [v for v in violations if v.reason_code == XML_REASON_ARTICLE_NUMBER_GAP]
+        self.assertEqual(len(gaps), 1)
+        self.assertIn("missing 5", gaps[0].reason_detail)
+        self.assertEqual(gaps[0].page_uuids, ("page-4", "page-6"))
+
+    def test_find_hard_rule_violations_article_gap_allows_suffix_and_unparsed_titles(self) -> None:
+        for titles in (
+            ("ARTICLE I", "ARTICLE II", "ARTICLE III", "ARTICLE III-A", "ARTICLE IV", "ARTICLE V"),
+            ("ARTICLE I", "ARTICLE II", "ARTICLE IIIREPRESENTATIONS", "ARTICLE IV", "ARTICLE V"),
+        ):
+            with self.subTest(titles=titles):
+                violations = find_hard_rule_violations(self._articles_xml(*titles))
+                self.assertFalse(any(v.reason_code == XML_REASON_ARTICLE_NUMBER_GAP for v in violations))
+
+    def test_find_hard_rule_violations_excuses_only_short_absent_forward_skips(self) -> None:
+        def violations_for(section_numbers: list[int]) -> list[str]:
+            sections = "".join(
+                f'<section title="Section 1.{n} Heading" pageUUID="page-{n}" />' for n in section_numbers
+            )
+            root = ET.fromstring(
+                "<document><body>"
+                f'<article title="ARTICLE I">{sections}</article>'
+                + "".join(
+                    f'<article title="ARTICLE {n}"><section title="Section {n}.1 Only" pageUUID="p{n}" /></article>'
+                    for n in range(2, 6)
+                )
+                + "</body></document>"
+            )
+            return [v.reason_code for v in find_hard_rule_violations(root)]
+
+        # A source that skips one or two numbers it never mentions is fine.
+        self.assertEqual(violations_for([1, 2, 4, 5]), [])
+        self.assertEqual(violations_for([1, 2, 5, 6]), [])
+        # A longer jump (4.44 printed for 4.4) is not excused by absence.
+        self.assertEqual(violations_for([1, 2, 3, 44]), [XML_REASON_SECTION_NON_SEQUENTIAL])
+        # Nor is a restart or a backward number (10.01 after 10.10).
+        self.assertEqual(
+            violations_for([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1]),
+            [XML_REASON_SECTION_NON_SEQUENTIAL],
+        )
+
+    def _sig_page_xml(self, *lines: str) -> ET.Element:
+        articles = "".join(
+            f'<article title="ARTICLE {n}"><section title="Section {n}.1 Only" /></article>' for n in range(1, 6)
+        )
+        sig_lines = "".join(f"<text>{line}</text>" for line in lines)
+        return ET.fromstring(
+            f"<document><body>{articles}</body>"
+            f"<sigPages>{sig_lines}<pageUUID>sig-1</pageUUID><text>IN WITNESS WHEREOF, a second page.</text>"
+            "<pageUUID>sig-2</pageUUID></sigPages></document>"
+        )
+
+    def test_find_hard_rule_violations_rejects_body_text_on_signature_page(self) -> None:
+        root = self._sig_page_xml(
+            "(b) an assignment by Purchaser of any of its rights under this Agreement.",
+            "IN WITNESS WHEREOF, the parties have executed this Agreement as of the date first written above.",
+            "PURCHASER",
+        )
+
+        violations = find_hard_rule_violations(root)
+
+        self.assertEqual([v.reason_code for v in violations], [XML_REASON_SIG_PAGE_BODY_TEXT])
+        self.assertEqual(violations[0].page_uuids, ("sig-1",))
+
+    def test_find_hard_rule_violations_accepts_signature_page_captions(self) -> None:
+        root = self._sig_page_xml(
+            "[Signature Page to Agreement and Plan of Merger]",
+            "CERTAIN CONFIDENTIAL INFORMATION CONTAINED IN THIS DOCUMENT HAS BEEN OMITTED.",
+            "DocuSign Envelope ID: 70C8F090-AD7D-4389-882C-37454BD442AE",
+            "Be it known, that before me, the undersigned notary, personally came and appeared the President.",
+            "I N W ITNESS W HEREOF, each party has duly executed and delivered this Agreement as of the date first above written.",
+        )
+
+        self.assertEqual(find_hard_rule_violations(root), [])
+
+    def test_find_hard_rule_violations_ignores_text_after_witness_clause(self) -> None:
+        root = self._sig_page_xml(
+            "IN WITNESS WHEREOF, the parties have executed this Agreement.",
+            "The Seller Representative shall act for all Sellers as provided herein.",
+        )
+
+        self.assertEqual(find_hard_rule_violations(root), [])
 
     def test_find_hard_rule_violations_rejects_articles_out_of_order(self) -> None:
         root = ET.fromstring(
@@ -1437,7 +1567,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
         target = next(v for v in violations if v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL)
         self.assertEqual(target.page_uuids, ("page-2", "page-3"))
 
-    def test_find_hard_rule_violations_suppresses_duplicate_when_expected_number_absent(self) -> None:
+    def test_find_hard_rule_violations_flags_duplicate_even_when_expected_number_absent(self) -> None:
         root = ET.fromstring(
             """
             <document>
@@ -1459,7 +1589,7 @@ class XMLVerifyAssetTests(unittest.TestCase):
 
         violations = find_hard_rule_violations(root)
 
-        self.assertFalse(any(v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL for v in violations))
+        self.assertTrue(any(v.reason_code == XML_REASON_SECTION_NON_SEQUENTIAL for v in violations))
 
     def test_find_hard_rule_violations_suppresses_forward_gap_when_toc_matches_body(self) -> None:
         root = ET.fromstring(

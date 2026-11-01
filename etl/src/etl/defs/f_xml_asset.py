@@ -90,6 +90,20 @@ XML_REASON_SECTION_ARTICLE_MISMATCH = "section_article_mismatch"
 XML_REASON_SECTION_NON_SEQUENTIAL = "section_non_sequential"
 XML_REASON_TOO_MANY_EMPTY_ARTICLES = "too_many_empty_articles"
 XML_REASON_ARTICLES_OUT_OF_ORDER = "articles_out_of_order"
+XML_REASON_ARTICLE_NUMBER_GAP = "article_number_gap"
+XML_REASON_SIG_PAGE_BODY_TEXT = "sig_page_body_text"
+SIG_PAGE_WITNESS_RE = re.compile(
+    r"I\s*N\s+W\s*I\s*T\s*N\s*E\s*S\s*S\s+W\s*H\s*E\s*R\s*E\s*O\s*F", re.IGNORECASE
+)
+SIG_PAGE_NON_BODY_LINE_RE = re.compile(
+    r"signature\s+page|counterpart|docusign|remainder\s+of|intentionally|confiden|omitted|redact|"
+    r"\bSEC\b|securities\s+and\s+exchange|\bpage\s+\d|table\s+of\s+contents|execution\s+(?:version|copy)|"
+    r"notary|before\s+me|acknowledg",
+    re.IGNORECASE,
+)
+SIG_PAGE_PROVISION_WORD_RE = re.compile(
+    r"\b(?:shall|will|may|is|are|be|been|has|have|hereunder|hereby)\b|\bthis\s+Agreement\b"
+)
 XML_VERIFY_BATCH_SCOPE_DEFAULT = "default"
 XML_VERIFY_BATCH_SCOPE_REPAIR = "repair"
 XML_VERIFY_INSTRUCTIONS = (
@@ -979,6 +993,9 @@ def _body_mentions_section_number(
     return any(pattern.search(value) is not None for value in _iter_body_number_search_values(root))
 
 
+MAX_ABSENT_SECTION_SKIP = 2
+
+
 def _expected_or_skipped_section_numbers_absent_from_agreement(
     root: ET.Element,
     *,
@@ -986,14 +1003,18 @@ def _expected_or_skipped_section_numbers_absent_from_agreement(
     expected_section_num: int,
     found_section_num: int,
 ) -> bool:
+    """Excuse a short forward skip (one or two numbers) that the agreement never mentions.
+
+    A repeated or backward number, or a longer jump, is never excused this way: those are
+    misprints (4.44 for 4.4), restarts (10.01 after 10.10) or bogus headings, and the
+    right number is often absent precisely because the heading carries the wrong one.
+    """
     if article_num is None:
         return False
     if found_section_num <= expected_section_num:
-        return not _body_mentions_section_number(
-            root,
-            article_num=article_num,
-            section_num=expected_section_num,
-        )
+        return False
+    if found_section_num - expected_section_num > MAX_ABSENT_SECTION_SKIP:
+        return False
     return all(
         not _body_mentions_section_number(
             root,
@@ -1052,6 +1073,107 @@ def _target_section_non_sequential_page_uuids(
             return current_page_uuids
         return _merge_page_uuid_targets(previous_page_uuids, current_page_uuids)
     return current_page_uuids
+
+
+def _article_number_gap_violations(articles: List[ET.Element]) -> List[XMLHardRuleViolation]:
+    """Flag adjacent whole-number articles whose numbers skip (Article 8 then Article 10).
+
+    An untagged article heading folds the whole article into the previous one, and the
+    tree still passes the order check. A-suffix articles (III-A) neither open nor close
+    a gap; an article whose title doesn't parse resets the check, since it may be the
+    missing number.
+    """
+    violations: List[XMLHardRuleViolation] = []
+    previous: Tuple[int, ET.Element] | None = None
+    for article_elem in articles:
+        key = _article_sort_key(article_elem.attrib.get("title", ""))
+        if key is None:
+            previous = None
+            continue
+        if key != float(int(key)):
+            continue
+        article_num = int(key)
+        if previous is not None and article_num > previous[0] + 1:
+            previous_num, previous_elem = previous
+            missing = ", ".join(str(n) for n in range(previous_num + 1, article_num))
+            violations.append(
+                XMLHardRuleViolation(
+                    reason_code=XML_REASON_ARTICLE_NUMBER_GAP,
+                    reason_detail=(
+                        f"Article number gap: {article_elem.attrib.get('title', '')[:200]!r} follows "
+                        f"{previous_elem.attrib.get('title', '')[:200]!r}; missing {missing}."
+                    ),
+                    page_uuids=_merge_page_uuid_targets(
+                        _collect_page_uuids(previous_elem),
+                        _collect_page_uuids(article_elem)[:1],
+                    ),
+                )
+            )
+        previous = (article_num, article_elem)
+    return violations
+
+
+def _sig_page_texts(root: ET.Element) -> List[Tuple[str, str]]:
+    """(text, page_uuid) for each page in <sigPages>, in document order."""
+    sig_pages = root.find("sigPages")
+    if sig_pages is None:
+        return []
+    pages: List[Tuple[str, str]] = []
+    lines: List[str] = [sig_pages.text or ""]
+    for child in list(sig_pages):
+        if child.tag == "pageUUID":
+            pages.append(("\n".join(lines), (child.text or "").strip()))
+            lines = [child.tail or ""]
+            continue
+        lines.append("".join(child.itertext()))
+        lines.append(child.tail or "")
+    return pages
+
+
+def _provision_lines_before_witness(text: str) -> List[str]:
+    """Lines before IN WITNESS WHEREOF that read like agreement provisions.
+
+    Captions, legends, DocuSign ids and notary blocks are skipped; what's left is a
+    sentence with a verb, which on a signature page means the body's last provision
+    was labeled as part of the signature page.
+    """
+    witness = SIG_PAGE_WITNESS_RE.search(text)
+    if witness is None:
+        return []
+    provision_lines: List[str] = []
+    for raw_line in text[: witness.start()].split("\n"):
+        line = raw_line.strip()
+        if not re.search(r"[a-z]", line) or SIG_PAGE_NON_BODY_LINE_RE.search(line):
+            continue
+        if re.fullmatch(r"\[.*\]|\(.*\)", line):
+            continue
+        if (
+            len(line.split()) >= 6
+            and re.search(r"[.;:]$", line)
+            and SIG_PAGE_PROVISION_WORD_RE.search(line)
+        ):
+            provision_lines.append(line)
+    return provision_lines
+
+
+def _sig_page_body_text_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
+    for text, page_uuid in _sig_page_texts(root):
+        if SIG_PAGE_WITNESS_RE.search(text) is None:
+            continue
+        provision_lines = _provision_lines_before_witness(text)
+        if not provision_lines:
+            return []
+        return [
+            XMLHardRuleViolation(
+                reason_code=XML_REASON_SIG_PAGE_BODY_TEXT,
+                reason_detail=(
+                    "Signature page carries agreement text before IN WITNESS WHEREOF: "
+                    f"{provision_lines[0][:200]!r}."
+                ),
+                page_uuids=(page_uuid,) if page_uuid else (),
+            )
+        ]
+    return []
 
 
 def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
@@ -1148,6 +1270,8 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
             )
         else:
             prev_key = key
+
+    violations.extend(_article_number_gap_violations(articles))
 
     empty_article_count = 0
     empty_article_page_uuids: List[str] = []
@@ -1263,6 +1387,7 @@ def find_hard_rule_violations(root: ET.Element) -> List[XMLHardRuleViolation]:
                 page_uuids=tuple(empty_article_page_uuids),
             )
         )
+    violations.extend(_sig_page_body_text_violations(root))
     return violations
 
 
