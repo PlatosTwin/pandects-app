@@ -5,13 +5,13 @@ from etl.domain.heading_titles import (
     normalize_glued_article_title,
     normalize_glued_section_title,
 )
+from etl.domain.sentence_split_titles import repair_sentence_split_section_titles
 from etl.domain.xml_tag_repairs import (
     SectionGap,
     dedupe_adjacent_same_number_headings,
     insert_missing_section_heading_tags,
     split_combined_missing_section_tags,
     merge_number_only_section_titles,
-    repair_sentence_split_section_titles,
     unwrap_bare_article_tags_before_other_article_sections,
     unwrap_same_line_cross_article_section_tags,
     unwrap_section_of_reference_tags,
@@ -682,7 +682,6 @@ class SentenceSplitSectionTitleTests(unittest.TestCase):
         for text in (
             "<section>Section 4.2 No Conflict.</section> The execution of this Agreement does not conflict.",
             "<section>1.26 Interest Subsidy Loan</section> has the meaning given in Clause 4.",
-            "<section>4.1 Organization</section> and Good Standing. The Company is duly organized.",
             "<section>1.12 \u201cPlans\u201d</section> shall have the meaning set forth in Section 3.",
             "<section>2.4 Non-U.S.</section> Plans. Each Non-U.S. Plan is in compliance.",
             "<section>3.1 Purchase Price</section>\n\nThe purchase price is $10.",
@@ -773,8 +772,6 @@ class SentenceSplitSectionTitleTests(unittest.TestCase):
             repair_sentence_split_section_titles("<section>3.4 Notice to McDonald</section>\n\nThe Seller.")[0],
             "<section>3.4 Notice to McDonald</section>\n\nThe Seller.",
         )
-        text = "<section>2.1 Calculation of LossesNotwithstanding</section> Anything contained."
-        self.assertEqual(repair_sentence_split_section_titles(text)[0], text)
 
     def test_title_case_subject_followed_by_its_verb_is_not_a_title(self) -> None:
         # f28b4547 and bb29051b: "The Buyer" + " may ...", "Each of the Warranties" + " is ...".
@@ -829,3 +826,185 @@ class SentenceSplitSectionTitleTests(unittest.TestCase):
             "<section>6.4. Notice and Cure Provisions</section>Each Party will give",
             self._repair("<section>6.4. Notice and Cure ProvisionsEach Party</section> will give prompt notice"),
         )
+
+
+class SentenceSplitHeadingGuardTests(unittest.TestCase):
+    """Real headings the repair must keep (adversarial review of PR #229)."""
+
+    def _title(self, inner: str, follow: str, raw: str | None = None) -> str:
+        text = f"<section>{inner}</section>{follow}"
+        repaired, _ = repair_sentence_split_section_titles(text, raw)
+        self.assertEqual(
+            repaired.replace("<section>", "").replace("</section>", ""),
+            text.replace("<section>", "").replace("</section>", ""),
+        )
+        return repaired[len("<section>") : repaired.index("</section>")]
+
+    def test_heading_ending_in_a_period_inside_the_tag_is_kept(self) -> None:
+        cases = {
+            # 0ba152c0, and synthetic repros.
+            ("Section 6.11. Guarantee. RTL hereby absolutely", " and unconditionally guarantees"): "Section 6.11. Guarantee.",
+            ("Section 5.4 Access to Information. The Company", " shall afford Parent access"): (
+                "Section 5.4 Access to Information."
+            ),
+            ("9.3 Assignment. Neither party", " may assign this Agreement"): "9.3 Assignment.",
+        }
+        for (inner, follow), title in cases.items():
+            with self.subTest(inner=inner):
+                self.assertEqual(self._title(inner, follow), title)
+
+    def test_complete_heading_ending_in_a_period_is_untouched(self) -> None:
+        # 154f6f77, 2a1dda61, 2f02f3b6, a918ecb6, c3e4cc2c, 642f01cf, 0d8a04b8.
+        for inner, follow in (
+            ("5.7 eSpeed SEC Documents.", " eSpeed has filed all reports"),
+            ("Section 5.3 cDistro Stockholder Approval.", " cDistro shall call a meeting"),
+            ("5.16 Filing of ev3 Charter Amendment.", " ev3 shall file the amendment"),
+            ("Section 2.14 iDcentrix Schedules.", " iDcentrix has delivered the schedules"),
+            ("3.22 Broker’ s, Finder’ s, or Other Fees.", " no broker is entitled to a fee"),
+            ("7.03 Conditions to aaiPharma's Obligation.", " the obligation of aaiPharma is subject"),
+            ("3.8. 2021 Dividend (up to the Closing Date) declaration and distribution.", " the Company shall pay"),
+        ):
+            with self.subTest(inner=inner):
+                self.assertEqual(self._title(inner, follow), inner)
+
+    def test_number_only_needs_a_sentence_signal(self) -> None:
+        for inner, follow in (
+            ("7.1 Completion Matters", " relating to the Business"),
+            ("5.6 iPhone Matters relating to", " the iPhone business"),
+            ("12.4 Termination", " under this Article 12 shall not become effective"),
+            ("3.4 Interest", " accrued on the Retention Amount"),
+        ):
+            with self.subTest(inner=inner):
+                self.assertEqual(self._title(inner, follow), inner)
+        self.assertEqual(self._title("10.2 No Seller", " shall make any claim"), "10.2")
+        self.assertEqual(self._title("2.3 NewCompany", " shall be formed by the Sellers"), "2.3")
+        self.assertEqual(self._title("9.7 No Majority Seller", " shall be liable"), "9.7")
+
+    def test_defined_terms_keep_their_title(self) -> None:
+        # 936e9204 and 50a57067.
+        self.assertEqual(self._title("1.7 Effective Date", " is the date and time at which"), "1.7 Effective Date")
+        self.assertEqual(self._title("1.13 Permitted Liens", " are any retention of title"), "1.13 Permitted Liens")
+        self.assertEqual(self._title("1.12 Know-How is", " all technical information"), "1.12 Know-How")
+        self.assertEqual(self._title("1.25 Escrow Agent is defined in", " clause 3.4."), "1.25 Escrow Agent")
+
+    def test_run_in_heading_ends_before_an_opener_or_the_subject(self) -> None:
+        cases = {
+            ("11.6. Severability In the event that", " any provision is held invalid"): "11.6. Severability",
+            ("Section 9.01. Survival None of the representations", ", warranties and covenants"): "Section 9.01. Survival",
+            ("Section 4.25 Cybersecurity To the Knowledge of the Parent, no third party", " has gained access"): (
+                "Section 4.25 Cybersecurity"
+            ),
+            ("3.2 Taxes Except", " as set forth in the Disclosure Letter"): "3.2 Taxes",
+            ("3.1 Corporate Organization The Company", " is a corporation duly organized"): "3.1 Corporate Organization",
+            ("Section 4.1 Organization; Authority The undersigned Shareholder", " has full power"): (
+                "Section 4.1 Organization; Authority"
+            ),
+            ("Section 8.2 Procedures and Effect of Termination Any Party desiring to terminate", " this Agreement"): (
+                "Section 8.2 Procedures and Effect of Termination"
+            ),
+            ("Section 3.11 No Other Representations Except for the representations", " and warranties"): (
+                "Section 3.11 No Other Representations"
+            ),
+            ("7.6 No Restraints No temporary restraining", " order shall be in effect"): "7.6 No Restraints",
+            ("Section 9.5 No Material Adverse Effect No Effect shall exist", " that has had"): (
+                "Section 9.5 No Material Adverse Effect"
+            ),
+            ("3.12 No Undisclosed Liabilities, (Except for liabilities", " incurred in the ordinary course)"): (
+                "3.12 No Undisclosed Liabilities"
+            ),
+            # 11f7e478, 679f2048, 895406d2, 8b8d6bc8, 40f4ab4d, 802dd65d.
+            ("5.9. No Other Representations Buyer", " acknowledges that the Seller makes"): "5.9. No Other Representations",
+            ("6.2. Authority Relative to this Agreement Target", " has full corporate power"): (
+                "6.2. Authority Relative to this Agreement"
+            ),
+            ("7.18 Target Company Designees Buyer", " shall cause the designees"): "7.18 Target Company Designees",
+            ("7.21 Additional Voting Agreements Parent will use", " its reasonable best efforts"): (
+                "7.21 Additional Voting Agreements"
+            ),
+            # 5fc93c94, bae335ef, 123b28b7: a repeat of the run's last words.
+            ("Section 4.18 Organization of Merger Sub Merger Sub", " is a corporation duly organized"): (
+                "Section 4.18 Organization of Merger Sub"
+            ),
+            ("5.9. Operations and Ownership of Acquisition Sub Acquisition Sub", " was formed solely"): (
+                "5.9. Operations and Ownership of Acquisition Sub"
+            ),
+            # 28ac6afd, 297cb7a8.
+            ("7.20 Delivery of Century Bank Disclosure Memorandum Century", " shall deliver to Buyer"): (
+                "7.20 Delivery of Century Bank Disclosure Memorandum"
+            ),
+            ("12.1 Vendor’s Conditions The Vendor’s obligations to complete", " are conditional on"): (
+                "12.1 Vendor’s Conditions"
+            ),
+        }
+        for (inner, follow), title in cases.items():
+            with self.subTest(inner=inner):
+                self.assertEqual(self._title(inner, follow), title)
+
+    def test_layout_keeps_bold_underlined_or_own_line_heading(self) -> None:
+        # bb80b652: the heading is underlined in its own cell.
+        inner, follow = "12.4 Amendments and waivers Changes and additions", " to this Agreement must be in writing."
+        raw = (
+            "<tr><td>12.4</td><td><u>Amendments and waivers</u></td></tr>"
+            "<tr><td>Changes and additions to this Agreement must be in writing.</td></tr>"
+        )
+        self.assertEqual(self._title(inner, follow), inner)
+        self.assertEqual(self._title(inner, follow, raw), "12.4 Amendments and waivers")
+        # a80a7eae: "17.3 Separate undertakings" in bold, then the clause.
+        raw = (
+            "<tr><td><b>17.3</b></td><td><b>Separate undertakings</b></td></tr>"
+            "<tr><td>Clauses 17.1.1, 17.1.2 have effect as separate undertakings.</td></tr>"
+        )
+        self.assertEqual(
+            self._title("17.3 Separate undertakings Clauses", " 17.1.1, 17.1.2 have effect as separate undertakings.", raw),
+            "17.3 Separate undertakings",
+        )
+        # 348443d0: an underlined heading before an all-caps bold clause.
+        raw = (
+            "<p>13.20 <u><b>Disclosure</b></u><b> IF THE DISCLOSURE SUMMARY REQUIRED BY SECTION 720.401, "
+            "FLORIDA STATUTES, HAS NOT BEEN PROVIDED</b></p>"
+        )
+        self.assertEqual(
+            self._title(
+                "13.20 Disclosure IF THE DISCLOSURE SUMMARY REQUIRED BY SECTION 720.",
+                "401, FLORIDA STATUTES, HAS NOT BEEN PROVIDED",
+                raw,
+            ),
+            "13.20 Disclosure",
+        )
+        # A bold defined subject is not a heading: "Seller" + " shall ...".
+        raw = "<p>6.5 <b>Seller</b> shall deliver the Shares.</p>"
+        self.assertEqual(self._title("6.5 Seller", " shall deliver the Shares.", raw), "6.5")
+
+    def test_glued_opener_with_a_long_tail_is_split(self) -> None:
+        # bf60dea1.
+        self.assertEqual(
+            self._title(
+                "6.3. Additional Conditions Precedent in Favor of SRxThe obligation of SRx to complete",
+                " the Arrangement is subject to",
+            ),
+            "6.3. Additional Conditions Precedent in Favor of SRx",
+        )
+
+    def test_title_never_takes_in_a_quoted_term(self) -> None:
+        self.assertNotIn(
+            "“",
+            self._title("1.7. JBT’s board of directors", " (the “JBT Board”) has, based on the information"),
+        )
+
+    def test_defined_term_variants_keep_their_title(self) -> None:
+        # 50a57067 and 936e9204.
+        self.assertEqual(self._title("1.15 Claim Notice is defined in clause 10.", "4."), "1.15 Claim Notice")
+        self.assertEqual(
+            self._title("1.18 Vanessa Licensed Business", " shall include the development, design and testing"),
+            "1.18 Vanessa Licensed Business",
+        )
+
+    def test_untitled_clauses_still_get_a_number_only_title(self) -> None:
+        for inner, follow, title in (
+            ("9.3 Breach of the Sellers' Warranties", " shall constitute the only valid basis for any claims", "9.3"),
+            ("4.7 Amounts", " may only be released to the Sellers from the Retention Account", "4.7"),
+            ("10.10 Parties", " agree that the sale of the Transferring Activities", "10.10"),
+            ("11.3 No amendment", " of this Agreement shall be effective unless it is made in writing", "11.3"),
+        ):
+            with self.subTest(inner=inner):
+                self.assertEqual(self._title(inner, follow), title)

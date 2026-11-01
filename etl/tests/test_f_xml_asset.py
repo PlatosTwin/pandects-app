@@ -121,6 +121,28 @@ class XMLVerifyAssetTests(unittest.TestCase):
             self._normalized_text_without_heading_tags(repaired_text),
         )
 
+    def test_safe_xml_tag_repairs_sentence_split_titles_use_page_layout(self) -> None:
+        tagged_output = self._five_article_text(
+            "".join(
+                [
+                    "<section>1.1 First</section>\n\n",
+                    "<section>1.2 Amendments and waivers Changes and additions</section> to this Agreement "
+                    "must be in writing.\n\n",
+                    "<section>1.3 Third</section>",
+                ]
+            )
+        )
+        df = self._xml_build_df(tagged_output)
+        df.loc[0, "raw_page_content"] = (
+            "<tr><td>1.2</td><td><u>Amendments and waivers</u></td></tr>"
+            "<tr><td>Changes and additions to this Agreement must be in writing.</td></tr>"
+        )
+
+        repaired_df = _apply_safe_xml_tag_repairs_to_df(df)
+
+        repaired_text = cast(str, repaired_df.iloc[0]["tagged_output"])
+        self.assertIn("<section>1.2 Amendments and waivers</section> Changes and additions", repaired_text)
+
     def test_safe_xml_tag_repairs_split_combined_missing_section_tags(self) -> None:
         tagged_output = self._five_article_text(
             "".join(

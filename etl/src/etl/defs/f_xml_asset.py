@@ -24,6 +24,7 @@ from etl.defs.c_tagging_asset import (
 )
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
+from etl.domain.sentence_split_titles import repair_sentence_split_section_titles
 from etl.domain.xml_tag_repairs import (
     SectionGap,
     XMLTagRepairStats,
@@ -32,7 +33,6 @@ from etl.domain.xml_tag_repairs import (
     insert_missing_section_heading_tags,
     merge_number_only_section_titles,
     normalize_no_space_section_prefixes,
-    repair_sentence_split_section_titles,
     section_title_is_whole_number_article_heading,
     section_title_starts_with_same_article_decimal,
     split_leading_page_number_section_tags,
@@ -1356,7 +1356,11 @@ def _apply_tag_repair_to_body_rows(
         elif repair_name == "normalize_no_space_section_prefixes":
             repaired, stats = normalize_no_space_section_prefixes(tagged_output)
         elif repair_name == "repair_sentence_split_section_titles":
-            repaired, stats = repair_sentence_split_section_titles(tagged_output)
+            raw_page_content = row.get("raw_page_content")
+            repaired, stats = repair_sentence_split_section_titles(
+                tagged_output,
+                raw_page_content if isinstance(raw_page_content, str) else None,
+            )
         elif repair_name == "split_leading_page_number_sections":
             repaired, stats = split_leading_page_number_section_tags(tagged_output)
         elif repair_name == "unwrap_inline_section_references":
