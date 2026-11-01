@@ -374,7 +374,9 @@ def _repair_sentence_split_title(
             head, tail = inner[: number.end()] + joined[:cut], joined[cut:]
         else:
             head, tail = inner[: number.end("number")], inner[number.end("number") :] + follow
-        trimmed = re.sub(r"[^\S\r\n]*[-–—:,;(][^\S\r\n]*$", "", head)
+        if cut > len(rest) and re.search(r"(?:\d+\.)+\d*[\s.]*$", joined[len(rest) : cut]):
+            return None  # a table-of-contents line: "Allocation of Payment" + " 1.12"
+        trimmed = re.sub(r"[^\S\r\n]*(?:[-–—]+|[:,;(])[^\S\r\n]*$", "", head)
         if trimmed != head and _NUMBER_RE.match(trimmed) is not None:
             head, tail = trimmed, head[len(trimmed) :] + tail  # "Gathering System -" keeps no dash
         if head == inner or head + tail != inner + follow:

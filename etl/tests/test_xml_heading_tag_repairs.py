@@ -1008,3 +1008,15 @@ class SentenceSplitHeadingGuardTests(unittest.TestCase):
         ):
             with self.subTest(inner=inner):
                 self.assertEqual(self._title(inner, follow), title)
+
+    def test_extension_never_takes_in_the_next_section_number(self) -> None:
+        for inner, follow in (
+            ("1.11 Allocation of Payment", " 1.12\n\nPurchase Price 1.13"),
+            ("Section 5.05 Governmental Authorities; Consents", " 4.1\n\nSection 5.06 Brokers"),
+        ):
+            with self.subTest(inner=inner):
+                self.assertEqual(self._title(inner, follow), inner)
+        self.assertEqual(
+            self._title("Section 7.04 Conditions to Obligations of Plum Creek to Effect", " the Merger ------\n\nThe"),
+            "Section 7.04 Conditions to Obligations of Plum Creek to Effect the Merger",
+        )
