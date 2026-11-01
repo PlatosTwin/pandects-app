@@ -399,8 +399,11 @@ def _repair_sentence_split_title(
     inner_term = re.match(
         rf"^(?P<term>\S+(?:{_HSPACE}+\S+){{0,4}}?){_HSPACE}+(?:is|are){_HSPACE}+(?=[A-Z]|(?:the|a|an|all|any)\b)", rest
     )
+    predicate = rest[inner_term.end() :].split() if inner_term is not None else []
     if (
         inner_term is not None
+        # A sentence, not a heading: "Parties are Sellers, TriQuint and ..." but not "Obligations are Several."
+        and (any("," in w for w in predicate) or (len(predicate) >= 4 and not _is_title_case(" ".join(predicate))))
         and _is_title_case(inner_term.group("term"))
         and _norm(inner_term.group("term").split()[0]) not in _NOT_A_TERM_START
         and _CLAUSE_VERB_RE.search(inner_term.group("term")) is None
@@ -436,7 +439,11 @@ def _repair_sentence_split_title(
         or re.match(rf"^(?P<term>[^.;:]*?\S){_HSPACE}+(?:is|are){_HSPACE}+defined{_HSPACE}+in\b", rest)
     )
     follow_first = _norm(follow.split()[0]) if follow.split() else ""
-    if run_on_term is not None and follow_first in ("of", "not", "to", "in", "subject"):
+    if (
+        run_on_term is not None
+        and follow_first in ("of", "not", "to", "in", "subject")
+        and _norm(run_on_term.group("term").split()[0]) not in _NOT_A_TERM_START  # not "The Transfer is"
+    ):
         return None  # "Business Day is" + " not a Saturday ...", "Knowledge is" + " to be construed ..."
     if run_on_term is not None and (
         _norm(run_on_term.group("term").split()[0]) in _NOT_A_TERM_START
@@ -471,6 +478,10 @@ def _repair_sentence_split_title(
                 and _CLAUSE_VERB_RE.search(heading) is None
                 and heading[-1:] not in ":,;"
                 and _norm(words[-1]) not in _TITLE_SMALL_WORDS
+                and heading.count("(") == heading.count(")")
+                and not re.match(r"\s*[,(]", heading[len(rest.rstrip()) :])  # "Liabilities" + ", (Except for ..."
+                # A bilingual heading repeats the number: "Schiedsgutachterverfahren 6.6 Expert Proceedings".
+                and re.search(rf"(?<![\d.]){re.escape(own_number.group(0))}(?![\d])", heading) is None
             ):
                 return result(len(heading)) if len(heading) != len(rest.rstrip()) else None
 

@@ -1139,3 +1139,27 @@ class SentenceSplitThirdReviewTests(SentenceSplitReReviewTests):
         )
         self.assertEqual(self._title("4.1 Completion is conditional", " on the Conditions."), "4.1")
         self.assertEqual(self._title("9.2 BidCo is entitled", " to waive the Conditions."), "9.2")
+
+    def test_complete_is_headings_inside_the_tag_are_kept(self) -> None:
+        for inner, follow in (
+            ("Section 15.17. Obligations are Several.", " The obligations of the Sellers are several."),
+            ("21.2 Consideration is GST exclusive", " and the Purchaser must pay GST."),
+            ("13.6 Indemnity is Sole Remedy.", " The indemnity in this Article is the sole remedy."),
+            ("3.3 Withholdings Where Vendor is Non-Resident", " if the Vendor is a non-resident of Canada."),
+        ):
+            with self.subTest(inner=inner):
+                self.assertNotEqual(self._title(inner, follow), inner.split(" is ")[0].split(" are ")[0])
+
+    def test_determiner_sentence_before_of_or_to_stays_number_only(self) -> None:
+        self.assertEqual(self._title("2.3 The Transfer is", " subject to the Conditions."), "2.3")
+        self.assertEqual(self._title("1.2 The definitions are", " to be read together."), "1.2")
+
+    def test_subsection_guard_rejects_parentheses_and_bilingual_numbers(self) -> None:
+        self.assertNotEqual(
+            self._title("3.12 No Undisclosed Liabilities", ", (Except for liabilities 3.12.1 incurred in the ordinary course"),
+            "3.12 No Undisclosed Liabilities, (Except for liabilities",
+        )
+        self.assertNotEqual(
+            self._title("6.6 Schiedsgutachterverfahren", " 6.6 Expert Proceedings 6.6.1 Die Parteien"),
+            "6.6 Schiedsgutachterverfahren 6.6 Expert Proceedings",
+        )
