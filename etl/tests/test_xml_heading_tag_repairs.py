@@ -801,3 +801,17 @@ class SentenceSplitSectionTitleTests(unittest.TestCase):
     def test_complete_title_case_heading_is_kept_before_its_verb(self) -> None:
         text = "<section>Section 4.10. Related Person Transactions.</section> there are no Contracts with"
         self.assertEqual(repair_sentence_split_section_titles(text)[0], text)
+
+    def test_run_in_heading_before_party_subject_keeps_heading(self) -> None:
+        self.assertIn(
+            "<section>Section 4.7 Financing</section> Parent has delivered",
+            self._repair("<section>Section 4.7 Financing Parent</section> has delivered to the Company the Commitment Letters."),
+        )
+        self.assertIn(
+            "<section>5.5</section> Sellers and Asset Sellers shall",
+            self._repair("<section>5.5 Sellers and Asset Sellers</section> shall to the extent commercially reasonable"),
+        )
+        self.assertIn(
+            "<section>6.5</section> Seller shall",
+            self._repair("<section>6.5 Seller</section> shall deliver the Shares."),
+        )

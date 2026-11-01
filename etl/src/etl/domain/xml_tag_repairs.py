@@ -480,7 +480,11 @@ _SPLIT_REFERENCE_START_RE = re.compile(
 # A title glued to the first word of its text: "Calculation of LossesNotwithstanding".
 _SPLIT_GLUED_OPENER_RE = re.compile(r"[a-z’')](?P<opener>[A-Z][a-z]+)$")
 _SPLIT_GLUED_OPENERS = frozenset("the each nothing neither none promptly following".split())
-_SPLIT_RUN_ON_TERM_RE =re.compile(r"^(?P<term>.*?\S)[^\S\r\n]+(?:means|shall mean)$")
+# The subject of a clause printed straight after a run-in heading with no period
+# ("Section 4.7 Financing Parent" + " has delivered ...").
+_SPLIT_PARTY_WORDS = r"(?:Parent|Purchasers?|Buyers?|Sellers?|Acquiror|Acquirer|Vendors?|Company|Merger Sub)"
+_SPLIT_TRAILING_PARTY_RE = re.compile(rf"[^\S\r\n]+{_SPLIT_PARTY_WORDS}$")
+_SPLIT_RUN_ON_TERM_RE = re.compile(r"^(?P<term>.*?\S)[^\S\r\n]+(?:means|shall mean)$")
 
 
 def _split_heading_end(text: str, limit: int) -> int | None:
@@ -632,9 +636,23 @@ def _repair_sentence_split_title(inner: str, follow: str) -> tuple[str, str] | N
         #    title before a dash or a trailing cross-reference; otherwise the
         #    title is the number alone.
         cut = 0
+        party = _SPLIT_TRAILING_PARTY_RE.search(rest)
+        if party is not None and verb_follows:
+            title = rest[: party.start()]
+            title_words = title.split()
+            if (
+                title_words
+                and _is_title_case(title)
+                and _strip_word(title_words[0]).lower() not in _SENTENCE_OPENERS
+                and _strip_word(title_words[-1]).lower() not in _TITLE_SMALL_WORDS
+                and re.search(rf"\b{_SPLIT_PARTY_WORDS}\b", title) is None
+            ):
+                cut = len(title.rstrip())  # "Financing Parent" + " has ...": a run-in heading
         line_end = joined.find("\n")
         run_end = _leading_title_run_end(joined, 0, line_end if line_end >= 0 else len(joined))
-        if run_end is not None and _split_run_is_heading(joined, run_end):
+        if cut:
+            pass
+        elif run_end is not None and _split_run_is_heading(joined, run_end):
             cut = run_end
         else:
             cut = _sentence_case_heading_end(joined) or 0
