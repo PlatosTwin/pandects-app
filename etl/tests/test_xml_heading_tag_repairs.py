@@ -246,9 +246,9 @@ class InsertMissingSectionHeadingTagTests(unittest.TestCase):
 
     def test_skips_mid_sentence_number_in_flattened_text(self) -> None:
         text = (
-            "<section>1.39 Healthcare Laws</section> means the rules promulgated thereunder "
-            "1.40 IFRS International Financial Reporting Standards, as in effect from time to time. "
-            "<section>1.41 Intellectual Property</section> means all intellectual property."
+            "<section>1.39 Healthcare Laws.</section> The Company complies with the rules promulgated "
+            "thereunder 1.40 Financial Reporting Standards, as in effect from time to time. "
+            "<section>1.41 Intellectual Property.</section> The Company owns its property."
         )
         self.assertEqual(self._insert(text, 1, 40), text)
 
@@ -320,6 +320,161 @@ class InsertMissingSectionHeadingTagTests(unittest.TestCase):
             "<section>Section 13.05 Frustration.</section>"
         )
         self.assertIn(f"<section>{heading}</section> The obligation", self._insert(text, 13, 4))
+
+    def test_caps_definition_after_lowercase_word_in_definitions_run(self) -> None:
+        text = (
+            "<section>1.39 Healthcare Laws</section> means the rules promulgated thereunder "
+            "1.40 IFRS International Financial Reporting Standards, as in effect from time to time. "
+            "<section>1.41 Intellectual Property</section> means all intellectual property."
+        )
+        self.assertIn(
+            "thereunder <section>1.40 IFRS</section> International Financial Reporting",
+            self._insert(text, 1, 40),
+        )
+
+    def test_caps_term_outside_definitions_run_is_skipped(self) -> None:
+        text = (
+            "<section>4.1 Organization.</section> The Company files with the agency under "
+            "4.2 SEC Reports filed from time to time. <section>4.3 Labor.</section>"
+        )
+        self.assertEqual(self._insert(text, 4, 2), text)
+
+    def test_cross_reference_word_before_number_is_skipped(self) -> None:
+        text = (
+            "<section>1.1 Definitions.</section> \u201cTax\u201d has the meaning given in "
+            "1.2 \u201cTax Return\u201d means any return. <section>1.3 Other.</section>"
+        )
+        self.assertEqual(self._insert(text, 1, 2), text)
+
+    def test_digit_led_unquoted_defined_term(self) -> None:
+        text = (
+            "<section>1.1 2011 Option Rights</section> has the meaning set out in the background. "
+            "1.2 2014 Option Rights has the meaning set out in the background. "
+            "<section>1.3 2016 Option Rights</section> has the meaning set out in the background."
+        )
+        self.assertIn(
+            "background. <section>1.2 2014 Option Rights</section> has the meaning",
+            self._insert(text, 1, 2),
+        )
+
+    def test_defined_term_absorbs_trailing_period_or_colon(self) -> None:
+        text = (
+            "<section>Section 11.10 Notices.</section>\nBody.\n"
+            "Section 11.11 \u201cKnowledge\u201d. As used in Article IV hereof, all references apply.\n"
+            "<section>Section 11.12 Other.</section>"
+        )
+        self.assertIn("<section>Section 11.11 \u201cKnowledge\u201d.</section> As used", self._insert(text, 11, 11))
+        text = (
+            "<section>1.164 \u201cTax\u201d</section> means tax.\n"
+            "1.165 \u201cTransaction Documents\u201d: shall mean this Agreement and each other document.\n"
+            "<section>1.166 \u201cTransfer Taxes\u201d</section> means taxes."
+        )
+        self.assertIn(
+            "<section>1.165 \u201cTransaction Documents\u201d:</section> shall mean",
+            self._insert(text, 1, 165),
+        )
+
+    def test_two_term_definitions_keep_both_terms(self) -> None:
+        text = (
+            "<section>11.43 \u201cPerson\u201d</section> means any person.\n"
+            "11.44. \u201cParty\u201d and \u201cParties\u201d shall have the meaning set forth in the preamble.\n"
+            "<section>11.45 \u201cPermits\u201d</section> means permits."
+        )
+        self.assertIn(
+            "<section>11.44. \u201cParty\u201d and \u201cParties\u201d</section> shall have the meaning",
+            self._insert(text, 11, 44),
+        )
+        text = (
+            "<section>1.167 \u201cTax\u201d</section> means tax.\n"
+            "1.168 \u201cU.S. GAAP\u201d or \u201cGAAP\u201d means U.S. generally accepted accounting "
+            "principles.\n<section>1.169 \u201cWARN\u201d</section> means the act."
+        )
+        self.assertIn(
+            "<section>1.168 \u201cU.S. GAAP\u201d or \u201cGAAP\u201d</section> means U.S.",
+            self._insert(text, 1, 168),
+        )
+
+    def test_title_case_run_printed_without_period(self) -> None:
+        cases = [
+            (
+                5,
+                2,
+                "Section 5.2 Merger Without a Stockholders\u2019 Meeting As promptly as practicable after "
+                "the Acceptance Time, the parties shall take all necessary action to cause the Merger.",
+                "<section>Section 5.2 Merger Without a Stockholders\u2019 Meeting</section> As promptly",
+            ),
+            (
+                7,
+                2,
+                "7.2 Coeur\u2019s indemnity Coeur agrees with Palmarejo to indemnify Palmarejo against all "
+                "losses arising from any breach of this agreement by Coeur.",
+                "<section>7.2 Coeur\u2019s indemnity</section> Coeur agrees",
+            ),
+            (
+                1,
+                3,
+                "1.3 Number and Gender In this Agreement, unless the contrary intention appears, words "
+                "importing the singular include the plural.",
+                "<section>1.3 Number and Gender</section> In this Agreement",
+            ),
+            (
+                1,
+                1,
+                "1.1 Defined terms In this document:",
+                "<section>1.1 Defined terms</section> In this document:",
+            ),
+        ]
+        for article, number, line, expected in cases:
+            with self.subTest(line=line[:30]):
+                text = (
+                    f"<section>{article}.{number - 1 if number > 1 else 0} Previous.</section>\nBody.\n"
+                    f"{line}\n<section>{article}.{number + 1} Next.</section>"
+                )
+                self.assertIn(expected, self._insert(text, article, number))
+
+    def test_proper_noun_subject_stays_number_only(self) -> None:
+        text = (
+            "<section>1.5 Kabel BW</section>\nBody.\n"
+            "1.6 Kabel BW Holdings is the sole limited partner of the partnership and holds all interests "
+            "in the partnership as of the date of this agreement.\n<section>1.7 Next.</section>"
+        )
+        self.assertIn("<section>1.6</section> Kabel BW Holdings is", self._insert(text, 1, 6))
+
+    def test_short_prose_lead_ins_get_number_only_titles(self) -> None:
+        for line, expected in (
+            (
+                "1.2 In this Agreement, unless the context otherwise requires \u2013",
+                "<section>1.2</section> In this Agreement",
+            ),
+            ("1.2 If to Buyer:", "<section>1.2</section> If to Buyer:"),
+        ):
+            with self.subTest(line=line):
+                text = f"<section>1.1 Definitions.</section>\nBody.\n{line}\n<section>1.3 Next.</section>"
+                self.assertIn(expected, self._insert(text, 1, 2))
+
+    def test_unicode_spaces_after_number(self) -> None:
+        for space in ("\u2003", "\u2002", "\u2009", "\u00a0"):
+            with self.subTest(space=repr(space)):
+                text = (
+                    "<section>4.1 Organization.</section>\nBody.\n"
+                    f"4.2{space}Capitalization.{space}The authorized capital stock consists of shares.\n"
+                    "<section>4.3 Labor.</section>"
+                )
+                self.assertIn(f"<section>4.2{space}Capitalization.</section>", self._insert(text, 4, 2))
+
+    def test_newline_after_number_is_not_a_follower_space(self) -> None:
+        text = (
+            "<section>2.1 Effect.</section>\nas described in Section 2.2\n(a) of the Disclosure "
+            "Schedule.\n<section>2.3 Exchange.</section>"
+        )
+        self.assertEqual(self._insert(text, 2, 2), text)
+
+    def test_sentence_start_requires_title_case_heading(self) -> None:
+        text = (
+            "<section>5.10 Notices.</section> Each party shall comply with this Agreement. "
+            "Section 5.11 Disclosure Schedule sets forth all items. <section>5.12 Expenses.</section>"
+        )
+        self.assertEqual(self._insert(text, 5, 11), text)
 
     def test_tags_heading_with_dash_after_number(self) -> None:
         text = (
@@ -415,9 +570,34 @@ class GluedHeadingTitleTests(unittest.TestCase):
             "ARTICLE XIII INTERPRETATION",
         )
 
-    def test_uses_expected_number_for_unknown_numeral_letter_words(self) -> None:
-        self.assertEqual(normalize_glued_article_title("ARTICLE IIIXYLO", 3), "ARTICLE III XYLO")
-        self.assertEqual(normalize_glued_article_title("ARTICLE IIIXYLO", 4), "ARTICLE IIIXYLO")
+    def test_leaves_unknown_numeral_letter_words_unsplit(self) -> None:
+        for title, expected_number in (
+            ("ARTICLE IIIXYLO", 3),
+            ("ARTICLE IIIXYLO", 4),
+            ("ARTICLE IIXYLOPHONE", 2),
+        ):
+            with self.subTest(title=title):
+                self.assertEqual(normalize_glued_article_title(title, expected_number), title)
+
+    def test_splits_newly_listed_numeral_letter_words(self) -> None:
+        cases = {
+            "ARTICLE IIIDENTIFICATION OF ASSETS": "ARTICLE II IDENTIFICATION OF ASSETS",
+            "ARTICLE VIIILLEGALITY": "ARTICLE VII ILLEGALITY",
+            "ARTICLE IVESTING": "ARTICLE I VESTING",
+            "ARTICLE XINTEGRATION": "ARTICLE X INTEGRATION",
+            "ARTICLE IIMPORTANT NOTICES": "ARTICLE I IMPORTANT NOTICES",
+        }
+        for glued, expected in cases.items():
+            with self.subTest(glued=glued):
+                self.assertEqual(normalize_glued_article_title(glued), expected)
+
+    def test_letter_suffix_ambiguity_is_left_alone(self) -> None:
+        self.assertEqual(normalize_glued_article_title("ARTICLE 4ATAXES"), "ARTICLE 4ATAXES")
+        self.assertEqual(normalize_glued_article_title("ARTICLE IIIATAXES"), "ARTICLE IIIATAXES")
+        self.assertEqual(
+            normalize_glued_article_title("ARTICLE 4ADDITIONAL AGREEMENTS"),
+            "ARTICLE 4 ADDITIONAL AGREEMENTS",
+        )
 
     def test_splits_glued_arabic_and_keyword_numbers(self) -> None:
         self.assertEqual(normalize_glued_article_title("ARTICLE 4DEFINITIONS"), "ARTICLE 4 DEFINITIONS")

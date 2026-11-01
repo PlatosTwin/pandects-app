@@ -141,9 +141,10 @@ def _section_heading_pattern(article_num: int, section_num: int) -> re.Pattern[s
     pattern = (
         rf"(?<![\d.])(?:(?:Section|SECTION|section)\s+)?{article_num}\s*\.\s*0*{section_num}"
         r"(?!\s*\.\s*\d)(?!\d)"
-        r"(?=[ \t\u00a0]*[.:]?[ \t\u00a0]*(?:[-\u2013\u2014][ \t\u00a0]*)?"
-        r"(?:$|<|[A-Z\[\x22\x27\u201c\u201d\u2018\u2019])|[ \t\u00a0]+\d"
-        r"|[ \t\u00a0]+\([A-Za-z0-9]{1,4}\)[ \t\u00a0]+[A-Z])"
+        # [^\S\r\n] is any horizontal space (nbsp, en/em/thin spaces too), never a newline.
+        r"(?=[^\S\r\n]*[.:]?[^\S\r\n]*(?:[-\u2013\u2014][^\S\r\n]*)?"
+        r"(?:$|<|[A-Z\[\x22\x27\u201c\u201d\u2018\u2019])|[^\S\r\n]+\d"
+        r"|[^\S\r\n]+\([A-Za-z0-9]{1,4}\)[^\S\r\n]+[A-Z])"
     )
     # Case-sensitive on purpose: the follower check needs a real uppercase
     # letter. MULTILINE lets "$" accept a number alone at the end of a line.
@@ -498,20 +499,88 @@ MISSING_HEADING_TITLE_MAX_CHARS = 250
 # Title Case and no longer than MISSING_HEADING_TITLE_CASE_SENTENCE_MAX_CHARS.
 MISSING_HEADING_SENTENCE_MAX_CHARS = 120
 MISSING_HEADING_TITLE_CASE_SENTENCE_MAX_CHARS = 200
-# Opening quote of a defined term ("1.70 “UCC” means ..."): the title is the term.
+_QUOTED_TERM = r"[\x22\u201c\u201d][^\x22\u201c\u201d\n<]{1,120}[\x22\u201c\u201d]"
+_HSPACE = r"[^\S\r\n]"
+# Quoted defined term(s) ("1.70 “UCC” means ...", "“Party” and “Parties” shall
+# have ...", "“U.S. GAAP” or “GAAP” means ..."): the title is the term(s), with
+# a period or colon printed right after them ("“Knowledge”. As used ...").
 MISSING_HEADING_DEFINED_TERM_RE = re.compile(
-    r"[\x22\u201c\u201d]([^\x22\u201c\u201d\n<]{1,120})[\x22\u201c\u201d]"
+    _QUOTED_TERM
+    + rf"(?:{_HSPACE}*(?:,{_HSPACE}*(?:(?:or|and){_HSPACE}+)?|(?:and/or|or|and){_HSPACE}+){_QUOTED_TERM})*"
+    + rf"(?:{_HSPACE}?[.:](?!\d))?"
 )
-# Unquoted defined term ("1.27 IT Systems has the meaning set out in ..."): the
-# title is the Title Case term before the defining verb.
+_DEFINING_VERB_RE = re.compile(
+    rf"{_HSPACE}*[.:]?{_HSPACE}+(?:means|has the meaning|shall have the meaning|shall mean)\b"
+)
+# Unquoted defined term ("1.27 IT Systems has the meaning set out in ...",
+# "1.2 2014 Option Rights has the meaning ..."): the title is the Title Case
+# term before the defining verb.
 MISSING_HEADING_UNQUOTED_TERM_RE = re.compile(
-    r"(?P<term>[A-Z][^\n<.;:]{0,78}?)"
+    r"(?P<term>[A-Z0-9][^\n<.;:]{0,78}?)"
     r"(?=[ \t\u00a0]+(?:means|has the meaning|shall have the meaning|shall mean)\b)"
 )
 _TITLE_WORD_RE = re.compile(r"[A-Za-z][A-Za-z'\u2019-]*")
 _TITLE_SMALL_WORDS = frozenset(
     "a an and as at by for from in of on or the to under upon with".split()
 )
+
+
+MISSING_HEADING_PROSE_OPENING_RE = re.compile(r"In this\b")
+# Words that open a body sentence; a heading's Title Case run ends right before
+# one of them ("Number and Gender In this Agreement ...").
+_SENTENCE_OPENERS = frozenset(
+    """
+    a after all an any as at before during each except for from if in it no
+    notwithstanding on prior save such subject the there this unless upon where
+    whereas when with without
+    """.split()
+)
+_RUN_WORD_RE = re.compile(r"\S+")
+_RUN_MAX_WORDS = 12
+_RUN_MAX_CHARS = 80
+
+
+def _strip_word(word: str) -> str:
+    return word.strip("\x22\x27\u201c\u201d\u2018\u2019()[],;:.")
+
+
+def _leading_title_run_end(tagged_text: str, title_from: int, line_end: int) -> int | None:
+    """End of a heading printed without a period before its body text, or None.
+
+    "Merger Without a Stockholders’ Meeting As promptly as ..." -> the run before
+    "As"; "Coeur’s indemnity Coeur agrees ..." -> the run before the repeated
+    "Coeur". The run ends right before a capitalized sentence opener (or a
+    repeat of a run word) that is followed by a lowercase word. Anything
+    ambiguous returns None (the caller then uses a number-only title).
+    """
+    words = list(_RUN_WORD_RE.finditer(tagged_text, title_from, line_end))
+    if len(words) < 3:
+        return None
+    first = _strip_word(words[0].group())
+    if not first or not first[0].isupper() or first.lower() in _SENTENCE_OPENERS:
+        return None
+    for i in range(1, min(len(words) - 1, _RUN_MAX_WORDS + 1)):
+        word = _strip_word(words[i].group())
+        following = _strip_word(words[i + 1].group())
+        if not word or not word[0].isupper() or not following or not following[0].islower():
+            continue
+        if following.lower() in _TITLE_SMALL_WORDS:
+            continue
+        run_words = [_strip_word(w.group()) for w in words[:i]]
+        stems = {w.lower().removesuffix("\u2019s").removesuffix("'s") for w in run_words}
+        if word.lower() not in _SENTENCE_OPENERS and word.lower() not in stems:
+            return None  # "Kabel BW Holdings is ...": a proper-noun subject, ambiguous
+        run = tagged_text[title_from : words[i - 1].end()]
+        lowercase = [w for w in run_words if w and w[0].islower() and w.lower() not in _TITLE_SMALL_WORDS]
+        if (
+            len(lowercase) > 1
+            or run_words[-1].lower() in _TITLE_SMALL_WORDS
+            or len(run) > _RUN_MAX_CHARS
+            or re.search(r"[.;,]", run.rstrip(".:"))
+        ):
+            return None
+        return words[i - 1].end()
+    return None
 
 
 def _looks_like_prose(title: str) -> bool:
@@ -521,6 +590,11 @@ def _looks_like_prose(title: str) -> bool:
     Shares"); an untitled clause reads as a sentence ("All references in this
     Agreement to ...").
     """
+    stripped = title.strip()
+    if MISSING_HEADING_PROSE_OPENING_RE.match(stripped):
+        return True  # "In this Agreement, unless the context otherwise requires"
+    if stripped[-1:] in {":", "-", "\u2013", "\u2014"}:
+        return True  # lead-in to a list: "If to Buyer:", "... requires –"
     if len(title) <= 60:
         return False
     letters = [c for c in title if c.isalpha()]
@@ -565,14 +639,48 @@ def _defines_term_at(tagged_text: str, number_end: int) -> bool:
     limit = min(x for x in (line_end, tag, len(tagged_text)) if x >= 0)
     quoted = MISSING_HEADING_DEFINED_TERM_RE.match(tagged_text, start, limit)
     if quoted is not None:
-        return re.match(
-            r"[ \t\u00a0]+(?:means|has the meaning|shall have the meaning|shall mean)\b",
-            tagged_text[quoted.end() : limit],
-        ) is not None
+        # The match may have absorbed a trailing ":" ("“X”: shall mean").
+        verb_from = quoted.end() - 1 if tagged_text[quoted.end() - 1] in ".:" else quoted.end()
+        return _DEFINING_VERB_RE.match(tagged_text[verb_from:limit]) is not None
     return _unquoted_defined_term_end(tagged_text, start, limit) is not None
 
 
-def _missing_heading_title_end(tagged_text: str, start: int, number_end: int) -> int | None:
+# Words that make a following number a cross-reference, not a heading.
+MISSING_HEADING_XREF_PREFIX_RE = re.compile(
+    r"(?:\b(?:[Ss]ections?|SECTIONS?|[Cc]lauses?|[Aa]rticles?|[Ss]chedules?|[Pp]aragraphs?|"
+    r"pursuant to|of|in|under|to|and|or|with|by|see|per|than|at|on|from|this|that|such|said)"
+    r"|[\u00a7(,])[^\S\r\n]*$"
+)
+_CAPS_TERM_RE = re.compile(r"(?P<term>[A-Z][A-Z0-9&\-]{1,15})(?=[^\S\r\n]+[A-Z][a-z])")
+_DEFINITION_FOLLOWER_RE = re.compile(
+    r"[^\S\r\n]*[.:]?[^\S\r\n]*(?:means|has the meaning|shall have the meaning|shall mean)\b"
+)
+
+
+def _caps_term_end(tagged_text: str, number_end: int) -> int | None:
+    """End of an all-caps term right after the number ("1.40 IFRS International ...")."""
+    after = re.compile(rf"{_HSPACE}+").match(tagged_text, number_end)
+    if after is None:
+        return None
+    match = _CAPS_TERM_RE.match(tagged_text, after.end())
+    return match.end() if match else None
+
+
+def _in_definitions_run(tagged_text: str, pos: int) -> bool:
+    """True when the nearest heading before pos is a definition ("<section>1.39 X</section> means")."""
+    open_at = tagged_text.rfind("<section>", 0, pos)
+    if open_at < 0:
+        return False
+    close_at = tagged_text.find("</section>", open_at, pos)
+    if close_at < 0:
+        return False
+    inner = tagged_text[open_at + len("<section>") : close_at]
+    if re.search(r"[\x22\u201c\u201d]", inner):
+        return True
+    return _DEFINITION_FOLLOWER_RE.match(tagged_text, close_at + len("</section>"), pos) is not None
+
+
+def _missing_heading_title_end(tagged_text: str, start: int, number_end: int) -> tuple[int, str] | None:
     """Return where an inserted section heading tag should close, or None.
 
     The title is the heading line: from the number to the end of its line (or
@@ -581,8 +689,11 @@ def _missing_heading_title_end(tagged_text: str, start: int, number_end: int) ->
     - a defined term ("1.70 “UCC” means ...") ends the title after the term;
     - a short first sentence ("2.2 Merger Consideration. At the ...") ends it;
     - a line that reads as prose, or is longer than
-      MISSING_HEADING_TITLE_MAX_CHARS, is an untitled clause: the title is the
-      number alone and the line stays body text.
+      MISSING_HEADING_TITLE_MAX_CHARS, keeps a leading Title Case run printed
+      without a period ("Number and Gender In this ..."); otherwise it is an
+      untitled clause: the title is the number alone and the line stays body
+      text.
+    Returns (end, kind) with kind "term", "sentence", "line", "run" or "number".
     """
     limit = tagged_text.find("<", number_end)
     if limit < 0:
@@ -608,10 +719,11 @@ def _missing_heading_title_end(tagged_text: str, start: int, number_end: int) ->
             line_end = limit
     term = MISSING_HEADING_DEFINED_TERM_RE.match(tagged_text, title_from, line_end)
     if term is not None:
-        return term.end()
+        return term.end(), "term"
     unquoted_term = _unquoted_defined_term_end(tagged_text, title_from, line_end)
     if unquoted_term is not None:
-        return unquoted_term
+        return unquoted_term, "term"
+    kind = "line"
     end = line_end
     sentence_end = MISSING_HEADING_TITLE_END_RE.search(tagged_text, title_from, line_end)
     if sentence_end is not None:
@@ -621,12 +733,16 @@ def _missing_heading_title_end(tagged_text: str, start: int, number_end: int) ->
             and _is_title_case(tagged_text[title_from : sentence_end.end()])
         ):
             end = sentence_end.end()
-    while end > start and tagged_text[end - 1] in " \t\u00a0\r":
+            kind = "sentence"
+    while end > start and tagged_text[end - 1].isspace():
         end -= 1
     title = tagged_text[title_from:end]
     if end - start > MISSING_HEADING_TITLE_MAX_CHARS or _looks_like_prose(title):
-        return number_only_end
-    return end
+        run_end = _leading_title_run_end(tagged_text, title_from, line_end)
+        if run_end is not None:
+            return run_end, "run"
+        return number_only_end, "number"
+    return end, kind
 
 
 def insert_missing_section_heading_tags(
@@ -661,13 +777,12 @@ def insert_missing_section_heading_tags(
                 continue
             line_start = tagged_text.rfind("\n", 0, match.start()) + 1
             line_prefix = tagged_text[line_start : match.start()]
+            at_real_line_start = MISSING_HEADING_LINE_PREFIX_RE.match(line_prefix) is not None
             at_line_start = (
-                MISSING_HEADING_LINE_PREFIX_RE.match(line_prefix) is not None
-                or MISSING_HEADING_SENTENCE_START_RE.search(line_prefix) is not None
+                at_real_line_start or MISSING_HEADING_SENTENCE_START_RE.search(line_prefix) is not None
             )
-            end = _missing_heading_title_end(tagged_text, match.start(), match.end())
-            if end is None or end < match.end():
-                continue
+            if not at_real_line_start and MISSING_HEADING_XREF_PREFIX_RE.search(line_prefix):
+                continue  # "pursuant to Section 5.11 ...", "in 2.2 ...", "(see 4.3 ...)"
             # A defined term ("1.42 Existing Debt Facilities means ...") is a heading
             # wherever it sits in flattened definitions text.
             is_definition = _defines_term_at(tagged_text, match.end())
@@ -676,10 +791,27 @@ def insert_missing_section_heading_tags(
                 and not is_definition
                 and MISSING_HEADING_AFTER_LOWERCASE_WORD_RE.search(line_prefix)
             ):
+                # Inside a run of definitions, an all-caps term opens a definition
+                # even after a lowercase word: "... promulgated thereunder 1.40 IFRS
+                # International Financial Reporting Standards, as in effect ...".
+                caps_term_end = _caps_term_end(tagged_text, match.end())
+                if caps_term_end is None or not _in_definitions_run(tagged_text, match.start()):
+                    continue
+                candidates.append((match.start(), caps_term_end))
+                continue
+            result = _missing_heading_title_end(tagged_text, match.start(), match.end())
+            if result is None:
+                continue
+            end, kind = result
+            if end < match.end():
+                continue
+            title = tagged_text[match.end() : end].strip(" \t .:-–—")
+            if not at_real_line_start and kind in {"sentence", "line"} and not _is_title_case(title):
+                # Away from a real line start only a Title Case heading counts:
+                # "... this Agreement. Section 5.11 Disclosure Schedule sets forth ..." does not.
                 continue
             if not at_line_start and not is_definition:
                 # Mid-line: only a short Title Case heading sentence qualifies.
-                title = tagged_text[match.end() : end].strip(" \t\u00a0.:-\u2013\u2014")
                 if (
                     not tagged_text[:end].endswith(".")
                     or not title

@@ -31,8 +31,23 @@ _ROMAN_INITIAL_TITLE_WORDS = frozenset(
     INITIAL INSOLVENCY INSPECTION INSPECTIONS INSTRUMENTS INSURANCE INTELLECTUAL
     INTENTIONALLY INTERIM INTERNAL INTERPRETATION INTERPRETATIONS INTRODUCTION INVALIDITY
     INVENTORIES INVENTORY INVESTIGATION INVESTMENT INVESTMENTS IPO ISSUANCE ISSUANCES
-    ISSUE ISSUES ITEMS
-    VALUATION VALUE VARIATIONS VARIOUS VAT VENDOR VENDORS VOTING
+    ISSUE ISSUES ITEMS IDENTIFICATION ILLEGALITY INTEGRATION INTERPRETIVE INTEREST
+    INTERESTS INVESTOR INVESTORS ISSUER ISSUERS INCENTIVE INCENTIVES INDENTURE INTENT
+    INTERCREDITOR IMPORTANT INSTRUCTIONS INTERPRETIVE
+    VALUATION VALUE VARIATIONS VARIOUS VAT VENDOR VENDORS VOTING VESTING VALIDITY
+    VOLUNTARY
+    """.split()
+)
+
+# Title words that begin with A or B, letters that can also be an article-number
+# suffix ("ARTICLE 4A", "ARTICLE IIIB"). "ARTICLE 4ADDITIONAL" splits as
+# 4 + ADDITIONAL only when the word is known; "ARTICLE 4ATAXES" stays as printed.
+_SUFFIX_INITIAL_TITLE_WORDS = frozenset(
+    """
+    ACCESS ACCOUNTING ACQUISITION ACTIONS ADDITIONAL ADJUSTMENT ADJUSTMENTS ADMINISTRATIVE
+    AGREEMENT AGREEMENTS ALLOCATION AMENDMENT AMENDMENTS ANCILLARY ANTITRUST APPRAISAL
+    APPROVALS ARBITRATION ASSETS ASSIGNMENT ASSUMED ASSUMPTION AUTHORITY
+    BENEFIT BENEFITS BOARD BOOKS BREAKUP BROKERS BUSINESS BUYER BUYERS BASIC
     """.split()
 )
 
@@ -97,6 +112,8 @@ def _split_glued_roman(
         # The title must begin with an uppercase word of 3+ letters.
         if len(word) < 3 or not word[0].isupper():
             continue
+        if word[0] in "AB" and word.upper() not in _SUFFIX_INITIAL_TITLE_WORDS:
+            continue  # "IIIATAXES" may be article IIIA: leave it as printed
         if word[1:].islower():
             if word[0] in "IVX" and word.upper() not in _ROMAN_INITIAL_TITLE_WORDS:
                 # "IXdefinitions" is IX + "definitions", not I + "Xdefinitions".
@@ -105,11 +122,10 @@ def _split_glued_roman(
         elif word.upper() in _ROMAN_INITIAL_TITLE_WORDS:
             rank = 1  # "VIIINDEMNIFICATION" -> VII + INDEMNIFICATION
         elif word[0] in "IVX":
-            # Title would start with a numeral letter but is not a known word:
-            # only trust it when the numbering says so.
-            if value != expected_number:
-                continue
-            rank = 2
+            # Title would start with a numeral letter but is not a known word
+            # ("IIIDENTIFICATION" could be III + DENTIFICATION or II +
+            # IDENTIFICATION): leave the heading as printed.
+            continue
         elif not word.isupper() and not word[1:].islower():
             continue
         else:
@@ -140,6 +156,9 @@ def normalize_glued_article_title(title: str, expected_number: int | None = None
         numeral, title_part = num, rest
         word = _first_word(rest)
         glued_title = len(word) >= 3 and word[0].isupper()
+        if glued_title and word[0] in "AB" and word.upper() not in _SUFFIX_INITIAL_TITLE_WORDS:
+            # "4ATAXES" may be article 4A: leave it as printed.
+            return title
         if not glued_title and not rest_is_separate:
             return title
     elif _roman_value(num) is not None and rest_is_separate:
