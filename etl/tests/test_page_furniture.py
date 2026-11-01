@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 
 from etl.domain import f_xml
-from etl.domain.page_furniture import furniture_kind, strip_page_furniture
+from etl.domain.page_furniture import furniture_kind, running_title_kind, strip_page_furniture
 
 
 def _page(body: str, *, header: str | None = None, footer: str | None = None) -> str:
@@ -326,6 +326,92 @@ class StripPageFurnitureTests(unittest.TestCase):
         result = strip_page_furniture(pages)
 
         self.assertEqual(result.page_texts, [f"Body text {i}.\n\nPage <page>{i + 1}</page>" for i in range(3)])
+
+
+class RunningTitleTests(unittest.TestCase):
+    def test_titled_page_numbers_are_removed(self) -> None:
+        # 1f67a120 shape: "ASSET PURCHASE AGREEMENT PAGE N", some numbers tagged as <page>.
+        pages = ["ASSET PURCHASE AGREEMENT\nThis Asset Purchase Agreement is made today.\nBody."]
+        for i in range(1, 10):
+            number = f"<page>{i + 1}</page>" if i % 3 == 0 else str(i + 1)
+            pages.append(f"ASSET PURCHASE AGREEMENT PAGE {number}\nBody text {i}.\nMore text.\nEven more.")
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[0], pages[0])
+        self.assertEqual(result.page_texts[1], "Body text 1.\nMore text.\nEven more.")
+        self.assertEqual(result.page_texts[3], "<page>4</page>\nBody text 3.\nMore text.\nEven more.")
+        self.assertEqual(len(result.removed), 9)
+        self.assertEqual({r.kind for r in result.removed}, {"running_title"})
+
+    def test_bare_running_title_is_removed_except_the_cover_copy(self) -> None:
+        # 5a95c633 shape: "Share Sale Agreement" atop every page, "page <page>N</page>" below.
+        pages = [f"Share Sale Agreement\nBody text {i}.\nMore text.\nEven more.\npage <page>{i + 1}</page>" for i in range(8)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[0], pages[0])
+        for i in range(1, 8):
+            self.assertEqual(result.page_texts[i], f"Body text {i}.\nMore text.\nEven more.\npage <page>{i + 1}</page>")
+
+    def test_title_on_too_few_pages_is_kept(self) -> None:
+        pages = [f"Body text {i}.\nMore text.\nEven more.\nLast line." for i in range(12)]
+        pages[0] = "Share Sale Agreement\n" + pages[0]
+        for i in (3, 5, 7, 9):
+            pages[i] = "Share Sale Agreement\n" + pages[i]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_title_equal_to_a_tagged_heading_is_kept(self) -> None:
+        pages = [f"AGREEMENT AND PLAN OF MERGER\nBody text {i}.\nMore text.\nEven more." for i in range(8)]
+        pages[4] = "AGREEMENT AND PLAN OF MERGER\n<article>AGREEMENT AND PLAN OF MERGER</article>\nBody text.\nMore."
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_titled_numbers_off_the_page_sequence_are_kept(self) -> None:
+        pages = [f"SHARE SALE AGREEMENT PAGE 1\nBody text {i}.\nMore text.\nEven more." for i in range(8)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_title_not_printed_as_the_agreement_title_is_kept(self) -> None:
+        pages = ["AGREEMENT AND PLAN OF MERGER\nThis Agreement and Plan of Merger is made today.\nBody."]
+        pages += [f"Voting Agreement\nBody text {i}.\nMore text.\nEven more." for i in range(1, 8)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_one_word_agreement_line_is_kept(self) -> None:
+        pages = [f"Agreement\nmeans this agreement, as amended {i}.\nMore text.\nEven more." for i in range(8)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+        self.assertIsNone(running_title_kind("Agreement"))
+
+    def test_running_title_kind(self) -> None:
+        cases = {
+            "ASSET PURCHASE AGREEMENT PAGE 12": "titled_page_number",
+            "ASSET PURCHASE AGREEMENT PAGE <page>12</page>": "titled_page_number",
+            "Share Sale Agreement - 12": "titled_page_number",
+            "Share Sale Agreement | 12": "titled_page_number",
+            "12 Share Sale Agreement": "titled_page_number",
+            "Share Sale Agreement": "title",
+            "AGREEMENT AND PLAN OF MERGER": "title",
+            "Agreement": None,
+            "The Company shall pay the fee.": None,
+            "Table of Contents": None,
+            "<article>ARTICLE I</article>": None,
+        }
+        for line, kind in cases.items():
+            with self.subTest(line=line):
+                self.assertEqual(running_title_kind(line), kind)
 
 
 class GenerateXmlStripsFurnitureTests(unittest.TestCase):

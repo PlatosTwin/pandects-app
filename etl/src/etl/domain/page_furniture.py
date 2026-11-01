@@ -38,8 +38,20 @@ On top of that, each kind needs its own evidence that it is a running line:
 - Banners (EXECUTION VERSION, CONFIDENTIAL): the shape repeats on
   ``MIN_REPEAT_PAGES`` pages and every non-empty line between the banner and the
   page edge is itself being stripped, so the banner is the outermost text.
+- Running titles: the line (digits collapsed, a trailing ``<page>`` tag read as
+  its number) sits at a page edge on at least ``MIN_TITLE_PAGE_SHARE`` of the
+  body pages and on ``MIN_TITLE_PAGES`` pages, is outermost like a banner, and
+  never equals a tagged heading of the agreement. A title with a page number
+  ("ASSET PURCHASE AGREEMENT PAGE 12", "Share Sale Agreement - 12",
+  "12 Share Sale Agreement") must also fit the page sequence like a bare page
+  number; when its number is tagged (``PAGE <page>12</page>``) the ``<page>``
+  tag is left in place. A bare title ("Share Sale Agreement", at least two words,
+  naming an agreement or plan) must be the agreement's own printed title: the
+  first line of the first body page, or text in the opening pages outside the
+  running lines. Its copy on the first body page is kept as the cover title.
 
-Removed lines are dropped whole; no other text on the page changes.
+Removed lines are dropped whole (except a kept ``<page>`` tag); no other text on
+the page changes.
 
 Known limitations (each needs a coincidence the rules cannot see through):
 
@@ -131,6 +143,25 @@ FURNITURE_PATTERNS: dict[str, re.Pattern[str]] = {
 
 # Doc IDs with no marker beyond digits must repeat with identical ID text; the
 # group is the ID without any trailing page number.
+# Running titles. Title words: letters and light punctuation, no digits.
+_TITLE_WORDS = r"[A-Za-z][A-Za-z&,.'\u2019()/ -]{0,74}[A-Za-z.)]"
+_TITLE_WITH_NUMBER_RES = [
+    # ASSET PURCHASE AGREEMENT PAGE 12
+    re.compile(rf"(?P<title>{_TITLE_WORDS})\s+page\s+(?P<number>\d{{1,3}})", re.IGNORECASE),
+    # Share Sale Agreement - 12, Share Sale Agreement | 12
+    re.compile(rf"(?P<title>{_TITLE_WORDS})\s*[-\u2013\u2014|]\s*(?P<number>\d{{1,3}})"),
+    # 12 Share Sale Agreement, 12 | Share Sale Agreement
+    re.compile(rf"(?P<number>\d{{1,3}})\s*[-\u2013\u2014|]?\s+(?P<title>{_TITLE_WORDS})"),
+]
+_TITLE_LINE_RE = re.compile(_TITLE_WORDS)
+# A titled page number whose number the tagger wrapped: "ASSET PURCHASE AGREEMENT PAGE <page>6</page>".
+_TRAILING_PAGE_TAG_RE = re.compile(r"^(?P<head>[^<>]*?)\s*(?P<tag><page>\s*(?P<number>\d{1,3})\s*</page>)$", re.IGNORECASE)
+_AGREEMENT_WORD_RE = re.compile(r"\b(?:agreement|plan\s+of\s+(?:merger|arrangement|reorganization))\b", re.IGNORECASE)
+MAX_TITLE_CHARS = 80
+# A running title must sit at a page edge on at least this share of body pages.
+MIN_TITLE_PAGE_SHARE = 0.5
+MIN_TITLE_PAGES = 5
+
 _UNMARKED_DOC_ID_RE = re.compile(
     r"\|*\s*(?P<id>\d{6,}\.\d{1,4}(?:\.\d{1,4})?|[A-Z]{2,6}\s\d{6,})(?:\s\d{1,3})?\s*\|*"
 )
@@ -158,6 +189,7 @@ class _Candidate:
     side: str  # "top" or "bottom"
     rank: int  # 0 = outermost countable line on its side
     next_is_heading_like: bool = False  # the next non-blank line looks like a heading
+    keep: str | None = None  # text left in place of the line when it is stripped (a <page> tag)
 
 
 def furniture_kind(line: str) -> str | None:
@@ -171,8 +203,56 @@ def furniture_kind(line: str) -> str | None:
     return None
 
 
+def _untag_trailing_page_number(line: str) -> tuple[str, str | None]:
+    """("TITLE PAGE 6", "<page>6</page>") for "TITLE PAGE <page>6</page>"; (line, None) otherwise."""
+    stripped = " ".join(line.split())
+    match = _TRAILING_PAGE_TAG_RE.match(stripped)
+    if match is None or not match.group("head"):
+        return stripped, None
+    return f"{match.group('head')} {match.group('number')}", match.group("tag")
+
+
+def running_title_kind(line: str) -> str | None:
+    """"titled_page_number" for a title with a page number ("ASSET PURCHASE AGREEMENT
+    PAGE 12", also with the number tagged as ``<page>12</page>``), "title" for a bare
+    agreement title ("Share Sale Agreement"), else None. Lines that match an
+    ordinary furniture pattern are not running titles."""
+    stripped, tag = _untag_trailing_page_number(line)
+    if not stripped or len(stripped) > MAX_TITLE_CHARS or "<" in stripped or ">" in stripped:
+        return None
+    if tag is not None:
+        if any(pattern.fullmatch(stripped) for pattern in _TITLE_WITH_NUMBER_RES[:2]):
+            return "titled_page_number"
+        return None
+    if furniture_kind(stripped) is not None:
+        return None
+    for pattern in _TITLE_WITH_NUMBER_RES:
+        if pattern.fullmatch(stripped):
+            return "titled_page_number"
+    if (
+        _TITLE_LINE_RE.fullmatch(stripped)
+        and len(stripped.split()) >= 2
+        and _AGREEMENT_WORD_RE.search(stripped)
+    ):
+        return "title"
+    return None
+
+
+def _title_number(text: str) -> int:
+    untagged, _ = _untag_trailing_page_number(text)
+    for pattern in _TITLE_WITH_NUMBER_RES:
+        match = pattern.fullmatch(untagged)
+        if match is not None:
+            return int(match.group("number"))
+    raise ValueError(text)
+
+
 def _line_shape(line: str) -> str:
     return _DIGITS_RE.sub("#", " ".join(line.split()))
+
+
+def _title_shape(line: str) -> str:
+    return _line_shape(_untag_trailing_page_number(line)[0])
 
 
 def _repeat_key(candidate: _Candidate) -> str:
@@ -252,12 +332,13 @@ def _page_candidates(page_index: int, text: str) -> list[_Candidate]:
     for index in sorted(positions):
         if index in inside:
             continue
-        kind = furniture_kind(lines[index])
+        kind = furniture_kind(lines[index]) or running_title_kind(lines[index])
         if kind is None:
             continue
         if kind == "page_number" and _next_line_opens_unnumbered_heading(lines, index):
             continue
         side, rank = positions[index]
+        keep = _untag_trailing_page_number(lines[index])[1] if kind == "titled_page_number" else None
         candidates.append(
             _Candidate(
                 page_index,
@@ -267,6 +348,7 @@ def _page_candidates(page_index: int, text: str) -> list[_Candidate]:
                 side,
                 rank,
                 next_is_heading_like=_next_line_is_heading_like(lines, index),
+                keep=keep,
             )
         )
     return candidates
@@ -280,6 +362,8 @@ def _repeated(candidates: list[_Candidate]) -> list[_Candidate]:
 
 
 def _page_number_value(text: str) -> int:
+    if running_title_kind(text) == "titled_page_number":
+        return _title_number(text)
     match = _DIGITS_RE.search(text)
     assert match is not None
     return int(match.group())
@@ -383,7 +467,7 @@ def _accepted_page_numbers(
     accepted: list[_Candidate] = []
     by_shape: dict[str, list[_Candidate]] = {}
     for candidate in candidates:
-        by_shape.setdefault(_line_shape(candidate.text), []).append(candidate)
+        by_shape.setdefault(_title_shape(candidate.text), []).append(candidate)
     for group in by_shape.values():
         for chain in _chain_page_numbers(group, dominant, tagged):
             if _accepted_chain(chain, numbered_pages):
@@ -430,6 +514,69 @@ def _banner_is_outermost(candidate: _Candidate, lines: list[str], removed_lines:
     return all(index in removed_lines for index in between)
 
 
+def _heading_texts(page_texts: list[str]) -> set[str]:
+    """Normalized text of every tagged <article>/<section> heading in the agreement."""
+    texts: set[str] = set()
+    for text in page_texts:
+        for match in re.finditer(r"<(article|section)>(.*?)</\1>", text, re.IGNORECASE | re.DOTALL):
+            texts.add(" ".join(match.group(2).split()).lower())
+    return texts
+
+
+def _title_is_printed(title: str, page_texts: list[str], title_lines: set[tuple[int, int]]) -> bool:
+    """The title is the agreement's own: it is the first line of the first body page,
+    or it appears in the opening body pages outside the running-title lines."""
+    if not page_texts:
+        return False
+    first_lines = [line.strip() for line in page_texts[0].split("\n") if line.strip()]
+    if first_lines and " ".join(first_lines[0].split()) == title:
+        return True
+    needle = title.lower()
+    for page_index, text in enumerate(page_texts[:2]):
+        for line_index, line in enumerate(text.split("\n")):
+            if (page_index, line_index) in title_lines:
+                continue
+            if needle in " ".join(line.split()).lower():
+                return True
+    return False
+
+
+def _running_titles(
+    candidates: list[_Candidate],
+    page_texts: list[str],
+    numbered_pages: set[int],
+    tagged: dict[int, int],
+) -> list[_Candidate]:
+    """Running titles repeated on most body pages.
+
+    A shape (digits collapsed) must sit at a page edge on at least
+    MIN_TITLE_PAGE_SHARE of the body pages and on MIN_TITLE_PAGES pages. A title
+    with a page number must also fit the page sequence like a bare page number; a
+    bare title must be the agreement's own printed title, and its copy on the first
+    body page (the cover title) is kept. A line that is also a tagged heading
+    anywhere in the agreement is never stripped.
+    """
+    needed = max(MIN_TITLE_PAGES, MIN_TITLE_PAGE_SHARE * len(page_texts))
+    headings = _heading_texts(page_texts)
+    by_shape: dict[str, list[_Candidate]] = {}
+    for candidate in candidates:
+        by_shape.setdefault(_title_shape(candidate.text), []).append(candidate)
+    accepted: list[_Candidate] = []
+    for shape, group in by_shape.items():
+        if len({c.page_index for c in group}) < needed:
+            continue
+        if any(_untag_trailing_page_number(c.text)[0].lower() in headings for c in group):
+            continue
+        if group[0].kind == "titled_page_number":
+            accepted += _sequenced_page_numbers(group, numbered_pages, tagged)
+            continue
+        title_lines = {(c.page_index, c.line_index) for c in group}
+        if not _title_is_printed(shape, page_texts, title_lines):
+            continue
+        accepted += [c for c in group if c.page_index != 0]
+    return accepted
+
+
 def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
     """Remove running headers/footers from the edges of an agreement's body pages.
 
@@ -437,7 +584,7 @@ def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
     texts with furniture lines dropped plus a record of each removed line.
     """
     all_candidates = [c for i, text in enumerate(page_texts) for c in _page_candidates(i, text)]
-    accepted = _repeated([c for c in all_candidates if c.kind not in ("page_number", "banner")])
+    accepted = _repeated([c for c in all_candidates if c.kind in ("toc_link", "doc_id", "exhibit_label")])
     numbered_pages = {i for i, text in enumerate(page_texts) if _page_is_numbered_elsewhere(text)}
     tagged = _tagged_page_numbers(page_texts)
     accepted += _sequenced_page_numbers(
@@ -464,10 +611,26 @@ def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
         kept_banner_lines.setdefault(candidate.page_index, set()).add(candidate.line_index)
     banners = [c for c in banners if outermost(c, kept_banner_lines)]
     accepted += banners
+    for candidate in banners:
+        removed_by_page.setdefault(candidate.page_index, set()).add(candidate.line_index)
 
-    drop: dict[int, dict[int, str]] = {}
+    titles = _running_titles(
+        [c for c in all_candidates if c.kind in ("titled_page_number", "title")],
+        page_texts,
+        numbered_pages,
+        tagged,
+    )
+    title_lines_by_page: dict[int, set[int]] = {}
+    for candidate in titles:
+        title_lines_by_page.setdefault(candidate.page_index, set()).add(candidate.line_index)
+    titles = [c for c in titles if outermost(c, title_lines_by_page)]
+    for candidate in titles:
+        candidate.kind = "running_title"
+    accepted += titles
+
+    drop: dict[int, dict[int, _Candidate]] = {}
     for candidate in accepted:
-        drop.setdefault(candidate.page_index, {})[candidate.line_index] = candidate.kind
+        drop.setdefault(candidate.page_index, {})[candidate.line_index] = candidate
 
     result = FurnitureStripResult(page_texts=[])
     for page_index, text in enumerate(page_texts):
@@ -478,9 +641,10 @@ def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
         kept: list[str] = []
         for line_index, line in enumerate(page_lines[page_index]):
             if line_index in page_drop:
-                result.removed.append(
-                    RemovedFurnitureLine(page_index=page_index, line=line.strip(), kind=page_drop[line_index])
-                )
+                candidate = page_drop[line_index]
+                result.removed.append(RemovedFurnitureLine(page_index=page_index, line=line.strip(), kind=candidate.kind))
+                if candidate.keep is not None:
+                    kept.append(candidate.keep)
                 continue
             kept.append(line)
         result.page_texts.append("\n".join(kept))
