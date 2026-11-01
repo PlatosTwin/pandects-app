@@ -396,6 +396,17 @@ def _repair_sentence_split_title(
     if glued is not None:
         return result(glued)  # "Calculation of LossesNotwithstanding" + " anything ..."
 
+    inner_term = re.match(
+        rf"^(?P<term>\S+(?:{_HSPACE}+\S+){{0,4}}?){_HSPACE}+(?:is|are){_HSPACE}+(?=[A-Z]|(?:the|a|an|all|any)\b)", rest
+    )
+    if (
+        inner_term is not None
+        and _is_title_case(inner_term.group("term"))
+        and _norm(inner_term.group("term").split()[0]) not in _NOT_A_TERM_START
+        and _CLAUSE_VERB_RE.search(inner_term.group("term")) is None
+    ):
+        return result(len(inner_term.group("term")))  # "1.14 Parties" + " are Sellers, TriQuint and ..."
+
     last, nxt = inner[-1:], follow[:1]
     digit_split = re.search(r"\d\.?$", rest) is not None and nxt.isdigit()
     split_token = digit_split or (last in "’'" and nxt.islower()) or (last.isalnum() and nxt.islower())
@@ -425,10 +436,11 @@ def _repair_sentence_split_title(
         or re.match(rf"^(?P<term>[^.;:]*?\S){_HSPACE}+(?:is|are){_HSPACE}+defined{_HSPACE}+in\b", rest)
     )
     follow_first = _norm(follow.split()[0]) if follow.split() else ""
+    if run_on_term is not None and follow_first in ("of", "not", "to", "in", "subject"):
+        return None  # "Business Day is" + " not a Saturday ...", "Knowledge is" + " to be construed ..."
     if run_on_term is not None and (
         _norm(run_on_term.group("term").split()[0]) in _NOT_A_TERM_START
         or _ADVERB_RE.fullmatch(follow_first)  # "Time is" + " expressly of the essence"
-        or follow_first in ("of", "not", "to", "in", "subject")
     ):
         run_on_term = None  # "This Agreement is" + " intended ...", "It is" + " agreed ..."
     if run_on_term is not None and len(run_on_term.group("term").split()) <= 5:
@@ -445,6 +457,22 @@ def _repair_sentence_split_title(
         return None  # "Non-U" + "S. Plans": a heading split inside a word
     if rest.rstrip().endswith(".") and not digit_split and _CLAUSE_VERB_RE.search(rest) is None:
         return None  # "5.7 eSpeed SEC Documents." + " ...": a complete heading
+
+    # The clause's own first subsection follows the heading: "The Escrow Agent" + " 8.2.1 ...".
+    own_number = re.search(r"\d+(?:\.\d+)*", inner[: number.end()])
+    if own_number is not None:
+        subsection = re.search(rf"\s{re.escape(own_number.group(0))}\.\d", joined)
+        if subsection is not None and subsection.start() > 0:
+            heading = joined[: subsection.start()].rstrip()
+            words = heading.split()
+            if (
+                words
+                and len(words) <= _HEADING_MAX_WORDS
+                and _CLAUSE_VERB_RE.search(heading) is None
+                and heading[-1:] not in ":,;"
+                and _norm(words[-1]) not in _TITLE_SMALL_WORDS
+            ):
+                return result(len(heading)) if len(heading) != len(rest.rstrip()) else None
 
     # Layout: the source prints a heading in bold/underline or on its own line.
     if layout is not None:
@@ -476,8 +504,17 @@ def _repair_sentence_split_title(
                 or (
                     _norm(words[0]) in _SENTENCE_START_WORDS
                     and not (_norm(words[0]) == "no" and len(words) > 1 and words[1][:1].isupper())
+                    and not _is_title_case(heading)  # "The Parties' Covenants", "The Escrow Agent"
                 )
             ):
+                if (
+                    words
+                    and len(words) <= 8
+                    and _CLAUSE_VERB_RE.search(heading) is None
+                    and not after[:1].islower()
+                    and (_is_title_case(heading) or _norm(words[0]) not in _SENTENCE_START_WORDS)
+                ):
+                    return None  # a short set-off heading we cannot place: never strip it
                 found = None
             else:
                 return result(cut)

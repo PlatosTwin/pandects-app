@@ -1089,3 +1089,53 @@ class SentenceSplitReReviewTests(unittest.TestCase):
     def test_is_followed_by_an_adverb_is_not_a_definition(self) -> None:
         # b2a8c999.
         self.assertEqual(self._title("12.6 Time is", " expressly of the essence of this Agreement."), "12.6")
+
+
+class SentenceSplitThirdReviewTests(SentenceSplitReReviewTests):
+    """Third review of PR #229."""
+
+    def test_title_case_layout_heading_starting_with_an_opener_is_kept(self) -> None:
+        # bb80b652: "6.3 The Parties' Covenants" is followed by 6.3.1 and printed bold.
+        raw = "<p><b>6.3</b></p><p><b>The Parties\u2019 Covenants</b></p><p>6.3.1 Each Party shall keep the terms.</p>"
+        self.assertEqual(
+            self._title("6.3 The Parties\u2019 Covenants", " 6.3.1 Each Party shall keep the terms.", raw),
+            "6.3 The Parties\u2019 Covenants",
+        )
+
+    def test_rejected_short_layout_heading_is_never_stripped(self) -> None:
+        raw = "<p>4.4 <b>Escrow Release Procedure,</b></p><p>The Escrow Agent shall release the funds.</p>"
+        self.assertEqual(
+            self._title("4.4 Escrow Release Procedure, The Escrow Agent", " shall release the funds.", raw),
+            "4.4 Escrow Release Procedure, The Escrow Agent",
+        )
+
+    def test_title_ends_before_the_sections_own_first_subsection(self) -> None:
+        # ea63946b, bb80b652 without HTML, and an "8.2 The Escrow Agent" repro.
+        cases = {
+            ("5.2 The Preliminary Purchase Price and payment", " thereof 5.2.1 The Purchaser shall pay"): (
+                "5.2 The Preliminary Purchase Price and payment thereof"
+            ),
+            ("6.3 The Parties\u2019 Covenants", " 6.3.1 Each Party shall keep the terms."): "6.3 The Parties\u2019 Covenants",
+            ("8.2 The Escrow Agent", " 8.2.1 The Escrow Agent shall hold the Escrow Amount."): "8.2 The Escrow Agent",
+        }
+        for (inner, follow), title in cases.items():
+            with self.subTest(inner=inner):
+                self.assertEqual(self._title(inner, follow), title)
+        # A lead-in to a list is not a heading.
+        self.assertEqual(
+            self._title("17.1 A notice given", " under this agreement:\n\n17.1.1 shall be in writing"), "17.1"
+        )
+
+    def test_is_followed_by_of_not_to_keeps_the_term(self) -> None:
+        self.assertEqual(self._title("1.3 Business Day is", " not a Saturday or a Sunday."), "1.3 Business Day is")
+        self.assertEqual(self._title("1.4 Knowledge is", " to be construed as actual knowledge."), "1.4 Knowledge is")
+        self.assertEqual(self._title("12.6 Time is", " expressly of the essence of this Agreement."), "12.6")
+
+    def test_term_inside_the_tag_ends_the_title(self) -> None:
+        # 936e9204.
+        self.assertEqual(
+            self._title("1.14 Parties are Sellers, TriQuint and Purchaser collectively.", " Party is any of them."),
+            "1.14 Parties",
+        )
+        self.assertEqual(self._title("4.1 Completion is conditional", " on the Conditions."), "4.1")
+        self.assertEqual(self._title("9.2 BidCo is entitled", " to waive the Conditions."), "9.2")
