@@ -18,6 +18,7 @@ from etl.domain.heading_titles import article_title_number
 from etl.domain.heading_titles import normalize_glued_article_title
 from etl.domain.heading_titles import normalize_glued_section_title
 from etl.domain.page_furniture import strip_page_furniture
+from etl.domain.txt_underlines import strip_inline_underlines
 
 
 @dataclass
@@ -1275,6 +1276,11 @@ def _xml_page_text(row: Any) -> str:
     source_is_txt = row.get("source_is_txt")
     # NULL can arrive as None or NaN (truthy), so test the value, not bool(NaN).
     if page_text and source_is_txt is not None and source_is_txt == source_is_txt and bool(source_is_txt):
+        # Underline dash lines that the reflow fused into sentences. Sig pages
+        # keep theirs: a dash line there is a signature line.
+        raw_page_content = row.get("raw_page_content")
+        if source_page_type != "sig" and _has_text_value(raw_page_content):
+            page_text = strip_inline_underlines(page_text, str(raw_page_content)).text
         # Pages from old EDGAR .txt filings carry SGML markup (<TABLE>, <S>,
         # <C>, <PAGE>, the <DOCUMENT> header) and text-table rule lines.
         page_order = row.get("page_order")
