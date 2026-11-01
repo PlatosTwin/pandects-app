@@ -215,6 +215,32 @@ class StripPageFurnitureTests(unittest.TestCase):
         self.assertEqual(result.page_texts, pages)
         self.assertEqual(result.removed, [])
 
+    def test_bare_numbers_must_keep_a_constant_gap_to_tagged_numbers(self) -> None:
+        # Pages tagged 11-13 open with list items 3, 4, 6: the gap to the tag is not constant.
+        pages = [f"{n}\nList item text.\nMore text.\nEven more.\n<page>{t}</page>" for n, t in ((3, 11), (4, 12), (6, 13))]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_glued_page_tags_are_not_tagged_page_numbers(self) -> None:
+        # The tagger split a document ID into "<page>4893-</page>2596-7688v2" on two pages.
+        pages = [f"Body text {i}.\nMore text.\nEven more.\n{i + 2}\n4893-2596-7688v2" for i in range(5)]
+        for index in (1, 3):
+            pages[index] = f"Body text {index}.\nMore text.\nEven more.\n{index + 2}\n<page>4893-</page>2596-7688v2"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual([r.line for r in result.removed if r.kind == "page_number"], ["2", "3", "4", "5", "6"])
+
+    def test_bare_numbers_with_a_constant_gap_to_tagged_numbers_are_removed(self) -> None:
+        # Agreement page numbers 2-5 printed above filing page numbers 6-9.
+        pages = [f"Body text {i}.\nMore text.\nEven more.\n{i + 2}\n<page>{i + 6}</page>" for i in range(4)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual([r.line for r in result.removed], ["2", "3", "4", "5"])
+
     def test_sparse_chain_counts_pages_with_tagged_numbers(self) -> None:
         pages = [f"Body text {i}.\nMore text.\nEven more.\nLast line.\n<page>{i + 1}</page>" for i in range(50)]
         for index in (2, 10, 48):

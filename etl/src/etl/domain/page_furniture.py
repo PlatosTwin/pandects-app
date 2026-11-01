@@ -26,7 +26,10 @@ On top of that, each kind needs its own evidence that it is a running line:
   ``MIN_REPEAT_PAGES`` pages are stripped, and only when the chain's pages plus
   the pages numbered some other way (a tagged ``<page>`` number, or a short
   split-off header/footer fragment) cover at least ``MIN_CHAIN_COVERAGE`` of the
-  pages it spans. At most one number per page is removed:
+  pages it spans. On pages that also carry a tagged ``<page>`` number, the bare
+  number must sit the same distance from the tagged one on every link of the
+  chain (list items 3, 4, 6 on pages tagged 11-13 do not). At most one number
+  per page is removed:
   when both edges of a page fit, the agreement's dominant edge wins (a tie
   strips neither). A number off the dominant edge that sits right above a
   heading-like line is kept, and a number whose next non-blank line opens a
@@ -37,6 +40,17 @@ On top of that, each kind needs its own evidence that it is a running line:
   page edge is itself being stripped, so the banner is the outermost text.
 
 Removed lines are dropped whole; no other text on the page changes.
+
+Known limitations (each needs a coincidence the rules cannot see through):
+
+- A bare number on the dominant edge of a page that lost its own page number is
+  stripped when it happens to equal that page's number.
+- Clause numbers equal to the page number on 3 or more consecutive tagged pages
+  are stripped (they sit a constant distance from the tagged numbers).
+- An untagged one-word ``CONFIDENTIAL`` heading on the last line of 3 or more
+  pages is stripped as a banner.
+- An identical amount (``250000.00``) alone on the edges of 3 or more pages is
+  stripped as a numeric document ID.
 """
 
 import re
@@ -52,6 +66,14 @@ MIN_CHAIN_COVERAGE = 0.5
 # A line that is only a tagged page number ("<page>12</page>", "Page <page>12</page>").
 _PAGE_MARKER_LINE_RE = re.compile(r"(?:page\s*)?<page>.*?</page>", re.IGNORECASE)
 _PAGE_TAG_RE = re.compile(r"<page>.*?</page>", re.IGNORECASE)
+# A tagged page number: "<page>12</page>", "<page>- 12 -</page>". Not a tag glued to
+# other text ("<page>4893-</page>2596-7688v2" is a document ID the tagger split).
+_CLEAN_PAGE_TAG_RE = re.compile(
+    r"(?<![\w-])<page>\s*(?:page\s*)?"
+    r"(?:[-\u2013\u2014]\s*(?P<dashed>\d{1,4})\s*[-\u2013\u2014]|(?P<plain>\d{1,4}))"
+    r"\s*</page>(?![\w-])",
+    re.IGNORECASE,
+)
 _DIGITS_RE = re.compile(r"\d+")
 _HEADING_OPEN_RE = re.compile(r"<(article|section)>", re.IGNORECASE)
 _HEADING_CLOSE_RE = re.compile(r"</(article|section)>", re.IGNORECASE)
@@ -263,15 +285,54 @@ def _page_number_value(text: str) -> int:
     return int(match.group())
 
 
-def _fits_after(candidate: _Candidate, last: _Candidate) -> bool:
+def _tagged_page_numbers(page_texts: list[str]) -> dict[int, int]:
+    """The tagged <page> number of each page that has one.
+
+    A value repeated on a neighboring page (a document ID the tagger wrapped in
+    <page>, say) is not a page number and is left out.
+    """
+    values: dict[int, int] = {}
+    for index, text in enumerate(page_texts):
+        match = _CLEAN_PAGE_TAG_RE.search(text)
+        if match is not None:
+            values[index] = int(match.group("dashed") or match.group("plain"))
+    return {
+        index: value
+        for index, value in values.items()
+        if values.get(index - 1) != value and values.get(index + 1) != value
+    }
+
+
+def _tag_gap(candidate: _Candidate, tagged: dict[int, int]) -> int | None:
+    tag = tagged.get(candidate.page_index)
+    return None if tag is None else _page_number_value(candidate.text) - tag
+
+
+def _chain_tag_gap(chain: list[_Candidate], tagged: dict[int, int]) -> int | None:
+    for link in chain:
+        gap = _tag_gap(link, tagged)
+        if gap is not None:
+            return gap
+    return None
+
+
+def _fits_after(candidate: _Candidate, chain: list[_Candidate], tagged: dict[int, int]) -> bool:
+    last = chain[-1]
     value = _page_number_value(candidate.text)
     last_value = _page_number_value(last.text)
     offset = value - candidate.page_index
     last_offset = last_value - last.page_index
-    return value > last_value and abs(offset - last_offset) <= PAGE_OFFSET_TOLERANCE
+    if not (value > last_value and abs(offset - last_offset) <= PAGE_OFFSET_TOLERANCE):
+        return False
+    # On tagged pages, the bare number must sit a constant distance from the tagged one.
+    gap = _tag_gap(candidate, tagged)
+    chain_gap = _chain_tag_gap(chain, tagged)
+    return gap is None or chain_gap is None or gap == chain_gap
 
 
-def _chain_page_numbers(group: list[_Candidate], dominant: str | None) -> list[list[_Candidate]]:
+def _chain_page_numbers(
+    group: list[_Candidate], dominant: str | None, tagged: dict[int, int]
+) -> list[list[_Candidate]]:
     """Link one shape's candidates into rising page sequences.
 
     When a chain can be extended by candidates on both edges of one page, the
@@ -287,7 +348,7 @@ def _chain_page_numbers(group: list[_Candidate], dominant: str | None) -> list[l
         used: set[int] = set()
         for chain in sorted(chains, key=len, reverse=True):
             fitting = [
-                c for c in page_candidates if id(c) not in used and _fits_after(c, chain[-1])
+                c for c in page_candidates if id(c) not in used and _fits_after(c, chain, tagged)
             ]
             if not fitting:
                 continue
@@ -317,14 +378,14 @@ def _accepted_chain(chain: list[_Candidate], numbered_pages: set[int]) -> bool:
 
 
 def _accepted_page_numbers(
-    candidates: list[_Candidate], dominant: str | None, numbered_pages: set[int]
+    candidates: list[_Candidate], dominant: str | None, numbered_pages: set[int], tagged: dict[int, int]
 ) -> list[_Candidate]:
     accepted: list[_Candidate] = []
     by_shape: dict[str, list[_Candidate]] = {}
     for candidate in candidates:
         by_shape.setdefault(_line_shape(candidate.text), []).append(candidate)
     for group in by_shape.values():
-        for chain in _chain_page_numbers(group, dominant):
+        for chain in _chain_page_numbers(group, dominant, tagged):
             if _accepted_chain(chain, numbered_pages):
                 accepted.extend(chain)
     return accepted
@@ -338,10 +399,12 @@ def _dominant_side(candidates: list[_Candidate]) -> str | None:
     return "top" if top > bottom else "bottom"
 
 
-def _sequenced_page_numbers(candidates: list[_Candidate], numbered_pages: set[int]) -> list[_Candidate]:
+def _sequenced_page_numbers(
+    candidates: list[_Candidate], numbered_pages: set[int], tagged: dict[int, int]
+) -> list[_Candidate]:
     """Keep page-number candidates that chain into the agreement's page sequence."""
-    dominant = _dominant_side(_accepted_page_numbers(candidates, None, numbered_pages))
-    accepted = _accepted_page_numbers(candidates, dominant, numbered_pages)
+    dominant = _dominant_side(_accepted_page_numbers(candidates, None, numbered_pages, tagged))
+    accepted = _accepted_page_numbers(candidates, dominant, numbered_pages, tagged)
     if dominant is not None:
         # Off the usual edge, a number right above a heading is a clause number.
         accepted = [c for c in accepted if c.side == dominant or not c.next_is_heading_like]
@@ -376,7 +439,10 @@ def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
     all_candidates = [c for i, text in enumerate(page_texts) for c in _page_candidates(i, text)]
     accepted = _repeated([c for c in all_candidates if c.kind not in ("page_number", "banner")])
     numbered_pages = {i for i, text in enumerate(page_texts) if _page_is_numbered_elsewhere(text)}
-    accepted += _sequenced_page_numbers([c for c in all_candidates if c.kind == "page_number"], numbered_pages)
+    tagged = _tagged_page_numbers(page_texts)
+    accepted += _sequenced_page_numbers(
+        [c for c in all_candidates if c.kind == "page_number"], numbered_pages, tagged
+    )
 
     removed_by_page: dict[int, set[int]] = {}
     for candidate in accepted:
