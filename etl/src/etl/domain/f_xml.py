@@ -1024,7 +1024,12 @@ def _xml_page_text(row: Any) -> str:
     if page_text and source_is_txt is not None and source_is_txt == source_is_txt and bool(source_is_txt):
         # Pages from old EDGAR .txt filings carry SGML markup (<TABLE>, <S>,
         # <C>, <PAGE>, the <DOCUMENT> header) and text-table rule lines.
-        page_text = strip_edgar_sgml(page_text)
+        page_order = row.get("page_order")
+        page_text = strip_edgar_sgml(
+            page_text,
+            page_type=str(source_page_type) if _has_text_value(source_page_type) else None,
+            page_order=int(page_order) if page_order is not None and page_order == page_order else None,
+        )
     return page_text
 
 

@@ -14,6 +14,9 @@ from etl.domain import f_xml
 from etl.domain.edgar_sgml import strip_edgar_sgml, strip_edgar_sgml_with_report
 
 
+EQ = "=" * 70
+
+
 class StripEdgarSgmlTests(unittest.TestCase):
     def test_document_header_unit_is_removed_with_its_values(self) -> None:
         # 1305cbea, page 0
@@ -130,22 +133,117 @@ class StripEdgarSgmlTests(unittest.TestCase):
             "FORMER COMPANY: FORMER CONFORMED NAME: USAT HOLDINGS INC",
         )
 
-    def test_rule_lines_are_removed(self) -> None:
-        # 1305cbea, page 1 (front matter) and 4818e5db, page 122
+    def test_title_decoration_is_removed(self) -> None:
+        # 1305cbea, page 1 (front matter)
         text = (
-            "EXHIBIT 10.2\n"
-            "\n"
-            "================================================================================\n"
-            "\n"
-            "AGREEMENT OF PURCHASE AND SALE\n"
-            "\n"
-            "-------------------------------------\n"
-            "\n"
-            "-------- ----------- ----------"
+            "EXHIBIT 10.2\n\n" + EQ + "\n\nAGREEMENT OF PURCHASE AND SALE\n\n"
+            "MARCH 12, 2007\n\n" + EQ
         )
-        result = strip_edgar_sgml_with_report(text)
-        self.assertEqual(result.text, "EXHIBIT 10.2\n\n\nAGREEMENT OF PURCHASE AND SALE\n\n")
-        self.assertEqual(len(result.lines_removed), 3)
+        result = strip_edgar_sgml_with_report(text, page_type="front_matter", page_order=1)
+        self.assertEqual(result.lines_removed, [EQ, EQ])
+        self.assertEqual(result.rule_lines_kept, [])
+
+    def test_dated_as_of_decoration_is_removed(self) -> None:
+        # f8698e9e, page 1 (front matter): dash borders next to "=" borders.
+        dash = "-" * 32
+        text = (
+            "EXHIBIT 2.1\n\n" + EQ + "\n\nAGREEMENT AND PLAN OF MERGER AND REORGANIZATION\n\n"
+            "EOS BIOTECHNOLOGY, INC., a Delaware corporation\n\n" + dash + "\n\n"
+            "Dated as of February 3, 2003\n\n" + dash + "\n\n" + EQ
+        )
+        result = strip_edgar_sgml_with_report(text, page_type="front_matter", page_order=1)
+        self.assertEqual(result.lines_removed, [EQ, dash, dash, EQ])
+
+    def test_footnote_separator_is_removed(self) -> None:
+        # f8698e9e, page 11 (body)
+        text = (
+            "<section>1.13 Exemption from Registration, California Permit.</section> The "
+            "shares shall be issued.\n\n---------------------\n\n* Certain information on "
+            "this page has been omitted and filed separately with the Commission."
+        )
+        result = strip_edgar_sgml_with_report(text, page_type="body", page_order=11)
+        self.assertEqual(result.lines_removed, ["---------------------"])
+
+    def test_table_row_separators_are_removed(self) -> None:
+        # c0a51bb3, page 13 (body)
+        rule = "-" * 70
+        text = (
+            "Equal or exceed $20,000,000 $1,500,000 but are less than $22,500,000\n\n" + rule + "\n\n"
+            "Equal or exceed $22,500,000 $4,500,000 but are less than $25,000,000\n\n" + rule + "\n\n"
+            "Equal or exceed $25,000,000 $5,000,000\n\n" + rule + "\n\n"
+            '(b) As used herein, "Media Revenues" shall mean net cash revenues.'
+        )
+        result = strip_edgar_sgml_with_report(text, page_type="body", page_order=13)
+        self.assertEqual(result.lines_removed, [rule, rule, rule])
+
+    def test_rules_inside_a_text_table_are_removed_even_when_stacked(self) -> None:
+        # 91a6e6fb, page 119 (back matter)
+        rule = "-" * 70
+        text = (
+            "<TABLE> <CAPTION> PRO RATA PERCENTAGE SHARES TO BE HELD IN INTEREST\n\n"
+            + rule + "\n\n" + rule + "\n\n" + rule + "\n\n</TABLE>"
+        )
+        result = strip_edgar_sgml_with_report(text, page_type="back_matter", page_order=119)
+        self.assertEqual(result.lines_removed, [rule, rule, rule])
+        self.assertEqual(result.text, "PRO RATA PERCENTAGE SHARES TO BE HELD IN INTEREST\n\n\n\n")
+
+    def test_rule_lines_on_signature_pages_are_kept(self) -> None:
+        # 1be86269, page 66 (sig): signature lines under "Very truly yours,".
+        rule = "-" * 30
+        text = "Very truly yours,\n\nGANNETT CO., INC.\n\nBy:\n\n" + rule + "\n\n" + rule
+        result = strip_edgar_sgml_with_report(text, page_type="sig", page_order=66)
+        self.assertEqual(result.text, text)
+        self.assertEqual([r for _, r in result.rule_lines_kept], ["sig_page", "sig_page"])
+
+    def test_notice_address_blanks_are_kept(self) -> None:
+        # 3def7680, page 38 (body)
+        rule = "-" * 32
+        text = (
+            "Nuevo Energy Company\n\n" + rule + "\n\n" + rule + "\n\n"
+            "Attention: ----------------------"
+        )
+        result = strip_edgar_sgml_with_report(text, page_type="body", page_order=38)
+        self.assertEqual(result.text, text)
+        self.assertEqual(result.lines_removed, [])
+
+    def test_witness_address_stack_is_kept(self) -> None:
+        # 4818e5db, page 122 (back matter)
+        rule = "-" * 37
+        text = "Address\n\n" + "\n\n".join([rule] * 3) + "\n\nOccupation Solicitor"
+        result = strip_edgar_sgml_with_report(text, page_type="back_matter", page_order=122)
+        self.assertEqual(result.text, text)
+        self.assertEqual(
+            [r for _, r in result.rule_lines_kept], ["form_label", "next_to_blank", "next_to_blank"]
+        )
+
+    def test_initials_blanks_are_kept(self) -> None:
+        # 5484d1a7, page 12 (body)
+        text = (
+            "Seller's Initials Purchaser's Initials\n\n---------------------- ------------------------\n\n"
+            "<section>3.16 Financial Information.</section> Seller has previously delivered"
+        )
+        self.assertEqual(strip_edgar_sgml(text, page_type="body", page_order=12), text)
+
+    def test_blanks_after_a_colon_are_kept(self) -> None:
+        # ae704b04, page 62 (back matter) and 91a6e6fb, page 82 (proxy answer blanks)
+        rule = "-" * 24
+        notice = "If to Shareholder:\n\n" + "\n\n".join([rule] * 3) + "\n\nWith a copy to:"
+        self.assertEqual(strip_edgar_sgml(notice, page_type="back_matter", page_order=62), notice)
+        proxy = (
+            "Number of shares of common stock of the Company owned of record as of the date "
+            "of this proxy:\n\n" + "-" * 35 + "\n\nNumber of shares of preferred stock of the "
+            "Company owned of record as of the date of this proxy:\n\n" + "-" * 35
+        )
+        self.assertEqual(strip_edgar_sgml(proxy, page_type="back_matter", page_order=82), proxy)
+
+    def test_rule_next_to_a_signatory_name_is_kept_after_page_two(self) -> None:
+        rule = "-" * 35
+        text = "VIEWPOINT INTERNATIONAL, INC.\n\n" + rule
+        self.assertEqual(strip_edgar_sgml(text, page_type="body", page_order=40), text)
+        self.assertEqual(
+            strip_edgar_sgml(text, page_type="front_matter", page_order=1),
+            "VIEWPOINT INTERNATIONAL, INC.\n",
+        )
 
     def test_short_rules_and_rules_inside_text_are_kept(self) -> None:
         # a0086b17, page 67 (sig): the dash run is a signature line inside text.
@@ -166,6 +264,31 @@ class StripEdgarSgmlTests(unittest.TestCase):
         start = time.perf_counter()
         self.assertEqual(strip_edgar_sgml(text), text)
         self.assertLess(time.perf_counter() - start, 0.5)
+
+    def test_long_whitespace_runs_are_linear(self) -> None:
+        for text in (" " * 50_000, "<page>" + " " * 50_000, "<S>" + " " * 50_000 + "x"):
+            start = time.perf_counter()
+            strip_edgar_sgml(text)
+            self.assertLess(time.perf_counter() - start, 0.1, repr(text[:10]))
+
+    def test_paired_page_marker_split_across_lines_is_kept(self) -> None:
+        self.assertEqual(strip_edgar_sgml("text <page>\n12</page>"), "text <page>\n12</page>")
+
+    def test_sec_header_block_is_removed_whole(self) -> None:
+        # Shape of the SEC header in babaaafd / 33784f2c (front matter).
+        text = (
+            "<SEC-DOCUMENT>0001035704-00-000289.txt : 20000509 <SEC-HEADER>0001035704-00-000289.hdr.sgml "
+            ": 20000509 ACCESSION NUMBER: 0001035704-00-000289\n\nFILER:\n\n"
+            "MAIL ADDRESS: STREET 1: 50 CHARLES LINDBERG BLVD </MAIL-ADDRESS>\n\n"
+            "FORMER COMPANY: USAT HOLDINGS INC </FORMER-COMPANY> </FILER> </SEC-HEADER> "
+            "<DOCUMENT> <TYPE>8-K <SEQUENCE>1 <FILENAME>0001.txt <DESCRIPTION>FORM 8-K <TEXT>\n\n"
+            "SECURITIES AND EXCHANGE COMMISSION"
+        )
+        result = strip_edgar_sgml_with_report(text, page_type="front_matter", page_order=0)
+        self.assertEqual(
+            result.text, "0001035704-00-000289.txt : 20000509\n\nSECURITIES AND EXCHANGE COMMISSION"
+        )
+        self.assertIn("<SEC-HEADER>...</SEC-HEADER>", result.tags_removed)
 
     def test_underscore_lines_are_never_removed(self) -> None:
         # a0086b17, page 67 (sig)
@@ -225,6 +348,13 @@ class XmlPageTextHookTests(unittest.TestCase):
         self.assertEqual(
             f_xml._xml_page_text(row), "<TABLE> <S> <C> Schedule 3.3 Subsidiaries </TABLE>"
         )
+
+    def test_hook_passes_page_type_so_sig_rule_lines_stay(self) -> None:
+        text = "By:\n\n" + "-" * 30 + "\n\n<S> John Smith"
+        sig = self._row(source_page_type="sig", tagged_output=text, page_order=60)
+        self.assertEqual(f_xml._xml_page_text(sig), "By:\n\n" + "-" * 30 + "\n\nJohn Smith")
+        body = self._row(tagged_output="Text.\n\n" + "-" * 30 + "\n\nMore.", page_order=1)
+        self.assertEqual(f_xml._xml_page_text(body), "Text.\n\n\nMore.")
 
     def test_null_txt_flag_is_not_stripped(self) -> None:
         for flag in (None, float("nan")):
