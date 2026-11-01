@@ -250,6 +250,458 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertNotIn("( Signature Page )", formatted)
         self.assertNotIn("[ SIGNATURE PAGE TO AGREEMENT AND PLAN OF MERGER ]", formatted)
 
+    def test_format_signature_html_like_screen_keeps_text_before_table_in_unclosed_paragraph(
+        self,
+    ) -> None:
+        # EDGAR leaves the <p> unclosed, so html.parser nests the tables inside
+        # it and the opening sentence is loose text in that paragraph.
+        raw_html = """
+        <div>
+        <p align="left">IN WITNESS WHEREOF the parties have hereunto caused this Agreement
+        to be duly executed as of the date first above written.
+        <table>
+          <tr><td></td><td colspan="3">ENCORE MEDICAL CORPORATION<br/></td></tr>
+          <tr><td></td><td>By:</td><td>/s/ Harry L. Zimmerman</td></tr>
+          <tr><td></td><td colspan="3">Name: Harry L. Zimmerman</td></tr>
+        </table>
+        <table>
+          <tr><td></td><td colspan="3">EMPI, INC.<br/></td></tr>
+          <tr><td></td><td>By:</td><td>/s/ H. Philip Vierling</td></tr>
+        </table>
+        </div>
+        """
+
+        lines = f_xml.format_signature_html_like_screen(raw_html).splitlines()
+
+        self.assertEqual(
+            lines[0],
+            (
+                "IN WITNESS WHEREOF the parties have hereunto caused this Agreement "
+                "to be duly executed as of the date first above written."
+            ),
+        )
+        self.assertIn("ENCORE MEDICAL CORPORATION", lines)
+        self.assertIn("By: /s/ Harry L. Zimmerman", lines)
+        self.assertIn("EMPI, INC.", lines)
+        self.assertIn("By: /s/ H. Philip Vierling", lines)
+
+    def test_format_signature_html_like_screen_keeps_loose_text_between_tables(self) -> None:
+        raw_html = """
+        <p>
+        <table><tr><td>ACME CORP.</td></tr><tr><td>By:</td><td>/s/ Jane Doe</td></tr></table>
+        The undersigned <b>Principal Shareholders</b> are executing this Agreement solely for Section 14.15.
+        <table><tr><td>MPI HOLDINGS, LLC</td></tr></table>
+        """
+
+        lines = f_xml.format_signature_html_like_screen(raw_html).splitlines()
+
+        self.assertEqual(
+            [line for line in lines if line],
+            [
+                "ACME CORP.",
+                "By: /s/ Jane Doe",
+                "The undersigned Principal Shareholders are executing this Agreement solely for Section 14.15.",
+                "MPI HOLDINGS, LLC",
+            ],
+        )
+
+    def test_format_signature_html_like_screen_joins_small_caps(self) -> None:
+        raw_html = """
+        <p>I<small>N</small> W<small>ITNESS</small> W<small>HEREOF</small>, the Parties
+        hereto have executed this Agreement.</p>
+        <div><table>
+          <tr><td colspan="3"><p><b>B<small>UYER</small></b></p><p>Thor Industries, Inc.</p></td></tr>
+          <tr><td>By:</td><td></td><td>/s/ Robert W. Martin</td></tr>
+          <tr><td>P<small>RINTED</small>&#160;N<small>AME</small>:</td><td></td>
+              <td>R<small>OBERT</small> W. M<small>ARTIN</small></td></tr>
+          <tr><td><font>T</font><font style="font-size:9pt">ITLE</font>:</td><td></td><td>CEO</td></tr>
+          <tr><td>Na<font style="DISPLAY: inline">me:   Jordan Hitch</font></td></tr>
+        </table></div>
+        """
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertIn(
+            "IN WITNESS WHEREOF, the Parties hereto have executed this Agreement.",
+            formatted,
+        )
+        self.assertIn("BUYER Thor Industries, Inc.", formatted)
+        self.assertIn("PRINTED NAME: ROBERT W. MARTIN", formatted)
+        self.assertIn("Title: CEO", formatted)
+        self.assertIn("Name: Jordan Hitch", formatted)
+        self.assertNotRegex(formatted, r"\b[B-Z] [A-Z]{2,}")
+
+    def test_format_signature_html_like_screen_ignores_doctype_and_comments(self) -> None:
+        raw_html = """<!DOCTYPE html><!-- page 54 -->
+        <p>IN WITNESS WHEREOF, the parties have signed.<!-- hidden -->
+        <table><tr><td>ACME CORP.</td></tr></table>
+        """
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertEqual(
+            [line for line in formatted.splitlines() if line],
+            ["IN WITNESS WHEREOF, the parties have signed.", "ACME CORP."],
+        )
+
+    def test_format_signature_html_like_screen_keeps_gap_between_adjacent_inline_fields(
+        self,
+    ) -> None:
+        raw_html = """
+        <p><font style="padding-right:107pt"><font>By:</font></font><font><font>/s/ Steven D. Barnhart</font></font></p>
+        <p><font>Name:</font><font>Steven D. Barnhart</font></p>
+        <p><font style="display:inline-block;width:36pt">By:</font>Mason Wells Buyout Partners IV, LLC</p>
+        <p>DiModica<u>__________</u></p>
+        """
+
+        lines = [
+            line
+            for line in f_xml.format_signature_html_like_screen(raw_html).splitlines()
+            if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "By: /s/ Steven D. Barnhart",
+                "Name: Steven D. Barnhart",
+                "By: Mason Wells Buyout Partners IV, LLC",
+                "DiModica __________",
+            ],
+        )
+
+    def test_format_signature_html_like_screen_still_separates_block_elements(self) -> None:
+        raw_html = """
+        <table><tr>
+          <td><p>ACME CORP.</p><p>By:</p></td>
+          <td><div>/s/ Jane Doe</div><br/><div>Jane Doe</div></td>
+        </tr></table>
+        """
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertIn("ACME CORP. By: /s/ Jane Doe Jane Doe", formatted)
+
+    def test_format_signature_html_like_screen_drops_back_navigation_links(self) -> None:
+        raw_html = """
+        <div style="text-align:center"><a href="#toc">BACK</a></div>
+        <div><a href="#TOC">Back
+        </a></div>
+        <p><a href="#top">Return to top</a></p>
+        <p>IN WITNESS WHEREOF, the parties have signed.</p>
+        <table><tr><td>ACME CORP.</td></tr><tr><td>By:</td><td>/s/ Jane Doe</td></tr></table>
+        """
+
+        lines = [
+            line
+            for line in f_xml.format_signature_html_like_screen(raw_html).splitlines()
+            if line
+        ]
+
+        self.assertEqual(
+            lines,
+            ["IN WITNESS WHEREOF, the parties have signed.", "ACME CORP.", "By: /s/ Jane Doe"],
+        )
+
+    def test_format_signature_html_like_screen_keeps_other_back_links(self) -> None:
+        # Only an internal anchor whose sole text is the navigation label is dropped.
+        raw_html = """
+        <p><a href="https://www.sec.gov/">BACK</a></p>
+        <p><a href="#s1">Back Bay Capital LLC</a></p>
+        <p><a>BACK</a></p>
+        """
+
+        lines = [
+            line
+            for line in f_xml.format_signature_html_like_screen(raw_html).splitlines()
+            if line
+        ]
+
+        self.assertEqual(lines, ["BACK", "Back Bay Capital LLC", "BACK"])
+
+    def test_format_signature_html_like_screen_joins_letters_across_unstyled_float_none(
+        self,
+    ) -> None:
+        # 98b575c0: the "ç" sits in a span styled "display: inline ! important; float: none".
+        raw_html = """
+        <table><tr>
+          <td><div>By:</div></td>
+          <td>/s/ <font>F<font style="font-size: 10pt;">ran<font style="color: rgb(0, 0, 0);
+            word-spacing: 0px; display: inline ! important; float: none;">çois Locoh-Donou<br/>
+          </font></font></font></td>
+        </tr><tr>
+          <td><div>Name:</div></td>
+          <td><font>F<font style="font-size: 10pt;">ran<font style="display: inline ! important;
+            float: none;">çois L</font>ocoh-Donou</font></font></td>
+        </tr></table>
+        <p><font style="float: left">By:</font>Jane Doe</p>
+        """
+
+        lines = [
+            line
+            for line in f_xml.format_signature_html_like_screen(raw_html).splitlines()
+            if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "By: /s/ François Locoh-Donou",
+                "Name: François Locoh-Donou",
+                "By: Jane Doe",
+            ],
+        )
+
+    def test_format_signature_text_like_screen_keeps_by_empty_before_next_signer_block(
+        self,
+    ) -> None:
+        # 0904d542: each empty "By:" is followed by the next signer entity and its own "By:".
+        text = "\n\n".join(
+            [
+                "SUN MICROSYSTEMS, INC.",
+                "By:",
+                "STANFORD ACQUISITION CORPORATION",
+                "By:",
+                "STORAGE TECHNOLOGY CORPORATION",
+                "By:",
+                "Patrick J. Martin",
+                "PURCHASER:",
+                "RYERSON TULL, INC.",
+                "By:",
+                "51",
+            ]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "SUN MICROSYSTEMS, INC.",
+                "By:",
+                "STANFORD ACQUISITION CORPORATION",
+                "By:",
+                "STORAGE TECHNOLOGY CORPORATION",
+                "By: Patrick J. Martin",
+                "PURCHASER:",
+                "RYERSON TULL, INC.",
+                "By:",
+                "51",
+            ],
+        )
+
+    def test_format_signature_text_like_screen_keeps_empty_title_before_sentence_or_entity(
+        self,
+    ) -> None:
+        # c5ac8b6f: an empty Title: was followed by a sentence or the next entity.
+        sentence = (
+            "The following executes this Agreement as the Management Representative "
+            "solely to obtain the benefit of the indemnities provided to him in Section 15.23."
+        )
+        entity = (
+            "EDGESTONE CAPITAL EQUITY PARTNERS, INC., as general partner or agent for "
+            "and on behalf of EDGESTONE CAPITAL EQUITY FUND, L.P."
+        )
+        text = "\n".join(
+            [
+                "EDGESTONE CAPITAL PARTNERS INC.",
+                "By:",
+                "Name:",
+                "Title:",
+                "",
+                sentence,
+                "",
+                "Name:",
+                "Title:",
+                "",
+                "CAMERON CAPITAL CORPORATION",
+                "By:",
+                "Name: Steve Hudson",
+                "Title: President",
+                "",
+                "Name:",
+                "Title:",
+                "",
+                entity,
+            ]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "EDGESTONE CAPITAL PARTNERS INC.",
+                "By:",
+                "Name:",
+                "Title:",
+                sentence,
+                "Name:",
+                "Title:",
+                "CAMERON CAPITAL CORPORATION",
+                "By:",
+                "Name: Steve Hudson",
+                "Title: President",
+                "Name:",
+                "Title:",
+                entity,
+            ],
+        )
+
+    def test_format_signature_text_like_screen_normalizes_label_left_empty(self) -> None:
+        text = "\n".join(
+            ["BY:", "PRINTED NAME:", "TITLE", "", "KM INVESTMENT CORPORATION", "Its", "46"]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            ["By:", "PRINTED NAME:", "Title:", "KM INVESTMENT CORPORATION", "Its:", "46"],
+        )
+
+    def test_format_signature_text_like_screen_fills_title_and_capacity_values(self) -> None:
+        # 9576169c page b3df3f20: a capacity line is the Title value, not a sentence.
+        icore = (
+            "in his capacity as the representative for the Unitholders of "
+            "ICORE HealthCare, LLC"
+        )
+        long_title = (
+            "Executive Vice President, General Counsel and Secretary of the Company "
+            "and its Subsidiaries"
+        )
+        text = "\n".join(
+            [
+                "Name: Raju Mantena",
+                "Title:",
+                icore,
+                "",
+                "Name: Jane Doe",
+                "Title:",
+                long_title,
+                "",
+                "Name: John Roe",
+                "Title:",
+                "GENERAL PARTNER OF ACME HOLDINGS LP",
+                "",
+                "By: /s/ Ann Poe",
+                "Its:",
+                "MANAGING MEMBER OF ACME CAPITAL LLC",
+                "",
+                "ACME FUND, L.P.",
+                "By:",
+                "ACME FUND GP, LLC, ITS GENERAL PARTNER",
+                "By:",
+                "/s/ Max Moe",
+                "",
+                "By:",
+                "GENERAL ELECTRIC CAPITAL CORPORATION",
+                "By: /s/ [Illegible]",
+            ]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "Name: Raju Mantena",
+                f"Title: {icore}",
+                "Name: Jane Doe",
+                f"Title: {long_title}",
+                "Name: John Roe",
+                "Title: GENERAL PARTNER OF ACME HOLDINGS LP",
+                "By: /s/ Ann Poe",
+                "Its: MANAGING MEMBER OF ACME CAPITAL LLC",
+                "ACME FUND, L.P.",
+                "By: ACME FUND GP, LLC, ITS GENERAL PARTNER",
+                "By: /s/ Max Moe",
+                "By:",
+                "GENERAL ELECTRIC CAPITAL CORPORATION",
+                "By: /s/ [Illegible]",
+            ],
+        )
+
+    def test_format_signature_text_like_screen_splits_entities_with_office_words(self) -> None:
+        # Entity names that open with an office word are no Title value.
+        entities = [
+            "DIRECTOR'S TRUST INC.",
+            "PRINCIPAL FINANCIAL GROUP, INC.",
+            "PRESIDENTIAL REALTY CORPORATION",
+        ]
+        text_lines: list[str] = []
+        for entity in entities:
+            text_lines.extend(["Name:", "Title:", "", entity, "By: /s/ Jane Doe"])
+
+        lines = [
+            line
+            for line in f_xml.format_signature_text_like_screen("\n".join(text_lines)).splitlines()
+            if line
+        ]
+
+        expected: list[str] = []
+        for entity in entities:
+            expected.extend(["Name:", "Title:", entity, "By: /s/ Jane Doe"])
+        self.assertEqual(lines, expected)
+
+    def test_format_signature_html_like_screen_keeps_gap_at_script_change(self) -> None:
+        raw_html = "<p>By: /s/ Wang<font>王</font>小<font>明</font> Li<font>ly</font></p>"
+
+        formatted = f_xml.format_signature_html_like_screen(raw_html)
+
+        self.assertEqual(formatted, "By: /s/ Wang 王小明 Lily")
+
+    def test_format_signature_text_like_screen_still_fills_ordinary_continuations(
+        self,
+    ) -> None:
+        text = "\n".join(
+            [
+                "ACME FUND, L.P.",
+                "By:",
+                "ACME GP, LLC",
+                "Its: General Partner",
+                "By:",
+                "/s/ Jane Doe",
+                "Name:",
+                "JANE DOE",
+                "Title:",
+                "CO-CHIEF EXECUTIVE OFFICER",
+                "",
+                "BETA HOLDINGS, INC.",
+                "By:",
+                "/s/ John Roe",
+                "Title:",
+                "President of the Company",
+            ]
+        )
+
+        lines = [
+            line for line in f_xml.format_signature_text_like_screen(text).splitlines() if line
+        ]
+
+        self.assertEqual(
+            lines,
+            [
+                "ACME FUND, L.P.",
+                "By: ACME GP, LLC",
+                "Its: General Partner",
+                "By: /s/ Jane Doe",
+                "Name: JANE DOE",
+                "Title: CO-CHIEF EXECUTIVE OFFICER",
+                "BETA HOLDINGS, INC.",
+                "By: /s/ John Roe",
+                "Title: President of the Company",
+            ],
+        )
+
     def test_generate_xml_reformats_html_signature_raw_page_content(self) -> None:
         agreement_uuid = "11111111-1111-1111-1111-111111111111"
         df = pd.DataFrame(
@@ -506,6 +958,44 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertIn("<pageUUID>page-11</pageUUID>", section_55_xml)
         self.assertIn("<pageUUID>page-12</pageUUID>", section_55_xml)
         self.assertIn("<page>11</page>", section_55_xml)
+
+    def test_strip_subsection_tags_keeps_section_that_mentions_subsection_number(self) -> None:
+        text = (
+            "<section>Section 11.10. Escrow Agent.</section> Body. "
+            "<section>Section 11.11. Disbursements from Section 11.1.4 Escrow Account</section> Body."
+        )
+        self.assertEqual(f_xml.strip_subsection_section_tags(text), text)
+
+    def test_strip_subsection_tags_unwraps_real_subsection_headings(self) -> None:
+        cases = {
+            "<section>11.1.4 Escrow Account</section> Body.": "11.1.4 Escrow Account Body.",
+            "<section>Section 2.3.1. Closing Deliveries</section> Body.": "Section 2.3.1. Closing Deliveries Body.",
+            "<section>  § 4.2.1.3 Notices</section>": "  § 4.2.1.3 Notices",
+        }
+        for tagged, expected in cases.items():
+            with self.subTest(tagged=tagged):
+                self.assertEqual(f_xml.strip_subsection_section_tags(tagged), expected)
+
+    def test_convert_to_xml_restores_space_in_glued_heading_titles(self) -> None:
+        tagged_text = (
+            "<article>ARTICLE VIDEFINITIONS</article>"
+            "<section>Section 6.1Closing.</section>Body."
+            "<article>ARTICLE VIIINDEMNIFICATION</article>"
+            "<section>7.1 Survival.</section>Body."
+        )
+        xml_str = f_xml.convert_to_xml(
+            tagged_text=tagged_text,
+            agreement_uuid="11111111-1111-1111-1111-111111111111",
+            filing_date=date(2024, 1, 1),
+            url="https://example.com",
+            source_format="html",
+        )
+        root = ET.fromstring(xml_str)
+        titles = [elem.attrib["title"] for elem in root.iter() if elem.tag in {"article", "section"}]
+        self.assertEqual(
+            titles,
+            ["ARTICLE VI DEFINITIONS", "Section 6.1 Closing.", "ARTICLE VII INDEMNIFICATION", "7.1 Survival."],
+        )
 
 
 if __name__ == "__main__":
