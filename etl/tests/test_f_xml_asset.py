@@ -97,6 +97,30 @@ class XMLVerifyAssetTests(unittest.TestCase):
             re.sub(r"</?(?:article|section)>", "", tagged_output, flags=re.IGNORECASE),
         )
 
+    def test_safe_xml_tag_repairs_move_sentence_split_section_titles(self) -> None:
+        tagged_output = self._five_article_text(
+            "".join(
+                [
+                    "<section>1.1 First</section>",
+                    "<section>1.2 A party’</section>s exercise of any right is at its discretion. ",
+                    "<section>1.3 Subject to clauses</section> 1.4 and 1.5, no party may assign. ",
+                    "<section>1.4 Fourth</section>",
+                ]
+            )
+        )
+        df = self._xml_build_df(tagged_output)
+
+        repaired_df = _apply_safe_xml_tag_repairs_to_df(df)
+
+        repaired_text = cast(str, repaired_df.iloc[0]["tagged_output"])
+        self.assertIn("<section>1.2</section> A party’s exercise", repaired_text)
+        self.assertIn("<section>1.3</section> Subject to clauses 1.4 and 1.5", repaired_text)
+        self.assertIn("<section>1.4 Fourth</section>", repaired_text)
+        self.assertEqual(
+            self._normalized_text_without_heading_tags(tagged_output),
+            self._normalized_text_without_heading_tags(repaired_text),
+        )
+
     def test_safe_xml_tag_repairs_split_combined_missing_section_tags(self) -> None:
         tagged_output = self._five_article_text(
             "".join(

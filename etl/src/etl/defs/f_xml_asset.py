@@ -32,6 +32,7 @@ from etl.domain.xml_tag_repairs import (
     insert_missing_section_heading_tags,
     merge_number_only_section_titles,
     normalize_no_space_section_prefixes,
+    repair_sentence_split_section_titles,
     section_title_is_whole_number_article_heading,
     section_title_starts_with_same_article_decimal,
     split_leading_page_number_section_tags,
@@ -1354,6 +1355,8 @@ def _apply_tag_repair_to_body_rows(
             repaired, stats = unwrap_standalone_section_label_tags(tagged_output)
         elif repair_name == "normalize_no_space_section_prefixes":
             repaired, stats = normalize_no_space_section_prefixes(tagged_output)
+        elif repair_name == "repair_sentence_split_section_titles":
+            repaired, stats = repair_sentence_split_section_titles(tagged_output)
         elif repair_name == "split_leading_page_number_sections":
             repaired, stats = split_leading_page_number_section_tags(tagged_output)
         elif repair_name == "unwrap_inline_section_references":
@@ -1743,6 +1746,12 @@ def _apply_safe_xml_tag_repairs_to_df(
         "normalize_no_space_section_prefixes",
         [],
     )
+    out, sentence_split_stats = _apply_tag_repair_to_body_rows(
+        out,
+        "repair_sentence_split_section_titles",
+        [],
+    )
+    direct_text_stats.update(sentence_split_stats)
 
     for agreement_uuid in out["agreement_uuid"].drop_duplicates().tolist():
         agreement_mask = out["agreement_uuid"] == agreement_uuid

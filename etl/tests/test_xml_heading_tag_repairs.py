@@ -11,6 +11,7 @@ from etl.domain.xml_tag_repairs import (
     insert_missing_section_heading_tags,
     split_combined_missing_section_tags,
     merge_number_only_section_titles,
+    repair_sentence_split_section_titles,
     unwrap_bare_article_tags_before_other_article_sections,
     unwrap_same_line_cross_article_section_tags,
     unwrap_section_of_reference_tags,
@@ -638,3 +639,123 @@ class GluedHeadingTitleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     _ = unittest.main()
+
+
+class SentenceSplitSectionTitleTests(unittest.TestCase):
+    def _repair(self, text: str) -> str:
+        repaired, _ = repair_sentence_split_section_titles(text)
+        self.assertEqual(
+            repaired.replace("<section>", "").replace("</section>", ""),
+            text.replace("<section>", "").replace("</section>", ""),
+        )
+        return repaired
+
+    def test_split_at_curly_apostrophe_gets_number_only_title(self) -> None:
+        # f28b4547 (ESCO), page 45, as tagged.
+        text = (
+            "<article>23 Cumulative Rights</article>\n\n<section>23.1</section> The rights and remedies of any "
+            "party expressly conferred by this Agreement are cumulative.\n\n<section>23.2 A party\u2019</section>s "
+            "exercise of any right or discretion conferred on it under or in connection with this Agreement shall "
+            "be a matter of its absolute discretion"
+        )
+        repaired, stats = repair_sentence_split_section_titles(text)
+        self.assertIn("<section>23.2</section> A party\u2019s exercise of any right", repaired)
+        self.assertIn("<section>23.1</section> The rights", repaired)
+        self.assertEqual(stats.applied["repair_sentence_split_section_titles"], 1)
+
+    def test_split_at_cross_reference_number_gets_number_only_title(self) -> None:
+        # bb29051b (Oval/Friary), page 25, as tagged.
+        text = (
+            "<article>15. ASSIGNMENT</article>\n\n<section>15.1 Subject to clauses</section> 15.2 and 15.3, no party "
+            "may assign or grant any encumbrance over the benefit of this agreement"
+        )
+        self.assertIn(
+            "<section>15.1</section> Subject to clauses 15.2 and 15.3, no party may assign",
+            self._repair(text),
+        )
+
+    def test_untitled_clause_sentence_gets_number_only_title(self) -> None:
+        text = "<section>14.2 No Party may assign</section> its rights and obligations under this Agreement."
+        self.assertIn("<section>14.2</section> No Party may assign its rights", self._repair(text))
+
+    def test_correct_titles_are_untouched(self) -> None:
+        for text in (
+            "<section>Section 4.2 No Conflict.</section> The execution of this Agreement does not conflict.",
+            "<section>1.26 Interest Subsidy Loan</section> has the meaning given in Clause 4.",
+            "<section>4.1 Organization</section> and Good Standing. The Company is duly organized.",
+            "<section>1.12 \u201cPlans\u201d</section> shall have the meaning set forth in Section 3.",
+            "<section>2.4 Non-U.S.</section> Plans. Each Non-U.S. Plan is in compliance.",
+            "<section>3.1 Purchase Price</section>\n\nThe purchase price is $10.",
+            "<section>5.2</section> The Buyer shall pay the price.",
+            "<section>7.1 Conditions</section> (a) the approval of the shareholders.",
+        ):
+            with self.subTest(text=text):
+                repaired, stats = repair_sentence_split_section_titles(text)
+                self.assertEqual(repaired, text)
+                self.assertEqual(stats.applied["repair_sentence_split_section_titles"], 0)
+
+    def test_heading_cut_short_at_apostrophe_is_extended(self) -> None:
+        # 616b8f4f and c27a3e9e.
+        self.assertIn(
+            "<section>7.5 Purchaser\u2019s Receipt of Approvals of Governmental Authorities.</section> The Purchaser",
+            self._repair(
+                "<section>7.5 Purchaser\u2019</section>s Receipt of Approvals of Governmental Authorities. "
+                "The Purchaser shall have received all approvals."
+            ),
+        )
+        self.assertIn(
+            "<section>1.19 Buyer\u2019s Representative</section> means Eric",
+            self._repair("<section>1.19 Buyer\u2019</section>s Representative means Eric Ramsay."),
+        )
+
+    def test_line_end_heading_cut_short_is_extended(self) -> None:
+        self.assertIn(
+            "<section>3.1 Purchase Price and payment thereof</section>\n\nSubject to",
+            self._repair("<section>3.1 Purchase Price and payment</section> thereof\n\nSubject to the terms."),
+        )
+
+    def test_extension_never_starts_with_a_cross_reference(self) -> None:
+        self.assertIn(
+            "<section>11.14</section> Clause 11.12 and 11.13 apply notwithstanding",
+            self._repair("<section>11.14 Clause 11.12 and 11.13 apply</section> notwithstanding Clause 11.11.\n\n"),
+        )
+        self.assertIn(
+            "<section>2.2</section> Annex 2.2 sets forth",
+            self._repair("<section>2.2 Annex 2.</section>2 sets forth a list of the Exhibits to this Agreement.\n\n"),
+        )
+
+    def test_title_printed_before_sentence_is_kept(self) -> None:
+        self.assertIn(
+            "<section>1.2 Interpretation</section> In this agreement, headings are",
+            self._repair("<section>1.2 Interpretation In this agreement, headings</section> are for convenience only."),
+        )
+        self.assertIn(
+            "<section>3.2 Sellers\u2019 obligations</section> On Closing the Sellers",
+            self._repair("<section>3.2 Sellers\u2019 obligations On Closing</section> the Sellers will:\n\n(a) deliver"),
+        )
+        self.assertIn(
+            "<section>20.4 Confidentiality</section> - The parties understand",
+            self._repair("<section>20.4 Confidentiality - The parties</section> understand and agree that"),
+        )
+
+    def test_unquoted_definition_keeps_term_as_title(self) -> None:
+        self.assertIn(
+            "<section>1.48 Proprietary IPR</section> means the IPR",
+            self._repair("<section>1.48 Proprietary IPR means</section> the IPR set out in Appendix 11."),
+        )
+
+    def test_run_of_names_is_not_a_title(self) -> None:
+        self.assertIn(
+            "<section>4.1</section> Orezone and New Orezone hereby covenant",
+            self._repair("<section>4.1 Orezone and New Orezone hereby covenant and agree with IAMGOLD</section> that, prior"),
+        )
+
+    def test_trailing_reference_prefix_must_be_a_title(self) -> None:
+        self.assertIn(
+            "<section>10.5 Taxes</section> Section 10.3 shall",
+            self._repair("<section>10.5 Taxes Section 10.</section>3 shall have no application."),
+        )
+        self.assertIn(
+            "<section>16.1</section> Subject to Clause 16.2 the",
+            self._repair("<section>16.1 Subject to Clause 16.</section>2 the Seller shall indemnify."),
+        )
