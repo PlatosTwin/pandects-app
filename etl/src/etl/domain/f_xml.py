@@ -130,7 +130,7 @@ SIGNATURE_TITLE_LEAD_RE = re.compile(
         r"(?:president|chief\b|ceo\b|cfo\b|coo\b|manager\b|"
         r"managing\s+(?:member|director|partner)|general\s+partner|general\s+counsel|"
         r"sole\s+member|member\b|director\b|secretary|treasurer|trustee|authori[sz]ed\b|"
-        r"attorney|chairman|chair\b|officer|partner\b|principal\b|controller)"
+        r"attorney|chairman|chair\b|officer|partner\b|principal\b|controller)(?![\w'’])"
     ),
     re.IGNORECASE,
 )
@@ -768,7 +768,9 @@ def _should_join_signature_entity_lines(left: str, right: str) -> bool:
 
 def _signature_starts_entity(line: str) -> bool:
     """True for a line that opens with an entity name in caps."""
-    if SIGNATURE_TITLE_LEAD_RE.match(line):
+    # An office lead is a title only with "of" or "for" ("GENERAL PARTNER OF ACME LP");
+    # "PRINCIPAL FINANCIAL GROUP, INC." is an entity.
+    if SIGNATURE_TITLE_LEAD_RE.match(line) and re.search(r"\b(?:of|for)\b", line, re.IGNORECASE):
         return False
     words = line.split()
     head = " ".join(words[:8])

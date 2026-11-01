@@ -630,6 +630,28 @@ class XMLGenerationTests(unittest.TestCase):
             ],
         )
 
+    def test_format_signature_text_like_screen_splits_entities_with_office_words(self) -> None:
+        # Entity names that open with an office word are no Title value.
+        entities = [
+            "DIRECTOR'S TRUST INC.",
+            "PRINCIPAL FINANCIAL GROUP, INC.",
+            "PRESIDENTIAL REALTY CORPORATION",
+        ]
+        text_lines: list[str] = []
+        for entity in entities:
+            text_lines.extend(["Name:", "Title:", "", entity, "By: /s/ Jane Doe"])
+
+        lines = [
+            line
+            for line in f_xml.format_signature_text_like_screen("\n".join(text_lines)).splitlines()
+            if line
+        ]
+
+        expected: list[str] = []
+        for entity in entities:
+            expected.extend(["Name:", "Title:", entity, "By: /s/ Jane Doe"])
+        self.assertEqual(lines, expected)
+
     def test_format_signature_html_like_screen_keeps_gap_at_script_change(self) -> None:
         raw_html = "<p>By: /s/ Wang<font>王</font>小<font>明</font> Li<font>ly</font></p>"
 
