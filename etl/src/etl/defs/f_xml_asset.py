@@ -155,7 +155,8 @@ ARTICLE_A_VARIANT_RE = re.compile(
 # _space_letter_is_split_title_word. Case-sensitive: small caps extract as capitals.
 ARTICLE_SPLIT_TITLE_FRAGMENT_RE = re.compile(r"[ \t]+(?P<fragment>[^\W\d_]{2,})(?![^\W\d_])")
 ARTICLE_LATER_SPLIT_WORD_RE = re.compile(
-    r"(?P<before>[^\W\d_]*)\s(?P<letter>[^\W\d_])[ \t]+(?P<fragment>[^\W\d_]{2,})(?![^\W\d_])"
+    # The lookbehind anchors "before" at a word start, so a long letter run can't backtrack quadratically.
+    r"(?<![^\W\d_])(?P<before>[^\W\d_]*)\s(?P<letter>[^\W\d_])[ \t]+(?P<fragment>[^\W\d_]{2,})(?![^\W\d_])"
 )
 # A lone capital that stands on its own in a title, not a split word: "CLASS B SHARES",
 # "SERIES A", "PLAN B", "S CORPORATION", and the words "A" and "I".
@@ -165,7 +166,8 @@ ARTICLE_STANDALONE_LETTER_PREFIXES = frozenset({"CLASS", "SERIES", "PLAN"})
 # ("N ON-COMPETITION" -> "NON", "A RBITRATION", "F INANCING", "S EVERABILITY").
 ARTICLE_SPLIT_SINGLE_WORD_MIN_LEN = 6
 # Words that open article titles in the corpus (most frequent first words, plus the
-# words they pair with), used to tell a small-caps split from a letter suffix.
+# words they pair with, and the party and scope nouns a suffix article is titled by:
+# "III B PURCHASERS"), used to tell a small-caps split from a letter suffix.
 ARTICLE_TITLE_WORDS = frozenset(
     """
     ACCESS ACQUISITION ACTIONS ADDITIONAL ADJUSTMENT ADJUSTMENTS AGREEMENT AGREEMENTS
@@ -179,6 +181,9 @@ ARTICLE_TITLE_WORDS = frozenset(
     LIABILITY LIMITATIONS MATTERS MERGER MERGERS MISCELLANEOUS MUTUAL NOTICES OBLIGATIONS
     OFFER OTHER PARENT PARTIES PAYMENT PAYMENTS POST PRE PROVISIONS PURCHASE PURCHASER
     DELETED OMITTED RESERVED
+    ACQUIRER ACQUIRERS ACQUIROR ACQUIRORS DISCLAIMERS GUARANTOR GUARANTORS HOLDCO
+    INDEMNITIES MEMBERS PARTNERS PURCHASERS RECITALS SHAREHOLDERS SPONSOR SPONSORS SUB
+    SUBSIDIARIES TARGET
     REGISTRATION REGULATORY REMEDIES REPRESENTATION REPRESENTATIONS RESTRICTIVE RIGHTS
     SALE SECTION SELLER SELLERS SHARE SHARES SPECIFIC STOCKHOLDER STOCKHOLDERS SURVIVAL
     TAX TAXES TERM TERMINATION TERMS THE THIRD TITLE TRANSACTIONS TRANSFER TRANSFERS

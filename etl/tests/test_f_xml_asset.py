@@ -1,6 +1,7 @@
 # pyright: reportAny=false, reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownVariableType=false, reportUnknownMemberType=false
 import json
 import re
+import time
 import unittest
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -1237,6 +1238,22 @@ class XMLVerifyAssetTests(unittest.TestCase):
             ("ARTICLE 4 B HOLDCO PLAN B ASSETS", 4.5),
             ("ARTICLE 4 B HOLDCO S CORPORATION MATTERS", 4.5),
             ("ARTICLE 4 B RESERVED", 4.5),
+            # a one-word party or scope title is a suffix, not a split
+            ("ARTICLE III B PURCHASERS", 3.5),
+            ("ARTICLE 4 B HOLDCO", 4.5),
+            ("ARTICLE 4 B MERGER SUB", 4.5),
+            ("ARTICLE II A SUBSIDIARIES", 2.5),
+            ("ARTICLE V B GUARANTORS", 5.5),
+            ("ARTICLE V C SPONSOR", 5.5),
+            ("ARTICLE V C TARGET", 5.5),
+            ("ARTICLE V C ACQUIROR", 5.5),
+            ("ARTICLE V C ACQUIRERS", 5.5),
+            ("ARTICLE V C INDEMNITIES", 5.5),
+            ("ARTICLE V C DISCLAIMERS", 5.5),
+            ("ARTICLE V C RECITALS", 5.5),
+            ("ARTICLE V C SHAREHOLDERS", 5.5),
+            ("ARTICLE V C MEMBERS", 5.5),
+            ("ARTICLE V C PARTNERS", 5.5),
             ("ARTICLE III B Sellers", 3.5),
             # ... while real suffixes, with or without a title, still parse
             ("ARTICLE IV A", 4.5),
@@ -1250,6 +1267,18 @@ class XMLVerifyAssetTests(unittest.TestCase):
         for title, expected in cases:
             with self.subTest(title=title):
                 self.assertEqual(_article_sort_key(title), expected)
+
+    def test_article_sort_key_long_letter_run_is_linear(self) -> None:
+        # The later-split search must not backtrack quadratically on a long run of letters.
+        for title in (
+            "ARTICLE V X YZ " + "Q" * 50_000,
+            "ARTICLE V X YZ " + "Q" * 50_000 + " W ARRANTIES",
+            "ARTICLE V X YZ " + "q" * 50_000,
+        ):
+            with self.subTest(length=len(title), tail=title[-12:]):
+                started = time.perf_counter()
+                _article_sort_key(title)
+                self.assertLess(time.perf_counter() - started, 0.5)
 
     def test_find_hard_rule_violations_accepts_hyphen_and_dot_a_suffix_articles(self) -> None:
         root = ET.fromstring(
