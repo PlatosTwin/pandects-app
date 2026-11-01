@@ -16,6 +16,7 @@ from etl.domain.g_sections import clean_section_title
 from etl.domain.heading_titles import article_title_number
 from etl.domain.heading_titles import normalize_glued_article_title
 from etl.domain.heading_titles import normalize_glued_section_title
+from etl.domain.page_furniture import strip_page_furniture
 
 
 @dataclass
@@ -1149,8 +1150,12 @@ def generate_xml(
             body_rows = temp[temp["_xml_page_type"] == "body"]
             if not body_rows.empty:
                 body_el = ET.SubElement(root, "body")
+                body_page_texts = strip_page_furniture(
+                    [_xml_page_text(r) for _, r in body_rows.iterrows()]
+                ).page_texts
                 body_text = "\n".join(
-                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
+                    f"{page_text}<pageUUID>{page_uuid}</pageUUID>"
+                    for page_text, page_uuid in zip(body_page_texts, body_rows["page_uuid"].to_list())
                 )
                 body_text = strip_subsection_section_tags(body_text)
                 tmp_xml = convert_to_xml(
