@@ -796,6 +796,20 @@ class FusedFurnitureReviewReproTests(unittest.TestCase):
 
         self.assertEqual(result.page_texts[2], "Body text 2 begins here\nsigned 2 by ACME CORP")
 
+    def test_d1_footer_word_used_in_the_same_one_line_page_is_kept(self) -> None:
+        # One-line pages: the body text shares the ID's line, so "Buyer" earlier
+        # on that line is body text, not footer.
+        pages = [
+            f"The Buyer shall pay amount {i} under this clause, and such payment shall be made to the Buyer NAI-1234567v1"
+            for i in range(8)
+        ]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(
+            result.page_texts[2], "The Buyer shall pay amount 2 under this clause, and such payment shall be made to the Buyer"
+        )
+
     def test_d2_number_beside_a_doc_id_on_few_copies_is_kept(self) -> None:
         pages = [f"NAI-5005005981v11 recommend text {i} here and more" for i in range(8)]
         pages[2] = "NAI-5005005981v11 3 shares of the Company were issued"

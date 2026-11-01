@@ -134,6 +134,12 @@ Known limitations (each needs a coincidence the rules cannot see through):
   footer such as "DLA Piper | 12" is stripped. Its words must be identical on
   every page (title words carry no digits, so the digit-collapsed shape fixes
   them), and its number must fit the page sequence.
+- A body number right before a fused document ID is cut with it when it happens
+  to fit the page sequence ("... within 4 NAI-5005005981v11" on printed page 4).
+- On a page that lost its own page number, a first or last word that happens to
+  equal that number is cut as the page number ("13 directors ...", "... an
+  aggregate of 13", "... Rule 13"), unless a unit or reference word guard
+  applies.
 """
 
 import re
@@ -1342,8 +1348,22 @@ def _footer_text_is_unique(
     direction: str,
 ) -> bool:
     """The footer words taken beside the ID (between page numbers) occur nowhere
-    in the body pages except on the lines that carry the ID."""
-    footer_lines = set(spans_by_line)
+    in the body pages except as part of a footer: on a line that carries the ID,
+    an occurrence counts as footer only when nothing but page numbers and the
+    footer's own tokens separate it from the ID (one-line pages hold their whole
+    page text on that line)."""
+    step_tokens = {step for step in steps if step is not None}
+
+    def beside_the_id(line: str, start: int, end: int, spans: list[tuple[int, int]]) -> bool:
+        for span_start, span_end in spans:
+            if start < span_end and end > span_start:
+                return True
+            gap = line[end:span_start] if end <= span_start else line[span_end:start]
+            gap = _KEPT_TAG_RE.sub(" ", gap)  # a tagged page number is a page number too
+            if all(_FOOTER_NUMBER_RE.fullmatch(token) or token in step_tokens for token in gap.split()):
+                return True
+        return False
+
     ordered = steps[::-1] if direction == "back" else steps
     phrases: list[str] = []
     current: list[str] = []
@@ -1358,8 +1378,10 @@ def _footer_text_is_unique(
         pattern = re.compile(r"(?<!\S)" + r"\s+".join(re.escape(word) for word in phrase.split(" ")) + r"(?!\S)")
         for page_index, text in enumerate(page_texts):
             for line_index, line in enumerate(text.split("\n")):
-                if (page_index, line_index) not in footer_lines and pattern.search(line):
-                    return False
+                spans = spans_by_line.get((page_index, line_index), [])
+                for match in pattern.finditer(line):
+                    if not beside_the_id(line, match.start(), match.end(), spans):
+                        return False
     return True
 
 
