@@ -1,5 +1,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownArgumentType=false, reportAny=false
 from datetime import date
+import json
+from pathlib import Path
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -619,6 +621,136 @@ class RepeatedLineTests(unittest.TestCase):
             with self.subTest(line=top or bottom):
                 pages = self._pages(top, bottom)
                 self.assertEqual(strip_page_furniture(pages).page_texts, pages)
+
+_FUSED_FIXTURE = Path(__file__).parent / "fixtures" / "page_furniture_fused.json"
+
+
+class FusedFurnitureTests(unittest.TestCase):
+    """Furniture glued into body lines. Real body pages from five served agreements
+    (read-only, long lines and page middles trimmed)."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.fixture = json.loads(_FUSED_FIXTURE.read_text())
+
+    def _strip(self, uuid: str):
+        return strip_page_furniture(self.fixture[uuid]["pages"])
+
+    def test_doc_id_and_page_number_fused_into_one_line_pages(self) -> None:
+        # 1a6c861a: "failure of the nai-5005005981v11 69 closing" in served sections.
+        result = self._strip("1a6c861a")
+
+        self.assertTrue(all("NAI-5005005981v11" not in text for text in result.page_texts))
+        self.assertTrue(result.page_texts[1].startswith("recommend that Parent"))
+        self.assertIn(("fused_doc_id", "NAI-5005005981v11 2"), {(r.kind, r.line) for r in result.removed})
+        # Page 1 carries the ID with no page number: only the ID goes.
+        self.assertTrue(result.page_texts[0].startswith("AGREEMENT AND PLAN OF MERGER This"))
+
+    def test_untagged_copies_of_a_learned_footer_are_removed(self) -> None:
+        # 60022f18: "Securities Purchase Agreement 3 Project Acorn" leaked into 26 sections.
+        result = self._strip("60022f18")
+
+        self.assertTrue(all("Project Acorn" not in text for text in result.page_texts[1:]))
+        self.assertIn("Securities Purchase Agreement 3 Project Acorn", {r.line for r in result.removed})
+
+    def test_untagged_copies_of_a_learned_title_footer_are_removed(self) -> None:
+        # a4f60c4c: "Stock Purchase Agreement – Averna/Kimball Electronics 13".
+        result = self._strip("a4f60c4c")
+
+        self.assertFalse(any("Averna/Kimball Electronics 13" in text for text in result.page_texts))
+        self.assertNotIn("Averna/Kimball", result.page_texts[4])  # the whole footer goes, not just its number
+
+    def test_untagged_page_number_fused_at_page_start(self) -> None:
+        # c39ce10c (printed page 19) and 1ddda838 (printed page 5): the tagger missed
+        # the number, so "Section 1251 5 et seq." reached the served text.
+        result = self._strip("c39ce10c")
+        self.assertTrue(result.page_texts[4].startswith("Notwithstanding anything in Section 2.4(e)"))
+
+        result = self._strip("1ddda838")
+        self.assertTrue(result.page_texts[3].startswith("et seq.; the Safe Drinking Water Act"))
+
+    def test_tagged_pages_are_untouched_by_the_page_number_rule(self) -> None:
+        pages = self.fixture["1ddda838"]["pages"]
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[0], pages[0])
+
+    def test_residue_that_also_occurs_mid_page_is_kept(self) -> None:
+        pages = [f"Body {i} begins here\nmiddle {i}\nBody {i} ends here\nProject Beaker - SPA" for i in range(8)]
+        pages[3] = "Body 3 begins here\nThe Project Beaker - SPA closing occurs later\nmore text Project Beaker - SPA"
+        pages[5] = "Body 5 begins here\nmiddle\nends with Project Beaker - SPA"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[5], pages[5])
+        self.assertFalse(any(r.kind.startswith("fused") for r in result.removed))
+
+    def test_short_residue_is_not_removed_from_inside_a_line(self) -> None:
+        pages = [f"Body {i} begins here\nmiddle {i}\nBody {i} ends here\nSPA #" for i in range(8)]
+        pages[4] = "Body 4 begins here\nmiddle\nthe parties to the SPA #"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[4], pages[4])
+
+    def test_doc_id_on_few_pages_is_kept(self) -> None:
+        pages = [f"Body text {i} with words\nmore body {i}" for i in range(10)]
+        for i in range(3):
+            pages[i] = f"NAI-5005005981v11 {i + 1} " + pages[i]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+
+    def test_number_beside_a_doc_id_off_the_page_sequence_is_kept(self) -> None:
+        pages = [f"NAI-5005005981v11 {i + 1} recommend text {i} here" for i in range(8)]
+        pages[5] = "NAI-5005005981v11 40 shares of the Company were issued"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[2], "recommend text 2 here")
+        self.assertEqual(result.page_texts[5], "40 shares of the Company were issued")
+
+    def test_bare_title_at_the_end_of_a_line_is_kept(self) -> None:
+        pages = [f"Body {i} begins here\nmiddle {i}\nBody {i} ends here\nAgreement and Plan of Merger" for i in range(8)]
+        pages[0] = "Agreement and Plan of Merger\nThis Agreement and Plan of Merger is made\nmore"
+        pages[4] = "Body 4 begins here\nmiddle\nthe parties entered into this Agreement and Plan of Merger"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[4], pages[4])
+
+    def test_doc_id_footer_takes_its_prefix_and_page_number(self) -> None:
+        # 9f5b5dfc ("33 WA 4941984.13") and aa74da09 (a firm footer before the ID).
+        pages = [
+            f"Body text {i} with many words here\nmore body {i} that ends the page {i + 1} WA 4941984.13" for i in range(8)
+        ]
+        pages[3] = "Body text 3 with many words here\nmore body 3 \u00a9 King & Wood Mallesons Share Sale Agreement 4 WA 4941984.13"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[2], "Body text 2 with many words here\nmore body 2 that ends the page")
+        self.assertEqual(result.page_texts[3].split("\n")[1], "more body 3 \u00a9 King & Wood Mallesons Share Sale Agreement")
+
+    def test_short_rest_of_a_footer_line_is_not_cut(self) -> None:
+        # 4fe595f6: "(Project Dome II)" was learned, but the footer reads
+        # "Membership Interest Purchase and Sale Agreement (Project Dome II)".
+        pages = [f"Body {i} begins here\nmiddle {i}\nBody {i} ends here\n(Project Dome II)" for i in range(8)]
+        pages[5] = "Body 5 begins here\nmiddle\nBody 5 ends here\nSale Agreement (Project Dome II)"
+
+        result = strip_page_furniture(pages)
+
+        self.assertTrue(result.page_texts[5].endswith("Sale Agreement (Project Dome II)"))
+
+    def test_page_number_without_agreeing_neighbors_is_kept(self) -> None:
+        pages = [f"<page>{i + 1}</page> Body text {i} with several words" for i in range(6)]
+        pages[2] = "3 Body text 2 with several words"
+        pages[3] = "<page>9</page> Body text 3 with several words"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[2], pages[2])
+
 
 class GenerateXmlStripsFurnitureTests(unittest.TestCase):
     def test_section_text_has_no_running_headers(self) -> None:
