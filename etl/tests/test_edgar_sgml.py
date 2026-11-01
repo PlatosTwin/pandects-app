@@ -5,6 +5,7 @@ The page text in these tests is copied from served agreements whose section
 text carried SGML markup: 1305cbea, 46ec21d5, 4818e5db, 48e3b7de, a0086b17.
 """
 from datetime import date
+import time
 import unittest
 
 import pandas as pd
@@ -158,6 +159,13 @@ class StripEdgarSgmlTests(unittest.TestCase):
         self.assertEqual(strip_edgar_sgml("-i-"), "-i-")
         totals = "Net Contribution -16.48% -16.25% -7.52% ======= ======= ======="
         self.assertEqual(strip_edgar_sgml(totals), totals)
+
+    def test_long_dash_run_that_is_not_a_rule_is_fast(self) -> None:
+        # A nested-quantifier rule pattern backtracked exponentially on this.
+        text = "-" * 60 + " " + "-" * 60 + " x"
+        start = time.perf_counter()
+        self.assertEqual(strip_edgar_sgml(text), text)
+        self.assertLess(time.perf_counter() - start, 0.5)
 
     def test_underscore_lines_are_never_removed(self) -> None:
         # a0086b17, page 67 (sig)

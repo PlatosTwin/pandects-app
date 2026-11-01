@@ -89,7 +89,9 @@ _TAG_PATTERNS = tuple(
 # builder strips XML-invalid control characters first).
 _MARK = "\x00"
 _MARK_RUN_RE = re.compile(r"[ \t]*(?:\x00[ \t]*)+")
-_RULE_LINE_RE = re.compile(r"[ \t]*(?:[-=]+[ \t]*)+")
+# One flat character class: a nested quantifier here backtracks exponentially
+# on a long dash run that ends in another character.
+_RULE_LINE_RE = re.compile(r"[-= \t]+")
 _MIN_RULE_CHARS = 10
 
 
