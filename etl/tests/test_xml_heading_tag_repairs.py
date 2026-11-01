@@ -1138,10 +1138,14 @@ class SentenceSplitThirdReviewTests(SentenceSplitReReviewTests):
         self.assertEqual(self._title("12.6 Time is", " expressly of the essence of this Agreement."), "12.6")
 
     def test_term_inside_the_tag_ends_the_title(self) -> None:
-        # 936e9204.
+        # 936e9204, as tagged.
+        self.assertEqual(
+            self._title("1.14 Parties are Sellers, TriQuint and Purchaser", " collectively.\n\n"), "1.14 Parties"
+        )
+        # A correctly closed tag is never cut.
         self.assertEqual(
             self._title("1.14 Parties are Sellers, TriQuint and Purchaser collectively.", " Party is any of them."),
-            "1.14 Parties",
+            "1.14 Parties are Sellers, TriQuint and Purchaser collectively.",
         )
         self.assertEqual(self._title("4.1 Completion is conditional", " on the Conditions."), "4.1")
         self.assertEqual(self._title("9.2 BidCo is entitled", " to waive the Conditions."), "9.2")
@@ -1149,9 +1153,9 @@ class SentenceSplitThirdReviewTests(SentenceSplitReReviewTests):
     def test_complete_is_headings_inside_the_tag_are_kept(self) -> None:
         for inner, follow in (
             ("Section 15.17. Obligations are Several.", " The obligations of the Sellers are several."),
-            ("21.2 Consideration is GST exclusive", " and the Purchaser must pay GST."),
+            ("21.2 Consideration is GST exclusive", " The Purchaser must pay GST in addition."),
             ("13.6 Indemnity is Sole Remedy.", " The indemnity in this Article is the sole remedy."),
-            ("3.3 Withholdings Where Vendor is Non-Resident", " if the Vendor is a non-resident of Canada."),
+            ("3.3 Withholdings Where Vendor is Non-Resident", " If the Vendor is a non-resident of Canada, the Purchaser may withhold."),
         ):
             with self.subTest(inner=inner):
                 self.assertNotEqual(self._title(inner, follow), inner.split(" is ")[0].split(" are ")[0])
@@ -1187,4 +1191,20 @@ class SentenceSplitThirdReviewTests(SentenceSplitReReviewTests):
         self.assertEqual(
             self._title("3.4 The Suspensive Conditions", " in:\n\n3.4.1 clauses 3.1.2 and 3.1.3 are stipulated", raw),
             "3.4",
+        )
+
+    def test_title_case_predicate_headings_inside_the_tag_are_kept(self) -> None:
+        for inner, follow in (
+            ("Section 8.3 Obligations are Several, Not Joint.", " each Seller is liable for its own share."),
+            ("4.1 Sellers are Responsible for Taxes, Fees and Costs", " The Sellers shall pay all Taxes."),
+            ("4.1 Sellers are Responsible for Taxes, Fees and Costs.", " each Seller pays its own share."),
+        ):
+            with self.subTest(inner=inner):
+                self.assertNotIn(self._title(inner, follow), ("Section 8.3 Obligations", "4.1 Sellers"))
+
+    def test_subsection_guard_skips_cross_references_to_subsections(self) -> None:
+        self.assertEqual(self._title("5.2 Subject to", " clause 5.2.1, the Buyer shall pay the Price."), "5.2")
+        self.assertEqual(
+            self._title("7.3 Without prejudice to", " clauses 7.3.1 and 7.3.2, the Seller shall indemnify the Buyer."),
+            "7.3",
         )

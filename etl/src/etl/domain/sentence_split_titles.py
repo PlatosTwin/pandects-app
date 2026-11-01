@@ -396,20 +396,6 @@ def _repair_sentence_split_title(
     if glued is not None:
         return result(glued)  # "Calculation of LossesNotwithstanding" + " anything ..."
 
-    inner_term = re.match(
-        rf"^(?P<term>\S+(?:{_HSPACE}+\S+){{0,4}}?){_HSPACE}+(?:is|are){_HSPACE}+(?=[A-Z]|(?:the|a|an|all|any)\b)", rest
-    )
-    predicate = rest[inner_term.end() :].split() if inner_term is not None else []
-    if (
-        inner_term is not None
-        # A sentence, not a heading: "Parties are Sellers, TriQuint and ..." but not "Obligations are Several."
-        and (any("," in w for w in predicate) or (len(predicate) >= 4 and not _is_title_case(" ".join(predicate))))
-        and _is_title_case(inner_term.group("term"))
-        and _norm(inner_term.group("term").split()[0]) not in _NOT_A_TERM_START
-        and _CLAUSE_VERB_RE.search(inner_term.group("term")) is None
-    ):
-        return result(len(inner_term.group("term")))  # "1.14 Parties" + " are Sellers, TriQuint and ..."
-
     last, nxt = inner[-1:], follow[:1]
     digit_split = re.search(r"\d\.?$", rest) is not None and nxt.isdigit()
     split_token = digit_split or (last in "’'" and nxt.islower()) or (last.isalnum() and nxt.islower())
@@ -430,6 +416,26 @@ def _repair_sentence_split_title(
     )
     if not split_token and not sentence_runs_on:
         return None
+
+    # A Title Case term inside the tag: "1.14 Parties are Sellers, TriQuint and Purchaser" + " collectively."
+    inner_term = re.match(
+        rf"^(?P<term>\S+(?:{_HSPACE}+\S+){{0,4}}?){_HSPACE}+(?:is|are){_HSPACE}+(?=[A-Z]|(?:the|a|an|all|any)\b)", rest
+    )
+    if inner_term is not None:
+        sentence_end = re.search(r"[.;:](?=\s|$)", joined[inner_term.end() :])
+        predicate = joined[inner_term.end() : inner_term.end() + sentence_end.end() if sentence_end else len(joined)]
+        # A sentence, not a heading: a lowercase content word ("collectively"), but not
+        # "Obligations are Several, Not Joint." or "Sellers are Responsible for Taxes, Fees and Costs".
+        lowercase_word = any(
+            w[:1].islower() and _norm(w) not in _TITLE_SMALL_WORDS for w in predicate.split()
+        )
+        if (
+            lowercase_word
+            and _is_title_case(inner_term.group("term"))
+            and _norm(inner_term.group("term").split()[0]) not in _NOT_A_TERM_START
+            and _CLAUSE_VERB_RE.search(inner_term.group("term")) is None
+        ):
+            return result(len(inner_term.group("term")))
 
     # Defined terms: "Proprietary IPR means" + " the IPR ...", "Effective Date" + " is the date ...".
     run_on_term = (
@@ -468,7 +474,9 @@ def _repair_sentence_split_title(
     # The clause's own first subsection follows the heading: "The Escrow Agent" + " 8.2.1 ...".
     own_number = re.search(r"\d+(?:\.\d+)*", inner[: number.end()])
     if own_number is not None:
-        subsection = re.search(rf"\s{re.escape(own_number.group(0))}\.\d", joined)
+        subsection = re.search(
+            rf"\s{re.escape(own_number.group(0))}\.\d+(?:\.\d+)*\.?(?=[^\S\r\n]*$|\s+[A-Z(])", joined
+        )
         if subsection is not None and subsection.start() > 0:
             heading = joined[: subsection.start()].rstrip()
             words = heading.split()
@@ -479,6 +487,8 @@ def _repair_sentence_split_title(
                 and heading[-1:] not in ":,;"
                 and _norm(words[-1]) not in _TITLE_SMALL_WORDS
                 and heading.count("(") == heading.count(")")
+                # "Subject to" + " clause 5.2.1, ...": a cross-reference, not a heading.
+                and re.fullmatch(r"(?:sub-?)?(?:clauses?|sections?|paragraphs?|articles?)", _norm(words[-1])) is None
                 and not re.match(r"\s*[,(]", heading[len(rest.rstrip()) :])  # "Liabilities" + ", (Except for ..."
                 # A bilingual heading repeats the number: "Schiedsgutachterverfahren 6.6 Expert Proceedings".
                 and re.search(rf"(?<![\d.]){re.escape(own_number.group(0))}(?![\d])", heading) is None
