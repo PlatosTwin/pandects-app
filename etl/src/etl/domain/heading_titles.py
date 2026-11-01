@@ -98,6 +98,9 @@ def _split_glued_roman(
         if len(word) < 3 or not word[0].isupper():
             continue
         if word[1:].islower():
+            if word[0] in "IVX" and word.upper() not in _ROMAN_INITIAL_TITLE_WORDS:
+                # "IXdefinitions" is IX + "definitions", not I + "Xdefinitions".
+                continue
             rank = 0  # "VIIIIndemnification": capitalized word starts here
         elif word.upper() in _ROMAN_INITIAL_TITLE_WORDS:
             rank = 1  # "VIIINDEMNIFICATION" -> VII + INDEMNIFICATION

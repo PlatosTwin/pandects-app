@@ -247,7 +247,7 @@ class InsertMissingSectionHeadingTagTests(unittest.TestCase):
     def test_skips_mid_sentence_number_in_flattened_text(self) -> None:
         text = (
             "<section>1.39 Healthcare Laws</section> means the rules promulgated thereunder "
-            "1.40 IFRS means International Financial Reporting Standards. "
+            "1.40 IFRS International Financial Reporting Standards, as in effect from time to time. "
             "<section>1.41 Intellectual Property</section> means all intellectual property."
         )
         self.assertEqual(self._insert(text, 1, 40), text)
@@ -269,6 +269,57 @@ class InsertMissingSectionHeadingTagTests(unittest.TestCase):
             "<section>2.3 Exchange.</section>"
         )
         self.assertEqual(self._insert(text, 2, 2), text)
+
+    def test_tags_untitled_clause_right_after_heading_tag(self) -> None:
+        text = (
+            "<section>9.13 Waiver of Jury Trial</section> 9.14. EACH OF THE PARTIES HERETO HEREBY "
+            "IRREVOCABLY WAIVES ALL RIGHT TO TRIAL BY JURY IN ANY ACTION, PROCEEDING OR COUNTERCLAIM "
+            "ARISING OUT OF THIS AGREEMENT.\n<section>9.15 Counterparts.</section>"
+        )
+        self.assertIn(
+            "</section> <section>9.14.</section> EACH OF THE PARTIES",
+            self._insert(text, 9, 14),
+        )
+
+    def test_tags_clause_label_followed_by_uppercase_word(self) -> None:
+        text = (
+            "<section>1.1 Contribution.</section>\nBody; and\n\n"
+            "1.2 (b) Northwest shall redeem such number of shares of Northwest Common Stock as is equal to "
+            "the total number of outstanding shares.\n<section>1.3 Closing.</section>"
+        )
+        self.assertIn("\n\n<section>1.2</section> (b) Northwest shall redeem", self._insert(text, 1, 2))
+
+    def test_tags_unquoted_defined_term_in_flattened_definitions(self) -> None:
+        text = (
+            "<section>1.26 Interest Subsidy Loan</section> has the meaning set out in the Recitals, "
+            "Section C 1.27 IT Systems has the meaning set out in Section 6.11(a). "
+            "<section>1.28 Law</section> means any applicable law."
+        )
+        self.assertIn(
+            "Section C <section>1.27 IT Systems</section> has the meaning set out in Section 6.11(a).",
+            self._insert(text, 1, 27),
+        )
+        text = (
+            "<section>1.41 Euro Rate</section> means the rate on such date "
+            "1.42 Existing Debt Facilities means (i) the facilities under the agreement. "
+            "<section>1.43 Fraud</section> means fraud."
+        )
+        self.assertIn(
+            "such date <section>1.42 Existing Debt Facilities</section> means (i) the facilities",
+            self._insert(text, 1, 42),
+        )
+
+    def test_long_title_case_heading_sentence_is_kept(self) -> None:
+        heading = (
+            "Section 13.04. Additional Conditions to the Obligations of the CSC Blockers, Court Square GPs, "
+            "Blocker Parents, OpenMail, the Redeemed OM Members and the Protected Rollover Parties."
+        )
+        text = (
+            "<section>Section 13.03 Conditions.</section>\nBody.\n\n"
+            f"{heading} The obligation of each party is subject to the following conditions.\n"
+            "<section>Section 13.05 Frustration.</section>"
+        )
+        self.assertIn(f"<section>{heading}</section> The obligation", self._insert(text, 13, 4))
 
     def test_tags_heading_with_dash_after_number(self) -> None:
         text = (
@@ -389,6 +440,7 @@ class GluedHeadingTitleTests(unittest.TestCase):
             "ARTICLE MISCELLANEOUS",
             "ARTICLE VOTING AGREEMENT",
             "ARTICLES",
+            "Article IXdefinitions, Construction",
         ):
             with self.subTest(title=title):
                 self.assertEqual(normalize_glued_article_title(title), title)
