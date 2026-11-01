@@ -395,6 +395,65 @@ class RunningTitleTests(unittest.TestCase):
         self.assertEqual(result.page_texts, pages)
         self.assertIsNone(running_title_kind("Agreement"))
 
+    def test_title_opening_the_preamble_on_page_two_is_kept(self) -> None:
+        # Page 0 is a body-labeled cover/TOC; the real title opens page 1.
+        pages = ["Share Sale Agreement\nContents\n1 Definitions\n2 Sale and purchase"]
+        pages.append("Share Sale Agreement\nThis Agreement is made on 1 July 2014\nBetween the parties.\nBody.")
+        pages += [f"Share Sale Agreement\nBody text {i}.\nMore text.\nEven more." for i in range(2, 9)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[:2], pages[:2])
+        self.assertEqual(result.page_texts[2], "Body text 2.\nMore text.\nEven more.")
+
+    def test_exhibit_titled_like_the_agreement_is_kept(self) -> None:
+        # A body exhibit whose title page names the agreement, followed by its own preamble.
+        pages = [f"Body text {i}.\nMore text.\nEven more.\nAsset Purchase Agreement" for i in range(8)]
+        pages[0] = "Asset Purchase Agreement\nThis Asset Purchase Agreement is dated today.\nBody.\nMore."
+        pages[5] = "Asset Purchase Agreement\nby and between Buyer and Seller\nExhibit text.\nAsset Purchase Agreement"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(
+            result.page_texts[5], "Asset Purchase Agreement\nby and between Buyer and Seller\nExhibit text."
+        )
+        self.assertEqual(result.page_texts[3], "Body text 3.\nMore text.\nEven more.")
+
+    def test_header_above_a_lowercase_continuation_line_is_removed(self) -> None:
+        # eb1d32ce: "this Agreement and any agreement ..." continues a sentence; it is not a preamble.
+        pages = [f"Share Sale Agreement\nBody text {i}.\nMore text.\nEven more." for i in range(8)]
+        pages[4] = "Share Sale Agreement\nthis Agreement and any related document.\nMore.\nEven more."
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[4], "this Agreement and any related document.\nMore.\nEven more.")
+
+    def test_title_off_the_dominant_edge_is_kept(self) -> None:
+        pages = [f"Body text {i}.\nMore text.\nEven more.\nAsset Purchase Agreement" for i in range(8)]
+        pages[0] = "Asset Purchase Agreement\nThe parties agree.\nBody.\nMore."
+        pages[5] = "Asset Purchase Agreement\nExhibit text.\nMore text.\nEven more.\nAsset Purchase Agreement"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(
+            result.page_texts[5], "Asset Purchase Agreement\nExhibit text.\nMore text.\nEven more."
+        )
+
+    def test_header_above_an_identical_untagged_heading_goes_alone(self) -> None:
+        pages = [f"Share Sale Agreement\nBody text {i}.\nMore text.\nEven more." for i in range(8)]
+        pages[4] = "Share Sale Agreement\nShare Sale Agreement\nThe heading above is a real heading.\nMore."
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[4], "Share Sale Agreement\nThe heading above is a real heading.\nMore.")
+
+    def test_firm_footer_with_page_numbers_is_removed(self) -> None:
+        pages = [f"Body text {i}.\nMore text.\nEven more.\nDLA Piper | {i + 1}" for i in range(8)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, [f"Body text {i}.\nMore text.\nEven more." for i in range(8)])
+
     def test_running_title_kind(self) -> None:
         cases = {
             "ASSET PURCHASE AGREEMENT PAGE 12": "titled_page_number",

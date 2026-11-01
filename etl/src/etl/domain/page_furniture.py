@@ -48,7 +48,12 @@ On top of that, each kind needs its own evidence that it is a running line:
   tag is left in place. A bare title ("Share Sale Agreement", at least two words,
   naming an agreement or plan) must be the agreement's own printed title: the
   first line of the first body page, or text in the opening pages outside the
-  running lines. Its copy on the first body page is kept as the cover title.
+  running lines. Its copy on the first body page is kept as the cover title, and
+  so is any copy whose next line opens a preamble ("THIS", "dated", "by and
+  among", "between", "made", "is entered into") or names the title inside longer
+  text. At most
+  one copy per page edge goes (the outermost), and only on the title's dominant
+  edge.
 
 Removed lines are dropped whole (except a kept ``<page>`` tag); no other text on
 the page changes.
@@ -63,6 +68,12 @@ Known limitations (each needs a coincidence the rules cannot see through):
   pages is stripped as a banner.
 - An identical amount (``250000.00``) alone on the edges of 3 or more pages is
   stripped as a numeric document ID.
+- A heading or sentence split across lines whose last line, at a page edge,
+  equals the agreement's running title is stripped with the running title.
+- A title with a page number need not name an agreement, so a repeated firm
+  footer such as "DLA Piper | 12" is stripped. Its words must be identical on
+  every page (title words carry no digits, so the digit-collapsed shape fixes
+  them), and its number must fit the page sequence.
 """
 
 import re
@@ -541,6 +552,61 @@ def _title_is_printed(title: str, page_texts: list[str], title_lines: set[tuple[
     return False
 
 
+# How a preamble opens. Capitalized forms only for words that also start body
+# continuation lines ("this Agreement and ...", "between the parties ...").
+_PREAMBLE_START_RE = re.compile(
+    r"^\s*(?:"
+    r"(?:THIS|This)\b"
+    r"|(?:DATED|Dated|dated)\b"
+    r"|(?:BY AND|By and|by and)\s+(?:AMONG|BETWEEN|among|between)\b"
+    r"|(?:BETWEEN|Between)\b"
+    r"|(?:MADE|Made)\b"
+    r"|(?:IS|Is)\s+(?:MADE|ENTERED\s+INTO|made|entered\s+into)\b"
+    r")"
+)
+
+
+def _next_nonblank(lines: list[str], index: int) -> str | None:
+    for line in lines[index + 1:]:
+        if line.strip():
+            return line.strip()
+    return None
+
+
+def _opens_preamble_or_repeats_title(next_line: str | None, title: str) -> bool:
+    """The line after a title copy opens the agreement ("THIS AGREEMENT is dated ...",
+    "by and among ...") or names the title inside longer text: that copy is a real title."""
+    if next_line is None:
+        return False
+    following = " ".join(next_line.split()).lower()
+    # A line that is exactly the title again is a second copy, not a preamble.
+    return bool(_PREAMBLE_START_RE.match(next_line) or (title.lower() in following and following != title.lower()))
+
+
+def _bare_title_copies(group: list[_Candidate], page_texts: list[str], title: str) -> list[_Candidate]:
+    """The copies of a bare running title to strip.
+
+    The first body page's copy (the cover title) and any copy followed by a
+    preamble, or by longer text naming the title, are kept. At most one copy per page edge is
+    stripped (the outermost), and only on the agreement's dominant edge for this
+    title; with no dominant edge, none is stripped.
+    """
+    outermost: dict[tuple[int, str], _Candidate] = {}
+    for candidate in group:
+        if candidate.page_index == 0:
+            continue
+        lines = page_texts[candidate.page_index].split("\n")
+        if _opens_preamble_or_repeats_title(_next_nonblank(lines, candidate.line_index), title):
+            continue
+        key = (candidate.page_index, candidate.side)
+        if key not in outermost or candidate.rank < outermost[key].rank:
+            outermost[key] = candidate
+    dominant = _dominant_side(list(outermost.values()))
+    if dominant is None:
+        return []
+    return [c for c in outermost.values() if c.side == dominant]
+
+
 def _running_titles(
     candidates: list[_Candidate],
     page_texts: list[str],
@@ -573,7 +639,7 @@ def _running_titles(
         title_lines = {(c.page_index, c.line_index) for c in group}
         if not _title_is_printed(shape, page_texts, title_lines):
             continue
-        accepted += [c for c in group if c.page_index != 0]
+        accepted += _bare_title_copies(group, page_texts, shape)
     return accepted
 
 
