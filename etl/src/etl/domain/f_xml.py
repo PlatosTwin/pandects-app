@@ -13,6 +13,10 @@ from bs4.element import Comment, NavigableString, PageElement, PreformattedStrin
 
 from etl.domain.g_sections import clean_article_title
 from etl.domain.g_sections import clean_section_title
+from etl.domain.heading_titles import article_title_number
+from etl.domain.heading_titles import normalize_glued_article_title
+from etl.domain.heading_titles import normalize_glued_section_title
+from etl.domain.page_furniture import strip_page_furniture
 
 
 @dataclass
@@ -70,7 +74,13 @@ def add_metadata_nodes(
 
 
 SECTION_TAG_RE = re.compile(r"<section>(.*?)</section>", re.DOTALL)
-SUBSECTION_NUMBER_RE = re.compile(r"\b\d+\.\d+\.\d+(?:\.\d+)*\b")
+# A heading whose own number is three or more levels deep ("11.1.4 Escrow",
+# "Section 2.3.1."), anchored at the start of the title so a section that only
+# mentions one ("Section 11.11. Disbursements from Section 11.1.4 Escrow
+# Account") keeps its tag.
+SUBSECTION_NUMBER_RE = re.compile(
+    r"^\s*(?:(?:Section|SECTION|section|Sec\.|SEC\.|§)\s*)?\d+\.\d+\.\d+(?:\.\d+)*(?!\d)"
+)
 ARTICLE_TAG_RE = re.compile(r"<article\b")
 INLINE_MARKER_RE = re.compile(r"(<pageUUID>.*?</pageUUID>|<page>.*?</page>)", re.DOTALL)
 SIGNATURE_FIELD_LABEL_RE = re.compile(r"^(?P<label>By|Name|Title|Its):?$", re.IGNORECASE)
@@ -169,6 +179,10 @@ def strip_subsection_section_tags(tagged_text: str) -> str:
     """
     Remove <section> tags from subsection headings like 1.2.3 or 1.2.3.4.
 
+    Only a title that starts with such a number is unwrapped; a section title
+    that merely mentions one ("Section 11.11. Disbursements from Section
+    11.1.4 Escrow Account") keeps its tag.
+
     Args:
         tagged_text: Tagged text that may include <section> headings.
 
@@ -178,7 +192,7 @@ def strip_subsection_section_tags(tagged_text: str) -> str:
 
     def replace(match: re.Match[str]) -> str:
         inner = match.group(1)
-        if SUBSECTION_NUMBER_RE.search(inner):
+        if SUBSECTION_NUMBER_RE.match(inner):
             return inner
         return match.group(0)
 
@@ -1056,11 +1070,24 @@ def convert_to_xml(
     current_article = None
     section_count = 0
     article_count = 0
+    previous_article_number: int | None = None
 
     for i, m in enumerate(matches):
         tag = m.group(1)
         raw_title = m.group(2).strip()
         title = " ".join(raw_title.split())
+        # Restore the space a glued heading lost ("ARTICLE IVREPRESENTATIONS",
+        # "Section 5.1Closing"); the title is otherwise the printed text.
+        if tag == "article":
+            title = normalize_glued_article_title(
+                title,
+                previous_article_number + 1 if previous_article_number is not None else None,
+            )
+            parsed_number = article_title_number(title)
+            if parsed_number is not None:
+                previous_article_number = parsed_number
+        else:
+            title = normalize_glued_section_title(title)
         source_page_uuid = heading_page_uuid(m.start())
 
         _, end = m.span()
@@ -1349,8 +1376,12 @@ def generate_xml(
             body_rows = temp[temp["_xml_page_type"] == "body"]
             if not body_rows.empty:
                 body_el = ET.SubElement(root, "body")
+                body_page_texts = strip_page_furniture(
+                    [_xml_page_text(r) for _, r in body_rows.iterrows()]
+                ).page_texts
                 body_text = "\n".join(
-                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in body_rows.iterrows()
+                    f"{page_text}<pageUUID>{page_uuid}</pageUUID>"
+                    for page_text, page_uuid in zip(body_page_texts, body_rows["page_uuid"].to_list())
                 )
                 body_text = strip_subsection_section_tags(body_text)
                 tmp_xml = convert_to_xml(

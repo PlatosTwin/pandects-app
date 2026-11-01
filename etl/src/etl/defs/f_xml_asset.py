@@ -24,6 +24,7 @@ from etl.defs.c_tagging_asset import (
 )
 from etl.defs.resources import DBResource, PipelineConfig
 from etl.domain.f_xml import generate_xml
+from etl.domain.sentence_split_titles import repair_sentence_split_section_titles
 from etl.domain.xml_tag_repairs import (
     SectionGap,
     XMLTagRepairStats,
@@ -1354,6 +1355,12 @@ def _apply_tag_repair_to_body_rows(
             repaired, stats = unwrap_standalone_section_label_tags(tagged_output)
         elif repair_name == "normalize_no_space_section_prefixes":
             repaired, stats = normalize_no_space_section_prefixes(tagged_output)
+        elif repair_name == "repair_sentence_split_section_titles":
+            raw_page_content = row.get("raw_page_content")
+            repaired, stats = repair_sentence_split_section_titles(
+                tagged_output,
+                raw_page_content if isinstance(raw_page_content, str) else None,
+            )
         elif repair_name == "split_leading_page_number_sections":
             repaired, stats = split_leading_page_number_section_tags(tagged_output)
         elif repair_name == "unwrap_inline_section_references":
@@ -1743,6 +1750,12 @@ def _apply_safe_xml_tag_repairs_to_df(
         "normalize_no_space_section_prefixes",
         [],
     )
+    out, sentence_split_stats = _apply_tag_repair_to_body_rows(
+        out,
+        "repair_sentence_split_section_titles",
+        [],
+    )
+    direct_text_stats.update(sentence_split_stats)
 
     for agreement_uuid in out["agreement_uuid"].drop_duplicates().tolist():
         agreement_mask = out["agreement_uuid"] == agreement_uuid
