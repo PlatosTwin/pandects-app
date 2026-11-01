@@ -308,6 +308,10 @@ class XMLVerifyAssetTests(unittest.TestCase):
                 "<section>1.2 Option Rights has the meaning set out below.</section>",
             ),
             (
+                "Takeover Laws Section 4.22 WARN Section 4.19(e) Section 1.2. Severability. If any term is invalid.",
+                "<section>Section 1.2. Severability. If any term is invalid.</section>",
+            ),
+            (
                 "the rules promulgated thereunder 1.2 IFRS International Financial Reporting Standards.",
                 "<section>1.2 IFRS International Financial Reporting Standards.</section>",
             ),

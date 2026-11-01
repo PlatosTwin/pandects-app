@@ -470,8 +470,9 @@ def unwrap_inline_section_reference_tags(tagged_text: str) -> tuple[str, XMLTagR
 
 
 def _match_starts_line_heading(tagged_text: str, match: re.Match[str]) -> bool:
-    """A heading starts a line or follows the end of a sentence or tag on its line
-    ("... in the background. 1.2 2014 Option Rights has the meaning ..."). A bare
+    """A heading starts a line or follows the end of a sentence, an index entry or a
+    tag on its line ("... in the background. 1.2 2014 Option Rights has the meaning
+    ...", "... WARN Section 4.19(e) Section 9.4. Severability."). A bare
     number may also run on after a definition that ends without a period ("...
     thereunder 1.40 IFRS means ..."). "Section N.N" mid-sentence, a bare number after
     a reference word, or a number followed by a comma or "of" is a cross-reference
@@ -480,7 +481,7 @@ def _match_starts_line_heading(tagged_text: str, match: re.Match[str]) -> bool:
         return False
     line_start = tagged_text.rfind("\n", 0, match.start()) + 1
     before = tagged_text[line_start : match.start()].rstrip()
-    if not before or before.endswith((".", ";", ":", ">")):
+    if not before or before.endswith((".", ";", ":", ")", ">")):
         return True
     if match.group(0).lower().startswith("section"):
         return False
