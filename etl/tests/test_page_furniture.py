@@ -152,12 +152,77 @@ class StripPageFurnitureTests(unittest.TestCase):
         self.assertEqual(result.page_texts[5], pages[5])
 
     def test_page_number_above_letter_numbered_heading_is_removed(self) -> None:
-        pages = [f"Body text {i}.\n{i + 1}" for i in range(5)]
-        pages.append("6\n<section>B. Representations.</section> The parties agree.")
+        pages = [f"- {i + 1} -\nBody text {i}." for i in range(5)]
+        pages.append("- 6 -\n<section>B. Representations.</section> The parties agree.")
 
         result = strip_page_furniture(pages)
 
         self.assertEqual(result.page_texts[5], "<section>B. Representations.</section> The parties agree.")
+
+    def test_two_fitting_numbers_on_one_page_keep_the_clause_number(self) -> None:
+        # Page index 11 is printed page 12; the agreement numbers its pages at the bottom.
+        openers = {
+            "S1": "12\nMISCELLANEOUS",
+            "S2": "12\n<article>ARTICLE XII MISCELLANEOUS</article>",
+            "S3": "12\n<section>12.1 Notices.</section>",
+            "S4": "12\nThe parties further agree as follows.",
+        }
+        for name, opener in openers.items():
+            with self.subTest(name):
+                pages = [f"Body text {i}.\n{i + 1}" for i in range(11)]
+                pages.append(f"{opener}\nMore body text.\n12")
+                pages += [f"Body text {i}.\n{i + 1}" for i in range(12, 15)]
+
+                result = strip_page_furniture(pages)
+
+                self.assertEqual(result.page_texts[11], f"{opener}\nMore body text.")
+
+    def test_two_fitting_numbers_on_one_page_top_numbered_agreement(self) -> None:
+        pages = [f"{i + 1}\nBody text {i}." for i in range(11)]
+        pages.append("12\nThe Company shall deliver:\n12")
+        pages += [f"{i + 1}\nBody text {i}." for i in range(12, 15)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[11], "The Company shall deliver:\n12")
+
+    def test_two_fitting_numbers_with_no_dominant_edge_strips_neither(self) -> None:
+        pages = ["Body 0.\n1", "2\nBody 1.", "Body 2.\n3", "4\nBody 3.", "5\nBody 4.\n5"]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[4], pages[4])
+
+    def test_clause_number_at_top_of_page_without_page_number_is_kept(self) -> None:
+        # S5: printed page 12 lost its bottom number; its top line is clause 12.
+        pages = [f"Body text {i}.\n{i + 1}" for i in range(11)]
+        pages.append("12\nMISCELLANEOUS\nThe parties further agree as follows.")
+        pages += [f"Body text {i}.\n{i + 1}" for i in range(12, 15)]
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts[11], pages[11])
+
+    def test_sparse_chain_is_not_a_page_sequence(self) -> None:
+        # S9: three fitting numbers spread over 47 pages are not running page numbers.
+        body = "Body text.\nMore text.\nEven more.\nLast line."
+        pages = [body for _ in range(50)]
+        for index in (2, 10, 48):
+            pages[index] = f"{index + 1}\n{body}"
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual(result.page_texts, pages)
+        self.assertEqual(result.removed, [])
+
+    def test_sparse_chain_counts_pages_with_tagged_numbers(self) -> None:
+        pages = [f"Body text {i}.\nMore text.\nEven more.\nLast line.\n<page>{i + 1}</page>" for i in range(50)]
+        for index in (2, 10, 48):
+            pages[index] = f"{index + 1}\nBody text {index}.\nMore text.\nEven more.\nLast line."
+
+        result = strip_page_furniture(pages)
+
+        self.assertEqual([r.line for r in result.removed], ["3", "11", "49"])
 
     def test_number_off_the_page_sequence_is_kept(self) -> None:
         pages = [f"Body text {i}.\n{i + 1}" for i in range(5)]

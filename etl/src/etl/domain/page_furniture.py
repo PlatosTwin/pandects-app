@@ -23,9 +23,15 @@ On top of that, each kind needs its own evidence that it is a running line:
 - Page numbers: the number must fit the agreement's page sequence. Candidates
   are chained across pages while the number rises and ``number - page index``
   stays within ``PAGE_OFFSET_TOLERANCE`` of the previous link; only chains of at least
-  ``MIN_REPEAT_PAGES`` pages are stripped, at most one number per page edge, and
-  never a number whose next non-blank line opens a heading without a number of
-  its own (``12`` above ``<section>Miscellaneous</section>`` is a clause number).
+  ``MIN_REPEAT_PAGES`` pages are stripped, and only when the chain's pages plus
+  the pages numbered some other way (a tagged ``<page>`` number, or a short
+  split-off header/footer fragment) cover at least ``MIN_CHAIN_COVERAGE`` of the
+  pages it spans. At most one number per page is removed:
+  when both edges of a page fit, the agreement's dominant edge wins (a tie
+  strips neither). A number off the dominant edge that sits right above a
+  heading-like line is kept, and a number whose next non-blank line opens a
+  heading without a number of its own is always kept (``12`` above
+  ``<section>Miscellaneous</section>`` is a clause number).
 - Banners (EXECUTION VERSION, CONFIDENTIAL): the shape repeats on
   ``MIN_REPEAT_PAGES`` pages and every non-empty line between the banner and the
   page edge is itself being stripped, so the banner is the outermost text.
@@ -39,9 +45,13 @@ from dataclasses import dataclass, field
 EDGE_LINE_WINDOW = 3
 MIN_REPEAT_PAGES = 3
 PAGE_OFFSET_TOLERANCE = 2
+# Share of the pages a page-number chain spans that must be numbered: by a chain
+# link, a tagged <page> number, or as a short split-off header/footer fragment.
+MIN_CHAIN_COVERAGE = 0.5
 
 # A line that is only a tagged page number ("<page>12</page>", "Page <page>12</page>").
 _PAGE_MARKER_LINE_RE = re.compile(r"(?:page\s*)?<page>.*?</page>", re.IGNORECASE)
+_PAGE_TAG_RE = re.compile(r"<page>.*?</page>", re.IGNORECASE)
 _DIGITS_RE = re.compile(r"\d+")
 _HEADING_OPEN_RE = re.compile(r"<(article|section)>", re.IGNORECASE)
 _HEADING_CLOSE_RE = re.compile(r"</(article|section)>", re.IGNORECASE)
@@ -125,6 +135,7 @@ class _Candidate:
     text: str
     side: str  # "top" or "bottom"
     rank: int  # 0 = outermost countable line on its side
+    next_is_heading_like: bool = False  # the next non-blank line looks like a heading
 
 
 def furniture_kind(line: str) -> str | None:
@@ -184,6 +195,25 @@ def _next_line_opens_unnumbered_heading(lines: list[str], index: int) -> bool:
     return False
 
 
+def _page_is_numbered_elsewhere(text: str) -> bool:
+    """A page that needs no bare page number to count as numbered: it carries a
+    tagged <page> number, or it is a short fragment (a split-off header or footer)."""
+    return _PAGE_TAG_RE.search(text) is not None or len(_countable_indexes(text.split("\n"))) <= EDGE_LINE_WINDOW
+
+
+def _next_line_is_heading_like(lines: list[str], index: int) -> bool:
+    """True when the next non-blank line opens a tagged heading or is a short all-caps title."""
+    for line in lines[index + 1:]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if _HEADING_START_RE.match(stripped):
+            return True
+        letters = [ch for ch in stripped if ch.isalpha()]
+        return bool(letters) and all(ch.isupper() for ch in letters) and len(stripped.split()) <= 8
+    return False
+
+
 def _page_candidates(page_index: int, text: str) -> list[_Candidate]:
     lines = text.split("\n")
     countable = _countable_indexes(lines)
@@ -206,7 +236,17 @@ def _page_candidates(page_index: int, text: str) -> list[_Candidate]:
         if kind == "page_number" and _next_line_opens_unnumbered_heading(lines, index):
             continue
         side, rank = positions[index]
-        candidates.append(_Candidate(page_index, index, kind, lines[index].strip(), side, rank))
+        candidates.append(
+            _Candidate(
+                page_index,
+                index,
+                kind,
+                lines[index].strip(),
+                side,
+                rank,
+                next_is_heading_like=_next_line_is_heading_like(lines, index),
+            )
+        )
     return candidates
 
 
@@ -223,48 +263,101 @@ def _page_number_value(text: str) -> int:
     return int(match.group())
 
 
-def _sequenced_page_numbers(candidates: list[_Candidate]) -> list[_Candidate]:
-    """Keep page-number candidates that chain into a page sequence of MIN_REPEAT_PAGES pages."""
+def _fits_after(candidate: _Candidate, last: _Candidate) -> bool:
+    value = _page_number_value(candidate.text)
+    last_value = _page_number_value(last.text)
+    offset = value - candidate.page_index
+    last_offset = last_value - last.page_index
+    return value > last_value and abs(offset - last_offset) <= PAGE_OFFSET_TOLERANCE
+
+
+def _chain_page_numbers(group: list[_Candidate], dominant: str | None) -> list[list[_Candidate]]:
+    """Link one shape's candidates into rising page sequences.
+
+    When a chain can be extended by candidates on both edges of one page, the
+    candidate on the agreement's dominant side wins; with no dominant side,
+    neither is used.
+    """
+    by_page: dict[int, list[_Candidate]] = {}
+    for candidate in group:
+        by_page.setdefault(candidate.page_index, []).append(candidate)
+    chains: list[list[_Candidate]] = []
+    for page_index in sorted(by_page):
+        page_candidates = sorted(by_page[page_index], key=lambda c: c.rank)
+        used: set[int] = set()
+        for chain in sorted(chains, key=len, reverse=True):
+            fitting = [
+                c for c in page_candidates if id(c) not in used and _fits_after(c, chain[-1])
+            ]
+            if not fitting:
+                continue
+            if len({c.side for c in fitting}) == 2:
+                if dominant is None:
+                    used.update(id(c) for c in fitting)
+                    continue
+                fitting = [c for c in fitting if c.side == dominant]
+            pick = min(fitting, key=lambda c: c.rank)
+            chain.append(pick)
+            used.add(id(pick))
+        for candidate in page_candidates:
+            if id(candidate) not in used:
+                chains.append([candidate])
+                used.add(id(candidate))
+    return chains
+
+
+def _accepted_chain(chain: list[_Candidate], numbered_pages: set[int]) -> bool:
+    """A chain needs MIN_REPEAT_PAGES links, and the pages it spans must be numbered
+    densely: its links plus pages numbered some other way cover MIN_CHAIN_COVERAGE."""
+    if len(chain) < MIN_REPEAT_PAGES:
+        return False
+    first, last = chain[0].page_index, chain[-1].page_index
+    numbered = {c.page_index for c in chain} | {p for p in numbered_pages if first <= p <= last}
+    return len(numbered) >= MIN_CHAIN_COVERAGE * (last - first + 1)
+
+
+def _accepted_page_numbers(
+    candidates: list[_Candidate], dominant: str | None, numbered_pages: set[int]
+) -> list[_Candidate]:
     accepted: list[_Candidate] = []
     by_shape: dict[str, list[_Candidate]] = {}
     for candidate in candidates:
         by_shape.setdefault(_line_shape(candidate.text), []).append(candidate)
     for group in by_shape.values():
-        by_page: dict[int, list[_Candidate]] = {}
-        for candidate in group:
-            by_page.setdefault(candidate.page_index, []).append(candidate)
-        chains: list[list[_Candidate]] = []
-        for page_index in sorted(by_page):
-            extended: set[int] = set()
-            for candidate in sorted(by_page[page_index], key=lambda c: c.rank):
-                offset = _page_number_value(candidate.text) - page_index
-                best: int | None = None
-                for chain_index, chain in enumerate(chains):
-                    if chain_index in extended:
-                        continue
-                    last = chain[-1]
-                    last_offset = _page_number_value(last.text) - last.page_index
-                    value_rises = _page_number_value(candidate.text) > _page_number_value(last.text)
-                    if value_rises and abs(offset - last_offset) <= PAGE_OFFSET_TOLERANCE and (
-                        best is None or len(chain) > len(chains[best])
-                    ):
-                        best = chain_index
-                if best is None:
-                    chains.append([candidate])
-                    extended.add(len(chains) - 1)
-                else:
-                    chains[best].append(candidate)
-                    extended.add(best)
-        for chain in chains:
-            if len(chain) >= MIN_REPEAT_PAGES:
+        for chain in _chain_page_numbers(group, dominant):
+            if _accepted_chain(chain, numbered_pages):
                 accepted.extend(chain)
-    # At most one page number per page edge: keep the outermost.
-    best_by_edge: dict[tuple[int, str], _Candidate] = {}
+    return accepted
+
+
+def _dominant_side(candidates: list[_Candidate]) -> str | None:
+    top = sum(1 for c in candidates if c.side == "top")
+    bottom = len(candidates) - top
+    if top == bottom:
+        return None
+    return "top" if top > bottom else "bottom"
+
+
+def _sequenced_page_numbers(candidates: list[_Candidate], numbered_pages: set[int]) -> list[_Candidate]:
+    """Keep page-number candidates that chain into the agreement's page sequence."""
+    dominant = _dominant_side(_accepted_page_numbers(candidates, None, numbered_pages))
+    accepted = _accepted_page_numbers(candidates, dominant, numbered_pages)
+    if dominant is not None:
+        # Off the usual edge, a number right above a heading is a clause number.
+        accepted = [c for c in accepted if c.side == dominant or not c.next_is_heading_like]
+    by_page: dict[int, list[_Candidate]] = {}
     for candidate in accepted:
-        key = (candidate.page_index, candidate.side)
-        if key not in best_by_edge or candidate.rank < best_by_edge[key].rank:
-            best_by_edge[key] = candidate
-    return list(best_by_edge.values())
+        by_page.setdefault(candidate.page_index, []).append(candidate)
+    result: list[_Candidate] = []
+    for page_candidates in by_page.values():
+        sides = {c.side for c in page_candidates}
+        if len(sides) == 2:
+            if dominant is None:
+                continue
+            page_candidates = [c for c in page_candidates if c.side == dominant]
+        # At most one page number per page: keep the outermost.
+        result.append(min(page_candidates, key=lambda c: c.rank))
+    return result
 
 
 def _banner_is_outermost(candidate: _Candidate, lines: list[str], removed_lines: set[int]) -> bool:
@@ -282,7 +375,8 @@ def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
     """
     all_candidates = [c for i, text in enumerate(page_texts) for c in _page_candidates(i, text)]
     accepted = _repeated([c for c in all_candidates if c.kind not in ("page_number", "banner")])
-    accepted += _sequenced_page_numbers([c for c in all_candidates if c.kind == "page_number"])
+    numbered_pages = {i for i, text in enumerate(page_texts) if _page_is_numbered_elsewhere(text)}
+    accepted += _sequenced_page_numbers([c for c in all_candidates if c.kind == "page_number"], numbered_pages)
 
     removed_by_page: dict[int, set[int]] = {}
     for candidate in accepted:
