@@ -11,6 +11,7 @@ from xml.parsers.expat import ExpatError
 from bs4 import BeautifulSoup
 from bs4.element import Comment, Tag
 
+from etl.domain.edgar_sgml import strip_edgar_sgml
 from etl.domain.g_sections import clean_article_title
 from etl.domain.g_sections import clean_section_title
 
@@ -1013,11 +1014,18 @@ def _xml_page_text(row: Any) -> str:
         formatted_signature = format_signature_text_like_screen(str(tagged_output))
         if formatted_signature.strip():
             return _strip_xml_invalid_control_chars(formatted_signature)
-    return (
+    page_text = (
         _strip_xml_invalid_control_chars(str(tagged_output))
         if _has_text_value(tagged_output)
         else ""
     )
+    source_is_txt = row.get("source_is_txt")
+    # NULL can arrive as None or NaN (truthy), so test the value, not bool(NaN).
+    if page_text and source_is_txt is not None and source_is_txt == source_is_txt and bool(source_is_txt):
+        # Pages from old EDGAR .txt filings carry SGML markup (<TABLE>, <S>,
+        # <C>, <PAGE>, the <DOCUMENT> header) and text-table rule lines.
+        page_text = strip_edgar_sgml(page_text)
+    return page_text
 
 
 def generate_xml(
