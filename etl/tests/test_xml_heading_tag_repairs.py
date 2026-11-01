@@ -1020,3 +1020,68 @@ class SentenceSplitHeadingGuardTests(unittest.TestCase):
             self._title("Section 7.04 Conditions to Obligations of Plum Creek to Effect", " the Merger ------\n\nThe"),
             "Section 7.04 Conditions to Obligations of Plum Creek to Effect the Merger",
         )
+
+
+class SentenceSplitReReviewTests(unittest.TestCase):
+    """Second review of PR #229."""
+
+    def _title(self, inner: str, follow: str, raw: str | None = None, page: str = "") -> str:
+        text = f"{page}<section>{inner}</section>{follow}"
+        repaired, _ = repair_sentence_split_section_titles(text, raw)
+        self.assertEqual(
+            repaired.replace("<section>", "").replace("</section>", ""),
+            text.replace("<section>", "").replace("</section>", ""),
+        )
+        start = repaired.index("<section>", len(page)) + len("<section>")
+        return repaired[start : repaired.index("</section>", start)]
+
+    def test_bold_sentence_is_not_a_layout_heading(self) -> None:
+        for inner, follow, sentence in (
+            ("10.1 No party", " may assign this Agreement.", "10.1 No party may assign this Agreement."),
+            ("4.1 Each Seller", " warrants to the Buyer as follows.", "4.1 Each Seller warrants to the Buyer as follows."),
+            ("6.1 Completion", " shall take place on the Completion Date.", "6.1 Completion shall take place on the Completion Date."),
+            ("12.4 The Bidder", " values the Company's SAP applications.", "12.4 The Bidder values the Company's SAP applications."),
+        ):
+            with self.subTest(inner=inner):
+                raw = f"<p><b>{sentence}</b></p><p>Next paragraph.</p>"
+                self.assertEqual(self._title(inner, follow + "\n\nNext paragraph.", raw), inner.split()[0])
+
+    def test_bold_statutory_reference_heading_is_kept(self) -> None:
+        # baf68ca1.
+        raw = "<p>3.22 <b>Section 13.1-728.2 et seq. of the VSCA.</b> The Company Board has taken all action.</p>"
+        self.assertEqual(
+            self._title("3.22 Section 13.", "1-728.2 et seq. of the VSCA. The Company Board has taken all action.", raw),
+            "3.22 Section 13.1-728.2 et seq. of the VSCA.",
+        )
+
+    def test_determiner_is_never_a_defined_term(self) -> None:
+        # 564dbf71, 70eaaf56, bb680dd1.
+        for inner, follow in (
+            ("6.9 This Agreement", " is intended to be binding on the parties"),
+            ("7.1 It is", " agreed that the Purchaser shall"),
+            ("2.3 The Transfer", " is subject to the satisfaction of the Conditions"),
+        ):
+            with self.subTest(inner=inner):
+                self.assertEqual(self._title(inner, follow), inner.split()[0])
+
+    def test_recurring_party_name_is_not_split(self) -> None:
+        # 687bf50e, b6f62e1d.
+        page = "The Target Shareholders shall deliver the shares. The Secondary Guarantor shall pay.\n\n"
+        self.assertEqual(
+            self._title("5.2 Target Shareholders", " shall deliver the Shares at Completion.", page=page), "5.2"
+        )
+        self.assertEqual(self._title("9.4 Secondary Guarantor", " shall pay the amount.", page=page), "9.4")
+        self.assertEqual(
+            self._title("Section 4.7 Financing Parent", " has delivered the Commitment Letters.", page=page),
+            "Section 4.7 Financing",
+        )
+        self.assertNotEqual(self._title("9.4 Seller; Buyer", " shall each bear their own costs."), "9.4 Seller")
+
+    def test_list_subject_is_not_split_at_a_repeat(self) -> None:
+        # 40773878, and a synthetic repro.
+        for inner, follow in (
+            ("19.3 Bagger-S\u00f8rensen and", " each of Claus Bagger-S\u00f8rensen and Steen Bagger-S\u00f8rensen agrees"),
+            ("8.2 Holdings and", " each of Alpha Holdings and Beta Holdings agrees to pay"),
+        ):
+            with self.subTest(inner=inner):
+                self.assertIn(self._title(inner, follow), {inner, inner.split()[0]})

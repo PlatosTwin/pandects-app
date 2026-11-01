@@ -90,6 +90,8 @@ _RUN_STOP_WORDS = frozenset(
 )
 # ... even when the word after it is capitalized ("Corporate Organization The Company").
 _SUBJECT_STOP_WORDS = frozenset("the any each no none neither every all such this".split())
+# A defined term never starts with one of these.
+_NOT_A_TERM_START = frozenset("the this that it a an such each these those its any all".split())
 _ADVERB_RE = re.compile(r"(?:\w+ly|hereby|each|jointly|severally|also)$")
 _RUN_MAX_WORDS = 12
 
@@ -199,7 +201,7 @@ def _cut_after_alnum(joined: str, count: int) -> int | None:
 # --- run-in headings ------------------------------------------------------------------------
 
 
-def _run_in_heading_end(joined: str) -> int | None:
+def _run_in_heading_end(joined: str, context: str | None = None) -> int | None:
     """End of a heading printed without a period before the clause sentence, or None.
 
     "Survival None of the ...", "Corporate Organization The Company is ...",
@@ -248,14 +250,19 @@ def _run_in_heading_end(joined: str) -> int | None:
             subject_verb = _SUBJECT_VERB_RE.fullmatch(nxt.lower()) or (
                 _ADVERB_RE.fullmatch(nxt.lower()) and re.match(_SUBJECT_VERB_RE, after.split(" ")[-1] or "")
             )
-            # A list of parties is the subject itself: "Sellers and Asset Sellers shall".
-            party_list = any(_PARTY_RE.fullmatch(_strip_word(w.group())) for w in words[:i]) and any(
-                norms[j] in ("and", "or") for j in range(1, i)
-            )
-            if subject_verb and not party_list and (
-                _PARTY_RE.fullmatch(word) or (norms[i] in norms[:i] and content_before >= 4)
-            ):
-                return _run_end(words, i, subject=True)  # "Financing Parent has", "... Century shall"
+            # A list is the subject itself: "Sellers and Asset Sellers shall", "Holdings and
+            # each of Alpha Holdings and Beta Holdings agrees".
+            joins_list = any(norms[j] in ("and", "or") for j in range(1, i))
+            party_list = joins_list and any(_PARTY_RE.fullmatch(_strip_word(w.group())) for w in words[:i])
+            if subject_verb and _PARTY_RE.fullmatch(word) and not party_list:
+                if words[i - 1].group().endswith(";"):
+                    return None  # "Seller; Buyer shall": two parties, not a heading
+                pair = f"{previous} {word}"
+                if len(re.findall(rf"(?<!\w){re.escape(pair)}(?!\w)", context or joined)) >= 2:
+                    return None  # "Target Shareholders" recurs: a party name, not heading + subject
+                return _run_end(words, i, subject=True)  # "Financing Parent has"
+            if subject_verb and norms[i] in norms[:i] and content_before >= 4 and not joins_list:
+                return _run_end(words, i, subject=True)  # "... Memorandum Century shall"
             if _REFERENCE_START_RE.match(word) and nxt[:1].isdigit():
                 return _run_end(words, i)  # "Separate undertakings Clauses 17.1.1 ..."
             if lower not in _TITLE_SMALL_WORDS:
@@ -355,7 +362,7 @@ def _glued_cut(rest: str, follow: str) -> int | None:
 
 
 def _repair_sentence_split_title(
-    inner: str, follow: str, layout: _Layout | None = None
+    inner: str, follow: str, layout: _Layout | None = None, context: str | None = None
 ) -> tuple[str, str] | None:
     """Return (new_inner, new_follow) for a tag that runs into its own sentence, or None.
 
@@ -417,6 +424,8 @@ def _repair_sentence_split_title(
         # "Claim Notice is defined in clause 10." + "4"
         or re.match(rf"^(?P<term>[^.;:]*?\S){_HSPACE}+(?:is|are){_HSPACE}+defined{_HSPACE}+in\b", rest)
     )
+    if run_on_term is not None and _norm(run_on_term.group("term").split()[0]) in _NOT_A_TERM_START:
+        run_on_term = None  # "This Agreement is" + " intended ...", "It is" + " agreed ..."
     if run_on_term is not None and len(run_on_term.group("term").split()) <= 5:
         return result(len(run_on_term.group("term"))) if _is_title_case(run_on_term.group("term")) else None
     if (
@@ -424,6 +433,7 @@ def _repair_sentence_split_title(
         and len(rest.split()) <= 5
         and _is_title_case(rest)
         and not re.search(r"\b(?:the|a|an|The|A|An)\b", rest)
+        and _norm(rest.split()[0]) not in _NOT_A_TERM_START
     ):
         return None
     if split_token and not digit_split and _is_title_case(rest) and last not in "’'":
@@ -450,10 +460,17 @@ def _repair_sentence_split_title(
                 or heading.count("(") != heading.count(")")
                 or re.search(r"[\x22“”]", heading) is not None
                 or _norm(words[-1]) in _TITLE_SMALL_WORDS
-                or (_REFERENCE_START_RE.match(words[0]) and len(words) > 1 and words[1][:1].isdigit())
                 or (
-                    kind == "block"
-                    and (_CLAUSE_VERB_RE.search(heading) is not None or _norm(words[0]) in _SENTENCE_START_WORDS)
+                    _REFERENCE_START_RE.match(words[0])
+                    and len(words) > 1
+                    and words[1][:1].isdigit()
+                    # "Section 13.1-728.2 et seq. of the VSCA." printed bold is a heading.
+                    and not (kind == "format" and re.search(r"\bof the\b", heading))
+                )
+                or _CLAUSE_VERB_RE.search(heading) is not None  # "<b>6.1 Completion shall take place ...</b>"
+                or (
+                    _norm(words[0]) in _SENTENCE_START_WORDS
+                    and not (_norm(words[0]) == "no" and len(words) > 1 and words[1][:1].isupper())
                 )
             ):
                 found = None
@@ -507,7 +524,7 @@ def _repair_sentence_split_title(
         ):
             return result(found_split.start())
 
-    run_end = _run_in_heading_end(joined)
+    run_end = _run_in_heading_end(joined, context)
     if run_end is not None:
         return result(run_end)  # "Survival None of ...", "Financing Parent has ..."
 
@@ -549,7 +566,7 @@ def repair_sentence_split_section_titles(
             return match.group(0)
         if re.match(r"\s*(?:\S+\s+)?\d+(?:\.\d+)*(?:[,;]|\.?\s+of\s)", match.group("inner")):
             return match.group(0)  # "Section 13.2, Section 13.3 ...", "Section 3.11 of the ..."
-        repaired = _repair_sentence_split_title(match.group("inner"), match.group("follow"), layout())
+        repaired = _repair_sentence_split_title(match.group("inner"), match.group("follow"), layout(), tagged_text)
         if repaired is None:
             return match.group(0)
         stats.applied[REPAIR_NAME] += 1
