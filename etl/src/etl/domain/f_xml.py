@@ -87,8 +87,11 @@ SUBSECTION_NUMBER_RE = re.compile(
 ARTICLE_TAG_RE = re.compile(r"<article\b")
 INLINE_MARKER_RE = re.compile(r"(<pageUUID>.*?</pageUUID>|<page>.*?</page>)", re.DOTALL)
 SIGNATURE_FIELD_LABEL_RE = re.compile(r"^(?P<label>By|Name|Title|Its):?$", re.IGNORECASE)
+# Joins a label cell printed without a colon ("By" | "/s/ Jane Doe") to its value
+# cell, so the row still reads as a field; it is served as a space.
+_SIGNATURE_LABEL_CELL_JOIN = "\ue000"
 SIGNATURE_FIELD_WITH_VALUE_RE = re.compile(
-    r"^(?P<label>By|Name|Title|Its):\s*(?P<value>.+)$",
+    r"^(?P<label>By|Name|Title|Its)(?P<sep>:\s*|\ue000)(?P<value>.+)$",
     re.IGNORECASE,
 )
 SIGNATURE_FIELD_NON_VALUE_RE = re.compile(
@@ -672,10 +675,6 @@ def _normalize_signature_punctuation_spacing(text: str) -> str:
     return re.sub(r"([(\[])[^\S\r\n]+", r"\1", text)
 
 
-def _format_signature_label(label: str) -> str:
-    return label.strip().rstrip(":").title() + ":"
-
-
 def _signature_table_row_text(tr: Tag) -> str | None:
     cells = tr.find_all(["td", "th"], recursive=False)
     if not cells:
@@ -686,13 +685,11 @@ def _signature_table_row_text(tr: Tag) -> str | None:
     if not parts:
         return ""
 
-    if len(parts) == 1:
-        return parts[0]
-
+    # A label cell ("By", "Name:") keeps its printed case and colon. One printed
+    # without a colon is joined so the row still reads as a field.
     label_match = SIGNATURE_FIELD_LABEL_RE.fullmatch(parts[0])
-    if label_match is not None:
-        return f"{_format_signature_label(label_match.group('label'))} {' '.join(parts[1:])}"
-
+    if label_match is not None and len(parts) > 1 and not parts[0].endswith(":"):
+        return f"{parts[0]}{_SIGNATURE_LABEL_CELL_JOIN}{' '.join(parts[1:])}"
     return " ".join(parts)
 
 
@@ -928,9 +925,11 @@ def format_signature_text_like_screen(text: str) -> str:
             line = f"{line} {lines[index + 1]}"
             index += 1
 
+        # Labels keep their printed case and colon: the source's "By", "by:" or
+        # "NAME:" is served as printed, never normalized to "By:" / "Name:".
         label_match = SIGNATURE_FIELD_LABEL_RE.fullmatch(line)
         if label_match:
-            label = _format_signature_label(label_match.group("label"))
+            label = line
             candidate = _signature_next_line(lines, index + 1)
             if candidate is not None:
                 value, value_index = candidate
@@ -947,9 +946,10 @@ def format_signature_text_like_screen(text: str) -> str:
 
         field_value_match = SIGNATURE_FIELD_WITH_VALUE_RE.match(line)
         if field_value_match:
-            label = _format_signature_label(field_value_match.group("label"))
-            value = field_value_match.group("value").strip()
-            formatted.append(f"{label} {value}")
+            label = field_value_match.group("label")
+            if field_value_match.group("sep").startswith(":"):
+                label += ":"
+            formatted.append(f"{label} {field_value_match.group('value').strip()}")
             index += 1
             continue
 
@@ -958,14 +958,15 @@ def format_signature_text_like_screen(text: str) -> str:
             if continuation is not None:
                 value, value_index = continuation
                 if SIGNATURE_VALUE_RE.search(value):
-                    formatted.append(f"by: {value}")
+                    formatted.append(f"{line} {value}")
                     index = value_index + 1
                     continue
 
         formatted.append(line)
         index += 1
 
-    return re.sub(r"\n{3,}", "\n\n", "\n".join(formatted)).strip()
+    text = "\n".join(formatted).replace(_SIGNATURE_LABEL_CELL_JOIN, " ")
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 # The period that ends a printed heading, left behind when the tagger closed the
