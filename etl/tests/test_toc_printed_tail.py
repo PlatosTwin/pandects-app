@@ -8,7 +8,7 @@ schedule lists and index headings printed after the last entry were dropped (6ce
 """
 import unittest
 
-from etl.domain.f_xml import format_toc_html_like_screen
+from etl.domain.f_xml import format_toc_html_like_screen, repeated_toc_extra_keys
 
 
 def _entry_table(*rows: tuple[str, str, str]) -> str:
@@ -28,6 +28,11 @@ ENTRIES_11 = _entry_table(
 
 def _lines(html: str) -> list[str]:
     return [line.strip() for line in format_toc_html_like_screen(html).splitlines() if line.strip()]
+
+
+def _lines_with(html: str, drop_keys: frozenset[str]) -> list[str]:
+    text = format_toc_html_like_screen(html, drop_keys=drop_keys)
+    return [line.strip() for line in text.splitlines() if line.strip()]
 
 
 class TocPrintedTailTests(unittest.TestCase):
@@ -135,6 +140,27 @@ class TocPrintedTailTests(unittest.TestCase):
         html = ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>" + f"<p>{prose}</p><p>Exhibit B Not here</p>"
         lines = _lines(html)
         self.assertEqual(lines[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+
+    def test_running_footers_repeated_on_toc_pages_stay_out(self) -> None:
+        # 8fffafb6, 522db544, 209d338f: a footer printed on every TOC page, some with the page number.
+        footer = "<p>Purchase and Sale Agreement \u2013 WCG</p><p>Hamilton Locke \u258c Share Purchase Agreement {}</p>"
+        pages = [
+            ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>" + footer.format("i"),
+            ENTRIES_11 + "<p>Exhibit B Form of Guaranty</p><p>Annex A Closing Steps</p>" + footer.format("ii"),
+        ]
+        keys = repeated_toc_extra_keys(pages)
+        self.assertEqual(_lines_with(pages[0], keys)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+        self.assertEqual(_lines_with(pages[1], keys)[-2:], ["Exhibit B Form of Guaranty", "Annex A Closing Steps"])
+        # On a single page nothing repeats, so nothing is dropped for repetition.
+        self.assertEqual(repeated_toc_extra_keys(pages[:1]), frozenset())
+
+    def test_execution_banner_and_copyright_lines_stay_out(self) -> None:
+        html = (
+            ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>"
+            + "<p>AGREEMENT AND PLAN OF MERGER BETWEEN A, INC. AND B, INC. EXECUTION VERSION</p><p>i .</p>"
+            + "<p>Herbert Smith Freehills owns the copyright in this document</p><p>Exhibit B Not kept</p>"
+        )
+        self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
 
     def test_a_page_without_extras_is_unchanged(self) -> None:
         html = "<p>TABLE OF CONTENTS</p><p>Page</p>" + ENTRIES_11 + "<p align='center'>ii</p>"

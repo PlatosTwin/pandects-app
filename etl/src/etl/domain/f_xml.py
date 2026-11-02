@@ -605,7 +605,7 @@ _TOC_TEXT_BLOCK_TAGS = (
 )
 _TOC_ENTRY_START_RE = re.compile(r"(?:ARTICLE|Article|SECTION|Section)\s+(?:\d+|[IVXLC]+)\b")
 # Roman page numbers: "iii", "- iv -", "ii.", "II".
-_TOC_ROMAN_PAGE_RE = re.compile(r"[-\u2013\u2014(\s]*(?:[ivxlc]{1,7}|[IVXLC]{1,7})\.?[-\u2013\u2014)\s]*")
+_TOC_ROMAN_PAGE_RE = re.compile(r"[-\u2013\u2014(\s]*(?:[ivxlc]{1,7}|[IVXLC]{1,7})\s*\.?[-\u2013\u2014)\s]*")
 _TOC_LABEL_RE = re.compile(
     r"(?:(?:table\s+of\s+)?contents\s*)?(?:\(?continued\)?\s*)?(?:page|pages|page\s+no\.?)?",
     re.IGNORECASE,
@@ -631,6 +631,9 @@ _TOC_DOC_ID_RE = re.compile(
 # Exhibit page labels ("A-ii", "E-B1") and lines without a letter or digit ("()", "________").
 _TOC_LABELED_PAGE_RE = re.compile(r"[A-Z]{1,2}-(?:[ivxlcIVXLC]{1,6}|[A-Z]?\d{1,3})|[^A-Za-z0-9]+")
 # The note that the TOC is not part of the agreement ("1 The Table of Contents is not a part of this Agreement.").
+_TOC_EXECUTION_BANNER_RE = re.compile(r"\bexecution\s+(?:version|copy)\b", re.IGNORECASE)
+# A trailing page number, left off when a running header or footer is compared across pages.
+_TOC_TRAILING_PAGE_RE = re.compile(r"\s+(?:[ivxlc]{1,7}|[IVXLC]{1,7}|\d{1,3})\s*\.?$")
 _TOC_NOT_PART_RE = re.compile(r"(?:table\s+of\s+contents|headings).{0,40}\bnot\s+(?:a\s+)?part\s+of\s+this\s+agreement", re.IGNORECASE)
 # A paragraph of prose, not a TOC line; the page's TOC ends before it.
 _TOC_PROSE_CHARS = 300
@@ -638,7 +641,7 @@ _TOC_WORD_RE = re.compile(r"[A-Za-z]{3,}")
 # SEC filing legends and confidential-treatment notes; the lines after one on the page continue it.
 _TOC_LEGEND_RE = re.compile(
     r"\bconfidential\b|\bomitted\b|\bomissions?\b|rule\s+24b-2|regulation\s+s-k|item\s+601"
-    r"|securities\s+and\s+exchange\s+commission|\[\s*\*+\s*\]|^\*",
+    r"|securities\s+and\s+exchange\s+commission|\[\s*\*+\s*\]|^\*|\bcopyright\b",
     re.IGNORECASE,
 )
 # A listed exhibit, schedule or annex: "Exhibit A ...", "Annex B ...", "A-1 Form of ...".
@@ -659,6 +662,7 @@ def _toc_extra_is_furniture(text: str) -> bool:
         or _TOC_LABELED_PAGE_RE.fullmatch(text) is not None
         or _TOC_DOC_ID_RE.search(text) is not None
         or _TOC_NOT_PART_RE.search(text) is not None
+        or _TOC_EXECUTION_BANNER_RE.search(text) is not None
     ):
         return True
     if _TOC_LONG_NUMBER_RE.search(text) is not None and len(_TOC_WORD_RE.findall(text)) < 2:
@@ -670,11 +674,17 @@ def _toc_extra_is_furniture(text: str) -> bool:
     )
 
 
+def toc_repeat_key(line: str) -> str:
+    """A TOC line without its trailing page number, for finding running headers and footers."""
+    return _TOC_TRAILING_PAGE_RE.sub("", _normalize_toc_cell_text(line)).casefold()
+
+
 def _toc_printed_extras(
     soup: BeautifulSoup,
     entry_elements: list[Tag],
     *,
     line_width: int,
+    drop_keys: frozenset[str] = frozenset(),
 ) -> list[tuple[int, list[str]]]:
     """The printed text blocks around the TOC entry elements, in document order.
 
@@ -706,7 +716,13 @@ def _toc_printed_extras(
                 continue
             text = _toc_visible_text(el)
             lines = [text] if text else []
-        lines = [line for line in lines if line.strip() and not _toc_extra_is_furniture(line.strip())]
+        lines = [
+            line
+            for line in lines
+            if line.strip()
+            and not _toc_extra_is_furniture(line.strip())
+            and toc_repeat_key(line) not in drop_keys
+        ]
         if not lines:
             continue
         if any(_TOC_LEGEND_RE.search(line) is not None or len(line) > _TOC_PROSE_CHARS for line in lines):
@@ -784,13 +800,40 @@ def _wrap_toc_long_lines(text: str, *, line_width: int) -> str:
     return "\n".join(wrapped)
 
 
-def format_toc_html_like_screen(raw_html: str, *, line_width: int = 120) -> str:
+def toc_page_extra_lines(raw_html: str, *, line_width: int = 120) -> list[str]:
+    """The printed extras format_toc_html_like_screen would add to this TOC page."""
+    soup = BeautifulSoup(raw_html, "html.parser")
+    _remove_toc_nonvisible_nodes(soup)
+    positioned_rows = _positioned_toc_rows(soup, line_width=line_width)
+    if any(lines for _, lines in positioned_rows):
+        entries = [row for row, _ in positioned_rows]
+    else:
+        entries = [table for table, _ in _content_toc_tables(soup, line_width=line_width)]
+        if not entries:
+            return []
+    return [line for _, lines in _toc_printed_extras(soup, entries, line_width=line_width) for line in lines]
+
+
+def repeated_toc_extra_keys(raw_pages: list[str]) -> frozenset[str]:
+    """Keys of extras printed on two or more TOC pages: running headers and footers."""
+    counts: dict[str, int] = {}
+    for raw_html in raw_pages:
+        for key in {toc_repeat_key(line) for line in toc_page_extra_lines(raw_html)}:
+            counts[key] = counts.get(key, 0) + 1
+    return frozenset(key for key, count in counts.items() if count >= 2 and key)
+
+
+def format_toc_html_like_screen(
+    raw_html: str, *, line_width: int = 120, drop_keys: frozenset[str] = frozenset()
+) -> str:
     soup = BeautifulSoup(raw_html, "html.parser")
     _remove_toc_nonvisible_nodes(soup)
 
     positioned_rows = _positioned_toc_rows(soup, line_width=line_width)
     if any(lines for _, lines in positioned_rows):
-        extras = _toc_printed_extras(soup, [row for row, _ in positioned_rows], line_width=line_width)
+        extras = _toc_printed_extras(
+            soup, [row for row, _ in positioned_rows], line_width=line_width, drop_keys=drop_keys
+        )
         positioned_lines = _merge_toc_entries_and_extras(
             [lines for _, lines in positioned_rows], extras, separate_entries=False
         )
@@ -800,7 +843,9 @@ def format_toc_html_like_screen(raw_html: str, *, line_width: int = 120) -> str:
 
     content_tables = _content_toc_tables(soup, line_width=line_width)
     if content_tables:
-        extras = _toc_printed_extras(soup, [table for table, _ in content_tables], line_width=line_width)
+        extras = _toc_printed_extras(
+            soup, [table for table, _ in content_tables], line_width=line_width, drop_keys=drop_keys
+        )
         table_lines = _merge_toc_entries_and_extras(
             [lines for _, lines in content_tables], extras, separate_entries=True
         )
@@ -1528,7 +1573,7 @@ def _has_text_value(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def _xml_page_text(row: Any) -> str:
+def _xml_page_text(row: Any, *, toc_drop_keys: frozenset[str] = frozenset()) -> str:
     tagged_output = row.get("tagged_output")
     gold_label = row.get("gold_label")
     source_page_type = (
@@ -1539,7 +1584,9 @@ def _xml_page_text(row: Any) -> str:
         and bool(row.get("source_is_html"))
         and _has_text_value(row.get("raw_page_content"))
     ):
-        formatted_toc = format_toc_html_like_screen(str(row.get("raw_page_content")))
+        formatted_toc = format_toc_html_like_screen(
+            str(row.get("raw_page_content")), drop_keys=toc_drop_keys
+        )
         if formatted_toc.strip():
             return _strip_xml_invalid_control_chars(formatted_toc)
     if (
@@ -1582,6 +1629,21 @@ def _xml_page_text(row: Any) -> str:
             page_order=int(page_order) if page_order is not None and page_order == page_order else None,
         )
     return page_text
+
+
+def _toc_running_extra_keys(toc_rows: Any) -> frozenset[str]:
+    """Extras printed on two or more HTML TOC pages (running headers and footers) stay out."""
+    if "raw_page_content" not in toc_rows.columns:
+        return frozenset()
+    raw_pages = [
+        str(r["raw_page_content"])
+        for _, r in toc_rows.iterrows()
+        if r.get("source_is_html") is not None
+        and r.get("source_is_html") == r.get("source_is_html")
+        and bool(r.get("source_is_html"))
+        and _has_text_value(r.get("raw_page_content"))
+    ]
+    return repeated_toc_extra_keys(raw_pages) if len(raw_pages) >= 2 else frozenset()
 
 
 def _body_inline_split_evidence(body_rows: Any) -> InlineSplitEvidence | None:
@@ -1694,8 +1756,10 @@ def generate_xml(
             toc_rows = temp[temp["_xml_page_type"] == "toc"]
             if not toc_rows.empty:
                 toc_el = ET.SubElement(root, "tableOfContents")
+                toc_drop_keys = _toc_running_extra_keys(toc_rows)
                 text_block = "\n".join(
-                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in toc_rows.iterrows()
+                    (f"{_xml_page_text(r, toc_drop_keys=toc_drop_keys)}<pageUUID>{r['page_uuid']}</pageUUID>")
+                    for _, r in toc_rows.iterrows()
                 )
                 add_text_nodes_simple(toc_el, text_block)
 
