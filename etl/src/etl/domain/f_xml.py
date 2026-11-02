@@ -26,6 +26,7 @@ from etl.domain.page_furniture import (
     strip_nonbody_page_furniture,
     strip_page_furniture,
 )
+from etl.domain.raw_block_joins import join_raw_block_splits
 from etl.domain.txt_underlines import strip_inline_underlines
 
 
@@ -1573,6 +1574,9 @@ def _has_text_value(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+_BLOCK_JOIN_PAGE_TYPES = frozenset({"body", "front_matter", "back_matter"})
+
+
 def _xml_page_text(row: Any, *, toc_drop_keys: frozenset[str] = frozenset()) -> str:
     tagged_output = row.get("tagged_output")
     gold_label = row.get("gold_label")
@@ -1612,6 +1616,19 @@ def _xml_page_text(row: Any, *, toc_drop_keys: frozenset[str] = frozenset()) -> 
         if _has_text_value(tagged_output)
         else ""
     )
+    source_is_html = row.get("source_is_html")
+    raw_page_content = row.get("raw_page_content")
+    if (
+        page_text
+        and source_page_type in _BLOCK_JOIN_PAGE_TYPES
+        and source_is_html is not None
+        and source_is_html == source_is_html
+        and bool(source_is_html)
+        and _has_text_value(raw_page_content)
+    ):
+        # Lines the HTML extraction split inside one printed block (blank
+        # lines inside a <p>, top-level text of a page cut mid-block).
+        page_text = join_raw_block_splits(page_text, str(raw_page_content)).text
     source_is_txt = row.get("source_is_txt")
     # NULL can arrive as None or NaN (truthy), so test the value, not bool(NaN).
     if page_text and source_is_txt is not None and source_is_txt == source_is_txt and bool(source_is_txt):

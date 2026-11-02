@@ -19,7 +19,11 @@ primary_region = 'iad'
   force_https = true
   auto_stop_machines = 'suspend'
   auto_start_machines = true
-  min_machines_running = 1
+  # 0 since 2026-11-02: the frontend calls https://api.pandects.org through Fly's
+  # proxy, which resumes a suspended machine, and the liveness check below goes
+  # straight to the machine so it never holds one awake. It was 1 only because
+  # `fly launch` generated it that way.
+  min_machines_running = 0
   processes = ['app']
 
   # Liveness check; a rolling deploy waits on it before moving to the next
@@ -34,7 +38,10 @@ primary_region = 'iad'
 [deploy]
   release_command = "python3 -m backend.init_auth_db"
 
+# 512 MB since 2026-11-02: measured 255 MB resident serving requests at 512 MB
+# (422 MB at 1 GB, the difference mostly page cache). Raise it if a heavier
+# endpoint or an in-process cache lands here.
 [[vm]]
-  memory = '1gb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
