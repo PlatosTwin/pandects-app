@@ -28,6 +28,34 @@ class XMLGenerationTests(unittest.TestCase):
         self.assertIn("1.2     The Closing", formatted)
         self.assertNotIn("ARTICLE I THE MERGER 6 1.1", formatted)
 
+    def test_format_toc_html_like_screen_renders_rows_nested_in_unclosed_cell_once(
+        self,
+    ) -> None:
+        # html.parser nests the rows after an unclosed <td> inside that cell.
+        raw_html = """
+        <table>
+          <tr><td>ARTICLE I THE MERGER</td><td>6</td></tr>
+          <tr><td>1.1</td><td>The Merger
+          <tr><td>1.2</td><td>The Closing</td><td>7</td></tr>
+          <tr><td>1.3</td><td>Effective Time</td><td>8</td></tr>
+          </td></tr>
+        </table>
+        """
+
+        formatted = f_xml.format_toc_html_like_screen(raw_html, line_width=80)
+
+        self.assertEqual(formatted.count("The Closing"), 1)
+        self.assertEqual(formatted.count("Effective Time"), 1)
+        self.assertEqual(
+            [line.split() for line in formatted.splitlines()],
+            [
+                ["ARTICLE", "I", "THE", "MERGER", "6"],
+                ["1.1", "The", "Merger"],
+                ["1.2", "The", "Closing", "7"],
+                ["1.3", "Effective", "Time", "8"],
+            ],
+        )
+
     def test_format_toc_html_like_screen_ignores_nested_hidden_nodes(self) -> None:
         raw_html = """
         <div style="display: none"><span>hidden section</span></div>
@@ -237,6 +265,41 @@ class XMLGenerationTests(unittest.TestCase):
             "PARENT: HawkEye 360, Inc. By: /s/ John Serafini Name: John Serafini",
             formatted,
         )
+
+    def test_format_signature_html_like_screen_renders_rows_nested_in_unclosed_cell_once(
+        self,
+    ) -> None:
+        # html.parser nests the rows after an unclosed <td> inside that cell.
+        raw_html = """
+        <table>
+          <tr><td></td><td>PUBCO</td></tr>
+          <tr><td></td><td colspan="2">[___]<p></p>
+          <tr><td>By:</td><td>/s/ Jane Doe</td></tr>
+          <tr><td>Name:</td><td>Jane Doe</td></tr>
+          </td></tr>
+        </table>
+        """
+
+        lines = [
+            line for line in f_xml.format_signature_html_like_screen(raw_html).splitlines() if line
+        ]
+
+        self.assertEqual(lines, ["PUBCO", "[___]", "By: /s/ Jane Doe", "Name: Jane Doe"])
+
+    def test_format_signature_html_like_screen_keeps_rows_after_unclosed_row(self) -> None:
+        raw_html = """
+        <table>
+          <tr><td>ACME CORP.</td>
+          <tr><td>By:</td><td>/s/ Jane Doe</td></tr>
+          </tr>
+        </table>
+        """
+
+        lines = [
+            line for line in f_xml.format_signature_html_like_screen(raw_html).splitlines() if line
+        ]
+
+        self.assertEqual(lines, ["ACME CORP.", "By: /s/ Jane Doe"])
 
     def test_format_signature_html_like_screen_normalizes_bracket_spacing(self) -> None:
         raw_html = """

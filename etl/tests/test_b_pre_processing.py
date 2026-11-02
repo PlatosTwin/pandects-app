@@ -3,11 +3,13 @@ from typing import cast
 from unittest.mock import Mock, patch
 
 import requests
+from bs4 import BeautifulSoup
 
 import etl.domain.b_pre_processing as b_pre_processing
 from etl.domain.b_pre_processing import (
     AgreementRow,
     ContextProtocol,
+    collapse_tables,
     format_content,
     normalize_padded_quoted_terms,
     normalize_text,
@@ -187,6 +189,84 @@ class PreProcessingTests(unittest.TestCase):
         text = format_content(html, is_txt=False, is_html=True)
 
         self.assertEqual(text, '(the “Cariflex Business”).')
+
+    def _collapsed_rows(self, html: str) -> list[str]:
+        soup = collapse_tables(BeautifulSoup(html, "html.parser"))
+        return soup.get_text().split("\n")
+
+    def test_collapse_tables_keeps_clean_table_rows(self) -> None:
+        html = (
+            "<table><tr><td>1.1</td><td>The <b>Merger</b></td><td>6</td></tr>"
+            "<tr><th>1.2</th><td>The Closing</td><td>7</td></tr></table>"
+        )
+
+        self.assertEqual(
+            self._collapsed_rows(html), ["1.1 The Merger 6", "1.2 The Closing 7"]
+        )
+
+    def test_collapse_tables_emits_row_after_unclosed_row_once(self) -> None:
+        # html.parser nests the row after an unclosed <tr> inside it.
+        html = (
+            "<table><tr><td>A1 first row</td></tr>"
+            "<tr><td>&nbsp;</td>"
+            '<tr><td width="5%"></td><td colspan="2"><p>All notices shall be given.</p></td></tr>'
+            "</tr></table>"
+        )
+
+        self.assertEqual(
+            self._collapsed_rows(html), ["A1 first row", "All notices shall be given."]
+        )
+
+    def test_collapse_tables_keeps_row_nested_before_unclosed_row_cells_in_place(
+        self,
+    ) -> None:
+        # An unclosed <tr> followed at once by a full row, then the first row's cells.
+        html = (
+            "<table><tr>"
+            "<tr><td></td><td>By: CP6 Principals, L.L.C., its managing member</td></tr>"
+            "<td></td><td>By:</td><td>/s/ Scott A. Dahnke</td></tr>"
+            "<tr><td></td><td>Name:</td><td>Scott A. Dahnke</td></tr></table>"
+        )
+
+        self.assertEqual(
+            self._collapsed_rows(html),
+            [
+                "By: CP6 Principals, L.L.C., its managing member",
+                "By: /s/ Scott A. Dahnke",
+                "Name: Scott A. Dahnke",
+            ],
+        )
+
+    def test_collapse_tables_emits_cell_after_unclosed_cell_once(self) -> None:
+        html = (
+            "<table><tr><td><p><b>Class A Shares</b></p>"
+            "<td>Class A ordinary shares, as set out in these Articles;</td></td></tr></table>"
+        )
+
+        self.assertEqual(
+            self._collapsed_rows(html),
+            ["Class A Shares Class A ordinary shares, as set out in these Articles;"],
+        )
+
+    def test_collapse_tables_emits_rows_nested_in_cell_once(self) -> None:
+        html = (
+            "<table><tr><td>x</td><td>PUBCO</td></tr>"
+            '<tr><td>y</td><td colspan="2">[___]<p></p>'
+            "<tr><td>By:</td><td>___</td></tr><tr><td>Name:</td><td>Jane Doe</td></tr>"
+            "</td></tr></table>"
+        )
+
+        self.assertEqual(
+            self._collapsed_rows(html), ["x PUBCO", "y [___]", "By: ___", "Name: Jane Doe"]
+        )
+
+    def test_collapse_tables_emits_nested_table_once_in_its_cell(self) -> None:
+        html = (
+            "<table><tr><td>Outer <table><tr><td>Inner one</td><td> two</td></tr></table></td>"
+            "<td>Right</td></tr></table>"
+        )
+
+        self.assertEqual(self._collapsed_rows(html), ["Outer Inner one two Right"])
 
     def test_format_content_does_not_add_quote_padding_after_punctuation_tag(self) -> None:
         html = (
