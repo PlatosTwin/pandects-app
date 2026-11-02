@@ -10,8 +10,10 @@ The positive cases are trimmed from served agreements:
   adjacent <font> runs with no space between them.
 """
 import unittest
+from unittest import mock
 
 from etl.domain import f_xml
+from etl.domain import raw_block_joins
 from etl.domain.raw_block_joins import join_raw_block_splits, raw_stream
 
 RAW_ROOT_INLINE = (
@@ -91,7 +93,7 @@ LONG = (
 
 class JoinRawBlockSplitsTests(unittest.TestCase):
     def test_top_level_inline_runs_are_one_block(self) -> None:
-        result = join_raw_block_splits(TEXT_ROOT_INLINE, RAW_ROOT_INLINE)
+        result = join_raw_block_splits(TEXT_ROOT_INLINE, RAW_ROOT_INLINE, collect=True)
         self.assertIn(
             "as provided in Section 2.3(e)) equal to the product obtained by multiplying (A) the number of Shares",
             result.text,
@@ -102,7 +104,7 @@ class JoinRawBlockSplitsTests(unittest.TestCase):
         self.assertEqual(len(result.joins), 4)
 
     def test_blank_lines_inside_a_div_are_one_paragraph(self) -> None:
-        result = join_raw_block_splits(TEXT_BLANK_LINES, RAW_BLANK_LINES)
+        result = join_raw_block_splits(TEXT_BLANK_LINES, RAW_BLANK_LINES, collect=True)
         self.assertIn("limited liability company (“Buyer”), and, solely for the purposes of Section 9.13", result.text)
         # The heading and the next paragraph are separate blocks.
         self.assertIn("(the “Guarantor”).\n\nRECITALS\n\nWHEREAS,", result.text)
@@ -205,6 +207,42 @@ class JoinRawBlockSplitsTests(unittest.TestCase):
     def test_missing_raw_is_a_no_op(self) -> None:
         self.assertEqual(join_raw_block_splits(TEXT_ROOT_INLINE, None).text, TEXT_ROOT_INLINE)
         self.assertEqual(join_raw_block_splits(TEXT_ROOT_INLINE, "  ").text, TEXT_ROOT_INLINE)
+
+    def test_stray_end_tag_at_a_page_cut_is_a_break(self) -> None:
+        # A page cut mid-block starts inside an element whose start tag is on
+        # the previous page; html.parser drops the unmatched end tag.
+        raw = f"{LONG} about the Company</div>\nNext paragraph of the agreement begins here"
+        text = f"{LONG} about the Company\n\nNext paragraph of the agreement begins here"
+        self.assertEqual(join_raw_block_splits(text, raw).text, text)
+        raw = f"{LONG} shall be paid</font></p>\n<font>in addition to the amounts set out above</font>"
+        text = f"{LONG} shall be paid\n\nin addition to the amounts set out above"
+        self.assertEqual(join_raw_block_splits(text, raw).text, text)
+
+    def test_stray_inline_end_tag_still_joins(self) -> None:
+        raw = f"{LONG} shall be paid</font>\n<font>in addition to the amounts set out above</font>"
+        text = f"{LONG} shall be paid\n\nin addition to the amounts set out above"
+        self.assertEqual(
+            join_raw_block_splits(text, raw).text,
+            f"{LONG} shall be paid in addition to the amounts set out above",
+        )
+
+    def test_inline_block_spans_are_separate_boxes(self) -> None:
+        raw = (
+            f"<p>{LONG}<span style=\"display: inline-block; width: 200pt\">Name of Company</span>"
+            "<span style=\"display:inline-block\">Address of Company</span></p>"
+        )
+        text = f"{LONG}\n\nName of Company\n\nAddress of Company"
+        self.assertEqual(join_raw_block_splits(text, raw).text, text)
+
+    def test_page_without_an_unbroken_junction_is_not_parsed(self) -> None:
+        raw = f"<p>{LONG}, provided that</p>\n<p>the Company Board may act</p>"
+        text = f"{LONG}, provided that\n\nthe Company Board may act"
+        with mock.patch.object(raw_block_joins, "raw_stream", side_effect=AssertionError("parsed")):
+            self.assertEqual(join_raw_block_splits(text, raw).text, text)
+
+    def test_joins_are_listed_only_on_request(self) -> None:
+        self.assertEqual(join_raw_block_splits(TEXT_NO_SPACE_PUNCT, RAW_NO_SPACE_PUNCT).joins, [])
+        self.assertEqual(len(join_raw_block_splits(TEXT_NO_SPACE_PUNCT, RAW_NO_SPACE_PUNCT, collect=True).joins), 2)
 
 
 class XmlPageTextTests(unittest.TestCase):

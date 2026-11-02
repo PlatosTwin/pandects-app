@@ -46,6 +46,7 @@ characters never change, and no space is ever put inside a word.
 Lines are never joined across a page, and the page text is left unchanged
 when the raw page is missing or cannot be aligned.
 """
+import html
 import re
 from dataclasses import dataclass, field
 
@@ -53,7 +54,8 @@ from bs4 import BeautifulSoup
 from bs4.element import Comment, Declaration, Doctype, NavigableString, ProcessingInstruction, Tag
 
 # Tags whose content flows inline: no paragraph break before or after.
-_INLINE_TAGS = frozenset(
+# Shared with the HTML extractor (b_pre_processing).
+INLINE_TAG_NAMES = frozenset(
     {
         "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "cite", "code", "data",
         "del", "dfn", "em", "font", "i", "ins", "kbd", "label", "mark", "nobr",
@@ -64,10 +66,13 @@ _INLINE_TAGS = frozenset(
 # Containers that do not open a block of their own (the anonymous top level).
 _ROOT_TAGS = frozenset({"html", "body"})
 _SKIP_TAGS = frozenset({"script", "style", "noscript", "template", "head", "title"})
-_PRE_TAGS = frozenset({"pre", "xmp", "listing", "plaintext", "textarea"})
-_PRE_STYLE_RE = re.compile(r"white-space\s*:\s*pre", re.IGNORECASE)
+# Elements that keep source line breaks (with ``white-space: pre`` styles).
+PRE_TAG_NAMES = frozenset({"pre", "xmp", "listing", "plaintext", "textarea"})
+PRE_STYLE_RE = re.compile(r"white-space\s*:\s*pre", re.IGNORECASE)
+# An inline-block box is laid out as its own block: two sibling inline-block
+# spans print side by side as separate boxes, not as one run of text.
 _BLOCK_STYLE_RE = re.compile(
-    r"(?:^|;)\s*(?:display\s*:\s*(?:block|flex|grid|table|list-item)|position\s*:\s*(?:absolute|fixed)|float\s*:\s*(?:left|right))",
+    r"(?:^|;)\s*(?:display\s*:\s*(?:inline-block|block|flex|grid|table|list-item)|position\s*:\s*(?:absolute|fixed)|float\s*:\s*(?:left|right))",
     re.IGNORECASE,
 )
 _HIDDEN_STYLE_RE = re.compile(
@@ -188,11 +193,11 @@ class _StreamBuilder:
                 self.boundary()
                 continue
             style = _style(child)
-            child_pre = pre or name in _PRE_TAGS or bool(_PRE_STYLE_RE.search(style))
+            child_pre = pre or name in PRE_TAG_NAMES or bool(PRE_STYLE_RE.search(style))
             if name in _ROOT_TAGS:
                 self.walk(child, pre=child_pre, in_block=in_block)
                 continue
-            if name in _INLINE_TAGS and not _BLOCK_STYLE_RE.search(style):
+            if name in INLINE_TAG_NAMES and not _BLOCK_STYLE_RE.search(style):
                 self.walk(child, pre=child_pre, in_block=in_block)
                 continue
             # Block elements, tables, images and anything unknown: a break
@@ -202,8 +207,18 @@ class _StreamBuilder:
             self.boundary()
 
 
+# The end tag of any element that is not inline. html.parser drops an end tag
+# that has no open element (a page cut mid-block starts with ``…</div>``), so
+# the text on both sides would read as one block; a <br> after every such end
+# tag keeps the break. After a matched end tag the break is already there.
+_NON_INLINE_END_TAG_RE = re.compile(
+    r"</(?!(?:" + "|".join(sorted(INLINE_TAG_NAMES, key=len, reverse=True)) + r")\s*>)[A-Za-z][A-Za-z0-9:-]*\s*>",
+    re.IGNORECASE,
+)
+
+
 def raw_stream(raw_html: str) -> RawStream:
-    soup = BeautifulSoup(raw_html, "html.parser")
+    soup = BeautifulSoup(_NON_INLINE_END_TAG_RE.sub(r"\g<0><br>", raw_html), "html.parser")
     builder = _StreamBuilder()
     builder.walk(soup, pre=False, in_block=False)
     text = "".join(builder.chars)
@@ -346,6 +361,57 @@ def _raw_joiner(raw: RawStream, rp1: int, rp2: int, tail_rest: str, head_rest: s
     return (" " if gap else ""), "\n" in gap
 
 
+_PREFILTER_SKIP_RE = re.compile(
+    r"<!--.*?-->|<(script|style|noscript|template|head|title)\b.*?</\1\s*>", re.DOTALL | re.IGNORECASE
+)
+_PREFILTER_TAG_RE = re.compile(r"<(/?)([A-Za-z][A-Za-z0-9:-]*)[^>]*>|<[^>]*>")
+_PREFILTER_DROP_RE = re.compile(r"[^\w|]|_")
+_PREFILTER_NO_BREAK_TAGS = INLINE_TAG_NAMES | _ROOT_TAGS
+
+
+def _prefilter_alnum(raw_html: str) -> tuple[str, frozenset[int]]:
+    """The raw page's letters and digits, and the offsets where a tag that is
+    not inline sits.
+
+    A cheap stand-in for the parsed stream: every boundary of the parsed
+    stream sits at such a tag, so a junction that is broken here is broken
+    there too. (``\\w`` minus ``_`` is exactly ``str.isalnum``.)
+    """
+
+    def tag(m: re.Match[str]) -> str:
+        name = m.group(2)
+        return "" if name is not None and name.lower() in _PREFILTER_NO_BREAK_TAGS else "|"
+
+    text = _PREFILTER_TAG_RE.sub(tag, _PREFILTER_SKIP_RE.sub("", raw_html))
+    segments = _PREFILTER_DROP_RE.sub("", html.unescape(text)).split("|")
+    breaks: set[int] = set()
+    offset = 0
+    for segment in segments[:-1]:
+        offset += len(segment)
+        breaks.add(offset)
+    return "".join(segments), frozenset(breaks)
+
+
+def _prefilter_match(cheap: tuple[str, frozenset[int]], left: str, right: str) -> bool:
+    """Whether the junction can be unbroken in the raw page.
+
+    Every key that _find_unique can accept holds the last few characters of
+    ``left`` and the first few of ``right``; one occurrence of them must have
+    no break at the junction.
+    """
+    alnum, breaks = cheap
+    lw, rw = min(_MIN_KEY, len(left)), min(_MIN_KEY, len(right))
+    if not lw or not rw:
+        return False
+    key = left[len(left) - lw :] + right[:rw]
+    i = alnum.find(key)
+    while i >= 0:
+        if i + lw not in breaks:
+            return True
+        i = alnum.find(key, i + 1)
+    return False
+
+
 def _heading_open_after_each_line(lines: list[str]) -> list[bool]:
     open_tags: list[str] = []
     result: list[bool] = []
@@ -359,8 +425,12 @@ def _heading_open_after_each_line(lines: list[str]) -> list[bool]:
     return result
 
 
-def join_raw_block_splits(page_text: str, raw_html: str | None) -> BlockJoinResult:
-    """Join consecutive lines of one page that the raw HTML prints as one block."""
+def join_raw_block_splits(page_text: str, raw_html: str | None, *, collect: bool = False) -> BlockJoinResult:
+    """Join consecutive lines of one page that the raw HTML prints as one block.
+
+    With ``collect``, the result lists each join with its raw context (for
+    audits); otherwise ``joins`` stays empty.
+    """
     if not page_text or not raw_html or not raw_html.strip():
         return BlockJoinResult(page_text)
     lines = page_text.split("\n")
@@ -389,20 +459,32 @@ def join_raw_block_splits(page_text: str, raw_html: str | None) -> BlockJoinResu
 
     # Letters and digits of the page text (markup removed), with the line
     # each one came from.
-    page_alnum: list[str] = []
-    alnum_line: list[int] = []
-    for i, line in enumerate(lines):
-        visible = _MARKUP_RE.sub("", _PAGE_UUID_RE.sub("", line))
-        for ch in visible:
-            if ch.isalnum():
-                page_alnum.append(ch)
-                alnum_line.append(i)
-    alnum_text = "".join(page_alnum)
+    parts: list[str] = []
     first_alnum_of_line: dict[int, int] = {}
     last_alnum_of_line: dict[int, int] = {}
-    for k, i in enumerate(alnum_line):
-        first_alnum_of_line.setdefault(i, k)
-        last_alnum_of_line[i] = k
+    offset = 0
+    for i, line in enumerate(lines):
+        visible = _PREFILTER_DROP_RE.sub("", _MARKUP_RE.sub("", _PAGE_UUID_RE.sub("", line)).replace("|", " "))
+        if visible:
+            first_alnum_of_line[i] = offset
+            offset += len(visible)
+            last_alnum_of_line[i] = offset - 1
+            parts.append(visible)
+    alnum_text = "".join(parts)
+
+    # Most pages have textual candidates but no junction that is unbroken in
+    # the raw; check that cheaply before parsing the page.
+    cheap = _prefilter_alnum(raw_html)
+    keyed = []
+    for candidate in candidates:
+        ka, kb = last_alnum_of_line.get(candidate[0]), first_alnum_of_line.get(candidate[1])
+        if ka is None or kb is None or kb != ka + 1:
+            continue
+        if _prefilter_match(cheap, alnum_text[: ka + 1], alnum_text[kb:]):
+            keyed.append(candidate)
+    if not keyed:
+        return BlockJoinResult(page_text)
+    candidates = keyed
 
     raw = raw_stream(raw_html)
     if not raw.alnum:
@@ -430,14 +512,15 @@ def join_raw_block_splits(page_text: str, raw_html: str | None) -> BlockJoinResu
             # number"), never a list item set on its own source line.
             continue
         joiners[a] = joiner
-        joins.append(
-            {
-                "left": lines[a].rstrip()[-80:],
-                "right": lines[b].lstrip()[:80],
-                "joiner": joiner,
-                "raw": raw.text[max(0, rp1 - 60) : rp2 + 60],
-            }
-        )
+        if collect:
+            joins.append(
+                {
+                    "left": lines[a].rstrip()[-80:],
+                    "right": lines[b].lstrip()[:80],
+                    "joiner": joiner,
+                    "raw": raw.text[max(0, rp1 - 60) : rp2 + 60],
+                }
+            )
     if not joiners:
         return BlockJoinResult(page_text)
 

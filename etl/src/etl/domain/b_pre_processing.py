@@ -22,6 +22,7 @@ from bs4.element import Comment, NavigableString, PageElement, Tag
 from requests.api import get as requests_get
 from typing_extensions import NotRequired
 
+from etl.domain.raw_block_joins import INLINE_TAG_NAMES, PRE_STYLE_RE, PRE_TAG_NAMES
 from etl.models.page_classifier_revamp.inference import (
     AgreementReviewSummary,
     build_agreement_review_summary,
@@ -998,17 +999,7 @@ def strip_formatting_tags(
     return soup
 
 
-_PRE_TAG_NAMES = frozenset({"pre", "xmp", "listing", "plaintext", "textarea"})
-_PRE_STYLE_RE = re.compile(r"white-space\s*:\s*pre", re.IGNORECASE)
 _ROOT_TAG_NAMES = frozenset({"html", "body", "[document]"})
-_INLINE_TAG_NAMES = frozenset(
-    {
-        "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "cite", "code", "data",
-        "del", "dfn", "em", "font", "i", "ins", "kbd", "label", "mark", "nobr",
-        "q", "s", "samp", "small", "span", "strike", "strong", "sub", "sup",
-        "time", "tt", "u", "var", "wbr",
-    }
-)
 _SOURCE_LINE_BREAK_WS_RE = re.compile(r"\s*\n\s*")
 
 
@@ -1031,15 +1022,15 @@ def collapse_source_line_breaks(soup: BeautifulSoup) -> BeautifulSoup:
         preformatted = False
         for parent in node.parents:
             name = (parent.name or "").lower()
-            if name in _PRE_TAG_NAMES or _PRE_STYLE_RE.search(str(parent.get("style") or "")):
+            if name in PRE_TAG_NAMES or PRE_STYLE_RE.search(str(parent.get("style") or "")):
                 preformatted = True
                 break
-            if name in _INLINE_TAG_NAMES and not in_block and parent.find("br") is not None:
+            if name in INLINE_TAG_NAMES and not in_block and parent.find("br") is not None:
                 # strip_formatting_tags drops a <br> inside a formatting tag
                 # and keeps the tag's source line breaks in its place.
                 preformatted = True
                 break
-            if name not in _ROOT_TAG_NAMES and name not in _INLINE_TAG_NAMES:
+            if name not in _ROOT_TAG_NAMES and name not in INLINE_TAG_NAMES:
                 in_block = True
         if preformatted or not in_block:
             continue
