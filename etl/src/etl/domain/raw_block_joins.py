@@ -209,8 +209,11 @@ class _StreamBuilder:
 
 # The end tag of any element that is not inline. html.parser drops an end tag
 # that has no open element (a page cut mid-block starts with ``…</div>``), so
-# the text on both sides would read as one block; a <br> after every such end
-# tag keeps the break. After a matched end tag the break is already there.
+# the text on both sides would read as one block; an empty element of an
+# unknown name after every such end tag keeps the break (unknown elements are
+# boundaries). After a matched end tag the break is already there. A <br> is
+# not used: html.parser nests the text after a later ``<br/>`` inside a
+# ``<br>`` start tag, which would drop that text from the stream.
 _NON_INLINE_END_TAG_RE = re.compile(
     r"</(?!(?:" + "|".join(sorted(INLINE_TAG_NAMES, key=len, reverse=True)) + r")\s*>)[A-Za-z][A-Za-z0-9:-]*\s*>",
     re.IGNORECASE,
@@ -218,7 +221,7 @@ _NON_INLINE_END_TAG_RE = re.compile(
 
 
 def raw_stream(raw_html: str) -> RawStream:
-    soup = BeautifulSoup(_NON_INLINE_END_TAG_RE.sub(r"\g<0><br>", raw_html), "html.parser")
+    soup = BeautifulSoup(_NON_INLINE_END_TAG_RE.sub(r"\g<0><rbj-break></rbj-break>", raw_html), "html.parser")
     builder = _StreamBuilder()
     builder.walk(soup, pre=False, in_block=False)
     text = "".join(builder.chars)

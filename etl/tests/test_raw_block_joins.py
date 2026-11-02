@@ -244,6 +244,25 @@ class JoinRawBlockSplitsTests(unittest.TestCase):
         self.assertEqual(join_raw_block_splits(TEXT_NO_SPACE_PUNCT, RAW_NO_SPACE_PUNCT).joins, [])
         self.assertEqual(len(join_raw_block_splits(TEXT_NO_SPACE_PUNCT, RAW_NO_SPACE_PUNCT, collect=True).joins), 2)
 
+    def test_break_marker_keeps_text_after_a_self_closing_br(self) -> None:
+        # 1aa905b9 page 170: with a <br> start tag as the marker, html.parser
+        # nested the text after the next <br/> inside it, the first heading
+        # line lost its own next line, and the key matched the body sentence.
+        raw = (
+            '<p style="text-align: center"><br/>\nNUVATION BIO INC.</p>\n<p>\xa0</p>\n'
+            '<p style="text-align: center">Pursuant to Section 251 of the<br/>\n'
+            "General Corporation Law of the State of Delaware</p>\n<p>\xa0</p>\n"
+            "<p>Pursuant to Section 251\nof the General Corporation Law of the State of Delaware (“DGCL”), "
+            "the undersigned corporation, a Delaware corporation, does hereby certify</p>"
+        )
+        text = (
+            "NUVATION BIO INC.\n\nPursuant to Section 251 of the\n\nGeneral Corporation Law of the State of "
+            "Delaware\n\nPursuant to Section 251 of the General Corporation Law of the State of Delaware (“DGCL”), "
+            "the undersigned corporation, a Delaware corporation, does hereby certify"
+        )
+        self.assertEqual(raw_stream(raw).text.count("General Corporation Law of the State of Delaware"), 2)
+        self.assertEqual(join_raw_block_splits(text, raw).text, text)
+
 
 class XmlPageTextTests(unittest.TestCase):
     def _row(self, page_type: str, *, html: bool = True) -> dict[str, object]:
