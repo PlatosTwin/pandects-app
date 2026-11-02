@@ -176,7 +176,7 @@ class TocPrintedTailTests(unittest.TestCase):
 
     def test_page_labels_and_running_titles_with_labels_stay_out(self) -> None:
         # 4b870189 "ToC-i"; 522db544 "... Agreement -ii-"; 2cc4adcc "Merger Agreement A-3".
-        for footer in ("ToC-iii", "Membership Interest Purchase Agreement -ii-", "Merger Agreement A-3"):
+        for footer in ("ToC-iii", "2 of 42", "Membership Interest Purchase Agreement -ii-", "Merger Agreement A-3"):
             with self.subTest(footer=footer):
                 html = ENTRIES_11 + f"<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p><p>{footer}</p>"
                 self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])

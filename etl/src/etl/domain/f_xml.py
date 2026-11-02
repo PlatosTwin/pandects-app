@@ -639,8 +639,11 @@ _TOC_EXECUTION_BANNER_RE = re.compile(r"\bexecution\s+(?:version|copy)\b", re.IG
 _TOC_TRAILING_PAGE_RE = re.compile(
     r"(?:\s+|(?<=[A-Za-z])-)[-\u2013\u2014(]*\s*(?:[ivxlc]{1,7}|[IVXLC]{1,7}|\d{1,3}|[A-Z]{1,2}-\d{1,3})\s*[-\u2013\u2014).]*$"
 )
-# A TOC page label: "ToC-i", "Contents - 3".
-_TOC_PAGE_TAG_RE = re.compile(r"(?:toc|contents?)\s*[-\u2013]?\s*(?:[ivxlc]{1,7}|\d{1,3})", re.IGNORECASE)
+# A TOC page label: "ToC-i", "Contents - 3", "2 of 42".
+_TOC_PAGE_TAG_RE = re.compile(
+    r"(?:toc|contents?)\s*[-\u2013]?\s*(?:[ivxlc]{1,7}|\d{1,3})|(?:page\s+)?(?:[ivxlc]{1,7}|\d{1,3})\s+of\s+(?:[ivxlc]{1,7}|\d{1,3})",
+    re.IGNORECASE,
+)
 # An agreement preamble that starts on a TOC-labeled page; the page's TOC ends before it.
 _TOC_PREAMBLE_RE = re.compile(
     r"^\s*THIS\b.{0,160}\bAGREEMENT\b|\bby\s+and\s+(?:among|between)\b|\bis\s+(?:made|entered\s+into)\s+(?:as\s+of|by|on)\b",
