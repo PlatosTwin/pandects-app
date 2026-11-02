@@ -1,5 +1,6 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 # Standard library
+import copy
 import difflib
 import os
 import re
@@ -1147,6 +1148,55 @@ def _has_fragmented_section_heads(text: str) -> bool:
     return _FRAGMENTED_SECTION_HEAD_RE.search(text) is not None
 
 
+def _nearest_ancestor(tag: Tag, names: tuple[str, ...]) -> Tag | None:
+    parent = tag.parent
+    while parent is not None and parent.name not in names:
+        parent = parent.parent
+    return parent
+
+
+def _row_table(tr: Tag) -> Tag | None:
+    """The table that emits a row.
+
+    A table that sits in a row rather than in a cell is malformed nesting, and
+    its rows are emitted by the table around it.
+    """
+    table = _nearest_ancestor(tr, ("table",))
+    while table is not None:
+        outer = _nearest_ancestor(table, ("td", "th", "table"))
+        if outer is None or outer.name != "table":
+            return table
+        table = outer
+    return None
+
+
+def _table_cell_text(cell: Tag, tr: Tag, table: Tag) -> str:
+    """Text of a cell, without the rows of its own table nested inside it.
+
+    html.parser does not close an open <td> when the next <tr> or <td> starts, so
+    the rows and cells after an unclosed cell become its descendants. Its rows
+    are emitted on their own; its cells stay in its text, set off by spaces.
+    """
+    has_nested_rows = any(_row_table(row) is table for row in cell.find_all("tr"))
+    has_nested_cells = any(
+        _nearest_ancestor(inner, ("tr", "table")) is tr
+        for inner in cell.find_all(["td", "th"])
+    )
+    if not has_nested_rows and not has_nested_cells:
+        return cell.get_text(separator="", strip=False)
+    trimmed = copy.copy(cell)
+    # The copy is detached, so a row or cell of the cell's own row and table has no
+    # row or table above it.
+    for row in trimmed.find_all("tr"):
+        if not row.decomposed and _row_table(row) is None:
+            row.decompose()
+    for inner in trimmed.find_all(["td", "th"]):
+        if _nearest_ancestor(inner, ("tr", "table")) is None:
+            _ = inner.insert_before(" ")
+            _ = inner.insert_after(" ")
+    return trimmed.get_text(separator="", strip=False)
+
+
 def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
     """
     Replace each <table> with a <p> containing the table's text content.
@@ -1155,6 +1205,9 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
     - Each row = cells' text joined by single spaces
     - Rows separated by newlines
     - Uses get_text(separator='', strip=True) so inline tags don't add spaces.
+    - Each row and cell is emitted once, by its nearest table and row. html.parser
+      nests the rows and cells that follow an unclosed <tr> or <td> inside it, and
+      a table nested in a cell is part of that cell's text.
 
     Args:
         soup: BeautifulSoup object to process.
@@ -1163,23 +1216,38 @@ def collapse_tables(soup: BeautifulSoup) -> BeautifulSoup:
         BeautifulSoup object with tables converted to paragraphs.
     """
     for table in soup.find_all("table"):
-        rows: list[str] = []
+        if table.find_parent("table") is not None:
+            # Emitted as part of the table around it.
+            continue
+        # Rows are ordered by their first cell, so a row nested before the cells of
+        # an unclosed row keeps its printed place.
+        cell_order = {id(cell): i for i, cell in enumerate(table.find_all(["td", "th"]))}
+        rows: list[tuple[int, str]] = []
         for tr in table.find_all("tr"):
-            cells = tr.find_all(["td", "th"])
+            if _row_table(tr) is not table:
+                continue
+            # A cell of a nested row is emitted with that row, and a cell inside an
+            # unclosed cell is part of the outer cell's text.
+            cells = [
+                cell
+                for cell in tr.find_all(["td", "th"])
+                if _nearest_ancestor(cell, ("td", "th", "tr")) is tr
+            ]
             texts: list[str] = []
             for cell in cells:
                 # Formatting-tag spacing has already been normalized upstream, so using an
                 # empty separator here avoids reintroducing spaces inside quoted terms when
                 # table cells contain text split across inline tags.
-                raw = cell.get_text(separator="", strip=False)
+                raw = _table_cell_text(cell, tr, table)
                 # Collapse multiple whitespace to single space
                 clean = re.sub(r"\s+", " ", raw).strip()
                 if clean:
                     texts.append(clean)
             if texts:
-                rows.append(" ".join(texts))
+                rows.append((cell_order[id(cells[0])], " ".join(texts)))
+        rows.sort(key=lambda row: row[0])
         new_p = soup.new_tag("p")
-        new_p.string = "\n".join(rows)
+        new_p.string = "\n".join(text for _, text in rows)
         _ = table.replace_with(new_p)
     return soup
 

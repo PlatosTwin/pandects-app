@@ -1,4 +1,5 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
+import copy
 import re
 import unicodedata
 import xml.dom.minidom
@@ -456,10 +457,34 @@ def _format_toc_parallel_cell_rows(cells: list[Tag], *, line_width: int) -> list
     return lines
 
 
+def _without_nested_table_rows(cell: Tag, table: Tag) -> Tag:
+    """A cell without the rows of its own table that are nested inside it.
+
+    html.parser does not close an open <td> when the next <tr> starts, so the
+    rows after an unclosed cell become its descendants. The table loops render
+    those rows on their own, so the cell's text must leave them out.
+    """
+    if not any(tr.find_parent("table") is table for tr in cell.find_all("tr")):
+        return cell
+    trimmed = copy.copy(cell)
+    for tr in trimmed.find_all("tr"):
+        # The copy is detached, so a row of the cell's own table has no table above it.
+        if not tr.decomposed and tr.find_parent("table") is None:
+            tr.decompose()
+    return trimmed
+
+
+def _table_row_cells(tr: Tag, table: Tag) -> list[Tag]:
+    return [
+        _without_nested_table_rows(cell, table)
+        for cell in tr.find_all(["td", "th"], recursive=False)
+    ]
+
+
 def _toc_table_to_lines(table: Tag, *, line_width: int) -> list[str]:
     lines: list[str] = []
     for tr in table.find_all("tr"):
-        cells = tr.find_all(["td", "th"], recursive=False)
+        cells = _table_row_cells(tr, table)
         if not cells:
             continue
         parallel_lines = _format_toc_parallel_cell_rows(cells, line_width=line_width)
@@ -675,8 +700,8 @@ def _normalize_signature_punctuation_spacing(text: str) -> str:
     return re.sub(r"([(\[])[^\S\r\n]+", r"\1", text)
 
 
-def _signature_table_row_text(tr: Tag) -> str | None:
-    cells = tr.find_all(["td", "th"], recursive=False)
+def _signature_table_row_text(tr: Tag, table: Tag) -> str | None:
+    cells = _table_row_cells(tr, table)
     if not cells:
         return None
 
@@ -696,7 +721,7 @@ def _signature_table_row_text(tr: Tag) -> str | None:
 def _signature_table_to_lines(table: Tag) -> list[str]:
     lines: list[str] = []
     for tr in table.find_all("tr"):
-        row_text = _signature_table_row_text(tr)
+        row_text = _signature_table_row_text(tr, table)
         if row_text is None:
             continue
         lines.append(row_text)
