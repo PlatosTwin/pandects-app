@@ -1300,10 +1300,13 @@ def convert_to_xml(
         )
 
         for stripped in _iter_line_fragments(text_block):
+            # The element kind is decided on the text before split ordinals and
+            # possessives are rejoined, so the rejoin never turns a <text> into
+            # a <definition>; the element keeps the rejoined text.
+            joined = stripped
             if not stripped.startswith("<page"):
                 stripped = tighten_space_before_punctuation(stripped)
-                if inline_splits is not None:
-                    stripped = inline_splits.join(stripped)
+                joined = inline_splits.join(stripped) if inline_splits is not None else stripped
 
             # 1) <pageUUID>
             if re.fullmatch(r"<pageUUID>.*?</pageUUID>", stripped, re.DOTALL):
@@ -1320,19 +1323,19 @@ def convert_to_xml(
             # 3) <definition> if it starts with "…" means …
             elif definition_re_a.match(stripped) or definition_re_b.match(stripped):
                 # Extract the first quoted term, lowercase it
-                m_term = term_re.match(stripped)
+                m_term = term_re.match(joined)
                 term_val = m_term.group(1).lower() if m_term else ""
 
                 # Now include it as an attribute
                 d = ET.SubElement(
                     parent, "definition", standardID="<placeholder>", term=term_val
                 )
-                d.text = stripped
+                d.text = joined
 
             # 4) Otherwise normal <text>
             else:
                 t = ET.SubElement(parent, "text")
-                t.text = stripped
+                t.text = joined
 
     # 1) Leading text → <frontMatter>
     first_pos = matches[0].start() if matches else len(tagged_text)

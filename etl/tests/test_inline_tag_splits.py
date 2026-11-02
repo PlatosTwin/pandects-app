@@ -119,6 +119,19 @@ class ConvertToXmlTests(unittest.TestCase):
         texts = [t.text for t in new_section.iter("text")]
         self.assertIn("prior to the 46th day following the date of this Agreement.", texts)
 
+    def test_the_rejoin_never_changes_the_element_kind(self) -> None:
+        # e5573218: rejoined, the line would match the definition pattern; it stays a <text>.
+        line = (
+            "“Knowledge of the Company” or to “the Company’ s Knowledge” means the actual knowledge of "
+            "the persons listed on Schedule 1.1."
+        )
+        raw = ["<p>“Knowledge of the Company” or to “the Company<u>’</u><u>s Knowledge</u>” means</p>"]
+        tagged = f"<article>ARTICLE I DEFINITIONS</article><section>1.1 Definitions.</section>\n{line}\n"
+        old, new = _root(tagged, None), _root(tagged, raw)
+        self.assertEqual([e.tag for e in old.iter()], [e.tag for e in new.iter()])
+        texts = [t.text for t in new.iter("text")]
+        self.assertIn(line.replace("Company’ s", "Company’s"), texts)
+
     def test_generate_xml_uses_the_html_body_pages(self) -> None:
         df = pd.DataFrame(
             [
