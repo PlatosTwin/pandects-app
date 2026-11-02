@@ -18,7 +18,8 @@ from etl.domain.g_sections import clean_section_title
 from etl.domain.heading_titles import article_title_number
 from etl.domain.heading_titles import normalize_glued_article_title
 from etl.domain.heading_titles import normalize_glued_section_title
-from etl.domain.page_furniture import strip_page_furniture
+from etl.domain.page_furniture import strip_nonbody_page_furniture, strip_page_furniture
+from etl.domain.txt_underlines import strip_inline_underlines
 
 
 @dataclass
@@ -961,6 +962,30 @@ def format_signature_text_like_screen(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(formatted)).strip()
 
 
+# The period that ends a printed heading, left behind when the tagger closed the
+# heading tag before it ("<section>7.02 Access to Information</section>." or the
+# period alone on the next line, also after a page break when the heading ends a
+# page). Not an ellipsis and not a decimal (".5%").
+_LEADING_PAGE_MARKERS_RE = re.compile(r"(?:\s*<page>[^<]*</page>|\s*<pageUUID>[^<]*</pageUUID>)*\s*")
+# The period may also be glued to the first enumerator (".(a) The Company ...").
+_ORPHAN_HEADING_PERIOD_RE = re.compile(r"\.(?!\.)(?=[ \t]*(?:\n|<|$)|[ \t]+\S|\([a-zA-Z0-9]{1,4}\)\s)")
+
+
+def _drop_orphan_heading_period(content: str) -> str:
+    """Drop a lone "." that opens the text right after an article or section heading.
+
+    A section's own text never starts with a bare period; it is the heading's
+    terminator. Page markers before it stay; the rest of the content is unchanged.
+    """
+    if "." not in content[:400]:
+        return content
+    markers = _LEADING_PAGE_MARKERS_RE.match(content)
+    start = markers.end() if markers is not None else 0
+    if _ORPHAN_HEADING_PERIOD_RE.match(content, start) is None:
+        return content
+    return content[:start] + content[start + 1:].lstrip(" \t")
+
+
 def convert_to_xml(
     tagged_text: str,
     agreement_uuid: str,
@@ -1120,7 +1145,7 @@ def convert_to_xml(
 
         _, end = m.span()
         next_start = matches[i + 1].start() if i + 1 < len(matches) else len(tagged_text)
-        content = tagged_text[end:next_start].strip()
+        content = _drop_orphan_heading_period(tagged_text[end:next_start].strip())
 
         if tag == "article":
             article_count += 1
@@ -1302,6 +1327,11 @@ def _xml_page_text(row: Any) -> str:
     source_is_txt = row.get("source_is_txt")
     # NULL can arrive as None or NaN (truthy), so test the value, not bool(NaN).
     if page_text and source_is_txt is not None and source_is_txt == source_is_txt and bool(source_is_txt):
+        # Underline dash lines that the reflow fused into sentences. Sig pages
+        # keep theirs: a dash line there is a signature line.
+        raw_page_content = row.get("raw_page_content")
+        if source_page_type != "sig" and _has_text_value(raw_page_content):
+            page_text = strip_inline_underlines(page_text, str(raw_page_content)).text
         # Pages from old EDGAR .txt filings carry SGML markup (<TABLE>, <S>,
         # <C>, <PAGE>, the <DOCUMENT> header) and text-table rule lines.
         page_order = row.get("page_order")
@@ -1414,11 +1444,11 @@ def generate_xml(
 
             # body (preserve page order; parse headings across all body pages)
             body_rows = temp[temp["_xml_page_type"] == "body"]
+            body_source_texts = [_xml_page_text(r) for _, r in body_rows.iterrows()]
+            body_strip = strip_page_furniture(body_source_texts)
             if not body_rows.empty:
                 body_el = ET.SubElement(root, "body")
-                body_page_texts = strip_page_furniture(
-                    [_xml_page_text(r) for _, r in body_rows.iterrows()]
-                ).page_texts
+                body_page_texts = body_strip.page_texts
                 body_text = "\n".join(
                     f"{page_text}<pageUUID>{page_uuid}</pageUUID>"
                     for page_text, page_uuid in zip(body_page_texts, body_rows["page_uuid"].to_list())
@@ -1443,23 +1473,30 @@ def generate_xml(
                     for child in list(body_tmp):
                         body_el.append(child)
 
-            # sigPages
-            sig_rows = temp[temp["_xml_page_type"] == "sig"]
-            if not sig_rows.empty:
-                sig_el = ET.SubElement(root, "sigPages")
-                text_block = "\n".join(
-                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in sig_rows.iterrows()
-                )
-                add_text_nodes_simple(sig_el, text_block)
+            # sigPages and backMatter: page numbers and confirmed body furniture
+            # come off the page edges (they are rendered page by page).
+            nonbody_rows = temp[temp["_xml_page_type"].isin(["sig", "back_matter"])]
+            nonbody_texts = strip_nonbody_page_furniture(
+                [_xml_page_text(r) for _, r in nonbody_rows.iterrows()],
+                [int(o) for o in nonbody_rows["page_order"].to_list()] if "page_order" in nonbody_rows.columns
+                else list(range(len(nonbody_rows))),
+                body_page_texts=body_source_texts,
+                body_page_orders=[int(o) for o in body_rows["page_order"].to_list()] if "page_order" in body_rows.columns
+                else list(range(len(body_rows))),
+                body_removed=body_strip.removed,
+            )
+            nonbody_text_by_uuid = dict(zip(nonbody_rows["page_uuid"].to_list(), nonbody_texts))
 
-            # backMatter
-            bm_rows = temp[temp["_xml_page_type"] == "back_matter"]
-            if not bm_rows.empty:
-                bm_el = ET.SubElement(root, "backMatter")
+            for page_type, container_name in (("sig", "sigPages"), ("back_matter", "backMatter")):
+                rows = temp[temp["_xml_page_type"] == page_type]
+                if rows.empty:
+                    continue
+                container_el = ET.SubElement(root, container_name)
                 text_block = "\n".join(
-                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in bm_rows.iterrows()
+                    f"{nonbody_text_by_uuid[r['page_uuid']]}<pageUUID>{r['page_uuid']}</pageUUID>"
+                    for _, r in rows.iterrows()
                 )
-                add_text_nodes_simple(bm_el, text_block)
+                add_text_nodes_simple(container_el, text_block)
 
             xml_str = ET.tostring(root, encoding="unicode")
             xml_str = collapse_text_into_definitions(xml_str)
