@@ -1067,35 +1067,53 @@ def block_level_soup(
         block_tags: Iterable of tag names to consider as block-level elements.
 
     Returns:
-        New BeautifulSoup object with only top-level block elements.
+        New BeautifulSoup object with only top-level block elements, in document order.
     """
     new_soup = BeautifulSoup("", "html.parser")
     root = soup.body if soup.body else soup
 
     block_tag_names = tuple(block_tags)
+    # Each paragraph keeps the document position of the node it comes from, so a
+    # root-level list or bare inline run between two blocks stays between them.
+    position = {id(node): i for i, node in enumerate(soup.descendants)}
+    emitted: list[tuple[int, Tag | BeautifulSoup]] = []
 
     for child in root.contents:
         if isinstance(child, NavigableString) and child.strip():
             p = new_soup.new_tag("p")
             p.string = str(child)
-            _ = new_soup.append(p)
+            emitted.append((position[id(child)], p))
             continue
 
         if isinstance(child, Tag) and child.name not in block_tag_names:
             # Avoid capturing non-block wrappers that already contain block tags.
             if child.find(block_tag_names):
+                # The wrapper's own text (a <dt> enumerator, a bare title) is emitted in
+                # runs, each one placed before the block that ends it.
                 block_descendants = child.find_all(block_tag_names)
                 inline_texts: list[str] = []
-                for text_node in child.find_all(string=True):
-                    if not text_node.strip():
+                run_position = 0
+
+                def _flush_run() -> None:
+                    if inline_texts:
+                        p = new_soup.new_tag("p")
+                        p.string = " ".join(inline_texts)
+                        emitted.append((run_position, p))
+                        inline_texts.clear()
+
+                for node in child.descendants:
+                    if isinstance(node, Tag):
+                        if node.name in block_tag_names:
+                            _flush_run()
                         continue
-                    if any(parent in block_descendants for parent in text_node.parents):
+                    if not isinstance(node, NavigableString) or not node.strip():
                         continue
-                    inline_texts.append(str(text_node))
-                if inline_texts:
-                    p = new_soup.new_tag("p")
-                    p.string = " ".join(inline_texts)
-                    _ = new_soup.append(p)
+                    if any(parent in block_descendants for parent in node.parents):
+                        continue
+                    if not inline_texts:
+                        run_position = position[id(node)]
+                    inline_texts.append(str(node))
+                _flush_run()
                 continue
 
             if child.get_text(strip=True):
@@ -1103,16 +1121,22 @@ def block_level_soup(
                 fragment = BeautifulSoup(str(child), "html.parser")
                 for node in fragment.contents:
                     _ = p.append(node)
-                _ = new_soup.append(p)
+                emitted.append((position[id(child)], p))
 
     for tag in soup.find_all(block_tag_names):
         # Skip any that live inside another block_tag.
         if tag.find_parent(block_tag_names):
             continue
         # Clone via string round-trip so we don't detach from the original.
-        fragment = BeautifulSoup(str(tag), "html.parser")
-        for child in fragment.contents:
-            _ = new_soup.append(child)
+        emitted.append((position[id(tag)], BeautifulSoup(str(tag), "html.parser")))
+
+    emitted.sort(key=lambda item: item[0])
+    for _, node in emitted:
+        if isinstance(node, BeautifulSoup):
+            for child in node.contents:
+                _ = new_soup.append(child)
+        else:
+            _ = new_soup.append(node)
 
     return new_soup
 
