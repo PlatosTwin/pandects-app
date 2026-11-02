@@ -628,8 +628,8 @@ _TOC_LONG_NUMBER_RE = re.compile(r"\d{5,}")
 _TOC_DOC_ID_RE = re.compile(
     r"\d{4}-\d{4}-\d{4}|\d{5,}\s?v\.?\s?\d{1,4}\b|DOCVARIABLE|DOCPROPERTY|SWDocID|MERGEFORMAT"
 )
-# Exhibit page labels ("A-ii", "E-B1") and lines without a letter or digit ("()", "________").
-_TOC_LABELED_PAGE_RE = re.compile(r"[A-Z]{1,2}-(?:[ivxlcIVXLC]{1,6}|[A-Z]?\d{1,3})|[^A-Za-z0-9]+")
+# Exhibit page labels ("A-ii", "E-B1") and lines without a letter ("()", "________", "2 84").
+_TOC_LABELED_PAGE_RE = re.compile(r"[A-Z]{1,2}-(?:[ivxlcIVXLC]{1,6}|[A-Z]?\d{1,3})|[^A-Za-z]+")
 # The note that the TOC is not part of the agreement ("1 The Table of Contents is not a part of this Agreement.").
 _TOC_EXECUTION_BANNER_RE = re.compile(r"\bexecution\s+(?:version|copy)\b", re.IGNORECASE)
 # A trailing page number, left off when a running header or footer is compared across pages.

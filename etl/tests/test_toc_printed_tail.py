@@ -101,7 +101,7 @@ class TocPrintedTailTests(unittest.TestCase):
             + "<p>- iv -</p><p>#25932618 v26</p><p>328972.00001/116443569.20</p>"
             + "<p>MinterEllison | Ref: SLRB:SDYC 1136588 Page 3</p><p>Share sale agreement</p>"
             + "<p>TABLE OF CONTENTS (continued)</p><p>Page</p><p>Section Description</p><p>ii.</p>"
-            + "<p>#4854-0942-8064v43</p><p>A-ii</p><p>()</p><p>________</p>"
+            + "<p>#4854-0942-8064v43</p><p>A-ii</p><p>()</p><p>________</p><p>2 84</p>"
             + '<p>IF " DOCVARIABLE "SWDocIDLocation" 1" = "1" " DOCPROPERTY "SWDocID" SL1 3716757v12 101000.00058" ""</p>'
             + "<p>1 The Table of Contents is not a part of this Agreement.</p>"
             + "<p>Page | ii</p><p>PAGE || iii</p><p>Page ii of iv</p><p>(CONTINUED ON NEXT PAGE)</p>"
@@ -114,7 +114,7 @@ class TocPrintedTailTests(unittest.TestCase):
         for furniture in (
             "AGREEMENT AND PLAN OF MERGER", "by and among", "- iv -", "#25932618 v26", "328972.00001/116443569.20",
             "Share sale agreement", "Section Description", "ii.", "Confidential and Proprietary",
-            "#4854-0942-8064v43", "A-ii", "()", "________", "1 The Table of Contents is not a part of this Agreement.",
+            "#4854-0942-8064v43", "A-ii", "()", "________", "2 84", "1 The Table of Contents is not a part of this Agreement.",
             "Page | ii", "PAGE || iii", "Page ii of iv", "(CONTINUED ON NEXT PAGE)",
             "[Remainder of page intentionally left blank]",
         ):
