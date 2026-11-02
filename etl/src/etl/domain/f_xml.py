@@ -1490,6 +1490,7 @@ def generate_xml(
                 body_page_orders=[int(o) for o in body_rows["page_order"].to_list()] if "page_order" in body_rows.columns
                 else list(range(len(body_rows))),
                 body_removed=body_strip.removed,
+                page_types=nonbody_rows["_xml_page_type"].to_list(),
             )
             nonbody_text_by_uuid = dict(zip(nonbody_rows["page_uuid"].to_list(), nonbody_texts))
 
