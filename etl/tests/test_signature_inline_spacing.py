@@ -71,6 +71,12 @@ class SignatureInlineSpacingTests(unittest.TestCase):
         raw_html = "<p><font>Name:</font><font>Steven D. Barnhart</font></p><p>DiModica<u>__________</u></p>"
         self.assertEqual(_lines(raw_html), ["Name: Steven D. Barnhart", "DiModica __________"])
 
+    def test_conformed_signature_keeps_the_gap_before_the_name(self) -> None:
+        # 8066d292 (page_order 48) prints "By: /s/ Steve Rosenfield"
+        self.assertEqual(_lines("<p>By:<font>/s/</font><u>Steve Rosenfield</u></p>"), ["By: /s/ Steve Rosenfield"])
+        self.assertEqual(_lines("<p>By: /<small>S</small>/<u>Jane Doe</u></p>"), ["By: /S/ Jane Doe"])
+        self.assertEqual(_lines("<p>ACME A/<b>S</b>/<i>B</i></p>"), ["ACME A/S/B"])
+
     def test_whitespace_in_the_source_still_separates(self) -> None:
         raw_html = "<p>By: <font>/s/</font> <font>Jane Doe</font></p>"
         self.assertEqual(_lines(raw_html), ["By: /s/ Jane Doe"])

@@ -185,9 +185,15 @@ def _signature_inline_join(match: re.Match[str]) -> str:
     ("Fran<font>çois</font>") join, except at a Latin/CJK change. Punctuation joins
     its neighbor, except that a label's colon keeps its gap ("Name:<font>Jane
     Doe</font>") and an underscore blank stays apart from the word beside it
-    ("DiModica<u>____</u>"). A digit beside a letter or digit keeps the gap.
+    ("DiModica<u>____</u>"). A digit beside a letter or digit keeps the gap, and so
+    does a conformed "/s/" before the signer's name ("/s/<u>Jane Doe</u>"), which the
+    page text prints as "/s/ Jane Doe".
     """
     left, right = match.group(1), match.group(2)
+    if left == "/" and right.isalpha():
+        before = match.string[max(match.start(1) - 12, 0):match.start(1) + 1].replace(_SIGNATURE_SOFT_BREAK, "")
+        if before[-3:].lower() == "/s/" and not before[-4:-3].isalnum():
+            return _SIGNATURE_SOFT_BREAK
     if left.isalpha() and right.isalpha():
         return _signature_letters_join(left, right)
     if left == ":":
