@@ -53,6 +53,7 @@ class TightenSpaceBeforePunctuationTests(unittest.TestCase):
             "<article>Article V. Non-Competition ; Non-Disclosure</article>\n"
             "The parties agree as follows .\n"
             "<section>Section 5.1 Counterparts .</section> This Agreement may be executed in counterparts .\n"
+            "<section>Section 5.2 Notices (Delivery .)</section> All notices shall be in writing .\n"
         )
         old = f_xml.tighten_space_before_punctuation
         try:
@@ -71,6 +72,10 @@ class TightenSpaceBeforePunctuationTests(unittest.TestCase):
         assert old_article is not None and old_section is not None
         self.assertEqual(article.get("uuid"), old_article.get("uuid"))
         self.assertEqual(section.get("uuid"), old_section.get("uuid"))
+        # A mark before ")" survives the title cleaner, so ids must hash the untightened title.
+        self.assertEqual(
+            [s.get("uuid") for s in after.iter("section")], [s.get("uuid") for s in before.iter("section")]
+        )
 
     def test_heading_period_glued_to_the_first_word_is_dropped(self) -> None:
         # b73800c6 8.8: "</section> .In the event"

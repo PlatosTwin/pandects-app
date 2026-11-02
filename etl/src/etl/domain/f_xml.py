@@ -1165,6 +1165,7 @@ def convert_to_xml(
     # 2) Create <body> wrapper and then process articles/sections into it
     body = ET.SubElement(root, "body")
     current_article = None
+    article_uuid_title = ""
     section_count = 0
     article_count = 0
     previous_article_number: int | None = None
@@ -1185,9 +1186,8 @@ def convert_to_xml(
                 previous_article_number = parsed_number
         else:
             title = normalize_glued_section_title(title)
-        # An article's uuid hashes its title: keep hashing the title before the
-        # punctuation is tightened so the fix does not move served ids. (A
-        # section's uuid hashes the normalized title, which drops these marks.)
+        # Ids hash the titles as they were before the punctuation is tightened,
+        # so the fix does not move served ids.
         uuid_title = title
         title = tighten_space_before_punctuation(title)
         source_page_uuid = heading_page_uuid(m.start())
@@ -1199,6 +1199,7 @@ def convert_to_xml(
         if tag == "article":
             article_count += 1
             article_title_normed = clean_article_title(title)
+            article_uuid_title = uuid_title
 
             article_attrs = {
                 "title": title,
@@ -1220,11 +1221,11 @@ def convert_to_xml(
 
             section_count += 1
             article_title_normed = (
-                clean_article_title(current_article.attrib.get("title", ""))
+                clean_article_title(article_uuid_title)
                 if current_article is not None
                 else ""
             )
-            section_title_normed = clean_section_title(title)
+            section_title_normed = clean_section_title(uuid_title)
             section_attrs = {
                 "title": title,
                 "uuid": make_section_uuid(
