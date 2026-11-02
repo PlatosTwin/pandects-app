@@ -15,10 +15,16 @@ primary_region = 'iad'
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
+  # 0 since 2026-11-02: every visitor arrives at the public hostname through Fly's
+  # proxy, which starts a stopped machine, so there is nothing to keep pinned up.
+  # It was 1 only because `fly launch` generated it that way.
+  min_machines_running = 0
   processes = ['app']
 
+# 512 MB since 2026-11-02: this serves the built Vite bundle as static files and
+# measured 152 MB resident at 1 GB, 62 MB at 512 MB. Raise it if the image ever
+# does real work at runtime.
 [[vm]]
-  memory = '1gb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
