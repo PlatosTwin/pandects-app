@@ -238,7 +238,7 @@ def _underline_under_stray_word(lines: list[str], index: int) -> list[tuple[int,
         return None
     stray = lines[index - 1]
     words = stray.split()
-    if len(words) != 1 or stray[0] == " " or not words[0].isalnum():
+    if len(words) != 1 or stray[0] == " " or not words[0].isalnum() or _SIGNATURE_LINE_RE.match(stray):
         return None
     first_run = _DASH_RUN_RE.search(lines[index])
     if first_run is None or len(stray.rstrip()) >= first_run.start():

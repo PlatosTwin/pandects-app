@@ -239,6 +239,11 @@ class UnderlineShapesTests(unittest.TestCase):
         self.assertEqual(raw_underlines(raw), {})
         self.assertEqual(strip_inline_underlines(tagged, raw).text, tagged)
 
+    def test_bare_label_above_a_signature_line_is_kept(self) -> None:
+        raw = "                   ACME HOLDINGS CORP.\nBy\n                   ------------------\n"
+        tagged = "ACME HOLDINGS CORP. By ------------------ Name:"
+        self.assertEqual(strip_inline_underlines(tagged, raw).text, tagged)
+
     def test_table_rule_under_a_row_of_figures_is_kept(self) -> None:
         # 329556e7, page edce28e6: a consolidating balance sheet's total rule.
         raw = (
