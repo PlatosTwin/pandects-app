@@ -95,9 +95,30 @@ class StripNonbodyPageFurnitureTests(unittest.TestCase):
             "Table of Contents\nSection 1.01. Definitions. As used in this Agreement:\nG-3",
         ]
         out = _strip(pages, [207, 208, 209], ["a\n<page>89</page>"], [93], removed)
+        # Page 2 continues the table: its back-link is furniture.
         self.assertEqual([t.splitlines()[0] for t in out],
-                         ["Table of Contents", "Table of Contents", "Section 1.01. Definitions. As used in this Agreement:"])
+                         ["Table of Contents", "ARTICLE IV CAPITAL STOCK 8 4.1 Issuance of Stock 8 4.2 Transfers 9",
+                          "Section 1.01. Definitions. As used in this Agreement:"])
         self.assertEqual(out[0].splitlines()[1], "Page")
+
+    def test_back_link_above_a_page_number_goes(self) -> None:
+        removed = [RemovedFurnitureLine(page_index=i, line="Table of Contents", kind="toc_link") for i in range(3)]
+        pages = ["Table of Contents\n\nPage 91\n\nEXHIBIT A\nForm of Escrow Agreement",
+                 "Table of Contents\n\nPage 3 of 40\n\nThe Escrow Agent shall hold the funds."]
+        out = _strip(pages, [95, 99], ["a\n<page>89</page>", "b\n<page>90</page>"], [93, 94], removed)
+        self.assertNotIn("Table of Contents", out[0])
+        self.assertNotIn("Table of Contents", out[1])
+
+    def test_continuation_page_with_numbered_entries_keeps_no_back_link(self) -> None:
+        # a1c23200: "Page 5.6.5 Treasurer 15" is a column header, not a page number.
+        removed = [RemovedFurnitureLine(page_index=i, line="Table of Contents", kind="toc_link") for i in range(3)]
+        pages = ["Table of Contents\nTABLE OF CONTENTS\nPage ARTICLE 1 Identification 1\ni",
+                 "Table of Contents\nPage 5.6.5 Treasurer 15 5.6.6 Assistant Secretaries 15\nii",
+                 "Table of Contents\nPage Section 9.4 Seal 21 Section 9.5 Fiscal Year 21\niii"]
+        out = _strip(pages, [95, 96, 97], ["a\n<page>89</page>"], [93], removed)
+        self.assertEqual([t.splitlines()[0] for t in out],
+                         ["TABLE OF CONTENTS", "Page 5.6.5 Treasurer 15 5.6.6 Assistant Secretaries 15",
+                          "Page Section 9.4 Seal 21 Section 9.5 Fiscal Year 21"])
 
     def test_body_running_title_on_a_sig_page(self) -> None:
         # 6fd9c8c2: the body's running footer "Share Purchase Agreement" closes the sig page too.

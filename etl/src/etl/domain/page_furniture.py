@@ -403,17 +403,50 @@ _TOC_ARTICLE_ENTRY_RE = re.compile(r"(?:ARTICLE|Article)\s")
 _TOC_ENTRY_PAGE_RE = re.compile(r"\s(?:[A-Z]-)?\d{1,3}\s+(?=ARTICLE\b|Article\b|SECTION\b|Section\b|\d+\.\d+)")
 
 
-def _opens_toc_listing(lines: list[str], index: int) -> bool:
+# A whole-line page number ("Page 91", "Page-12", "Page 3 of 40"), not a column header
+# followed by an entry number ("Page 5.6.5 Treasurer 15").
+_PAGE_NUMBER_WORD_RE = re.compile(r"page\s*[-\u2013]?\s*\d{1,4}(?:\s+of\s+\d{1,4})?", re.IGNORECASE)
+
+
+def _opens_toc_listing(lines: list[str], index: int, skip: set[int] | frozenset[int] = frozenset()) -> bool:
     """True when the line after ``index`` starts a printed table of contents, so a
-    "Table of Contents" line at ``index`` is that table's heading, not the back-link."""
-    for line in lines[index + 1:]:
+    "Table of Contents" line at ``index`` is that table's heading, not the back-link.
+    Lines in ``skip`` (already dropped as furniture) are passed over, except another
+    "Table of Contents" line, which makes this one the back-link above the heading; a
+    page number ("Page 3 of 40") is not a "Page" column header."""
+    for offset, line in enumerate(lines[index + 1:], start=index + 1):
         stripped = line.strip()
         if not stripped:
             continue
+        if furniture_kind(stripped) == "toc_link":
+            return False
+        if offset in skip:
+            continue
+        if furniture_kind(stripped) == "page_number" or _PAGE_NUMBER_WORD_RE.fullmatch(stripped):
+            return False
         if _TOC_PAGE_HEADER_RE.match(stripped):
             return True
         return bool(_TOC_ARTICLE_ENTRY_RE.match(stripped)) and len(_TOC_ENTRY_PAGE_RE.findall(stripped)) >= 2
     return False
+
+
+def _toc_heading_lines(
+    page_lines: list[list[str]], drops: list[set[int]], consecutive: Callable[[int], bool]
+) -> list[set[int]]:
+    """The dropped "Table of Contents" lines to keep as a printed table's heading, per page.
+
+    A table that runs over several pages repeats its "Page" column header, and the
+    back-link above it on the continuation pages is still furniture, so a heading is
+    kept only on a page whose previous page (``consecutive(k)``) opens no listing.
+    """
+    opens = [
+        {i for i, line in enumerate(lines) if furniture_kind(line) == "toc_link" and _opens_toc_listing(lines, i, drop)}
+        for lines, drop in zip(page_lines, drops)
+    ]
+    return [
+        set() if k > 0 and consecutive(k) and opens[k - 1] else opens[k] & drops[k]
+        for k in range(len(page_lines))
+    ]
 
 
 def _page_candidates(page_index: int, text: str) -> list[_Candidate]:
@@ -1004,6 +1037,9 @@ def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
     for candidate in accepted:
         drop.setdefault(candidate.page_index, {})[candidate.line_index] = candidate
 
+    toc_headings = _toc_heading_lines(
+        page_lines, [set(drop.get(k, {})) for k in range(len(page_texts))], lambda k: True
+    )
     result = FurnitureStripResult(page_texts=[])
     for page_index, text in enumerate(page_texts):
         page_drop = drop.get(page_index)
@@ -1012,10 +1048,9 @@ def strip_page_furniture(page_texts: list[str]) -> FurnitureStripResult:
             continue
         kept: list[str] = []
         for line_index, line in enumerate(page_lines[page_index]):
-            # A table's own heading stays; it still counted as an edge line for the rules above,
-            # so keeping it changes no other decision.
+            # A table's own heading stays; it still counted as an edge line for the line rules above.
             if line_index in page_drop and not (
-                page_drop[line_index].kind == "toc_link" and _opens_toc_listing(page_lines[page_index], line_index)
+                page_drop[line_index].kind == "toc_link" and line_index in toc_headings[page_index]
             ):
                 candidate = page_drop[line_index]
                 result.removed.append(RemovedFurnitureLine(page_index=page_index, line=line.strip(), kind=candidate.kind))
@@ -1548,7 +1583,7 @@ def strip_nonbody_page_furniture(
                     return True
         return False
 
-    result: list[str] = []
+    drops: list[set[int]] = []
     for k, lines in enumerate(page_lines):
         drop: set[int] = set()
         countable = _countable_indexes(lines)
@@ -1569,8 +1604,13 @@ def strip_nonbody_page_furniture(
                 drop.add(index)
         if len(drop) == len(countable):
             drop = set()  # never empty a page: a lone number is then the page's content
-        # A table's own heading stays (it still counted as an edge line above).
-        drop = {i for i in drop if not (furniture_kind(lines[i]) == "toc_link" and _opens_toc_listing(lines, i))}
+        drops.append(drop)
+
+    # A table's own heading stays (it still counted as an edge line above).
+    toc_headings = _toc_heading_lines(page_lines, drops, lambda k: page_orders[k] - page_orders[k - 1] == 1)
+    result: list[str] = []
+    for k, lines in enumerate(page_lines):
+        drop = drops[k] - toc_headings[k]
         if not drop:
             result.append(page_texts[k])
             continue
