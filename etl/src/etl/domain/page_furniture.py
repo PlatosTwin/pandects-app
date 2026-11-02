@@ -1428,3 +1428,124 @@ def _strip_fused_page_numbers(result: FurnitureStripResult, tagged: dict[int, in
             continue
         result.page_texts[page_index] = "\n".join(lines)
         result.removed.append(RemovedFurnitureLine(page_index=page_index, line=expected, kind="fused_page_number"))
+
+
+# --- Signature and back-matter pages ---------------------------------------------
+#
+# Signature pages and back matter are rendered page by page, not joined into
+# sections, so the line rules above never see them. Their printed page numbers
+# ("55", "- 97 -", "-40-", "A-3") and the body's confirmed running lines (the
+# "Table of Contents" back-link, a document ID) were served as text. The strip
+# here is narrower than the body rules: it only takes lines from the very edge of
+# a page, and only page numbers that fit a sequence and lines identical to
+# furniture the body rules removed. Signer text is never a whole-line page number
+# or an exact copy of a body furniture line.
+
+# Body furniture kinds whose exact text is furniture on any page of the agreement:
+# a running title is the agreement's own printed title ("Share Purchase
+# Agreement"). Other repeated lines are left out: a deal or company name repeated
+# at the top of body pages can head a signature block.
+NONBODY_LEARNED_KINDS = ("toc_link", "doc_id", "banner", "exhibit_label", "running_title")
+
+
+def _normalized(line: str) -> str:
+    return " ".join(line.split())
+
+
+def _body_page_number_anchors(
+    body_page_texts: list[str], body_page_orders: list[int], body_removed: list[RemovedFurnitureLine]
+) -> list[tuple[int, int]]:
+    """(page_order, printed page number) for each body page whose number is known."""
+    by_index: dict[int, int] = {}
+    for removed in body_removed:
+        if removed.kind == "page_number":
+            by_index[removed.page_index] = _page_number_value(removed.line)
+    by_index.update(_tagged_page_numbers(body_page_texts))
+    return sorted((body_page_orders[i], value) for i, value in by_index.items() if i < len(body_page_orders))
+
+
+def _fits_body_sequence(order: int, value: int, anchors: list[tuple[int, int]]) -> bool:
+    """The number continues the body's page numbering, read from the nearest numbered body page."""
+    if not anchors:
+        return False
+    anchor_order, anchor_value = min(anchors, key=lambda a: (abs(a[0] - order), -a[0]))
+    return abs(value - (anchor_value + order - anchor_order)) <= PAGE_OFFSET_TOLERANCE
+
+
+def _edge_page_numbers(lines: list[str]) -> dict[str, tuple[int, str, int]]:
+    """The outermost countable line on each edge when it is a page number: side -> (line, shape, value)."""
+    countable = _countable_indexes(lines)
+    found: dict[str, tuple[int, str, int]] = {}
+    for side, index in (("top", countable[0] if countable else None), ("bottom", countable[-1] if countable else None)):
+        if index is None:
+            continue
+        if furniture_kind(lines[index]) == "page_number":
+            found[side] = (index, _line_shape(lines[index].strip()), _page_number_value(lines[index].strip()))
+    return found
+
+
+def strip_nonbody_page_furniture(
+    page_texts: list[str],
+    page_orders: list[int],
+    *,
+    body_page_texts: list[str],
+    body_page_orders: list[int],
+    body_removed: list[RemovedFurnitureLine],
+) -> list[str]:
+    """Remove page numbers and confirmed body furniture from the edges of sig and back-matter pages.
+
+    ``page_texts`` and ``page_orders`` are the agreement's signature and
+    back-matter pages in page order; ``body_page_texts`` (before the body strip),
+    ``body_page_orders`` and ``body_removed`` describe its body pages. A line goes
+    only when it is one of the outermost lines of its page (lines removed by this
+    rule do not count, up to ``EDGE_LINE_WINDOW`` per edge) and either
+
+    - is a page number ("55", "- 97 -", "Page 39", "A-3") that continues the body's
+      numbering from the nearest numbered body page (within
+      ``PAGE_OFFSET_TOLERANCE``), or that rises by exactly the page distance
+      against the page number on the same edge of the neighboring sig or
+      back-matter page, in the same shape ("A-1", "A-2"; "2", "3"); or
+    - equals a line the body rules removed as a Table of Contents link, a
+      document ID, a banner, an exhibit label or a running title.
+    """
+    anchors = _body_page_number_anchors(body_page_texts, body_page_orders, body_removed)
+    learned = {_normalized(r.line) for r in body_removed if r.kind in NONBODY_LEARNED_KINDS}
+    page_lines = [text.split("\n") for text in page_texts]
+    edges = [_edge_page_numbers(lines) for lines in page_lines]
+
+    def chained(k: int, side: str) -> bool:
+        _, shape, value = edges[k][side]
+        for j in (k - 1, k + 1):
+            if 0 <= j < len(edges) and side in edges[j]:
+                _, other_shape, other_value = edges[j][side]
+                if other_shape == shape and other_value - value == page_orders[j] - page_orders[k]:
+                    return True
+        return False
+
+    result: list[str] = []
+    for k, lines in enumerate(page_lines):
+        drop: set[int] = set()
+        countable = _countable_indexes(lines)
+        for side, ordered in (("top", countable), ("bottom", list(reversed(countable)))):
+            for rank, index in enumerate(ordered[:EDGE_LINE_WINDOW]):
+                if index in drop:
+                    break
+                line = lines[index].strip()
+                removable = _normalized(line) in learned
+                if not removable and furniture_kind(line) == "page_number":
+                    value = _page_number_value(line)
+                    outermost = rank == 0 and edges[k].get(side, (None,))[0] == index
+                    removable = _fits_body_sequence(page_orders[k], value, anchors) or (
+                        outermost and chained(k, side)
+                    )
+                if not removable:
+                    break
+                drop.add(index)
+        if len(drop) == len(countable):
+            drop = set()  # never empty a page: a lone number is then the page's content
+        if not drop:
+            result.append(page_texts[k])
+            continue
+        # The blank lines that separated a dropped edge line go with it.
+        result.append("\n".join(line for i, line in enumerate(lines) if i not in drop).strip("\n"))
+    return result
