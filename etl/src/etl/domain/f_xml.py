@@ -973,8 +973,39 @@ def format_signature_text_like_screen(text: str) -> str:
 # period alone on the next line, also after a page break when the heading ends a
 # page). Not an ellipsis and not a decimal (".5%").
 _LEADING_PAGE_MARKERS_RE = re.compile(r"(?:\s*<page>[^<]*</page>|\s*<pageUUID>[^<]*</pageUUID>)*\s*")
-# The period may also be glued to the first enumerator (".(a) The Company ...").
-_ORPHAN_HEADING_PERIOD_RE = re.compile(r"\.(?!\.)(?=[ \t]*(?:\n|<|$)|[ \t]+\S|\([a-zA-Z0-9]{1,4}\)\s)")
+# The period may also be glued to the first enumerator (".(a) The Company ...")
+# or to the first word (".In the event ..."), never to a digit (".5%").
+_ORPHAN_HEADING_PERIOD_RE = re.compile(
+    r"\.(?!\.)(?=[ \t]*(?:\n|<|$)|[ \t]+\S|\([a-zA-Z0-9]{1,4}\)\s|[A-Z][a-z])"
+)
+
+# A space the page text put before punctuation at an inline-tag boundary
+# ("<u>Counterparts</u><font></font>." reads "Counterparts ."). The mark must
+# follow a printed character on the same line and end a word: a space, a
+# closing quote or bracket, or the end of the text comes next, so a mark that
+# opens a number (" .5%", "1 ,000", "10 : 30") or a word (" .NET") stays. An
+# ellipsis (" . . .") stays, and so does a mark after another mark of the set
+# or at the start of a line (a lone "." enumerator), and so does a spaced mark
+# between two numbers ("10 : 30", "Section 3 . 2").
+_SPACE_BEFORE_PUNCTUATION_RE = re.compile(
+    r"(?<=([^\s.,;:]))[ \t]+([.,;:])(?=\s|$|[)\]\"”’])(?![ \t]*\.)"
+)
+_NEXT_PRINTED_CHAR_RE = re.compile(r"\s*(\S)")
+
+
+def _tighten_punctuation(match: re.Match[str]) -> str:
+    if match.group(1).isdigit():
+        following = _NEXT_PRINTED_CHAR_RE.match(match.string, match.end())
+        if following is not None and following.group(1).isdigit():
+            return match.group(0)
+    return match.group(2)
+
+
+def tighten_space_before_punctuation(text: str) -> str:
+    """Remove the space an inline-tag boundary left before "." "," ";" or ":"."""
+    if " " not in text and "\t" not in text:
+        return text
+    return _SPACE_BEFORE_PUNCTUATION_RE.sub(_tighten_punctuation, text)
 
 
 def _drop_orphan_heading_period(content: str) -> str:
@@ -1087,6 +1118,8 @@ def convert_to_xml(
         )
 
         for stripped in _iter_line_fragments(text_block):
+            if not stripped.startswith("<page"):
+                stripped = tighten_space_before_punctuation(stripped)
 
             # 1) <pageUUID>
             if re.fullmatch(r"<pageUUID>.*?</pageUUID>", stripped, re.DOTALL):
@@ -1147,6 +1180,11 @@ def convert_to_xml(
                 previous_article_number = parsed_number
         else:
             title = normalize_glued_section_title(title)
+        # An article's uuid hashes its title: keep hashing the title before the
+        # punctuation is tightened so the fix does not move served ids. (A
+        # section's uuid hashes the normalized title, which drops these marks.)
+        uuid_title = title
+        title = tighten_space_before_punctuation(title)
         source_page_uuid = heading_page_uuid(m.start())
 
         _, end = m.span()
@@ -1159,7 +1197,7 @@ def convert_to_xml(
 
             article_attrs = {
                 "title": title,
-                "uuid": get_uuid(agreement_uuid + title),
+                "uuid": get_uuid(agreement_uuid + uuid_title),
                 "order": str(article_count),
                 "standardId": "<placeholder>",
             }
