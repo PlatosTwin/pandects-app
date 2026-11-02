@@ -52,7 +52,7 @@ NO_SPACE_SECTION_PREFIX_TAG_RE = re.compile(
 # digit from a letter (or the reverse) and the tail is not a word that could start the
 # next sentence ("Section 5.1</section>A Party", "Section 5</section>IN WITNESS").
 DIGIT_LETTER_SPLIT_TAIL_RE = re.compile(
-    r"(?<=[0-9])</(?P<tag>section|article)>(?P<tail>[A-Z]{1,3})(?=\s|$)"
+    r"(?<=[0-9])</(?P<tag>section|article)>(?P<tail>[A-Z])(?=\s|$)"
 )
 LETTER_DIGIT_SPLIT_TAIL_RE = re.compile(
     r"(?<=[A-Za-z])</(?P<tag>section|article)>(?P<tail>[0-9]+[A-Za-z][A-Za-z0-9]*)(?=\s|$)"

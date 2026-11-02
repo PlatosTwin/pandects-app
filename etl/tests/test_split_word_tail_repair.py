@@ -51,6 +51,10 @@ class SplitWordTailRepairTests(unittest.TestCase):
             # A bare number after a letter is a separate token.
             "<article>ARTICLE</article>5 Covenants",
             "<section>Section 4.1 Taxes</section>2018 returns",
+            # Every observed tail is one letter; an acronym after the tag is a word.
+            "<section>Section 6.3</section>ABC shall",
+            "<section>Section 1.2</section>US GAAP",
+            "<section>Section 4</section>III",
         ]
         for text in cases:
             with self.subTest(text=text):
