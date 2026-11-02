@@ -1,5 +1,6 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import copy
+import functools
 import re
 import unicodedata
 import xml.dom.minidom
@@ -633,12 +634,33 @@ _TOC_DOC_ID_RE = re.compile(
 _TOC_LABELED_PAGE_RE = re.compile(r"[A-Z]{1,2}-(?:[ivxlcIVXLC]{1,6}|[A-Z]?\d{1,3})|[^A-Za-z]+")
 # The note that the TOC is not part of the agreement ("1 The Table of Contents is not a part of this Agreement.").
 _TOC_EXECUTION_BANNER_RE = re.compile(r"\bexecution\s+(?:version|copy)\b", re.IGNORECASE)
-# A trailing page number, left off when a running header or footer is compared across pages.
-_TOC_TRAILING_PAGE_RE = re.compile(r"\s+(?:[ivxlc]{1,7}|[IVXLC]{1,7}|\d{1,3})\s*\.?$")
+# A trailing page label, left off when a running header or footer is compared across pages
+# or read as a running title: " iii", " 12", " -ii-", " (iv)", " A-3", "-i".
+_TOC_TRAILING_PAGE_RE = re.compile(
+    r"(?:\s+|(?<=[A-Za-z])-)[-\u2013\u2014(]*\s*(?:[ivxlc]{1,7}|[IVXLC]{1,7}|\d{1,3}|[A-Z]{1,2}-\d{1,3})\s*[-\u2013\u2014).]*$"
+)
+# A TOC page label: "ToC-i", "Contents - 3".
+_TOC_PAGE_TAG_RE = re.compile(r"(?:toc|contents?)\s*[-\u2013]?\s*(?:[ivxlc]{1,7}|\d{1,3})", re.IGNORECASE)
+# An agreement preamble that starts on a TOC-labeled page; the page's TOC ends before it.
+_TOC_PREAMBLE_RE = re.compile(
+    r"^\s*THIS\b.{0,160}\bAGREEMENT\b|\bby\s+and\s+(?:among|between)\b|\bis\s+(?:made|entered\s+into)\s+(?:as\s+of|by|on)\b",
+)
 _TOC_NOT_PART_RE = re.compile(r"(?:table\s+of\s+contents|headings).{0,40}\bnot\s+(?:a\s+)?part\s+of\s+this\s+agreement", re.IGNORECASE)
 # A paragraph of prose, not a TOC line; the page's TOC ends before it.
 _TOC_PROSE_CHARS = 300
-_TOC_WORD_RE = re.compile(r"[A-Za-z]{3,}")
+# A word, for telling a doc ID from a line of text: letters only, not a roman numeral or "page".
+_TOC_WORD_TOKEN_RE = re.compile(r"[A-Za-z]{3,}[.,;:]?")
+_TOC_ROMAN_TOKEN_RE = re.compile(r"[ivxlcIVXLC]+[.,;:]?")
+
+
+def _toc_word_count(text: str) -> int:
+    return sum(
+        1
+        for token in text.split()
+        if _TOC_WORD_TOKEN_RE.fullmatch(token)
+        and _TOC_ROMAN_TOKEN_RE.fullmatch(token) is None
+        and token.rstrip(".,;:").lower() != "page"
+    )
 # SEC filing legends and confidential-treatment notes; the lines after one on the page continue it.
 _TOC_LEGEND_RE = re.compile(
     r"\bconfidential\b|\bomitted\b|\bomissions?\b|rule\s+24b-2|regulation\s+s-k|item\s+601"
@@ -664,69 +686,105 @@ def _toc_extra_is_furniture(text: str) -> bool:
         or _TOC_DOC_ID_RE.search(text) is not None
         or _TOC_NOT_PART_RE.search(text) is not None
         or _TOC_EXECUTION_BANNER_RE.search(text) is not None
+        or _TOC_PAGE_TAG_RE.fullmatch(text) is not None
     ):
         return True
-    if _TOC_LONG_NUMBER_RE.search(text) is not None and len(_TOC_WORD_RE.findall(text)) < 2:
+    if _TOC_LONG_NUMBER_RE.search(text) is not None and _toc_word_count(text) < 2:
         return True
-    return (
-        running_title_kind(text) == "title"
-        and _TOC_LIST_ITEM_RE.match(text) is None
-        and "form of" not in text.lower()
-    )
+    if _TOC_LIST_ITEM_RE.match(text) is not None or "form of" in text.lower():
+        return False
+    # A running title, with or without its page label ("Merger Agreement A-3", "... Agreement -ii-").
+    return running_title_kind(text) == "title" or running_title_kind(_toc_strip_page_label(text)) == "title"
+
+
+def _toc_strip_page_label(line: str) -> str:
+    """The line without a trailing page label, when at least two words are left."""
+    stripped = _TOC_TRAILING_PAGE_RE.sub("", line).strip()
+    return stripped if _toc_word_count(stripped) >= 2 else line
 
 
 def toc_repeat_key(line: str) -> str:
-    """A TOC line without its trailing page number, for finding running headers and footers."""
-    return _TOC_TRAILING_PAGE_RE.sub("", _normalize_toc_cell_text(line)).casefold()
+    """A TOC line without its trailing page label, for finding running headers and footers."""
+    return _toc_strip_page_label(_normalize_toc_cell_text(line)).casefold()
 
 
-def _toc_printed_extras(
+def _toc_candidate_blocks(
     soup: BeautifulSoup,
     entry_elements: list[Tag],
     *,
     line_width: int,
-    drop_keys: frozenset[str] = frozenset(),
-) -> list[tuple[int, list[str]]]:
-    """The printed text blocks around the TOC entry elements, in document order.
+) -> tuple[tuple[int, tuple[str, ...]], ...]:
+    """The text blocks around the TOC entry elements, in document order, unfiltered.
 
     Returns (position, lines) pairs, where position is the number of entry
     elements that come before the block. Only leaf text blocks and tables
-    outside every table and entry element count. Furniture lines are left out,
-    a filing legend or a paragraph of prose after the first entry element ends
-    the extras of the page (the lines after a legend continue it), and before the first entry element a block counts
-    only from the first one that opens with an ARTICLE or Section heading.
+    outside every table and entry element count.
     """
     entry_ids = {id(el) for el in entry_elements}
-    extras: list[tuple[int, list[str]]] = []
+    candidates = soup.find_all([*_TOC_TEXT_BLOCK_TAGS, "table"])
+    # Elements inside an entry or a table; elements that hold an entry or a block.
+    inside: set[int] = set()
+    for el in (*entry_elements, *soup.find_all("table")):
+        inside.update(id(d) for d in el.descendants if isinstance(d, Tag))
+    holds_entry: set[int] = set()
+    for el in entry_elements:
+        holds_entry.update(id(parent) for parent in el.parents)
+    holds_block: set[int] = set()
+    for el in candidates:
+        for parent in el.parents:
+            if id(parent) in holds_block:
+                break
+            holds_block.add(id(parent))
+    blocks: list[tuple[int, tuple[str, ...]]] = []
     position = 0
-    leading_open = False
-    for el in soup.find_all([*_TOC_TEXT_BLOCK_TAGS, "table"]):
+    for el in candidates:
         if id(el) in entry_ids:
             position += 1
             continue
-        if any(id(parent) in entry_ids or parent.name == "table" for parent in el.parents):
+        if id(el) in inside or id(el) in holds_entry:
             continue
         if el.name == "table":
-            if any(id(inner) in entry_ids for inner in el.find_all(True)):
-                continue
             lines = _toc_table_to_lines(el, line_width=line_width)
         else:
-            if el.find([*_TOC_TEXT_BLOCK_TAGS, "table"]) is not None:
-                continue
-            if any(id(inner) in entry_ids for inner in el.find_all(True)):
+            if id(el) in holds_block:
                 continue
             text = _toc_visible_text(el)
             lines = [text] if text else []
+        if lines:
+            blocks.append((position, tuple(lines)))
+    return tuple(blocks)
+
+
+def _select_toc_extras(
+    candidates: tuple[tuple[int, tuple[str, ...]], ...],
+    drop_keys: frozenset[str] = frozenset(),
+) -> list[tuple[int, list[str]]]:
+    """The printed extras among the candidate blocks.
+
+    Furniture lines and lines whose repeat key is in drop_keys are left out. A
+    filing legend, a paragraph of prose or an agreement preamble after the first
+    entry element ends the extras of the page (the lines after a legend continue
+    it), and before the first entry element a block counts only from the first
+    one that opens with an ARTICLE or Section heading.
+    """
+    extras: list[tuple[int, list[str]]] = []
+    leading_open = False
+    for position, block_lines in candidates:
         lines = [
             line
-            for line in lines
+            for line in block_lines
             if line.strip()
             and not _toc_extra_is_furniture(line.strip())
             and toc_repeat_key(line) not in drop_keys
         ]
         if not lines:
             continue
-        if any(_TOC_LEGEND_RE.search(line) is not None or len(line) > _TOC_PROSE_CHARS for line in lines):
+        if any(
+            _TOC_LEGEND_RE.search(line) is not None
+            or len(line) > _TOC_PROSE_CHARS
+            or _TOC_PREAMBLE_RE.search(line) is not None
+            for line in lines
+        ):
             if position == 0:
                 continue
             break
@@ -801,18 +859,51 @@ def _wrap_toc_long_lines(text: str, *, line_width: int) -> str:
     return "\n".join(wrapped)
 
 
-def toc_page_extra_lines(raw_html: str, *, line_width: int = 120) -> list[str]:
-    """The printed extras format_toc_html_like_screen would add to this TOC page."""
+@dataclass(frozen=True)
+class _TocPage:
+    """A TOC page parsed once: its entries and the candidate blocks around them,
+    or, for a page without entries, its finished text."""
+
+    entries: tuple[tuple[str, ...], ...]
+    separate_entries: bool
+    heading_blocks: tuple[str, ...]
+    candidates: tuple[tuple[int, tuple[str, ...]], ...]
+    text: str | None
+
+
+@functools.lru_cache(maxsize=128)
+def _parse_toc_page(raw_html: str, line_width: int) -> _TocPage:
     soup = BeautifulSoup(raw_html, "html.parser")
     _remove_toc_nonvisible_nodes(soup)
+
     positioned_rows = _positioned_toc_rows(soup, line_width=line_width)
     if any(lines for _, lines in positioned_rows):
-        entries = [row for row, _ in positioned_rows]
-    else:
-        entries = [table for table, _ in _content_toc_tables(soup, line_width=line_width)]
-        if not entries:
-            return []
-    return [line for _, lines in _toc_printed_extras(soup, entries, line_width=line_width) for line in lines]
+        return _TocPage(
+            entries=tuple(tuple(lines) for _, lines in positioned_rows),
+            separate_entries=False,
+            heading_blocks=tuple(_toc_heading_blocks(soup)),
+            candidates=_toc_candidate_blocks(soup, [row for row, _ in positioned_rows], line_width=line_width),
+            text=None,
+        )
+
+    content_tables = _content_toc_tables(soup, line_width=line_width)
+    if content_tables:
+        return _TocPage(
+            entries=tuple(tuple(lines) for _, lines in content_tables),
+            separate_entries=True,
+            heading_blocks=tuple(_toc_heading_blocks(soup)),
+            candidates=_toc_candidate_blocks(soup, [table for table, _ in content_tables], line_width=line_width),
+            text=None,
+        )
+
+    return _TocPage(entries=(), separate_entries=False, heading_blocks=(), candidates=(),
+                    text=_toc_fallback_text(soup, line_width=line_width))
+
+
+def toc_page_extra_lines(raw_html: str, *, line_width: int = 120) -> list[str]:
+    """The printed extras format_toc_html_like_screen would add to this TOC page."""
+    page = _parse_toc_page(raw_html, line_width)
+    return [line for _, lines in _select_toc_extras(page.candidates) for line in lines]
 
 
 def repeated_toc_extra_keys(raw_pages: list[str]) -> frozenset[str]:
@@ -827,33 +918,19 @@ def repeated_toc_extra_keys(raw_pages: list[str]) -> frozenset[str]:
 def format_toc_html_like_screen(
     raw_html: str, *, line_width: int = 120, drop_keys: frozenset[str] = frozenset()
 ) -> str:
-    soup = BeautifulSoup(raw_html, "html.parser")
-    _remove_toc_nonvisible_nodes(soup)
+    page = _parse_toc_page(raw_html, line_width)
+    if page.text is not None:
+        return page.text
+    lines = _merge_toc_entries_and_extras(
+        [list(lines) for lines in page.entries],
+        _select_toc_extras(page.candidates, drop_keys),
+        separate_entries=page.separate_entries,
+    )
+    blocks = [*page.heading_blocks, "\n".join(lines)]
+    return _wrap_toc_long_lines("\n\n".join(blocks).strip(), line_width=line_width)
 
-    positioned_rows = _positioned_toc_rows(soup, line_width=line_width)
-    if any(lines for _, lines in positioned_rows):
-        extras = _toc_printed_extras(
-            soup, [row for row, _ in positioned_rows], line_width=line_width, drop_keys=drop_keys
-        )
-        positioned_lines = _merge_toc_entries_and_extras(
-            [lines for _, lines in positioned_rows], extras, separate_entries=False
-        )
-        blocks = _toc_heading_blocks(soup)
-        blocks.append("\n".join(positioned_lines))
-        return _wrap_toc_long_lines("\n\n".join(blocks).strip(), line_width=line_width)
 
-    content_tables = _content_toc_tables(soup, line_width=line_width)
-    if content_tables:
-        extras = _toc_printed_extras(
-            soup, [table for table, _ in content_tables], line_width=line_width, drop_keys=drop_keys
-        )
-        table_lines = _merge_toc_entries_and_extras(
-            [lines for _, lines in content_tables], extras, separate_entries=True
-        )
-        blocks = _toc_heading_blocks(soup)
-        blocks.append("\n".join(table_lines))
-        return _wrap_toc_long_lines("\n\n".join(blocks).strip(), line_width=line_width)
-
+def _toc_fallback_text(soup: BeautifulSoup, *, line_width: int) -> str:
     blocks: list[str] = []
     for child in (soup.body or soup).find_all(recursive=False):
         if child.name == "table":
@@ -1648,34 +1725,30 @@ def _xml_page_text(row: Any, *, toc_drop_keys: frozenset[str] = frozenset()) -> 
     return page_text
 
 
-def _toc_running_extra_keys(toc_rows: Any) -> frozenset[str]:
-    """Extras printed on two or more HTML TOC pages (running headers and footers) stay out."""
-    if "raw_page_content" not in toc_rows.columns:
-        return frozenset()
-    raw_pages = [
+def _html_raw_pages(rows: Any) -> list[str]:
+    """The raw HTML of the rows that come from HTML sources."""
+    if "raw_page_content" not in rows.columns:
+        return []
+    return [
         str(r["raw_page_content"])
-        for _, r in toc_rows.iterrows()
-        if r.get("source_is_html") is not None
-        and r.get("source_is_html") == r.get("source_is_html")
-        and bool(r.get("source_is_html"))
-        and _has_text_value(r.get("raw_page_content"))
-    ]
-    return repeated_toc_extra_keys(raw_pages) if len(raw_pages) >= 2 else frozenset()
-
-
-def _body_inline_split_evidence(body_rows: Any) -> InlineSplitEvidence | None:
-    """The raw HTML of the HTML body pages, or None when there is none."""
-    if "raw_page_content" not in body_rows.columns:
-        return None
-    raw_pages = [
-        str(r["raw_page_content"])
-        for _, r in body_rows.iterrows()
+        for _, r in rows.iterrows()
         # NULL can arrive as None or NaN (truthy), so test the value, not bool(NaN).
         if r.get("source_is_html") is not None
         and r.get("source_is_html") == r.get("source_is_html")
         and bool(r.get("source_is_html"))
         and _has_text_value(r.get("raw_page_content"))
     ]
+
+
+def _toc_running_extra_keys(toc_rows: Any) -> frozenset[str]:
+    """Extras printed on two or more HTML TOC pages (running headers and footers) stay out."""
+    raw_pages = _html_raw_pages(toc_rows)
+    return repeated_toc_extra_keys(raw_pages) if len(raw_pages) >= 2 else frozenset()
+
+
+def _body_inline_split_evidence(body_rows: Any) -> InlineSplitEvidence | None:
+    """The raw HTML of the HTML body pages, or None when there is none."""
+    raw_pages = _html_raw_pages(body_rows)
     return InlineSplitEvidence(raw_pages) if raw_pages else None
 
 

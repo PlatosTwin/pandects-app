@@ -57,17 +57,23 @@ class InlineSplitEvidence:
     """The raw HTML of an agreement's body pages, used to confirm a rejoin."""
 
     def __init__(self, raw_pages: Iterable[str]) -> None:
-        self._plain = " ".join(raw_inline_plain(raw) for raw in raw_pages if raw)
+        self._raw_pages = [raw for raw in raw_pages if raw]
+        self._plain_text: str | None = None
         self._cache: dict[tuple[str, str], bool] = {}
+
+    @property
+    def _plain(self) -> str:
+        # Built on the first candidate only: most text has no split to check.
+        if self._plain_text is None:
+            self._plain_text = " ".join(raw_inline_plain(raw) for raw in self._raw_pages)
+        return self._plain_text
 
     def _confirms(self, joined_re: str, spaced_re: str) -> bool:
         key = (joined_re, spaced_re)
         cached = self._cache.get(key)
         if cached is None:
-            cached = (
-                re.search(joined_re, self._plain) is not None
-                and re.search(spaced_re, self._plain) is None
-            )
+            plain = self._plain
+            cached = re.search(joined_re, plain) is not None and re.search(spaced_re, plain) is None
             self._cache[key] = cached
         return cached
 
@@ -94,7 +100,7 @@ class InlineSplitEvidence:
 
     def join(self, text: str) -> str:
         """Rejoin the split ordinals and possessives in text that the raw HTML confirms."""
-        if not self._plain or (" " not in text and "\t" not in text):
+        if not self._raw_pages or (" " not in text and "\t" not in text):
             return text
         if any(ch.isdigit() for ch in text):
             text = _SPLIT_ORDINAL_RE.sub(self._join_ordinal, text)

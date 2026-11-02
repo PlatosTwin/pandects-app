@@ -162,6 +162,46 @@ class TocPrintedTailTests(unittest.TestCase):
         )
         self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
 
+    def test_doc_id_footers_with_a_page_number_stay_out(self) -> None:
+        # 74b1ab4f, c0b21bbb, e3f224a9: a doc ID with a roman page number; a5ec15f8: a slashed doc ID.
+        for footer in (
+            "<table><tr><td>ASIA 34949044</td><td>iii</td></tr></table>",
+            "<p>EAST\\134549672.25 vii</p>",
+            "<p>Active 37496756.2 iii</p>",
+            "<p>HBM/HBM/411669/3/UKM/108442647.1</p>",
+        ):
+            with self.subTest(footer=footer):
+                html = ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>" + footer
+                self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+
+    def test_page_labels_and_running_titles_with_labels_stay_out(self) -> None:
+        # 4b870189 "ToC-i"; 522db544 "... Agreement -ii-"; 2cc4adcc "Merger Agreement A-3".
+        for footer in ("ToC-iii", "Membership Interest Purchase Agreement -ii-", "Merger Agreement A-3"):
+            with self.subTest(footer=footer):
+                html = ENTRIES_11 + f"<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p><p>{footer}</p>"
+                self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+        # A listed exhibit with its page label stays.
+        html = ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Bank Merger Agreement A-1</p>"
+        self.assertEqual(_lines(html)[-1], "Exhibit A Bank Merger Agreement A-1")
+
+    def test_dashed_page_labels_repeat_as_one_footer(self) -> None:
+        footer = "<p>Purchase Agreement for Acme Holdings {}</p>"
+        pages = [
+            ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>" + footer.format("-i-"),
+            ENTRIES_11 + "<p>Exhibit B Form of Guaranty</p>" + footer.format("-ii-"),
+        ]
+        keys = repeated_toc_extra_keys(pages)
+        self.assertEqual(_lines_with(pages[1], keys)[-1], "Exhibit B Form of Guaranty")
+
+    def test_a_preamble_on_a_toc_page_ends_the_tail(self) -> None:
+        # f29a2c63: the agreement's preamble starts on the TOC-labeled page.
+        html = (
+            ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit 1 - Shareholders</p>"
+            + "<p>THIS UNIT PURCHASE AGREEMENT (this \u201c Agreement \u201d) is effective as of August 30, 2023, "
+            + "by and among the parties.</p><p>RECITALS</p>"
+        )
+        self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit 1 - Shareholders"])
+
     def test_a_page_without_extras_is_unchanged(self) -> None:
         html = "<p>TABLE OF CONTENTS</p><p>Page</p>" + ENTRIES_11 + "<p align='center'>ii</p>"
         self.assertEqual(
