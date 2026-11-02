@@ -19,7 +19,13 @@ from etl.domain.g_sections import clean_section_title
 from etl.domain.heading_titles import article_title_number
 from etl.domain.heading_titles import normalize_glued_article_title
 from etl.domain.heading_titles import normalize_glued_section_title
-from etl.domain.page_furniture import strip_nonbody_page_furniture, strip_page_furniture
+from etl.domain.inline_tag_splits import InlineSplitEvidence
+from etl.domain.page_furniture import (
+    furniture_kind,
+    running_title_kind,
+    strip_nonbody_page_furniture,
+    strip_page_furniture,
+)
 from etl.domain.txt_underlines import strip_inline_underlines
 
 
@@ -528,16 +534,18 @@ def _looks_like_positioned_toc_row(tag: Tag) -> bool:
     )
 
 
-def _positioned_toc_lines(soup: BeautifulSoup, *, line_width: int) -> list[str]:
-    lines: list[str] = []
+def _positioned_toc_rows(soup: BeautifulSoup, *, line_width: int) -> list[tuple[Tag, list[str]]]:
+    """Each positioned TOC row with its line; a repeated row keeps no line of its own."""
+    rows: list[tuple[Tag, list[str]]] = []
     seen: set[str] = set()
     for row in soup.find_all(_looks_like_positioned_toc_row):
         text = _toc_visible_text(row)
         if text in seen:
+            rows.append((row, []))
             continue
         seen.add(text)
-        lines.append(_format_toc_flat_row(text, line_width=line_width))
-    return lines
+        rows.append((row, [_format_toc_flat_row(text, line_width=line_width)]))
+    return rows
 
 
 def _toc_heading_blocks(soup: BeautifulSoup) -> list[str]:
@@ -559,8 +567,9 @@ def _toc_heading_blocks(soup: BeautifulSoup) -> list[str]:
     return blocks
 
 
-def _content_toc_table_lines(soup: BeautifulSoup, *, line_width: int) -> list[str]:
-    content_tables: list[list[str]] = []
+def _content_toc_tables(soup: BeautifulSoup, *, line_width: int) -> list[tuple[Tag, list[str]]]:
+    """The tables that hold TOC entries, each with its lines."""
+    content_tables: list[tuple[Tag, list[str]]] = []
     for table in soup.find_all("table"):
         lines = _toc_table_to_lines(table, line_width=line_width)
         if not lines:
@@ -584,14 +593,131 @@ def _content_toc_table_lines(soup: BeautifulSoup, *, line_width: int) -> list[st
             )
         ]
         if len(entry_lines) >= 3 or (len(lines) >= 5 and len(reference_lines) >= 3):
-            content_tables.append(lines)
+            content_tables.append((table, lines))
+    return content_tables
 
-    if not content_tables:
-        return []
 
+# Blocks that hold printed TOC text outside the entry tables or rows: the exhibit
+# and schedule lists and index headings printed after the last entry, and article
+# headings printed between entry tables.
+_TOC_TEXT_BLOCK_TAGS = (
+    "p", "div", "li", "h1", "h2", "h3", "h4", "h5", "h6", "center", "blockquote", "pre", "dt", "dd",
+)
+_TOC_ENTRY_START_RE = re.compile(r"(?:ARTICLE|Article|SECTION|Section)\s+(?:\d+|[IVXLC]+)\b")
+# Roman page numbers: "iii", "- iv -", "ii.", "II".
+_TOC_ROMAN_PAGE_RE = re.compile(r"[-\u2013\u2014(\s]*(?:[ivxlc]{1,7}|[IVXLC]{1,7})\.?[-\u2013\u2014)\s]*")
+_TOC_LABEL_RE = re.compile(
+    r"(?:(?:table\s+of\s+)?contents\s*)?(?:\(?continued\)?\s*)?(?:page|pages|page\s+no\.?)?",
+    re.IGNORECASE,
+)
+# Column headings alone: "Section Description", "Exhibit Title Page".
+_TOC_COLUMN_HEADER_RE = re.compile(
+    r"(?:(?:sections?|articles?|exhibits?|schedules?|annex|description|title|page|no\.?|number|document|tab)\s*){2,4}",
+    re.IGNORECASE,
+)
+# A page label at the end of a footer: "Ref: SLRB 1136588 Page 3", "3.5.2022page (ii)".
+_TOC_PAGE_LABEL_END_RE = re.compile(r"(?<![A-Za-z])page\s*\(?(?:\d{1,3}|[ivxlc]{1,6})\)?\s*$", re.IGNORECASE)
+_TOC_LONG_NUMBER_RE = re.compile(r"\d{5,}")
+_TOC_WORD_RE = re.compile(r"[A-Za-z]{3,}")
+# SEC filing legends and confidential-treatment notes; the lines after one on the page continue it.
+_TOC_LEGEND_RE = re.compile(
+    r"\bconfidential\b|\bomitted\b|\bomissions?\b|rule\s+24b-2|regulation\s+s-k|item\s+601"
+    r"|securities\s+and\s+exchange\s+commission|\[\s*\*+\s*\]|^\*",
+    re.IGNORECASE,
+)
+# A listed exhibit, schedule or annex: "Exhibit A ...", "Annex B ...", "A-1 Form of ...".
+_TOC_LIST_ITEM_RE = re.compile(
+    r"(?:exhibits?|schedules?|annex(?:es)?|appendix|appendices|attachments?)\b|[A-Z](?:-\d{1,2})?\s",
+    re.IGNORECASE,
+)
+
+
+def _toc_extra_is_furniture(text: str) -> bool:
+    """A page number, a doc ID, a banner, a running title, or a "TABLE OF CONTENTS"/"Page" label."""
+    if (
+        furniture_kind(text) is not None
+        or _TOC_ROMAN_PAGE_RE.fullmatch(text) is not None
+        or _TOC_LABEL_RE.fullmatch(text) is not None
+        or _TOC_COLUMN_HEADER_RE.fullmatch(text) is not None
+        or _TOC_PAGE_LABEL_END_RE.search(text) is not None
+    ):
+        return True
+    if _TOC_LONG_NUMBER_RE.search(text) is not None and len(_TOC_WORD_RE.findall(text)) < 2:
+        return True
+    return (
+        running_title_kind(text) == "title"
+        and _TOC_LIST_ITEM_RE.match(text) is None
+        and "form of" not in text.lower()
+    )
+
+
+def _toc_printed_extras(
+    soup: BeautifulSoup,
+    entry_elements: list[Tag],
+    *,
+    line_width: int,
+) -> list[tuple[int, list[str]]]:
+    """The printed text blocks around the TOC entry elements, in document order.
+
+    Returns (position, lines) pairs, where position is the number of entry
+    elements that come before the block. Only leaf text blocks and tables
+    outside every table and entry element count. Furniture lines are left out,
+    a filing legend after the first entry element ends the extras of the page
+    (its lines continue it), and before the first entry element a block counts
+    only from the first one that opens with an ARTICLE or Section heading.
+    """
+    entry_ids = {id(el) for el in entry_elements}
+    extras: list[tuple[int, list[str]]] = []
+    position = 0
+    leading_open = False
+    for el in soup.find_all([*_TOC_TEXT_BLOCK_TAGS, "table"]):
+        if id(el) in entry_ids:
+            position += 1
+            continue
+        if any(id(parent) in entry_ids or parent.name == "table" for parent in el.parents):
+            continue
+        if el.name == "table":
+            if any(id(inner) in entry_ids for inner in el.find_all(True)):
+                continue
+            lines = _toc_table_to_lines(el, line_width=line_width)
+        else:
+            if el.find([*_TOC_TEXT_BLOCK_TAGS, "table"]) is not None:
+                continue
+            if any(id(inner) in entry_ids for inner in el.find_all(True)):
+                continue
+            text = _toc_visible_text(el)
+            lines = [text] if text else []
+        lines = [line for line in lines if line.strip() and not _toc_extra_is_furniture(line.strip())]
+        if not lines:
+            continue
+        if any(_TOC_LEGEND_RE.search(line) is not None for line in lines):
+            if position == 0:
+                continue
+            break
+        if position == 0 and not leading_open:
+            if _TOC_ENTRY_START_RE.match(lines[0]) is None:
+                continue
+            leading_open = True
+        extras.append((position, lines))
+    return extras
+
+
+def _merge_toc_entries_and_extras(
+    entries: list[list[str]],
+    extras: list[tuple[int, list[str]]],
+    *,
+    separate_entries: bool,
+) -> list[str]:
+    """Entry lines and printed extras in document order."""
     merged: list[str] = []
-    for table_idx, lines in enumerate(content_tables):
-        if table_idx:
+    extra_index = 0
+    for entry_index, lines in enumerate(entries + [[]]):
+        while extra_index < len(extras) and extras[extra_index][0] <= entry_index:
+            merged.extend(extras[extra_index][1])
+            extra_index += 1
+        if entry_index == len(entries):
+            break
+        if separate_entries and entry_index and lines:
             merged.append("")
         merged.extend(lines)
     return merged
@@ -643,14 +769,22 @@ def format_toc_html_like_screen(raw_html: str, *, line_width: int = 120) -> str:
     soup = BeautifulSoup(raw_html, "html.parser")
     _remove_toc_nonvisible_nodes(soup)
 
-    positioned_lines = _positioned_toc_lines(soup, line_width=line_width)
-    if positioned_lines:
+    positioned_rows = _positioned_toc_rows(soup, line_width=line_width)
+    if any(lines for _, lines in positioned_rows):
+        extras = _toc_printed_extras(soup, [row for row, _ in positioned_rows], line_width=line_width)
+        positioned_lines = _merge_toc_entries_and_extras(
+            [lines for _, lines in positioned_rows], extras, separate_entries=False
+        )
         blocks = _toc_heading_blocks(soup)
         blocks.append("\n".join(positioned_lines))
         return _wrap_toc_long_lines("\n\n".join(blocks).strip(), line_width=line_width)
 
-    table_lines = _content_toc_table_lines(soup, line_width=line_width)
-    if table_lines:
+    content_tables = _content_toc_tables(soup, line_width=line_width)
+    if content_tables:
+        extras = _toc_printed_extras(soup, [table for table, _ in content_tables], line_width=line_width)
+        table_lines = _merge_toc_entries_and_extras(
+            [lines for _, lines in content_tables], extras, separate_entries=True
+        )
         blocks = _toc_heading_blocks(soup)
         blocks.append("\n".join(table_lines))
         return _wrap_toc_long_lines("\n\n".join(blocks).strip(), line_width=line_width)
@@ -1060,6 +1194,7 @@ def convert_to_xml(
     filing_date: date,
     url: str,
     source_format: str,
+    inline_splits: InlineSplitEvidence | None = None,
 ) -> str:
     """
     Convert text with <article>...</article> and <section>...</section> headings
@@ -1076,6 +1211,9 @@ def convert_to_xml(
         filing_date: Date of the filing.
         url: URL of the source document.
         source_format: Format of the source document.
+        inline_splits: The agreement's raw body HTML; when given, ordinals and
+            possessives an inline-tag boundary split ("15 th", "Broker’ s") are
+            rejoined where the raw confirms it.
 
     Returns:
         XML string representation of the document.
@@ -1151,6 +1289,8 @@ def convert_to_xml(
         for stripped in _iter_line_fragments(text_block):
             if not stripped.startswith("<page"):
                 stripped = tighten_space_before_punctuation(stripped)
+                if inline_splits is not None:
+                    stripped = inline_splits.join(stripped)
 
             # 1) <pageUUID>
             if re.fullmatch(r"<pageUUID>.*?</pageUUID>", stripped, re.DOTALL):
@@ -1212,10 +1352,13 @@ def convert_to_xml(
                 previous_article_number = parsed_number
         else:
             title = normalize_glued_section_title(title)
-        # Ids hash the titles as they were before the punctuation is tightened,
-        # so the fix does not move served ids.
+        # Ids hash the titles as they were before the punctuation is tightened
+        # and split ordinals and possessives are rejoined, so neither fix moves
+        # served ids.
         uuid_title = title
         title = tighten_space_before_punctuation(title)
+        if inline_splits is not None:
+            title = inline_splits.join(title)
         source_page_uuid = heading_page_uuid(m.start())
 
         _, end = m.span()
@@ -1419,6 +1562,22 @@ def _xml_page_text(row: Any) -> str:
     return page_text
 
 
+def _body_inline_split_evidence(body_rows: Any) -> InlineSplitEvidence | None:
+    """The raw HTML of the HTML body pages, or None when there is none."""
+    if "raw_page_content" not in body_rows.columns:
+        return None
+    raw_pages = [
+        str(r["raw_page_content"])
+        for _, r in body_rows.iterrows()
+        # NULL can arrive as None or NaN (truthy), so test the value, not bool(NaN).
+        if r.get("source_is_html") is not None
+        and r.get("source_is_html") == r.get("source_is_html")
+        and bool(r.get("source_is_html"))
+        and _has_text_value(r.get("raw_page_content"))
+    ]
+    return InlineSplitEvidence(raw_pages) if raw_pages else None
+
+
 def generate_xml(
     df: Any, version_map: dict[str, int] | None = None
 ) -> tuple[list[XMLData], list[XMLGenerationFailure]]:
@@ -1536,6 +1695,7 @@ def generate_xml(
                     announcement_date,
                     url,
                     source_format,
+                    inline_splits=_body_inline_split_evidence(body_rows),
                 )
                 tmp_root = ET.fromstring(tmp_xml)
                 # Include any leading content that appeared before the first heading within body pages

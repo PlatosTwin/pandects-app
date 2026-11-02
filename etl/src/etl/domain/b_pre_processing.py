@@ -502,6 +502,28 @@ def _render_visible_html_text(content: str, *, timeout_seconds: int = 20) -> str
     return _normalize_rendered_visible_text(pre.get_text())
 
 
+_INLINE_ORDINAL_LEFT_RE = re.compile(r"(?<![0-9.,])(\d{1,4})$")
+_INLINE_ORDINAL_RIGHT_RE = re.compile(r"(st|nd|rd|th)(?![A-Za-z0-9])", re.IGNORECASE)
+_INLINE_POSSESSIVE_LEFT_RE = re.compile(r"(?:^|[A-Za-z0-9])[\u2019']$")
+_INLINE_POSSESSIVE_RIGHT_RE = re.compile(r"[sS](?![A-Za-z0-9])")
+
+
+def _inline_boundary_inside_word(left: str, right: str) -> bool:
+    """True when an inline-tag boundary between left and right falls inside an
+    ordinal ("15" + "th") or a possessive ("Broker’" + "s Fees"), where the
+    reader sees no space."""
+    ordinal = _INLINE_ORDINAL_LEFT_RE.search(left)
+    suffix = _INLINE_ORDINAL_RIGHT_RE.match(right)
+    if ordinal is not None and suffix is not None:
+        value = int(ordinal.group(1))
+        expected = "th" if 11 <= value % 100 <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(value % 10, "th")
+        return suffix.group(1).lower() == expected
+    return (
+        _INLINE_POSSESSIVE_LEFT_RE.search(left) is not None
+        and _INLINE_POSSESSIVE_RIGHT_RE.match(right) is not None
+    )
+
+
 def _get_html_formatter_mode() -> str:
     mode = os.getenv(_HTML_FORMATTER_MODE_ENV, _HTML_FORMATTER_MODE_LEGACY).strip().lower()
     if mode in {"", _HTML_FORMATTER_MODE_LEGACY}:
@@ -927,6 +949,7 @@ def strip_formatting_tags(
                     and not starts_with_closing_quote
                     and not is_closing_quote_tag
                     and not wrapped_by_quotes_before
+                    and not _inline_boundary_inside_word(prev_text, tag_text)
                 ):
                     needs_space_before = True
             
@@ -963,6 +986,7 @@ def strip_formatting_tags(
                     and not ends_with_opening_quote
                     and not is_opening_quote_tag
                     and not wrapped_by_quotes_after
+                    and not _inline_boundary_inside_word(prev_text + tag_text, next_text)
                 ):
                     needs_space_after = True
             
