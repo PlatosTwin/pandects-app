@@ -1,5 +1,6 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import re
+import unicodedata
 import xml.dom.minidom
 import xml.etree.ElementTree as ET
 import uuid
@@ -162,16 +163,48 @@ SIGNATURE_INTERMEDIATE_SIGNER_RE = re.compile(
 # A party-role header ("PURCHASER:", "SELLERS:") or a bare page number ("51").
 SIGNATURE_NON_FIELD_VALUE_RE = re.compile(r"[A-Z][A-Z'’&,. ()-]{1,40}:|\d{1,3}")
 _SIGNATURE_SOFT_BREAK = "\x00"
-# Letters in any script ("Fran<font>çois</font>"): word characters minus digits and "_".
-_SIGNATURE_INLINE_JOIN_RE = re.compile(r"(?<=([^\W\d_]))\x00+(?=([^\W\d_]))")
+# A soft break between two printed characters (whitespace on either side already
+# makes the gap).
+_SIGNATURE_INLINE_JOIN_RE = re.compile(r"(?<=(\S))\x00+(?=(\S))")
 _SIGNATURE_CJK_RE = re.compile(r"[぀-ヿ㐀-鿿가-힯豈-﫿]")
 
 
-def _signature_inline_join(match: re.Match[str]) -> str:
+def _signature_letters_join(left: str, right: str) -> str:
     """Join two letters of the same script; keep the gap at a Latin/CJK change."""
-    left_cjk = _SIGNATURE_CJK_RE.match(match.group(1)) is not None
-    right_cjk = _SIGNATURE_CJK_RE.match(match.group(2)) is not None
+    left_cjk = _SIGNATURE_CJK_RE.match(left) is not None
+    right_cjk = _SIGNATURE_CJK_RE.match(right) is not None
     return "" if left_cjk == right_cjk else _SIGNATURE_SOFT_BREAK
+
+
+def _signature_inline_join(match: re.Match[str]) -> str:
+    """Join text across an inline-element boundary the way a browser renders it.
+
+    An inline boundary adds no space: "/<small>S</small>/" reads "/S/",
+    "BRISTOL<font>-MYERS</font>" reads "BRISTOL-MYERS", "STOCKHOLDERS<font>’</font>"
+    reads "STOCKHOLDERS’", "10.<font>9</font>" reads "10.9". Letters in any script
+    ("Fran<font>çois</font>") join, except at a Latin/CJK change. Punctuation joins
+    its neighbor, except that a label's colon keeps its gap ("Name:<font>Jane
+    Doe</font>") and an underscore blank stays apart from the word beside it
+    ("DiModica<u>____</u>"). A digit beside a letter or digit keeps the gap, and so
+    does a conformed "/s/" before the signer's name ("/s/<u>Jane Doe</u>"), which the
+    page text prints as "/s/ Jane Doe".
+    """
+    left, right = match.group(1), match.group(2)
+    if left == "/" and right.isalpha():
+        before = match.string[max(match.start(1) - 12, 0):match.start(1) + 1].replace(_SIGNATURE_SOFT_BREAK, "")
+        if before[-3:].lower() == "/s/" and not before[-4:-3].isalnum():
+            return _SIGNATURE_SOFT_BREAK
+    if left.isalpha() and right.isalpha():
+        return _signature_letters_join(left, right)
+    if left == ":":
+        return _SIGNATURE_SOFT_BREAK
+    if (left == "_" and right.isalnum()) or (right == "_" and left.isalnum()):
+        return _SIGNATURE_SOFT_BREAK
+    if unicodedata.category(left)[0] in "PS" or unicodedata.category(right)[0] in "PS":
+        return ""
+    return _SIGNATURE_SOFT_BREAK
+
+
 # EDGAR navigation links such as <a href="#toc">BACK</a> at the top of a page.
 SIGNATURE_HTML_NAV_LINK_TEXT_RE = re.compile(r"(?:back|return\s+to\s+top)", re.IGNORECASE)
 XML_INVALID_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
