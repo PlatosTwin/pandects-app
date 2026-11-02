@@ -27,7 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-ENRICHER_VERSION = "0.6.0"
+ENRICHER_VERSION = "0.7.0"
 PAYLOAD_SCHEMA = 1
 
 # Regions whose text is indexed for term uses and cross-references. The table of
@@ -53,6 +53,19 @@ def _roman_to_int(s: str) -> int | None:
     return total
 
 
+# I-XXXIX: a bare "L" or "C" leading a dotted number is a French code article
+# ("Article L.233-3") or a lettered section ("Section C.6"), not a Roman article
+_ROMAN_NUM = r"(?:X{0,3}(?:IX|IV|V?I{1,3}|V)|X{1,3})"
+_ROMAN_LEAD = re.compile(r"^(" + _ROMAN_NUM + r")(?=\.\d)")
+
+
+def _deroman(num: str) -> str:
+    """'VIII.2(e)' is '8.2(e)': a Roman article number leading a dotted section number."""
+    m = _ROMAN_LEAD.match(num)
+    n = _roman_to_int(m.group(1)) if m else None
+    return f"{n}{num[m.end():]}" if m and n else num
+
+
 # ---------------------------------------------------------------- text nodes
 
 
@@ -65,6 +78,7 @@ class _Text:
     section_key: str | None  # normalized number of the enclosing section, if any
     section_el: ET.Element | None
     utf16: list[int] | None = None  # code point -> UTF-16 offset table, None when all BMP
+    section_label: str | None = None  # the section number as printed ("VIII.2" for key "8.2")
 
     def off(self, i: int) -> int:
         return self.utf16[i] if self.utf16 is not None else i
@@ -88,17 +102,17 @@ def _collect_texts(root: ET.Element) -> tuple[list[_Text], dict[ET.Element, _Tex
     texts: list[_Text] = []
     by_el: dict[ET.Element, _Text] = {}
     counters: Counter[str] = Counter()
+    roman = _roman_scheme(root)
 
     def walk(el: ET.Element, region: str, container: str, sec_el: ET.Element | None) -> None:
         for child in el:
             if child.tag == "text":
                 raw = child.text or ""
                 norm = _NON_BREAKING_RE.sub(" ", raw)
-                key = None
-                if sec_el is not None:
-                    m = SECTION_NUM.match(sec_el.get("title") or "")
-                    key = _norm_num(m.group(1)) if m else None
-                node = _Text(container, counters[container], region, norm, key, sec_el, _utf16_table(norm))
+                key = label = None
+                if sec_el is not None and (num := _section_num(sec_el.get("title") or "", roman)):
+                    key, label = num
+                node = _Text(container, counters[container], region, norm, key, sec_el, _utf16_table(norm), label)
                 counters[container] += 1
                 texts.append(node)
                 by_el[child] = node
@@ -134,8 +148,9 @@ def text_hash(xml: str) -> str:
 ARTICLE_NUM = re.compile(
     r"^\s*(?:ARTICLE|Article|PART|Part|SECTION|Section)\s+([IVXLC]+|\d+|[A-Z])\b|^\s*(\d+)\s*[.:]?\s+\D",
 )
+# "Section VIII.2": some agreements number sections under their Roman article number
 SECTION_NUM = re.compile(
-    r"^\s*(?:Section|SECTION|Sec\.|§)?\s*(\d+[A-Z]?(?:\.\d+[A-Z]?)+|\d+[A-Z]?)\.?(?=\s|$)",
+    r"^\s*(?:Section|SECTION|Sec\.|§)?\s*(\d+[A-Z]?(?:\.\d+[A-Z]?)+|" + _ROMAN_NUM + r"(?:\.\d+[A-Z]?)+|\d+[A-Z]?)\.?(?=\s|$)",
 )
 # A paragraph that opens with one or more enumerators: "(a)", "(a)(i)", "(ii) ..."
 ENUM_PREFIX = re.compile(r"^\s*((?:\([A-Za-z0-9]{1,6}\)\s*)+)")
@@ -145,6 +160,8 @@ DECIMAL_PARA = re.compile(r"^\s*(?:(?:Section|SECTION|Sec\.|§)\s*)?(\d+(?:\.\d+
 # "A. No Solicitation." opening a paragraph: a lettered group of the section's "(a)" paragraphs,
 # cited as "Section 5.3A(a)" or "Section 5.3(A)(a)"
 GROUP_PARA = re.compile(r"^\s*([A-Z])\.\s+\S")
+# "VIII.2.1 ...": a dotted paragraph under a Roman article number (Roman schemes only)
+ROMAN_DECIMAL_PARA = re.compile(r"^\s*(?:(?:Section|SECTION|Sec\.|§)\s*)?(" + _ROMAN_NUM + r"(?:\.\d+){2,})\.?\s")
 # "1.1 ..." opening a paragraph: a section the XML parse left untagged
 SECTION_PARA = re.compile(r"^\s*\d+\.\d+[.\s]")
 ATTACHMENT_HEADING = re.compile(
@@ -163,6 +180,30 @@ def _norm_num(num: str) -> str:
         m = re.match(r"0*(\d+)([A-Z]?)$", p)
         parts.append(f"{int(m.group(1))}{m.group(2)}" if m else p)
     return ".".join(parts)
+
+
+def _roman_scheme(root: ET.Element) -> bool:
+    """Whether the body numbers its sections "VIII.2": at least three, and most of its sections. A stray
+    "I.1" section (an embedded plan) or lettered articles ("C.1" among "A.1", "B.1") are not a scheme."""
+    body = root.find("body")
+    titles = [sec.get("title") or "" for sec in body.iter("section")] if body is not None else []
+    roman = sum(1 for t in titles if (m := SECTION_NUM.match(t)) and _ROMAN_LEAD.match(m.group(1)))
+    return roman >= 3 and roman * 2 > len(titles)
+
+
+def _section_num(title: str, roman: bool) -> tuple[str, str] | None:
+    """(key, label) of a section title's number, or None when it has none. "VIII.2" counts only in a
+    Roman scheme."""
+    m = SECTION_NUM.match(title)
+    if not m or (not roman and _ROMAN_LEAD.match(m.group(1))):
+        return None
+    return _section_key(m.group(1))
+
+
+def _section_key(printed: str) -> tuple[str, str]:
+    """(key, label): "VIII.2" is keyed "8.2", like the article it sits in, and keeps its printed label."""
+    key = _norm_num(_deroman(printed))
+    return key, (printed if _ROMAN_LEAD.match(printed) else key)
 
 
 def _enum_kind(tok: str) -> str:
@@ -236,6 +277,8 @@ class _Outline:
     numbered_paras: set[tuple[str, int]] = field(default_factory=set)
     attachments: dict[str, _Node] = field(default_factory=dict)  # "exhibit a" -> node
     groups: set[str] = field(default_factory=set)  # lettered group keys: "8.1(A)"
+    roman_sections: bool = False  # most sections are numbered "VIII.2" (_roman_scheme): "Section VIII.2(e)" resolves
+    para_labels: dict[str, str] = field(default_factory=dict)  # "8.2.1" -> printed "VIII.2.1"
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
 
@@ -286,21 +329,33 @@ def _lettered_groups(texts: list[str]) -> bool:
 
 def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline:
     ol = _Outline()
+    ol.roman_sections = _roman_scheme(root)
 
     def add_section(sec: ET.Element, parent: list[_Node]) -> None:
         stitle = sec.get("title") or ""
         uuid = sec.get("uuid")
-        sm = SECTION_NUM.match(stitle)
-        if not sm or not uuid:
+        sn = _section_num(stitle, ol.roman_sections)
+        if not sn or not uuid:
             ol.unnumbered_sections += 1
             return
-        num = _norm_num(sm.group(1))
-        node = _Node(ol.unique_id(f"s{num}"), "section", num, stitle, {"s": uuid})
+        num, label = sn
+        node = _Node(ol.unique_id(f"s{num}"), "section", label, stitle, {"s": uuid})
         parent.append(node)
         ol.sections.setdefault(num, []).append(node)
         if len(ol.sections[num]) > 1:
             return  # duplicate number after a bad parse: no subsection targets either
         add_subs(sec, num, uuid, node)
+        printed = {num: label} | {k: v for k, v in ol.para_labels.items() if k.startswith(num + ".")}
+        if any(k != v for k, v in printed.items()):
+            prefixes = sorted(printed, key=len, reverse=True)
+            relabel = list(node.children)
+            while relabel:  # "8.2(e)" is shown as printed, "VIII.2(e)"; a printed "8.2.1" paragraph keeps its number
+                sub = relabel.pop()
+                for p in prefixes:
+                    if sub.label == p or sub.label.startswith(p + "("):
+                        sub.label = printed[p] + sub.label[len(p) :]
+                        break
+                relabel.extend(sub.children)
 
     def add_subs(el: ET.Element, num: str, uuid: str, node: _Node) -> None:
         """Subsection nodes under `node` from the numbered paragraphs inside `el`."""
@@ -314,9 +369,11 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             if tn is None:
                 continue
             txt = tn.text
-            dm = DECIMAL_PARA.match(txt)
+            dm = DECIMAL_PARA.match(txt) or (ROMAN_DECIMAL_PARA.match(txt) if ol.roman_sections else None)
             if dm:
-                key = _norm_num(dm.group(1))
+                key = _norm_num(_deroman(dm.group(1)))
+                if key != dm.group(1):
+                    ol.para_labels.setdefault(key, dm.group(1))
                 foreign = not key.startswith(num + ".")
                 if foreign:
                     continue
@@ -454,7 +511,7 @@ def _glued_roman(title: str, expected: int) -> str | None:
 def _container_label(tn: _Text) -> str:
     """Where a span lives, for the redaction teaser ("Defined in Section 1.1")."""
     if tn.section_key:
-        return f"Section {tn.section_key}"
+        return f"Section {tn.section_label or tn.section_key}"
     return tn.region
 
 
@@ -890,6 +947,8 @@ SPELLED_ITEM = re.compile(r"(" + "|".join(w.capitalize() + "|" + w.upper() for w
 _SUFFIX = r"(?:[A-Z](?!ections?\b|ECTIONS?\b|rticles?\b|RTICLES?\b|chedules?\b|xhibits?\b|nnex))"
 GLUED_HEAD = re.compile(r"(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Schedules?|Exhibits?|Annex)\b")
 REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
+# "Section VIII.2(e)": tried first for section, article, clause and paragraph heads only ("Exhibit C.2" is Exhibit C)
+ROMAN_ITEM = re.compile(r"(" + _ROMAN_NUM + r"(?:\.\d+" + _SUFFIX + r"?)+(?:\s?\([A-Za-z0-9]{1,6}\))*)")
 # "(other than Sections 1.1, 6.2 (a)), 6.6 (f)": a list can step out of the parenthetical it started in
 RELATIVE_FOLLOW = re.compile(
     r"\s*(?:[,;.)]|$)|\s+(?:and|or|of|through|to|hereof|hereto|herein|thereof|above|below|shall|will|is|are|has|have|was|were|would|may|applies|apply)\b"
@@ -897,7 +956,7 @@ RELATIVE_FOLLOW = re.compile(
 # "Sections 4.1 (Organization; Subsidiaries), 4.2 (Authority) and 4.7": a caption or other parenthetical
 # (not an enumerator) may follow each item
 REF_JOIN = re.compile(r"(?:\s*\((?![A-Za-z0-9]{1,6}\))[^()]{2,200}\))?(?:\s*(?:\)?,\s*(?:and|or)?\s*|\s+(?:and|or|through|to|and/or)\s+|\s*[\-–]\s*))")
-QUALIFIED = re.compile(r"\s+(?:of|in)\s+(?:this\s+)?[Ss]ection\s+(\d+[A-Z]?(?:\.\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
+QUALIFIED = re.compile(r"\s+(?:of|in)\s+(?:this\s+)?[Ss]ection\s+((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
 SECTION_TARGET = re.compile(r"(\d+[A-Z]?(?:\.\d+[A-Z]?)*)((?:\([A-Za-z0-9]+\))*)$")
 
 _HEAD_NORM = {"annexe": "annex", "appendice": "appendix"}
@@ -947,7 +1006,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 item_pos = jm.end()
             # only consume a joiner when an item follows it: in "Section 3.14(a) to the Disclosure
             # Schedule" the "to" belongs to the tail, not to a range
-            im = REF_ITEM.match(text, item_pos)
+            im = (ROMAN_ITEM.match(text, item_pos) if head in _IN_DOCUMENT_HEADS else None) or REF_ITEM.match(text, item_pos)
             if not im and head == "article":
                 im = SPELLED_ITEM.match(text, item_pos)
             if not im:
@@ -977,7 +1036,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 run.append(_Ref(head, prev[: pm.start()] + item, im.start(), im.end(), im.start(), relative=True))
                 pos = im.end()
                 continue
-            bm = re.match(r"\d+[A-Z]?(?:\.\d+[A-Z]?)*", item)
+            bm = re.match(r"(?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.\d+[A-Z]?)*", item)
             base_end = im.start() + (bm.end() if bm else len(item))
             run.append(_Ref(head, item, hm.start() if first else im.start(), im.end(), base_end))
             pos = im.end()
@@ -1066,6 +1125,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
     if ref.status:
         return ref.status, None, None
     t = ref.target
+    if ol.roman_sections and ref.head in ("section", "clause", "article"):
+        t = _deroman(t)  # "Section VIII.2(e)" is section 8.2(e)
     # UK drafting: "clause 9.4" is a section and "clause 5" a top-level clause.
     # Numbered "paragraph" references usually point into schedules, so they stay unlinked.
     numbered_clause = ref.head == "clause" and t[:1].isdigit()
@@ -1126,7 +1187,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         # "Sections 10.2(a), (b) and (c)" with no subsection targets: the printed section is right there
         return "section_fallback", nodes[0].id, None
     if ref.head == "article":
-        key = t.upper()
+        key = t.split(".", 1)[0] if _ROMAN_LEAD.match(t) else t  # "Article IV.2" outside a Roman scheme
+        key = key.upper()
         as_int = _SPELLED.index(t.lower()) + 1 if t.lower() in _SPELLED else _roman_to_int(key)
         key = str(as_int) if as_int else key
         arts = ol.articles.get(key)
