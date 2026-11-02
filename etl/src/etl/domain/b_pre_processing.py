@@ -22,6 +22,7 @@ from bs4.element import Comment, NavigableString, PageElement, Tag
 from requests.api import get as requests_get
 from typing_extensions import NotRequired
 
+from etl.domain.raw_block_joins import INLINE_TAG_NAMES, PRE_STYLE_RE, PRE_TAG_NAMES
 from etl.models.page_classifier_revamp.inference import (
     AgreementReviewSummary,
     build_agreement_review_summary,
@@ -998,6 +999,47 @@ def strip_formatting_tags(
     return soup
 
 
+_ROOT_TAG_NAMES = frozenset({"html", "body", "[document]"})
+_SOURCE_LINE_BREAK_WS_RE = re.compile(r"\s*\n\s*")
+
+
+def collapse_source_line_breaks(soup: BeautifulSoup) -> BeautifulSoup:
+    """
+    Turn source line breaks inside block elements into spaces.
+
+    A browser shows any run of white space inside a <p> or <div>, blank lines
+    included, as one space; only <pre> and ``white-space: pre`` keep line
+    breaks. Text extraction reads a blank line as a paragraph break, so a
+    source that wraps one paragraph over blank lines would come out split
+    mid-sentence. Text with no enclosing block element keeps its line breaks,
+    since such a page may be plain text, and so does text in a formatting tag
+    that holds a <br>, whose line breaks stand in for the <br>.
+    """
+    for node in list(soup.find_all(string=True)):
+        if isinstance(node, Comment) or "\n" not in node:
+            continue
+        in_block = False
+        preformatted = False
+        for parent in node.parents:
+            name = (parent.name or "").lower()
+            if name in PRE_TAG_NAMES or PRE_STYLE_RE.search(str(parent.get("style") or "")):
+                preformatted = True
+                break
+            if name in INLINE_TAG_NAMES and not in_block and parent.find("br") is not None:
+                # strip_formatting_tags drops a <br> inside a formatting tag
+                # and keeps the tag's source line breaks in its place.
+                preformatted = True
+                break
+            if name not in _ROOT_TAG_NAMES and name not in INLINE_TAG_NAMES:
+                in_block = True
+        if preformatted or not in_block:
+            continue
+        collapsed = _SOURCE_LINE_BREAK_WS_RE.sub(" ", str(node))
+        if collapsed != str(node):
+            _ = node.replace_with(NavigableString(collapsed))
+    return soup
+
+
 def block_level_soup(
     soup: BeautifulSoup,
     block_tags: Iterable[str] = (
@@ -1315,6 +1357,7 @@ def _should_use_relaxed_html_fallback(primary_text: str, relaxed_text: str) -> b
 
 def _format_html_content_legacy(content: str) -> str:
     html = BeautifulSoup(content, "html.parser")
+    html = collapse_source_line_breaks(html)
     cleaned = strip_formatting_tags(html)
     cleaned = collapse_tables(cleaned)
     cleaned = preserve_br_breaks(cleaned)

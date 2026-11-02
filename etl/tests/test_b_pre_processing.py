@@ -968,6 +968,40 @@ class PreProcessingTests(unittest.TestCase):
             )
         )
 
+    def test_format_content_reads_blank_lines_inside_a_block_as_a_space(self) -> None:
+        # bf2abb1c-c1a2-5214-b631-b11166225648 page 4: blank lines inside one <div>.
+        html = (
+            '<div style="text-align: justify;">DTM Interstate Transportation, LLC, a Delaware limited liability '
+            'company (“<font style="font-weight: bold;">Buyer</font>”),\n\n\n\n          and, solely for the '
+            "purposes of <u>Section\xa09.13</u>, DT Midstream, Inc.</div>\n<div>\xa0</div>\n"
+            '<div style="text-align: center; font-weight: bold;">RECITALS</div>'
+        )
+        text = format_content(html, is_txt=False, is_html=True)
+        self.assertEqual(
+            text,
+            "DTM Interstate Transportation, LLC, a Delaware limited liability company (“Buyer”), and, solely "
+            "for the purposes of Section 9.13, DT Midstream, Inc.\n\nRECITALS",
+        )
+
+    def test_format_content_keeps_blank_lines_in_pre_and_top_level_text(self) -> None:
+        pre = "<pre>Section 1.1 Definitions.\n\nThe following terms have the meanings set out below.</pre>"
+        self.assertIn("Definitions.\n\nThe following", format_content(pre, is_txt=False, is_html=True))
+        styled = (
+            '<div style="white-space: pre-wrap">Section 1.1 Definitions.\n\n'
+            "The following terms have the meanings set out below.</div>"
+        )
+        self.assertIn("Definitions.\n\nThe following", format_content(styled, is_txt=False, is_html=True))
+        top_level = "Section 1.1 Definitions.\n\nThe following terms have the meanings set out below."
+        self.assertIn("Definitions.\n\nThe following", format_content(top_level, is_txt=False, is_html=True))
+
+    def test_format_content_keeps_the_break_of_a_br_inside_a_formatting_tag(self) -> None:
+        # 8704ae78: the article number and title are split by <br> inside <b>.
+        html = (
+            '<p style="text-align: center"><font><b>Article\nI</b></font><b><br/>\n<br/>\n'
+            "<font>MERGERS</font></b></p><p>1.1 The Mergers</p>"
+        )
+        self.assertIn("Article I\n\nMERGERS", format_content(html, is_txt=False, is_html=True))
+
 
 if __name__ == "__main__":
     _ = unittest.main()
