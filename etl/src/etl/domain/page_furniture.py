@@ -1925,7 +1925,10 @@ def strip_nonbody_page_furniture(
 #   digits stays (a cover title, a table's first header). Never a tagged heading,
 #   a line inside one, an ARTICLE/Section/Exhibit line, a signature-page legend
 #   ("[Signature Page to ...]"), page-break boilerplate, a signature-block line,
-#   an enumerator or a single word. Off the body and back pages (sig, front,
+#   an enumerator or a single word. A bracketed line, or a legend line shorter
+#   than ``MIN_RAW_LEGEND_CHARS`` ("[REDACTED]", "[Intentionally Omitted]", "[Exhibit
+#   has been omitted ...]"), is what its page holds unless it is a long legend
+#   repeated on the body pages. Off the body and back pages (sig, front,
 #   contents), and for a line repeated only off the body, it also needs a
 #   document ID, a page number or a legend word: a party name heading each
 #   counterpart signature page is signature text.
@@ -1939,12 +1942,17 @@ def strip_nonbody_page_furniture(
 #   or more digits, "4124-8327-5548") or a page number that rises with the pages
 #   ("EXECUTION VERSION 2"), under the same number rule. Without a document ID it
 #   must be the filing's whole first (or last) line, unless the page is one run:
-#   a number the filing prints inside a sentence stays. It never takes a caption,
+#   a number the filing prints inside a sentence stays. With one it must be a
+#   paragraph of its own where the filing has lines (a file number at the end of
+#   a sentence is text). It never takes a caption,
 #   a heading word, a bracketed legend or a signature-block word.
 # - A repeated line glued to the start (top edge) or end (bottom edge) of the
 #   outermost remaining line is cut when the filing prints it as its own edge
-#   line on that page, it has two words or digits, and the agreement never prints
-#   it more often than it has edge copies (so it is never part of a clause).
+#   line on that page, it has two words or digits, the agreement never prints it
+#   more often than it has edge copies (so it is never part of a clause), and the
+#   filing prints it as a paragraph of its own: a sentence that wraps (a <br>, a
+#   text line) onto a repeated last line, "(See Annex I to the proxy" + "statement/
+#   prospectus on Form S-4 ... filed on July 9, 2025)", is not glued.
 #
 # A page is never emptied.
 
@@ -1953,6 +1961,8 @@ MIN_RAW_REPEAT_PAGES = 5
 MIN_RAW_REPEAT_SHARE = 0.5
 MAX_RAW_REPEATED_CHARS = 160
 MAX_RAW_LEGEND_CHARS = 400
+# A shorter legend line, or any bracketed line, is a placeholder unless the body repeats it.
+MIN_RAW_LEGEND_CHARS = 40
 MAX_RAW_JOINED_LINES = 4
 MAX_RAW_AFFIX_TOKENS = 12
 RAW_CHAIN_DISTANCE = 2
@@ -1975,14 +1985,16 @@ class RawEdgePage:
 @dataclass(frozen=True)
 class _RawLine:
     text: str
-    whole: bool  # its own block (HTML), or set off by blank lines (text, <pre>)
+    whole: bool  # its own line as printed: HTML lines always, text and <pre> lines set off by blank lines
+    joined: bool = False  # in the same paragraph as the line before (a <br> or a wrapped text line)
 
 
 _RAW_PRE_RE = re.compile(r"(<pre\b[^>]*>.*?</pre>)", re.IGNORECASE | re.DOTALL)
-_RAW_BREAK_RE = re.compile(
-    r"<\s*/?\s*(?:p|div|br|tr|td|th|li|h[1-6]|table|center|pre|blockquote|ul|ol|dl|dt|dd|hr|body|html)\b[^>]*>",
+_RAW_BLOCK_RE = re.compile(
+    r"<\s*/?\s*(?:p|div|tr|td|th|li|h[1-6]|table|center|pre|blockquote|ul|ol|dl|dt|dd|hr|body|html)\b[^>]*>",
     re.IGNORECASE,
 )
+_RAW_BR_RE = re.compile(r"<\s*br\b[^>]*>", re.IGNORECASE)
 _RAW_TAG_RE = re.compile(r"<[^>]*>")
 _INVISIBLE_RE = re.compile("[​-‏⁠﻿­]")
 
@@ -1991,10 +2003,14 @@ def _clean_raw_line(line: str) -> str:
     return " ".join(_INVISIBLE_RE.sub("", line).replace(" ", " ").split())
 
 
-def _set_off_lines(lines: list[str]) -> list[_RawLine]:
+def _set_off_lines(lines: list[str], whole: bool = False) -> list[_RawLine]:
     cleaned = [_clean_raw_line(line) for line in lines]
     return [
-        _RawLine(line, (k == 0 or not cleaned[k - 1]) and (k + 1 == len(cleaned) or not cleaned[k + 1]))
+        _RawLine(
+            line,
+            whole or ((k == 0 or not cleaned[k - 1]) and (k + 1 == len(cleaned) or not cleaned[k + 1])),
+            k > 0 and bool(cleaned[k - 1]),
+        )
         for k, line in enumerate(cleaned)
         if line
     ]
@@ -2013,9 +2029,9 @@ def raw_page_lines(raw: str | None, is_html: bool) -> list[_RawLine]:
         if k % 2:
             out += _set_off_lines(html.unescape(_RAW_TAG_RE.sub("", part)).split("\n"))
             continue
-        text = _RAW_BREAK_RE.sub("\n", part.replace("\r", " ").replace("\n", " "))
-        text = html.unescape(_RAW_TAG_RE.sub("", text))
-        out += [_RawLine(line, True) for line in map(_clean_raw_line, text.split("\n")) if line]
+        text = _RAW_BLOCK_RE.sub("\n\n", part.replace("\r", " ").replace("\n", " "))
+        text = html.unescape(_RAW_TAG_RE.sub("", _RAW_BR_RE.sub("\n", text)))
+        out += _set_off_lines(text.split("\n"), whole=True)
     return out
 
 
@@ -2091,18 +2107,23 @@ def _glued_unwrapped(line: str) -> str:
     return _clean_raw_line(_ANY_PAGE_TAG_RE.sub(lambda m: m.group("inner"), line))
 
 
-def _edge_keys(lines: list[_RawLine]) -> dict[str, tuple[frozenset[str], bool]]:
+def _edge_keys(lines: list[_RawLine]) -> tuple[dict[str, tuple[frozenset[str], bool]], dict[str, tuple[bool, bool]]]:
     """Edge lines of a filed page, alone and run together (a legend printed over
-    several lines): casefolded text -> (edges it sits on, printed as its own lines)."""
+    several lines): casefolded text -> (edges it sits on, printed as its own lines),
+    and casefolded text -> (it opens a paragraph, it closes one)."""
     keys: dict[str, tuple[frozenset[str], bool]] = {}
-    for side, window in (("top", lines[:RAW_EDGE_WINDOW]), ("bottom", lines[-RAW_EDGE_WINDOW:])):
+    bounds: dict[str, tuple[bool, bool]] = {}
+    for side, offset, window in (("top", 0, lines[:RAW_EDGE_WINDOW]), ("bottom", max(0, len(lines) - RAW_EDGE_WINDOW), lines[-RAW_EDGE_WINDOW:])):
         for start in range(len(window)):
             for end in range(start + 1, min(len(window), start + MAX_RAW_JOINED_LINES) + 1):
                 run = window[start:end]
                 key = " ".join(raw_line.text for raw_line in run).casefold()
                 sides, whole = keys.get(key, (frozenset(), False))
                 keys[key] = (sides | {side}, whole or all(raw_line.whole for raw_line in run))
-    return keys
+                after = offset + end
+                opens, closes = bounds.get(key, (False, False))
+                bounds[key] = (opens or not run[0].joined, closes or after >= len(lines) or not lines[after].joined)
+    return keys, bounds
 
 
 _RESIDUE_LINE_RE = re.compile(r"[.|]")
@@ -2205,7 +2226,7 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
     if not pages:
         return result
     raw_lines = [raw_page_lines(page.raw, page.is_html) for page in pages]
-    raw_edges = [_edge_keys(lines) for lines in raw_lines]
+    raw_edges, raw_bounds = map(list, zip(*(_edge_keys(lines) for lines in raw_lines)))
     orders = [page.page_order for page in pages]
     page_lines = [page.text.split("\n") for page in pages]
     headings = _heading_texts([page.text for page in pages if page.zone == "body"])
@@ -2367,6 +2388,9 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
             marked = fit[1]
         if (pages[k].zone not in ("body", "back_matter") or not found[1]) and not (marked or legend):
             return False
+        placeholder = printed.startswith("[") or (legend and len(printed) < MIN_RAW_LEGEND_CHARS)
+        if placeholder and not marked and not (found[1] and len(printed) >= MIN_RAW_LEGEND_CHARS):
+            return False  # "[REDACTED]", "[Exhibit has been omitted ...]": what a page or schedule holds
         return True
 
     # A law-firm document ID ("|US-DOCS\\140904150.6||") printed as its own edge line on two or more pages.
@@ -2402,7 +2426,10 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         line = page_lines[k][index].strip()
         if _OTHER_TAG_RE.search(line) or not is_furniture_text(k, _unwrapped(line), side):
             return False, None
-        return True, " ".join(m.group(0) for m in _CLEAN_PAGE_TAG_RE.finditer(line)) or None
+        # Page tags on the line stay, a clean one or one that holds a page number
+        # with a stray mark ("<page>19 |</page>"); a document ID the tagger wrapped goes.
+        kept = [m.group(0) for m in _ANY_PAGE_TAG_RE.finditer(line) if _page_token(m.group("inner")) is not None]
+        return True, " ".join(kept) or None
 
     # Whole lines, walked in from each edge.
     drops: list[dict[int, tuple[str, str | None]]] = []
@@ -2467,6 +2494,8 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
                     cut, rest = printed[len(printed) - len(key):], printed[: len(printed) - len(key)].strip()
                 else:
                     continue
+                if not raw_bounds[k][key][0 if side == "bottom" else 1]:
+                    continue  # the filing runs it on from (or into) the text: a wrapped sentence, not glued
                 if not any(ch.isalpha() for ch in rest) or not is_furniture_text(k, cut, side):
                     continue
                 if joined.count(key) > len(edge_shapes.get(_line_shape(key), {})):
@@ -2506,6 +2535,32 @@ def _cut_affix(line: str, cut: str, side: str) -> str:
     if side == "top":
         return re.sub(rf"^\s*{pattern}(?:\s+|$)", "", line, count=1, flags=re.IGNORECASE)
     return re.sub(rf"(?:^|\s+){pattern}\s*$", "", line, count=1, flags=re.IGNORECASE)
+
+
+MAX_RAW_LINE_CHARS = 400
+
+
+def _opens_own_paragraph(lines: list[_RawLine], length: int, side: str) -> bool:
+    """The run of ``length`` words at this end of the filed page is a paragraph of
+    its own: it ends (top) or starts (bottom) where a filed line does, and the text
+    beyond it does not run on from it. A page filed as one long run has no lines to
+    go by."""
+    if len(lines) <= 1:
+        return True
+    ordered = lines if side == "top" else lines[::-1]
+    count = 0
+    for n, raw_line in enumerate(ordered):
+        if len(raw_line.text) > MAX_RAW_LINE_CHARS:
+            return True
+        count += len(raw_line.text.split())
+        if count == length:
+            if n + 1 == len(ordered):
+                return True
+            inner = ordered[n + 1]
+            return not (inner.joined if side == "top" else ordered[n].joined)
+        if count > length:
+            return False
+    return True
 
 
 def _raw_affix_cuts(
@@ -2554,11 +2609,13 @@ def _raw_affix_cuts(
             index = remaining[0] if side == "top" else remaining[-1]
             tokens = lines[index].split()
             for run in candidates:  # longest first
-                if not any(_DOC_ID_TOKEN_RE.search(token) for token in run) and len(raw_lines[k]) > 1:
+                if not any(_DOC_ID_TOKEN_RE.search(token) for token in run):
                     # A page number glued to the text: the filing prints it as its own line.
                     edge_line = raw_lines[k][0] if side == "top" else raw_lines[k][-1]
-                    if edge_line.text != " ".join(run):
+                    if len(raw_lines[k]) > 1 and edge_line.text != " ".join(run):
                         continue
+                elif not _opens_own_paragraph(raw_lines[k], len(run), side):
+                    continue
                 edge = tokens[: len(run)] if side == "top" else tokens[-len(run):]
                 if len(tokens) <= len(run) or any("<" in t or ">" in t for t in edge):
                     continue

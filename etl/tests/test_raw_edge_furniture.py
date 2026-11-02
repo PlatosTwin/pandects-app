@@ -224,6 +224,21 @@ class RepeatedLineTests(unittest.TestCase):
                  for k, d in enumerate(dates)]
         self.assertEqual(_strip(pages), [page.text for page in pages])
 
+    def test_sentence_wrapped_onto_a_repeated_line_stays(self) -> None:
+        # 93c1be20: each annex placeholder page prints one sentence over two <br> lines.
+        tail = "statement/prospectus on Form S-4 (File No. 288222) filed on July 9, 2025)"
+        pages = [
+            _page(f"{BODY}\n(See Annex {letter} to the proxy {tail}",
+                  RAW_BODY + f"<p>(See Annex {letter} to the proxy<br/>{tail}</p>", 70 + n, "back_matter")
+            for n, letter in enumerate("ABCDEFG")
+        ]
+        self.assertEqual(_strip(pages), [page.text for page in pages])
+
+    def test_redaction_and_omission_placeholders_stay(self) -> None:
+        pages = [_page(f"Schedule {n}\n{BODY}\n[REDACTED]", _html(f"Schedule {n}") + RAW_BODY + _html("[REDACTED]"), 70 + n, "back_matter")
+                 for n in range(7)]
+        self.assertEqual(_strip(pages), [page.text for page in pages])
+
     def test_amounts_and_headings_repeated_in_the_body_stay(self) -> None:
         pages = [_page(f"<section>Section {n}.1 Purchase Price.</section>\n(a) $1,000,000;", _html(f"Section {n}.1 Purchase Price.", "(a) $1,000,000;"), n)
                  for n in range(1, 8)]
