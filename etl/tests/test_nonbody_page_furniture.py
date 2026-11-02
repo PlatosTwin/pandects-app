@@ -86,6 +86,19 @@ class StripNonbodyPageFurnitureTests(unittest.TestCase):
         self.assertEqual(out, ["EXHIBIT F\nClosing Working Capital", "Accounts Payable: To be determined.",
                                "Note #2- Prepaid expenses."])
 
+    def test_exhibit_table_of_contents_heading_stays(self) -> None:
+        # f0d679c8: Exhibit G prints its own "Table of Contents" heading right under the back-link.
+        removed = [RemovedFurnitureLine(page_index=i, line="Table of Contents", kind="toc_link") for i in range(3)]
+        pages = [
+            "Table of Contents\nTable of Contents\nPage\nArticle I DEFINITIONS G-5\nG-1",
+            "Table of Contents\nARTICLE IV CAPITAL STOCK 8 4.1 Issuance of Stock 8 4.2 Transfers 9\nG-2",
+            "Table of Contents\nSection 1.01. Definitions. As used in this Agreement:\nG-3",
+        ]
+        out = _strip(pages, [207, 208, 209], ["a\n<page>89</page>"], [93], removed)
+        self.assertEqual([t.splitlines()[0] for t in out],
+                         ["Table of Contents", "Table of Contents", "Section 1.01. Definitions. As used in this Agreement:"])
+        self.assertEqual(out[0].splitlines()[1], "Page")
+
     def test_body_running_title_on_a_sig_page(self) -> None:
         # 6fd9c8c2: the body's running footer "Share Purchase Agreement" closes the sig page too.
         removed = [RemovedFurnitureLine(page_index=i, line="Share Purchase Agreement", kind="running_title") for i in range(5)]

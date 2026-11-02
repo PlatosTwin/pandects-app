@@ -394,6 +394,24 @@ def _next_line_is_heading_like(lines: list[str], index: int) -> bool:
     return False
 
 
+# A printed table of contents opens with a "Page" column header ("Page", "PAGE ----",
+# "<TABLE> <CAPTION> Page") or goes straight into entries that end in page numbers
+# ("ARTICLE IV CAPITAL STOCK 8 4.1 Issuance of Stock 8").
+_TOC_PAGE_HEADER_RE = re.compile(r"(?:<TABLE>\s*<CAPTION>\s*)?page\b", re.IGNORECASE)
+_TOC_ENTRY_PAGE_RE = re.compile(r"\s(?:[A-Z]-)?\d{1,3}\s+(?=ARTICLE\b|Article\b|SECTION\b|Section\b|\d+\.\d+)")
+
+
+def _opens_toc_listing(lines: list[str], index: int) -> bool:
+    """True when the line after ``index`` starts a printed table of contents, so a
+    "Table of Contents" line at ``index`` is that table's heading, not the back-link."""
+    for line in lines[index + 1:]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        return bool(_TOC_PAGE_HEADER_RE.match(stripped)) or len(_TOC_ENTRY_PAGE_RE.findall(stripped)) >= 2
+    return False
+
+
 def _page_candidates(page_index: int, text: str) -> list[_Candidate]:
     lines = text.split("\n")
     countable = _countable_indexes(lines)
@@ -414,6 +432,8 @@ def _page_candidates(page_index: int, text: str) -> list[_Candidate]:
         if kind is None:
             continue
         if kind == "page_number" and _next_line_opens_unnumbered_heading(lines, index):
+            continue
+        if kind == "toc_link" and _opens_toc_listing(lines, index):
             continue
         side, rank = positions[index]
         keep = _untag_trailing_page_number(lines[index])[1] if kind == "titled_page_number" else None
@@ -1531,7 +1551,7 @@ def strip_nonbody_page_furniture(
                 if index in drop:
                     break
                 line = lines[index].strip()
-                removable = _normalized(line) in learned
+                removable = _normalized(line) in learned and not _opens_toc_listing(lines, index)
                 if not removable and furniture_kind(line) == "page_number":
                     value = _page_number_value(line)
                     outermost = rank == 0 and edges[k].get(side, (None,))[0] == index
