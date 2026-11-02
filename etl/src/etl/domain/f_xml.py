@@ -616,10 +616,11 @@ _TOC_COLUMN_HEADER_RE = re.compile(
     re.IGNORECASE,
 )
 # A page label at the end of a footer: "Ref: SLRB 1136588 Page 3", "3.5.2022page (ii)",
-# "Page | ii", "Page ii of iv"; and "(CONTINUED ON NEXT PAGE)".
+# "Page | ii", "Page ii of iv"; "(CONTINUED ON NEXT PAGE)" and "[Remainder of page intentionally left blank]".
 _TOC_PAGE_LABEL_END_RE = re.compile(
     r"(?<![A-Za-z])page\s*[|:\-\u2013]*\s*\(?(?:\d{1,3}|[ivxlc]{1,6})\)?(?:\s+of\s+(?:\d{1,3}|[ivxlc]{1,6}))?\s*$"
-    r"|^\(?continued\s+on\s+(?:the\s+)?next\s+page\)?$",
+    r"|^\(?continued\s+on\s+(?:the\s+)?next\s+page\)?$"
+    r"|^\[?\s*(?:the\s+)?remainder\s+of\s+(?:this\s+)?page\b",
     re.IGNORECASE,
 )
 _TOC_LONG_NUMBER_RE = re.compile(r"\d{5,}")

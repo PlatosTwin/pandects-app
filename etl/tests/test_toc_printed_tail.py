@@ -100,6 +100,7 @@ class TocPrintedTailTests(unittest.TestCase):
             + '<p>IF " DOCVARIABLE "SWDocIDLocation" 1" = "1" " DOCPROPERTY "SWDocID" SL1 3716757v12 101000.00058" ""</p>'
             + "<p>1 The Table of Contents is not a part of this Agreement.</p>"
             + "<p>Page | ii</p><p>PAGE || iii</p><p>Page ii of iv</p><p>(CONTINUED ON NEXT PAGE)</p>"
+            + "<p>[Remainder of page intentionally left blank]</p>"
             + "<p>EXHIBITS</p><p>Exhibit A Form of Voting Agreement</p><p>B Mid-Tier Merger Agreement</p>"
             + "<p>Confidential and Proprietary</p><p>Annex A Not a continuation of the list</p>"
         )
@@ -110,6 +111,7 @@ class TocPrintedTailTests(unittest.TestCase):
             "Share sale agreement", "Section Description", "ii.", "Confidential and Proprietary",
             "#4854-0942-8064v43", "A-ii", "()", "________", "1 The Table of Contents is not a part of this Agreement.",
             "Page | ii", "PAGE || iii", "Page ii of iv", "(CONTINUED ON NEXT PAGE)",
+            "[Remainder of page intentionally left blank]",
         ):
             with self.subTest(furniture=furniture):
                 self.assertNotIn(furniture, lines)
