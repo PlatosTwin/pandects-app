@@ -352,6 +352,28 @@ class XMLGenerationTests(unittest.TestCase):
 
         self.assertEqual(lines, ["By /s/ Geoffrey T. Martin", "Name FDVE shares"])
 
+    def test_label_cell_without_colon_still_ends_an_empty_field(self) -> None:
+        # 60074974: an empty "Its:" row is followed by a "By" | "/s/ ..." row; the
+        # By row must stay its own field, not become the value of "Its".
+        raw_html = """
+        <table>
+        <tr><td>Its:</td><td></td></tr>
+        <tr><td>By</td><td>/s/ i.v. Peter Nussbaum</td></tr>
+        <tr><td>Name</td><td>Jane Doe</td></tr>
+        </table>
+        <table>
+        <tr><td>by</td><td></td></tr>
+        <tr><td>/s/ George Kotlarz</td><td></td></tr>
+        </table>
+        """
+
+        lines = [line for line in f_xml.format_signature_html_like_screen(raw_html).splitlines() if line]
+
+        # 04db8f82: a "by" cell alone on its row still takes the "/s/" row below.
+        self.assertEqual(
+            lines, ["Its:", "By /s/ i.v. Peter Nussbaum", "Name Jane Doe", "by /s/ George Kotlarz"]
+        )
+
     def test_format_signature_html_like_screen_ignores_doctype_and_comments(self) -> None:
         raw_html = """<!DOCTYPE html><!-- page 54 -->
         <p>IN WITNESS WHEREOF, the parties have signed.<!-- hidden -->

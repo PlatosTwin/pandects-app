@@ -22,9 +22,13 @@ when the raw page text proves it is an underline:
   fill in (``Address: ------``, ``$----------``, a dash line under a ``By:``
   label) shares its line with text or sits under white space, so it never
   qualifies.
-* Some filings type a whole underline line a few columns right of its words
-  ("Board Actions." underlined from its third letter), so the line may be
-  moved left by one common shift of up to six columns before the check.
+* Some filings type an underline a few columns right of its words ("Board
+  Actions." underlined from its third letter), so a line holding a single run
+  may be moved left by up to six columns before the check, as long as the run
+  sits mostly under printed words with no wide gap, the line above is running
+  prose (lowercase, no "/s/", no "By:"/"Title:" label), and the run does not
+  overhang the end of that line by more than two columns. Signature lines
+  under typed names, rules under figures and fill-in blanks fail one of these.
 * An underlined phrase that wraps leaves a short run at column 0 of the next
   underline ("-    ------------" under "A or Schedule A-1"). Such a run of one
   or two dashes counts when the underline before it reached the end of its
@@ -57,6 +61,7 @@ _OPENERS = "(\"'“‘["
 # Columns a whole underline line may sit to the right of the words it underlines.
 _MAX_SHIFT = 6
 _WIDE_GAP = "   "
+_SIGNATURE_LINE_RE = re.compile(r"\s*(?:by|name|title|its)\b", re.IGNORECASE)
 
 
 @dataclass
@@ -115,15 +120,35 @@ def _runs_are_under_text(above: str, runs: list[tuple[int, int]], max_shift: int
     columns right of its words (0415d686, a6a4e945: five columns)."""
     if all(_run_is_under_text(above, start, end) for start, end in runs):
         return True
-    # A shifted line must underline running words: a wide gap under it means a
-    # table rule under a row of figures, which stays.
+    # Only a single run under running prose may be shifted. Several runs on one
+    # line are column-header rules; a wide gap under the run is a table rule
+    # under figures; a run that overhangs the end of its line by more than two
+    # columns is a signature line under a typed name or title ("By: /s/ Jane
+    # Doe" / dashes); and a run mostly under white space is a fill-in blank
+    # ("as of this" / "---" / "day of"). Those all stay.
+    if len(runs) != 1 or max_shift == 0 or not _is_prose_line(above):
+        return False
+    start, end = runs[0]
+    text_end = len(above.rstrip())
+    if start >= text_end or end > text_end + 2:
+        return False
+    if sum(1 for ch in above[start:end] if ch != " ") < _MIN_COVERED_SHARE * (end - start):
+        return False
     return any(
-        all(
-            _run_is_under_text(above, start - shift, end - shift)
-            and _WIDE_GAP not in above[max(start - shift, 0) : end - shift].strip()
-            for start, end in runs
-        )
+        _run_is_under_text(above, start - shift, end - shift)
+        and _WIDE_GAP not in above[max(start - shift, 0) : end - shift].strip()
+        and any(ch.isalpha() for ch in above[max(start - shift, 0) : end - shift])
         for shift in range(1, max_shift + 1)
+    )
+
+
+def _is_prose_line(line: str) -> bool:
+    """A line of running text: it has lowercase letters (not an entity name in
+    caps) and is not a signature-block line ("By: /s/ Jane Doe", "Title: CFO")."""
+    return (
+        any(ch.islower() for ch in line)
+        and "/s/" not in line.lower()
+        and _SIGNATURE_LINE_RE.match(line) is None
     )
 
 
@@ -258,11 +283,20 @@ def strip_inline_underlines(text: str, raw_text: str) -> UnderlineStripResult:
                 anchor = _visible(tokens[b][2])
                 if anchor:
                     break
-            key = (anchor, tuple(len(tokens[t][2]) for t in range(k, j)))
-            if anchor and budget[key] > 0:
-                budget[key] -= 1
-                cuts.append((tokens[k][0], tokens[j - 1][1]))
-                result.removed.append(line[tokens[k][0]:tokens[j - 1][1]])
+            # A lone "-" after the group is prose ("PREMIUM YEAR 1 ------ - Net
+            # Sales"), so also try the group without its trailing lone dashes.
+            end = j
+            while True:
+                key = (anchor, tuple(len(tokens[t][2]) for t in range(k, end)))
+                if anchor and budget[key] > 0:
+                    budget[key] -= 1
+                    cuts.append((tokens[k][0], tokens[end - 1][1]))
+                    result.removed.append(line[tokens[k][0]:tokens[end - 1][1]])
+                    break
+                if end - 1 > k and len(tokens[end - 1][2]) == 1:
+                    end -= 1
+                    continue
+                break
             k = j
         if not cuts:
             out_lines.append(line)

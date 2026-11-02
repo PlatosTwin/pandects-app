@@ -251,6 +251,57 @@ class UnderlineShapesTests(unittest.TestCase):
         self.assertEqual(raw_underlines(raw), {})
         self.assertEqual(strip_inline_underlines(tagged, raw).text, tagged)
 
+    def test_prose_dash_after_the_underline_stays(self) -> None:
+        # c7133453: "PREMIUM YEAR 1" is underlined; the next line opens with "- ".
+        raw = "     PREMIUM YEAR 1\n     --------------\n     - Net Sales of Pediatric Products = $30,000,000\n"
+        tagged = "PREMIUM YEAR 1 -------------- - Net Sales of Pediatric Products = $30,000,000"
+        self.assertEqual(
+            strip_inline_underlines(tagged, raw).text,
+            "PREMIUM YEAR 1 - Net Sales of Pediatric Products = $30,000,000",
+        )
+
+    def test_signature_line_under_a_typed_name_is_kept(self) -> None:
+        # 767fb39a, page 07868570: a run-in signature block in a body section.
+        raw = (
+            "                                   By: /s/ James A. Sharman\n"
+            "                                       ------------------------\n"
+            "                                   Name:  James A. Sharman\n"
+        )
+        tagged = "By: /s/ James A. Sharman ------------------------ Name: James A. Sharman"
+        self.assertEqual(raw_underlines(raw), {})
+        self.assertEqual(strip_inline_underlines(tagged, raw).text, tagged)
+        # 1dbacab6, page 5adcb316, and 74731e9b, page b70e56da: overhang of two
+        # or fewer columns, still a signature line.
+        for raw in (
+            "                                          by  /s/ J. Wayne Leonard\n"
+            "                                              ----------------------\n",
+            "                                       Title: Executive Vice President and CFO\n"
+            "                                             -----------------------------------\n",
+            "                       PHOTONIC INTEGRATION RESEARCH, INC.\n"
+            "                            -------------------------\n",
+        ):
+            self.assertEqual(raw_underlines(raw), {})
+
+    def test_shifted_run_under_a_figure_is_kept(self) -> None:
+        # 183af65b, page 8b0f1ba2: a total rule under a share count.
+        raw = (
+            "          Swag Mukerji                   Hydron Investments Limited          500,000\n"
+            "                                                                             ---------\n"
+        )
+        self.assertEqual(raw_underlines(raw), {})
+
+    def test_column_header_rules_and_blanks_are_not_shifted(self) -> None:
+        # 2b0b2c20, page e6f58566 (header rules) and afcb2464, page 48b8f258 (a
+        # blank after "as of this").
+        headers = "                                                         For      Against\n" + " " * 57 + "-----    -------\n"
+        blank = (
+            "          THIS ASSUMPTION AGREEMENT, made, executed and delivered as of this\n"
+            + " " * 77 + "---\n"
+            "day of      , 2003 by United States Steel Corporation, a Delaware corporation\n"
+        )
+        self.assertEqual(raw_underlines(headers), {})
+        self.assertEqual(raw_underlines(blank), {})
+
     def test_dashes_printed_inline_in_the_raw_line_are_kept(self) -> None:
         # 97078e97, page ec69e7c8: the filing itself prints the dashes in the
         # sentence, so they cannot be told from a fill-in blank.
