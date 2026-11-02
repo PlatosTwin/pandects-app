@@ -43,6 +43,8 @@ class TightenSpaceBeforePunctuationTests(unittest.TestCase):
             ". (a) The Company",
             "( a ) the Company",
             "built on .NET",
+            "W I T N E S S E T H :",
+            "the Company. W I T N E S S E T H :",
         ):
             self.assertEqual(t(text), text)
 

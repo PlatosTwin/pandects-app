@@ -986,14 +986,19 @@ _ORPHAN_HEADING_PERIOD_RE = re.compile(
 # opens a number (" .5%", "1 ,000", "10 : 30") or a word (" .NET") stays. An
 # ellipsis (" . . .") stays, and so does a mark after another mark of the set
 # or at the start of a line (a lone "." enumerator), and so does a spaced mark
-# between two numbers ("10 : 30", "Section 3 . 2").
+# between two numbers ("10 : 30", "Section 3 . 2") or after a letter-spaced
+# word ("W I T N E S S E T H :").
 _SPACE_BEFORE_PUNCTUATION_RE = re.compile(
     r"(?<=([^\s.,;:]))[ \t]+([.,;:])(?=\s|$|[)\]\"”’])(?![ \t]*\.)"
 )
 _NEXT_PRINTED_CHAR_RE = re.compile(r"\s*(\S)")
+_LETTER_SPACED_TAIL_RE = re.compile(r"(?<!\S)(?:\S ){2,}\S$")
 
 
 def _tighten_punctuation(match: re.Match[str]) -> str:
+    start = match.start()
+    if _LETTER_SPACED_TAIL_RE.search(match.string, max(start - 80, 0), start) is not None:
+        return match.group(0)
     if match.group(1).isdigit():
         following = _NEXT_PRINTED_CHAR_RE.match(match.string, match.end())
         if following is not None and following.group(1).isdigit():
