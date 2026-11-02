@@ -32,6 +32,7 @@ from etl.domain.xml_tag_repairs import (
     dedupe_adjacent_same_number_headings,
     insert_missing_section_heading_tags,
     merge_number_only_section_titles,
+    move_split_word_tails_into_headings,
     normalize_no_space_section_prefixes,
     section_title_is_whole_number_article_heading,
     section_title_starts_with_same_article_decimal,
@@ -190,13 +191,14 @@ ARTICLE_TITLE_WORDS = frozenset(
     TREATMENT WAIVER WAIVERS WARRANTIES
     """.split()
 )
+# A section number may follow "Section", "Sections" or a section sign ("§4.9", "§ 4.9").
 SECTION_NUMBER_RE = re.compile(
-    r"^\s*(?:SECTIONS?\s+)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)",
+    r"^\s*(?:SECTIONS?\s+|§\s*)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)",
     re.IGNORECASE,
 )
 SECTION_LETTER_SUFFIX_RE = re.compile(r"-?[A-Z](?![A-Za-z])")
 TOC_SECTION_NUMBER_RE = re.compile(
-    r"(?<!\d)(?:SECTIONS?\s+)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)(?!\s*\.\s*\d)",
+    r"(?<!\d)(?:SECTIONS?\s+|§\s*)?(?P<article>\d+)A?\s*\.\s*(?P<section>\d+)(?!\s*\.\s*\d)",
     re.IGNORECASE,
 )
 SECTION_NONSEQ_DETAIL_RE = re.compile(
@@ -1606,6 +1608,8 @@ def _apply_tag_repair_to_body_rows(
             repaired, stats = unwrap_standalone_section_label_tags(tagged_output)
         elif repair_name == "normalize_no_space_section_prefixes":
             repaired, stats = normalize_no_space_section_prefixes(tagged_output)
+        elif repair_name == "move_split_word_tails_into_headings":
+            repaired, stats = move_split_word_tails_into_headings(tagged_output)
         elif repair_name == "repair_sentence_split_section_titles":
             raw_page_content = row.get("raw_page_content")
             repaired, stats = repair_sentence_split_section_titles(
@@ -2001,6 +2005,12 @@ def _apply_safe_xml_tag_repairs_to_df(
         "normalize_no_space_section_prefixes",
         [],
     )
+    out, split_tail_stats = _apply_tag_repair_to_body_rows(
+        out,
+        "move_split_word_tails_into_headings",
+        [],
+    )
+    direct_text_stats.update(split_tail_stats)
     out, sentence_split_stats = _apply_tag_repair_to_body_rows(
         out,
         "repair_sentence_split_section_titles",
