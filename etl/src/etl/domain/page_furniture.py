@@ -327,6 +327,7 @@ def _title_number(text: str) -> int:
     raise ValueError(text)
 
 
+@lru_cache(maxsize=1 << 16)
 def _line_shape(line: str) -> str:
     return _DIGITS_RE.sub("#", " ".join(line.split()))
 
@@ -1979,7 +1980,7 @@ class RawEdgePage:
     raw: str | None
     is_html: bool
     page_order: int
-    zone: str  # "body", "sig" or "back_matter"
+    zone: str  # "front_matter", "toc", "body", "sig" or "back_matter"
 
 
 @dataclass(frozen=True)
@@ -2226,6 +2227,18 @@ def _raw_line_is_eligible(printed: str, legend: bool) -> bool:
     return " " in printed or not printed.isalpha()
 
 
+@lru_cache(maxsize=512)  # about one large agreement's pages
+def _raw_page_reading(
+    raw: str | None, is_html: bool
+) -> tuple[tuple[_RawLine, ...], dict[str, tuple[frozenset[str], bool]], dict[str, tuple[bool, bool]]]:
+    """``raw_page_lines`` and ``_edge_keys`` of a filed page, cached: the builder
+    renders an agreement several times (tag repairs, hard-rule checks) from the
+    same pages. The dicts are shared; callers only read them."""
+    lines = raw_page_lines(raw, is_html)
+    keys, bounds = _edge_keys(lines)
+    return tuple(lines), keys, bounds
+
+
 def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
     """Remove page numbers, stray page-number punctuation and repeated header and
     footer lines that the filed page prints at its edges (see the notes above).
@@ -2238,8 +2251,10 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
     result = FurnitureStripResult(page_texts=[page.text for page in pages])
     if not pages:
         return result
-    raw_lines = [raw_page_lines(page.raw, page.is_html) for page in pages]
-    raw_edges, raw_bounds = map(list, zip(*(_edge_keys(lines) for lines in raw_lines)))
+    readings = [_raw_page_reading(page.raw, page.is_html) for page in pages]
+    raw_lines = [list(reading[0]) for reading in readings]
+    raw_edges = [reading[1] for reading in readings]
+    raw_bounds = [reading[2] for reading in readings]
     orders = [page.page_order for page in pages]
     page_lines = [page.text.split("\n") for page in pages]
     headings = _heading_texts([page.text for page in pages if page.zone == "body"])
@@ -2381,7 +2396,7 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
             return False
         if _page_token(printed) is not None or key in headings:
             return False
-        has_digit = any(ch.isdigit() for ch in printed)
+        has_digit = _DIGITS_RE.search(printed) is not None
         legend = _RAW_LEGEND_WORD_RE.search(printed) is not None
         if not _raw_line_is_eligible(printed, legend):
             return False
@@ -2410,7 +2425,7 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
     doc_id_pages: dict[str, set[int]] = {}
     for k, edges in enumerate(raw_edges):
         for key, (_, whole) in edges.items():
-            if whole and _DOC_ID_TOKEN_RE.search(key) and len(key) <= MAX_FOOTER_ID_CHARS:
+            if whole and len(key) <= MAX_FOOTER_ID_CHARS and _DOC_ID_TOKEN_RE.search(key):
                 doc_id_pages.setdefault(key, set()).add(k)
 
     def is_doc_id(k: int, index: int, side: str) -> bool:
@@ -2477,7 +2492,14 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         drops.append(drop)
 
     cuts = _raw_affix_cuts(pages, raw_lines, page_lines, drops, repeated_enough)
-    joined = "\n".join(_unwrapped(line) for lines in page_lines for line in lines).casefold()
+    joined_text: list[str] = []
+
+    def joined() -> str:
+        """The agreement's printed text, casefolded (built on first use)."""
+        if not joined_text:
+            joined_text.append("\n".join(_unwrapped(line) for lines in page_lines for line in lines).casefold())
+        return joined_text[0]
+
     for k, lines in enumerate(page_lines):
         remaining = [i for i in _countable_indexes(lines) if i not in drops[k]]
         if not remaining:
@@ -2511,11 +2533,12 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
                     continue  # the filing runs it on from (or into) the text: a wrapped sentence, not glued
                 if not any(ch.isalpha() for ch in rest) or not is_furniture_text(k, cut, side):
                     continue
-                if joined.count(key) > len(edge_shapes.get(_line_shape(key), {})):
+                if joined().count(key) > len(edge_shapes.get(_line_shape(key), {})):
                     continue  # the agreement prints it elsewhere: it can end a clause
                 cuts[(k, index, side)] = (rest, cut)
                 break
 
+    cuts = _drop_continued_cuts(cuts)
     for k, lines in enumerate(page_lines):
         drop = drops[k]
         page_cuts = {key: value for key, value in cuts.items() if key[0] == k}
@@ -2542,12 +2565,47 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
     return result
 
 
+def _drop_continued_cuts(cuts: dict[tuple[int, int, str], tuple[str, str]]) -> dict[tuple[int, int, str], tuple[str, str]]:
+    """Leave glued runs whose furniture goes on past the cut.
+
+    A header or footer longer than the runs the rules can see (``MAX_RAW_AFFIX_TOKENS``
+    words, ``MAX_RAW_JOINED_LINES`` lines) is cut partway, and the rest of it stays
+    glued to the text ("February 2025 29 (c) From the time ..."). The text a cut
+    leaves behind differs from page to page; when the word right after the cut has
+    the same shape on most of the pages that share the cut, the furniture continues,
+    and none of those cuts is made: the whole run stays as filed."""
+    groups: dict[tuple[str, str], list[tuple[tuple[int, int, str], str]]] = {}
+    for key, (rest, cut) in cuts.items():
+        words = _unwrapped(rest).split()
+        if not words:
+            continue
+        nxt = words[0] if key[2] == "top" else words[-1]
+        groups.setdefault((key[2], _line_shape(cut.casefold())), []).append((key, _line_shape(nxt.casefold())))
+    dropped: set[tuple[int, int, str]] = set()
+    for copies in groups.values():
+        if len(copies) < 3:
+            continue
+        counts: dict[str, int] = {}
+        for _, shape in copies:
+            counts[shape] = counts.get(shape, 0) + 1
+        if max(counts.values()) >= max(3, MIN_RAW_REPEAT_SHARE * len(copies)):
+            dropped.update(key for key, _ in copies)
+    return {key: value for key, value in cuts.items() if key not in dropped}
+
+
 def _cut_affix(line: str, cut: str, side: str) -> str:
     """The line without ``cut`` at its start (top) or end (bottom), whitespace-insensitive."""
-    pattern = r"\s+".join(re.escape(token) for token in cut.split())
-    if side == "top":
-        return re.sub(rf"^\s*{pattern}(?:\s+|$)", "", line, count=1, flags=re.IGNORECASE)
-    return re.sub(rf"(?:^|\s+){pattern}\s*$", "", line, count=1, flags=re.IGNORECASE)
+    pattern = r"\s+".join(rf"(?:<page>\s*{re.escape(token)}\s*</page>|{re.escape(token)})" for token in cut.split())
+    regex = rf"^\s*{pattern}(?:\s+|$)" if side == "top" else rf"(?:^|\s+){pattern}\s*$"
+    match = re.search(regex, line, flags=re.IGNORECASE)
+    if match is None:
+        return line
+    rest = line[match.end():] if side == "top" else line[: match.start()]
+    # A page tag the tagger put inside the run stays ("<page>4</page> LEGAL\67828860\11 ...").
+    tags = " ".join(tag.group(0) for tag in _ANY_PAGE_TAG_RE.finditer(match.group(0)))
+    if not tags:
+        return rest
+    return f"{tags} {rest}" if side == "top" else f"{rest} {tags}"
 
 
 MAX_RAW_LINE_CHARS = 400
@@ -2593,9 +2651,12 @@ def _raw_affix_cuts(
         # (length, shape) -> {page: the run's tokens}
         runs: dict[tuple[int, str], dict[int, list[str]]] = {}
         for k, tokens in enumerate(raw_tokens):
+            # A run's shape is its tokens' shapes joined (digits never span a space).
+            shapes = [_line_shape(token) for token in (tokens if side == "top" else tokens[::-1])[:MAX_RAW_AFFIX_TOKENS]]
             for length in range(1, min(MAX_RAW_AFFIX_TOKENS, len(tokens) - 1) + 1):
                 run = tokens[:length] if side == "top" else tokens[-length:]
-                runs.setdefault((length, _line_shape(" ".join(run))), {})[k] = run
+                shape = " ".join(shapes[:length] if side == "top" else shapes[:length][::-1])
+                runs.setdefault((length, shape), {})[k] = run
 
         def qualifies(copies: dict[int, list[str]]) -> dict[int, bool] | None:
             """Per page, whether its copy's page numbers fit; None when the run is not furniture."""
@@ -2630,9 +2691,10 @@ def _raw_affix_cuts(
                 elif not _opens_own_paragraph(raw_lines[k], len(run), side):
                     continue
                 edge = tokens[: len(run)] if side == "top" else tokens[-len(run):]
-                if len(tokens) <= len(run) or any("<" in t or ">" in t for t in edge):
+                # A token may be a whole page tag the tagger put inside the run; it stays.
+                if len(tokens) <= len(run) or any(("<" in t or ">" in t) and _ANY_PAGE_TAG_RE.fullmatch(t) is None for t in edge):
                     continue
-                if [_clean_raw_line(t) for t in edge] != run:
+                if [_clean_raw_line(_ANY_PAGE_TAG_RE.sub(lambda m: m.group("inner"), t)) for t in edge] != run:
                     continue
                 rest = " ".join(tokens[len(run):] if side == "top" else tokens[: -len(run)])
                 if not any(ch.isalpha() for ch in _ANY_PAGE_TAG_RE.sub(" ", rest)):

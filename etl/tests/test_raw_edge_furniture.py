@@ -181,10 +181,28 @@ class RepeatedLineTests(unittest.TestCase):
 
     def test_txt_top_counter_fused_into_a_sentence(self) -> None:
         # b48c3673: "authority" ends one page, "7" heads the next, "or to be so licensed" follows.
-        pages = [_page(f"{n} or to be so licensed or qualified\n<page>- {n} -</page>",
-                       f"   {n}\nor to be so licensed or qualified\n\n   - {n} -\n", n, is_html=False)
-                 for n in range(5, 11)]
-        self.assertEqual(_strip(pages), [f"or to be so licensed or qualified\n<page>- {n} -</page>" for n in range(5, 11)])
+        words = ["or", "and", "the", "such", "any", "each"]
+        pages = [_page(f"{n} {word} to be so licensed or qualified\n<page>- {n} -</page>",
+                       f"   {n}\n{word} to be so licensed or qualified\n\n   - {n} -\n", n, is_html=False)
+                 for n, word in zip(range(5, 11), words)]
+        self.assertEqual(_strip(pages), [f"{word} to be so licensed or qualified\n<page>- {n} -</page>"
+                                         for n, word in zip(range(5, 11), words)])
+
+    def test_footer_longer_than_the_glued_run_limit_stays_whole(self) -> None:
+        # fa14a726: a 13-word footer glued to the text of pages filed as one run. The
+        # 12-word prefix repeats, but "February 2025 N" goes on past it: no partial cut.
+        clauses = ["(a) The Buyer", "(b) Each Seller", "(c) From the time", "(d) The parties", "(e) No party", "(f) Each party"]
+        footer = "King & Wood Mallesons 72330758_14 Asset Sale and Purchase Agreement 17 February 2025"
+        pages = [_page(f"{footer} {n} {clause} shall act.", f"<p>{footer} {n} {clause} shall act.</p>", n)
+                 for n, clause in zip(range(29, 35), clauses)]
+        self.assertEqual(_strip(pages), [page.text for page in pages])
+
+    def test_page_tag_inside_a_glued_run_stays_and_the_run_goes(self) -> None:
+        # fa0fd3d5: "<page>4</page> LEGAL\67828860\11" opens each page filed as one run.
+        clauses = ["“Cash” means", "“Contract” means", "“Debt” means", "“Fund” means", "“Lien” means", "“Plan” means"]
+        pages = [_page(f"<page>{n}</page> LEGAL\\67828860\\11 {clause} money.", f"<p>{n} LEGAL\\67828860\\11 {clause} money.</p>", n + 4)
+                 for n, clause in zip(range(4, 10), clauses)]
+        self.assertEqual(_strip(pages), [f"<page>{n}</page> {clause} money." for n, clause in zip(range(4, 10), clauses)])
 
     def test_number_the_filing_prints_inside_the_sentence_stays(self) -> None:
         pages = [_page(f"{n} or to be so licensed\n<page>{n}</page>", f"{n} or to be so licensed\nmore text\n\n{n}\n", n, is_html=False)

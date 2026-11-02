@@ -1448,9 +1448,12 @@ def _strip_raw_edge_furniture(groups: list[tuple[Any, list[str]]]) -> list[list[
     returns the texts per group, in the same order."""
     entries: list[tuple[int, int, int, Any, str]] = []
     for group_index, (rows, texts) in enumerate(groups):
-        for position, ((_, row), text) in enumerate(zip(rows.iterrows(), texts)):
+        for position, (row, text) in enumerate(zip(rows.to_dict("records"), texts)):
             order = row.get("page_order")
-            entries.append((int(order) if order is not None and order == order else position, group_index, position, row, text))
+            entries.append((int(order) if order is not None and order == order else -1, group_index, position, row, text))
+    if any(entry[0] < 0 for entry in entries):
+        # Without a page order on every page, keep the zones in document order.
+        entries = [(index, *entry[1:]) for index, entry in enumerate(entries)]
     entries.sort(key=lambda entry: entry[:3])
     pages = [
         RawEdgePage(
