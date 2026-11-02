@@ -618,6 +618,16 @@ _TOC_COLUMN_HEADER_RE = re.compile(
 # A page label at the end of a footer: "Ref: SLRB 1136588 Page 3", "3.5.2022page (ii)".
 _TOC_PAGE_LABEL_END_RE = re.compile(r"(?<![A-Za-z])page\s*\(?(?:\d{1,3}|[ivxlc]{1,6})\)?\s*$", re.IGNORECASE)
 _TOC_LONG_NUMBER_RE = re.compile(r"\d{5,}")
+# Doc IDs inside a line ("#4854-0942-8064v43", "SL1 3716757v12") and Word field codes.
+_TOC_DOC_ID_RE = re.compile(
+    r"\d{4}-\d{4}-\d{4}|\d{5,}\s?v\.?\s?\d{1,4}\b|DOCVARIABLE|DOCPROPERTY|SWDocID|MERGEFORMAT"
+)
+# Exhibit page labels ("A-ii", "E-B1") and lines without a letter or digit ("()", "________").
+_TOC_LABELED_PAGE_RE = re.compile(r"[A-Z]{1,2}-(?:[ivxlcIVXLC]{1,6}|[A-Z]?\d{1,3})|[^A-Za-z0-9]+")
+# The note that the TOC is not part of the agreement ("1 The Table of Contents is not a part of this Agreement.").
+_TOC_NOT_PART_RE = re.compile(r"(?:table\s+of\s+contents|headings).{0,40}\bnot\s+(?:a\s+)?part\s+of\s+this\s+agreement", re.IGNORECASE)
+# A paragraph of prose, not a TOC line; the page's TOC ends before it.
+_TOC_PROSE_CHARS = 300
 _TOC_WORD_RE = re.compile(r"[A-Za-z]{3,}")
 # SEC filing legends and confidential-treatment notes; the lines after one on the page continue it.
 _TOC_LEGEND_RE = re.compile(
@@ -640,6 +650,9 @@ def _toc_extra_is_furniture(text: str) -> bool:
         or _TOC_LABEL_RE.fullmatch(text) is not None
         or _TOC_COLUMN_HEADER_RE.fullmatch(text) is not None
         or _TOC_PAGE_LABEL_END_RE.search(text) is not None
+        or _TOC_LABELED_PAGE_RE.fullmatch(text) is not None
+        or _TOC_DOC_ID_RE.search(text) is not None
+        or _TOC_NOT_PART_RE.search(text) is not None
     ):
         return True
     if _TOC_LONG_NUMBER_RE.search(text) is not None and len(_TOC_WORD_RE.findall(text)) < 2:
@@ -662,8 +675,8 @@ def _toc_printed_extras(
     Returns (position, lines) pairs, where position is the number of entry
     elements that come before the block. Only leaf text blocks and tables
     outside every table and entry element count. Furniture lines are left out,
-    a filing legend after the first entry element ends the extras of the page
-    (its lines continue it), and before the first entry element a block counts
+    a filing legend or a paragraph of prose after the first entry element ends
+    the extras of the page (the lines after a legend continue it), and before the first entry element a block counts
     only from the first one that opens with an ARTICLE or Section heading.
     """
     entry_ids = {id(el) for el in entry_elements}
@@ -690,7 +703,7 @@ def _toc_printed_extras(
         lines = [line for line in lines if line.strip() and not _toc_extra_is_furniture(line.strip())]
         if not lines:
             continue
-        if any(_TOC_LEGEND_RE.search(line) is not None for line in lines):
+        if any(_TOC_LEGEND_RE.search(line) is not None or len(line) > _TOC_PROSE_CHARS for line in lines):
             if position == 0:
                 continue
             break

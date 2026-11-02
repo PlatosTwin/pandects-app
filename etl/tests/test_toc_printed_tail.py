@@ -96,6 +96,9 @@ class TocPrintedTailTests(unittest.TestCase):
             + "<p>- iv -</p><p>#25932618 v26</p><p>328972.00001/116443569.20</p>"
             + "<p>MinterEllison | Ref: SLRB:SDYC 1136588 Page 3</p><p>Share sale agreement</p>"
             + "<p>TABLE OF CONTENTS (continued)</p><p>Page</p><p>Section Description</p><p>ii.</p>"
+            + "<p>#4854-0942-8064v43</p><p>A-ii</p><p>()</p><p>________</p>"
+            + '<p>IF " DOCVARIABLE "SWDocIDLocation" 1" = "1" " DOCPROPERTY "SWDocID" SL1 3716757v12 101000.00058" ""</p>'
+            + "<p>1 The Table of Contents is not a part of this Agreement.</p>"
             + "<p>EXHIBITS</p><p>Exhibit A Form of Voting Agreement</p><p>B Mid-Tier Merger Agreement</p>"
             + "<p>Confidential and Proprietary</p><p>Annex A Not a continuation of the list</p>"
         )
@@ -104,6 +107,7 @@ class TocPrintedTailTests(unittest.TestCase):
         for furniture in (
             "AGREEMENT AND PLAN OF MERGER", "by and among", "- iv -", "#25932618 v26", "328972.00001/116443569.20",
             "Share sale agreement", "Section Description", "ii.", "Confidential and Proprietary",
+            "#4854-0942-8064v43", "A-ii", "()", "________", "1 The Table of Contents is not a part of this Agreement.",
         ):
             with self.subTest(furniture=furniture):
                 self.assertNotIn(furniture, lines)
@@ -121,6 +125,12 @@ class TocPrintedTailTests(unittest.TestCase):
         lines = _lines(html)
         self.assertEqual(lines[-1], "Exhibit A Form of Escrow Agreement")
         self.assertNotIn("S-K.", lines)
+
+    def test_prose_after_the_entries_ends_the_tail(self) -> None:
+        prose = "This AGREEMENT AND PLAN OF MERGER, dated as of May 1, 2024, is entered into by and among " * 4
+        html = ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>" + f"<p>{prose}</p><p>Exhibit B Not here</p>"
+        lines = _lines(html)
+        self.assertEqual(lines[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
 
     def test_a_page_without_extras_is_unchanged(self) -> None:
         html = "<p>TABLE OF CONTENTS</p><p>Page</p>" + ENTRIES_11 + "<p align='center'>ii</p>"
