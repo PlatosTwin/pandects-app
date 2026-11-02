@@ -1498,14 +1498,17 @@ def _strip_fused_page_numbers(result: FurnitureStripResult, tagged: dict[int, in
 # ("55", "- 97 -", "-40-", "A-3") and the body's confirmed running lines (the
 # "Table of Contents" back-link, a document ID) were served as text. The strip
 # here is narrower than the body rules: it only takes lines from the very edge of
-# a page, and only page numbers that fit a sequence and lines identical to
-# furniture the body rules removed. Signer text is never a whole-line page number
-# or an exact copy of a body furniture line.
+# a page, and only page numbers that fit a sequence (the body's numbering, a
+# neighbor's number, or the page's place in its exhibit or block of sig pages) and
+# lines identical to furniture the body rules removed. Signer text is never a
+# whole-line page number or an exact copy of a body furniture line.
 
 # Body furniture kinds whose exact text is furniture on any page of the agreement:
 # a running title is the agreement's own printed title ("Share Purchase
-# Agreement"). Other repeated lines are left out: a deal or company name repeated
-# at the top of body pages can head a signature block.
+# Agreement"). Other repeated lines are left out here: a deal or company name
+# repeated at the top of body pages can head a signature block. A repeated line
+# that the body prints nowhere else (a law-firm footer) is handled by
+# ``_learned_running_lines``.
 NONBODY_LEARNED_KINDS = ("toc_link", "doc_id", "banner", "exhibit_label", "running_title")
 
 
@@ -1515,34 +1518,230 @@ def _normalized(line: str) -> str:
 
 def _body_page_number_anchors(
     body_page_texts: list[str], body_page_orders: list[int], body_removed: list[RemovedFurnitureLine]
-) -> list[tuple[int, int]]:
-    """(page_order, printed page number) for each body page whose number is known."""
-    by_index: dict[int, int] = {}
+) -> list[list[tuple[int, int]]]:
+    """(page_order, printed page number) for the body pages, one list per numbering.
+
+    The tagged ``<page>`` numbers are one numbering (the last tag of a page tagged at
+    both edges is another), and each shape of bare number the body rules removed is
+    another: a filing can print a sheet counter at the top of each page ("65") and
+    the agreement's own number at the bottom ("-60-").
+    """
+    families: dict[str, dict[int, int]] = {}
     for removed in body_removed:
         if removed.kind == "page_number":
-            by_index[removed.page_index] = _page_number_value(removed.line)
-    by_index.update(_tagged_page_numbers(body_page_texts))
-    return sorted((body_page_orders[i], value) for i, value in by_index.items() if i < len(body_page_orders))
+            shape = "bare:" + _line_shape(removed.line.strip())
+            families.setdefault(shape, {})[removed.page_index] = _page_number_value(removed.line.strip())
+    tagged = _tagged_page_numbers(body_page_texts)
+    if tagged:
+        families["tagged"] = tagged
+    # A page tagged at both edges: the last tag is a numbering of its own.
+    last: dict[int, int] = {}
+    for index, text in enumerate(body_page_texts):
+        matches = list(_CLEAN_PAGE_TAG_RE.finditer(text))
+        if len(matches) >= 2:
+            last[index] = int(matches[-1].group("dashed") or matches[-1].group("plain"))
+    last = {i: v for i, v in last.items() if last.get(i - 1) != v and last.get(i + 1) != v}
+    if last:
+        families["tagged_last"] = last
+    return [
+        sorted((body_page_orders[i], value) for i, value in family.items() if i < len(body_page_orders))
+        for family in families.values()
+    ]
 
 
-def _fits_body_sequence(order: int, value: int, anchors: list[tuple[int, int]]) -> bool:
-    """The number continues the body's page numbering, read from the nearest numbered body page."""
-    if not anchors:
-        return False
-    anchor_order, anchor_value = min(anchors, key=lambda a: (abs(a[0] - order), -a[0]))
-    return abs(value - (anchor_value + order - anchor_order)) <= PAGE_OFFSET_TOLERANCE
-
-
-def _edge_page_numbers(lines: list[str]) -> dict[str, tuple[int, str, int]]:
-    """The outermost countable line on each edge when it is a page number: side -> (line, shape, value)."""
-    countable = _countable_indexes(lines)
-    found: dict[str, tuple[int, str, int]] = {}
-    for side, index in (("top", countable[0] if countable else None), ("bottom", countable[-1] if countable else None)):
-        if index is None:
+def _fits_body_sequence(order: int, value: int, anchors: list[list[tuple[int, int]]]) -> bool:
+    """The number continues one of the body's page numberings, read from its nearest numbered body page."""
+    for family in anchors:
+        if not family:
             continue
-        if furniture_kind(lines[index]) == "page_number":
-            found[side] = (index, _line_shape(lines[index].strip()), _page_number_value(lines[index].strip()))
-    return found
+        anchor_order, anchor_value = min(family, key=lambda a: (abs(a[0] - order), -a[0]))
+        if abs(value - (anchor_value + order - anchor_order)) <= PAGE_OFFSET_TOLERANCE:
+            return True
+    return False
+
+
+# Page-number shapes beyond the body pattern, read only on sig and back-matter pages:
+# a label with a space after the hyphen ("A- 2", "EX- 1", "I- 1"), a two-level label
+# ("A-3-2"), a dashed label ("- A-2 -", "-A-1-"), and a lowercase roman number
+# ("i", "-ii-") on the front pages of an exhibit.
+_SPACED_LABEL_RE = re.compile(r"(?P<prefix>[A-Z]{1,3}(?:-\d{1,2})?)\s?[-–—]\s?(?P<n>\d{1,3})")
+_DASHED_LABEL_RE = re.compile(r"[-–—]\s?(?P<prefix>[A-Z]{1,3})\s?[-–—]\s?(?P<n>\d{1,3})\s?[-–—]")
+_ROMAN_LINE_RE = re.compile(r"(?P<lead>[-–—]\s*)?(?P<roman>[ivxl]{1,7})(?P<trail>\s*[-–—])?")
+_ROMAN_DIGITS = {"i": 1, "v": 5, "x": 10, "l": 50}
+MAX_ROMAN_PAGE = 40
+
+
+def _roman_value(text: str) -> int | None:
+    """The value of a well-formed lowercase roman number up to ``MAX_ROMAN_PAGE``."""
+    total = 0
+    for index, ch in enumerate(text):
+        value = _ROMAN_DIGITS[ch]
+        if index + 1 < len(text) and _ROMAN_DIGITS[text[index + 1]] > value:
+            total -= value
+        else:
+            total += value
+    if not 1 <= total <= MAX_ROMAN_PAGE or _to_roman(total) != text:
+        return None
+    return total
+
+
+def _to_roman(value: int) -> str:
+    out = ""
+    for number, letters in ((40, "xl"), (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")):
+        while value >= number:
+            out += letters
+            value -= number
+    return out
+
+
+@dataclass(frozen=True)
+class _NonbodyNumber:
+    index: int
+    shape: str
+    value: int
+    roman: bool
+
+
+def _nonbody_number(line: str) -> tuple[str, int, bool] | None:
+    """(shape, value, is_roman) when the whole line is a printed page number or label."""
+    stripped = " ".join(line.split())
+    match = _SPACED_LABEL_RE.fullmatch(stripped)
+    if match is not None:
+        return match.group("prefix") + "-#", int(match.group("n")), False
+    match = _DASHED_LABEL_RE.fullmatch(stripped)
+    if match is not None:
+        return "-" + match.group("prefix") + "-#-", int(match.group("n")), False
+    if furniture_kind(stripped) == "page_number":
+        return _line_shape(stripped), _page_number_value(stripped), False
+    match = _ROMAN_LINE_RE.fullmatch(stripped)
+    if match is not None:
+        value = _roman_value(match.group("roman"))
+        if value is not None:
+            shape = ("-" if match.group("lead") else "") + "roman" + ("-" if match.group("trail") else "")
+            return shape, value, True
+    return None
+
+
+def _is_doc_id_line(line: str) -> bool:
+    stripped = line.strip()
+    return furniture_kind(stripped) == "doc_id" or _FUSED_DOC_ID_RE.fullmatch(stripped) is not None
+
+
+# The first line of an exhibit, annex or schedule ("EXHIBIT A", "Annex I", "SCHEDULE C
+# FORM OF RESOLUTIONS", "Annexure B", "SCHEDULE “C”", "-SCHEDULE A-", "EXHIBIT A:
+# EXAMPLES"), and of a printed table of contents.
+_EXHIBIT_HEADING_RE = re.compile(
+    r"(?:[-–—\[(]\s*)?(?:exhibit|annex(?:ure)?|schedule|appendix|attachment)\s+"
+    r"[“\"‘'(]?[A-Z0-9][A-Za-z0-9.\-]*[”\"’')]?[:.]?(?:\s.{0,90}|\s*[-–—\])])?",
+    re.IGNORECASE,
+)
+_CONTENTS_HEADING_RE = re.compile(r"(?:table\s+of\s+)?contents(?:\s*\((?:continued|cont[’']d)\))?", re.IGNORECASE)
+
+
+_COVER_NOTE_RE = re.compile(r"[\[(][^\])]{1,60}[\])]")
+
+
+def _is_cover_line(line: str) -> bool:
+    """A cover-sheet line: a heading or title ("EXHIBIT C", "Form of Lock-Up Agreement") or a
+    bracketed note ("(See attached)"), never a page number or a sentence."""
+    stripped = line.strip()
+    if _COVER_NOTE_RE.fullmatch(stripped):
+        return True
+    return _nonbody_number(stripped) is None and len(stripped) <= 100 and stripped[-1] not in ".;:,"
+
+
+def _first_text_line(lines: list[str]) -> str | None:
+    """The first countable line that is not a page number."""
+    for index in _countable_indexes(lines):
+        if _nonbody_number(lines[index]) is None:
+            return lines[index].strip()
+    return None
+
+
+# A draft-status line printed above an exhibit heading ("FINAL FORM", "EXECUTION VERSION").
+_ABOVE_HEADING_BANNER_RE = re.compile(r"(?:final\s+)?form|execution\s+(?:version|copy)|(?:strictly\s+)?confidential", re.IGNORECASE)
+
+
+def _opens_exhibit(lines: list[str]) -> bool:
+    """The page's first text line (or the one under a draft-status banner) is an exhibit heading."""
+    texts = [lines[i].strip() for i in _countable_indexes(lines) if _nonbody_number(lines[i]) is None][:2]
+    if texts and _ABOVE_HEADING_BANNER_RE.fullmatch(texts[0]):
+        texts = texts[1:]
+    return bool(texts) and _EXHIBIT_HEADING_RE.fullmatch(texts[0]) is not None
+
+
+def _nonbody_positions(
+    page_lines: list[list[str]], page_orders: list[int], page_types: list[str]
+) -> tuple[list[set[int]], list[int | None]]:
+    """Per page, the page numbers its own run would print, and its place in a table of contents.
+
+    A run is a block of consecutive signature pages, or an exhibit: back-matter
+    pages from one that opens with an exhibit heading ("EXHIBIT B") to the next.
+    The n-th page of a run is page n; when the run opens with a cover sheet (three
+    lines or fewer, each a heading, a title or a bracketed note such as "(See
+    attached)", and no number of its own) the numbering may start after it.
+    A table of contents (a page that opens with "Table of Contents") starts its
+    own count for roman numbers.
+    """
+    positions: list[set[int]] = []
+    contents: list[int | None] = []
+    start: int | None = None
+    contents_start: int | None = None
+    for k, lines in enumerate(page_lines):
+        consecutive = k > 0 and page_orders[k] - page_orders[k - 1] == 1 and page_types[k] == page_types[k - 1]
+        first = _first_text_line(lines)
+        opens_exhibit = page_types[k] != "sig" and _opens_exhibit(lines)
+        if not consecutive or opens_exhibit or start is None:
+            start = k
+            contents_start = None
+        if first is not None and _CONTENTS_HEADING_RE.fullmatch(first) is not None:
+            contents_start = k
+        position = page_orders[k] - page_orders[start] + 1
+        allowed = {position}
+        start_lines = page_lines[start]
+        cover = len(_countable_indexes(start_lines)) <= EDGE_LINE_WINDOW and all(
+            _is_cover_line(start_lines[i]) for i in _countable_indexes(start_lines)
+        )
+        if cover and position > 1:
+            allowed.add(position - 1)
+        positions.append(allowed)
+        contents.append(None if contents_start is None else page_orders[k] - page_orders[contents_start] + 1)
+    return positions, contents
+
+
+def _learned_running_lines(
+    body_page_texts: list[str], body_removed: list[RemovedFurnitureLine]
+) -> dict[str, set[str]]:
+    """Repeated body edge lines (a law-firm footer) that are safe to take off sig and back pages: side -> lines.
+
+    The body rules removed the line from at least half of the body pages (and
+    ``MIN_TITLE_PAGES``), and the body never prints it anywhere else: a party or
+    deal name repeated as a running header also appears in the preamble, the
+    notices clause or the signature blocks, so it never qualifies.
+    """
+    copies: dict[str, set[int]] = {}
+    for removed in body_removed:
+        if removed.kind == "repeated_line":
+            copies.setdefault(_normalized(removed.line), set()).add(removed.page_index)
+    need = max(MIN_TITLE_PAGES, (len(body_page_texts) + 1) // 2)
+    joined = "\n".join(" ".join(text.split()) for text in body_page_texts).lower()
+    sides: dict[str, set[str]] = {"top": set(), "bottom": set()}
+    for line, pages in copies.items():
+        if len(pages) < need or not any(ch.isalpha() for ch in line):
+            continue
+        if joined.count(line.lower()) != len(pages):
+            continue
+        for side in ("top", "bottom"):
+            on_side = 0
+            for index in pages:
+                lines = body_page_texts[index].split("\n")
+                countable = _countable_indexes(lines)
+                half = (len(countable) + 1) // 2
+                window = countable[:min(EDGE_LINE_WINDOW, half)] if side == "top" else countable[half:][-EDGE_LINE_WINDOW:]
+                on_side += any(_normalized(lines[i]) == line for i in window)
+            if on_side * 2 >= len(pages):
+                sides[side].add(line)
+    return sides
 
 
 def strip_nonbody_page_furniture(
@@ -1552,56 +1751,123 @@ def strip_nonbody_page_furniture(
     body_page_texts: list[str],
     body_page_orders: list[int],
     body_removed: list[RemovedFurnitureLine],
+    page_types: list[str] | None = None,
 ) -> list[str]:
     """Remove page numbers and confirmed body furniture from the edges of sig and back-matter pages.
 
-    ``page_texts`` and ``page_orders`` are the agreement's signature and
-    back-matter pages in page order; ``body_page_texts`` (before the body strip),
-    ``body_page_orders`` and ``body_removed`` describe its body pages. A line goes
-    only when it is one of the outermost lines of its page (lines removed by this
-    rule do not count, up to ``EDGE_LINE_WINDOW`` per edge) and either
+    ``page_texts``, ``page_orders`` and ``page_types`` ("sig" or "back_matter")
+    are the agreement's signature and back-matter pages in page order;
+    ``body_page_texts`` (before the body strip), ``body_page_orders`` and
+    ``body_removed`` describe its body pages. A line goes only when it is one of
+    the outermost lines of its page (lines removed by this rule do not count, up to
+    ``EDGE_LINE_WINDOW`` per edge) and either
 
-    - is a page number ("55", "- 97 -", "Page 39", "A-3") that continues the body's
-      numbering from the nearest numbered body page (within
-      ``PAGE_OFFSET_TOLERANCE``), or that rises by exactly the page distance
-      against the page number on the same edge of the neighboring sig or
-      back-matter page, in the same shape ("A-1", "A-2"; "2", "3"); or
     - equals a line the body rules removed as a Table of Contents link, a
-      document ID, a banner, an exhibit label or a running title.
+      document ID, a banner, an exhibit label or a running title; or a repeated
+      body edge line (a law-firm footer) that the body prints nowhere else, on the
+      edge where the body printed it;
+    - is a document ID ("4892-0619-9513") repeated at the same edge of
+      ``MIN_REPEAT_PAGES`` of these pages; or
+    - is a page number ("55", "- 97 -", "Page 39", "A-3", "A- 3", "A-3-2",
+      "- A-2 -", or a lowercase roman "ii") that
+
+      - continues one of the body's numberings from its nearest numbered body
+        page (within ``PAGE_OFFSET_TOLERANCE``; not roman numbers); or, when it is
+        the outermost number on its edge (a document ID beyond it does not count),
+      - rises by exactly the page distance against the number on the same edge of
+        a page one or two places away, in the same shape ("A-1", "A-2"; "2", "3";
+        "i", "ii"); or
+      - equals the page's place in its own run: the n-th page of a block of
+        signature pages or of an exhibit (from the page that opens with "EXHIBIT
+        B" or "Annex I") prints n, or n - 1 after a cover sheet; a roman number
+        counts from the page that opens with "Table of Contents" (or the run).
+        Only at the bottom edge: a lone number at the top of a page can be a
+        footnote marker carried over from the page before.
+
+    A page is never emptied: a lone number is then the page's content.
     """
+    types = page_types if page_types is not None else ["back_matter"] * len(page_texts)
     anchors = _body_page_number_anchors(body_page_texts, body_page_orders, body_removed)
     learned = {_normalized(r.line) for r in body_removed if r.kind in NONBODY_LEARNED_KINDS}
+    running = _learned_running_lines(body_page_texts, body_removed)
     page_lines = [text.split("\n") for text in page_texts]
-    edges = [_edge_page_numbers(lines) for lines in page_lines]
+    positions, contents = _nonbody_positions(page_lines, page_orders, types)
+
+    def edge_order(lines: list[str], side: str) -> list[int]:
+        countable = _countable_indexes(lines)
+        return countable if side == "top" else list(reversed(countable))
+
+    def is_learned(line: str, side: str) -> bool:
+        normalized = _normalized(line)
+        return normalized in learned or normalized in running[side]
+
+    # Document IDs printed on the sig and back pages themselves.
+    id_counts: dict[tuple[str, str], int] = {}
+    for lines in page_lines:
+        for side in ("top", "bottom"):
+            for index in edge_order(lines, side)[:EDGE_LINE_WINDOW]:
+                if _is_doc_id_line(lines[index]):
+                    key = (side, _normalized(lines[index]))
+                    id_counts[key] = id_counts.get(key, 0) + 1
+    repeated_ids = {key for key, count in id_counts.items() if count >= MIN_REPEAT_PAGES}
+
+    def passable(line: str, side: str) -> bool:
+        return is_learned(line, side) or _is_doc_id_line(line)
+
+    def edge_number(lines: list[str], side: str) -> _NonbodyNumber | None:
+        """The outermost page number on this edge, passing over learned lines and document IDs."""
+        for index in edge_order(lines, side)[:EDGE_LINE_WINDOW]:
+            parsed = _nonbody_number(lines[index])
+            if parsed is not None:
+                return _NonbodyNumber(index, *parsed)
+            if not passable(lines[index], side):
+                return None
+        return None
+
+    edges = [{side: edge_number(lines, side) for side in ("top", "bottom")} for lines in page_lines]
 
     def chained(k: int, side: str) -> bool:
-        _, shape, value = edges[k][side]
-        for j in (k - 1, k + 1):
-            if 0 <= j < len(edges) and side in edges[j]:
-                _, other_shape, other_value = edges[j][side]
-                if other_shape == shape and other_value - value == page_orders[j] - page_orders[k]:
-                    return True
+        number = edges[k][side]
+        assert number is not None
+        for j in (k - 1, k + 1, k - 2, k + 2):
+            other = edges[j][side] if 0 <= j < len(edges) else None
+            if other is not None and other.shape == number.shape and other.value - number.value == page_orders[j] - page_orders[k]:
+                return True
         return False
+
+    def removable_number(k: int, side: str, index: int, shape: str, value: int, roman: bool) -> bool:
+        if not roman and _fits_body_sequence(page_orders[k], value, anchors):
+            return True
+        number = edges[k][side]
+        if number is None or number.index != index:
+            return False
+        if chained(k, side):
+            return True
+        if side == "top":
+            return False  # a lone "1" or "2" at the top can be a footnote marker carried over
+        if roman:
+            return value in ({contents[k]} if contents[k] is not None else positions[k])
+        return value in positions[k]
 
     drops: list[set[int]] = []
     for k, lines in enumerate(page_lines):
         drop: set[int] = set()
         countable = _countable_indexes(lines)
-        for side, ordered in (("top", countable), ("bottom", list(reversed(countable)))):
-            for rank, index in enumerate(ordered[:EDGE_LINE_WINDOW]):
+        for side in ("top", "bottom"):
+            for index in edge_order(lines, side)[:EDGE_LINE_WINDOW]:
                 if index in drop:
                     break
                 line = lines[index].strip()
-                removable = _normalized(line) in learned
-                if not removable and furniture_kind(line) == "page_number":
-                    value = _page_number_value(line)
-                    outermost = rank == 0 and edges[k].get(side, (None,))[0] == index
-                    removable = _fits_body_sequence(page_orders[k], value, anchors) or (
-                        outermost and chained(k, side)
-                    )
-                if not removable:
-                    break
-                drop.add(index)
+                if is_learned(line, side) or (side, _normalized(line)) in repeated_ids:
+                    drop.add(index)
+                    continue
+                parsed = _nonbody_number(line)
+                if parsed is not None and removable_number(k, side, index, *parsed):
+                    drop.add(index)
+                    continue
+                if _is_doc_id_line(line):
+                    continue  # an ID that stays: the number under it can still go
+                break
         if len(drop) == len(countable):
             drop = set()  # never empty a page: a lone number is then the page's content
         drops.append(drop)
