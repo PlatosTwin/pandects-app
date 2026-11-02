@@ -112,6 +112,153 @@ class StripInlineUnderlinesTests(unittest.TestCase):
         self.assertLess(time.perf_counter() - start, 0.5)
 
 
+class UnderlineShapesTests(unittest.TestCase):
+    """Shapes the first rule missed (round-7 audit C3), from served .txt pages."""
+
+    def test_underline_typed_columns_right_of_its_words(self) -> None:
+        # a6a4e945, page ee86e570: the caption's underline is typed five columns
+        # right of "Capitalization of the Company and its Subsidiaries.".
+        raw = (
+            "     Section 2.2.  Capitalization of the Company and its Subsidiaries.  The\n"
+            "                        --------------------------------------------------\n"
+            "authorized capital stock of the Company consists of Twenty-Five Million\n"
+        )
+        tagged = (
+            "<section>Section 2.2. Capitalization of the Company and its Subsidiaries.</section> The "
+            + "-" * 50
+            + " authorized capital stock of the Company consists of Twenty-Five Million"
+        )
+        self.assertEqual(
+            strip_inline_underlines(tagged, raw).text,
+            "<section>Section 2.2. Capitalization of the Company and its Subsidiaries.</section> The "
+            "authorized capital stock of the Company consists of Twenty-Five Million",
+        )
+
+    def test_underline_off_by_more_columns_mid_line(self) -> None:
+        # 38f930c8, page 9c243bb6: "or fails to ----------- notify".
+        raw = (
+            "     respect to the Third Party Claim under Section 11.01 or fails to\n"
+            "                                                 -----------\n"
+            "     notify the Indemnified Party within the Dispute Period whether the\n"
+        )
+        tagged = "under Section 11.01 or fails to ----------- notify the Indemnified Party"
+        self.assertEqual(
+            strip_inline_underlines(tagged, raw).text,
+            "under Section 11.01 or fails to notify the Indemnified Party",
+        )
+
+    def test_wrapped_underline_leaves_a_lone_dash_at_column_zero(self) -> None:
+        # 2b36bf00, page ef04d220: "Schedule" / "A" wraps, so the next underline
+        # line starts with "-" under the "A".
+        raw = (
+            "interest that would be an Asset hereunder, but that is not described in Schedule\n"
+            "                                                                        --------\n"
+            "A or Schedule A-1 hereto, including any interest that entitles Cody Energy or\n"
+            "-    ------------\n"
+            "any of its Subsidiaries to receive more than the NRI set forth in Schedule A or\n"
+        )
+        tagged = (
+            "described in Schedule -------- A or Schedule A-1 hereto, including any interest that "
+            "entitles Cody Energy or - ------------ any of its Subsidiaries"
+        )
+        self.assertEqual(
+            strip_inline_underlines(tagged, raw).text,
+            "described in Schedule A or Schedule A-1 hereto, including any interest that "
+            "entitles Cody Energy or any of its Subsidiaries",
+        )
+
+    def test_wrapped_underline_ending_in_two_dashes(self) -> None:
+        # 4c070c88, page 4f8bfd6a: "Article" / "IX)" wraps; "--" sits under "IX".
+        raw = (
+            "Liabilities (the latter being subject to the applicable provisions of Article\n"
+            "                                                                      -------\n"
+            "IX), including certain actions, proceedings, Tax audits or investigations to\n"
+            "--\n"
+            "which Sellers or their Affiliates are subject relating to such Retained\n"
+        )
+        tagged = "Tax audits or investigations to -- which Sellers or their Affiliates"
+        self.assertEqual(
+            strip_inline_underlines(tagged, raw).text,
+            "Tax audits or investigations to which Sellers or their Affiliates",
+        )
+
+    def test_lone_dash_without_a_wrapped_underline_is_kept(self) -> None:
+        raw = "A or Schedule A-1 hereto, including any interest that entitles Cody Energy or\n--\nany of its\n"
+        tagged = "entitles Cody Energy or -- any of its"
+        self.assertEqual(raw_underlines(raw), {})
+        self.assertEqual(strip_inline_underlines(tagged, raw).text, tagged)
+
+    def test_paired_two_dash_underlines_under_abbreviations(self) -> None:
+        # 207ad8d9, page b7238776: "--" under "TE" and under "PP".
+        raw = (
+            'Company ("OE"), The Cleveland Electric Illuminating Company ("CEI"), The\n'
+            "          --                                                  ---\n"
+            'Toledo Edison Company ("TE") or Pennsylvania Power Company ("PP"), except,\n'
+            "                        --                                   --\n"
+            "in the case of any such Subsidiary, to FirstEnergy or such Subsidiary's\n"
+        )
+        tagged = 'Power Company ("PP"), except, -- -- in the case of any such Subsidiary'
+        self.assertEqual(
+            strip_inline_underlines(tagged, raw).text,
+            'Power Company ("PP"), except, in the case of any such Subsidiary',
+        )
+
+    def test_single_two_dash_fraction_bar_is_kept(self) -> None:
+        # be78ab02, page 24b2ed8a: SE = AE x AA / PA, typed over three lines.
+        raw = (
+            "                                  AE x AA = SE\n"
+            "                                       --\n"
+            "                                       PA\n"
+        )
+        tagged = "the following formula: AE x AA = SE -- PA"
+        self.assertEqual(raw_underlines(raw), {})
+        self.assertEqual(strip_inline_underlines(tagged, raw).text, tagged)
+
+    def test_stray_word_between_a_line_and_its_underline(self) -> None:
+        # 207ad8d9, page b722ac3e: "GPU" wrapped onto its own line above the
+        # underline of "Environmental Protection." and "Compliance.".
+        raw = (
+            "     Section 3.19  Environmental Protection.  (a)  Compliance.  Each of\n"
+            "GPU\n"
+            "                   ------------------------        ----------\n"
+            "and its Subsidiaries is in compliance with all applicable Environmental\n"
+        )
+        tagged = (
+            "<section>Section 3.19 Environmental Protection.</section> (a) Compliance. Each of GPU "
+            "------------------------ ---------- and its Subsidiaries is in compliance"
+        )
+        self.assertEqual(
+            strip_inline_underlines(tagged, raw).text,
+            "<section>Section 3.19 Environmental Protection.</section> (a) Compliance. Each of GPU "
+            "and its Subsidiaries is in compliance",
+        )
+
+    def test_stray_label_above_a_signature_line_is_kept(self) -> None:
+        raw = "                   ACME HOLDINGS CORP.\nBy:\n                   ------------------\n"
+        tagged = "ACME HOLDINGS CORP. By: ------------------ Name:"
+        self.assertEqual(raw_underlines(raw), {})
+        self.assertEqual(strip_inline_underlines(tagged, raw).text, tagged)
+
+    def test_table_rule_under_a_row_of_figures_is_kept(self) -> None:
+        # 329556e7, page edce28e6: a consolidating balance sheet's total rule.
+        raw = (
+            "   Total current assets   4,502,742      (151)   743,214    11,981,424       (86,930)   (150)  "
+            "21,071,446   (44,938)    38,166,657\n"
+            "                        " + "-" * 106 + "\n"
+            "Restricted cash                   0         0          0       690,608\n"
+        )
+        tagged = "(150) 21,071,446 (44,938) 38,166,657 " + "-" * 106 + " Restricted cash 0"
+        self.assertEqual(raw_underlines(raw), {})
+        self.assertEqual(strip_inline_underlines(tagged, raw).text, tagged)
+
+    def test_dashes_printed_inline_in_the_raw_line_are_kept(self) -> None:
+        # 97078e97, page ec69e7c8: the filing itself prints the dashes in the
+        # sentence, so they cannot be told from a fill-in blank.
+        raw = "          Liens that secure liabilities that are reflected in the ----- Company\n"
+        tagged = "Liens that secure liabilities that are reflected in the ----- Company"
+        self.assertEqual(strip_inline_underlines(tagged, raw).text, tagged)
+
+
 class XmlPageTextUnderlineTests(unittest.TestCase):
     def test_body_txt_page_loses_underlines_but_sig_page_keeps_them(self) -> None:
         row = {

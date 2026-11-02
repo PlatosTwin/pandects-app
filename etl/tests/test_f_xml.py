@@ -167,7 +167,8 @@ class XMLGenerationTests(unittest.TestCase):
             formatted,
         )
         self.assertIn("SPECTRUM BRANDS, INC.", formatted)
-        self.assertIn("By: /s/ Nathan Fagre", formatted)
+        # The source prints a lowercase "by" with no colon; it is served as printed.
+        self.assertIn("by /s/ Nathan Fagre", formatted)
         self.assertNotIn("By:\n\n/s/ Donald Allan, Jr.", formatted)
 
     def test_format_signature_text_like_screen_preserves_blank_form_fields(self) -> None:
@@ -327,9 +328,29 @@ class XMLGenerationTests(unittest.TestCase):
         )
         self.assertIn("BUYER Thor Industries, Inc.", formatted)
         self.assertIn("PRINTED NAME: ROBERT W. MARTIN", formatted)
-        self.assertIn("Title: CEO", formatted)
+        self.assertIn("TITLE: CEO", formatted)
         self.assertIn("Name: Jordan Hitch", formatted)
         self.assertNotRegex(formatted, r"\b[B-Z] [A-Z]{2,}")
+
+    def test_format_signature_html_like_screen_keeps_labels_as_printed(self) -> None:
+        # 65406fe5 (page d03a2622): the label cell prints "By" with no colon.
+        # 8717e0e7 (page f9f7cc04): a schedule table's "Name" header is no label.
+        raw_html = """
+        <table><tr>
+        <td width="3%"><p><font face="Times New Roman" size="2">By</font></p> </td>
+        <td style="border-bottom:solid windowtext 1.0pt;" width="46%">
+        <p><font face="Times New Roman" size="2">/s/   Geoffrey T. Martin</font></p> </td> </tr>
+        </table>
+        <table><tr bgcolor="#cceeff">
+        <td><div><font style="DISPLAY: inline">Name</font></div></td>
+        <td><font style="DISPLAY: inline">\u00a0</font></td>
+        <td colspan="2"><div><font style="DISPLAY: inline">FDVE shares</font></div></td>
+        </tr></table>
+        """
+
+        lines = [line for line in f_xml.format_signature_html_like_screen(raw_html).splitlines() if line]
+
+        self.assertEqual(lines, ["By /s/ Geoffrey T. Martin", "Name FDVE shares"])
 
     def test_format_signature_html_like_screen_ignores_doctype_and_comments(self) -> None:
         raw_html = """<!DOCTYPE html><!-- page 54 -->
@@ -552,7 +573,7 @@ class XMLGenerationTests(unittest.TestCase):
             ],
         )
 
-    def test_format_signature_text_like_screen_normalizes_label_left_empty(self) -> None:
+    def test_format_signature_text_like_screen_keeps_empty_labels_as_printed(self) -> None:
         text = "\n".join(
             ["BY:", "PRINTED NAME:", "TITLE", "", "KM INVESTMENT CORPORATION", "Its", "46"]
         )
@@ -563,7 +584,7 @@ class XMLGenerationTests(unittest.TestCase):
 
         self.assertEqual(
             lines,
-            ["By:", "PRINTED NAME:", "Title:", "KM INVESTMENT CORPORATION", "Its:", "46"],
+            ["BY:", "PRINTED NAME:", "TITLE", "KM INVESTMENT CORPORATION", "Its", "46"],
         )
 
     def test_format_signature_text_like_screen_fills_title_and_capacity_values(self) -> None:
