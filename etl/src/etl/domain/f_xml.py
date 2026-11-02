@@ -934,6 +934,30 @@ def format_signature_text_like_screen(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(formatted)).strip()
 
 
+# The period that ends a printed heading, left behind when the tagger closed the
+# heading tag before it ("<section>7.02 Access to Information</section>." or the
+# period alone on the next line, also after a page break when the heading ends a
+# page). Not an ellipsis and not a decimal (".5%").
+_LEADING_PAGE_MARKERS_RE = re.compile(r"(?:\s*<page>[^<]*</page>|\s*<pageUUID>[^<]*</pageUUID>)*\s*")
+# The period may also be glued to the first enumerator (".(a) The Company ...").
+_ORPHAN_HEADING_PERIOD_RE = re.compile(r"\.(?!\.)(?=[ \t]*(?:\n|<|$)|[ \t]+\S|\([a-zA-Z0-9]{1,4}\)\s)")
+
+
+def _drop_orphan_heading_period(content: str) -> str:
+    """Drop a lone "." that opens the text right after an article or section heading.
+
+    A section's own text never starts with a bare period; it is the heading's
+    terminator. Page markers before it stay; the rest of the content is unchanged.
+    """
+    if "." not in content[:400]:
+        return content
+    markers = _LEADING_PAGE_MARKERS_RE.match(content)
+    start = markers.end() if markers is not None else 0
+    if _ORPHAN_HEADING_PERIOD_RE.match(content, start) is None:
+        return content
+    return content[:start] + content[start + 1:].lstrip(" \t")
+
+
 def convert_to_xml(
     tagged_text: str,
     agreement_uuid: str,
@@ -1093,7 +1117,7 @@ def convert_to_xml(
 
         _, end = m.span()
         next_start = matches[i + 1].start() if i + 1 < len(matches) else len(tagged_text)
-        content = tagged_text[end:next_start].strip()
+        content = _drop_orphan_heading_period(tagged_text[end:next_start].strip())
 
         if tag == "article":
             article_count += 1
