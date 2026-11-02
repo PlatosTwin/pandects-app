@@ -1007,9 +1007,41 @@ Two adversarial reviews found 11 ways the first draft linked wrongly or lost a l
 **Known limits:**
 - A clause "(b)" in a section where two groups both have a (b) stays ambiguous.
 - An "A./B." list that introduces a section's own (a), (b) list nests those paragraphs under group B in the outline. Links still land on the right paragraphs.
-- Consistent Roman schemes ("Section VIII.2(e)") are still open.
+- Consistent Roman schemes ("Section VIII.2(e)") were still open; 10.12 handles them.
 
 **Prod.** Pushing 0.6.0 rows is part of the next data push. The asset recomputes every row whose enricher version is older.
+
+### 10.12 Enricher 0.7.0: Roman section numbers (2026-11-02)
+
+Four served agreements number their sections under the Roman article number: "VIII.2 Termination", cited as "Section VIII.2(e)". These are 791dd229, b85bde4e, f04d10bd and f0e6c573, all hand-accepted. Before 0.7.0 their sections had no number, so almost every internal reference in them stayed unresolved. In f04d10bd, for example, 19 resolved and 220 did not.
+
+**Roman scheme.** A body counts as a Roman scheme when at least three of its section titles are Roman-dotted and they are a majority of its sections. Only then:
+- **Outline.** A "VIII.2" section gets the key `s8.2`, and its node label keeps the printed "VIII.2". Paragraphs under it are labeled the same way: "VIII.2(b)(i)", and "VIII.2.1" for a dotted paragraph. A paragraph printed "8.2.1" keeps its own number. Defined-term "in" labels show the printed number.
+- **References.** "Section VIII.2(e)", lists ("Sections IV.1 and IV.2"), ranges, and qualified clauses ("clause (b) of Section VIII.1") resolve to these keys. "Article VIII" and "Article VIII.1" resolve too.
+
+A stray "I.1" section, such as an embedded plan, and lettered articles ("A.1", "B.1", "C.1") do not make a scheme.
+
+**Limits on Roman numbers.** Roman numbers are limited to I–XXXIX. A bare "L" or "C" before a dotted number is a French code article ("Article L.233-3") or a lettered section ("Section C.6"). The first draft read these as Roman, and the corpus dry run caught it.
+
+**Corpus.** A dry run over all 11,907 latest verified agreements, with 0 failures, compared 0.6.0 and 0.7.0:
+- The 4 Roman agreements gain about 600 resolved references. f04d10bd goes to 208 resolved and 29 unresolved.
+- Elsewhere, outlines are unchanged and 27 agreements change only their references:
+  - Roman-dotted references to another document now span their whole number: "Section IV.2.1", "Section I.01 of the Plan". About 15 move from unresolved to external.
+  - Three "Article V.5" references keep their Article V link with a wider span.
+  - A stray "I" in "Article 726 I.2" (a French tax code cite) no longer links to Article I.
+  - No reference gains a wrong link.
+
+**Gold.** All 125 fixtures are unchanged: 1,928 exact links, 128 section links, 2 wrong. None of them uses a Roman scheme.
+
+**Reviews.**
+- **First review:** found 5 ways the first draft linked wrongly. Among them, Roman reference matching broke Exhibit links everywhere, and a single "I.1" section made a whole agreement Roman. All 5 are fixed and have tests.
+- **Second review:** found that "VIII.2.1" paragraphs were not outlined, so their "(a)" was keyed under VIII.2. This is fixed and has a test.
+
+**Known limits:**
+- In a Roman scheme, an embedded arabic "1.1" section (a plan inside the agreement) shares the key `s1.1` with "I.1". Both lose their subsection targets as duplicates.
+- Agreements that title sections in arabic but cite them in Roman ("Section V.10(c)" in 01202579) stay unresolved, because the scheme is read from section titles only.
+
+**Prod.** As with 0.6.0, the next data push carries the 0.7.0 rows.
 
 ## 11. Decisions (2026-10-22)
 

@@ -620,6 +620,137 @@ class LetterSuffixTests(unittest.TestCase):
         self.assertEqual(refs["Section 6.12"][0], "disclosure_schedule")
 
 
+class RomanSectionTests(unittest.TestCase):
+    """"Section VIII.2(e)": sections numbered under their Roman article number (0.7.0)."""
+
+    ROMAN = _doc(
+        _article(
+            "a1",
+            "ARTICLE I. DEFINITIONS",
+            _section("s11", "Section I.1 Definitions.", "“Closing” means the closing."),
+        )
+        + _article(
+            "a8",
+            "ARTICLE VIII. CONDITIONS",
+            _section("s81", "Section VIII.1 Mutual Conditions.", "(a) no injunction;", "(b) approvals.")
+            + _section("s82", "Section VIII.2 Parent Conditions.", "(a) accuracy;", "(b) covenants;", "(i) performed.")
+            + _section(
+                "s83",
+                "Section VIII.3 Frustration.",
+                "No party may rely on Section VIII.2(b)(i), Sections VIII.1 and VIII.2, clause (b) of Section VIII.2, "
+                "Article VIII or Article VIII.1. Section VIII.1(a) applies, and Exhibit C.2 is Exhibit C.",
+            ),
+        )
+    )
+
+    def _status(self, xml: str) -> dict[str, tuple[str, str | None]]:
+        return {r["text"]: (r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]}
+
+    def test_references_resolve_to_roman_sections(self) -> None:
+        refs = self._status(self.ROMAN)
+        self.assertEqual(refs["Section VIII.2(b)(i)"], ("resolved", "s8.2(b)(i)"))
+        self.assertEqual(refs["Sections VIII.1"], ("resolved", "s8.1"))
+        self.assertEqual(refs["VIII.2"], ("resolved", "s8.2"))
+        self.assertEqual(refs["clause (b)"], ("resolved", "s8.2(b)"))
+        self.assertEqual(refs["Article VIII"], ("resolved", "a8"))
+        self.assertEqual(refs["Article VIII.1"], ("resolved", "s8.1"))
+        self.assertEqual(refs["Section VIII.1(a)"], ("resolved", "s8.1(a)"))
+        # attachments keep their own lettering
+        self.assertEqual(refs["Exhibit C"][0], "unlocated_attachment")
+        self.assertNotIn("Exhibit C.2", refs)
+
+    def test_outline_and_terms_keep_the_printed_numbers(self) -> None:
+        p = build_reader_index(self.ROMAN)
+        art = p["outline"][1]
+        sec = art["children"][1]
+        self.assertEqual((art["label"], sec["id"], sec["label"]), ("VIII", "s8.2", "VIII.2"))
+        self.assertEqual([c["label"] for c in sec["children"]], ["VIII.2(a)", "VIII.2(b)"])
+        self.assertEqual(sec["children"][1]["children"][0]["label"], "VIII.2(b)(i)")
+        self.assertEqual(_term(p, "Closing")["decls"][0]["in"], "Section I.1")
+
+    def test_roman_references_need_a_roman_scheme(self) -> None:
+        refs = self._status(
+            _doc(
+                _article("a4", "ARTICLE IV TERMS", _section("s42", "Section 4.2 Fees", "(a) fees."))
+                + _section("s43", "Section 4.3 Refs", "Under Section IV.2(a) of the Plan, Section IV.2 and Article IV.2.")
+            )
+        )
+        # an arabic agreement's "Section IV.2" is some other document's numbering, not Section 4.2
+        self.assertEqual(refs["Section IV.2"], ("unresolved", None))
+        self.assertEqual(refs["Section IV.2(a)"][0], "external")
+        # "Article IV.2" still names Article IV, as before
+        self.assertEqual(refs["Article IV.2"], ("resolved", "a4"))
+
+    def test_a_stray_roman_section_is_not_a_scheme(self) -> None:
+        p = build_reader_index(
+            _doc(
+                _article("a1", "ARTICLE I DEFS", _section("s11", "Section 1.1 Defs", "(a) x."))
+                + _article("a4", "ARTICLE IV TERMS", _section("s42", "Section 4.2 Fees", "(a) fees.", "(b) costs."))
+                + _section("s43", "Section 4.3 Refs", "See Section 1.1(a), Section IV.2(b) and Section 4.2.")
+                + _article("a9", "ARTICLE IX PLAN", _section("sx", "I.1 Plan definitions", "(a) z.") + _section("sy", "Section IX.1 Misc", "(a) y."))
+            )
+        )
+        refs = {r["text"]: (r["status"], r.get("target")) for r in p["xrefs"]}
+        self.assertEqual(refs["Section 1.1(a)"], ("resolved", "s1.1(a)"))
+        self.assertEqual(refs["Section IV.2(b)"], ("unresolved", None))
+        self.assertNotIn("s1.1~2", {c["id"] for a in p["outline"] for c in a.get("children", [])})
+
+    def test_lettered_articles_are_not_roman(self) -> None:
+        refs = self._status(
+            _doc(
+                _article("aa", "ARTICLE A ONE", _section("sa", "A.1 Foo", "x."))
+                + _article("ab", "ARTICLE B TWO", _section("sb", "B.1 Bar", "x."))
+                + _article("ac", "ARTICLE C THREE", _section("sc", "C.1 Baz", "See Section C.1 and Section I.1."))
+                + _article("ad", "ARTICLE D FOUR", _section("sd", "D.1 Qux", "x."))
+            )
+        )
+        # "C" is not read as Roman 100: the reference stays the lettered "Section C", as before 0.7.0
+        self.assertNotIn("Section C.1", refs)
+        self.assertEqual(refs["Section C"], ("unresolved", None))
+
+    def test_roman_dotted_paragraphs_are_outlined_as_printed(self) -> None:
+        secs = "".join(_section(f"s{i}", f"Section VIII.{i} T{i}", "x.") for i in (1, 3))
+        body = "VIII.2.1 First.</text><text>(a) a.</text><text>VIII.2.2 Second. See Section VIII.2.1(a) and Section VIII.2(a)."
+        p = build_reader_index(_doc(_article("a8", "ARTICLE VIII MISC", _section("s2", "Section VIII.2 P", body) + secs)))
+        s82 = next(c for c in p["outline"][0]["children"] if c["id"] == "s8.2")
+        self.assertEqual([(c["id"], c["label"]) for c in s82["children"]], [("s8.2.1", "VIII.2.1"), ("s8.2.2", "VIII.2.2")])
+        self.assertEqual([(c["id"], c["label"]) for c in s82["children"][0]["children"]], [("s8.2.1(a)", "VIII.2.1(a)")])
+        refs = {r["text"]: (r["status"], r.get("target")) for r in p["xrefs"]}
+        self.assertEqual(refs["Section VIII.2.1(a)"], ("resolved", "s8.2.1(a)"))
+        # the (a) belongs to VIII.2.1, not to VIII.2
+        self.assertEqual(refs["Section VIII.2"], ("section_fallback", "s8.2"))
+
+    def test_roman_qualifier_outside_a_scheme_does_not_link_locally(self) -> None:
+        # the clauses belong to another document's numbering: before 0.7.0 they linked to this section's (a), (b)
+        refs = self._status(
+            _doc(_article("a4", "ARTICLE IV ONE", _section("s41", "Section 4.1 Foo", "(a) x.</text><text>(b) Nothing in clause (b) of Section IV.2 of the Plan applies.")))
+        )
+        self.assertNotEqual(refs.get("clause (b)", ("unresolved", None))[0], "resolved")
+
+    def test_french_code_articles_are_not_roman(self) -> None:
+        refs = self._status(
+            _doc(_article("a1", "ARTICLE I ONE", _section("s1", "Section 1.1 Foo", "Under Article L.233-3 and Section L.3323-8.")))
+        )
+        self.assertNotIn("Article L.233", refs)
+        self.assertNotIn("Section L.3323", refs)
+
+    def test_dotted_paragraphs_keep_their_printed_numbers(self) -> None:
+        p = build_reader_index(
+            _doc(
+                _article(
+                    "a8",
+                    "ARTICLE VIII C",
+                    _section("s81", "Section VIII.1 A", "x.")
+                    + _section("s82", "Section VIII.2 P", "8.2.1 First thing.", "(a) sub a.", "8.2.2 Second.")
+                    + _section("s83", "Section VIII.3 B", "x."),
+                )
+            )
+        )
+        sec = p["outline"][0]["children"][1]
+        self.assertEqual(sec["label"], "VIII.2")
+        self.assertEqual([c["label"] for c in sec["children"]], ["8.2.1", "8.2.2"])
+
+
 class DeclarationPatternTests(unittest.TestCase):
     def _decls(self, *texts: str) -> dict[str, str]:
         p = build_reader_index(_doc(_section("s1", "Section 1.1 Definitions", *texts)))
