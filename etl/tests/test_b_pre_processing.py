@@ -391,6 +391,94 @@ class PreProcessingTests(unittest.TestCase):
         self.assertIn("agreement clause", text)
         self.assertGreater(len(text), 20000)
 
+    def test_format_content_keeps_root_level_list_between_its_paragraphs(self) -> None:
+        html = (
+            "<html><body>"
+            "<p>12.5 Survival. The covenants survive.</p>"
+            "<p>12.6 Nondisclosure.</p>"
+            "<ul><ul><dl><dt>(a)</dt><dd>By Seller. Seller shall not disclose.</dd>"
+            "<dt>(b)</dt><dd>By Buyer. Buyer shall not disclose.</dd></dl></ul></ul>"
+            "<p>12.7 Notices. All notices shall be in writing.</p>"
+            "</body></html>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(
+            text,
+            "12.5 Survival. The covenants survive.\n\n12.6 Nondisclosure.\n\n(a)\n\n"
+            "By Seller. Seller shall not disclose.\n\n(b)\n\nBy Buyer. Buyer shall not disclose."
+            "\n\n12.7 Notices. All notices shall be in writing.",
+        )
+
+    def test_format_content_keeps_bare_inline_title_before_its_paragraph(self) -> None:
+        html = (
+            "<html><body>"
+            "<p>Unless this Agreement is terminated, the parties shall close.</p>"
+            "<font>Deliveries by Seller</font>"
+            "<p>. At the Closing, Seller shall deliver the documents.</p>"
+            "<font>Deliveries by Buyer</font>"
+            "<p>. At the Closing, Buyer shall pay the price.</p>"
+            "</body></html>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(
+            text.split("\n\n"),
+            [
+                "Unless this Agreement is terminated, the parties shall close.",
+                "Deliveries by Seller",
+                ". At the Closing, Seller shall deliver the documents.",
+                "Deliveries by Buyer",
+                ". At the Closing, Buyer shall pay the price.",
+            ],
+        )
+
+    def test_format_content_places_wrapper_text_before_the_block_that_follows_it(self) -> None:
+        # A non-block wrapper that holds blocks: its own text (the <dt> enumerators) is
+        # emitted in runs, each before the block that ends it, not all before the first block.
+        html = (
+            "<html><body>"
+            "<p>4.1 Covenants. Seller shall not:</p>"
+            "<dl><dt>(i)</dt><dd><p>sell any assets;</p></dd>"
+            "<dt>(ii)</dt><dd><p>incur any debt; or</p></dd>"
+            "<dt>(iii)</dt><dd><p>amend its charter.</p></dd></dl>"
+            "<p>4.2 Access.</p>"
+            "</body></html>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(
+            text.split("\n\n"),
+            [
+                "4.1 Covenants. Seller shall not:",
+                "(i)",
+                "sell any assets;",
+                "(ii)",
+                "incur any debt; or",
+                "(iii)",
+                "amend its charter.",
+                "4.2 Access.",
+            ],
+        )
+
+    def test_format_content_unchanged_for_pages_of_plain_blocks(self) -> None:
+        html = (
+            "<html><body><div><p>ARTICLE I</p><p>DEFINITIONS</p></div>"
+            "<p>1.1 Definitions. As used herein:</p>"
+            "<table><tr><td>Term</td><td>Meaning</td></tr></table>"
+            "</body></html>"
+        )
+
+        text = format_content(html, is_txt=False, is_html=True)
+
+        self.assertEqual(
+            text.split("\n\n"),
+            ["ARTICLE I", "DEFINITIONS", "1.1 Definitions. As used herein:", "Term Meaning"],
+        )
+
     def test_format_content_preserves_order_for_top_level_inline_section_heads(self) -> None:
         html = (
             "<html><body>"

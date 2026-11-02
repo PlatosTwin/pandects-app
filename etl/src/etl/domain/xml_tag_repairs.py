@@ -46,6 +46,23 @@ NO_SPACE_SECTION_PREFIX_TAG_RE = re.compile(
     r"<section>(?P<prefix>\s*Section)(?P<number>\d{1,2}\.\d{1,3}\b)",
     re.IGNORECASE,
 )
+# The tagger closes a heading at a word-piece boundary, and its pre-tokenizer splits
+# digit runs from letter runs, so a heading can end inside a word: "Section 280</section>G",
+# "WARRANTIES OF H</article>2EG". The tail is moved back inside only where the tag splits a
+# digit from a letter (or the reverse) and the tail is not a word that could start the
+# next sentence ("Section 5.1</section>A Party", "Section 5</section>IN WITNESS").
+DIGIT_LETTER_SPLIT_TAIL_RE = re.compile(
+    r"(?<=[0-9])</(?P<tag>section|article)>(?P<tail>[A-Z]{1,3})(?=\s|$)"
+)
+LETTER_DIGIT_SPLIT_TAIL_RE = re.compile(
+    r"(?<=[A-Za-z])</(?P<tag>section|article)>(?P<tail>[0-9]+[A-Za-z][A-Za-z0-9]*)(?=\s|$)"
+)
+SPLIT_TAIL_SENTENCE_WORDS = frozenset(
+    """
+    A I AN AS AT BE BY DO IF IN IS IT NO OF ON OR SO TO UP WE
+    ALL AND ANY ARE BUT EACH FOR HAS ITS MAY NOR NOT THE WAS
+    """.split()
+)
 LEADING_PAGE_NUMBER_SECTION_TAG_RE = re.compile(
     r"<section>\s*(?P<page>\d{1,3})\s+(?P<title>(?:Section\s+)?\d{1,2}\.\d{1,3}\b.*?)</section>",
     re.IGNORECASE | re.DOTALL,
@@ -449,6 +466,21 @@ def normalize_no_space_section_prefixes(tagged_text: str) -> tuple[str, XMLTagRe
         return f"<section>{match.group('prefix')} {match.group('number')}"
 
     return NO_SPACE_SECTION_PREFIX_TAG_RE.sub(repl, tagged_text), stats
+
+
+def move_split_word_tails_into_headings(tagged_text: str) -> tuple[str, XMLTagRepairStats]:
+    """Move a word tail glued to a closing heading tag back inside the heading."""
+    stats = XMLTagRepairStats()
+
+    def repl(match: re.Match[str]) -> str:
+        stats.attempts["move_split_word_tails_into_headings"] += 1
+        if match.group("tail").upper() in SPLIT_TAIL_SENTENCE_WORDS:
+            return match.group(0)
+        stats.applied["move_split_word_tails_into_headings"] += 1
+        return f"{match.group('tail')}</{match.group('tag')}>"
+
+    repaired = DIGIT_LETTER_SPLIT_TAIL_RE.sub(repl, tagged_text)
+    return LETTER_DIGIT_SPLIT_TAIL_RE.sub(repl, repaired), stats
 
 
 def split_leading_page_number_section_tags(tagged_text: str) -> tuple[str, XMLTagRepairStats]:
