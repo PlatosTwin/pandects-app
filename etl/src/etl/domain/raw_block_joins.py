@@ -74,7 +74,7 @@ _HIDDEN_STYLE_RE = re.compile(
     r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))", re.IGNORECASE
 )
 # Characters the page-text extractor drops (normalize_text).
-_DROPPED_CHARS_RE = re.compile("[\x00-\x08\x0B\x0C\x0E-\x1F\u200B-\u200F\u202A-\u202E\u2060\uFEFF]")
+_DROPPED_CHARS_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060\uFEFF]")
 _BLANK_LINE_RE = re.compile(r"\n[^\S\n]*\n")
 _WS_RE = re.compile(r"\s+")
 
