@@ -2165,6 +2165,17 @@ def _tag_companion(line: str) -> tuple[str, str] | None:
     return tags[0].group(0), companion
 
 
+_PAGE_NUMBER_NEIGHBOR_RE = re.compile(r"(?i)page|pg\.?|p\.|of|[-\u2013\u2014|:,]+")
+
+
+def _page_number_position(tokens: list[str], i: int) -> bool:
+    """Whether token ``i`` sits where a running line prints its page number: at
+    either end of the line, or next to "Page", "of" or a dash."""
+    if i == 0 or i == len(tokens) - 1:
+        return True
+    return any(_PAGE_NUMBER_NEIGHBOR_RE.fullmatch(tokens[j]) for j in (i - 1, i + 1))
+
+
 def _digit_fit(copies: dict[int, list[str]], orders: list[int]) -> tuple[dict[int, bool], bool] | None:
     """Whether the numbers in a repeated line (one copy per page, as tokens) are furniture.
 
@@ -2186,6 +2197,8 @@ def _digit_fit(copies: dict[int, list[str]], orders: list[int]) -> tuple[dict[in
             continue
         if not all(_PLAIN_NUMBER_RE.fullmatch(value) for value in values):
             return None
+        if not _page_number_position(sample, i):
+            return None  # "POLARIS SUB 2 INC." names a different signer on each page
         offsets: dict[int, int] = {}
         for k, run in copies.items():
             offsets[int(run[i]) - orders[k]] = offsets.get(int(run[i]) - orders[k], 0) + 1

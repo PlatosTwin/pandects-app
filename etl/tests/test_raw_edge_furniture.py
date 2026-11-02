@@ -207,6 +207,14 @@ class RepeatedLineTests(unittest.TestCase):
                  for n in range(6)]
         self.assertEqual(_strip(pages), [page.text for page in pages])
 
+    def test_numbered_signer_names_on_consecutive_pages_stay(self) -> None:
+        # ef3dd3d1: "POLARIS SUB 1 INC." to "POLARIS SUB 5 INC." head pages 107 to 111.
+        pages = [_page(f"POLARIS SUB {n} INC.\nBy: /s/ David Babin\nName: David Babin\nSignature Page to Agreement and Plan of Merger",
+                       _html(f"POLARIS SUB {n} INC.", "By:", "/s/ David Babin", "Name:", "David Babin",
+                             "Signature Page to Agreement and Plan of Merger"), 106 + n, "sig")
+                 for n in range(1, 7)]
+        self.assertEqual(_strip(pages), [page.text for page in pages])
+
     def test_signature_page_legend_and_enumerators_stay(self) -> None:
         pages = [_page(f"(b)\ntext {n}\n[Signature Page to Stock Purchase Agreement]",
                        _html("(b)", f"text {n}", "[Signature Page to Stock Purchase Agreement]"), n, "sig") for n in range(6)]
