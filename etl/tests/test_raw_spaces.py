@@ -179,6 +179,34 @@ class HyphenTests(unittest.TestCase):
         self.assertEqual(restore(text, raw), text)
 
 
+    def test_dash_leaders_are_kept(self) -> None:
+        raw = "<p>Target Working Capital ----------- Closing Merger Consideration $56,023</p>"
+        text = "Target Working Capital - - - - - - Closing Merger Consideration $56,023"
+        self.assertEqual(restore(text, raw), text)
+
+
+class MarkupTests(unittest.TestCase):
+    def test_heading_number_split_by_a_line_break_stays_one_number(self) -> None:
+        raw = "<p><b>ARTICLE X<br/>I</b></p><p><b>MISCELLANEOUS</b></p><p>Section 11.1 Notices. All notices hereunder</p>"
+        text = "<article>ARTICLE XI MISCELLANEOUS</article>Section 11.1 Notices. All notices hereunder"
+        self.assertEqual(restore(text, raw), text)
+        raw2 = "<p><b>SECTION 1<br/>1.14. Counterparts.</b> This Agreement may be executed in counterparts</p>"
+        text2 = "<section>SECTION 11.14. Counterparts.</section> This Agreement may be executed in counterparts"
+        self.assertEqual(restore(text2, raw2), text2)
+
+    def test_glued_words_in_a_heading_are_split(self) -> None:
+        raw = "<p><b>ARTICLE III</b></p><p><b>EFFECT ON THE EQUITY INTERESTS</b><br/><b>OF THE CONSTITUENT COMPANIES</b></p>"
+        text = "<article>ARTICLE III EFFECT ON THE EQUITY INTERESTSOF THE CONSTITUENT COMPANIES</article>"
+        self.assertEqual(
+            restore(text, raw), "<article>ARTICLE III EFFECT ON THE EQUITY INTERESTS OF THE CONSTITUENT COMPANIES</article>"
+        )
+
+    def test_page_marker_values_are_not_edited(self) -> None:
+        raw = "<p>and the Buyer shall pay the Purchase Price at the Closing to the Seller</p><p>- 2<br/>-</p>"
+        text = "and the Buyer shall pay the Purchase Price at the Closing to the Seller <page>- 2-</page>"
+        self.assertEqual(restore(text, raw), text)
+
+
 class GlyphTests(unittest.TestCase):
     def test_bullets_map_to_a_bullet(self) -> None:
         self.assertEqual(map_private_use_glyphs(" Items that violate code"), "• Items that violate code")

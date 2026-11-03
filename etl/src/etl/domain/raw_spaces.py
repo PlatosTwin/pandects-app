@@ -258,7 +258,9 @@ def _split_points(token: str, words: set[str], max_pieces: int = 4) -> list[int]
 # --- the page text ---------------------------------------------------------------------------------------
 
 # Markup the tagger and the builder put into page text.
-_MARKUP_RE = re.compile(r"<pageUUID>.*?</pageUUID>|</?(?:article|section|page)>", re.DOTALL)
+# (A <page> marker's number is a separate value: it is never edited.)
+_MARKUP_RE = re.compile(r"<pageUUID>.*?</pageUUID>|<page>.*?</page>|</?(?:article|section)>", re.DOTALL)
+_ROMAN_LETTERS = frozenset("IVXLCDM")
 _HYPHENS = "-‐‑"
 _NO_SPACE_NEXT_TO = frozenset("-‐‑‒–—―/\\")
 _NO_SPACE_BEFORE = frozenset(".,;:!?)]}”’'\"%")
@@ -338,12 +340,22 @@ class _PageView:
         pos: list[int] = []
         # markup_after[i]: markup sits between visible char i-1 and i
         self.markup_before: set[int] = set()
+        # visible indices inside an <article> or <section> heading
+        self.heading: set[int] = set()
+        in_heading = False
         last = 0
         for m in _MARKUP_RE.finditer(text):
             for i in range(last, m.start()):
+                if in_heading:
+                    self.heading.add(len(chars))
                 chars.append(text[i])
                 pos.append(i)
             self.markup_before.add(len(chars))
+            tag = m.group(0)
+            if tag in ("<article>", "<section>"):
+                in_heading = True
+            elif tag in ("</article>", "</section>"):
+                in_heading = False
             last = m.end()
         for i in range(last, len(text)):
             chars.append(text[i])
@@ -459,6 +471,12 @@ def restore_raw_spaces(page_text: str, raw_html: str | None, *, collect: bool = 
             continue
         if right in _NO_SPACE_BEFORE or left in _NO_SPACE_AFTER:
             continue
+        if j in view.heading and (
+            (left.isdigit() and right.isdigit()) or (left in _ROMAN_LETTERS and right in _ROMAN_LETTERS)
+        ):
+            # A heading number printed across a line break ("ARTICLE X<br>I",
+            # "SECTION 1<br>1.14") stays one number.
+            continue
         gap = _check_junction(view, raw, j)
         if gap is None:
             continue
@@ -471,6 +489,13 @@ def restore_raw_spaces(page_text: str, raw_html: str | None, *, collect: bool = 
                           "context": vis[max(0, j - 40):j] + "|" + vis[j:j + 40]})
     for i in removes:
         if i in view.markup_before or i + 1 in view.markup_before:
+            continue
+        # Only a hyphen joined to a word on its other side ("Anti -Corruption",
+        # "Post- Closing"); never in rules or leaders ("- - - -").
+        if vis[i + 1] in _HYPHENS:
+            if not (vis[i - 1].isalnum() and i + 2 < len(vis) and vis[i + 2].isalnum()):
+                continue
+        elif not (vis[i + 1].isalnum() and i >= 2 and vis[i - 2].isalnum()):
             continue
         if view.pos[i + 1] != view.pos[i] + 1 or view.pos[i] != view.pos[i - 1] + 1:
             continue
