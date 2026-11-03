@@ -293,6 +293,214 @@ class RepeatedLineTests(unittest.TestCase):
         self.assertEqual(_strip(pages), [page.text for page in pages])
 
 
+def _clause(n: int) -> str:
+    """A body line that differs from page to page."""
+    return f"({n}) The Seller shall deliver to the Buyer the {['deed', 'title', 'bill', 'note', 'lease', 'permit', 'policy', 'record', 'consent', 'release', 'notice', 'waiver'][n % 12]} numbered {n}."
+
+
+class FollowUpTests(unittest.TestCase):
+    """Round 9: legends past the window, remnants after a cut, and shapes the pass missed."""
+
+    LEGEND = [
+        "CONFIDENTIAL INFORMATION, MARKED BY BRACKETS AND ASTERISKS",
+        "([***]), IN THIS EXHIBIT HAS BEEN OMITTED AND FILED SEPARATELY WITH",
+        "THE SECURITIES AND EXCHANGE COMMISSION. CONFIDENTIAL",
+        "TREATMENT HAS BEEN REQUESTED WITH RESPECT TO THIS OMITTED",
+        "INFORMATION.",
+    ]
+
+    def test_a_legend_longer_than_the_window_goes_with_its_last_line(self) -> None:
+        # 0cf0c20d: five filed lines; the window sees four, and "INFORMATION." stayed.
+        pages = [_page("\n".join(self.LEGEND[3:] + [_clause(n), BODY, _clause(n + 20)]),
+                       _html(*self.LEGEND, _clause(n)) + RAW_BODY + _html(_clause(n + 20)), n)
+                 for n in range(10, 16)]
+        out = _strip(pages)
+        self.assertEqual(out[0], pages[0].text)  # the first copy of a line without digits stays
+        self.assertEqual(out[1:], [f"{_clause(n)}\n{BODY}\n{_clause(n + 20)}" for n in range(11, 16)])
+
+    def test_the_line_after_a_finished_legend_stays(self) -> None:
+        legend = ["CONFIDENTIAL TREATMENT HAS BEEN REQUESTED FOR PORTIONS OF THIS", "EXHIBIT. OMITTED PORTIONS ARE MARKED [***]."]
+        pages = [_page("\n".join(legend + ["EXHIBIT A", _clause(n), BODY, _clause(n + 20)]),
+                       _html(*legend, "EXHIBIT A", _clause(n)) + RAW_BODY + _html(_clause(n + 20)), n, "back_matter")
+                 for n in range(10, 16)]
+        self.assertEqual(_strip(pages)[1:], [f"EXHIBIT A\n{_clause(n)}\n{BODY}\n{_clause(n + 20)}" for n in range(11, 16)])
+
+    def test_a_legend_run_together_on_a_contents_page_is_not_split(self) -> None:
+        # 0cf0c20d p5: the contents layout runs the legend's lines together.
+        toc = _page("CONFIDENTIAL INFORMATION, MARKED BY BRACKETS AND ASTERISKS ([***]), IN THIS\n1.1 Definitions 1",
+                    _html(*self.LEGEND, "1.1 Definitions", "1"), 3, "toc")
+        body = [_page("\n".join(self.LEGEND[3:] + [_clause(n)]), _html(*self.LEGEND, _clause(n)), n) for n in range(10, 16)]
+        self.assertEqual(_strip([toc] + body)[0], toc.text)
+
+    def test_page_number_printed_before_a_document_id(self) -> None:
+        # aa74da09: "© King & Wood Mallesons" / "Share Sale Agreement" / "57" / "30379804_3".
+        pages = [_page(f"{_clause(n)}\n© King & Wood Mallesons Share Sale Agreement {n} 30379804_3",
+                       _html(_clause(n), "© King & Wood Mallesons", "Share Sale Agreement", str(n), "30379804_3"), n + 4, "back_matter")
+                 for n in range(57, 63)]
+        self.assertEqual(_strip(pages), [_clause(n) for n in range(57, 63)])
+
+    def test_label_and_page_number_on_two_filed_lines(self) -> None:
+        # 084f7187: "Confidential" / "Page 3", run together by the tagger.
+        pages = [_page(f"{_clause(n)}\nConfidential Page {n}", _html(_clause(n), "Confidential", f"Page {n}"), n + 80, "back_matter")
+                 for n in range(2, 8)]
+        self.assertEqual(_strip(pages), [_clause(n) for n in range(2, 8)])
+
+    def test_page_no_column_header_on_two_lines(self) -> None:
+        # 8594846e: "Page" / "No." heads each contents page.
+        pages = [_page(f"Page\nNo.\n2.{n} Real Property {n}", _html("EXECUTION COPY", "Page", "No.", f"2.{n} Real Property", str(n)), n, "toc")
+                 for n in range(2, 5)]
+        self.assertEqual(_strip(pages), [f"2.{n} Real Property {n}" for n in range(2, 5)])
+
+    def test_cut_that_would_leave_only_a_document_id_is_not_made(self) -> None:
+        # 658630f7 p22: the page prints only "A05230281/1.15/02 Jul 2005 - 22 -".
+        pages = [_page(f"{_clause(n)}\nA05230281/1.15/02 Jul 2005 - {n} -", _html(_clause(n), f"A05230281/1.15/02 Jul 2005 - {n} -"), n, "back_matter")
+                 for n in range(17, 22)]
+        lone = _page("A05230281/1.15/02 Jul 2005 - 22 -", _html("A05230281/1.15/02 Jul 2005 - 22 -"), 22, "back_matter")
+        self.assertEqual(_strip(pages + [lone])[-1], lone.text)
+
+    def test_misprinted_running_title_left_by_a_cut(self) -> None:
+        # 4dda3f3e p26: "Refinery Assel Purchase Agreement" / "Page 20 of 63"; other pages print "Asset".
+        pages = [_page(f"{_clause(n)}\n<page>{n}</page>", _html(_clause(n), "Refinery Asset Purchase Agreement", f"Page {n} of 63"), n + 6)
+                 for n in range(14, 20)]
+        typo = _page(f"{_clause(20)}\nRefinery Assel Purchase Agreement Page <page>20</page> of 63",
+                     _html(_clause(20), "Refinery Assel Purchase Agreement", "Page 20 of 63"), 26)
+        self.assertEqual(_strip(pages + [typo])[-1], f"{_clause(20)}\n<page>20</page>")
+
+    def test_exhibit_running_footers_that_open_with_a_heading_word(self) -> None:
+        # c3e4cc2c: "EXHIBIT 5.19" / "MUTUAL TERMINATION OF EMPLOYMENT AGREEMENT" / "PAGE 2".
+        footer = ["EXHIBIT 5.19", "MUTUAL TERMINATION OF EMPLOYMENT AGREEMENT"]
+        pages = [_page(f"{BODY}\n{_clause(n)}\nEXHIBIT 5.19 MUTUAL TERMINATION OF EMPLOYMENT AGREEMENT PAGE {n}",
+                       RAW_BODY + _html(_clause(n), *footer, f"PAGE {n}"), n + 102, "back_matter") for n in range(1, 7)]
+        self.assertEqual(_strip(pages), [f"{BODY}\n{_clause(n)}" for n in range(1, 7)])
+
+    def test_unnumbered_schedule_footer_on_most_of_its_pages(self) -> None:
+        # 98763580: "Schedule 1 Definitions" heads the schedule and foots each of its pages.
+        first = _page(f"Schedule 1 Definitions\n1 Definitions\n{BODY}\n{_clause(0)}\nSchedule 1 Definitions",
+                      _html("Schedule 1 Definitions", "1", "Definitions") + RAW_BODY + _html(_clause(0), "Schedule 1 Definitions"),
+                      74, "back_matter")
+        rest = [_page(f"{BODY}\n{_clause(n)}\nSchedule 1 Definitions", RAW_BODY + _html(_clause(n), "Schedule 1 Definitions"),
+                      74 + n, "back_matter") for n in range(1, 12)]
+        out = _strip([first] + rest)
+        self.assertEqual(out[0].split("\n")[0], "Schedule 1 Definitions")  # the heading stays
+        self.assertEqual(out[1:], [f"{BODY}\n{_clause(n)}" for n in range(1, 12)])
+
+    def test_unnumbered_back_matter_line_on_few_pages_stays(self) -> None:
+        pages = [_page(f"{_clause(n)}\nSchedule 1 Definitions", _html(_clause(n), "Schedule 1 Definitions"), 74 + n, "back_matter")
+                 for n in range(1, 7)]
+        self.assertEqual(_strip(pages), [page.text for page in pages])
+
+    def test_contents_page_number_left_by_a_document_id_cut(self) -> None:
+        # 7b305b77: "iv 1103593863\\14\\AMERICAS" on each contents page.
+        pages = [_page(f"Schedule {chr(64 + n)} - Form {n}\n{roman} 1103593863\\14\\AMERICAS",
+                       _html(f"Schedule {chr(64 + n)} - Form {n}", roman, "1103593863\\14\\AMERICAS"), n, "toc")
+                 for n, roman in zip(range(1, 6), ["i", "ii", "iii", "iv", "v"])]
+        self.assertEqual(_strip(pages), [f"Schedule {chr(64 + n)} - Form {n}" for n in range(1, 6)])
+
+    def test_tag_on_the_page_total_leaves_the_line_as_filed(self) -> None:
+        # b10f7961: "56 | 76" with the total tagged; removing the line would drop the real number.
+        pages = [_page(f"{_clause(n)}\n{n} | <page>76</page>", _html(_clause(n), f"{n} | 76"), n - 1) for n in range(54, 60)]
+        self.assertEqual(_strip(pages), [page.text for page in pages])
+
+    def test_page_total_printed_after_the_tag_still_goes(self) -> None:
+        # 39c47c24 "15 | 100", 7658303f "EXCHANGE AGREEMENT: 2 of 20": the tag holds the page number.
+        pages = [_page(f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n<page>{n}</page> | 100",
+                       _html(_clause(n + 40)) + RAW_BODY + _html(_clause(n), f"{n} | 100"), n - 1) for n in range(14, 20)]
+        self.assertEqual(_strip(pages), [f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n<page>{n}</page>" for n in range(14, 20)])
+
+    def test_only_a_bare_number_before_the_tag_keeps_the_line(self) -> None:
+        # dc15879e "2844184.4 01 <page>6</page>": the "01" ends the document ID, not a printed page number.
+        for printed in ("2844184.4 01", "Exhibit 3"):
+            pages = [_page(f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n{printed} <page>{n}</page>",
+                           _html(_clause(n + 40)) + RAW_BODY + _html(_clause(n), printed, str(n)), n + 4) for n in range(6, 12)]
+            self.assertEqual(_strip(pages), [f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n<page>{n}</page>" for n in range(6, 12)], printed)
+
+    def test_contents_doc_id_cut_leaving_leaders_and_a_roman(self) -> None:
+        # 0073813b p1 "... 30 - i - LEGAL02/39540989v11", a contents page filed as one run.
+        pages = []
+        for n, roman in enumerate(["i", "ii", "iii", "iv", "v", "vi"]):
+            entry = f"Section 4.{n} Title of entry {n}"
+            raw = f"<p>TABLE OF CONTENTS Page ARTICLE {n} HEADING {'.' * 20} {n} {entry} {'.' * 40} {30 + n} - {roman} - LEGAL02/39540989v11</p>"
+            text = f"TABLE OF CONTENTS\nPage\nARTICLE {n} HEADING {'.' * 20} {n}\n    {entry}\n{'.' * 40} {30 + n} - {roman} - LEGAL02/39540989v11"
+            pages.append(_page(text, raw, n + 1, "toc"))
+        for out in _strip(pages):
+            self.assertNotIn("LEGAL02", out)
+
+    def test_two_cut_remnants_do_not_empty_a_page(self) -> None:
+        # Each remnant ("vii" after its document ID) goes only while another line stays.
+        doc_id = "1103593863\\14\\AMERICAS"
+        romans = ["i", "ii", "iii", "iv", "v", "vi"]
+        pages = [_page(f"{doc_id} {roman}\nSchedule {chr(65 + n)} - Form {n}\nSchedule {chr(75 + n)} - Form {n + 10}\n{roman} {doc_id}",
+                       _html(doc_id, roman, f"Schedule {chr(65 + n)} - Form {n}", f"Schedule {chr(75 + n)} - Form {n + 10}", roman, doc_id),
+                       n + 1, "toc") for n, roman in enumerate(romans)]
+        two = _page(f"{doc_id} vii\nvii {doc_id}", _html(doc_id, "vii", "vii", doc_id), 7, "toc")
+        self.assertTrue(_strip(pages + [two])[-1].strip())
+
+    def test_annex_page_labels_with_a_number_or_dashes(self) -> None:
+        # 31ce40ab "Annex 1-6", ea75ff9e "Annex A -5-".
+        for label in ("Annex 1-{n}", "Annex A -{n}-"):
+            pages = [_page(f"{_clause(n)}\n{label.format(n=n)}", _html(_clause(n), label.format(n=n)), n + 82, "back_matter")
+                     for n in range(2, 8)]
+            self.assertEqual(_strip(pages), [_clause(n) for n in range(2, 8)], label)
+
+    def test_legend_printed_only_on_the_pages_it_concerns(self) -> None:
+        # 54234f59: "**" / "The appearance of a double asterisk denotes ..." on 36 of 240 pages.
+        legend = "The appearance of a double asterisk denotes confidential information that has been omitted"
+        pages = [_page(f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n** {legend}" if n % 4 == 0 else f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}",
+                       _html(_clause(n + 40)) + RAW_BODY + (_html(_clause(n), "**", legend) if n % 4 == 0 else _html(_clause(n))), n)
+                 for n in range(40)]
+        out = _strip(pages)
+        self.assertEqual(out[0], pages[0].text)  # the first copy of a line without digits stays
+        self.assertEqual(out[1:], [f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}" for n in range(1, 40)])
+
+    def test_omitted_exhibit_placeholders_stay(self) -> None:
+        # 62c0c79d, 2b485fcc, 6e754aba: what each omitted exhibit's page holds, not a legend.
+        for placeholder in ("[Omitted pursuant to Item 601(a)(5) of Regulation S-K]",
+                            "*Omitted pursuant to Item 601(b)(2) of Regulation S-K.",
+                            "This exhibit has been omitted in accordance with Item 601(b)(2) of Regulation S-K."):
+            pages = [_page(f"{BODY}\n{_clause(n)}", RAW_BODY + _html(_clause(n)), n) for n in range(40)]
+            pages += [_page(f"Exhibit {chr(65 + n)}\nForm of {_clause(n)}\n{placeholder}",
+                            _html(f"Exhibit {chr(65 + n)}", f"Form of {_clause(n)}", placeholder), 40 + n, "back_matter")
+                      for n in range(6)]
+            self.assertEqual(_strip(pages)[40:], [page.text for page in pages[40:]], placeholder)
+
+    def test_last_line_of_a_repeated_footer_block_is_not_split_off(self) -> None:
+        # fc447246: "SIGNATURE PAGE TO" / "AMENDED AND RESTATED" / "REGISTRATION RIGHTS AGREEMENT".
+        block = ["SIGNATURE PAGE TO", "AMENDED AND RESTATED", "REGISTRATION RIGHTS AGREEMENT"]
+        pages = [_page("\n".join([_clause(n + 40), BODY, _clause(n)] + block), _html(_clause(n + 40)) + RAW_BODY + _html(_clause(n), *block),
+                       n + 160, "back_matter") for n in range(12)]
+        self.assertEqual(_strip(pages), [page.text for page in pages])
+
+    def test_placeholder_above_a_legend_stays(self) -> None:
+        # 074c50a1 "[See attached]", beba029b "[***]": what the exhibit's page holds, above its legend.
+        legend = "[ * ] = CERTAIN CONFIDENTIAL INFORMATION CONTAINED IN THIS DOCUMENT, MARKED BY BRACKETS, HAS BEEN OMITTED"
+        pages = [_page(f"{BODY}\n{_clause(n)}\n{legend}", RAW_BODY + _html(_clause(n), legend), n) for n in range(12)]
+        for placeholder in ("[See attached]", "[***]"):
+            exhibits = [_page(f"EXHIBIT {chr(65 + n)}\nFORM OF {_clause(n)}\n{placeholder}\n{legend}",
+                              _html(f"EXHIBIT {chr(65 + n)}", f"FORM OF {_clause(n)}", placeholder, legend), 12 + n, "back_matter")
+                         for n in range(6)]
+            out = _strip(pages + exhibits)
+            self.assertEqual(out[12:], [f"EXHIBIT {chr(65 + n)}\nFORM OF {_clause(n)}\n{placeholder}" for n in range(6)], placeholder)
+
+    def test_line_above_a_legend_that_opens_with_its_marker_stays(self) -> None:
+        # c5001544: "**** Confidential Treatment ..." starts its legend; the line above is not part of it.
+        legend = "**** Confidential Treatment has been requested for certain redacted provisions of this Agreement"
+        party = [f"Signed for Party {n * 7 % 13}" for n in range(12)]  # numbers that do not run with the pages
+        pages = [_page(f"{_clause(n + 20)}\n{BODY}\n{_clause(n)}\n{party[n]}\n{legend}",
+                       _html(_clause(n + 20)) + RAW_BODY + _html(_clause(n), party[n], legend), n) for n in range(12)]
+        self.assertEqual(_strip(pages)[1:], [f"{_clause(n + 20)}\n{BODY}\n{_clause(n)}\n{party[n]}" for n in range(1, 12)])
+
+    def test_a_page_of_furniture_is_never_emptied(self) -> None:
+        # adf3a88b p168: a page holding only "Confidential and Proprietary" and the SEC legend.
+        legend = "CONFIDENTIAL TREATMENT HAS BEEN REQUESTED FOR PORTIONS OF THIS EXHIBIT"
+        pages = [_page(f"{_clause(n)}\n{BODY}\n{_clause(n + 20)}\n<page>{n}</page>\nConfidential and Proprietary\n{legend}",
+                       _html(_clause(n)) + RAW_BODY + _html(_clause(n + 20), str(n), "Confidential and Proprietary", legend), n + 5)
+                 for n in range(15, 21)]
+        empty = _page(f"Confidential and Proprietary\n{legend}", _html("163", "Confidential and Proprietary", legend), 168, "back_matter")
+        out = _strip(pages + [empty])
+        self.assertEqual(out[1:6], [f"{_clause(n)}\n{BODY}\n{_clause(n + 20)}\n<page>{n}</page>" for n in range(16, 21)])
+        self.assertEqual(out[6], empty.text)
+
+
 class GenerateXmlRawEdgeFurnitureTests(unittest.TestCase):
     def test_served_xml_loses_the_page_number_and_keeps_its_structure(self) -> None:
         # 3c87786e: "- 66 -" closed 10.11 because the tagger did not wrap it.

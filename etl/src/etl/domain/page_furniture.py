@@ -142,6 +142,7 @@ Known limitations (each needs a coincidence the rules cannot see through):
   applies.
 """
 
+import difflib
 import html
 import re
 from collections.abc import Callable
@@ -1962,6 +1963,16 @@ def strip_nonbody_page_furniture(
 #   ``MAX_RAW_JOINED_LINES`` filed lines) is not cut when the word after it has
 #   the same shape on most of the pages it is cut from: the furniture goes on past
 #   the limit, and a partial cut would leave the rest glued to the text.
+# - A legend longer than the edge window goes with its last lines
+#   (``_drop_legend_continuations``). A legend of ``MIN_RAW_LEGEND_CHARS`` or more
+#   that explains a marker ("** The appearance of a double asterisk denotes ...")
+#   and is printed only on the pages it concerns counts on ``MIN_RAW_REPEAT_PAGES``
+#   pages at any share. A back-matter footer that opens with a heading word ("Schedule 1
+#   Definitions", "EXHIBIT 5.19 ...") counts when it is the last filed line of
+#   ``MIN_EXHIBIT_FOOTER_PAGES`` pages (``exhibit_footer``). What a cut leaves goes
+#   too when it is the page number alone ("iv" after its document ID) or a
+#   misprint of a running title ("Refinery Assel Purchase Agreement"). A line
+#   whose tag wraps the page total ("56 | <page>76</page>") stays as filed.
 #
 # A page is never emptied.
 
@@ -2065,8 +2076,11 @@ _TOKEN_LABEL_RE = re.compile(
     r"|(?P<letter>[A-Z])\s(?P<n2>\d{1,3})"
 )
 # "Appendix A-1", "Annex B-3": read only at the bottom of a page (at the top it is a caption).
+# Also "Annex 1-6" and "Annex A -5-".
 _TOKEN_WORD_LABEL_RE = re.compile(
-    r"(?:appendix|annex(?:ure)?|exhibit|schedule)\s+(?P<prefix>[A-Z]{1,2})\s?[-\u2013\u2014]\s?(?P<n>\d{1,3})", re.IGNORECASE
+    r"(?:appendix|annex(?:ure)?|exhibit|schedule)\s+(?P<prefix>[A-Z]{1,2}|\d{1,2})\s?[-\u2013\u2014]\s?(?P<n>\d{1,3})"
+    r"(?:\s?[-\u2013\u2014])?",
+    re.IGNORECASE,
 )
 _TOKEN_LABEL_PAGE_RE = re.compile(
     r"(?:(?:appendix|annex(?:ure)?|exhibit|schedule|attachment)\s+[A-Z0-9][\w.\-]{0,6}|confidential)"
@@ -2149,9 +2163,17 @@ _RESIDUE_LINE_RE = re.compile(r"[.|]")
 # ("/ 107", "of 92"), or the same number printed again.
 _TAG_COMPANION_RE = re.compile(r"[.|]|(?:/|of)\s*\d{1,3}|\d{1,3}", re.IGNORECASE)
 _RAW_LEGEND_WORD_RE = re.compile(r"confidential|omitted|redacted|initials|privileged", re.IGNORECASE)
+# A legend that explains a marker: it opens with the asterisks ("**", "[***] =", "“********” =")
+# and says what they stand for.
+_MARKER_LEGEND_RE = re.compile(
+    r"[\[“\"(]?\s*\*+\s*[\]”\")]?.*\b(?:confidential|denot\w*|indicat\w*|marked|portions?|redacted|information|filed\s+separately)\b",
+    re.IGNORECASE,
+)
 _DOC_ID_TOKEN_RE = re.compile(r"\d{6,}|\d{4}-\d{4}-\d{4}")
 _PLAIN_NUMBER_RE = re.compile(r"\d{1,3}")
-_TOC_COLUMN_HEADER_RE = re.compile(r"page(?:\s+page)?|section\s+page", re.IGNORECASE)
+# "56 | <page>76</page>": a bare page number, an optional bar, and the tagged total.
+_TOTAL_TAGGED_RE = re.compile(r"(?P<number>\d{1,3})\s*\|?\s*<page>[^<]*</page>")
+_TOC_COLUMN_HEADER_RE = re.compile(r"page(?:\s+page)?|section\s+page|page\s+no\.?", re.IGNORECASE)
 _RAW_HEADING_START_RE = re.compile(
     r"\(?(?:article|section|clause|part|chapter|rule|regulation|paragraph|item|step|schedule|exhibit|annex|appendix)\b",
     re.IGNORECASE,
@@ -2188,8 +2210,14 @@ _PAGE_NUMBER_NEIGHBOR_RE = re.compile(r"(?i)page|pg\.?|p\.|of|[-\u2013\u2014|:,]
 
 def _page_number_position(tokens: list[str], i: int) -> bool:
     """Whether token ``i`` sits where a running line prints its page number: at
-    either end of the line, or next to "Page", "of" or a dash."""
-    if i == 0 or i == len(tokens) - 1:
+    either end of the line (a document ID printed past it does not count:
+    "... Share Sale Agreement 57 30379804_3"), or next to "Page", "of" or a dash."""
+    first, last = 0, len(tokens) - 1
+    while first < i and _DOC_ID_TOKEN_RE.search(tokens[first]):
+        first += 1
+    while last > i and _DOC_ID_TOKEN_RE.search(tokens[last]):
+        last -= 1
+    if i in (first, last):
         return True
     return any(_PAGE_NUMBER_NEIGHBOR_RE.fullmatch(tokens[j]) for j in (i - 1, i + 1))
 
@@ -2229,15 +2257,19 @@ def _digit_fit(copies: dict[int, list[str]], orders: list[int]) -> tuple[dict[in
     return fits, marked
 
 
-def _raw_line_is_eligible(printed: str, legend: bool) -> bool:
-    """A repeated line that can be furniture (see the notes above)."""
+def _raw_line_is_eligible(printed: str, legend: bool, footer: bool = False) -> bool:
+    """A repeated line that can be furniture (see the notes above). A line that
+    opens with a heading word counts only as a footer (``footer``): a heading
+    heads its page, while "Schedule 1 Definitions" or "EXHIBIT 5.19 ... PAGE 3"
+    repeated at the foot of an exhibit's pages is its running footer."""
     if not printed or "<" in printed or ">" in printed:
         return False
     if len(printed) > (MAX_RAW_LEGEND_CHARS if legend else MAX_RAW_REPEATED_CHARS):
         return False
-    if any(pattern.fullmatch(printed) for pattern in _REPEATED_LINE_EXCLUDED_RES) or "/s/" in printed:
+    excluded = _REPEATED_LINE_EXCLUDED_RES[:-1] if footer else _REPEATED_LINE_EXCLUDED_RES  # the last: captions
+    if any(pattern.fullmatch(printed) for pattern in excluded) or "/s/" in printed:
         return False
-    if _RAW_HEADING_START_RE.match(printed):
+    if _RAW_HEADING_START_RE.match(printed) and not footer:
         return False  # "ARTICLE 3" heads each page of an exhibit's articles
     if _DIGIT_ENUMERATOR_RE.fullmatch(printed) or not any(ch.isalnum() for ch in printed):
         return False
@@ -2298,10 +2330,12 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
     raw_tokens: dict[tuple[str, int, str], set[int]] = {}
     for k, lines in enumerate(raw_lines):
         for side, window in (("top", lines[:RAW_EDGE_WINDOW]), ("bottom", lines[-RAW_EDGE_WINDOW:])):
-            for raw_line in window:
-                token = _page_token(raw_line.text)
-                if token is not None:
-                    raw_tokens.setdefault((token.shape, token.value, side), set()).add(k)
+            # A line alone, or a few run together ("Confidential" / "Page 3").
+            for start in range(len(window)):
+                for end in range(start + 1, min(len(window), start + MAX_RAW_JOINED_LINES) + 1):
+                    token = _page_token(" ".join(raw_line.text for raw_line in window[start:end]))
+                    if token is not None:
+                        raw_tokens.setdefault((token.shape, token.value, side), set()).add(k)
     tagged = {k: _clean_tag_values(text) for k, text in enumerate(result.page_texts)}
     tagged_orders = sorted((orders[k], values[-1]) for k, values in tagged.items() if values)
 
@@ -2320,8 +2354,8 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         nearest = ([before[-1]] if before else []) + ([after[0]] if after else [])
         return any(value == anchor_value + orders[k] - anchor_order for anchor_order, anchor_value in nearest)
 
-    def is_page_number(k: int, index: int, side: str) -> bool:
-        line = page_lines[k][index].strip()
+    def is_page_number(k: int, index: int, side: str, text: str | None = None) -> bool:
+        line = (page_lines[k][index] if text is None else text).strip()
         if "<" in line or ">" in line:
             return False
         token = _page_token(line)
@@ -2407,6 +2441,42 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
             return None
         return ("top" if top > bottom else "bottom"), in_body
 
+    def outermost(k: int, key: str, side: str) -> bool:
+        """The filing prints ``key`` as the page's last (bottom) or first (top) lines."""
+        lines = raw_lines[k]
+        for length in range(1, min(len(lines), MAX_RAW_JOINED_LINES) + 1):
+            run = lines[-length:] if side == "bottom" else lines[:length]
+            if " ".join(raw_line.text for raw_line in run).casefold() == key:
+                return True
+        return False
+
+    def exhibit_footer(k: int, key: str, shape: str, side: str) -> bool:
+        """A back-matter footer with no page number ("Schedule 1 Definitions"): the
+        filing prints it as the last line of at least ``MIN_EXHIBIT_FOOTER_PAGES``
+        pages, on ``MIN_EXHIBIT_FOOTER_SHARE`` of the pages from its first copy to
+        its last, in a few words that do not end a sentence."""
+        if pages[k].zone != "back_matter" or side != "bottom" or not outermost(k, key, side):
+            return False
+        if len(key.split()) > MAX_EXHIBIT_FOOTER_WORDS or _SENTENCE_END_RE.search(key):
+            return False
+        copies = [j for j in edge_shapes.get(shape, {}) if pages[j].zone == "back_matter" and outermost(j, key, side)]
+        if len(copies) < MIN_EXHIBIT_FOOTER_PAGES:
+            return False
+        span = other_positions[max(copies)] - other_positions[min(copies)] + 1
+        if len(copies) < MIN_EXHIBIT_FOOTER_SHARE * span:
+            return False
+        # The filed line just above it must change from page to page: when it repeats
+        # too, the footer is the end of a longer block ("SIGNATURE PAGE TO" / "AMENDED
+        # AND RESTATED" / "REGISTRATION RIGHTS AGREEMENT"), and taking its last line
+        # alone would split it.
+        above: dict[str, int] = {}
+        for j in copies:
+            end = _raw_run_end(raw_lines[j], key, "bottom", MAX_RAW_JOINED_LINES)
+            if end is not None and end > 0:
+                text = raw_lines[j][end - 1].text.casefold()
+                above[text] = above.get(text, 0) + 1
+        return not above or max(above.values()) * 2 < len(copies)
+
     def is_furniture_text(k: int, printed: str, side: str) -> bool:
         """A repeated edge line (or run of lines) the filing prints on this page's edge."""
         key = printed.casefold()
@@ -2416,10 +2486,18 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
             return False
         has_digit = _DIGITS_RE.search(printed) is not None
         legend = _RAW_LEGEND_WORD_RE.search(printed) is not None
-        if not _raw_line_is_eligible(printed, legend):
+        if not _raw_line_is_eligible(printed, legend, footer=side == "bottom" and outermost(k, key, side)):
             return False
         shape = _line_shape(key)
         found = running(shape)
+        if found is None and legend and len(printed) >= MIN_RAW_LEGEND_CHARS and _MARKER_LEGEND_RE.match(printed):
+            # A legend printed only on the pages it concerns ("** The appearance of a
+            # double asterisk denotes confidential information ..."): the same words
+            # as their own lines at this edge of enough pages, at any share. It must
+            # explain a marker: "[Omitted pursuant to Item 601(a)(5) ...]" or "*Omitted
+            # pursuant to Item 601(b)(2) ..." is what an omitted exhibit's page holds.
+            copies = sum(1 for edges in raw_edges if key in edges and edges[key][1] and side in edges[key][0])
+            found = (side, True) if copies >= MIN_RAW_REPEAT_PAGES else None
         if found is None or found[0] != side:
             return False
         if not has_digit and min(edge_shapes[shape]) == k:
@@ -2432,11 +2510,14 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
             if fit is None or not fit[0].get(k, False):
                 return False
             marked = fit[1]
-        if (pages[k].zone not in ("body", "back_matter") or not found[1]) and not (marked or legend):
+        if (pages[k].zone not in ("body", "back_matter") or not found[1]) and not (marked or legend or exhibit_footer(k, key, shape, side)):
             return False
         placeholder = printed.startswith("[") or (legend and len(printed) < MIN_RAW_LEGEND_CHARS)
-        if placeholder and not marked and not (found[1] and len(printed) >= MIN_RAW_LEGEND_CHARS):
-            return False  # "[REDACTED]", "[Exhibit has been omitted ...]": what a page or schedule holds
+        if placeholder and not marked and not (found[1] and (len(printed) >= MIN_RAW_LEGEND_CHARS or not printed.startswith("["))):
+            # "[REDACTED]", "[Exhibit has been omitted ...]": what a page or schedule holds.
+            # A short legend repeated on the body pages, unbracketed, is a running line
+            # ("Confidential and Proprietary").
+            return False
         return True
 
     # A law-firm document ID ("|US-DOCS\\140904150.6||") printed as its own edge line on two or more pages.
@@ -2455,8 +2536,9 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
             return False
         return len(doc_id_pages.get(key, ())) >= 2 and k in doc_id_pages[key] and side in raw_edges[k][key][0]
 
-    def is_toc_header(k: int, index: int, side: str) -> bool:
-        """A "Page" column header, or the contents title repeated on a later contents page."""
+    def is_toc_header(k: int, index: int, side: str, dropped: dict[int, tuple[str, str | None]]) -> bool:
+        """A "Page" column header ("Page" / "No." on two lines), or the contents
+        title repeated on a later contents page."""
         if pages[k].zone != "toc" or side != "top":
             return False
         line = page_lines[k][index].strip()
@@ -2464,6 +2546,8 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         if key not in raw_edges[k] or "top" not in raw_edges[k][key][0]:
             return False
         if _TOC_COLUMN_HEADER_RE.fullmatch(key):
+            return True
+        if key in ("no.", "no") and any(kind == "raw_toc_header" for kind, _ in dropped.values()):
             return True
         first_toc = min(j for j, page in enumerate(pages) if page.zone == "toc")
         return k != first_toc and _CONTENTS_HEADING_RE.fullmatch(key) is not None
@@ -2475,12 +2559,22 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         # Page tags on the line stay, a clean one or one that holds a page number
         # with a stray mark ("<page>19 |</page>"); a document ID the tagger wrapped goes.
         kept = [m.group(0) for m in _ANY_PAGE_TAG_RE.finditer(line) if _page_token(m.group("inner")) is not None]
+        if kept:
+            # "56 | <page>76</page>": the tagger wrapped the page total, and the
+            # printed page number is the bare number before it; leave the line as
+            # filed. Only that shape: "<page>15</page> | 100", "... <page>2</page> of
+            # 20", "2844184.4 01 <page>6</page>" and "Exhibit 3 <page>12</page>" go.
+            match = _TOTAL_TAGGED_RE.fullmatch(line)
+            if match and int(match.group("number")) not in _clean_tag_values(line):
+                return False, None
         return True, " ".join(kept) or None
 
     # Whole lines, walked in from each edge.
     drops: list[dict[int, tuple[str, str | None]]] = []
+    walked: list[dict[str, list[int]]] = []  # per page and edge, the lines dropped in walk order
     for k, lines in enumerate(page_lines):
         drop: dict[int, tuple[str, str | None]] = {}
+        walked.append({"top": [], "bottom": []})
         countable = _countable_indexes(lines)
         inside = _lines_inside_headings(lines)
         for side in ("top", "bottom"):
@@ -2490,6 +2584,7 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
                     break
                 if index in drop:
                     continue
+                walked[k][side].append(index)
                 if is_page_number(k, index, side):
                     drop[index] = ("raw_page_number", None)
                 elif is_residue_line(k, index, set(drop)):
@@ -2498,18 +2593,70 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
                     drop[index] = ("raw_page_residue", tag)
                 elif is_doc_id(k, index, side):
                     drop[index] = ("raw_doc_id", None)
-                elif is_toc_header(k, index, side):
+                elif is_toc_header(k, index, side, drop):
                     drop[index] = ("raw_toc_header", None)
                 else:
                     repeated, keep = repeated_line_keep(k, index, side)
                     if not repeated:
+                        walked[k][side].pop()
                         break
                     drop[index] = ("raw_repeated_line", keep)
-        if drop and all(index in drop and drop[index][1] is None for index in countable):
-            drop = {}  # never empty a page
         drops.append(drop)
 
+    _drop_legend_continuations(pages, raw_lines, page_lines, drops, walked, headings, repeated_enough)
+    for k, lines in enumerate(page_lines):
+        countable = _countable_indexes(lines)
+        if drops[k] and all(index in drops[k] and drops[k][index][1] is None for index in countable):
+            drops[k] = {}  # never empty a page
+
     cuts, capped = _raw_affix_cuts(pages, raw_lines, page_lines, drops, repeated_enough)
+
+    edge_key_pages: dict[str, int] = {}  # filled on first use
+
+    def count_edge_keys() -> dict[str, int]:
+        if not edge_key_pages:
+            for edges in raw_edges:
+                for edge_key in edges:
+                    edge_key_pages[edge_key] = edge_key_pages.get(edge_key, 0) + 1
+        return edge_key_pages
+
+    def near_running_line(k: int, text: str) -> bool:
+        """What a cut leaves is a whole filed edge line of this page that differs by a
+        letter or two from a line the filing prints at the edge of
+        ``MIN_RAW_REPEAT_PAGES`` or more pages: its running title, misprinted."""
+        key = _clean_raw_line(text).casefold()
+        words = key.split()
+        if not 2 <= len(words) <= MAX_EXHIBIT_FOOTER_WORDS or key not in raw_edges[k] or _SENTENCE_END_RE.search(key):
+            return False
+        compact = key.replace(" ", "")
+        for other, count in count_edge_keys().items():
+            if count < MIN_RAW_REPEAT_PAGES or other == key:
+                continue
+            other_compact = other.replace(" ", "")
+            if abs(len(other_compact) - len(compact)) > 2 or abs(len(other.split()) - len(words)) > 1:
+                continue
+            if difflib.SequenceMatcher(None, compact, other_compact).ratio() >= MIN_TITLE_SIMILARITY:
+                return True
+        return False
+
+    def continues_into_furniture(k: int, key: str, rest: str, side: str) -> bool:
+        """The text left after a glued cut starts (top) or ends (bottom) with the
+        next filed line inward, that line holds a legend word, and the filing prints
+        that very line at the edge of ``MIN_RAW_REPEAT_PAGES`` or more pages: a
+        legend the page's text runs together, which a cut would split."""
+        raw = raw_lines[k]
+        end = _raw_run_end(raw, key, side, RAW_EDGE_WINDOW)
+        if end is None or not 0 <= (end if side == "top" else end - 1) < len(raw):
+            return False
+        neighbor = raw[end] if side == "top" else raw[end - 1]
+        words = neighbor.text.casefold().split()
+        rest_words = _clean_raw_line(_unwrapped(rest)).casefold().split()
+        span = min(3, len(words), len(rest_words))
+        if not span or (rest_words[:span] != words[:span] if side == "top" else rest_words[-span:] != words[-span:]):
+            return False
+        if not _RAW_LEGEND_WORD_RE.search(neighbor.text):
+            return False  # a running header's next line ("Page: 10" / "Debtors: ..."): the cut leaves it as main does
+        return count_edge_keys().get(neighbor.text.casefold(), 0) >= MIN_RAW_REPEAT_PAGES
     joined_text: list[str] = []
 
     def joined() -> str:
@@ -2549,7 +2696,9 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
                     continue
                 if not raw_bounds[k][key][0 if side == "bottom" else 1]:
                     continue  # the filing runs it on from (or into) the text: a wrapped sentence, not glued
-                if not any(ch.isalpha() for ch in rest) or not is_furniture_text(k, cut, side):
+                if continues_into_furniture(k, key, rest, side):
+                    continue  # the rest of the line is more of the same legend: leave it whole
+                if not (_keeps_text(rest, pages[k].zone) or _page_token(rest) is not None) or not is_furniture_text(k, cut, side):
                     continue
                 if joined().count(key) > len(edge_shapes.get(_line_shape(key), {})):
                     continue  # the agreement prints it elsewhere: it can end a clause
@@ -2565,6 +2714,7 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         if not drop and not page_cuts:
             continue
         kept: list[str] = []
+        left = sum(1 for i in _countable_indexes(lines) if i not in drop)  # never empty the page
         for index, line in enumerate(lines):
             if index in drop:
                 kind, keep = drop[index]
@@ -2578,11 +2728,132 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
                     shorter = _cut_affix(line, cut, side)
                     if shorter != line:
                         result.removed.append(RemovedFurnitureLine(page_index=k, line=cut, kind="raw_fused_line"))
+                        # What a cut leaves can be the page number alone ("iv" after its document ID).
+                        # Each one empties its line, so count down the lines the page keeps.
+                        if left > 1 and is_page_number(k, index, side, shorter):
+                            result.removed.append(RemovedFurnitureLine(page_index=k, line=shorter.strip(), kind="raw_page_number"))
+                            shorter = ""
+                            left -= 1
+                        elif left > 1 and near_running_line(k, _ANY_PAGE_TAG_RE.sub(" ", shorter)):
+                            # Or a running title the filing misprints on this page ("Refinery Assel ...").
+                            title = _clean_raw_line(_ANY_PAGE_TAG_RE.sub(" ", shorter))
+                            result.removed.append(RemovedFurnitureLine(page_index=k, line=title, kind="raw_repeated_line"))
+                            shorter = " ".join(m.group(0) for m in _ANY_PAGE_TAG_RE.finditer(shorter))
+                            left -= 1
                     line = shorter
             if line.strip():
                 kept.append(line)
         result.page_texts[k] = "\n".join(kept)
     return result
+
+
+MAX_LEGEND_CONTINUATION_LINES = 4
+MIN_EXHIBIT_FOOTER_PAGES = 10
+MIN_EXHIBIT_FOOTER_SHARE = 0.8
+MAX_EXHIBIT_FOOTER_WORDS = 8
+MIN_TITLE_SIMILARITY = 0.9
+_SENTENCE_END_RE = re.compile(r"[.;:!?][\s\"'\u201d\u2019)\]]*$")
+
+
+def _raw_run_end(lines: list[_RawLine], key: str, side: str, limit: int) -> int | None:
+    """Where the filed lines that print ``key`` (casefolded, possibly several lines
+    run together) end, counted from this edge: the index of the first raw line past
+    the run (top), or of the run's first line (bottom). Only the first ``limit``
+    lines from the edge are searched."""
+    ordered = lines[:limit] if side == "top" else lines[::-1][:limit]
+    for start in range(len(ordered)):
+        for end in range(start + 1, min(len(ordered), start + MAX_RAW_JOINED_LINES) + 1):
+            run = ordered[start:end] if side == "top" else ordered[start:end][::-1]
+            if " ".join(raw_line.text for raw_line in run).casefold() == key:
+                return end if side == "top" else len(lines) - end
+    return None
+
+
+def _drop_legend_continuations(
+    pages: list[RawEdgePage],
+    raw_lines: list[list[_RawLine]],
+    page_lines: list[list[str]],
+    drops: list[dict[int, tuple[str, str | None]]],
+    walked: list[dict[str, list[int]]],
+    headings: set[str],
+    repeated_enough: Callable[[set[int]], tuple[bool, bool]],
+) -> None:
+    """Carry a removed legend's last lines with it.
+
+    The edge window sees ``RAW_EDGE_WINDOW`` filed lines, so a longer legend
+    ("... TREATMENT HAS BEEN REQUESTED WITH RESPECT TO THIS OMITTED" / "INFORMATION.")
+    loses its first lines and keeps its tail. The next line inward is taken too
+    when the filing prints it right after the removed lines, the lines from the
+    page edge through it hold a legend word, and the same line follows the removed
+    lines on ``MIN_RAW_REPEAT_PAGES`` or more pages, at the share a repeated line
+    needs, and the legend's sentence runs on into it (the line before the junction
+    does not end a sentence). A one-word line ("AMENDED.") counts. The agreement's
+    headings and tagged lines stay."""
+    reach = RAW_EDGE_WINDOW + MAX_LEGEND_CONTINUATION_LINES * MAX_RAW_JOINED_LINES
+    taken = {k: {"top": 0, "bottom": 0} for k in range(len(pages))}
+    while True:
+        found: dict[tuple[str, str], dict[int, tuple[int, int]]] = {}
+        for k, lines in enumerate(page_lines):
+            countable = _countable_indexes(lines)
+            inside = _lines_inside_headings(lines)
+            for side in ("top", "bottom"):
+                run = walked[k][side]
+                if not run or taken[k][side] >= MAX_LEGEND_CONTINUATION_LINES:
+                    continue
+                if drops[k][run[-1]][0] not in ("raw_repeated_line", "raw_legend_continuation"):
+                    continue
+                ordered = countable if side == "top" else countable[::-1]
+                position = ordered.index(run[-1]) + 1
+                if position >= len(ordered):
+                    continue
+                index = ordered[position]
+                line = lines[index].strip()
+                if index in drops[k] or index in inside or "<" in line or ">" in line:
+                    continue
+                printed = _clean_raw_line(line)
+                key = printed.casefold()
+                # (A heading word can open the line: the legend's sentence runs on into it,
+                # "... IN ACCORDANCE WITH" / "RULE 24B-2 UNDER ...".)
+                if not printed or len(printed) > MAX_RAW_LEGEND_CHARS or key in headings:
+                    continue
+                raw = raw_lines[k]
+                last = _clean_raw_line(_unwrapped(lines[run[-1]])).casefold()
+                end = _raw_run_end(raw, last, side, reach)
+                if end is None:
+                    continue
+                for length in range(1, MAX_RAW_JOINED_LINES + 1):
+                    piece = raw[end : end + length] if side == "top" else raw[max(0, end - length) : end]
+                    if len(piece) < length:
+                        break
+                    if " ".join(raw_line.text for raw_line in piece).casefold() != key:
+                        continue
+                    # The legend's sentence runs on across the junction: the upper line ends
+                    # in a word or a comma ("... THIS OMITTED" / "INFORMATION."), and both
+                    # lines are set alike. "[See attached]" or "[***]" above a legend is what
+                    # the page holds.
+                    before = raw[end - 1].text if side == "top" else piece[-1].text
+                    after = piece[0].text if side == "top" else raw[end].text
+                    if _SENTENCE_END_RE.search(before) or not _RUNS_ON_RE.search(before):
+                        break
+                    if not after[:1].islower() and _all_capitals(before) != _all_capitals(after):
+                        break
+                    if _OPENS_ITEM_RE.match(after):
+                        break  # "**** Confidential ...", "[***] ...": a legend's first line, or a new item
+                    edge_part = raw[: end + length] if side == "top" else raw[end - length :]
+                    if _RAW_LEGEND_WORD_RE.search(" ".join(raw_line.text for raw_line in edge_part)):
+                        found.setdefault((side, _line_shape(key)), {})[k] = (index, length)
+                    break
+        accepted = False
+        for (side, _), copies in found.items():
+            if len(copies) < MIN_RAW_REPEAT_PAGES or not any(repeated_enough(set(copies))):
+                continue
+            for k, (index, _) in copies.items():
+                drops[k][index] = ("raw_legend_continuation", None)
+                walked[k][side].append(index)
+                taken[k][side] += 1
+                accepted = True
+        if not accepted:
+            return
 
 
 def _drop_continued_cuts(
@@ -2666,6 +2937,35 @@ def _opens_own_paragraph(lines: list[_RawLine], length: int, side: str) -> bool:
         if count > length:
             return False
     return True
+
+
+_WORD_RE = re.compile(r"[^\W\d_]{2,}")
+_OPENS_ITEM_RE = re.compile(r"\s*(?:[\[\u201c\"(]\s*)?\*|\s*\[")
+_RUNS_ON_RE = re.compile(r"[^\W_]\s*$|,\s*$")
+
+
+def _all_capitals(text: str) -> bool:
+    letters = [ch for ch in text if ch.isalpha()]
+    return bool(letters) and all(ch.isupper() for ch in letters)
+
+
+def _has_words(text: str) -> bool:
+    """Whether a cut leaves text: a word of two or more letters ("A05230281/1.15/02" has none)."""
+    return _WORD_RE.search(text) is not None
+
+
+# The end of a contents entry: leader dots, its page number, a roman page number ("..... 30 - i -", "39 i").
+_TOC_ENTRY_TAIL_RE = re.compile(
+    r"[.\u2026\u00b7_\s]*(?:\d{1,4})?[\s\-\u2013\u2014]*(?:[ivxlc]{1,7})?[\s\-\u2013\u2014]*", re.IGNORECASE
+)
+
+
+def _keeps_text(text: str, zone: str) -> bool:
+    """Whether a cut leaves text: a word of two or more letters ("A05230281/1.15/02" has
+    none), or, on a contents page, the tail of an entry the line runs on from."""
+    if _has_words(text):
+        return True
+    return zone == "toc" and _TOC_ENTRY_TAIL_RE.fullmatch(text) is not None and any(ch.isalnum() or ch == "." for ch in text)
 
 
 def _end_tokens(lines: list[_RawLine], limit: int) -> tuple[list[str], list[str], int]:
@@ -2770,8 +3070,8 @@ def _raw_affix_cuts(
                 if [_clean_raw_line(_ANY_PAGE_TAG_RE.sub(lambda m: m.group("inner"), t)) for t in edge] != run:
                     continue
                 rest = " ".join(tokens[len(run):] if side == "top" else tokens[: -len(run)])
-                if not any(ch.isalpha() for ch in _ANY_PAGE_TAG_RE.sub(" ", rest)):
-                    continue
+                if not _keeps_text(_ANY_PAGE_TAG_RE.sub(" ", rest), pages[k].zone) and _page_token(rest) is None:
+                    break  # nothing but furniture would stay: leave the line as filed
                 cuts[(k, index, side)] = (rest, " ".join(run))
                 if len(run) == MAX_RAW_AFFIX_TOKENS:
                     capped.add((k, index, side))
