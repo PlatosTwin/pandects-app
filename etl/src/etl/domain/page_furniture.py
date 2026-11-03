@@ -2643,6 +2643,17 @@ def _opens_own_paragraph(lines: list[_RawLine], length: int, side: str) -> bool:
     return True
 
 
+_SHORT_NUMBER_RE = re.compile(r"(?<!\d)\d{1,3}(?!\d)")
+
+
+@lru_cache(maxsize=1 << 16)
+def _run_token_shape(token: str) -> str:
+    """A glued run's token with its page-number-sized numbers collapsed. Longer
+    numbers stay as printed, so each document ID ("SK 39196 0005 12134921 v17",
+    "SK 39196 0005 12138149 v5") makes its own run instead of failing as one."""
+    return _SHORT_NUMBER_RE.sub("#", token)
+
+
 def _raw_affix_cuts(
     pages: list[RawEdgePage],
     raw_lines: list[list[_RawLine]],
@@ -2663,7 +2674,7 @@ def _raw_affix_cuts(
         runs: dict[tuple[int, str], dict[int, list[str]]] = {}
         for k, tokens in enumerate(raw_tokens):
             # A run's shape is its tokens' shapes joined (digits never span a space).
-            shapes = [_line_shape(token) for token in (tokens if side == "top" else tokens[::-1])[:MAX_RAW_AFFIX_TOKENS]]
+            shapes = [_run_token_shape(token) for token in (tokens if side == "top" else tokens[::-1])[:MAX_RAW_AFFIX_TOKENS]]
             for length in range(1, min(MAX_RAW_AFFIX_TOKENS, len(tokens) - 1) + 1):
                 run = tokens[:length] if side == "top" else tokens[-length:]
                 shape = " ".join(shapes[:length] if side == "top" else shapes[:length][::-1])

@@ -204,6 +204,19 @@ class RepeatedLineTests(unittest.TestCase):
                  for n, clause in zip(range(4, 10), clauses)]
         self.assertEqual(_strip(pages), [f"<page>{n}</page> {clause} money." for n, clause in zip(range(4, 10), clauses)])
 
+    def test_whole_document_id_comes_off_when_exhibits_print_another_id(self) -> None:
+        # 86d00953: body pages open "9 SK 39196 0005 12134921 v17", exhibit pages
+        # "SK 39196 0005 12138149 v5"; the body ID goes whole, not just "9 SK".
+        words = ["firmware", "software", "hardware", "data", "records", "files", "code", "systems"]
+        pages = [_page(f"<page>{n}</page> SK 39196 0005 12134921 v17 {word} of the Company.",
+                       f"<p>{n} SK 39196 0005 12134921 v17 {word} of the Company.</p>", n + 1)
+                 for n, word in zip(range(2, 8), words)]
+        pages += [_page(f"<page>{n}</page> SK 39196 0005 12138149 v5 {word} of the Buyer.",
+                        f"<p>{n} SK 39196 0005 12138149 v5 {word} of the Buyer.</p>", n + 1, "back_matter")
+                  for n, word in zip(range(8, 10), words[6:])]
+        stripped = _strip(pages)
+        self.assertEqual(stripped[:6], [f"<page>{n}</page> {word} of the Company." for n, word in zip(range(2, 8), words)])
+
     def test_number_the_filing_prints_inside_the_sentence_stays(self) -> None:
         pages = [_page(f"{n} or to be so licensed\n<page>{n}</page>", f"{n} or to be so licensed\nmore text\n\n{n}\n", n, is_html=False)
                  for n in range(5, 11)]
