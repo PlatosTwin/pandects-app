@@ -526,6 +526,62 @@ class TocPrintedTailTests(unittest.TestCase):
         lines = _lines(html)
         self.assertEqual(lines[-2:], ["SCHEDULES", "Schedule 1.1 Knowledge Persons"])
 
+    def test_a_list_in_an_unclosed_paragraph_after_the_table_is_kept(self) -> None:
+        # 0a87f0b4: html.parser nests the unclosed <p> chain, so the list is container text.
+        html = ENTRIES_11 + (
+            "<p>EXHIBITS <p>Exhibit A \u2014 Form of Certificate of Incorporation of Merger Subsidiary"
+            " <p>Exhibit B \u2014 Form of Affiliate\u2019s Rule 145 Letter <p> </p></p></p></p>"
+        )
+        self.assertEqual(
+            _lines(html)[-3:],
+            [
+                "EXHIBITS",
+                "Exhibit A \u2014 Form of Certificate of Incorporation of Merger Subsidiary",
+                "Exhibit B \u2014 Form of Affiliate\u2019s Rule 145 Letter",
+            ],
+        )
+
+    def test_container_text_split_at_line_breaks_is_kept(self) -> None:
+        # ccb8cf8e / ba6cf056: items separated by <br> in a <p> that holds the page-label <p>.
+        html = ENTRIES_11 + (
+            "<p>EXHIBIT A \u2013 Form of Articles of Merger<br/>EXHIBIT B - Form of Agreement of Merger"
+            "<br/>EXHIBIT C - Restated Articles of Incorporation <p>- iv -</p></p>"
+        )
+        self.assertEqual(
+            _lines(html)[-3:],
+            [
+                "EXHIBIT A \u2013 Form of Articles of Merger",
+                "EXHIBIT B - Form of Agreement of Merger",
+                "EXHIBIT C - Restated Articles of Incorporation",
+            ],
+        )
+
+    def test_bare_text_beside_blocks_keeps_its_place(self) -> None:
+        # 18d0b5a5: "Annex A ..." is bare text after the table, before the <p> items.
+        html = (
+            "<div>" + ENTRIES_11 + "<u>Annex A</u> Lovego Holdings Shareholders"
+            "<p>Annex B Definitions</p><p>Annex C Accredited Investor Representations</p></div>"
+        )
+        self.assertEqual(
+            _lines(html)[-3:],
+            ["Annex A Lovego Holdings Shareholders", "Annex B Definitions", "Annex C Accredited Investor Representations"],
+        )
+
+    def test_article_headings_in_a_div_that_holds_the_entries_are_kept(self) -> None:
+        # 0be9807b: "ARTICLE II <br/>PURCHASE AND SALE OF SHARES" is the own text of the entries' div.
+        html = "<div>ARTICLE II <br/>PURCHASE AND SALE OF SHARES<div>" + ENTRIES_11 + "</div></div>"
+        lines = _lines(html)
+        self.assertEqual(lines[:2], ["ARTICLE II", "PURCHASE AND SALE OF SHARES"])
+        self.assertIn("Section 11.12", lines[2])
+
+    def test_cover_text_in_a_container_stays_out(self) -> None:
+        html = "<div>Exhibit 2.1<br/>EXECUTION VERSION<br/>TABLE OF CONTENTS<div>" + ENTRIES_11 + "</div></div>"
+        self.assertIn("Section 11.12", _lines(html)[0])
+
+    def test_a_small_caps_heading_opens_the_leading_extras(self) -> None:
+        # 0d5bdf36 / c762cbbc: "E<small>XHIBITS</small>" reads as "E XHIBITS".
+        html = "<p>E<small>XHIBITS</small></p><p>Exhibit A Form of Voting Agreement</p>" + ENTRIES_11
+        self.assertEqual(_lines(html)[:2], ["E XHIBITS", "Exhibit A Form of Voting Agreement"])
 
 if __name__ == "__main__":
     unittest.main()

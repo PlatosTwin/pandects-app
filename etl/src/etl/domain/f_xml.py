@@ -791,11 +791,18 @@ def _toc_is_list_line(text: str) -> bool:
     return not legend and _TOC_TRAILING_LIST_LABEL_RE.search(stripped.rstrip("]*) ")) is not None
 
 
+# Only list words: "A MERGER SUB" and "ARTICLE I THE MERGER" are not small caps.
+_TOC_SMALL_CAPS_SPLIT_RE = re.compile(
+    r"\b([EASLI]) (?=(?:XHIBIT|CHEDULE|NNEX|PPENDI|TTACHMENT|IST|NDEX|ISCLOSURE)[A-Z]*\b)"
+)
+
+
 def _toc_opens_leading(text: str) -> bool:
     """A line that opens the extras printed before a page's first entry element: an ARTICLE/Section
     heading, a numbered entry row, a list heading or a listed exhibit. A cover title, a party line, a
     bare capital-letter label ("A MERGER SUB, INC.") or an index-shaped line does not."""
-    stripped = _TOC_ITEM_LEAD_RE.sub("", text).strip()
+    # Small caps printed as a capital and the rest: "E XHIBITS", "S CHEDULE 2.1(a)".
+    stripped = _TOC_SMALL_CAPS_SPLIT_RE.sub(r"\1", _TOC_ITEM_LEAD_RE.sub("", text).strip())
     if stripped and _TOC_ENTRY_START_RE.match(stripped) is not None:
         # "ARTICLE 8 [INTENTIONALLY OMITTED] 46" is an entry, not a legend.
         return True
@@ -934,8 +941,11 @@ def _toc_candidate_blocks(
     """The text blocks around the TOC entry elements, in document order, unfiltered.
 
     Returns (position, lines) pairs, where position is the number of entry
-    elements that come before the block. Only leaf text blocks and tables
-    outside every table and entry element count.
+    elements that come before the block. Leaf text blocks and tables outside
+    every table and entry element count, and so does the own text of a container
+    that also holds a block, a table or an entry (an unclosed ``<p>`` after the
+    entry table on EDGAR pages): each run of it between those children is a
+    block, with a line per ``<br>``.
     """
     entry_ids = {id(el) for el in entry_elements}
     candidates = soup.find_all([*_TOC_TEXT_BLOCK_TAGS, "table"])
@@ -952,7 +962,10 @@ def _toc_candidate_blocks(
             if id(parent) in holds_block:
                 break
             holds_block.add(id(parent))
-    blocks: list[tuple[int, tuple[str, ...]]] = []
+    # Document order of every tag, so container runs merge with the blocks in place.
+    order = {id(el): index for index, el in enumerate(soup.find_all(True))}
+    entry_order = sorted(order.get(id(el), -1) for el in entry_elements)
+    blocks: list[tuple[int, int, tuple[str, ...]]] = []
     position = 0
     for el in candidates:
         if id(el) in entry_ids:
@@ -968,8 +981,89 @@ def _toc_candidate_blocks(
             text = _toc_visible_text(el)
             lines = [text] if text else []
         if lines:
-            blocks.append((position, tuple(lines)))
-    return tuple(blocks)
+            blocks.append((order[id(el)], position, tuple(lines)))
+    containers = [
+        el for el in [soup, *soup.find_all(True)]
+        if id(el) not in entry_ids and id(el) not in inside and el.name != "table"
+        and (el is soup or id(el) in holds_block or id(el) in holds_entry)
+    ]
+    for container in containers:
+        for index, lines in _toc_container_runs(container, entry_ids, holds_block, holds_entry, order):
+            # A run sits after the children that come before it; index is its first node's order.
+            before = sum(1 for entry in entry_order if entry < index)
+            blocks.append((index, before, lines))
+    blocks.sort(key=lambda block: block[0])
+    return tuple((position, lines) for _, position, lines in blocks)
+
+
+def _toc_container_runs(
+    container: Tag,
+    entry_ids: set[int],
+    holds_block: set[int],
+    holds_entry: set[int],
+    order: dict[int, int],
+) -> list[tuple[float, tuple[str, ...]]]:
+    """The own text of a container that holds blocks or entries: the runs of its strings and
+    block-free inline children between those children, split at ``<br>``. Each run carries a
+    document-order index just after the tag that precedes it."""
+    runs: list[tuple[float, tuple[str, ...]]] = []
+    lines: list[str] = []
+    current: list[str] = []
+    anchor = order.get(id(container), -1) + 0.5
+    start: float | None = None
+
+    def end_line() -> None:
+        text = _normalize_toc_cell_text("".join(current))
+        if text:
+            lines.append(text)
+        current.clear()
+
+    def flush() -> None:
+        nonlocal start
+        end_line()
+        if lines:
+            runs.append((start if start is not None else anchor, tuple(lines)))
+        lines.clear()
+        start = None
+
+    for child in container.children:
+        if isinstance(child, NavigableString):
+            if isinstance(child, PreformattedString):
+                continue
+            if start is None and str(child).strip():
+                start = anchor
+            current.append(str(child))
+            continue
+        if not isinstance(child, Tag):
+            continue
+        if child.name == "br":
+            end_line()
+            continue
+        if (
+            id(child) in entry_ids
+            or id(child) in holds_block
+            or id(child) in holds_entry
+            or child.name == "table"
+            or child.name in _TOC_TEXT_BLOCK_TAGS
+        ):
+            flush()
+            last = child.find_all(True)
+            anchor = order.get(id(last[-1] if last else child), -1) + 0.5
+            continue
+        if start is None and child.get_text().strip():
+            start = anchor
+        inline = "".join(
+            "\n" if isinstance(node, Tag) and node.name == "br" else str(node)
+            for node in child.descendants
+            if (isinstance(node, Tag) and node.name == "br")
+            or (isinstance(node, NavigableString) and not isinstance(node, PreformattedString))
+        )
+        for part_index, part in enumerate(inline.split("\n")):
+            if part_index:
+                end_line()
+            current.append(part)
+    flush()
+    return runs
 
 
 def _toc_heads_a_list(text: str, following: tuple[str, ...] | list[str]) -> bool:
