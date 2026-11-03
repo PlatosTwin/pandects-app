@@ -120,14 +120,11 @@ def _testimonium_candidates(text: str, region_start: int) -> list[int]:
     """Offsets where a testimonium may open, in order: any "IN WITNESS" phrase,
     and the other openings only at the start of a line."""
     starts = {m.start() for m in _WITNESS_RE.finditer(text, region_start)}
+    # "^" also matches at region_start itself: text right after a heading tag.
     for m in re.finditer(r"(?m)^[ \t]*", text[region_start:]):
         pos = region_start + m.end()
         if pos < len(text) and _TESTIMONIUM_RE.match(text, pos):
             starts.add(pos)
-    if region_start < len(text):
-        lead = region_start + len(text[region_start:]) - len(text[region_start:].lstrip(" \t"))
-        if _TESTIMONIUM_RE.match(text, lead):
-            starts.add(lead)
     return sorted(starts)
 
 
@@ -198,7 +195,7 @@ def _block_split(text: str, region_start: int) -> tuple[int, str] | None:
         lines.append((pos, raw))
         pos += len(raw) + 1
     content = [(p, line) for p, line in lines if line.strip() and not _PAGE_LINE_RE.match(line)]
-    for k, (pos_by, line) in enumerate(content):
+    for k, (_, line) in enumerate(content):
         if _collapsed_block_line(line):
             # The party name and its fields extracted onto one line.
             start = k
@@ -299,10 +296,5 @@ def split_signature_tail(
     moved = re.sub(r"\n{3,}", "\n\n", moved)
     if not moved:
         return SignatureTailSplit(texts)
-    kept = head.rstrip()
-    if page_lines:
-        kept = "\n\n".join([kept, *(line.strip() for line in page_lines)]) if kept else "\n\n".join(
-            line.strip() for line in page_lines
-        )
-    texts[-1] = kept
+    texts[-1] = "\n\n".join(part for part in (head.rstrip(), *page_lines) if part)
     return SignatureTailSplit(texts, moved, len(texts) - 1, trigger)
