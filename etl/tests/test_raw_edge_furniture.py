@@ -401,6 +401,12 @@ class FollowUpTests(unittest.TestCase):
         pages = [_page(f"{_clause(n)}\n{n} | <page>76</page>", _html(_clause(n), f"{n} | 76"), n - 1) for n in range(54, 60)]
         self.assertEqual(_strip(pages), [page.text for page in pages])
 
+    def test_page_total_printed_after_the_tag_still_goes(self) -> None:
+        # 39c47c24 "15 | 100", 7658303f "EXCHANGE AGREEMENT: 2 of 20": the tag holds the page number.
+        pages = [_page(f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n<page>{n}</page> | 100",
+                       _html(_clause(n + 40)) + RAW_BODY + _html(_clause(n), f"{n} | 100"), n - 1) for n in range(14, 20)]
+        self.assertEqual(_strip(pages), [f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n<page>{n}</page>" for n in range(14, 20)])
+
     def test_annex_page_labels_with_a_number_or_dashes(self) -> None:
         # 31ce40ab "Annex 1-6", ea75ff9e "Annex A -5-".
         for label in ("Annex 1-{n}", "Annex A -{n}-"):

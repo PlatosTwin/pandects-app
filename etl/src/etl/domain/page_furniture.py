@@ -2558,10 +2558,11 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         kept = [m.group(0) for m in _ANY_PAGE_TAG_RE.finditer(line) if _page_token(m.group("inner")) is not None]
         if kept:
             # "56 | <page>76</page>": the tagger wrapped the page total, and the
-            # printed page number is the other number; leave the line as filed.
+            # printed page number is the number before it; leave the line as filed.
+            # ("<page>15</page> | 100" and "... <page>2</page> of 20" print the total after.)
             values = set(_clean_tag_values(line))
-            others = [token for token in _ANY_PAGE_TAG_RE.sub(" ", line).split() if _PLAIN_NUMBER_RE.fullmatch(token)]
-            if any(int(token) not in values for token in others):
+            before = line[: _ANY_PAGE_TAG_RE.search(line).start()]
+            if any(int(token) not in values for token in before.split() if _PLAIN_NUMBER_RE.fullmatch(token)):
                 return False, None
         return True, " ".join(kept) or None
 
@@ -2637,9 +2638,9 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
 
     def continues_into_furniture(k: int, key: str, rest: str, side: str) -> bool:
         """The text left after a glued cut starts (top) or ends (bottom) with the
-        next filed line inward, and the filing prints that very line at the edge of
-        ``MIN_RAW_REPEAT_PAGES`` or more pages: a legend the page's text runs
-        together, which a cut would split."""
+        next filed line inward, that line holds a legend word, and the filing prints
+        that very line at the edge of ``MIN_RAW_REPEAT_PAGES`` or more pages: a
+        legend the page's text runs together, which a cut would split."""
         raw = raw_lines[k]
         end = _raw_run_end(raw, key, side, RAW_EDGE_WINDOW)
         if end is None or not 0 <= (end if side == "top" else end - 1) < len(raw):
@@ -2650,6 +2651,8 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         span = min(3, len(words), len(rest_words))
         if not span or (rest_words[:span] != words[:span] if side == "top" else rest_words[-span:] != words[-span:]):
             return False
+        if not _RAW_LEGEND_WORD_RE.search(neighbor.text):
+            return False  # a running header's next line ("Page: 10" / "Debtors: ..."): the cut leaves it as main does
         return count_edge_keys().get(neighbor.text.casefold(), 0) >= MIN_RAW_REPEAT_PAGES
     joined_text: list[str] = []
 
