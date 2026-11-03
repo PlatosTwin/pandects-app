@@ -1003,9 +1003,24 @@ def _merge_toc_entries_and_extras(
     *,
     separate_entries: bool,
 ) -> list[str]:
-    """Entry lines and printed extras in document order."""
+    """Entry lines and printed extras in document order.
+
+    A "Page" or "TABLE OF CONTENTS" label that opens the first entry lines stays the
+    page's first line, ahead of the extras printed before the entries, so the edge pass
+    still reads it as the page's column header."""
     merged: list[str] = []
     extra_index = 0
+    if entries and extras and extras[0][0] == 0:
+        first = entries[0]
+        lead = 0
+        while lead < len(first) and (
+            _TOC_LABEL_RE.fullmatch(first[lead].strip()) is not None
+            or _TOC_COLUMN_HEADER_RE.fullmatch(first[lead].strip()) is not None
+        ) and first[lead].strip():
+            lead += 1
+        if lead:
+            merged.extend(first[:lead])
+            entries = [first[lead:], *entries[1:]]
     for entry_index, lines in enumerate(entries + [[]]):
         while extra_index < len(extras) and extras[extra_index][0] <= entry_index:
             merged.extend(extras[extra_index][1])

@@ -368,6 +368,14 @@ class TocPrintedTailTests(unittest.TestCase):
                 html = ENTRIES_11 + f"<p>DISCLOSURE SCHEDULES:</p><p>{line}</p>"
                 self.assertEqual(_lines(html)[-1], line)
 
+    def test_a_page_label_stays_ahead_of_a_leading_article_heading(self) -> None:
+        # 3e85b6ad: "ARTICLE I THE MERGER" printed before the entry table whose first row is "Page".
+        table = "<table><tr><td></td><td></td><td><p>Page</p></td></tr>" + ENTRIES_11[len("<table>"):]
+        lines = _lines("<p>ARTICLE I THE MERGER</p>" + table)
+        heading = lines.index("ARTICLE I THE MERGER")
+        self.assertEqual(set(lines[:heading]), {"Page"})
+        self.assertNotIn("Page", lines[heading:])
+
     def test_only_one_bare_title_is_peeled_at_a_page_end(self) -> None:
         html = ENTRIES_11 + "<p>ANCILLARY DOCUMENTS</p><p>Voting Agreement</p><p>Escrow Agreement</p><p>Stock Purchase Agreement</p>"
         self.assertEqual(_lines(html)[-3:], ["ANCILLARY DOCUMENTS", "Voting Agreement", "Escrow Agreement"])
