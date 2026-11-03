@@ -320,9 +320,10 @@ class FollowUpTests(unittest.TestCase):
 
     def test_the_line_after_a_finished_legend_stays(self) -> None:
         legend = ["CONFIDENTIAL TREATMENT HAS BEEN REQUESTED FOR PORTIONS OF THIS", "EXHIBIT. OMITTED PORTIONS ARE MARKED [***]."]
-        pages = [_page("\n".join(legend + ["EXHIBIT A", _clause(n)]), _html(*legend, "EXHIBIT A", _clause(n)), n, "back_matter")
+        pages = [_page("\n".join(legend + ["EXHIBIT A", _clause(n), BODY, _clause(n + 20)]),
+                       _html(*legend, "EXHIBIT A", _clause(n)) + RAW_BODY + _html(_clause(n + 20)), n, "back_matter")
                  for n in range(10, 16)]
-        self.assertEqual(_strip(pages)[1:], [f"EXHIBIT A\n{_clause(n)}" for n in range(11, 16)])
+        self.assertEqual(_strip(pages)[1:], [f"EXHIBIT A\n{_clause(n)}\n{BODY}\n{_clause(n + 20)}" for n in range(11, 16)])
 
     def test_a_legend_run_together_on_a_contents_page_is_not_split(self) -> None:
         # 0cf0c20d p5: the contents layout runs the legend's lines together.
@@ -417,15 +418,52 @@ class FollowUpTests(unittest.TestCase):
         self.assertEqual(out[0], pages[0].text)  # the first copy of a line without digits stays
         self.assertEqual(out[1:], [f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}" for n in range(1, 40)])
 
+    def test_omitted_exhibit_placeholders_stay(self) -> None:
+        # 62c0c79d, 2b485fcc, 6e754aba: what each omitted exhibit's page holds, not a legend.
+        for placeholder in ("[Omitted pursuant to Item 601(a)(5) of Regulation S-K]",
+                            "*Omitted pursuant to Item 601(b)(2) of Regulation S-K.",
+                            "This exhibit has been omitted in accordance with Item 601(b)(2) of Regulation S-K."):
+            pages = [_page(f"{BODY}\n{_clause(n)}", RAW_BODY + _html(_clause(n)), n) for n in range(40)]
+            pages += [_page(f"Exhibit {chr(65 + n)}\nForm of {_clause(n)}\n{placeholder}",
+                            _html(f"Exhibit {chr(65 + n)}", f"Form of {_clause(n)}", placeholder), 40 + n, "back_matter")
+                      for n in range(6)]
+            self.assertEqual(_strip(pages)[40:], [page.text for page in pages[40:]], placeholder)
+
+    def test_last_line_of_a_repeated_footer_block_is_not_split_off(self) -> None:
+        # fc447246: "SIGNATURE PAGE TO" / "AMENDED AND RESTATED" / "REGISTRATION RIGHTS AGREEMENT".
+        block = ["SIGNATURE PAGE TO", "AMENDED AND RESTATED", "REGISTRATION RIGHTS AGREEMENT"]
+        pages = [_page("\n".join([_clause(n + 40), BODY, _clause(n)] + block), _html(_clause(n + 40)) + RAW_BODY + _html(_clause(n), *block),
+                       n + 160, "back_matter") for n in range(12)]
+        self.assertEqual(_strip(pages), [page.text for page in pages])
+
+    def test_placeholder_above_a_legend_stays(self) -> None:
+        # 074c50a1 "[See attached]", beba029b "[***]": what the exhibit's page holds, above its legend.
+        legend = "[ * ] = CERTAIN CONFIDENTIAL INFORMATION CONTAINED IN THIS DOCUMENT, MARKED BY BRACKETS, HAS BEEN OMITTED"
+        pages = [_page(f"{BODY}\n{_clause(n)}\n{legend}", RAW_BODY + _html(_clause(n), legend), n) for n in range(12)]
+        for placeholder in ("[See attached]", "[***]"):
+            exhibits = [_page(f"EXHIBIT {chr(65 + n)}\nFORM OF {_clause(n)}\n{placeholder}\n{legend}",
+                              _html(f"EXHIBIT {chr(65 + n)}", f"FORM OF {_clause(n)}", placeholder, legend), 12 + n, "back_matter")
+                         for n in range(6)]
+            out = _strip(pages + exhibits)
+            self.assertEqual(out[12:], [f"EXHIBIT {chr(65 + n)}\nFORM OF {_clause(n)}\n{placeholder}" for n in range(6)], placeholder)
+
+    def test_line_above_a_legend_that_opens_with_its_marker_stays(self) -> None:
+        # c5001544: "**** Confidential Treatment ..." starts its legend; the line above is not part of it.
+        legend = "**** Confidential Treatment has been requested for certain redacted provisions of this Agreement"
+        party = [f"Signed for Party {n * 7 % 13}" for n in range(12)]  # numbers that do not run with the pages
+        pages = [_page(f"{_clause(n + 20)}\n{BODY}\n{_clause(n)}\n{party[n]}\n{legend}",
+                       _html(_clause(n + 20)) + RAW_BODY + _html(_clause(n), party[n], legend), n) for n in range(12)]
+        self.assertEqual(_strip(pages)[1:], [f"{_clause(n + 20)}\n{BODY}\n{_clause(n)}\n{party[n]}" for n in range(1, 12)])
+
     def test_a_page_of_furniture_is_never_emptied(self) -> None:
         # adf3a88b p168: a page holding only "Confidential and Proprietary" and the SEC legend.
         legend = "CONFIDENTIAL TREATMENT HAS BEEN REQUESTED FOR PORTIONS OF THIS EXHIBIT"
-        pages = [_page(f"{_clause(n)}\n{BODY}\n<page>{n}</page>\nConfidential and Proprietary\n{legend}",
-                       _html(_clause(n)) + RAW_BODY + _html(str(n), "Confidential and Proprietary", legend), n + 5)
+        pages = [_page(f"{_clause(n)}\n{BODY}\n{_clause(n + 20)}\n<page>{n}</page>\nConfidential and Proprietary\n{legend}",
+                       _html(_clause(n)) + RAW_BODY + _html(_clause(n + 20), str(n), "Confidential and Proprietary", legend), n + 5)
                  for n in range(15, 21)]
         empty = _page(f"Confidential and Proprietary\n{legend}", _html("163", "Confidential and Proprietary", legend), 168, "back_matter")
         out = _strip(pages + [empty])
-        self.assertEqual(out[1:6], [f"{_clause(n)}\n{BODY}\n<page>{n}</page>" for n in range(16, 21)])
+        self.assertEqual(out[1:6], [f"{_clause(n)}\n{BODY}\n{_clause(n + 20)}\n<page>{n}</page>" for n in range(16, 21)])
         self.assertEqual(out[6], empty.text)
 
 

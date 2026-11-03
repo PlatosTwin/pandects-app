@@ -2162,6 +2162,12 @@ _RESIDUE_LINE_RE = re.compile(r"[.|]")
 # ("/ 107", "of 92"), or the same number printed again.
 _TAG_COMPANION_RE = re.compile(r"[.|]|(?:/|of)\s*\d{1,3}|\d{1,3}", re.IGNORECASE)
 _RAW_LEGEND_WORD_RE = re.compile(r"confidential|omitted|redacted|initials|privileged", re.IGNORECASE)
+# A legend that explains a marker: it opens with the asterisks ("**", "[***] =", "“********” =")
+# and says what they stand for.
+_MARKER_LEGEND_RE = re.compile(
+    r"[\[“\"(]?\s*\*+\s*[\]”\")]?.*\b(?:confidential|denot\w*|indicat\w*|marked|portions?|redacted|information|filed\s+separately)\b",
+    re.IGNORECASE,
+)
 _DOC_ID_TOKEN_RE = re.compile(r"\d{6,}|\d{4}-\d{4}-\d{4}")
 _PLAIN_NUMBER_RE = re.compile(r"\d{1,3}")
 _TOC_COLUMN_HEADER_RE = re.compile(r"page(?:\s+page)?|section\s+page|page\s+no\.?", re.IGNORECASE)
@@ -2454,7 +2460,19 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         if len(copies) < MIN_EXHIBIT_FOOTER_PAGES:
             return False
         span = other_positions[max(copies)] - other_positions[min(copies)] + 1
-        return len(copies) >= MIN_EXHIBIT_FOOTER_SHARE * span
+        if len(copies) < MIN_EXHIBIT_FOOTER_SHARE * span:
+            return False
+        # The filed line just above it must change from page to page: when it repeats
+        # too, the footer is the end of a longer block ("SIGNATURE PAGE TO" / "AMENDED
+        # AND RESTATED" / "REGISTRATION RIGHTS AGREEMENT"), and taking its last line
+        # alone would split it.
+        above: dict[str, int] = {}
+        for j in copies:
+            end = _raw_run_end(raw_lines[j], key, "bottom", MAX_RAW_JOINED_LINES)
+            if end is not None and end > 0:
+                text = raw_lines[j][end - 1].text.casefold()
+                above[text] = above.get(text, 0) + 1
+        return not above or max(above.values()) * 2 < len(copies)
 
     def is_furniture_text(k: int, printed: str, side: str) -> bool:
         """A repeated edge line (or run of lines) the filing prints on this page's edge."""
@@ -2469,10 +2487,12 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
             return False
         shape = _line_shape(key)
         found = running(shape)
-        if found is None and legend and len(printed) >= MIN_RAW_LEGEND_CHARS:
+        if found is None and legend and len(printed) >= MIN_RAW_LEGEND_CHARS and _MARKER_LEGEND_RE.match(printed):
             # A legend printed only on the pages it concerns ("** The appearance of a
             # double asterisk denotes confidential information ..."): the same words
-            # as their own lines at this edge of enough pages, at any share.
+            # as their own lines at this edge of enough pages, at any share. It must
+            # explain a marker: "[Omitted pursuant to Item 601(a)(5) ...]" or "*Omitted
+            # pursuant to Item 601(b)(2) ..." is what an omitted exhibit's page holds.
             copies = sum(1 for edges in raw_edges if key in edges and edges[key][1] and side in edges[key][0])
             found = (side, True) if copies >= MIN_RAW_REPEAT_PAGES else None
         if found is None or found[0] != side:
@@ -2490,8 +2510,11 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         if (pages[k].zone not in ("body", "back_matter") or not found[1]) and not (marked or legend or exhibit_footer(k, key, shape, side)):
             return False
         placeholder = printed.startswith("[") or (legend and len(printed) < MIN_RAW_LEGEND_CHARS)
-        if placeholder and not marked and not (found[1] and len(printed) >= MIN_RAW_LEGEND_CHARS):
-            return False  # "[REDACTED]", "[Exhibit has been omitted ...]": what a page or schedule holds
+        if placeholder and not marked and not (found[1] and (len(printed) >= MIN_RAW_LEGEND_CHARS or not printed.startswith("["))):
+            # "[REDACTED]", "[Exhibit has been omitted ...]": what a page or schedule holds.
+            # A short legend repeated on the body pages, unbracketed, is a running line
+            # ("Confidential and Proprietary").
+            return False
         return True
 
     # A law-firm document ID ("|US-DOCS\\140904150.6||") printed as its own edge line on two or more pages.
@@ -2795,10 +2818,18 @@ def _drop_legend_continuations(
                         break
                     if " ".join(raw_line.text for raw_line in piece).casefold() != key:
                         continue
-                    # The legend's sentence runs on across the junction.
+                    # The legend's sentence runs on across the junction: the upper line ends
+                    # in a word or a comma ("... THIS OMITTED" / "INFORMATION."), and both
+                    # lines are set alike. "[See attached]" or "[***]" above a legend is what
+                    # the page holds.
                     before = raw[end - 1].text if side == "top" else piece[-1].text
-                    if _SENTENCE_END_RE.search(before):
+                    after = piece[0].text if side == "top" else raw[end].text
+                    if _SENTENCE_END_RE.search(before) or not _RUNS_ON_RE.search(before):
                         break
+                    if not after[:1].islower() and _all_capitals(before) != _all_capitals(after):
+                        break
+                    if _OPENS_ITEM_RE.match(after):
+                        break  # "**** Confidential ...", "[***] ...": a legend's first line, or a new item
                     edge_part = raw[: end + length] if side == "top" else raw[end - length :]
                     if _RAW_LEGEND_WORD_RE.search(" ".join(raw_line.text for raw_line in edge_part)):
                         found.setdefault((side, _line_shape(key)), {})[k] = (index, length)
@@ -2900,6 +2931,13 @@ def _opens_own_paragraph(lines: list[_RawLine], length: int, side: str) -> bool:
 
 
 _WORD_RE = re.compile(r"[^\W\d_]{2,}")
+_OPENS_ITEM_RE = re.compile(r"\s*(?:[\[\u201c\"(]\s*)?\*|\s*\[")
+_RUNS_ON_RE = re.compile(r"[^\W_]\s*$|,\s*$")
+
+
+def _all_capitals(text: str) -> bool:
+    letters = [ch for ch in text if ch.isalpha()]
+    return bool(letters) and all(ch.isupper() for ch in letters)
 
 
 def _has_words(text: str) -> bool:
