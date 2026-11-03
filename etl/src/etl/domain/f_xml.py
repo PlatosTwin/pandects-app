@@ -19,7 +19,12 @@ from etl.domain.g_sections import clean_section_title
 from etl.domain.heading_titles import article_title_number
 from etl.domain.heading_titles import normalize_glued_article_title
 from etl.domain.heading_titles import normalize_glued_section_title
-from etl.domain.page_furniture import strip_nonbody_page_furniture, strip_page_furniture
+from etl.domain.page_furniture import (
+    RawEdgePage,
+    strip_nonbody_page_furniture,
+    strip_page_furniture,
+    strip_raw_edge_furniture,
+)
 from etl.domain.raw_block_joins import join_raw_block_splits
 from etl.domain.txt_underlines import strip_inline_underlines
 
@@ -1436,6 +1441,37 @@ def _xml_page_text(row: Any) -> str:
     return page_text
 
 
+def _strip_raw_edge_furniture(groups: list[tuple[Any, list[str]]]) -> list[list[str]]:
+    """Run ``strip_raw_edge_furniture`` over all of an agreement's pages in page order.
+
+    ``groups`` pairs each zone's rows with its page texts (after the other rules);
+    returns the texts per group, in the same order."""
+    entries: list[tuple[int, int, int, Any, str]] = []
+    for group_index, (rows, texts) in enumerate(groups):
+        for position, (row, text) in enumerate(zip(rows.to_dict("records"), texts)):
+            order = row.get("page_order")
+            entries.append((int(order) if order is not None and order == order else -1, group_index, position, row, text))
+    if any(entry[0] < 0 for entry in entries):
+        # Without a page order on every page, keep the zones in document order.
+        entries = [(index, *entry[1:]) for index, entry in enumerate(entries)]
+    entries.sort(key=lambda entry: entry[:3])
+    pages = [
+        RawEdgePage(
+            text=text,
+            raw=str(row.get("raw_page_content")) if _has_text_value(row.get("raw_page_content")) else None,
+            is_html=bool(row.get("source_is_html")) and row.get("source_is_html") == row.get("source_is_html"),
+            page_order=order,
+            zone=str(row.get("_xml_page_type")),
+        )
+        for order, _, _, row, text in entries
+    ]
+    stripped = strip_raw_edge_furniture(pages).page_texts
+    out = [list(texts) for _, texts in groups]
+    for (_, group_index, position, _, _), text in zip(entries, stripped):
+        out[group_index][position] = text
+    return out
+
+
 def generate_xml(
     df: Any, version_map: dict[str, int] | None = None
 ) -> tuple[list[XMLData], list[XMLGenerationFailure]]:
@@ -1517,31 +1553,54 @@ def generate_xml(
             _ = add_metadata_nodes(root, agreement_uuid, announcement_date, url, source_format)
 
             # Containers by page type
-            # frontMatter
             fm_rows = temp[temp["_xml_page_type"] == "front_matter"]
-            if not fm_rows.empty:
-                fm_el = ET.SubElement(root, "frontMatter")
-                text_block = "\n".join(
-                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in fm_rows.iterrows()
-                )
-                add_text_nodes_simple(fm_el, text_block)
-
-            # tableOfContents
             toc_rows = temp[temp["_xml_page_type"] == "toc"]
-            if not toc_rows.empty:
-                toc_el = ET.SubElement(root, "tableOfContents")
-                text_block = "\n".join(
-                    (f"{_xml_page_text(r)}<pageUUID>{r['page_uuid']}</pageUUID>") for _, r in toc_rows.iterrows()
-                )
-                add_text_nodes_simple(toc_el, text_block)
 
             # body (preserve page order; parse headings across all body pages)
             body_rows = temp[temp["_xml_page_type"] == "body"]
             body_source_texts = [_xml_page_text(r) for _, r in body_rows.iterrows()]
             body_strip = strip_page_furniture(body_source_texts)
+
+            # sigPages and backMatter: page numbers and confirmed body furniture
+            # come off the page edges (they are rendered page by page).
+            nonbody_rows = temp[temp["_xml_page_type"].isin(["sig", "back_matter"])]
+            nonbody_texts = strip_nonbody_page_furniture(
+                [_xml_page_text(r) for _, r in nonbody_rows.iterrows()],
+                [int(o) for o in nonbody_rows["page_order"].to_list()] if "page_order" in nonbody_rows.columns
+                else list(range(len(nonbody_rows))),
+                body_page_texts=body_source_texts,
+                body_page_orders=[int(o) for o in body_rows["page_order"].to_list()] if "page_order" in body_rows.columns
+                else list(range(len(body_rows))),
+                body_removed=body_strip.removed,
+                page_types=nonbody_rows["_xml_page_type"].to_list(),
+            )
+
+            # Then the furniture the filed pages print at their edges, on all of them.
+            fm_texts, toc_texts, body_page_texts, nonbody_texts = _strip_raw_edge_furniture(
+                [
+                    (fm_rows, [_xml_page_text(r) for _, r in fm_rows.iterrows()]),
+                    (toc_rows, [_xml_page_text(r) for _, r in toc_rows.iterrows()]),
+                    (body_rows, body_strip.page_texts),
+                    (nonbody_rows, nonbody_texts),
+                ]
+            )
+            nonbody_text_by_uuid = dict(zip(nonbody_rows["page_uuid"].to_list(), nonbody_texts))
+
+            # frontMatter and tableOfContents
+            for rows, texts, container_name in (
+                (fm_rows, fm_texts, "frontMatter"),
+                (toc_rows, toc_texts, "tableOfContents"),
+            ):
+                if rows.empty:
+                    continue
+                container_el = ET.SubElement(root, container_name)
+                text_block = "\n".join(
+                    f"{text}<pageUUID>{page_uuid}</pageUUID>" for text, page_uuid in zip(texts, rows["page_uuid"].to_list())
+                )
+                add_text_nodes_simple(container_el, text_block)
+
             if not body_rows.empty:
                 body_el = ET.SubElement(root, "body")
-                body_page_texts = body_strip.page_texts
                 body_text = "\n".join(
                     f"{page_text}<pageUUID>{page_uuid}</pageUUID>"
                     for page_text, page_uuid in zip(body_page_texts, body_rows["page_uuid"].to_list())
@@ -1565,21 +1624,6 @@ def generate_xml(
                 if body_tmp is not None:
                     for child in list(body_tmp):
                         body_el.append(child)
-
-            # sigPages and backMatter: page numbers and confirmed body furniture
-            # come off the page edges (they are rendered page by page).
-            nonbody_rows = temp[temp["_xml_page_type"].isin(["sig", "back_matter"])]
-            nonbody_texts = strip_nonbody_page_furniture(
-                [_xml_page_text(r) for _, r in nonbody_rows.iterrows()],
-                [int(o) for o in nonbody_rows["page_order"].to_list()] if "page_order" in nonbody_rows.columns
-                else list(range(len(nonbody_rows))),
-                body_page_texts=body_source_texts,
-                body_page_orders=[int(o) for o in body_rows["page_order"].to_list()] if "page_order" in body_rows.columns
-                else list(range(len(body_rows))),
-                body_removed=body_strip.removed,
-                page_types=nonbody_rows["_xml_page_type"].to_list(),
-            )
-            nonbody_text_by_uuid = dict(zip(nonbody_rows["page_uuid"].to_list(), nonbody_texts))
 
             for page_type, container_name in (("sig", "sigPages"), ("back_matter", "backMatter")):
                 rows = temp[temp["_xml_page_type"] == page_type]
