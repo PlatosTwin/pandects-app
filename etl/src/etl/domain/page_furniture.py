@@ -1965,8 +1965,9 @@ def strip_nonbody_page_furniture(
 #   the limit, and a partial cut would leave the rest glued to the text.
 # - A legend longer than the edge window goes with its last lines
 #   (``_drop_legend_continuations``). A legend of ``MIN_RAW_LEGEND_CHARS`` or more
-#   printed only on the pages it concerns counts on ``MIN_RAW_REPEAT_PAGES`` pages
-#   at any share. A back-matter footer that opens with a heading word ("Schedule 1
+#   that explains a marker ("** The appearance of a double asterisk denotes ...")
+#   and is printed only on the pages it concerns counts on ``MIN_RAW_REPEAT_PAGES``
+#   pages at any share. A back-matter footer that opens with a heading word ("Schedule 1
 #   Definitions", "EXHIBIT 5.19 ...") counts when it is the last filed line of
 #   ``MIN_EXHIBIT_FOOTER_PAGES`` pages (``exhibit_footer``). What a cut leaves goes
 #   too when it is the page number alone ("iv" after its document ID) or a
