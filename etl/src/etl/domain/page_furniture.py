@@ -1946,7 +1946,11 @@ def strip_nonbody_page_furniture(
 #   a number the filing prints inside a sentence stays. With one it must be a
 #   paragraph of its own where the filing has lines (a file number at the end of
 #   a sentence is text). It never takes a caption,
-#   a heading word, a bracketed legend or a signature-block word.
+#   a heading word, a bracketed legend or a signature-block word. A page tag the
+#   tagger put inside the run stays ("<page>4</page> LEGAL\67828860\11 ..."), and
+#   a number the page already carries as a tag nearer the edge is text ("affiliates
+#   52" above "<page>52</page>" in an index of terms). Runs are grouped with their
+#   long numbers as printed, so each document ID is its own run.
 # - A repeated line glued to the start (top edge) or end (bottom edge) of the
 #   outermost remaining line is cut when the filing prints it as its own edge
 #   line on that page, it has two words or digits, the agreement never prints it
@@ -1954,6 +1958,10 @@ def strip_nonbody_page_furniture(
 #   filing prints it as a paragraph of its own: a sentence that wraps (a <br>, a
 #   text line) onto a repeated last line, "(See Annex I to the proxy" + "statement/
 #   prospectus on Form S-4 ... filed on July 9, 2025)", is not glued.
+# - A glued run at either limit (``MAX_RAW_AFFIX_TOKENS`` words,
+#   ``MAX_RAW_JOINED_LINES`` filed lines) is not cut when the word after it has
+#   the same shape on most of the pages it is cut from: the furniture goes on past
+#   the limit, and a partial cut would leave the rest glued to the text.
 #
 # A page is never emptied.
 
