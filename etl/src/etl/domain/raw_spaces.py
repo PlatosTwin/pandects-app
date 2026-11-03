@@ -57,24 +57,24 @@ from etl.domain.raw_block_joins import INLINE_TAG_NAMES, PRE_TAG_NAMES
 # Symbol / Wingdings code points that HTML filings carry in the private-use area
 # (U+F000 + the font's code). Bullets and list markers print as a bullet.
 _PUA_BULLETS = {
-    "": "•",  # Symbol bullet
-    "": "•",  # Wingdings small square bullet
-    "": "•",  # Wingdings filled circle (also the "[●]" placeholder)
-    "": "•",  # Wingdings filled square
-    "": "•",  # Wingdings box bullet
-    "": "•",  # Wingdings circle bullet
-    "": "•",  # Wingdings arrowhead bullet
-    "": "•",  # Wingdings check mark bullet
-    "": "•",  # Wingdings diamond bullet
-    "": "•",  # Wingdings diamond bullet
-    "": "•",  # Wingdings ornament (a "[ ● ]" placeholder)
-    "": "•",
-    "": "•",
-    "": "-",  # Symbol minus, used as a dash list marker
-    "": ":",  # Symbol colon
+    "\uf0b7": "\u2022",  # Symbol bullet
+    "\uf0a7": "\u2022",  # Wingdings small square bullet
+    "\uf06c": "\u2022",  # Wingdings filled circle (also the "[\u25cf]" placeholder)
+    "\uf06e": "\u2022",  # Wingdings filled square
+    "\uf0a8": "\u2610",  # Wingdings box (a checklist box)
+    "\uf0a1": "\u2022",  # Wingdings circle bullet
+    "\uf0d8": "\u2022",  # Wingdings arrowhead bullet
+    "\uf0fc": "\u2713",  # Wingdings check mark
+    "\uf076": "\u2022",  # Wingdings diamond bullet
+    "\uf075": "\u2022",  # Wingdings diamond bullet
+    "\uf098": "\u2022",  # Wingdings ornament (a "[ \u25cf ]" placeholder)
+    "\uf0a6": "\u2022",
+    "\uf09f": "\u2022",
+    "\uf02d": "-",  # Symbol minus, used as a dash list marker
+    "\uf03a": ":",  # Symbol colon
 }
 # Decoration with no text value (a law firm's logo glyph in a running footer).
-_PUA_DROP = frozenset({""})
+_PUA_DROP = frozenset({"\uf8e9"})
 _PUA_RE = re.compile("[" + "".join(sorted(set(_PUA_BULLETS) | _PUA_DROP)) + "]")
 _PUA_DROP_RE = re.compile("([ \\t]?)[" + "".join(sorted(_PUA_DROP)) + "]([ \\t]?)")
 
@@ -131,6 +131,9 @@ class RawSpaceStream:
     bounds: dict[int, int]
     alnum: str
     alnum_pos: list[int]
+    # positions with a <br> boundary, and positions with any other boundary
+    brs: frozenset[int] = frozenset()
+    others: frozenset[int] = frozenset()
 
 
 def _style(tag: Tag) -> str:
@@ -153,9 +156,12 @@ class _Builder:
     def __init__(self) -> None:
         self.chars: list[str] = []
         self.bounds: dict[int, int] = {}
+        self.brs: set[int] = set()
+        self.others: set[int] = set()
 
-    def boundary(self, kind: int) -> None:
+    def boundary(self, kind: int, *, br: bool = False) -> None:
         at = len(self.chars)
+        (self.brs if br else self.others).add(at)
         if self.bounds.get(at, NONE) < kind:
             self.bounds[at] = kind
 
@@ -180,7 +186,7 @@ class _Builder:
                 self.boundary(SOFT)
                 continue
             if name == "br":
-                self.boundary(HARD)
+                self.boundary(HARD, br=True)
                 continue
             if name in _ROOT_TAGS:
                 self.walk(child)
@@ -206,7 +212,14 @@ def raw_space_stream(raw_html: str) -> RawSpaceStream:
     builder.walk(soup)
     text = "".join(builder.chars)
     alnum_pos = [i for i, ch in enumerate(text) if ch.isalnum()]
-    return RawSpaceStream(text=text, bounds=builder.bounds, alnum="".join(text[i] for i in alnum_pos), alnum_pos=alnum_pos)
+    return RawSpaceStream(
+        text=text,
+        bounds=builder.bounds,
+        alnum="".join(text[i] for i in alnum_pos),
+        alnum_pos=alnum_pos,
+        brs=frozenset(builder.brs),
+        others=frozenset(builder.others),
+    )
 
 
 # --- cheap screen ----------------------------------------------------------------------------------------
@@ -313,10 +326,11 @@ def _find_unique(raw: RawSpaceStream, left: str, right: str) -> int | None:
     return None
 
 
-def _raw_gap(raw: RawSpaceStream, rp1: int, rp2: int, k: int) -> tuple[bool, int] | None:
+def _raw_gap(raw: RawSpaceStream, rp1: int, rp2: int, k: int) -> tuple[bool, int, int, int] | None:
     """White space and the strongest boundary in the raw gap after the k-th
     printed character that follows raw position rp1 (k = 0: right after rp1),
-    up to the next printed character (before rp2 at the latest)."""
+    up to the next printed character (before rp2 at the latest), with the raw
+    positions of the printed characters on its two sides."""
     a = rp1
     need = k
     pos = rp1 + 1
@@ -333,7 +347,7 @@ def _raw_gap(raw: RawSpaceStream, rp1: int, rp2: int, k: int) -> tuple[bool, int
         b += 1
     space = b > a + 1
     bound = max((raw.bounds.get(x, NONE) for x in range(a + 1, b + 1)), default=NONE)
-    return space, bound
+    return space, bound, a, b
 
 
 class _PageView:
@@ -388,7 +402,9 @@ def _locate(view: _PageView, raw: RawSpaceStream, j: int) -> tuple[int, int, int
     a = view.alnum_before[j]
     if a == 0 or a >= len(view.alnum):
         return None
-    r = _find_unique(raw, view.alnum[:a], view.alnum[a:])
+    # Keys never reach past the widest key, so a window keeps this linear.
+    width = _KEY_WIDTHS[-1]
+    r = _find_unique(raw, view.alnum[max(0, a - width):a], view.alnum[a:a + width])
     if r is None or r <= 0 or r >= len(raw.alnum_pos):
         return None
     return view.alnum_idx[a - 1], view.alnum_idx[a], raw.alnum_pos[r - 1], raw.alnum_pos[r]
@@ -398,7 +414,7 @@ def _nonspace(text: str) -> str:
     return "".join(text.split())
 
 
-def _check_junction(view: _PageView, raw: RawSpaceStream, j: int) -> tuple[bool, int] | None:
+def _check_junction(view: _PageView, raw: RawSpaceStream, j: int) -> tuple[bool, int, int, int] | None:
     """The raw separator at the visible junction before view.vis[j] (j is the
     first character after the junction, or the space at it)."""
     located = _locate(view, raw, j)
@@ -453,25 +469,96 @@ def _letter_words(words: set[str]) -> set[str]:
     return {run.casefold() for word in words for run in _LETTER_RUN_RE.findall(word)}
 
 
+@dataclass
+class PrintedWords:
+    """What an agreement's filed pages print whole: casefolded letter runs, and raw words."""
+
+    letters: set[str] = field(default_factory=set)
+    tokens: set[str] = field(default_factory=set)
+
+    @classmethod
+    def of(cls, words: set[str]) -> PrintedWords:
+        return cls(_letter_words(words), set(words))
+
+
+_CJK_RANGES = (
+    (0x1100, 0x11FF), (0x2E80, 0x2FDF), (0x3000, 0x30FF), (0x3100, 0x31FF), (0x3200, 0x9FFF),
+    (0xA960, 0xA97F), (0xAC00, 0xD7FF), (0xF900, 0xFAFF), (0xFE30, 0xFE4F), (0xFF00, 0xFFEF),
+    (0x20000, 0x3FFFF),
+)
+
+
+def _is_cjk(ch: str) -> bool:
+    """Han, kana, Hangul and full-width characters."""
+    code = ord(ch)
+    return any(lo <= code <= hi for lo, hi in _CJK_RANGES)
+
+
+# A registration or application number: up to four letters, then a digit, then
+# letters, digits and ". - /" ("D879715", "201730550953.X", "2011P07671").
+_ID_SHAPE_RE = re.compile(r"[A-Za-z]{0,4}\d[A-Za-z\d.\-/]*")
+
+
+def _raw_run(raw: RawSpaceStream, pos: int, step: int) -> str:
+    """The raw characters from ``pos`` outward (step -1 or 1) up to white space or an element boundary."""
+    out: list[str] = []
+    i = pos
+    while 0 <= i < len(raw.text) and raw.text[i] != " ":
+        out.append(raw.text[i])
+        if (i if step < 0 else i + 1) in raw.bounds:  # a boundary before i, or before the next character
+            break
+        i += step
+    return "".join(reversed(out)) if step < 0 else "".join(out)
+
+
+def _is_wrapped_token(raw: RawSpaceStream, a: int, b: int, printed: PrintedWords) -> bool:
+    """Whether a lone <br> between raw positions a and b wraps one number in a
+    narrow cell ("D87971<br/>5", "201722<br/>535") rather than separating two values.
+
+    Only a <br> with no white space and no other boundary, next to a digit. The
+    token is whole when the agreement prints it unbroken elsewhere, or when the
+    right piece is a short tail (at most four letters or digits, with a digit,
+    shorter than the left piece, which also has a digit) of an id-shaped token.
+    Two full values ("15-005003.1000<br/>15-005003.0000", "82.109%<br/>73%",
+    "19494-03<br/>DNPI") keep their space."""
+    left, right = raw.text[a], raw.text[b]
+    if not (left.isalnum() and right.isalnum() and (left.isdigit() or right.isdigit())):
+        return False
+    gap = range(a + 1, b + 1)
+    if not any(x in raw.brs for x in gap) or any(x in raw.others for x in gap):
+        return False
+    left_run, right_run = _raw_run(raw, a, -1), _raw_run(raw, b, 1)
+    if left_run + right_run in printed.tokens:
+        return True
+    left_alnum = [c for c in left_run if c.isalnum()]
+    right_alnum = [c for c in right_run if c.isalnum()]
+    return (
+        _ID_SHAPE_RE.fullmatch(left_run + right_run) is not None
+        and len(right_alnum) <= 4
+        and len(right_alnum) < len(left_alnum)
+        and any(c.isdigit() for c in left_alnum)
+        and any(c.isdigit() for c in right_alnum)
+    )
+
+
 def restore_raw_spaces(
     page_text: str,
     raw_html: str | None,
     *,
     collect: bool = False,
-    printed_words: set[str] | None = None,
+    printed_words: PrintedWords | None = None,
 ) -> RawSpaceResult:
     """Insert the spaces a filed HTML page prints between glued words, and remove
     spaces next to hyphens that it does not print (see the module docstring).
 
-    ``printed_words`` are the casefolded letter runs the agreement's filed pages
-    print as whole words: a line break between two lowercase letters inside such
-    a word is a hand wrap in a narrow cell ("Aktiengese<br/>llschaft"), not a
-    word space."""
+    ``printed_words`` is what the agreement's filed pages print whole: a line
+    break inside such a word is a hand wrap in a narrow cell
+    ("Aktiengese<br/>llschaft", "201722<br/>535"), not a word space."""
     if not page_text or not raw_html:
         return RawSpaceResult(page_text)
     words = _cheap_raw_tokens(raw_html)
     if printed_words is None:
-        printed_words = _letter_words(words)
+        printed_words = PrintedWords.of(words)
     if not _screen(_MARKUP_RE.sub(" ", page_text), words):
         return RawSpaceResult(page_text)
     view = _PageView(page_text)
@@ -493,6 +580,9 @@ def restore_raw_spaces(
             continue
         if right in _NO_SPACE_BEFORE or left in _NO_SPACE_AFTER:
             continue
+        if _is_cjk(left) and _is_cjk(right):
+            # Chinese, Japanese, Korean and full-width text: a line break is never a word space.
+            continue
         if j in view.heading and (
             (left.isdigit() and right.isdigit()) or (left in _ROMAN_LETTERS and right in _ROMAN_LETTERS)
         ):
@@ -508,13 +598,15 @@ def restore_raw_spaces(
                 b += 1
             # the word may start at the letter run's start or at a capital in it
             starts = [a] + [k for k in range(a + 1, j) if vis[k].isupper()]
-            if any(vis[k:b].casefold() in printed_words for k in starts):
+            if any(vis[k:b].casefold() in printed_words.letters for k in starts):
                 continue
         gap = _check_junction(view, raw, j)
         if gap is None:
             continue
-        space, bound = gap
+        space, bound, ra, rb = gap
         if not (space or bound == HARD):
+            continue
+        if not space and _is_wrapped_token(raw, ra, rb, printed_words):
             continue
         insert_at.append(view.pos[j])
         if collect:
@@ -535,7 +627,7 @@ def restore_raw_spaces(
         gap = _check_junction(view, raw, i)
         if gap is None:
             continue
-        space, bound = gap
+        space, bound, _, _ = gap
         if space or bound != NONE:
             continue
         remove_at.append(view.pos[i])
@@ -567,20 +659,20 @@ def _is_html_page(row: Mapping[str, object]) -> bool:
     return is_html is not None and is_html == is_html and bool(is_html) and _has_text(row.get("raw_page_content"))
 
 
-def restore_page_text(text: str, row: Mapping[str, object], printed_words: set[str] | None = None) -> str:
+def restore_page_text(text: str, row: Mapping[str, object], printed_words: PrintedWords | None = None) -> str:
     """The builder's page-text pass: raw-backed spaces for HTML pages, then glyphs."""
     if text and _is_html_page(row):
         text = restore_raw_spaces(text, str(row.get("raw_page_content")), printed_words=printed_words).text
     return map_private_use_glyphs(text) if text else text
 
 
-def agreement_printed_words(rows: list[Mapping[str, object]]) -> set[str]:
-    """The casefolded letter runs every filed HTML page of an agreement prints as whole words."""
-    out: set[str] = set()
+def agreement_printed_words(rows: list[Mapping[str, object]]) -> PrintedWords:
+    """What every filed HTML page of an agreement prints whole."""
+    tokens: set[str] = set()
     for row in rows:
         if _is_html_page(row):
-            out |= _letter_words(_cheap_raw_tokens(str(row.get("raw_page_content"))))
-    return out
+            tokens |= _cheap_raw_tokens(str(row.get("raw_page_content")))
+    return PrintedWords.of(tokens)
 
 
 _HEADING_RE = re.compile(r"<(article|section)>(.*?)</\1>", re.DOTALL)

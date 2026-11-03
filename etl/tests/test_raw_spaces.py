@@ -18,6 +18,7 @@ import pandas as pd
 
 from etl.domain import f_xml
 from etl.domain.raw_spaces import (
+    PrintedWords,
     map_private_use_glyphs,
     restore_page_text,
     restore_raw_spaces,
@@ -164,6 +165,76 @@ class NoInsertTests(unittest.TestCase):
         self.assertEqual(restore(text, raw), "these terms apply to the securities issued by the Company under this Agreement")
 
 
+class NarrowCellWrapTests(unittest.TestCase):
+    """de47a5c7 pages 144-146: registration numbers hand-wrapped by <br> in 8-10% wide cells."""
+
+    ROW = (
+        "<table><tr><td>Siemens Aktiengesellschaft</td><td>US</td>"
+        '<td style="width:10%">29/644,697</td><td>19.04.2018</td>'
+        '<td style="width:10%"><font size="1">D87971<br/>5</font></td><td>31.03.2020</td></tr>'
+        "<tr><td>Siemens Aktiengesellschaft</td><td>CN</td>"
+        '<td style="width:8%"><font size="1">2017305509<br/>53.X</font></td><td>27.02.2018</td></tr></table>'
+    )
+    TEXT = (
+        "Siemens Aktiengesellschaft US 29/644,697 19.04.2018 D879715 31.03.2020 "
+        "Siemens Aktiengesellschaft CN 201730550953.X 27.02.2018"
+    )
+
+    def test_wrapped_registration_numbers_stay_whole(self) -> None:
+        self.assertEqual(restore(self.TEXT, self.ROW), self.TEXT)
+
+    def test_number_printed_whole_elsewhere_stays_whole(self) -> None:
+        # The tail is too long to be a short wrap; another page prints the number whole.
+        raw = '<table><tr><td>United Kingdom Converter</td><td style="width:8%">9004415263<br/>00010</td><td>20.10.2017</td></tr></table>'
+        text = "United Kingdom Converter 900441526300010 20.10.2017"
+        elsewhere = PrintedWords.of({"900441526300010", "Converter"})
+        self.assertEqual(restore_raw_spaces(text, raw, printed_words=elsewhere).text, text)
+        self.assertEqual(restore(text, raw), "United Kingdom Converter 9004415263 00010 20.10.2017")
+
+    def test_two_values_in_one_cell_keep_their_space(self) -> None:
+        # e25c7f1e: two parcel ids; 8261c1f3: two percentages; 168cd2b6: a number and a code.
+        cases = (
+            (
+                "<table><tr><td>Belmont, OH Mead Township</td><td>15-005003.1000<br/>15-005003.0000</td>"
+                "<td>James Davis</td></tr></table>",
+                "Belmont, OH Mead Township 15-005003.100015-005003.0000 James Davis",
+                "Belmont, OH Mead Township 15-005003.1000 15-005003.0000 James Davis",
+            ),
+            (
+                "<table><tr><td>Sirois Trust Class A</td><td>82.109%<br/>73%</td><td>Eger Trust</td></tr></table>",
+                "Sirois Trust Class A 82.109%73% Eger Trust",
+                "Sirois Trust Class A 82.109% 73% Eger Trust",
+            ),
+            (
+                "<table><tr><td>Santa Fe Natural Resources</td><td>19494-03<br/>DNPI</td><td>12-Sep-2002</td></tr></table>",
+                "Santa Fe Natural Resources 19494-03DNPI 12-Sep-2002",
+                "Santa Fe Natural Resources 19494-03 DNPI 12-Sep-2002",
+            ),
+        )
+        for raw, text, expected in cases:
+            self.assertEqual(restore(text, raw), expected)
+
+    def test_address_lines_still_split(self) -> None:
+        raw = "<p>Northrim Bank<br/>3111 C Street<br/>Anchorage, AK 99503<br/>Attention: Michael Huston</p>"
+        text = "Northrim Bank3111 C StreetAnchorage, AK 99503Attention: Michael Huston"
+        self.assertEqual(restore(text, raw), "Northrim Bank 3111 C Street Anchorage, AK 99503 Attention: Michael Huston")
+
+
+class CjkTests(unittest.TestCase):
+    def test_no_space_between_han_characters_at_a_line_break(self) -> None:
+        # f2a3107b page 44: Lite-On Semiconductor Co., Ltd. wrapped in a centered cell.
+        raw = (
+            '<table><tr><td>相對人</td><td><p style="text-align:center">敦南科技<br/>股份有限公司</p></td>'
+            "<td>民國105年6月22日</td></tr></table>"
+        )
+        text = "相對人 敦南科技股份有限公司 民國105年6月22日"
+        self.assertEqual(restore(text, raw), text)
+
+    def test_kana_hangul_and_full_width(self) -> None:
+        raw = "<p>Agreement parties</p><p>株式会社<br/>ニコン and 삼성<br/>전자 and ＡＢＣ<br/>ＤＥＦ signed today</p>"
+        text = "Agreement parties 株式会社ニコン and 삼성전자 and ＡＢＣＤＥＦ signed today"
+        self.assertEqual(restore(text, raw), text)
+
 class HyphenTests(unittest.TestCase):
     def test_split_hyphenated_title(self) -> None:
         raw = (
@@ -230,6 +301,10 @@ class GlyphTests(unittest.TestCase):
         self.assertEqual(map_private_use_glyphs(" Items that violate code"), "• Items that violate code")
         self.assertEqual(map_private_use_glyphs("dated as of [], 2016"), "dated as of [•], 2016")
         self.assertEqual(map_private_use_glyphs("Scope of Work  Furnish"), "Scope of Work • Furnish")
+
+    def test_checklist_glyphs_keep_their_meaning(self) -> None:
+        self.assertEqual(map_private_use_glyphs("\uf0a8 Notify Vendor"), "\u2610 Notify Vendor")
+        self.assertEqual(map_private_use_glyphs("\uf0fc Yes"), "\u2713 Yes")
 
     def test_decoration_is_dropped(self) -> None:
         self.assertEqual(
