@@ -64,6 +64,8 @@ class FindSignatureTailTests(unittest.TestCase):
             "IN TESTIMONY WHEREOF, the parties have signed this Agreement.",
             "AS WITNESS this Agreement has been signed on the date first written above.",
             "Sterling and Klamath have caused this Agreement to be executed by their officers as of the date above.",
+            "Executed in Paris on July 12, 2006",
+            "WITNESS, the signature of Valley Bancorp, as of the 28th day of June, 2006, set by its President:",
         ):
             with self.subTest(opening=opening):
                 result = _split(_mixed_page(opening, BLOCKS))
@@ -91,6 +93,27 @@ class FindSignatureTailTests(unittest.TestCase):
         assert result.moved_text is not None
         self.assertTrue(result.moved_text.startswith("PARENT:\n\nACME CORP."))
         self.assertTrue(result.body_page_texts[1].endswith("[Signature page follows]"))
+
+    def test_signature_block_extracted_onto_one_line(self) -> None:
+        last_clause = "This Agreement has been executed in two original copies, of which each Party has retained one copy."
+        block = "Knutsen NYK Offshore Tankers AS KNOT Shuttle Tankers AS By: /s/ Jane Doe By: /s/ John Roe Name: Jane Doe Name: John Roe"
+        result = _split(_mixed_page(last_clause, block, "<page>19</page>"))
+
+        self.assertEqual(result.trigger, "signature_block")
+        self.assertEqual(result.moved_text, block)
+        self.assertTrue(result.body_page_texts[1].endswith(last_clause + "\n\n<page>19</page>"))
+
+    def test_one_line_block_opening_with_role_labels(self) -> None:
+        block = (
+            "BUYER: SELLER: REALTY INCOME CORPORATION, a Maryland corporation KERASOTES THEATRES, LLC, "
+            "a Delaware limited liability company By: /s/ Michael Roe By: /s/ Jim Doe Date: September 19, 2005"
+        )
+        result = _split(_mixed_page(block))
+        self.assertEqual(result.moved_text, block)
+
+    def test_sentence_mentioning_by_and_name_fields_is_not_a_one_line_block(self) -> None:
+        text = _mixed_page("Notices shall be signed as follows: By: an officer of the Company, with Name: and Title: stated.")
+        self.assertIsNone(find_signature_tail(text))
 
     def test_a_bare_by_line_right_after_clause_text_is_not_a_block(self) -> None:
         text = _mixed_page("By: the Company, acting through its board, as provided above; Name: none.")

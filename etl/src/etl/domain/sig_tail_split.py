@@ -14,7 +14,8 @@ when no signature page comes before it. On that page it splits:
   article or section heading; or, when the page has no testimonium,
 - at the first line of the first signature block after the last heading: the
   party header lines ("PARENT:", "ACME CORP.") right above a "By:" line that is
-  followed by a "Name:" or "Title:" field.
+  followed by a "Name:" or "Title:" field, or a block the extraction put on one
+  line ("ACME CORP. By: /s/ Jane Doe Name: Jane Doe").
 
 Nothing is split when:
 
@@ -50,6 +51,8 @@ _TESTIMONIUM_RE = re.compile(
     | AS\s+WITNESS\b
     | The\s+part(?:y|ies)(?:\s+hereto)?(?:\s*,[^,\n]{1,80},)?\s+ha(?:ve|s)\s+(?:duly\s+)?(?:caused|executed|signed)\b
     | EXECUTED\s+(?:as\s+(?:of|a\s+deed)|by|on)\b
+    | EXECUTED\s+in\b(?:\s+[\w,.'-]+){0,5}?\s+on\b
+    | WITNESS,?\s+the\s+(?:signatures?|due\s+execution|execution|hands?)\s+of\b
     | (?:[A-Z][^\n.;:]{0,120}?\s)?ha(?:ve|s)\s+(?:duly\s+)?caused\s+this\s+(?:Agreement|Plan|Contract)\b[^\n]{0,160}?\b(?:executed|signed)\b
     )
     """,
@@ -166,6 +169,27 @@ def _is_party_header(line: str) -> bool:
     return len(letters) >= 2 and sum(ch.isupper() for ch in letters) / len(letters) >= 0.6
 
 
+_INLINE_BY_RE = re.compile(r"\bBy\s*:")
+_ROLE_LABEL_LEAD_RE = re.compile(r"^\s*[A-Z][A-Z ]{1,30}:\s")
+_INLINE_FIELD_RE = re.compile(r"\b(?:By|Name|Title|Its|Date)\s*:|/s/", re.IGNORECASE)
+
+
+def _collapsed_block_line(line: str) -> bool:
+    """A signature block extracted onto one line: a party name or role label,
+    then "By:" and at least one more field ("ACME CORP. By: /s/ Jane Doe Name: ...")."""
+    match = _INLINE_BY_RE.search(line)
+    if match is None or len(_INLINE_FIELD_RE.findall(line)) < 2:
+        return False
+    words = line[: match.start()].split()
+    if _ROLE_LABEL_LEAD_RE.match(line) and len(words) <= 40:
+        # "BUYER: SELLER: ACME CORP., a Delaware corporation ... By:"
+        return True
+    if not 1 <= len(words) <= 16:
+        return False
+    capitalized = [w for w in words if w[:1].isupper() or not w[:1].isalpha()]
+    return len(capitalized) / len(words) >= 0.75 and not re.search(r"[.;]\s+[a-z]", line[: match.start()])
+
+
 def _block_split(text: str, region_start: int) -> tuple[int, str] | None:
     """The start of the first signature block after region_start, or None."""
     lines: list[tuple[int, str]] = []
@@ -175,6 +199,13 @@ def _block_split(text: str, region_start: int) -> tuple[int, str] | None:
         pos += len(raw) + 1
     content = [(p, line) for p, line in lines if line.strip() and not _PAGE_LINE_RE.match(line)]
     for k, (pos_by, line) in enumerate(content):
+        if _collapsed_block_line(line):
+            # The party name and its fields extracted onto one line.
+            start = k
+            while start > 0 and k - start < 4 and _is_party_header(content[start - 1][1]):
+                start -= 1
+            block_pos = content[start][0]
+            return block_pos + (len(content[start][1]) - len(content[start][1].lstrip())), "signature_block"
         if not _BY_RE.match(line):
             continue
         # A "Name:" or "Title:" field must follow (on the By line or the next two lines).
