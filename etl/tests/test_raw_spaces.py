@@ -146,6 +146,24 @@ class NoInsertTests(unittest.TestCase):
         self.assertEqual(restore(text, raw), text)
 
 
+    def test_hand_wrapped_word_in_a_narrow_cell(self) -> None:
+        raw = (
+            "<p>Siemens Aktiengesellschaft, a stock corporation organized under the Laws of Germany</p>"
+            "<table><tr><td>EP 1234567</td><td>Siemens<br/>Aktiengese<br/>llschaft</td><td>DE</td></tr></table>"
+        )
+        text = "Siemens Aktiengesellschaft, a stock corporation organized under the Laws of Germany EP 1234567 SiemensAktiengesellschaft DE"
+        self.assertEqual(
+            restore(text, raw),
+            "Siemens Aktiengesellschaft, a stock corporation organized under the Laws of Germany EP 1234567 Siemens Aktiengesellschaft DE",
+        )
+
+
+    def test_glued_words_are_split_even_when_a_shorter_word_spans_them(self) -> None:
+        raw = "<p>these terms apply to the<br/>securities issued by the Company under this Agreement</p>"
+        text = "these terms apply to thesecurities issued by the Company under this Agreement"
+        self.assertEqual(restore(text, raw), "these terms apply to the securities issued by the Company under this Agreement")
+
+
 class HyphenTests(unittest.TestCase):
     def test_split_hyphenated_title(self) -> None:
         raw = (

@@ -26,7 +26,7 @@ from etl.domain.page_furniture import (
     strip_raw_edge_furniture,
 )
 from etl.domain.raw_block_joins import join_raw_block_splits
-from etl.domain.raw_spaces import heading_id_titles, restore_page_text
+from etl.domain.raw_spaces import agreement_printed_words, heading_id_titles, restore_page_text
 from etl.domain.txt_underlines import strip_inline_underlines
 
 
@@ -1480,9 +1480,11 @@ def _strip_raw_edge_furniture(groups: list[tuple[Any, list[str]]]) -> list[list[
 
 def _restore_raw_spaces(groups: list[tuple[Any, list[str]]]) -> list[list[str]]:
     """Run ``restore_page_text`` over each zone's page texts (rows paired with texts)."""
+    records = [rows.to_dict("records") for rows, _ in groups]
+    printed_words = agreement_printed_words([row for zone in records for row in zone])
     return [
-        [restore_page_text(text, row) for row, text in zip(rows.to_dict("records"), texts)]
-        for rows, texts in groups
+        [restore_page_text(text, row, printed_words) for row, text in zip(zone, texts)]
+        for zone, (_, texts) in zip(records, groups)
     ]
 
 

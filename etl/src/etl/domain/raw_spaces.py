@@ -261,6 +261,7 @@ def _split_points(token: str, words: set[str], max_pieces: int = 4) -> list[int]
 # (A <page> marker's number is a separate value: it is never edited.)
 _MARKUP_RE = re.compile(r"<pageUUID>.*?</pageUUID>|<page>.*?</page>|</?(?:article|section)>", re.DOTALL)
 _ROMAN_LETTERS = frozenset("IVXLCDM")
+_LETTER_RUN_RE = re.compile(r"[^\W\d_]{2,}")
 _HYPHENS = "-‐‑"
 _NO_SPACE_NEXT_TO = frozenset("-‐‑‒–—―/\\")
 _NO_SPACE_BEFORE = frozenset(".,;:!?)]}”’'\"%")
@@ -444,12 +445,30 @@ def _candidates(view: _PageView, words: set[str]) -> tuple[list[int], list[int]]
     return inserts, removes
 
 
-def restore_raw_spaces(page_text: str, raw_html: str | None, *, collect: bool = False) -> RawSpaceResult:
+def _letter_words(words: set[str]) -> set[str]:
+    """The casefolded letter runs of a page's words ("Aktiengesellschaft," -> "aktiengesellschaft")."""
+    return {run.casefold() for word in words for run in _LETTER_RUN_RE.findall(word)}
+
+
+def restore_raw_spaces(
+    page_text: str,
+    raw_html: str | None,
+    *,
+    collect: bool = False,
+    printed_words: set[str] | None = None,
+) -> RawSpaceResult:
     """Insert the spaces a filed HTML page prints between glued words, and remove
-    spaces next to hyphens that it does not print (see the module docstring)."""
+    spaces next to hyphens that it does not print (see the module docstring).
+
+    ``printed_words`` are the casefolded letter runs the agreement's filed pages
+    print as whole words: a line break between two lowercase letters inside such
+    a word is a hand wrap in a narrow cell ("Aktiengese<br/>llschaft"), not a
+    word space."""
     if not page_text or not raw_html:
         return RawSpaceResult(page_text)
     words = _cheap_raw_tokens(raw_html)
+    if printed_words is None:
+        printed_words = _letter_words(words)
     if not _screen(_MARKUP_RE.sub(" ", page_text), words):
         return RawSpaceResult(page_text)
     view = _PageView(page_text)
@@ -477,6 +496,17 @@ def restore_raw_spaces(page_text: str, raw_html: str | None, *, collect: bool = 
             # A heading number printed across a line break ("ARTICLE X<br>I",
             # "SECTION 1<br>1.14") stays one number.
             continue
+        if left.islower() and right.islower():
+            a = j - 1
+            while a > 0 and vis[a - 1].isalpha():
+                a -= 1
+            b = j + 1
+            while b < len(vis) and vis[b].isalpha():
+                b += 1
+            # the word may start at the letter run's start or at a capital in it
+            starts = [a] + [k for k in range(a + 1, j) if vis[k].isupper()]
+            if any(vis[k:b].casefold() in printed_words for k in starts):
+                continue
         gap = _check_junction(view, raw, j)
         if gap is None:
             continue
@@ -529,13 +559,25 @@ def _has_text(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def restore_page_text(text: str, row: Mapping[str, object]) -> str:
-    """The builder's page-text pass: raw-backed spaces for HTML pages, then glyphs."""
+def _is_html_page(row: Mapping[str, object]) -> bool:
     is_html = row.get("source_is_html")
-    raw = row.get("raw_page_content")
-    if text and is_html is not None and is_html == is_html and bool(is_html) and _has_text(raw):
-        text = restore_raw_spaces(text, str(raw)).text
+    return is_html is not None and is_html == is_html and bool(is_html) and _has_text(row.get("raw_page_content"))
+
+
+def restore_page_text(text: str, row: Mapping[str, object], printed_words: set[str] | None = None) -> str:
+    """The builder's page-text pass: raw-backed spaces for HTML pages, then glyphs."""
+    if text and _is_html_page(row):
+        text = restore_raw_spaces(text, str(row.get("raw_page_content")), printed_words=printed_words).text
     return map_private_use_glyphs(text) if text else text
+
+
+def agreement_printed_words(rows: list[Mapping[str, object]]) -> set[str]:
+    """The casefolded letter runs every filed HTML page of an agreement prints as whole words."""
+    out: set[str] = set()
+    for row in rows:
+        if _is_html_page(row):
+            out |= _letter_words(_cheap_raw_tokens(str(row.get("raw_page_content"))))
+    return out
 
 
 _HEADING_RE = re.compile(r"<(article|section)>(.*?)</\1>", re.DOTALL)
