@@ -2108,12 +2108,12 @@ def _glued_unwrapped(line: str) -> str:
     return _clean_raw_line(_ANY_PAGE_TAG_RE.sub(lambda m: m.group("inner"), line))
 
 
-def _edge_keys(lines: list[_RawLine]) -> tuple[dict[str, tuple[frozenset[str], bool]], dict[str, tuple[bool, bool]]]:
+def _edge_keys(lines: list[_RawLine]) -> tuple[dict[str, tuple[frozenset[str], bool]], dict[str, tuple[bool, bool, int]]]:
     """Edge lines of a filed page, alone and run together (a legend printed over
     several lines): casefolded text -> (edges it sits on, printed as its own lines),
-    and casefolded text -> (it opens a paragraph, it closes one)."""
+    and casefolded text -> (it opens a paragraph, it closes one, the most lines it joins)."""
     keys: dict[str, tuple[frozenset[str], bool]] = {}
-    bounds: dict[str, tuple[bool, bool]] = {}
+    bounds: dict[str, tuple[bool, bool, int]] = {}
     for side, offset, window in (("top", 0, lines[:RAW_EDGE_WINDOW]), ("bottom", max(0, len(lines) - RAW_EDGE_WINDOW), lines[-RAW_EDGE_WINDOW:])):
         for start in range(len(window)):
             for end in range(start + 1, min(len(window), start + MAX_RAW_JOINED_LINES) + 1):
@@ -2122,8 +2122,8 @@ def _edge_keys(lines: list[_RawLine]) -> tuple[dict[str, tuple[frozenset[str], b
                 sides, whole = keys.get(key, (frozenset(), False))
                 keys[key] = (sides | {side}, whole or all(raw_line.whole for raw_line in run))
                 after = offset + end
-                opens, closes = bounds.get(key, (False, False))
-                bounds[key] = (opens or not run[0].joined, closes or after >= len(lines) or not lines[after].joined)
+                opens, closes, joins = bounds.get(key, (False, False, 0))
+                bounds[key] = (opens or not run[0].joined, closes or after >= len(lines) or not lines[after].joined, max(joins, len(run)))
     return keys, bounds
 
 
@@ -2230,7 +2230,7 @@ def _raw_line_is_eligible(printed: str, legend: bool) -> bool:
 @lru_cache(maxsize=512)  # about one large agreement's pages
 def _raw_page_reading(
     raw: str | None, is_html: bool
-) -> tuple[tuple[_RawLine, ...], dict[str, tuple[frozenset[str], bool]], dict[str, tuple[bool, bool]]]:
+) -> tuple[tuple[_RawLine, ...], dict[str, tuple[frozenset[str], bool]], dict[str, tuple[bool, bool, int]]]:
     """``raw_page_lines`` and ``_edge_keys`` of a filed page, cached: the builder
     renders an agreement several times (tag repairs, hard-rule checks) from the
     same pages. The dicts are shared; callers only read them."""
@@ -2491,7 +2491,7 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
             drop = {}  # never empty a page
         drops.append(drop)
 
-    cuts = _raw_affix_cuts(pages, raw_lines, page_lines, drops, repeated_enough)
+    cuts, capped = _raw_affix_cuts(pages, raw_lines, page_lines, drops, repeated_enough)
     joined_text: list[str] = []
 
     def joined() -> str:
@@ -2536,9 +2536,11 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
                 if joined().count(key) > len(edge_shapes.get(_line_shape(key), {})):
                     continue  # the agreement prints it elsewhere: it can end a clause
                 cuts[(k, index, side)] = (rest, cut)
+                if raw_bounds[k][key][2] >= MAX_RAW_JOINED_LINES:
+                    capped.add((k, index, side))
                 break
 
-    cuts = _drop_continued_cuts(cuts)
+    cuts = _drop_continued_cuts(cuts, capped)
     for k, lines in enumerate(page_lines):
         drop = drops[k]
         page_cuts = {key: value for key, value in cuts.items() if key[0] == k}
@@ -2565,17 +2567,24 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
     return result
 
 
-def _drop_continued_cuts(cuts: dict[tuple[int, int, str], tuple[str, str]]) -> dict[tuple[int, int, str], tuple[str, str]]:
-    """Leave glued runs whose furniture goes on past the cut.
+def _drop_continued_cuts(
+    cuts: dict[tuple[int, int, str], tuple[str, str]], capped: set[tuple[int, int, str]]
+) -> dict[tuple[int, int, str], tuple[str, str]]:
+    """Leave glued runs that reach the longest run the rules can see while the
+    furniture goes on past it.
 
-    A header or footer longer than the runs the rules can see (``MAX_RAW_AFFIX_TOKENS``
-    words, ``MAX_RAW_JOINED_LINES`` lines) is cut partway, and the rest of it stays
-    glued to the text ("February 2025 29 (c) From the time ..."). The text a cut
-    leaves behind differs from page to page; when the word right after the cut has
-    the same shape on most of the pages that share the cut, the furniture continues,
-    and none of those cuts is made: the whole run stays as filed."""
+    A header or footer longer than ``MAX_RAW_AFFIX_TOKENS`` words (or
+    ``MAX_RAW_JOINED_LINES`` filed lines) would be cut partway, and the rest of it
+    would stay glued to the text ("February 2025 29 (c) From the time ...").
+    ``capped`` are the cuts at that limit. The text a cut leaves behind differs
+    from page to page; when the word right after a capped cut has the same shape
+    on most of the pages that share the cut, the furniture continues, and none of
+    those cuts is made: the whole run stays as filed. Shorter cuts are complete
+    runs and stay."""
     groups: dict[tuple[str, str], list[tuple[tuple[int, int, str], str]]] = {}
     for key, (rest, cut) in cuts.items():
+        if key not in capped:
+            continue
         words = _unwrapped(rest).split()
         if not words:
             continue
@@ -2640,13 +2649,15 @@ def _raw_affix_cuts(
     page_lines: list[list[str]],
     drops: list[dict[int, tuple[str, str | None]]],
     repeated_enough: Callable[[set[int]], tuple[bool, bool]],
-) -> dict[tuple[int, int, str], tuple[str, str]]:
+) -> tuple[dict[tuple[int, int, str], tuple[str, str]], set[tuple[int, int, str]]]:
     """Headers and footers glued to the text of a page filed as one run (see the notes above).
 
-    Returns (page, line, edge) -> (the line without the run, the run)."""
+    Returns (page, line, edge) -> (the line without the run, the run), and the
+    cuts whose run is ``MAX_RAW_AFFIX_TOKENS`` words long."""
     raw_tokens = [" ".join(raw_line.text for raw_line in lines).split() for lines in raw_lines]
     orders = [page.page_order for page in pages]
     cuts: dict[tuple[int, int, str], tuple[str, str]] = {}
+    capped: set[tuple[int, int, str]] = set()
     for side in ("top", "bottom"):
         # (length, shape) -> {page: the run's tokens}
         runs: dict[tuple[int, str], dict[int, list[str]]] = {}
@@ -2700,5 +2711,7 @@ def _raw_affix_cuts(
                 if not any(ch.isalpha() for ch in _ANY_PAGE_TAG_RE.sub(" ", rest)):
                     continue
                 cuts[(k, index, side)] = (rest, " ".join(run))
+                if len(run) == MAX_RAW_AFFIX_TOKENS:
+                    capped.add((k, index, side))
                 break
-    return cuts
+    return cuts, capped
