@@ -323,6 +323,30 @@ class TocPrintedTailTests(unittest.TestCase):
             ["SCHEDULES *", "EXHIBITS *", "\u2022 Exhibit A: Form of Certificate of Merger", "Exhibit K Form of Paying Agent Agreement]"],
         )
 
+    def test_a_filing_note_that_names_exhibits_stays_out(self) -> None:
+        # 7e51235f: a note that opens with "* Exhibits A-C" is a legend, not an item.
+        note = (
+            "* Exhibits A\u2013C to this Exhibit 2.1 have been omitted in reliance on Item 601(a)(5) of Regulation S-K. "
+            "The Registrant agrees to furnish supplementally a copy of the omitted Exhibits to the Securities and "
+            "Exchange Commission or its staff upon request.*"
+        )
+        html = ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p><p>" + note + "</p>"
+        self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+
+    def test_a_one_paragraph_list_after_its_heading_is_kept(self) -> None:
+        # 36fbf519: "EXHIBITS Exhibit 1.02(m) ... Exhibit H ..." in one paragraph.
+        paragraph = "EXHIBITS " + " ".join(
+            f"Exhibit {c} \u2014 Form of Ancillary Agreement Number {i} Among the Parties" for i, c in enumerate("ABCDEFGH")
+        )
+        text = " ".join(_lines(ENTRIES_11 + "<p>" + paragraph + "</p>"))
+        self.assertIn("Exhibit H \u2014 Form of Ancillary Agreement Number 7", text)
+
+    def test_an_item_i_marked_omitted_is_kept(self) -> None:
+        # e6e1b955: "I Separation Agreement \u2013 [OMITTED]".
+        items = ["H Acknowledgment and Release \u2013 [OMITTED]", "I Separation Agreement \u2013 [OMITTED]", "J Letter of Credit"]
+        html = ENTRIES_11 + "<p>EXHIBITS</p>" + "".join(f"<p>{item}</p>" for item in items)
+        self.assertEqual(_lines(html)[-3:], items)
+
     def test_all_caps_legends_still_stay_out(self) -> None:
         for legend in ("EXHIBITS AND SCHEDULES OMITTED", "A CONFIDENTIAL TREATMENT REQUEST HAS BEEN FILED"):
             with self.subTest(legend=legend):
@@ -347,6 +371,11 @@ class TocPrintedTailTests(unittest.TestCase):
     def test_only_one_bare_title_is_peeled_at_a_page_end(self) -> None:
         html = ENTRIES_11 + "<p>ANCILLARY DOCUMENTS</p><p>Voting Agreement</p><p>Escrow Agreement</p><p>Stock Purchase Agreement</p>"
         self.assertEqual(_lines(html)[-3:], ["ANCILLARY DOCUMENTS", "Voting Agreement", "Escrow Agreement"])
+
+    def test_the_item_under_a_list_heading_is_not_peeled(self) -> None:
+        # 8c04391b: "ANCILLARY DOCUMENTS" and its one item at the end of the page.
+        html = ENTRIES_11 + "<p>ANCILLARY DOCUMENTS</p><p>Confidentiality Agreement Proposal Letter</p>"
+        self.assertEqual(_lines(html)[-2:], ["ANCILLARY DOCUMENTS", "Confidentiality Agreement Proposal Letter"])
 
     def test_a_title_with_an_uppercase_roman_page_label_is_a_footer(self) -> None:
         for footer in ("Merger Agreement I", "Agreement and Plan of Merger - V", "Merger Agreement - X"):

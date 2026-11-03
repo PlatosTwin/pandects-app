@@ -717,6 +717,16 @@ _TOC_LIST_HEADING_RE = re.compile(
     r"(?:\s*(?:,|and|&)\s*(?:exhibits?|schedules?|annex(?:es)?|appendices|attachments?))*\s*[:*]*",
     re.IGNORECASE,
 )
+# A filing note written as a sentence ("* Exhibits A-C ... have been omitted in reliance on Item 601").
+_TOC_LEGEND_SENTENCE_RE = re.compile(
+    r"\b(?:have|has|are|is|were|was)\s+(?:been\s+)?(?:omitted|filed|redacted)\b|\bagrees?\s+to\s+furnish\b"
+    r"|\bfurnish(?:ed)?\s+supplementally\b|\bin\s+reliance\s+on\b|\bupon\s+request\b",
+    re.IGNORECASE,
+)
+# A labeled item anywhere in a line, for an exhibit list printed as one paragraph.
+_TOC_INLINE_ITEM_RE = re.compile(
+    r"(?i:exhibit|schedule|annex)\s+(?:[A-Z]{1,2}(?:-?\d{1,3})?|\d{1,3}(?:\.\d{1,3})*(?:\([a-z0-9]{1,4}\))*)(?![A-Za-z0-9])"
+)
 # A leading bracket, bullet or asterisk before a listed item.
 _TOC_ITEM_LEAD_RE = re.compile(r"^[\[(\u2022\u00b7*\s]+")
 
@@ -724,15 +734,25 @@ _TOC_ITEM_LEAD_RE = re.compile(r"^[\[(\u2022\u00b7*\s]+")
 def _toc_is_list_line(text: str) -> bool:
     """A listed item, a list heading or a TOC entry heading: the shapes a tail is made of."""
     stripped = _TOC_ITEM_LEAD_RE.sub("", text).strip()
-    if not stripped:
+    if not stripped or _TOC_LEGEND_SENTENCE_RE.search(text) is not None:
         return False
     if _TOC_ENTRY_START_RE.match(stripped) is not None or _TOC_LIST_HEADING_RE.fullmatch(stripped) is not None:
         return True
     legend = _TOC_LEGEND_WORD_RE.search(stripped) is not None or _TOC_FILING_LEGEND_RE.search(text) is not None
     match = _TOC_LABELED_ITEM_RE.match(stripped)
     if match is not None:
-        # "A CONFIDENTIAL TREATMENT REQUEST HAS BEEN FILED" is a sentence, not item A.
-        return not (match.group("letter") in ("A", "I") and not match.group("sep") and legend)
+        # "A CONFIDENTIAL TREATMENT REQUEST HAS BEEN FILED" is a sentence, not item A;
+        # "I Separation Agreement \u2013 [OMITTED]" is item I.
+        rest = stripped[match.end():]
+        return not (
+            match.group("letter") in ("A", "I")
+            and not match.group("sep")
+            and legend
+            and not rest.startswith("[")
+            and re.search(r"[a-z]", rest) is None
+        )
+    if len(_TOC_INLINE_ITEM_RE.findall(stripped)) >= 2:
+        return True
     return not legend and _TOC_TRAILING_LIST_LABEL_RE.search(stripped.rstrip("]*) ")) is not None
 
 
@@ -962,6 +982,9 @@ def _select_toc_extras(
             break
         line = extras[end][1][end].strip()
         beside = flat[neighbor].strip() if len(flat) > 1 else ""
+        if end == -1 and _TOC_LIST_HEADING_RE.fullmatch(_TOC_ITEM_LEAD_RE.sub("", beside)) is not None:
+            # The only item under a list heading ("ANCILLARY DOCUMENTS" / "... Agreement Proposal Letter").
+            continue
         if _toc_is_bare_title(line) or (
             _toc_is_labeled_title(line) and _TOC_TRAILING_LIST_LABEL_RE.search(beside) is None
         ):
