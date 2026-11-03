@@ -142,9 +142,11 @@ Known limitations (each needs a coincidence the rules cannot see through):
   applies.
 """
 
+import html
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 EDGE_LINE_WINDOW = 3
 MIN_REPEAT_PAGES = 3
@@ -325,6 +327,7 @@ def _title_number(text: str) -> int:
     raise ValueError(text)
 
 
+@lru_cache(maxsize=1 << 16)
 def _line_shape(line: str) -> str:
     return _DIGITS_RE.sub("#", " ".join(line.split()))
 
@@ -1571,8 +1574,8 @@ _ROMAN_DIGITS = {"i": 1, "v": 5, "x": 10, "l": 50}
 MAX_ROMAN_PAGE = 40
 
 
-def _roman_value(text: str) -> int | None:
-    """The value of a well-formed lowercase roman number up to ``MAX_ROMAN_PAGE``."""
+def _roman_value(text: str, limit: int = MAX_ROMAN_PAGE) -> int | None:
+    """The value of a well-formed lowercase roman number up to ``limit``."""
     total = 0
     for index, ch in enumerate(text):
         value = _ROMAN_DIGITS[ch]
@@ -1580,14 +1583,14 @@ def _roman_value(text: str) -> int | None:
             total -= value
         else:
             total += value
-    if not 1 <= total <= MAX_ROMAN_PAGE or _to_roman(total) != text:
+    if not 1 <= total <= limit or _to_roman(total) != text:
         return None
     return total
 
 
 def _to_roman(value: int) -> str:
     out = ""
-    for number, letters in ((40, "xl"), (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")):
+    for number, letters in ((50, "l"), (40, "xl"), (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")):
         while value >= number:
             out += letters
             value -= number
@@ -1883,3 +1886,894 @@ def strip_nonbody_page_furniture(
         # The blank lines that separated a dropped edge line go with it.
         result.append("\n".join(line for i, line in enumerate(lines) if i not in drop).strip("\n"))
     return result
+
+
+# --- Furniture confirmed by the page as filed --------------------------------------
+#
+# The rules above read only the tagged text. The rules below also read the page as
+# filed (``pages.raw_page_content``). They run last, on the output of the body and
+# sig/back rules, over all of an agreement's pages (front matter, contents, body,
+# sig and back matter) in page order. A tagged line goes only when the filing
+# prints the same text, as its own line (or run of lines), among the first or last
+# ``RAW_EDGE_WINDOW`` lines of the same page, and the tagged line is one of the
+# outermost lines of its page (up to ``EDGE_LINE_WINDOW`` per edge, walking in
+# from the edge past the lines this pass removes and stopping at the first it
+# keeps).
+#
+# - Page numbers ("-77-", "- 12", "103", "xlv", "41.", ". 50", "7/107", "Page 3
+#   of 13", "A-6", "App-2", "- B-2 -", "Appendix A - Page 14", "Annex A-3") must
+#   also fit a numbering: they equal the page's own tagged number; or a page one
+#   or two places away prints (as filed, on the same edge) the same shape rising
+#   by exactly the page distance; or, at the bottom edge only, not roman, and on
+#   a page with no tagged number of its own, the number continues the nearest
+#   tagged page number exactly. On front-matter and contents pages only the
+#   chain counts (a lone number there can be an entry's page). A label that
+#   restarts per exhibit ("S-1") needs the chain or is page 1, and counts only at
+#   the bottom, never as its page's first line ("EXHIBIT C-1" is a caption). A
+#   plain number right above an unnumbered heading stays (a clause number).
+# - A tagged page number glued to a stray "." or "|", a total ("/107", "of 92")
+#   or its own number again ("<page>41</page>.", ". <page>50</page>", "102
+#   <page>102</page>"), or printed with its label ("Page <page>2</page> of 92"),
+#   keeps only the tag, and a lone "." or "|" line beside the page number goes.
+# - A repeated line (running header or footer, legend, document ID): its shape
+#   (digits collapsed) is printed as its own line at the edge of at least
+#   ``MIN_RAW_REPEAT_PAGES`` pages and of at least ``MIN_RAW_REPEAT_SHARE`` of the
+#   body pages, or of the other pages from its first copy to its last (an
+#   exhibit's own footer). Only copies on its dominant edge go, and tagged page
+#   numbers on the line stay. Every number in it must be the same on every copy
+#   (a document ID, "of 87") or a page number that rises with the pages: a date,
+#   an amount or a clause number makes it text. The first copy of a line without
+#   digits stays (a cover title, a table's first header). Never a tagged heading,
+#   a line inside one, an ARTICLE/Section/Exhibit line, a signature-page legend
+#   ("[Signature Page to ...]"), page-break boilerplate, a signature-block line,
+#   an enumerator or a single word. A bracketed line, or a legend line shorter
+#   than ``MIN_RAW_LEGEND_CHARS`` ("[REDACTED]", "[Intentionally Omitted]", "[Exhibit
+#   has been omitted ...]"), is what its page holds unless it is a long legend
+#   repeated on the body pages. Off the body and back pages (sig, front,
+#   contents), and for a line repeated only off the body, it also needs a
+#   document ID, a page number or a legend word: a party name heading each
+#   counterpart signature page is signature text.
+# - A law-firm document ID ("|US-DOCS\\140904150.6||") printed word for word as
+#   its own edge line on two or more pages; and on contents pages a "Page"
+#   column header, or the contents title repeated after the first contents page.
+# - A filing that prints a page as one run of text glues its header or footer to
+#   the text. A run of up to ``MAX_RAW_AFFIX_TOKENS`` words at the start (or end)
+#   of the filed page, repeated in shape at the same end of the same share of
+#   pages, is cut from the outermost tagged line when it holds a document ID (six
+#   or more digits, "4124-8327-5548") or a page number that rises with the pages
+#   ("EXECUTION VERSION 2"), under the same number rule. Without a document ID it
+#   must be the filing's whole first (or last) line, unless the page is one run:
+#   a number the filing prints inside a sentence stays. With one it must be a
+#   paragraph of its own where the filing has lines (a file number at the end of
+#   a sentence is text). It never takes a caption,
+#   a heading word, a bracketed legend or a signature-block word. A page tag the
+#   tagger put inside the run stays ("<page>4</page> LEGAL\67828860\11 ..."), and
+#   a number the page already carries as a tag nearer the edge is text ("affiliates
+#   52" above "<page>52</page>" in an index of terms). Runs are grouped with their
+#   long numbers as printed, so each document ID is its own run.
+# - A repeated line glued to the start (top edge) or end (bottom edge) of the
+#   outermost remaining line is cut when the filing prints it as its own edge
+#   line on that page, it has two words or digits, the agreement never prints it
+#   more often than it has edge copies (so it is never part of a clause), and the
+#   filing prints it as a paragraph of its own: a sentence that wraps (a <br>, a
+#   text line) onto a repeated last line, "(See Annex I to the proxy" + "statement/
+#   prospectus on Form S-4 ... filed on July 9, 2025)", is not glued.
+# - A glued run at either limit (``MAX_RAW_AFFIX_TOKENS`` words,
+#   ``MAX_RAW_JOINED_LINES`` filed lines) is not cut when the word after it has
+#   the same shape on most of the pages it is cut from: the furniture goes on past
+#   the limit, and a partial cut would leave the rest glued to the text.
+#
+# A page is never emptied.
+
+RAW_EDGE_WINDOW = 4
+MIN_RAW_REPEAT_PAGES = 5
+MIN_RAW_REPEAT_SHARE = 0.5
+MAX_RAW_REPEATED_CHARS = 160
+MAX_RAW_LEGEND_CHARS = 400
+# A shorter legend line, or any bracketed line, is a placeholder unless the body repeats it.
+MIN_RAW_LEGEND_CHARS = 40
+MAX_RAW_JOINED_LINES = 4
+MAX_RAW_AFFIX_TOKENS = 12
+RAW_CHAIN_DISTANCE = 2
+MAX_FOOTER_ID_CHARS = 60
+# Body pages can be numbered in romans throughout ("xlv", "lxviii").
+MAX_RAW_ROMAN_PAGE = 89
+
+
+@dataclass
+class RawEdgePage:
+    """One page for ``strip_raw_edge_furniture``: its text after the other rules and the page as filed."""
+
+    text: str
+    raw: str | None
+    is_html: bool
+    page_order: int
+    zone: str  # "front_matter", "toc", "body", "sig" or "back_matter"
+
+
+@dataclass(frozen=True)
+class _RawLine:
+    text: str
+    whole: bool  # its own line as printed: HTML lines always, text and <pre> lines set off by blank lines
+    joined: bool = False  # in the same paragraph as the line before (a <br> or a wrapped text line)
+
+
+_RAW_PRE_RE = re.compile(r"(<pre\b[^>]*>.*?</pre>)", re.IGNORECASE | re.DOTALL)
+_RAW_BLOCK_RE = re.compile(
+    r"<\s*/?\s*(?:p|div|tr|td|th|li|h[1-6]|table|center|pre|blockquote|ul|ol|dl|dt|dd|hr|body|html)\b[^>]*>",
+    re.IGNORECASE,
+)
+_RAW_BR_RE = re.compile(r"<\s*br\b[^>]*>", re.IGNORECASE)
+_RAW_TAG_RE = re.compile(r"<[^>]*>")
+_INVISIBLE_RE = re.compile("[​-‏⁠﻿­]")
+
+
+def _clean_raw_line(line: str) -> str:
+    return " ".join(_INVISIBLE_RE.sub("", line).replace(" ", " ").split())
+
+
+def _set_off_lines(lines: list[str], whole: bool = False) -> list[_RawLine]:
+    cleaned = [_clean_raw_line(line) for line in lines]
+    return [
+        _RawLine(
+            line,
+            whole or ((k == 0 or not cleaned[k - 1]) and (k + 1 == len(cleaned) or not cleaned[k + 1])),
+            k > 0 and bool(cleaned[k - 1]),
+        )
+        for k, line in enumerate(cleaned)
+        if line
+    ]
+
+
+def raw_page_lines(raw: str | None, is_html: bool) -> list[_RawLine]:
+    """The printed lines of a filed page: HTML block and line-break tags end a line
+    (source newlines inside a block do not); in text pages and <pre> blocks each
+    line is a line, and SGML markup lines ("<PAGE>") are not printed."""
+    if not raw:
+        return []
+    if not is_html:
+        return _set_off_lines(["" if _RAW_TAG_RE.fullmatch(line.strip()) else line for line in raw.split("\n")])
+    out: list[_RawLine] = []
+    for k, part in enumerate(_RAW_PRE_RE.split(raw)):
+        if k % 2:
+            out += _set_off_lines(html.unescape(_RAW_TAG_RE.sub("", part)).split("\n"))
+            continue
+        text = _RAW_BLOCK_RE.sub("\n\n", part.replace("\r", " ").replace("\n", " "))
+        text = html.unescape(_RAW_TAG_RE.sub("", _RAW_BR_RE.sub("\n", text)))
+        out += _set_off_lines(text.split("\n"), whole=True)
+    return out
+
+
+@dataclass(frozen=True)
+class _PageToken:
+    shape: str  # the token without its residue, digits collapsed ("-#-", "a-#", "page # of #", "roman")
+    value: int
+    label: bool  # a label that restarts per exhibit ("A-3", "Appendix A - Page 3")
+    bare: bool  # a plain number ("12", "12 of 40"): at the top it can be a footnote marker
+    roman: bool
+    bottom_only: bool = False  # "Appendix A-1": a caption when it opens a page
+
+
+_TOKEN_RESIDUE_RE = re.compile(r"(?P<lead>[.|]\s*)?(?P<core>.*?)(?P<trail>\s*[.|])?")
+_TOKEN_NUMBER_RE = re.compile(
+    r"(?P<page>page\s+)?(?P<n>\d{1,3})(?:\s+of\s+\d{1,3}|\s?/\s?\d{1,3}|\(\d{1,3}\))?", re.IGNORECASE
+)
+_TOKEN_DASHED_RE = re.compile(r"[-–—]\s*(?P<n>\d{1,3})\s*[-–—]?|(?P<m>\d{1,3})\s*[-–—]")
+_TOKEN_LABEL_RE = re.compile(
+    r"(?:[-–—]\s?)?(?:(?:App|Sch|Exh?)\.?\s?)?(?P<prefix>[A-Z]{1,3}(?:-\d{1,2})?|App|Sch|Exh?)\.?"
+    r"\s?[-–—]\s?(?P<n>\d{1,3})(?:\s?[-–—])?"
+    r"|(?P<letter>[A-Z])\s(?P<n2>\d{1,3})"
+)
+# "Appendix A-1", "Annex B-3": read only at the bottom of a page (at the top it is a caption).
+_TOKEN_WORD_LABEL_RE = re.compile(
+    r"(?:appendix|annex(?:ure)?|exhibit|schedule)\s+(?P<prefix>[A-Z]{1,2})\s?[-\u2013\u2014]\s?(?P<n>\d{1,3})", re.IGNORECASE
+)
+_TOKEN_LABEL_PAGE_RE = re.compile(
+    r"(?:(?:appendix|annex(?:ure)?|exhibit|schedule|attachment)\s+[A-Z0-9][\w.\-]{0,6}|confidential)"
+    r"\s*[-–—|,]?\s*page\s+(?P<n>\d{1,3})(?:\s+of\s+\d{1,3})?",
+    re.IGNORECASE,
+)
+
+
+MAX_PAGE_TOKEN_CHARS = 64
+MAX_PAGE_TOKEN_RAW_CHARS = 400  # a .txt page number can sit behind a long run of spaces
+
+
+@lru_cache(maxsize=65536)
+def _page_token(line: str) -> _PageToken | None:
+    """The page number a whole line prints, with an optional stray "." or "|" beside it."""
+    if len(line) > MAX_PAGE_TOKEN_RAW_CHARS:
+        return None
+    normalized = _normalized(line)
+    if len(normalized) > MAX_PAGE_TOKEN_CHARS:
+        return None  # the longest form, "Attachment 12.3(a) - Page 123 of 456", is under 50
+    match = _TOKEN_RESIDUE_RE.fullmatch(normalized)
+    assert match is not None
+    core = match.group("core").strip()
+    if not core:
+        return None
+    shape = _line_shape(core).lower()
+    number = _TOKEN_NUMBER_RE.fullmatch(core)
+    if number is not None:
+        return _PageToken(shape, int(number.group("n")), False, number.group("page") is None, False)
+    dashed = _TOKEN_DASHED_RE.fullmatch(core)
+    if dashed is not None:
+        return _PageToken(shape, int(dashed.group("n") or dashed.group("m")), False, False, False)
+    label = _TOKEN_LABEL_RE.fullmatch(core) or _TOKEN_LABEL_PAGE_RE.fullmatch(core)
+    if label is not None:
+        groups = label.groupdict()
+        return _PageToken(shape, int(groups.get("n") or groups["n2"]), True, False, False)
+    word_label = _TOKEN_WORD_LABEL_RE.fullmatch(core)
+    if word_label is not None:
+        return _PageToken(shape, int(word_label.group("n")), True, False, False, bottom_only=True)
+    roman = _ROMAN_LINE_RE.fullmatch(core)
+    if roman is not None:
+        value = _roman_value(roman.group("roman"), MAX_RAW_ROMAN_PAGE)
+        if value is not None:
+            shape = ("-" if roman.group("lead") else "") + "roman" + ("-" if roman.group("trail") else "")
+            return _PageToken(shape, value, False, False, True)
+    return None
+
+
+def _unwrapped(line: str) -> str:
+    """The line as printed: every <page> tag unwrapped, invisible characters dropped."""
+    return _clean_raw_line(_ANY_PAGE_TAG_RE.sub(lambda m: " " + m.group("inner") + " ", line))
+
+
+def _glued_unwrapped(line: str) -> str:
+    """Like ``_unwrapped``, but a tag glued to text stays glued ("<page>41</page>." -> "41.")."""
+    return _clean_raw_line(_ANY_PAGE_TAG_RE.sub(lambda m: m.group("inner"), line))
+
+
+def _edge_keys(lines: list[_RawLine]) -> tuple[dict[str, tuple[frozenset[str], bool]], dict[str, tuple[bool, bool, int]]]:
+    """Edge lines of a filed page, alone and run together (a legend printed over
+    several lines): casefolded text -> (edges it sits on, printed as its own lines),
+    and casefolded text -> (it opens a paragraph, it closes one, the most lines it joins)."""
+    keys: dict[str, tuple[frozenset[str], bool]] = {}
+    bounds: dict[str, tuple[bool, bool, int]] = {}
+    for side, offset, window in (("top", 0, lines[:RAW_EDGE_WINDOW]), ("bottom", max(0, len(lines) - RAW_EDGE_WINDOW), lines[-RAW_EDGE_WINDOW:])):
+        for start in range(len(window)):
+            for end in range(start + 1, min(len(window), start + MAX_RAW_JOINED_LINES) + 1):
+                run = window[start:end]
+                key = " ".join(raw_line.text for raw_line in run).casefold()
+                sides, whole = keys.get(key, (frozenset(), False))
+                keys[key] = (sides | {side}, whole or all(raw_line.whole for raw_line in run))
+                after = offset + end
+                opens, closes, joins = bounds.get(key, (False, False, 0))
+                bounds[key] = (opens or not run[0].joined, closes or after >= len(lines) or not lines[after].joined, max(joins, len(run)))
+    return keys, bounds
+
+
+_RESIDUE_LINE_RE = re.compile(r"[.|]")
+# What a tagged page number can carry on its line: a stray "." or "|", the total
+# ("/ 107", "of 92"), or the same number printed again.
+_TAG_COMPANION_RE = re.compile(r"[.|]|(?:/|of)\s*\d{1,3}|\d{1,3}", re.IGNORECASE)
+_RAW_LEGEND_WORD_RE = re.compile(r"confidential|omitted|redacted|initials|privileged", re.IGNORECASE)
+_DOC_ID_TOKEN_RE = re.compile(r"\d{6,}|\d{4}-\d{4}-\d{4}")
+_PLAIN_NUMBER_RE = re.compile(r"\d{1,3}")
+_TOC_COLUMN_HEADER_RE = re.compile(r"page(?:\s+page)?|section\s+page", re.IGNORECASE)
+_RAW_HEADING_START_RE = re.compile(
+    r"\(?(?:article|section|clause|part|chapter|rule|regulation|paragraph|item|step|schedule|exhibit|annex|appendix)\b",
+    re.IGNORECASE,
+)
+# A glued run never takes a caption, a bracketed legend or a signature-block word with it.
+_AFFIX_EXCLUDED_RE = re.compile(
+    r"[\[\]]|/s/|\b(?:exhibit|schedule|annex|appendix|attachment|article|section|by|name|title)\b", re.IGNORECASE
+)
+
+
+def _clean_tag_values(text: str) -> list[int]:
+    return [int(m.group("dashed") or m.group("plain")) for m in _CLEAN_PAGE_TAG_RE.finditer(text)]
+
+
+def _tag_companion(line: str) -> tuple[str, str] | None:
+    """(tag, companion) for a line holding one clean page tag and a companion."""
+    stripped = line.strip()
+    tags = list(_ANY_PAGE_TAG_RE.finditer(stripped))
+    if len(tags) != 1:
+        return None
+    values = _clean_tag_values(tags[0].group(0))
+    if not values:
+        return None
+    companion = _normalized(stripped[: tags[0].start()] + " " + stripped[tags[0].end():])
+    if not companion or _TAG_COMPANION_RE.fullmatch(companion) is None:
+        return None
+    if companion.isdigit() and int(companion) != values[0]:
+        return None
+    return tags[0].group(0), companion
+
+
+_PAGE_NUMBER_NEIGHBOR_RE = re.compile(r"(?i)page|pg\.?|p\.|of|[-\u2013\u2014|:,]+")
+
+
+def _page_number_position(tokens: list[str], i: int) -> bool:
+    """Whether token ``i`` sits where a running line prints its page number: at
+    either end of the line, or next to "Page", "of" or a dash."""
+    if i == 0 or i == len(tokens) - 1:
+        return True
+    return any(_PAGE_NUMBER_NEIGHBOR_RE.fullmatch(tokens[j]) for j in (i - 1, i + 1))
+
+
+def _digit_fit(copies: dict[int, list[str]], orders: list[int]) -> tuple[dict[int, bool], bool] | None:
+    """Whether the numbers in a repeated line (one copy per page, as tokens) are furniture.
+
+    Every token with digits must be the same on every copy ("DB1/", "of 87", a
+    document ID), or a plain number that rises with the pages on at least
+    ``MIN_RAW_REPEAT_SHARE`` of the copies (a page number); any other number
+    (a date, an amount, a clause number) makes the line text. Returns, per page,
+    whether its copy's page numbers fit, and whether the line holds a document
+    ID or a page number; None when the line is text."""
+    sample = next(iter(copies.values()))
+    fits = {k: True for k in copies}
+    marked = False
+    for i, token in enumerate(sample):
+        if not any(ch.isdigit() for ch in token):
+            continue
+        values = {run[i] for run in copies.values()}
+        if len(values) == 1:
+            marked = marked or _DOC_ID_TOKEN_RE.search(token) is not None
+            continue
+        if not all(_PLAIN_NUMBER_RE.fullmatch(value) for value in values):
+            return None
+        if not _page_number_position(sample, i):
+            return None  # "POLARIS SUB 2 INC." names a different signer on each page
+        offsets: dict[int, int] = {}
+        for k, run in copies.items():
+            offsets[int(run[i]) - orders[k]] = offsets.get(int(run[i]) - orders[k], 0) + 1
+        best, count = max(offsets.items(), key=lambda item: item[1])
+        if count < MIN_RAW_REPEAT_SHARE * len(copies):
+            return None
+        marked = True
+        for k, run in copies.items():
+            fits[k] = fits[k] and int(run[i]) - orders[k] == best
+    return fits, marked
+
+
+def _raw_line_is_eligible(printed: str, legend: bool) -> bool:
+    """A repeated line that can be furniture (see the notes above)."""
+    if not printed or "<" in printed or ">" in printed:
+        return False
+    if len(printed) > (MAX_RAW_LEGEND_CHARS if legend else MAX_RAW_REPEATED_CHARS):
+        return False
+    if any(pattern.fullmatch(printed) for pattern in _REPEATED_LINE_EXCLUDED_RES) or "/s/" in printed:
+        return False
+    if _RAW_HEADING_START_RE.match(printed):
+        return False  # "ARTICLE 3" heads each page of an exhibit's articles
+    if _DIGIT_ENUMERATOR_RE.fullmatch(printed) or not any(ch.isalnum() for ch in printed):
+        return False
+    return " " in printed or not printed.isalpha()
+
+
+@lru_cache(maxsize=512)  # about one large agreement's pages
+def _raw_page_reading(
+    raw: str | None, is_html: bool
+) -> tuple[tuple[_RawLine, ...], dict[str, tuple[frozenset[str], bool]], dict[str, tuple[bool, bool, int]]]:
+    """``raw_page_lines`` and ``_edge_keys`` of a filed page, cached: the builder
+    renders an agreement several times (tag repairs, hard-rule checks) from the
+    same pages. The dicts are shared; callers only read them."""
+    lines = raw_page_lines(raw, is_html)
+    keys, bounds = _edge_keys(lines)
+    return tuple(lines), keys, bounds
+
+
+def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
+    """Remove page numbers, stray page-number punctuation and repeated header and
+    footer lines that the filed page prints at its edges (see the notes above).
+
+    ``pages`` are all of the agreement's pages (front matter, contents, body, sig
+    and back matter) in page order, each with its text after the other rules.
+    Returns their texts plus a record of each removed line (``page_index`` is the
+    position in ``pages``).
+    """
+    result = FurnitureStripResult(page_texts=[page.text for page in pages])
+    if not pages:
+        return result
+    readings = [_raw_page_reading(page.raw, page.is_html) for page in pages]
+    raw_lines = [list(reading[0]) for reading in readings]
+    raw_edges = [reading[1] for reading in readings]
+    raw_bounds = [reading[2] for reading in readings]
+    orders = [page.page_order for page in pages]
+    page_lines = [page.text.split("\n") for page in pages]
+    headings = _heading_texts([page.text for page in pages if page.zone == "body"])
+    zone_sizes = {"body": sum(1 for page in pages if page.zone == "body")}
+
+    def group(k: int) -> str:
+        return "body" if pages[k].zone == "body" else "other"
+
+    other_positions = {k: n for n, k in enumerate(k for k in range(len(pages)) if group(k) == "other")}
+
+    def repeated_enough(found: set[int] | dict[int, object]) -> tuple[bool, bool]:
+        """(repeated on the body pages, repeated on the sig/back pages).
+
+        On the body pages the share is of all body pages. On the sig/back pages it
+        is of the pages from its first copy to its last: an exhibit has its own
+        footer."""
+        in_body = sum(1 for k in found if group(k) == "body")
+        others = sorted(other_positions[k] for k in found if group(k) == "other")
+        body = in_body >= MIN_RAW_REPEAT_PAGES and in_body >= MIN_RAW_REPEAT_SHARE * zone_sizes["body"]
+        other = len(others) >= MIN_RAW_REPEAT_PAGES and len(others) >= MIN_RAW_REPEAT_SHARE * (others[-1] - others[0] + 1)
+        return body, other
+
+    # Page-number tokens the filing prints at each page edge: (shape, value, edge) -> pages.
+    raw_tokens: dict[tuple[str, int, str], set[int]] = {}
+    for k, lines in enumerate(raw_lines):
+        for side, window in (("top", lines[:RAW_EDGE_WINDOW]), ("bottom", lines[-RAW_EDGE_WINDOW:])):
+            for raw_line in window:
+                token = _page_token(raw_line.text)
+                if token is not None:
+                    raw_tokens.setdefault((token.shape, token.value, side), set()).add(k)
+    tagged = {k: _clean_tag_values(text) for k, text in enumerate(result.page_texts)}
+    tagged_orders = sorted((orders[k], values[-1]) for k, values in tagged.items() if values)
+
+    def chained(k: int, token: _PageToken, side: str) -> bool:
+        """A page one or two places away prints the same shape on the same edge, rising by the page distance."""
+        for j in range(max(0, k - RAW_CHAIN_DISTANCE), min(len(pages), k + RAW_CHAIN_DISTANCE + 1)):
+            distance = orders[j] - orders[k]
+            key = (token.shape, token.value + distance, side)
+            if j != k and 0 < abs(distance) <= RAW_CHAIN_DISTANCE and j in raw_tokens.get(key, set()):
+                return True
+        return False
+
+    def continues_tagged(k: int, value: int) -> bool:
+        before = [a for a in tagged_orders if a[0] < orders[k]]
+        after = [a for a in tagged_orders if a[0] > orders[k]]
+        nearest = ([before[-1]] if before else []) + ([after[0]] if after else [])
+        return any(value == anchor_value + orders[k] - anchor_order for anchor_order, anchor_value in nearest)
+
+    def is_page_number(k: int, index: int, side: str) -> bool:
+        line = page_lines[k][index].strip()
+        if "<" in line or ">" in line:
+            return False
+        token = _page_token(line)
+        if token is None or _normalized(line).casefold() not in raw_edges[k]:
+            return False
+        if token.bare and side == "top" and _next_line_opens_unnumbered_heading(page_lines[k], index):
+            return False
+        if token.bottom_only or (token.label and side == "bottom"):
+            # A caption opens its page: a label counts at the bottom only when the
+            # filing prints it at the bottom alone and it is not the page's first line.
+            first = _countable_indexes(page_lines[k])[:1]
+            if side != "bottom" or first == [index] or raw_lines[k][0].text.casefold() == _normalized(line).casefold():
+                return False
+        if pages[k].zone in ("toc", "front_matter"):
+            return chained(k, token, side)  # a lone number on a contents page can be an entry's page
+        own = tagged[k]
+        if token.value in own and not (token.label or token.roman):
+            return True
+        if chained(k, token, side):
+            return True
+        if side != "bottom" or token.roman:
+            return False
+        if token.label:
+            return token.value == 1
+        return not own and continues_tagged(k, token.value)
+
+    def page_tag_cleanup(k: int, index: int) -> str | None:
+        """The tag alone, for a page tag glued to a stray "." / "|", a total, or its own number again."""
+        line = page_lines[k][index]
+        found = _tag_companion(line)
+        if found is None:
+            return None
+        tag, companion = found
+        printed = (_glued_unwrapped(line).casefold(), _unwrapped(line).casefold(), companion.casefold())
+        return tag if any(text in raw_edges[k] for text in printed) else None
+
+    def page_label_cleanup(k: int, index: int) -> str | None:
+        """The tag alone, for a tagged page number printed with its label ("Page <page>2</page> of 92")."""
+        line = page_lines[k][index].strip()
+        tags = _CLEAN_PAGE_TAG_RE.findall(line)
+        if len(tags) != 1 or _OTHER_TAG_RE.search(line):
+            return None
+        printed = _unwrapped(line)
+        token = _page_token(printed)
+        if token is None or token.value not in tagged[k] or printed.casefold() not in raw_edges[k]:
+            return None
+        return _CLEAN_PAGE_TAG_RE.search(line).group(0)  # type: ignore[union-attr]
+
+    def is_residue_line(k: int, index: int, dropped: set[int]) -> bool:
+        line = page_lines[k][index].strip()
+        if _RESIDUE_LINE_RE.fullmatch(line) is None:
+            return False
+        if not any(key == line or (key.startswith(line) or key.endswith(line)) and _page_token(key) is not None for key in raw_edges[k]):
+            return False
+        lines = page_lines[k]
+        return any(
+            i in dropped or _CLEAN_PAGE_TAG_RE.fullmatch(lines[i].strip()) is not None
+            for i in (index - 1, index + 1, index - 2, index + 2)
+            if 0 <= i < len(lines) and lines[i].strip()
+        )
+
+    # Repeated lines the filing prints at page edges: shape -> {page: edges}, and the copies' tokens.
+    edge_shapes: dict[str, dict[int, frozenset[str]]] = {}
+    edge_copies: dict[str, dict[int, list[str]]] = {}
+    for k, edges in enumerate(raw_edges):
+        for key, (sides, whole) in edges.items():
+            # Longer runs are never furniture text (``_raw_line_is_eligible``).
+            if whole and len(key) <= MAX_RAW_LEGEND_CHARS and _page_token(key) is None:
+                found = edge_shapes.setdefault(_line_shape(key), {})
+                found[k] = found.get(k, frozenset()) | sides
+                edge_copies.setdefault(_line_shape(key), {}).setdefault(k, key.split())
+    digit_fits: dict[str, tuple[dict[int, bool], bool] | None] = {}
+
+    def running(shape: str) -> tuple[str, bool] | None:
+        """(dominant edge, repeated on the body pages) for a repeated edge-line shape."""
+        found = edge_shapes.get(shape, {})
+        in_body, in_other = repeated_enough(found)
+        if len(found) < MIN_RAW_REPEAT_PAGES or not (in_body or in_other):
+            return None
+        top = sum(1 for sides in found.values() if "top" in sides)
+        bottom = sum(1 for sides in found.values() if "bottom" in sides)
+        if top == bottom:
+            return None
+        return ("top" if top > bottom else "bottom"), in_body
+
+    def is_furniture_text(k: int, printed: str, side: str) -> bool:
+        """A repeated edge line (or run of lines) the filing prints on this page's edge."""
+        key = printed.casefold()
+        if key not in raw_edges[k] or not raw_edges[k][key][1] or side not in raw_edges[k][key][0]:
+            return False
+        if _page_token(printed) is not None or key in headings:
+            return False
+        has_digit = _DIGITS_RE.search(printed) is not None
+        legend = _RAW_LEGEND_WORD_RE.search(printed) is not None
+        if not _raw_line_is_eligible(printed, legend):
+            return False
+        shape = _line_shape(key)
+        found = running(shape)
+        if found is None or found[0] != side:
+            return False
+        if not has_digit and min(edge_shapes[shape]) == k:
+            return False  # the first copy: a cover title, or a table's first header
+        marked = False
+        if has_digit:
+            if shape not in digit_fits:
+                digit_fits[shape] = _digit_fit(edge_copies[shape], orders)
+            fit = digit_fits[shape]
+            if fit is None or not fit[0].get(k, False):
+                return False
+            marked = fit[1]
+        if (pages[k].zone not in ("body", "back_matter") or not found[1]) and not (marked or legend):
+            return False
+        placeholder = printed.startswith("[") or (legend and len(printed) < MIN_RAW_LEGEND_CHARS)
+        if placeholder and not marked and not (found[1] and len(printed) >= MIN_RAW_LEGEND_CHARS):
+            return False  # "[REDACTED]", "[Exhibit has been omitted ...]": what a page or schedule holds
+        return True
+
+    # A law-firm document ID ("|US-DOCS\\140904150.6||") printed as its own edge line on two or more pages.
+    doc_id_pages: dict[str, set[int]] = {}
+    for k, edges in enumerate(raw_edges):
+        for key, (_, whole) in edges.items():
+            if whole and len(key) <= MAX_FOOTER_ID_CHARS and _DOC_ID_TOKEN_RE.search(key):
+                doc_id_pages.setdefault(key, set()).add(k)
+
+    def is_doc_id(k: int, index: int, side: str) -> bool:
+        line = page_lines[k][index].strip()
+        if "<" in line or ">" in line:
+            return False
+        key = _normalized(line).casefold()
+        if not _is_doc_id_line(_normalized(line)):
+            return False
+        return len(doc_id_pages.get(key, ())) >= 2 and k in doc_id_pages[key] and side in raw_edges[k][key][0]
+
+    def is_toc_header(k: int, index: int, side: str) -> bool:
+        """A "Page" column header, or the contents title repeated on a later contents page."""
+        if pages[k].zone != "toc" or side != "top":
+            return False
+        line = page_lines[k][index].strip()
+        key = _normalized(line).casefold()
+        if key not in raw_edges[k] or "top" not in raw_edges[k][key][0]:
+            return False
+        if _TOC_COLUMN_HEADER_RE.fullmatch(key):
+            return True
+        first_toc = min(j for j, page in enumerate(pages) if page.zone == "toc")
+        return k != first_toc and _CONTENTS_HEADING_RE.fullmatch(key) is not None
+
+    def repeated_line_keep(k: int, index: int, side: str) -> tuple[bool, str | None]:
+        line = page_lines[k][index].strip()
+        if _OTHER_TAG_RE.search(line) or not is_furniture_text(k, _unwrapped(line), side):
+            return False, None
+        # Page tags on the line stay, a clean one or one that holds a page number
+        # with a stray mark ("<page>19 |</page>"); a document ID the tagger wrapped goes.
+        kept = [m.group(0) for m in _ANY_PAGE_TAG_RE.finditer(line) if _page_token(m.group("inner")) is not None]
+        return True, " ".join(kept) or None
+
+    # Whole lines, walked in from each edge.
+    drops: list[dict[int, tuple[str, str | None]]] = []
+    for k, lines in enumerate(page_lines):
+        drop: dict[int, tuple[str, str | None]] = {}
+        countable = _countable_indexes(lines)
+        inside = _lines_inside_headings(lines)
+        for side in ("top", "bottom"):
+            ordered = countable if side == "top" else countable[::-1]
+            for index in ordered[:EDGE_LINE_WINDOW]:
+                if index in inside:
+                    break
+                if index in drop:
+                    continue
+                if is_page_number(k, index, side):
+                    drop[index] = ("raw_page_number", None)
+                elif is_residue_line(k, index, set(drop)):
+                    drop[index] = ("raw_page_residue", None)
+                elif (tag := page_tag_cleanup(k, index) or page_label_cleanup(k, index)) is not None:
+                    drop[index] = ("raw_page_residue", tag)
+                elif is_doc_id(k, index, side):
+                    drop[index] = ("raw_doc_id", None)
+                elif is_toc_header(k, index, side):
+                    drop[index] = ("raw_toc_header", None)
+                else:
+                    repeated, keep = repeated_line_keep(k, index, side)
+                    if not repeated:
+                        break
+                    drop[index] = ("raw_repeated_line", keep)
+        if drop and all(index in drop and drop[index][1] is None for index in countable):
+            drop = {}  # never empty a page
+        drops.append(drop)
+
+    cuts, capped = _raw_affix_cuts(pages, raw_lines, page_lines, drops, repeated_enough)
+    joined_text: list[str] = []
+
+    def joined() -> str:
+        """The agreement's printed text, casefolded (built on first use)."""
+        if not joined_text:
+            joined_text.append("\n".join(_unwrapped(line) for lines in page_lines for line in lines).casefold())
+        return joined_text[0]
+
+    for k, lines in enumerate(page_lines):
+        remaining = [i for i in _countable_indexes(lines) if i not in drops[k]]
+        if not remaining:
+            continue
+        inside = _lines_inside_headings(lines)
+        for side, index in (("top", remaining[0]), ("bottom", remaining[-1])):
+            if index in inside or (k, index, side) in cuts:
+                continue
+            line = cuts.get((k, index, "top" if side == "bottom" else "bottom"), (lines[index], ""))[0]
+            if "<" in line or ">" in line:
+                continue
+            printed = _clean_raw_line(line)
+            folded = printed.casefold()
+            if len(folded) != len(printed):
+                continue
+            # Repeated lines glued to the outermost remaining line, longest first.
+            for key in sorted(raw_edges[k], key=len, reverse=True):
+                if len(key) < MIN_FUSED_CHARS or len(key) >= len(folded):
+                    continue
+                if not (folded.startswith(key) if side == "top" else folded.endswith(key)):
+                    continue
+                if not (any(ch.isdigit() for ch in key) or len(key.split()) >= 2):
+                    continue
+                if side == "top" and folded.startswith(key + " "):
+                    cut, rest = printed[: len(key)], printed[len(key):].strip()
+                elif side == "bottom" and folded.endswith(" " + key):
+                    cut, rest = printed[len(printed) - len(key):], printed[: len(printed) - len(key)].strip()
+                else:
+                    continue
+                if not raw_bounds[k][key][0 if side == "bottom" else 1]:
+                    continue  # the filing runs it on from (or into) the text: a wrapped sentence, not glued
+                if not any(ch.isalpha() for ch in rest) or not is_furniture_text(k, cut, side):
+                    continue
+                if joined().count(key) > len(edge_shapes.get(_line_shape(key), {})):
+                    continue  # the agreement prints it elsewhere: it can end a clause
+                cuts[(k, index, side)] = (rest, cut)
+                if raw_bounds[k][key][2] >= MAX_RAW_JOINED_LINES:
+                    capped.add((k, index, side))
+                break
+
+    cuts = _drop_continued_cuts(cuts, capped)
+    for k, lines in enumerate(page_lines):
+        drop = drops[k]
+        page_cuts = {key: value for key, value in cuts.items() if key[0] == k}
+        if not drop and not page_cuts:
+            continue
+        kept: list[str] = []
+        for index, line in enumerate(lines):
+            if index in drop:
+                kind, keep = drop[index]
+                result.removed.append(RemovedFurnitureLine(page_index=k, line=line.strip(), kind=kind))
+                if keep is not None:
+                    kept.append(keep)
+                continue
+            for side in ("top", "bottom"):
+                if (k, index, side) in page_cuts:
+                    cut = page_cuts[(k, index, side)][1]
+                    shorter = _cut_affix(line, cut, side)
+                    if shorter != line:
+                        result.removed.append(RemovedFurnitureLine(page_index=k, line=cut, kind="raw_fused_line"))
+                    line = shorter
+            if line.strip():
+                kept.append(line)
+        result.page_texts[k] = "\n".join(kept)
+    return result
+
+
+def _drop_continued_cuts(
+    cuts: dict[tuple[int, int, str], tuple[str, str]], capped: set[tuple[int, int, str]]
+) -> dict[tuple[int, int, str], tuple[str, str]]:
+    """Leave glued runs that reach the longest run the rules can see while the
+    furniture goes on past it.
+
+    A header or footer longer than ``MAX_RAW_AFFIX_TOKENS`` words (or
+    ``MAX_RAW_JOINED_LINES`` filed lines) would be cut partway, and the rest of it
+    would stay glued to the text ("February 2025 29 (c) From the time ...").
+    ``capped`` are the cuts at that limit. The text a cut leaves behind differs
+    from page to page; when the word right after a capped cut has the same shape
+    on most of the pages that share the cut, the furniture continues, and none of
+    those cuts is made: the whole run stays as filed. Shorter cuts are complete
+    runs and stay."""
+    groups: dict[tuple[str, str], list[tuple[tuple[int, int, str], str]]] = {}
+    for key, (rest, cut) in cuts.items():
+        if key not in capped:
+            continue
+        words = _unwrapped(rest).split()
+        if not words:
+            continue
+        nxt = words[0] if key[2] == "top" else words[-1]
+        groups.setdefault((key[2], _line_shape(cut.casefold())), []).append((key, _line_shape(nxt.casefold())))
+    dropped: set[tuple[int, int, str]] = set()
+    for copies in groups.values():
+        if len(copies) < 3:
+            continue
+        counts: dict[str, int] = {}
+        for _, shape in copies:
+            counts[shape] = counts.get(shape, 0) + 1
+        if max(counts.values()) >= max(3, MIN_RAW_REPEAT_SHARE * len(copies)):
+            dropped.update(key for key, _ in copies)
+    return {key: value for key, value in cuts.items() if key not in dropped}
+
+
+def _cut_affix(line: str, cut: str, side: str) -> str:
+    """The line without ``cut`` at its start (top) or end (bottom), whitespace-insensitive."""
+    pattern = r"\s+".join(rf"(?:<page>\s*{re.escape(token)}\s*</page>|{re.escape(token)})" for token in cut.split())
+    if side == "top":
+        match = re.match(rf"\s*{pattern}(?:\s+|$)", line, flags=re.IGNORECASE)
+        if match is None:
+            return line
+        rest = line[match.end():]
+    else:
+        # Search only the line's tail: a page filed as one run can be a very long line.
+        start = max(0, len(line) - (len(cut) + 40 * len(cut.split()) + 64))
+        match = re.search(rf"(?:^|\s+){pattern}\s*$", line[start:], flags=re.IGNORECASE)
+        if match is None or (match.start() == 0 and start > 0 and not line[start].isspace()):
+            return line
+        rest = line[: start + match.start()]
+    # A page tag the tagger put inside the run stays ("<page>4</page> LEGAL\67828860\11 ...").
+    tags = " ".join(tag.group(0) for tag in _ANY_PAGE_TAG_RE.finditer(match.group(0)))
+    if not tags:
+        return rest
+    return f"{tags} {rest}" if side == "top" else f"{rest} {tags}"
+
+
+MAX_RAW_LINE_CHARS = 400
+
+
+def _opens_own_paragraph(lines: list[_RawLine], length: int, side: str) -> bool:
+    """The run of ``length`` words at this end of the filed page is a paragraph of
+    its own: it ends (top) or starts (bottom) where a filed line does, and the text
+    beyond it does not run on from it. A page filed as one long run has no lines to
+    go by."""
+    if len(lines) <= 1:
+        return True
+    ordered = lines if side == "top" else lines[::-1]
+    count = 0
+    for n, raw_line in enumerate(ordered):
+        if len(raw_line.text) > MAX_RAW_LINE_CHARS:
+            return True
+        count += len(raw_line.text.split())
+        if count == length:
+            if n + 1 == len(ordered):
+                return True
+            inner = ordered[n + 1]
+            return not (inner.joined if side == "top" else ordered[n].joined)
+        if count > length:
+            return False
+    return True
+
+
+def _end_tokens(lines: list[_RawLine], limit: int) -> tuple[list[str], list[str], int]:
+    """The first and last ``limit`` + 1 words of a filed page, and its word count
+    (capped at ``limit`` + 1: no run is longer than ``limit``)."""
+    head: list[str] = []
+    for raw_line in lines:
+        head += raw_line.text.split()
+        if len(head) > limit:
+            break
+    if len(head) <= limit:
+        return head, head, len(head)
+    tail: list[str] = []
+    for raw_line in reversed(lines):
+        tail = raw_line.text.split() + tail
+        if len(tail) > limit:
+            break
+    return head[: limit + 1], tail[-(limit + 1):], limit + 1
+
+
+_SHORT_NUMBER_RE = re.compile(r"(?<!\d)\d{1,3}(?!\d)")
+
+
+@lru_cache(maxsize=1 << 16)
+def _run_token_shape(token: str) -> str:
+    """A glued run's token with its page-number-sized numbers collapsed. Longer
+    numbers stay as printed, so each document ID ("SK 39196 0005 12134921 v17",
+    "SK 39196 0005 12138149 v5") makes its own run instead of failing as one."""
+    return _SHORT_NUMBER_RE.sub("#", token)
+
+
+def _raw_affix_cuts(
+    pages: list[RawEdgePage],
+    raw_lines: list[list[_RawLine]],
+    page_lines: list[list[str]],
+    drops: list[dict[int, tuple[str, str | None]]],
+    repeated_enough: Callable[[set[int]], tuple[bool, bool]],
+) -> tuple[dict[tuple[int, int, str], tuple[str, str]], set[tuple[int, int, str]]]:
+    """Headers and footers glued to the text of a page filed as one run (see the notes above).
+
+    Returns (page, line, edge) -> (the line without the run, the run), and the
+    cuts whose run is ``MAX_RAW_AFFIX_TOKENS`` words long."""
+    raw_ends = [_end_tokens(lines, MAX_RAW_AFFIX_TOKENS) for lines in raw_lines]
+    orders = [page.page_order for page in pages]
+    cuts: dict[tuple[int, int, str], tuple[str, str]] = {}
+    capped: set[tuple[int, int, str]] = set()
+    for side in ("top", "bottom"):
+        # (length, shape) -> {page: the run's tokens}
+        runs: dict[tuple[int, str], dict[int, list[str]]] = {}
+        for k, (head, tail, count) in enumerate(raw_ends):
+            tokens = head if side == "top" else tail
+            # A run's shape is its tokens' shapes joined (digits never span a space).
+            shapes = [_run_token_shape(token) for token in (tokens if side == "top" else tokens[::-1])[:MAX_RAW_AFFIX_TOKENS]]
+            for length in range(1, min(MAX_RAW_AFFIX_TOKENS, count - 1) + 1):
+                run = tokens[:length] if side == "top" else tokens[-length:]
+                shape = " ".join(shapes[:length] if side == "top" else shapes[:length][::-1])
+                runs.setdefault((length, shape), {})[k] = run
+
+        def qualifies(copies: dict[int, list[str]]) -> dict[int, bool] | None:
+            """Per page, whether its copy's page numbers fit; None when the run is not furniture."""
+            if not any(repeated_enough(set(copies))) or len(copies) < MIN_RAW_REPEAT_PAGES:
+                return None
+            if _AFFIX_EXCLUDED_RE.search(" ".join(next(iter(copies.values())))):
+                return None
+            fit = _digit_fit(copies, orders)
+            return fit[0] if fit is not None and fit[1] else None
+
+        qualified: dict[int, list[list[str]]] = {}
+        for (length, _), copies in sorted(runs.items(), key=lambda item: -item[0][0]):
+            fits = qualifies(copies)
+            if fits is None:
+                continue
+            for k, run in copies.items():
+                if fits[k]:
+                    qualified.setdefault(k, []).append(run)
+        for k, candidates in qualified.items():
+            lines = page_lines[k]
+            remaining = [i for i in _countable_indexes(lines) if i not in drops[k]]
+            if not remaining:
+                continue
+            index = remaining[0] if side == "top" else remaining[-1]
+            tokens = lines[index].split()
+            # Page numbers the page already carries as a tag between this line and its
+            # edge: a run that prints one of them again is text ("affiliates 52" in an
+            # index of terms, above "<page>52</page>").
+            outer = range(index) if side == "top" else range(index + 1, len(lines))
+            elsewhere = {value for i in outer for value in _clean_tag_values(lines[i])}
+            for run in candidates:  # longest first
+                if any(_PLAIN_NUMBER_RE.fullmatch(token) and int(token) in elsewhere for token in run):
+                    continue
+                if not any(_DOC_ID_TOKEN_RE.search(token) for token in run):
+                    # A page number glued to the text: the filing prints it as its own line.
+                    edge_line = raw_lines[k][0] if side == "top" else raw_lines[k][-1]
+                    if len(raw_lines[k]) > 1 and edge_line.text != " ".join(run):
+                        continue
+                elif not _opens_own_paragraph(raw_lines[k], len(run), side):
+                    continue
+                edge = tokens[: len(run)] if side == "top" else tokens[-len(run):]
+                # A token may be a whole page tag the tagger put inside the run; it stays.
+                if len(tokens) <= len(run) or any(("<" in t or ">" in t) and _ANY_PAGE_TAG_RE.fullmatch(t) is None for t in edge):
+                    continue
+                if [_clean_raw_line(_ANY_PAGE_TAG_RE.sub(lambda m: m.group("inner"), t)) for t in edge] != run:
+                    continue
+                rest = " ".join(tokens[len(run):] if side == "top" else tokens[: -len(run)])
+                if not any(ch.isalpha() for ch in _ANY_PAGE_TAG_RE.sub(" ", rest)):
+                    continue
+                cuts[(k, index, side)] = (rest, " ".join(run))
+                if len(run) == MAX_RAW_AFFIX_TOKENS:
+                    capped.add((k, index, side))
+                break
+    return cuts, capped
