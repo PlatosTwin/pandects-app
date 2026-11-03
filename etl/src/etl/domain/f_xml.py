@@ -26,6 +26,7 @@ from etl.domain.page_furniture import (
     strip_raw_edge_furniture,
 )
 from etl.domain.raw_block_joins import join_raw_block_splits
+from etl.domain.raw_spaces import heading_id_titles, restore_page_text
 from etl.domain.txt_underlines import strip_inline_underlines
 
 
@@ -1066,6 +1067,7 @@ def convert_to_xml(
     filing_date: date,
     url: str,
     source_format: str,
+    id_tagged_text: str | None = None,
 ) -> str:
     """
     Convert text with <article>...</article> and <section>...</section> headings
@@ -1082,6 +1084,9 @@ def convert_to_xml(
         filing_date: Date of the filing.
         url: URL of the source document.
         source_format: Format of the source document.
+        id_tagged_text: The same text before whitespace-only fixes; when its
+            headings line up with ``tagged_text``'s, ids hash its titles, so the
+            fixes do not move served ids.
 
     Returns:
         XML string representation of the document.
@@ -1092,6 +1097,7 @@ def convert_to_xml(
     pattern = re.compile(r"<(article|section)>(.*?)</\1>", re.DOTALL)
     page_uuid_pattern = re.compile(r"<pageUUID>(.*?)</pageUUID>", re.DOTALL)
     matches = list(pattern.finditer(tagged_text))
+    id_titles = heading_id_titles(id_tagged_text, matches) if id_tagged_text is not None else None
     page_uuid_markers = [
         (m.start(), m.group(1).strip())
         for m in page_uuid_pattern.finditer(tagged_text)
@@ -1218,9 +1224,9 @@ def convert_to_xml(
                 previous_article_number = parsed_number
         else:
             title = normalize_glued_section_title(title)
-        # Ids hash the titles as they were before the punctuation is tightened,
-        # so the fix does not move served ids.
-        uuid_title = title
+        # Ids hash the titles as they were before the punctuation is tightened
+        # (and before the raw-backed space fixes), so the fixes do not move served ids.
+        uuid_title = title if id_titles is None else id_titles[i]
         title = tighten_space_before_punctuation(title)
         source_page_uuid = heading_page_uuid(m.start())
 
@@ -1472,6 +1478,14 @@ def _strip_raw_edge_furniture(groups: list[tuple[Any, list[str]]]) -> list[list[
     return out
 
 
+def _restore_raw_spaces(groups: list[tuple[Any, list[str]]]) -> list[list[str]]:
+    """Run ``restore_page_text`` over each zone's page texts (rows paired with texts)."""
+    return [
+        [restore_page_text(text, row) for row, text in zip(rows.to_dict("records"), texts)]
+        for rows, texts in groups
+    ]
+
+
 def generate_xml(
     df: Any, version_map: dict[str, int] | None = None
 ) -> tuple[list[XMLData], list[XMLGenerationFailure]]:
@@ -1584,6 +1598,12 @@ def generate_xml(
                     (nonbody_rows, nonbody_texts),
                 ]
             )
+            # Spaces the filed page prints between glued words (and none beside a
+            # split hyphen); ids keep hashing the titles as they were.
+            body_id_texts = body_page_texts
+            fm_texts, toc_texts, body_page_texts, nonbody_texts = _restore_raw_spaces(
+                [(fm_rows, fm_texts), (toc_rows, toc_texts), (body_rows, body_page_texts), (nonbody_rows, nonbody_texts)]
+            )
             nonbody_text_by_uuid = dict(zip(nonbody_rows["page_uuid"].to_list(), nonbody_texts))
 
             # frontMatter and tableOfContents
@@ -1606,12 +1626,19 @@ def generate_xml(
                     for page_text, page_uuid in zip(body_page_texts, body_rows["page_uuid"].to_list())
                 )
                 body_text = strip_subsection_section_tags(body_text)
+                body_id_text = strip_subsection_section_tags(
+                    "\n".join(
+                        f"{page_text}<pageUUID>{page_uuid}</pageUUID>"
+                        for page_text, page_uuid in zip(body_id_texts, body_rows["page_uuid"].to_list())
+                    )
+                )
                 tmp_xml = convert_to_xml(
                     body_text,
                     agreement_uuid,
                     announcement_date,
                     url,
                     source_format,
+                    **({} if body_id_text == body_text else {"id_tagged_text": body_id_text}),
                 )
                 tmp_root = ET.fromstring(tmp_xml)
                 # Include any leading content that appeared before the first heading within body pages
