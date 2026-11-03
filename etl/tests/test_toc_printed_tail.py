@@ -107,10 +107,14 @@ class TocPrintedTailTests(unittest.TestCase):
             + "<p>Page | ii</p><p>PAGE || iii</p><p>Page ii of iv</p><p>(CONTINUED ON NEXT PAGE)</p>"
             + "<p>[Remainder of page intentionally left blank]</p>"
             + "<p>EXHIBITS</p><p>Exhibit A Form of Voting Agreement</p><p>B Mid-Tier Merger Agreement</p>"
-            + "<p>Confidential and Proprietary</p><p>Annex A Not a continuation of the list</p>"
+            + "<p>Confidential and Proprietary</p><p>Annex A Closing Steps</p>"
         )
         lines = _lines(html)
-        self.assertEqual(lines[-3:], ["EXHIBITS", "Exhibit A Form of Voting Agreement", "B Mid-Tier Merger Agreement"])
+        # A legend line stays out; the list resumes at the next listed item.
+        self.assertEqual(
+            lines[-4:],
+            ["EXHIBITS", "Exhibit A Form of Voting Agreement", "B Mid-Tier Merger Agreement", "Annex A Closing Steps"],
+        )
         for furniture in (
             "AGREEMENT AND PLAN OF MERGER", "by and among", "- iv -", "#25932618 v26", "328972.00001/116443569.20",
             "Share sale agreement", "Section Description", "ii.", "Confidential and Proprietary",
@@ -158,9 +162,12 @@ class TocPrintedTailTests(unittest.TestCase):
         html = (
             ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>"
             + "<p>AGREEMENT AND PLAN OF MERGER BETWEEN A, INC. AND B, INC. EXECUTION VERSION</p><p>i .</p>"
-            + "<p>Herbert Smith Freehills owns the copyright in this document</p><p>Exhibit B Not kept</p>"
+            + "<p>Herbert Smith Freehills owns the copyright in this document</p><p>Restricted circulation</p>"
+            + "<p>Exhibit B Form of Guaranty</p>"
         )
-        self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+        lines = _lines(html)
+        self.assertEqual(lines[-3:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement", "Exhibit B Form of Guaranty"])
+        self.assertNotIn("Restricted circulation", lines)
 
     def test_doc_id_footers_with_a_page_number_stay_out(self) -> None:
         # 74b1ab4f, c0b21bbb, e3f224a9: a doc ID with a roman page number; a5ec15f8: a slashed doc ID.
@@ -282,6 +289,91 @@ class TocPrintedTailTests(unittest.TestCase):
         self.assertEqual(_TOC_TITLE_PAGE_RE.sub("", "Stock Purchase Agreement iii"), "Stock Purchase Agreement")
         for line in ("Settlement Agreement civil", "Settlement Agreement ill"):
             self.assertEqual(_TOC_TITLE_PAGE_RE.sub("", line), line)
+
+    def test_bracketed_items_headings_and_entries_do_not_stop_the_list(self) -> None:
+        # cdf43fb9 "[Exhibit D \u2013 Intentionally Omitted]"; 7943689e "CONFIDENTIAL SCHEDULES" in the
+        # items' block; 77a4901b an item with a filing note; 9d6468e2 "Schedule I [**]".
+        items = [
+            "[Exhibit D \u2013 Intentionally Omitted]",
+            "Exhibit E \u2013 Term Sheet for Long-Term Supply Agreement",
+            "CONFIDENTIAL SCHEDULES",
+            "FORM OF BANK MERGER AGREEMENT EXHIBIT A",
+            "Exhibit A - Accounting Procedures Omitted pursuant to Item 601(b)(2) of Regulation SK.",
+            "Exhibit B - Form of Non-competition, Non-solicitation Agreement *",
+            "Schedule I [**]",
+            "Schedule II Net Cash",
+        ]
+        html = ENTRIES_11 + "<p>EXHIBITS</p>" + "".join(f"<p>{item}</p>" for item in items)
+        self.assertEqual(_lines(html)[-len(items):], items)
+
+    def test_an_omitted_toc_entry_does_not_stop_the_toc(self) -> None:
+        # 039890a0: "Section 8.3 Omitted" then "ARTICLE IX. MISCELLANEOUS 45".
+        html = ENTRIES_11 + "<p>Section 8.3 Omitted</p><p>ARTICLE IX. MISCELLANEOUS 45</p>"
+        self.assertEqual(_lines(html)[-2:], ["Section 8.3 Omitted", "ARTICLE IX. MISCELLANEOUS 45"])
+
+    def test_the_list_under_an_omitted_exhibits_note_is_kept(self) -> None:
+        # 275cf259, 1951fa70, f1450781, 1fadca28: the note stays out, the list under it is served.
+        html = (
+            ENTRIES_11 + "<p>SCHEDULES *</p><p>* Omitted pursuant to Instruction 4 of Item 1.01 of Form 8-K.</p>"
+            "<p>[ The following Exhibits have been omitted :</p><p>EXHIBITS *</p>"
+            "<p>\u2022 Exhibit A: Form of Certificate of Merger</p><p>Exhibit K Form of Paying Agent Agreement]</p>"
+        )
+        self.assertEqual(
+            _lines(html)[-4:],
+            ["SCHEDULES *", "EXHIBITS *", "\u2022 Exhibit A: Form of Certificate of Merger", "Exhibit K Form of Paying Agent Agreement]"],
+        )
+
+    def test_all_caps_legends_still_stay_out(self) -> None:
+        for legend in ("EXHIBITS AND SCHEDULES OMITTED", "A CONFIDENTIAL TREATMENT REQUEST HAS BEEN FILED"):
+            with self.subTest(legend=legend):
+                html = (
+                    ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>"
+                    + f"<p>{legend}</p><p>PURSUANT TO THE RULES OF THE COMMISSION</p>"
+                )
+                self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+
+    def test_headings_and_notes_that_mention_the_agreement_are_kept(self) -> None:
+        # 2eb9f0a3, 3625b546, de8d6c39, c6d806eb.
+        for line in (
+            "Purchaser Schedules to Asset Purchase Agreement",
+            "AGREED FORM DOCUMENTS REFERRED TO IN THIS AGREEMENT",
+            "LIST OF SCHEDULES TO THE ASSET PURCHASE AGREEMENT",
+            "Delivered contemporaneously with this Agreement",
+        ):
+            with self.subTest(line=line):
+                html = ENTRIES_11 + f"<p>DISCLOSURE SCHEDULES:</p><p>{line}</p>"
+                self.assertEqual(_lines(html)[-1], line)
+
+    def test_only_one_bare_title_is_peeled_at_a_page_end(self) -> None:
+        html = ENTRIES_11 + "<p>ANCILLARY DOCUMENTS</p><p>Voting Agreement</p><p>Escrow Agreement</p><p>Stock Purchase Agreement</p>"
+        self.assertEqual(_lines(html)[-3:], ["ANCILLARY DOCUMENTS", "Voting Agreement", "Escrow Agreement"])
+
+    def test_a_title_with_an_uppercase_roman_page_label_is_a_footer(self) -> None:
+        for footer in ("Merger Agreement I", "Agreement and Plan of Merger - V", "Merger Agreement - X"):
+            with self.subTest(footer=footer):
+                html = ENTRIES_11 + f"<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p><p>{footer}</p>"
+                self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+        # Inside a list labeled at the end, a trailing roman letter is the item's label.
+        html = ENTRIES_11 + "<p>Lock-up and Voting Agreement J</p><p>Purchase and Sale Agreement L</p>"
+        self.assertEqual(_lines(html)[-2:], ["Lock-up and Voting Agreement J", "Purchase and Sale Agreement L"])
+
+    def test_article_headings_repeated_on_overlapping_pages_are_kept(self) -> None:
+        # e865462b, 8f32f1f5: the same ARTICLE heading and its wrapped title printed on two pages.
+        block = "<p>ARTICLE III</p><p>REPRESENTATIONS AND WARRANTIES</p><p>OF THE SELLER</p>"
+        pages = [ENTRIES_11 + block + "<p>Stock Purchase Agreement</p>", ENTRIES_11 + block]
+        keys = repeated_toc_extra_keys(pages)
+        for page in pages:
+            self.assertEqual(
+                _lines_with(page, keys)[-3:], ["ARTICLE III", "REPRESENTATIONS AND WARRANTIES", "OF THE SELLER"]
+            )
+
+    def test_a_one_paragraph_list_wraps_on_item_labels_only(self) -> None:
+        paragraph = (
+            "Exhibit C-2 Form of Additional Seller Note Exhibit D Allocation Schedule Exhibit E Form of Foreign "
+            "Asset Acquisition Agreement Exhibit F Form of Foreign Stock Acquisition Agreement"
+        )
+        lines = _lines(ENTRIES_11 + "<p>EXHIBITS</p><p>" + paragraph + "</p>")
+        self.assertIn("Exhibit D Allocation Schedule", lines)
 
     def test_dashed_page_labels_repeat_as_one_footer(self) -> None:
         footer = "<p>Purchase Agreement for Acme Holdings {}</p>"

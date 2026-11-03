@@ -698,28 +698,79 @@ _TOC_LIST_ITEM_RE = re.compile(
 # list heading ending in the list's name ("Asset Purchase Agreement Exhibits").
 _TOC_TRAILING_LIST_LABEL_RE = re.compile(
     r"(?:\b(?i:exhibit|schedule|annex|appendix|attachment)\s*[A-Z0-9][A-Za-z0-9.()\-]{0,6}"
-    r"|\s[A-Z](?:-\d{1,2})?"
+    r"|(?<![-\u2013\u2014(])\s[A-Z](?:-\d{1,2})?"
     r"|\b(?i:exhibits|schedules|annexes|appendices|attachments))\s*:?$"
 )
-# A listed exhibit for the prose and legend guards: a list word with its label, or a capital
-# letter label followed by a capitalized word or a bracket ("A Form of", "A-7 [Intentionally Omitted]").
+# A listed item: a list word with its label ("Exhibit A", "EXHIBITG", "Schedule 1.1(a)", "Schedule I [**]"),
+# or a capital letter label ("A-7 [Intentionally Omitted]", "B. Option Agreement", "C \u2013 NETWORK ...").
 _TOC_LABELED_ITEM_RE = re.compile(
-    r"(?i:exhibits?|schedules?|annex(?:es)?|appendix|appendices|attachments?)\s*[A-Z0-9]"
-    r"|[A-Z](?:-\d{1,2})?[.:)]?\s+(?![a-z])"
+    r"(?i:exhibits?|schedules?|annex(?:es)?|appendix|appendices|attachments?)\s+"
+    r"(?:[A-Z]{1,2}(?:-?\d{1,3})?|[IVX]{1,5}|\d{1,3}(?:\.\d{1,3})*(?:\([a-z0-9]{1,4}\))*)(?![A-Za-z0-9])"
+    r"|EXHIBIT[A-RT-Z0-9](?:-?\d{1,3})?(?![A-Za-z0-9])"
+    r"|(?P<letter>[A-Z](?:-\d{1,2})?)(?P<sep>[.:)]|\s+[-\u2013\u2014])?\s+(?![a-z])"
 )
+# A list heading: "EXHIBITS", "Schedules:", "SCHEDULES *", "CONFIDENTIAL SCHEDULES", "Exhibits and Annexes",
+# "ANCILLARY DOCUMENTS".
+_TOC_LIST_HEADING_RE = re.compile(
+    r"(?:(?:confidential|disclosure|company|sellers?|buyer|purchaser|parent|ancillary|other|list\s+of|index\s+of|table\s+of)\s+)*"
+    r"(?:exhibits?|schedules?|annex(?:es)?|appendix|appendices|attachments?|documents)"
+    r"(?:\s*(?:,|and|&)\s*(?:exhibits?|schedules?|annex(?:es)?|appendices|attachments?))*\s*[:*]*",
+    re.IGNORECASE,
+)
+# A leading bracket, bullet or asterisk before a listed item.
+_TOC_ITEM_LEAD_RE = re.compile(r"^[\[(\u2022\u00b7*\s]+")
 
 
-def _toc_line_ends_extras(line: str) -> bool:
-    """A filing legend, a paragraph of prose or an agreement preamble: the page's extras end here."""
-    if _TOC_FILING_LEGEND_RE.search(line) is not None:
-        return True
-    if _TOC_LABELED_ITEM_RE.match(line) is not None:
-        # A listed item, also an exhibit list printed as one paragraph.
+def _toc_is_list_line(text: str) -> bool:
+    """A listed item, a list heading or a TOC entry heading: the shapes a tail is made of."""
+    stripped = _TOC_ITEM_LEAD_RE.sub("", text).strip()
+    if not stripped:
         return False
+    if _TOC_ENTRY_START_RE.match(stripped) is not None or _TOC_LIST_HEADING_RE.fullmatch(stripped) is not None:
+        return True
+    legend = _TOC_LEGEND_WORD_RE.search(stripped) is not None or _TOC_FILING_LEGEND_RE.search(text) is not None
+    match = _TOC_LABELED_ITEM_RE.match(stripped)
+    if match is not None:
+        # "A CONFIDENTIAL TREATMENT REQUEST HAS BEEN FILED" is a sentence, not item A.
+        return not (match.group("letter") in ("A", "I") and not match.group("sep") and legend)
+    return not legend and _TOC_TRAILING_LIST_LABEL_RE.search(stripped.rstrip("]*) ")) is not None
+
+
+def _toc_is_legend(text: str) -> bool:
+    return _TOC_FILING_LEGEND_RE.search(text) is not None or _TOC_LEGEND_WORD_RE.search(text) is not None
+
+
+def _toc_is_prose(text: str) -> bool:
+    """A paragraph of prose or an agreement preamble: the page's extras end before it."""
+    return len(text) > _TOC_PROSE_CHARS or _TOC_PREAMBLE_RE.search(text) is not None
+
+
+# Words that make a title-cased line a heading or a note rather than a running title:
+# "Purchaser Schedules to Asset Purchase Agreement", "Delivered contemporaneously with this Agreement".
+_TOC_NOT_RUNNING_TITLE_RE = re.compile(
+    r"\b(?:to|referred|delivered|contemporaneously|list|schedules|exhibits|annexes|this)\b", re.IGNORECASE
+)
+_TOC_UPPER_ROMAN_RE = re.compile(r"(?=[IVXLC])C{0,3}(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})")
+
+
+def _toc_is_labeled_title(text: str) -> bool:
+    """A running title with an uppercase roman page label ("Merger Agreement I")."""
+    match = re.fullmatch(r"(.+?)\s+([IVXLC]{1,4})", text)
     return (
-        _TOC_LEGEND_WORD_RE.search(line) is not None
-        or len(line) > _TOC_PROSE_CHARS
-        or (_TOC_PREAMBLE_RE.search(line) is not None and _TOC_LIST_ITEM_RE.match(line) is None)
+        match is not None
+        and _TOC_UPPER_ROMAN_RE.fullmatch(match.group(2)) is not None
+        and _TOC_NOT_RUNNING_TITLE_RE.search(match.group(1)) is None
+        and running_title_kind(match.group(1).strip()) == "title"
+    )
+
+
+def _toc_is_heading_continuation(text: str) -> bool:
+    """An all-caps line wrapped under an ARTICLE heading ("REPRESENTATIONS AND WARRANTIES", "OF THE SELLER")."""
+    return (
+        len(text) <= 100
+        and re.search(r"[A-Z]", text) is not None
+        and re.search(r"[a-z]", text) is None
+        and not _toc_is_bare_title(text)
     )
 
 
@@ -732,6 +783,7 @@ def _toc_is_bare_title(text: str) -> bool:
         or _TOC_ENTRY_START_RE.match(text) is not None
         or _TOC_TRAILING_LIST_LABEL_RE.search(text) is not None
         or "form of" in text.lower()
+        or _TOC_NOT_RUNNING_TITLE_RE.search(text) is not None
     ):
         return False
     if running_title_kind(text) == "title":
@@ -846,32 +898,77 @@ def _select_toc_extras(
     """
     extras: list[tuple[int, list[str]]] = []
     leading_open = False
+    in_legend = False
+    under_heading = False
     for position, block_lines in candidates:
-        lines = [
-            line
-            for line in block_lines
-            if line.strip()
-            and not _toc_extra_is_furniture(line.strip())
-            and toc_repeat_key(line) not in drop_keys
-        ]
+        lines: list[str] = []
+        for line in block_lines:
+            text = line.strip()
+            if not text or _toc_extra_is_furniture(text):
+                continue
+            # An ARTICLE/Section heading and the all-caps lines wrapped under it are never running repeats.
+            protected = _TOC_ENTRY_START_RE.match(text) is not None or (
+                under_heading and _toc_is_heading_continuation(text)
+            )
+            under_heading = protected
+            if not protected and toc_repeat_key(line) in drop_keys:
+                continue
+            lines.append(line)
         if not lines:
             continue
-        if any(_toc_line_ends_extras(line) for line in lines):
-            if position == 0:
+        if position == 0:
+            # Before the first entry element: whole blocks, from the first ARTICLE or Section heading.
+            if any(
+                not _toc_is_list_line(line.strip()) and (_toc_is_legend(line) or _toc_is_prose(line.strip()))
+                for line in lines
+            ):
                 continue
+            if not leading_open:
+                heading = next((line for line in lines if not _toc_is_bare_title(line.strip())), None)
+                if heading is None or _TOC_ENTRY_START_RE.match(heading) is None:
+                    continue
+                leading_open = True
+            extras.append((position, lines))
+            continue
+        kept: list[str] = []
+        stop = False
+        for line in lines:
+            text = line.strip()
+            listed = _toc_is_list_line(text)
+            if in_legend:
+                # The lines after a legend continue it, up to the next listed item or list heading
+                # ("The following Exhibits have been omitted:" and the list under it).
+                if not listed:
+                    continue
+                in_legend = False
+            if not listed and _toc_is_legend(text):
+                in_legend = True
+                continue
+            if not listed and _toc_is_prose(text):
+                stop = True
+                break
+            kept.append(line)
+            if _TOC_FILING_LEGEND_RE.search(text) is not None:
+                # An item that carries a filing note ("Exhibit A - ... Omitted pursuant to Item 601").
+                in_legend = True
+        if kept:
+            extras.append((position, kept))
+        if stop:
             break
-        if position == 0 and not leading_open:
-            heading = next((line for line in lines if not _toc_is_bare_title(line.strip())), None)
-            if heading is None or _TOC_ENTRY_START_RE.match(heading) is None:
-                continue
-            leading_open = True
-        extras.append((position, lines))
-    # A bare title at either end of the page's extras is a running header or footer.
-    for end in (0, -1):
-        while extras and _toc_is_bare_title(extras[end][1][end].strip()):
+    # One bare title at either end of the page's extras is a running header or footer.
+    flat = [line for _, block in extras for line in block]
+    for end, neighbor in ((0, 1), (-1, -2)):
+        if not extras:
+            break
+        line = extras[end][1][end].strip()
+        beside = flat[neighbor].strip() if len(flat) > 1 else ""
+        if _toc_is_bare_title(line) or (
+            _toc_is_labeled_title(line) and _TOC_TRAILING_LIST_LABEL_RE.search(beside) is None
+        ):
             del extras[end][1][end]
             if not extras[end][1]:
                 del extras[end]
+            flat = [line for _, block in extras for line in block]
     return extras
 
 
@@ -902,7 +999,7 @@ def _wrap_toc_long_lines(text: str, *, line_width: int) -> str:
     wrapped: list[str] = []
     for line in text.splitlines():
         item_splits = re.split(
-            r"\s+(?=(?:Exhibit|Schedule)\s+[A-Z0-9])",
+            r"\s+(?=(?:Exhibit|Schedule)\s+(?-i:[A-Z0-9](?![a-z])))",
             line,
             flags=re.IGNORECASE,
         )
