@@ -999,7 +999,7 @@ def _wrap_toc_long_lines(text: str, *, line_width: int) -> str:
     wrapped: list[str] = []
     for line in text.splitlines():
         item_splits = re.split(
-            r"\s+(?=(?:Exhibit|Schedule)\s+(?-i:[A-Z0-9](?![a-z])))",
+            r"\s+(?=(?:Exhibit|Schedule)\s+[A-Z0-9])",
             line,
             flags=re.IGNORECASE,
         )

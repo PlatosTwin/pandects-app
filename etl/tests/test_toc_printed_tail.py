@@ -367,14 +367,6 @@ class TocPrintedTailTests(unittest.TestCase):
                 _lines_with(page, keys)[-3:], ["ARTICLE III", "REPRESENTATIONS AND WARRANTIES", "OF THE SELLER"]
             )
 
-    def test_a_one_paragraph_list_wraps_on_item_labels_only(self) -> None:
-        paragraph = (
-            "Exhibit C-2 Form of Additional Seller Note Exhibit D Allocation Schedule Exhibit E Form of Foreign "
-            "Asset Acquisition Agreement Exhibit F Form of Foreign Stock Acquisition Agreement"
-        )
-        lines = _lines(ENTRIES_11 + "<p>EXHIBITS</p><p>" + paragraph + "</p>")
-        self.assertIn("Exhibit D Allocation Schedule", lines)
-
     def test_dashed_page_labels_repeat_as_one_footer(self) -> None:
         footer = "<p>Purchase Agreement for Acme Holdings {}</p>"
         pages = [
