@@ -220,6 +220,51 @@ class NarrowCellWrapTests(unittest.TestCase):
         self.assertEqual(restore(text, raw), "Northrim Bank 3111 C Street Anchorage, AK 99503 Attention: Michael Huston")
 
 
+class CellBlockWrapTests(unittest.TestCase):
+    """218984c5 pages 24-29: serial numbers wrapped by a paragraph break inside a narrow cell."""
+
+    def test_ids_wrapped_by_paragraphs_in_one_cell_stay_whole(self) -> None:
+        raw = (
+            "<table><tr><td><p>NMX001</p></td><td><p>0602CA00070</p><p>3</p></td>"
+            "<td><p>0908CX01-</p><p>12-014</p></td><td><p>BASE UNIT</p></td></tr>"
+            "<tr><td><p>NMX002</p></td><td><p>218A33500162</p><p>8</p></td>"
+            "<td><p>0705CX02-</p><p>11-221</p></td><td><p>BASE UNIT</p></td></tr></table>"
+        )
+        text = "NMX001 0602CA000703 0908CX01-12-014 BASE UNIT NMX002 218A335001628 0705CX02-11-221 BASE UNIT"
+        self.assertEqual(restore(text, raw), text)
+
+    def test_id_printed_whole_elsewhere_stays_whole(self) -> None:
+        raw = "<table><tr><td>Serial number</td><td><div>0602CA</div><div>000703</div></td><td>BASE UNIT</td></tr></table>"
+        text = "Serial number 0602CA000703 BASE UNIT"
+        elsewhere = PrintedWords.of({"0602CA000703", "Serial"})
+        self.assertEqual(restore_raw_spaces(text, raw, printed_words=elsewhere).text, text)
+        self.assertEqual(restore(text, raw), "Serial number 0602CA 000703 BASE UNIT")
+
+    def test_two_lines_in_one_cell_keep_their_space(self) -> None:
+        # 1293cce3 p86: an address on two lines; 8261c1f3 p75: share counts of three classes.
+        cases = (
+            (
+                "<table><tr><td>Wells Fargo Bank</td><td><div>MAC C7300-107</div><div>1700 Lincoln St</div>"
+                "<div>Denver, CO 80203</div></td></tr></table>",
+                "Wells Fargo Bank MAC C7300-1071700 Lincoln StDenver, CO 80203",
+                "Wells Fargo Bank MAC C7300-107 1700 Lincoln St Denver, CO 80203",
+            ),
+            (
+                "<table><tr><td>Sirois Trust Class A, Class B and Class D shares</td>"
+                "<td><div>100</div><div>1</div><div>3,500</div></td><td>Eger Trust</td></tr></table>",
+                "Sirois Trust Class A, Class B and Class D shares 10013,500 Eger Trust",
+                "Sirois Trust Class A, Class B and Class D shares 100 1 3,500 Eger Trust",
+            ),
+        )
+        for raw, text, expected in cases:
+            self.assertEqual(restore(text, raw), expected)
+
+    def test_paragraph_wrap_outside_a_cell_keeps_its_space(self) -> None:
+        raw = "<p>Equipment schedule serial 0602CA00070</p><p>3 units delivered to the Company</p>"
+        text = "Equipment schedule serial 0602CA000703 units delivered to the Company"
+        self.assertEqual(restore(text, raw), "Equipment schedule serial 0602CA00070 3 units delivered to the Company")
+
+
 class CjkTests(unittest.TestCase):
     def test_no_space_between_han_characters_at_a_line_break(self) -> None:
         # f2a3107b page 44: Lite-On Semiconductor Co., Ltd. wrapped in a centered cell.

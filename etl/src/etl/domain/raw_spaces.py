@@ -134,6 +134,8 @@ class RawSpaceStream:
     # positions with a <br> boundary, and positions with any other boundary
     brs: frozenset[int] = frozenset()
     others: frozenset[int] = frozenset()
+    # for each character, the table cell (<td>/<th>) it sits in, innermost; -1 outside cells
+    cells: tuple[int, ...] = ()
 
 
 def _style(tag: Tag) -> str:
@@ -158,6 +160,9 @@ class _Builder:
         self.bounds: dict[int, int] = {}
         self.brs: set[int] = set()
         self.others: set[int] = set()
+        self.cells: list[int] = []
+        self.cell = -1
+        self.cell_count = 0
 
     def boundary(self, kind: int, *, br: bool = False) -> None:
         at = len(self.chars)
@@ -167,8 +172,9 @@ class _Builder:
 
     def text(self, value: str) -> None:
         value = value.replace(" ", " ")
-        value = _DROPPED_CHARS_RE.sub("", value)
-        self.chars.extend(_WS_RE.sub(" ", value))
+        value = _WS_RE.sub(" ", _DROPPED_CHARS_RE.sub("", value))
+        self.chars.extend(value)
+        self.cells.extend([self.cell] * len(value))
 
     def walk(self, node: Tag) -> None:
         for child in node.children:
@@ -202,7 +208,12 @@ class _Builder:
             else:  # images, unknown elements, the end-tag marker
                 kind = SOFT
             self.boundary(kind)
+            outer = self.cell
+            if name in ("td", "th"):
+                self.cell_count += 1
+                self.cell = self.cell_count
             self.walk(child)
+            self.cell = outer
             self.boundary(kind)
 
 
@@ -219,6 +230,7 @@ def raw_space_stream(raw_html: str) -> RawSpaceStream:
         alnum_pos=alnum_pos,
         brs=frozenset(builder.brs),
         others=frozenset(builder.others),
+        cells=tuple(builder.cells),
     )
 
 
@@ -520,16 +532,25 @@ def _is_wrapped_token(raw: RawSpaceStream, a: int, b: int, printed: PrintedWords
     right piece is a short tail (at most four letters or digits, with a digit,
     shorter than the left piece, which also has a digit) of an id-shaped token.
     Two full values ("15-005003.1000<br/>15-005003.0000", "82.109%<br/>73%",
-    "19494-03<br/>DNPI") keep their space."""
+    "19494-03<br/>DNPI") keep their space. A gap with other block boundaries is
+    a wrap only inside one table cell (``_is_cell_block_wrap``)."""
     left, right = raw.text[a], raw.text[b]
     if not (left.isalnum() and right.isalnum() and (left.isdigit() or right.isdigit())):
         return False
     gap = range(a + 1, b + 1)
-    if not any(x in raw.brs for x in gap) or any(x in raw.others for x in gap):
+    if not any(x in raw.brs or x in raw.others for x in gap):
         return False
+    lone_br = not any(x in raw.others for x in gap)
     left_run, right_run = _raw_run(raw, a, -1), _raw_run(raw, b, 1)
+    if not lone_br:
+        return _is_cell_block_wrap(raw, a, b, left_run, right_run, printed)
     if left_run + right_run in printed.tokens:
         return True
+    return _is_id_tail(left_run, right_run)
+
+
+def _is_id_tail(left_run: str, right_run: str) -> bool:
+    """The right piece is a short tail of one id-shaped token (see ``_is_wrapped_token``)."""
     left_alnum = [c for c in left_run if c.isalnum()]
     right_alnum = [c for c in right_run if c.isalnum()]
     return (
@@ -539,6 +560,32 @@ def _is_wrapped_token(raw: RawSpaceStream, a: int, b: int, printed: PrintedWords
         and any(c.isdigit() for c in left_alnum)
         and any(c.isdigit() for c in right_alnum)
     )
+
+
+def _is_cell_block_wrap(
+    raw: RawSpaceStream, a: int, b: int, left_run: str, right_run: str, printed: PrintedWords
+) -> bool:
+    """Whether block boundaries inside one table cell ("<td><p>0602CA00070</p><p>3</p></td>")
+    wrap one id rather than separate two lines.
+
+    Only when both sides sit in the same <td>/<th> and every boundary between
+    them is a hard one (a <p>, <div> or <br>, never a cell edge or an unsure box).
+    The id is whole when the agreement prints it unbroken elsewhere, or when the
+    left piece fills its line (8 or more letters or digits, no space before them
+    on the line) and the right piece is at most 2 letters or digits or a short
+    id tail. Two lines ("MAC C7300-107</div><div>1700 Lincoln St",
+    "100</div><div>1</div><div>3,500") keep their space."""
+    if not raw.cells or raw.cells[a] < 0 or raw.cells[a] != raw.cells[b]:
+        return False
+    if any(raw.bounds.get(x, NONE) not in (NONE, HARD) for x in range(a + 1, b + 1)):
+        return False
+    if left_run + right_run in printed.tokens:
+        return True
+    start = a - len(left_run) + 1
+    fills_line = (start == 0 or start in raw.bounds) and sum(c.isalnum() for c in left_run) >= 8
+    if not fills_line:
+        return False
+    return sum(c.isalnum() for c in right_run) <= 2 or _is_id_tail(left_run, right_run)
 
 
 def restore_raw_spaces(
