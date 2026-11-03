@@ -180,6 +180,7 @@ class TocPrintedTailTests(unittest.TestCase):
         for footer in (
             "ToC-iii", "2 of 42", "Membership Interest Purchase Agreement -ii-", "SHARE PURCHASE AGREEMENT iii",
             "Index - iv", "A- ii", "P AGE 3", "i v", "Share sale agreement | Slinger Bag, Inc.",
+            "Project Grease - share purchase agreement 1",
         ):
             with self.subTest(footer=footer):
                 html = ENTRIES_11 + f"<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p><p>{footer}</p>"
@@ -190,9 +191,12 @@ class TocPrintedTailTests(unittest.TestCase):
 
     def test_index_rows_and_headings_with_page_numbers_stay(self) -> None:
         # 28a080ad, 2cc4adcc: defined-terms index rows; a4a44e4d: an article heading.
-        rows = ["Credit Agreement 75", "Merger Agreement A-3", "ARTICLE VIII REMEDIES FOR BREACH OF THIS AGREEMENT 39"]
+        rows = [
+            "Credit Agreement 75", "Merger Agreement A-3", "ARTICLE VIII REMEDIES FOR BREACH OF THIS AGREEMENT 39",
+            "ARTICLE IX TERMINATION OF AGREEMENT",
+        ]
         html = ENTRIES_11 + "<p>INDEX OF DEFINED TERMS</p>" + "".join(f"<p>{row}</p>" for row in rows)
-        self.assertEqual(_lines(html)[-3:], rows)
+        self.assertEqual(_lines(html)[-4:], rows)
 
     def test_a_leading_page_label_repeats_as_one_header(self) -> None:
         # c6d40edf: "(i) SHARE PURCHASE AGREEMENT" ... "(iv) SHARE PURCHASE AGREEMENT".

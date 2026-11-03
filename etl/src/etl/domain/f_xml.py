@@ -720,6 +720,10 @@ def _toc_extra_is_furniture(text: str) -> bool:
     titled = _TOC_TITLE_PAGE_RE.sub("", text).strip()
     if titled != text and _toc_word_count(titled) >= 2 and running_title_kind(titled) == "title":
         return True
+    # A footer that names the deal before a dash ("Project Grease - share purchase agreement 1").
+    tail = re.split(r"\s[-\u2013\u2014]\s", _TOC_TRAILING_PAGE_RE.sub("", text).strip())
+    if len(tail) > 1 and running_title_kind(tail[-1].strip()) == "title":
+        return True
     return "|" in text and any(running_title_kind(part.strip()) == "title" for part in text.split("|"))
 
 
