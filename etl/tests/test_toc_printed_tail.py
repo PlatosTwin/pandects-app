@@ -440,6 +440,30 @@ class TocPrintedTailTests(unittest.TestCase):
         self.assertEqual(edge_footer_toc_keys([toc], body[:1]), frozenset())
         listed = ENTRIES_11 + "<p>ANCILLARY DOCUMENTS</p><p>Voting Agreement</p><p>Form of Escrow Agreement</p>"
         self.assertEqual(edge_footer_toc_keys([listed], ["<p>Form of Escrow Agreement</p>"] * 3), frozenset())
+        # 4605c40e "Termination", 0fdf83f4 "INDEX OF DEFINED TERMS": a title that starts a few of
+        # many body pages, or sits inside an edge line, is not a footer.
+        tail = ENTRIES_11 + "<p>ARTICLE VIII</p><p>Termination</p>"
+        pages = ["<p>ARTICLE VIII</p><p>Termination</p><p>text</p>"] * 3 + ["<p>Termination of the plan</p>"] * 5
+        pages += ["<p>text</p>"] * 10
+        self.assertEqual(edge_footer_toc_keys([tail], pages), frozenset())
+
+    def test_an_omitted_article_heading_before_the_entries_is_kept(self) -> None:
+        # 3c5e2684: "ARTICLE 8 [INTENTIONALLY OMITTED]" printed above the page's entry table.
+        html = (
+            "<p>ARTICLE 8 [INTENTIONALLY OMITTED] 46</p><p>ARTICLE 9 [INTENTIONALLY OMITTED] 46</p>"
+            "<p>ARTICLE 10 INDEMNIFICATION 46</p>" + ENTRIES_11
+        )
+        lines = _lines(html)
+        self.assertIn("ARTICLE 8 [INTENTIONALLY OMITTED] 46", lines)
+        self.assertIn("ARTICLE 9 [INTENTIONALLY OMITTED] 46", lines)
+
+    def test_a_list_heading_repeated_over_a_continued_list_is_kept(self) -> None:
+        # 9cd0ec1b: "Exhibits" heads the list on two TOC pages.
+        first = ENTRIES_11 + "<p>Exhibits</p><p>Exhibit A-1 Holdings III Merger Agreement</p>"
+        second = "<p>Exhibits</p><p>Exhibit N Holdco 2009 Equity Incentive Plan</p>"
+        keys = repeated_toc_extra_keys([first, second])
+        self.assertEqual(_lines_with(first, keys)[-2], "Exhibits")
+        self.assertEqual(_lines_with(second, keys)[0], "Exhibits")
 
     def test_an_initials_footer_stays_out(self) -> None:
         # 93ec85a3: the initials-and-date footer of a summary-of-terms page.

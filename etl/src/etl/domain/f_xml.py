@@ -796,11 +796,13 @@ def _toc_opens_leading(text: str) -> bool:
     heading, a numbered entry row, a list heading or a listed exhibit. A cover title, a party line, a
     bare capital-letter label ("A MERGER SUB, INC.") or an index-shaped line does not."""
     stripped = _TOC_ITEM_LEAD_RE.sub("", text).strip()
+    if stripped and _TOC_ENTRY_START_RE.match(stripped) is not None:
+        # "ARTICLE 8 [INTENTIONALLY OMITTED] 46" is an entry, not a legend.
+        return True
     if not stripped or _toc_is_legend(text) or _TOC_LEGEND_SENTENCE_RE.search(text) is not None:
         return False
     if (
-        _TOC_ENTRY_START_RE.match(stripped) is not None
-        or _TOC_NUMBERED_ENTRY_RE.match(stripped) is not None
+        _TOC_NUMBERED_ENTRY_RE.match(stripped) is not None
         or _TOC_LIST_HEADING_RE.fullmatch(stripped) is not None
         or len(_TOC_INLINE_ITEM_RE.findall(stripped)) >= 2
         or _toc_is_name_run(stripped)
@@ -970,6 +972,18 @@ def _toc_candidate_blocks(
     return tuple(blocks)
 
 
+def _toc_heads_a_list(text: str, following: tuple[str, ...] | list[str]) -> bool:
+    """A list heading whose next printed line is a listed item that is not itself a heading."""
+    if _TOC_LIST_HEADING_RE.fullmatch(_TOC_ITEM_LEAD_RE.sub("", text)) is None:
+        return False
+    for line in following:
+        nxt = line.strip()
+        if not nxt or _toc_extra_is_furniture(nxt):
+            continue
+        return _toc_is_list_line(nxt) and _TOC_LIST_HEADING_RE.fullmatch(_TOC_ITEM_LEAD_RE.sub("", nxt)) is None
+    return False
+
+
 def _select_toc_extras(
     candidates: tuple[tuple[int, tuple[str, ...]], ...],
     drop_keys: frozenset[str] = frozenset(),
@@ -989,13 +1003,16 @@ def _select_toc_extras(
     under_heading = False
     for position, block_lines in candidates:
         lines: list[str] = []
-        for line in block_lines:
+        for index, line in enumerate(block_lines):
             text = line.strip()
             if not text or _toc_extra_is_furniture(text):
                 continue
-            # An ARTICLE/Section heading and the all-caps lines wrapped under it are never running repeats.
-            protected = _TOC_ENTRY_START_RE.match(text) is not None or (
-                under_heading and _toc_is_heading_continuation(text)
+            # An ARTICLE/Section heading and the all-caps lines wrapped under it are never running
+            # repeats, nor is a list heading printed over listed items (a list continued on the next page).
+            protected = (
+                _TOC_ENTRY_START_RE.match(text) is not None
+                or (under_heading and _toc_is_heading_continuation(text))
+                or _toc_heads_a_list(text, block_lines[index + 1 :])
             )
             under_heading = protected
             if not protected and toc_repeat_key(line) in drop_keys:
@@ -1206,18 +1223,23 @@ _TOC_DOCUMENT_WORD_RE = re.compile(
 _RAW_EDGE_LINES = 6
 
 
-def _raw_edge_text(raw_html: str) -> tuple[str, str]:
-    """The first and last few printed lines of a raw HTML page, casefolded, each joined by spaces."""
+def _raw_edge_lines(raw_html: str) -> frozenset[str]:
+    """The first and last few printed lines of a raw HTML page, each squashed to letters and digits."""
     text = _RAW_TAG_RE.sub("", _RAW_BLOCK_TAG_RE.sub("\n", _RAW_SCRIPT_RE.sub("", raw_html)))
-    lines = [re.sub(r"\s+", " ", html_lib.unescape(line).replace("\xa0", " ")).strip() for line in text.split("\n")]
+    lines = [_squash_edge_line(html_lib.unescape(line)) for line in text.split("\n")]
     lines = [line for line in lines if line]
-    return " ".join(lines[:_RAW_EDGE_LINES]).casefold(), " ".join(lines[-_RAW_EDGE_LINES:]).casefold()
+    return frozenset([*lines[:_RAW_EDGE_LINES], *lines[-_RAW_EDGE_LINES:]])
+
+
+def _squash_edge_line(text: str) -> str:
+    return re.sub(r"[\W_]+", "", text.casefold())
 
 
 def edge_footer_toc_keys(toc_raw_pages: list[str], other_raw_pages: list[str]) -> frozenset[str]:
     """Keys of the trailing extras of a TOC page (not listed, not naming a document) that the
-    agreement also prints at the top or bottom edge of two or more other pages: a firm footer
-    ("Gilbert + Tobin") or a form page's initials footer."""
+    agreement prints as a whole line at the top or bottom edge of at least half its pages: a
+    firm footer ("Gilbert + Tobin"). An article title or index heading that also starts a few
+    body pages is not one."""
     candidates: dict[str, str] = {}
     for raw_html in toc_raw_pages:
         for line in reversed(toc_page_extra_lines(raw_html)[-4:]):
@@ -1231,12 +1253,12 @@ def edge_footer_toc_keys(toc_raw_pages: list[str], other_raw_pages: list[str]) -
             candidates[text.casefold()] = toc_repeat_key(line)
     if not candidates:
         return frozenset()
-    edges = [_raw_edge_text(raw_html) for raw_html in [*toc_raw_pages, *other_raw_pages]]
+    edges = [_raw_edge_lines(raw_html) for raw_html in [*toc_raw_pages, *other_raw_pages]]
+    needed = max(3, (len(edges) + 1) // 2)
     keys = set()
     for folded, key in candidates.items():
-        pages = sum(1 for top, bottom in edges if folded in top or folded in bottom)
-        # The TOC page that prints it counts once; two more pages make it a running line.
-        if pages >= 3:
+        squashed = _squash_edge_line(folded)
+        if squashed and sum(1 for lines in edges if squashed in lines) >= needed:
             keys.add(key)
     return frozenset(keys)
 
