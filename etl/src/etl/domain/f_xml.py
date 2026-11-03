@@ -639,12 +639,25 @@ _TOC_EXECUTION_BANNER_RE = re.compile(r"\bexecution\s+(?:version|copy)\b", re.IG
 _TOC_TRAILING_PAGE_RE = re.compile(
     r"(?:\s+|(?<=[A-Za-z])-)[-\u2013\u2014(]*\s*(?:[ivxlc]{1,7}|[IVXLC]{1,7}|\d{1,3}|[A-Z]{1,2}-\d{1,3})\s*[-\u2013\u2014).]*$"
 )
-# A TOC page label: "ToC-i", "Contents - 3", "2 of 42".
+# A TOC page label: "ToC-i", "Contents - 3", "Index - iv", "A- ii", "2 of 42", "P AGE 3", "i v".
 _TOC_PAGE_TAG_RE = re.compile(
-    r"(?:toc|contents?)\s*[-\u2013]?\s*(?:[ivxlc]{1,7}|\d{1,3})|(?:page\s+)?(?:[ivxlc]{1,7}|\d{1,3})\s+of\s+(?:[ivxlc]{1,7}|\d{1,3})",
+    r"(?:toc|contents?|index|[A-Z]{1,2})?\s*[-\u2013]\s*(?:[ivxlc]{1,7}|\d{1,3})"
+    r"|(?:toc|contents?)\s*(?:[ivxlc]{1,7}|\d{1,3})"
+    r"|(?:page\s+)?(?:[ivxlc]{1,7}|\d{1,3})\s+of\s+(?:[ivxlc]{1,7}|\d{1,3})"
+    r"|p\s?a\s?g\s?e\s*[-:|]?\s*(?:[ivxlc]{1,7}|\d{1,3})"
+    r"|(?:[ivxlc]\s){1,6}[ivxlc]",
     re.IGNORECASE,
 )
+# A page label that marks a running title: " iii", " -ii-", " (iv)", "-i". A plain arabic number
+# or an "A-3" label is not one: "Credit Agreement 75" and "Merger Agreement A-3" are index rows.
+_TOC_TITLE_PAGE_RE = re.compile(
+    r"(?:\s+|(?<=[A-Za-z])-)(?:[-\u2013\u2014(]+\s*(?:[ivxlc]{1,7}|[IVXLC]{1,7}|\d{1,3})\s*[-\u2013\u2014).]*"
+    r"|[ivxlc]{1,7}\.?)$"
+)
+# A leading page label: "(i) SHARE PURCHASE AGREEMENT".
+_TOC_LEADING_PAGE_RE = re.compile(r"^\((?:[ivxlc]{1,7}|[IVXLC]{1,7}|\d{1,3})\)\s+")
 # An agreement preamble that starts on a TOC-labeled page; the page's TOC ends before it.
+# Not applied to a line that opens with a list label ("Exhibit B Form of ..., by and among ...").
 _TOC_PREAMBLE_RE = re.compile(
     r"^\s*THIS\b.{0,160}\bAGREEMENT\b|\bby\s+and\s+(?:among|between)\b|\bis\s+(?:made|entered\s+into)\s+(?:as\s+of|by|on)\b",
 )
@@ -694,15 +707,25 @@ def _toc_extra_is_furniture(text: str) -> bool:
         return True
     if _TOC_LONG_NUMBER_RE.search(text) is not None and _toc_word_count(text) < 2:
         return True
-    if _TOC_LIST_ITEM_RE.match(text) is not None or "form of" in text.lower():
+    if (
+        _TOC_LIST_ITEM_RE.match(text) is not None
+        or _TOC_ENTRY_START_RE.match(text) is not None
+        or "form of" in text.lower()
+    ):
         return False
-    # A running title, with or without its page label ("Merger Agreement A-3", "... Agreement -ii-").
-    return running_title_kind(text) == "title" or running_title_kind(_toc_strip_page_label(text)) == "title"
+    # A running title, with or without a page label ("... Agreement -ii-", "... AGREEMENT iii"),
+    # or as one part of a piped footer ("Share sale agreement | Slinger Bag, Inc.").
+    if running_title_kind(text) == "title":
+        return True
+    titled = _TOC_TITLE_PAGE_RE.sub("", text).strip()
+    if titled != text and _toc_word_count(titled) >= 2 and running_title_kind(titled) == "title":
+        return True
+    return "|" in text and any(running_title_kind(part.strip()) == "title" for part in text.split("|"))
 
 
 def _toc_strip_page_label(line: str) -> str:
-    """The line without a trailing page label, when at least two words are left."""
-    stripped = _TOC_TRAILING_PAGE_RE.sub("", line).strip()
+    """The line without a leading "(i)" or trailing page label, when at least two words are left."""
+    stripped = _TOC_TRAILING_PAGE_RE.sub("", _TOC_LEADING_PAGE_RE.sub("", line)).strip()
     return stripped if _toc_word_count(stripped) >= 2 else line
 
 
@@ -785,7 +808,7 @@ def _select_toc_extras(
         if any(
             _TOC_LEGEND_RE.search(line) is not None
             or len(line) > _TOC_PROSE_CHARS
-            or _TOC_PREAMBLE_RE.search(line) is not None
+            or (_TOC_PREAMBLE_RE.search(line) is not None and _TOC_LIST_ITEM_RE.match(line) is None)
             for line in lines
         ):
             if position == 0:

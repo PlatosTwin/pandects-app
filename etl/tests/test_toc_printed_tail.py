@@ -175,14 +175,43 @@ class TocPrintedTailTests(unittest.TestCase):
                 self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
 
     def test_page_labels_and_running_titles_with_labels_stay_out(self) -> None:
-        # 4b870189 "ToC-i"; 522db544 "... Agreement -ii-"; 2cc4adcc "Merger Agreement A-3".
-        for footer in ("ToC-iii", "2 of 42", "Membership Interest Purchase Agreement -ii-", "Merger Agreement A-3"):
+        # 4b870189 "ToC-i"; 522db544 "... Agreement -ii-"; 8f517491 "Index - iv"; f7894812 "A- ii";
+        # 1e789eee "P AGE 3"; d206a323 "i v"; 4c5903f5 a piped running footer.
+        for footer in (
+            "ToC-iii", "2 of 42", "Membership Interest Purchase Agreement -ii-", "SHARE PURCHASE AGREEMENT iii",
+            "Index - iv", "A- ii", "P AGE 3", "i v", "Share sale agreement | Slinger Bag, Inc.",
+        ):
             with self.subTest(footer=footer):
                 html = ENTRIES_11 + f"<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p><p>{footer}</p>"
                 self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
         # A listed exhibit with its page label stays.
         html = ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Bank Merger Agreement A-1</p>"
         self.assertEqual(_lines(html)[-1], "Exhibit A Bank Merger Agreement A-1")
+
+    def test_index_rows_and_headings_with_page_numbers_stay(self) -> None:
+        # 28a080ad, 2cc4adcc: defined-terms index rows; a4a44e4d: an article heading.
+        rows = ["Credit Agreement 75", "Merger Agreement A-3", "ARTICLE VIII REMEDIES FOR BREACH OF THIS AGREEMENT 39"]
+        html = ENTRIES_11 + "<p>INDEX OF DEFINED TERMS</p>" + "".join(f"<p>{row}</p>" for row in rows)
+        self.assertEqual(_lines(html)[-3:], rows)
+
+    def test_a_leading_page_label_repeats_as_one_header(self) -> None:
+        # c6d40edf: "(i) SHARE PURCHASE AGREEMENT" ... "(iv) SHARE PURCHASE AGREEMENT".
+        header = "<p>({}) SHARE PURCHASE AGREEMENT</p>"
+        pages = [
+            header.format("i") + ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>",
+            header.format("ii") + ENTRIES_11 + "<p>Exhibit B Form of Guaranty</p>",
+        ]
+        keys = repeated_toc_extra_keys(pages)
+        self.assertNotIn("(ii) SHARE PURCHASE AGREEMENT", _lines_with(pages[1], keys))
+        self.assertEqual(_lines_with(pages[1], keys)[-1], "Exhibit B Form of Guaranty")
+
+    def test_by_and_among_in_an_exhibit_item_does_not_end_the_tail(self) -> None:
+        items = [
+            "Exhibit A Form of Support Agreement, by and among Parent and the Holders",
+            "Exhibit B Form of Escrow Agreement",
+        ]
+        html = ENTRIES_11 + "<p>EXHIBITS</p>" + "".join(f"<p>{item}</p>" for item in items)
+        self.assertEqual(_lines(html)[-2:], items)
 
     def test_dashed_page_labels_repeat_as_one_footer(self) -> None:
         footer = "<p>Purchase Agreement for Acme Holdings {}</p>"
