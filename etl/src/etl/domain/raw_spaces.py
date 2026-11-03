@@ -22,9 +22,12 @@ proves it:
   a block or table-cell boundary at that exact spot. Boundaries whose layout
   is unknown (absolutely positioned or inline-block boxes, floats, images,
   hidden elements) are not evidence. No space is put next to a hyphen, a dash
-  or a slash, before closing punctuation, or after opening punctuation.
+  or a slash, before closing punctuation, or after opening punctuation; nor
+  inside a heading number ("ARTICLE X<br>I"), a <page> marker, or a word the
+  agreement prints unbroken elsewhere (a hand wrap, "Aktiengese<br>llschaft").
 * A space next to a hyphen is removed only where the raw page has nothing at
-  all at that spot: no white space and no boundary of any kind.
+  all at that spot (no white space and no boundary of any kind), and only when
+  the hyphen is joined to a word on its other side, so dash leaders stay.
 
 Private-use glyphs from Symbol and Wingdings bullets ("\\uf0b7") are mapped to
 "•"; a private-use logo glyph that is pure decoration is dropped.
