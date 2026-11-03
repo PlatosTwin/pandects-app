@@ -50,6 +50,7 @@ _TESTIMONIUM_RE = re.compile(
     | AS\s+WITNESS\b
     | The\s+part(?:y|ies)(?:\s+hereto)?(?:\s*,[^,\n]{1,80},)?\s+ha(?:ve|s)\s+(?:duly\s+)?(?:caused|executed|signed)\b
     | EXECUTED\s+(?:as\s+(?:of|a\s+deed)|by|on)\b
+    | (?:[A-Z][^\n.;:]{0,120}?\s)?ha(?:ve|s)\s+(?:duly\s+)?caused\s+this\s+(?:Agreement|Plan|Contract)\b[^\n]{0,160}?\b(?:executed|signed)\b
     )
     """,
     re.IGNORECASE | re.VERBOSE,
@@ -66,6 +67,7 @@ _AGREEMENT_RE = re.compile(r"\b(?:agreement|plan|contract|deed)\b", re.IGNORECAS
 _HEADING_CLOSE_RE = re.compile(r"</(?:section|article)>", re.IGNORECASE)
 _HEADING_OPEN_RE = re.compile(r"<(?:section|article)>", re.IGNORECASE)
 _PAGE_LINE_RE = re.compile(r"^\s*<page>[^<]*</page>\s*$")
+_PAGE_TAG_RE = re.compile(r"<page>[^<]*</page>")
 _QUOTE_CHARS = "\"'“”‘’«"
 
 # Signature-block fields.
@@ -105,32 +107,50 @@ def _line_start(text: str, pos: int) -> int:
     return text.rfind("\n", 0, pos) + 1
 
 
+_WITNESS_RE = re.compile(r"I\s*N\s+W\s*I\s*T\s*N\s*E\s*S\s*S\b|IN\s+TESTIMONY\b|AS\s+WITNESS\b", re.IGNORECASE)
 _UPPER_TESTIMONIUM_RE = re.compile(r"I\s*N\s+W\s*I\s*T\s*N\s*E\s*S\s*S\s+W\s*H\s*E\s*R\s*E\s*O\s*F")
 # A sentence end right before a testimonium glued onto the clause's last line.
 _SENTENCE_END_RE = re.compile(r"[.;)\]]\s+$")
+
+
+def _testimonium_candidates(text: str, region_start: int) -> list[int]:
+    """Offsets where a testimonium may open, in order: any "IN WITNESS" phrase,
+    and the other openings only at the start of a line."""
+    starts = {m.start() for m in _WITNESS_RE.finditer(text, region_start)}
+    for m in re.finditer(r"(?m)^[ \t]*", text[region_start:]):
+        pos = region_start + m.end()
+        if pos < len(text) and _TESTIMONIUM_RE.match(text, pos):
+            starts.add(pos)
+    if region_start < len(text):
+        lead = region_start + len(text[region_start:]) - len(text[region_start:].lstrip(" \t"))
+        if _TESTIMONIUM_RE.match(text, lead):
+            starts.add(lead)
+    return sorted(starts)
 
 
 def _testimonium_split(text: str, region_start: int) -> tuple[int, str] | None | bool:
     """(offset, trigger) of the first testimonium after region_start; None when
     there is none; False when there is one that must not be split at (a quoted
     phrase, one inside a sentence, or the testimonium of a form)."""
-    for match in _TESTIMONIUM_RE.finditer(text, region_start):
-        start = _line_start(text, match.start())
-        prefix = text[max(start, region_start):match.start()]
+    for pos in _testimonium_candidates(text, region_start):
+        if not _TESTIMONIUM_RE.match(text, pos):
+            # "IN WITNESS" not followed by WHEREOF/THEREOF ("in witness of").
+            continue
+        start = _line_start(text, pos)
+        prefix = text[max(start, region_start):pos]
         glued = bool(prefix.strip())
         if glued:
-            stripped = prefix.rstrip()
-            if stripped[-1:] in _QUOTE_CHARS:
+            if prefix.rstrip()[-1:] in _QUOTE_CHARS:
                 return False
             # The clause's last line runs into the testimonium: split inside
             # the line only at a sentence end, before the printed capitals.
-            if not (_SENTENCE_END_RE.search(prefix) and _UPPER_TESTIMONIUM_RE.match(text, match.start())):
+            if not (_SENTENCE_END_RE.search(prefix) and _UPPER_TESTIMONIUM_RE.match(text, pos)):
                 return False
-        line_end = text.find("\n", match.start())
-        line = text[match.start(): line_end if line_end >= 0 else len(text)]
+        line_end = text.find("\n", pos)
+        line = text[pos: line_end if line_end >= 0 else len(text)]
         if _FORM_INSTRUMENT_RE.search(line) and not _AGREEMENT_RE.search(line):
             return False
-        return match.start(), "testimonium_glued" if glued else "testimonium"
+        return pos, "testimonium_glued" if glued else "testimonium"
     return None
 
 
@@ -242,11 +262,10 @@ def split_signature_tail(
         return SignatureTailSplit(texts)
     offset, trigger = found
     head, tail = text[:offset], text[offset:]
-    moved_lines: list[str] = []
-    page_lines: list[str] = []
-    for line in tail.split("\n"):
-        (page_lines if _PAGE_LINE_RE.match(line) else moved_lines).append(line)
-    moved = "\n".join(moved_lines).strip()
+    # Page-number markers stay with the body page, also one glued into a line.
+    page_lines = _PAGE_TAG_RE.findall(tail)
+    moved = "\n".join(line for line in _PAGE_TAG_RE.sub("", tail).split("\n") if line.strip() or not line).strip()
+    moved = re.sub(r"\n{3,}", "\n\n", moved)
     if not moved:
         return SignatureTailSplit(texts)
     kept = head.rstrip()

@@ -46,6 +46,14 @@ class FindSignatureTailTests(unittest.TestCase):
         # Earlier pages are untouched.
         self.assertEqual(result.body_page_texts[0], "<article>ARTICLE IX</article>\n\nEarlier text.")
 
+    def test_page_marker_glued_into_a_moved_line_stays_in_the_body(self) -> None:
+        result = _split(_mixed_page(TESTIMONIUM, "ACME CORP. <page>45</page>", "By: /s/ Jane Doe", "Name: Jane Doe"))
+
+        assert result.moved_text is not None
+        self.assertNotIn("<page>", result.moved_text)
+        self.assertIn("ACME CORP.", result.moved_text)
+        self.assertTrue(result.body_page_texts[1].endswith("<page>45</page>"))
+
     def test_letter_spaced_and_other_testimonium_forms(self) -> None:
         for opening in (
             "I N W I T N E S S W H E R E O F, the parties have signed this Agreement.",
@@ -54,6 +62,8 @@ class FindSignatureTailTests(unittest.TestCase):
             "EXECUTED as of the date first above written.",
             "Executed as a Deed by the parties on the date of this Agreement.",
             "IN TESTIMONY WHEREOF, the parties have signed this Agreement.",
+            "AS WITNESS this Agreement has been signed on the date first written above.",
+            "Sterling and Klamath have caused this Agreement to be executed by their officers as of the date above.",
         ):
             with self.subTest(opening=opening):
                 result = _split(_mixed_page(opening, BLOCKS))
@@ -146,6 +156,13 @@ class FindSignatureTailTests(unittest.TestCase):
         self.assertTrue(result.body_page_texts[1].endswith(CLAUSE))
         assert result.moved_text is not None
         self.assertTrue(result.moved_text.startswith("IN WITNESS WHEREOF, the parties"))
+
+    def test_execution_words_inside_clause_text_do_not_block_the_split(self) -> None:
+        clause = "This Agreement may be executed by facsimile, and the parties have executed it in counterparts."
+        result = _split("\n\n".join(["<section>Section 9.5 Counterparts.</section>", clause, TESTIMONIUM, BLOCKS]))
+
+        self.assertEqual(result.trigger, "testimonium")
+        self.assertTrue(result.body_page_texts[1].endswith(clause))
 
     def test_testimonium_inside_a_sentence_does_not_split(self) -> None:
         # Neither the phrase nor the blocks after it move.
