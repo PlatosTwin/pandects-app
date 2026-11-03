@@ -891,6 +891,7 @@ class XMLGenerationTests(unittest.TestCase):
             filing_date: date,
             url: str,
             source_format: str,
+            **kwargs: object,
         ) -> str:
             if agreement_uuid == invalid_uuid:
                 return "<document><broken></document>"
@@ -900,6 +901,7 @@ class XMLGenerationTests(unittest.TestCase):
                 filing_date,
                 url,
                 source_format,
+                **kwargs,  # pyright: ignore[reportArgumentType]
             )
 
         with patch(
