@@ -1,6 +1,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAny=false, reportDeprecated=false, reportExplicitAny=false
 import copy
 import functools
+import html as html_lib
 import re
 import unicodedata
 import xml.dom.minidom
@@ -609,7 +610,7 @@ _TOC_TEXT_BLOCK_TAGS = (
 )
 _TOC_ENTRY_START_RE = re.compile(r"(?:ARTICLE|Article|SECTION|Section)\s+(?:\d+|[IVXLC]+)\b")
 # Roman page numbers: "iii", "- iv -", "ii.", "II".
-_TOC_ROMAN_PAGE_RE = re.compile(r"[-\u2013\u2014(\s]*(?:[ivxlc]{1,7}|[IVXLC]{1,7})\s*\.?[-\u2013\u2014)\s]*")
+_TOC_ROMAN_PAGE_RE = re.compile(r"[-\u2013\u2014(\s]*(?:[ivxlc]{1,12}|[IVXLC]{1,12})\s*\.?[-\u2013\u2014)\s]*")
 _TOC_LABEL_RE = re.compile(
     r"(?:(?:table\s+of\s+)?contents\s*)?(?:\(?continued\)?\s*)?(?:page|pages|page\s+no\.?)?",
     re.IGNORECASE,
@@ -647,7 +648,8 @@ _TOC_PAGE_TAG_RE = re.compile(
     r"|(?:toc|contents?)\s*(?:[ivxlc]{1,7}|\d{1,3})"
     r"|(?:page\s+)?(?:[ivxlc]{1,7}|\d{1,3})\s+of\s+(?:[ivxlc]{1,7}|\d{1,3})"
     r"|p\s?a\s?g\s?e\s*[-:|]?\s*(?:[ivxlc]{1,7}|\d{1,3})"
-    r"|(?:[ivxlc]\s){1,6}[ivxlc]",
+    r"|(?:[ivxlc]\s){1,6}[ivxlc]"
+    r"|(?:[ivxlc]{1,7}|\d{1,3})\s*\(\s*(?:[ivxlc]{1,7}|\d{1,3})\s*\)",
     re.IGNORECASE,
 )
 # A page label that marks a running title: " iii", " -ii-", " (iv)", "-i". A plain arabic number
@@ -729,6 +731,27 @@ _TOC_LEGEND_SENTENCE_RE = re.compile(
 _TOC_INLINE_ITEM_RE = re.compile(
     r"(?i:exhibit|schedule|annex)\s+(?:[A-Z]{1,2}(?:-?\d{1,3})?|\d{1,3}(?:\.\d{1,3})*(?:\([a-z0-9]{1,4}\))*)(?![A-Za-z0-9])"
 )
+# A numbered TOC entry row: "3.27 Certain Business Relationships", "1.1. Certain Definitions".
+_TOC_NUMBERED_ENTRY_RE = re.compile(r"\d{1,2}\.\d{1,3}\.?\s+[A-Z(\[]")
+# A defined-terms index row: a term and its section reference ("Confidential Information 1.1").
+_TOC_INDEX_ROW_RE = re.compile(
+    r"[A-Z\u201c\"][^.;:]{0,80}?\s(?:\d{1,2}(?:\.\d{1,3})*(?:\([a-z0-9]{1,4}\))*|[A-Z]-\d{1,3}|Preamble|Recitals?)"
+)
+# A lone filing exhibit number ("Exhibit 2.1", "EXHIBIT 10.1") printed above a contents page.
+_TOC_FILING_EXHIBIT_RE = re.compile(r"(?i:exhibit)\s+\d{1,3}\.\d{1,3}")
+# The spaced-out contents title ("T ABLE OF C ONTENTS") and "[ End of Table of Contents ]".
+_TOC_END_LABEL_RE = re.compile(r"\[?\s*end\s+of\s+(?:the\s+)?table\s+of\s+contents\s*\]?", re.IGNORECASE)
+_TOC_NAME_RUN_WORD_RE = re.compile(r"\b(?:Schedules?|Exhibits?|Annex(?:es)?)\b")
+_TOC_SENTENCE_MARK_RE = re.compile(
+    r"[.;]\s|\b(?:shall|will|have|has|are|is|been|pursuant|hereto|herein|thereof)\b", re.IGNORECASE
+)
+
+
+def _toc_is_name_run(text: str) -> bool:
+    """A paragraph of list names ending in their list word ("Financial Statements Schedule Contracts Schedule ...")."""
+    return len(_TOC_NAME_RUN_WORD_RE.findall(text)) >= 3 and _TOC_SENTENCE_MARK_RE.search(text) is None
+
+
 # A leading bracket, bullet or asterisk before a listed item.
 _TOC_ITEM_LEAD_RE = re.compile(r"^[\[(\u2022\u00b7*\s]+")
 
@@ -738,7 +761,17 @@ def _toc_is_list_line(text: str) -> bool:
     stripped = _TOC_ITEM_LEAD_RE.sub("", text).strip()
     if not stripped or _TOC_LEGEND_SENTENCE_RE.search(text) is not None:
         return False
-    if _TOC_ENTRY_START_RE.match(stripped) is not None or _TOC_LIST_HEADING_RE.fullmatch(stripped) is not None:
+    if (
+        _TOC_ENTRY_START_RE.match(stripped) is not None
+        or _TOC_NUMBERED_ENTRY_RE.match(stripped) is not None
+        or _TOC_LIST_HEADING_RE.fullmatch(stripped) is not None
+    ):
+        return True
+    if _TOC_FILING_LEGEND_RE.search(text) is None and (
+        _TOC_INDEX_ROW_RE.fullmatch(stripped) is not None or _toc_is_name_run(stripped)
+    ):
+        # An index row ("Confidential Information 1.1") or a run of list names ("Contracts Schedule
+        # Assets Schedule ...").
         return True
     legend = _TOC_LEGEND_WORD_RE.search(stripped) is not None or _TOC_FILING_LEGEND_RE.search(text) is not None
     match = _TOC_LABELED_ITEM_RE.match(stripped)
@@ -758,8 +791,37 @@ def _toc_is_list_line(text: str) -> bool:
     return not legend and _TOC_TRAILING_LIST_LABEL_RE.search(stripped.rstrip("]*) ")) is not None
 
 
+def _toc_opens_leading(text: str) -> bool:
+    """A line that opens the extras printed before a page's first entry element: an ARTICLE/Section
+    heading, a numbered entry row, a list heading or a listed exhibit. A cover title, a party line, a
+    bare capital-letter label ("A MERGER SUB, INC.") or an index-shaped line does not."""
+    stripped = _TOC_ITEM_LEAD_RE.sub("", text).strip()
+    if not stripped or _toc_is_legend(text) or _TOC_LEGEND_SENTENCE_RE.search(text) is not None:
+        return False
+    if (
+        _TOC_ENTRY_START_RE.match(stripped) is not None
+        or _TOC_NUMBERED_ENTRY_RE.match(stripped) is not None
+        or _TOC_LIST_HEADING_RE.fullmatch(stripped) is not None
+        or len(_TOC_INLINE_ITEM_RE.findall(stripped)) >= 2
+        or _toc_is_name_run(stripped)
+    ):
+        return True
+    match = _TOC_LABELED_ITEM_RE.match(stripped)
+    if match is not None:
+        return match.group("letter") is None
+    return _TOC_TRAILING_LIST_LABEL_RE.search(stripped.rstrip("]*) ")) is not None
+
+
+# A form page's initials line ("Initial Here:"): the footer it opens is not TOC text.
+_TOC_INITIALS_RE = re.compile(r"\s*initials?(?:\s+here)?\s*:?[\s_]*", re.IGNORECASE)
+
+
 def _toc_is_legend(text: str) -> bool:
-    return _TOC_FILING_LEGEND_RE.search(text) is not None or _TOC_LEGEND_WORD_RE.search(text) is not None
+    return (
+        _TOC_FILING_LEGEND_RE.search(text) is not None
+        or _TOC_LEGEND_WORD_RE.search(text) is not None
+        or _TOC_INITIALS_RE.fullmatch(text) is not None
+    )
 
 
 def _toc_is_prose(text: str) -> bool:
@@ -827,6 +889,9 @@ def _toc_extra_is_furniture(text: str) -> bool:
         or _TOC_NOT_PART_RE.search(text) is not None
         or _TOC_EXECUTION_BANNER_RE.search(text) is not None
         or _TOC_PAGE_TAG_RE.fullmatch(text) is not None
+        or _TOC_FILING_EXHIBIT_RE.fullmatch(text) is not None
+        or _TOC_END_LABEL_RE.fullmatch(text) is not None
+        or re.sub(r"\s+", "", text).casefold() in ("tableofcontents", "contents", "tableofcontents(continued)")
     ):
         return True
     if _TOC_LONG_NUMBER_RE.search(text) is not None and _toc_word_count(text) < 2:
@@ -938,20 +1003,14 @@ def _select_toc_extras(
             lines.append(line)
         if not lines:
             continue
-        if position == 0:
-            # Before the first entry element: whole blocks, from the first ARTICLE or Section heading.
-            if any(
-                not _toc_is_list_line(line.strip()) and (_toc_is_legend(line) or _toc_is_prose(line.strip()))
-                for line in lines
-            ):
+        if position == 0 and not leading_open:
+            # Before the first entry element the extras open at the first ARTICLE/Section heading,
+            # numbered entry row, list heading or listed exhibit, not at a cover title or party line.
+            start = next((i for i, line in enumerate(lines) if _toc_opens_leading(line.strip())), None)
+            if start is None:
                 continue
-            if not leading_open:
-                heading = next((line for line in lines if not _toc_is_bare_title(line.strip())), None)
-                if heading is None or _TOC_ENTRY_START_RE.match(heading) is None:
-                    continue
-                leading_open = True
-            extras.append((position, lines))
-            continue
+            lines = lines[start:]
+            leading_open = True
         kept: list[str] = []
         stop = False
         for line in lines:
@@ -967,6 +1026,8 @@ def _select_toc_extras(
                 in_legend = True
                 continue
             if not listed and _toc_is_prose(text):
+                if position == 0:
+                    continue
                 stop = True
                 break
             kept.append(line)
@@ -1129,6 +1190,55 @@ def repeated_toc_extra_keys(raw_pages: list[str]) -> frozenset[str]:
         for key in {toc_repeat_key(line) for line in toc_page_extra_lines(raw_html)}:
             counts[key] = counts.get(key, 0) + 1
     return frozenset(key for key, count in counts.items() if count >= 2 and key)
+
+
+_RAW_BLOCK_TAG_RE = re.compile(
+    r"<\s*/?\s*(?:p|div|br|tr|td|th|table|li|h[1-6]|center|blockquote|pre|dt|dd|hr)\b[^>]*>", re.IGNORECASE
+)
+_RAW_SCRIPT_RE = re.compile(r"(?is)<(script|style)\b.*?</\1\s*>|<!--.*?-->")
+_RAW_TAG_RE = re.compile(r"<[^>]+>")
+# Document names: a trailing extra that names a document is a list item, not a footer.
+_TOC_DOCUMENT_WORD_RE = re.compile(
+    r"\b(?:agreements?|forms?|certificates?|schedules?|exhibits?|annex(?:es|ure)?|letters?|plans?|deeds?|notes?"
+    r"|consents?|opinions?|bylaws|charter|articles|policy|instrument|guarant(?:y|ee)|lease|license|statement)\b",
+    re.IGNORECASE,
+)
+_RAW_EDGE_LINES = 6
+
+
+def _raw_edge_text(raw_html: str) -> tuple[str, str]:
+    """The first and last few printed lines of a raw HTML page, casefolded, each joined by spaces."""
+    text = _RAW_TAG_RE.sub("", _RAW_BLOCK_TAG_RE.sub("\n", _RAW_SCRIPT_RE.sub("", raw_html)))
+    lines = [re.sub(r"\s+", " ", html_lib.unescape(line).replace("\xa0", " ")).strip() for line in text.split("\n")]
+    lines = [line for line in lines if line]
+    return " ".join(lines[:_RAW_EDGE_LINES]).casefold(), " ".join(lines[-_RAW_EDGE_LINES:]).casefold()
+
+
+def edge_footer_toc_keys(toc_raw_pages: list[str], other_raw_pages: list[str]) -> frozenset[str]:
+    """Keys of the trailing extras of a TOC page (not listed, not naming a document) that the
+    agreement also prints at the top or bottom edge of two or more other pages: a firm footer
+    ("Gilbert + Tobin") or a form page's initials footer."""
+    candidates: dict[str, str] = {}
+    for raw_html in toc_raw_pages:
+        for line in reversed(toc_page_extra_lines(raw_html)[-4:]):
+            text = re.sub(r"\s+", " ", line).strip()
+            if (
+                _toc_is_list_line(text)
+                or _TOC_DOCUMENT_WORD_RE.search(text) is not None
+                or not 4 <= len(text) <= 60
+            ):
+                break
+            candidates[text.casefold()] = toc_repeat_key(line)
+    if not candidates:
+        return frozenset()
+    edges = [_raw_edge_text(raw_html) for raw_html in [*toc_raw_pages, *other_raw_pages]]
+    keys = set()
+    for folded, key in candidates.items():
+        pages = sum(1 for top, bottom in edges if folded in top or folded in bottom)
+        # The TOC page that prints it counts once; two more pages make it a running line.
+        if pages >= 3:
+            keys.add(key)
+    return frozenset(keys)
 
 
 def format_toc_html_like_screen(
@@ -1956,10 +2066,14 @@ def _html_raw_pages(rows: Any) -> list[str]:
     ]
 
 
-def _toc_running_extra_keys(toc_rows: Any) -> frozenset[str]:
-    """Extras printed on two or more HTML TOC pages (running headers and footers) stay out."""
+def _toc_running_extra_keys(toc_rows: Any, other_rows: Any = None) -> frozenset[str]:
+    """Extras printed on two or more HTML TOC pages (running headers and footers), and trailing
+    extras the agreement prints at the edge of two or more of its other pages, stay out."""
     raw_pages = _html_raw_pages(toc_rows)
-    return repeated_toc_extra_keys(raw_pages) if len(raw_pages) >= 2 else frozenset()
+    keys = repeated_toc_extra_keys(raw_pages) if len(raw_pages) >= 2 else frozenset()
+    if other_rows is not None and raw_pages:
+        keys = keys | edge_footer_toc_keys(raw_pages, _html_raw_pages(other_rows))
+    return keys
 
 
 def _body_inline_split_evidence(body_rows: Any) -> InlineSplitEvidence | None:
@@ -2104,7 +2218,7 @@ def generate_xml(
 
             # Then the furniture the filed pages print at their edges, on all of them. The TOC
             # texts are the tail-selected ones (running extras repeated across TOC pages stay out).
-            toc_drop_keys = _toc_running_extra_keys(toc_rows)
+            toc_drop_keys = _toc_running_extra_keys(toc_rows, temp[temp["_xml_page_type"] != "toc"])
             fm_texts, toc_texts, body_page_texts, nonbody_texts = _strip_raw_edge_furniture(
                 [
                     (fm_rows, [_xml_page_text(r) for _, r in fm_rows.iterrows()]),

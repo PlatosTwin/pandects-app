@@ -8,7 +8,7 @@ schedule lists and index headings printed after the last entry were dropped (6ce
 """
 import unittest
 
-from etl.domain.f_xml import format_toc_html_like_screen, repeated_toc_extra_keys
+from etl.domain.f_xml import edge_footer_toc_keys, format_toc_html_like_screen, repeated_toc_extra_keys
 
 
 def _entry_table(*rows: tuple[str, str, str]) -> str:
@@ -403,6 +403,69 @@ class TocPrintedTailTests(unittest.TestCase):
             self.assertEqual(
                 _lines_with(page, keys)[-3:], ["ARTICLE III", "REPRESENTATIONS AND WARRANTIES", "OF THE SELLER"]
             )
+
+    def test_a_list_printed_before_the_first_entry_table_is_kept(self) -> None:
+        # 0b97d544, b0fcfaaa, 8f517491: the exhibit list sits above the page's entry table.
+        lead = ["EXHIBITS", "Exhibit A - Form of Acknowledgement Agreement", "Exhibit B Director Voting Agreement", "SCHEDULES"]
+        html = "".join(f"<p>{line}</p>" for line in lead) + ENTRIES_11
+        self.assertEqual(_lines(html)[:4], lead)
+
+    def test_numbered_entry_rows_before_the_first_entry_table_are_kept(self) -> None:
+        # 863717a6: "3.27" and "3.28" printed above the table that opens with ARTICLE IV.
+        rows = ["3.27 Certain Business Relationships with the Company", "3.28 No Other Representations or Warranties"]
+        html = "".join(f"<p>{row}</p>" for row in rows) + ENTRIES_11
+        self.assertEqual(_lines(html)[:2], rows)
+
+    def test_cover_text_before_the_first_entry_table_stays_out(self) -> None:
+        html = (
+            "<p>Exhibit 2.1</p><p>EXECUTION VERSION</p><p>AGREEMENT AND PLAN OF MERGER</p><p>by and among</p>"
+            "<p>A MERGER SUB, INC.</p><p>Dated as of March 15</p><p>T ABLE OF C ONTENTS</p>" + ENTRIES_11
+        )
+        self.assertTrue(_lines(html)[0].startswith("Section 11.12"))
+
+    def test_glued_and_parenthesized_roman_page_labels_stay_out(self) -> None:
+        # bfd9b770 "iiiiiiviii"; ed250112 "ii (iii)"; e4f0a0cb "[ End of Table of Contents ]".
+        for footer in ("iiiiviii", "iiiiiiviii", "viiviiviii", "ii (iii)", "[ End of Table of Contents ]"):
+            with self.subTest(footer=footer):
+                html = ENTRIES_11 + f"<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p><p>{footer}</p>"
+                self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+
+    def test_a_footer_printed_at_the_edge_of_other_pages_is_dropped(self) -> None:
+        # 8e512eef "Gilbert + Tobin"; 82eab2ce "CLIFFE DEKKER HOFMEYR".
+        toc = ENTRIES_11 + "<p>ANNEXURES</p><p>Annexure F Calculation Certificate</p><p>CLIFFE DEKKER HOFMEYR</p>"
+        body = ["<p>1. Definitions</p><p>text</p><p>CLIFFE DEKKER HOFMEYR</p>", "<p>2. Sale</p><p>CLIFFE DEKKER HOFMEYR</p>"]
+        keys = edge_footer_toc_keys([toc], body)
+        self.assertEqual(_lines_with(toc, keys)[-1], "Annexure F Calculation Certificate")
+        # Printed on one other page only, or naming a document: kept.
+        self.assertEqual(edge_footer_toc_keys([toc], body[:1]), frozenset())
+        listed = ENTRIES_11 + "<p>ANCILLARY DOCUMENTS</p><p>Voting Agreement</p><p>Form of Escrow Agreement</p>"
+        self.assertEqual(edge_footer_toc_keys([listed], ["<p>Form of Escrow Agreement</p>"] * 3), frozenset())
+
+    def test_an_initials_footer_stays_out(self) -> None:
+        # 93ec85a3: the initials-and-date footer of a summary-of-terms page.
+        html = (
+            ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit H Non-Foreign Affidavit</p><p>Initial Here:</p>"
+            "<p>May 11, 2005 Summary of Basic Terms</p><p>Seller Purchaser</p>"
+        )
+        self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit H Non-Foreign Affidavit"])
+
+    def test_a_one_paragraph_list_of_schedule_names_is_kept(self) -> None:
+        # 6229ac19: 18 "... Schedule" names in one 380-character paragraph.
+        names = " ".join(f"{name} Schedule" for name in (
+            "Financial Statements", "Facilities and Equipment", "Contracts", "Assets", "Real Property",
+            "Intellectual Property", "Employee Benefits", "Environmental Matters", "Insurance Policies",
+            "Litigation", "Permits", "Taxes", "Customers and Suppliers", "Inventory",
+        ))
+        lines = _lines(ENTRIES_11 + "<p>DISCLOSURE SCHEDULES</p><p>" + names + "</p>")
+        self.assertIn("Inventory Schedule", " ".join(lines))
+
+    def test_index_rows_with_legend_words_do_not_stop_the_index(self) -> None:
+        rows = [
+            "Acquisition Proposal 6.3(a)", "Confidential Information 1.1", "Contract 1.1",
+            "Material Adverse Effect 1.1", "Omitted Assets 2.2", "Purchased Assets 2.1",
+        ]
+        html = ENTRIES_11 + "<p>INDEX OF DEFINED TERMS</p>" + "".join(f"<p>{row}</p>" for row in rows)
+        self.assertEqual(_lines(html)[-len(rows):], rows)
 
     def test_dashed_page_labels_repeat_as_one_footer(self) -> None:
         footer = "<p>Purchase Agreement for Acme Holdings {}</p>"
