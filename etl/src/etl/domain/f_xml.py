@@ -26,6 +26,7 @@ from etl.domain.page_furniture import (
     strip_raw_edge_furniture,
 )
 from etl.domain.raw_block_joins import join_raw_block_splits
+from etl.domain.sig_tail_split import split_signature_tail
 from etl.domain.txt_underlines import strip_inline_underlines
 
 
@@ -1586,6 +1587,16 @@ def generate_xml(
             )
             nonbody_text_by_uuid = dict(zip(nonbody_rows["page_uuid"].to_list(), nonbody_texts))
 
+            # The signature block on a mixed last body page is served in sigPages;
+            # the page keeps its body label and its clause text.
+            has_orders = "page_order" in temp.columns
+            sig_tail = split_signature_tail(
+                body_page_texts,
+                [int(o) for o in body_rows["page_order"].to_list()] if has_orders else [],
+                [int(o) for o in temp.loc[temp["_xml_page_type"] == "sig", "page_order"].to_list()] if has_orders else [],
+            )
+            body_page_texts = sig_tail.body_page_texts
+
             # frontMatter and tableOfContents
             for rows, texts, container_name in (
                 (fm_rows, fm_texts, "frontMatter"),
@@ -1627,13 +1638,17 @@ def generate_xml(
 
             for page_type, container_name in (("sig", "sigPages"), ("back_matter", "backMatter")):
                 rows = temp[temp["_xml_page_type"] == page_type]
-                if rows.empty:
+                pages = [(nonbody_text_by_uuid[r["page_uuid"]], r["page_uuid"]) for _, r in rows.iterrows()]
+                if page_type == "sig" and sig_tail.moved_text is not None and sig_tail.moved_index is not None:
+                    # The moved text comes first: no signature page precedes its page.
+                    moved_text = sig_tail.moved_text
+                    if source_format == "html":
+                        moved_text = format_signature_text_like_screen(moved_text) or moved_text
+                    pages.insert(0, (moved_text, body_rows["page_uuid"].to_list()[sig_tail.moved_index]))
+                if not pages:
                     continue
                 container_el = ET.SubElement(root, container_name)
-                text_block = "\n".join(
-                    f"{nonbody_text_by_uuid[r['page_uuid']]}<pageUUID>{r['page_uuid']}</pageUUID>"
-                    for _, r in rows.iterrows()
-                )
+                text_block = "\n".join(f"{text}<pageUUID>{page_uuid}</pageUUID>" for text, page_uuid in pages)
                 add_text_nodes_simple(container_el, text_block)
 
             xml_str = ET.tostring(root, encoding="unicode")
