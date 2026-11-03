@@ -217,6 +217,72 @@ class TocPrintedTailTests(unittest.TestCase):
         html = ENTRIES_11 + "<p>EXHIBITS</p>" + "".join(f"<p>{item}</p>" for item in items)
         self.assertEqual(_lines(html)[-2:], items)
 
+    def test_legend_words_inside_list_items_do_not_end_the_list(self) -> None:
+        # 362a4af3 "Copyright Assignment"; 3e061898 "A-7 [Intentionally Omitted]"; 7519a2de.
+        items = [
+            "Exhibit H \u2013 Form of Trademark Assignment",
+            "Exhibit I \u2013 Form of Copyright Assignment",
+            "Exhibit K - [intentionally Omitted]",
+            "A-7 [Intentionally Omitted]",
+            "Exhibit L \u2013 Form of Escrow Agreement",
+        ]
+        html = ENTRIES_11 + "<p>EXHIBITS</p>" + "".join(f"<p>{item}</p>" for item in items)
+        self.assertEqual(_lines(html)[-5:], items)
+
+    def test_filing_legends_still_end_the_list(self) -> None:
+        # 52450ccb, ce92e4e8: "furnish supplementally" notes; a schedules-omitted legend.
+        for legend in (
+            "The Company will furnish supplementally to the Commission a copy of any exhibit to this Agreement",
+            "Schedules omitted pursuant to Item 601(a)(5) of Regulation S-K.",
+            "* Certain confidential information has been omitted.",
+        ):
+            with self.subTest(legend=legend):
+                html = (
+                    ENTRIES_11 + "<p>EXHIBITS</p><p>Exhibit A Form of Escrow Agreement</p>"
+                    + f"<p>{legend}</p><p>the SEC upon request.</p>"
+                )
+                self.assertEqual(_lines(html)[-2:], ["EXHIBITS", "Exhibit A Form of Escrow Agreement"])
+
+    def test_an_exhibit_list_printed_as_one_paragraph_is_kept(self) -> None:
+        # 36fbf519: the whole list in one paragraph, over 300 characters.
+        paragraph = " ".join(f"Exhibit {c} Form of Ancillary Agreement Number {i} Among the Parties" for i, c in enumerate("ABCDEF"))
+        html = ENTRIES_11 + "<p>EXHIBITS</p><p>" + paragraph + "</p>"
+        text = " ".join(_lines(html))
+        self.assertIn("Exhibit A Form of Ancillary", text)
+        self.assertIn("Exhibit F Form of Ancillary Agreement Number 5 Among the Parties", text)
+
+    def test_list_items_that_read_as_titles_are_kept(self) -> None:
+        # ce014d52 "A. Voting Agreement"; 301bb52d "Escrow Agreement Exhibit A"; e745caee
+        # "Management Agreement B"; 57a26f02 "Asset Purchase Agreement Exhibits"; a mid-list
+        # "Tab 3 - Stock Purchase Agreement".
+        items = [
+            "Asset Purchase Agreement Exhibits",
+            "A. Voting Agreement",
+            "B. Non-competition Agreement",
+            "Escrow Agreement Exhibit C",
+            "Management Agreement D",
+            "Tab 3 - Stock Purchase Agreement",
+            "EXHIBITG Employee Agreement or Restrictive Covenant Agreement",
+            "Exhibit H Form of Guaranty",
+        ]
+        html = ENTRIES_11 + "".join(f"<p>{item}</p>" for item in items)
+        self.assertEqual(_lines(html)[-len(items):], items)
+
+    def test_a_bare_title_is_dropped_only_at_the_end_of_the_page(self) -> None:
+        # A running footer is the page's last extra; inside an index the same shape is a row.
+        html = (
+            ENTRIES_11 + "<p>INDEX OF DEFINED TERMS</p><p>Agreement Preamble</p><p>Business Day 1.1</p>"
+            "<p>Stock Purchase Agreement</p>"
+        )
+        self.assertEqual(_lines(html)[-3:], ["INDEX OF DEFINED TERMS", "Agreement Preamble", "Business Day 1.1"])
+
+    def test_title_page_labels_are_real_roman_numerals(self) -> None:
+        from etl.domain.f_xml import _TOC_TITLE_PAGE_RE
+
+        self.assertEqual(_TOC_TITLE_PAGE_RE.sub("", "Stock Purchase Agreement iii"), "Stock Purchase Agreement")
+        for line in ("Settlement Agreement civil", "Settlement Agreement ill"):
+            self.assertEqual(_TOC_TITLE_PAGE_RE.sub("", line), line)
+
     def test_dashed_page_labels_repeat_as_one_footer(self) -> None:
         footer = "<p>Purchase Agreement for Acme Holdings {}</p>"
         pages = [

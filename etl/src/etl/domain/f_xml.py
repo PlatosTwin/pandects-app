@@ -652,7 +652,7 @@ _TOC_PAGE_TAG_RE = re.compile(
 # or an "A-3" label is not one: "Credit Agreement 75" and "Merger Agreement A-3" are index rows.
 _TOC_TITLE_PAGE_RE = re.compile(
     r"(?:\s+|(?<=[A-Za-z])-)(?:[-\u2013\u2014(]+\s*(?:[ivxlc]{1,7}|[IVXLC]{1,7}|\d{1,3})\s*[-\u2013\u2014).]*"
-    r"|[ivxlc]{1,7}\.?)$"
+    r"|(?=[ivxlc])c{0,3}(?:xc|xl|l?x{0,3})(?:ix|iv|v?i{0,3})\.?)$"
 )
 # A leading page label: "(i) SHARE PURCHASE AGREEMENT".
 _TOC_LEADING_PAGE_RE = re.compile(r"^\((?:[ivxlc]{1,7}|[IVXLC]{1,7}|\d{1,3})\)\s+")
@@ -678,16 +678,66 @@ def _toc_word_count(text: str) -> int:
         and token.rstrip(".,;:").lower() != "page"
     )
 # SEC filing legends and confidential-treatment notes; the lines after one on the page continue it.
-_TOC_LEGEND_RE = re.compile(
-    r"\bconfidential\b|\bomitted\b|\bomissions?\b|rule\s+24b-2|regulation\s+s-k|item\s+601"
-    r"|securities\s+and\s+exchange\s+commission|\[\s*\*+\s*\]|^\*|\bcopyright\b",
+# A filing reference ends the extras on any line; the other words ("confidential", "omitted",
+# "copyright") only on a line that is not a listed item ("Exhibit I Form of Copyright Assignment",
+# "A-7 [Intentionally Omitted]").
+_TOC_FILING_LEGEND_RE = re.compile(
+    r"rule\s+24b-2|regulation\s+s-k|item\s+601|securities\s+and\s+exchange\s+commission"
+    r"|\[\s*\*+\s*\]|^\*|furnish(?:ed)?\s+supplementally|\bthe\s+sec\s+upon\s+request\b",
     re.IGNORECASE,
 )
-# A listed exhibit, schedule or annex: "Exhibit A ...", "Annex B ...", "A-1 Form of ...".
+_TOC_LEGEND_WORD_RE = re.compile(r"\bconfidential\b|\bomitted\b|\bomissions?\b|\bcopyright\b", re.IGNORECASE)
+# A listed exhibit, schedule or annex: "Exhibit A ...", "Annex B ...", "A-1 Form of ...", "A. Voting Agreement",
+# "EXHIBITG ...".
 _TOC_LIST_ITEM_RE = re.compile(
-    r"(?:exhibits?|schedules?|annex(?:es)?|appendix|appendices|attachments?)\b|[A-Z](?:-\d{1,2})?\s",
+    r"(?:exhibits?|schedules?|annex(?:es)?|appendix|appendices|attachments?)\b|(?-i:EXHIBIT[A-Z0-9]{1,3}\b)"
+    r"|[A-Z](?:-\d{1,2})?[.:)]?\s",
     re.IGNORECASE,
 )
+# A list item labeled at its end ("Escrow Agreement Exhibit A", "Management Agreement B") or a
+# list heading ending in the list's name ("Asset Purchase Agreement Exhibits").
+_TOC_TRAILING_LIST_LABEL_RE = re.compile(
+    r"(?:\b(?i:exhibit|schedule|annex|appendix|attachment)\s*[A-Z0-9][A-Za-z0-9.()\-]{0,6}"
+    r"|\s[A-Z](?:-\d{1,2})?"
+    r"|\b(?i:exhibits|schedules|annexes|appendices|attachments))\s*:?$"
+)
+# A listed exhibit for the prose and legend guards: a list word with its label, or a capital
+# letter label followed by a capitalized word or a bracket ("A Form of", "A-7 [Intentionally Omitted]").
+_TOC_LABELED_ITEM_RE = re.compile(
+    r"(?i:exhibits?|schedules?|annex(?:es)?|appendix|appendices|attachments?)\s*[A-Z0-9]"
+    r"|[A-Z](?:-\d{1,2})?[.:)]?\s+(?![a-z])"
+)
+
+
+def _toc_line_ends_extras(line: str) -> bool:
+    """A filing legend, a paragraph of prose or an agreement preamble: the page's extras end here."""
+    if _TOC_FILING_LEGEND_RE.search(line) is not None:
+        return True
+    if _TOC_LABELED_ITEM_RE.match(line) is not None:
+        # A listed item, also an exhibit list printed as one paragraph.
+        return False
+    return (
+        _TOC_LEGEND_WORD_RE.search(line) is not None
+        or len(line) > _TOC_PROSE_CHARS
+        or (_TOC_PREAMBLE_RE.search(line) is not None and _TOC_LIST_ITEM_RE.match(line) is None)
+    )
+
+
+def _toc_is_bare_title(text: str) -> bool:
+    """A bare agreement title ("Stock Purchase Agreement") or a deal-named footer ("Project Grease -
+    share purchase agreement 1"). Furniture only as the first or last extra on a page: inside a list
+    it is an item."""
+    if (
+        _TOC_LIST_ITEM_RE.match(text) is not None
+        or _TOC_ENTRY_START_RE.match(text) is not None
+        or _TOC_TRAILING_LIST_LABEL_RE.search(text) is not None
+        or "form of" in text.lower()
+    ):
+        return False
+    if running_title_kind(text) == "title":
+        return True
+    tail = re.split(r"\s[-\u2013\u2014]\s", _TOC_TRAILING_PAGE_RE.sub("", text).strip())
+    return len(tail) > 1 and running_title_kind(tail[-1].strip()) == "title"
 
 
 def _toc_extra_is_furniture(text: str) -> bool:
@@ -710,19 +760,15 @@ def _toc_extra_is_furniture(text: str) -> bool:
     if (
         _TOC_LIST_ITEM_RE.match(text) is not None
         or _TOC_ENTRY_START_RE.match(text) is not None
+        or _TOC_TRAILING_LIST_LABEL_RE.search(text) is not None
         or "form of" in text.lower()
     ):
         return False
-    # A running title, with or without a page label ("... Agreement -ii-", "... AGREEMENT iii"),
-    # or as one part of a piped footer ("Share sale agreement | Slinger Bag, Inc.").
-    if running_title_kind(text) == "title":
-        return True
+    # A running title with a page label ("... Agreement -ii-", "... AGREEMENT iii"), or as one part
+    # of a piped footer ("Share sale agreement | Slinger Bag, Inc."). A bare title is judged by its
+    # place on the page (_toc_is_bare_title).
     titled = _TOC_TITLE_PAGE_RE.sub("", text).strip()
     if titled != text and _toc_word_count(titled) >= 2 and running_title_kind(titled) == "title":
-        return True
-    # A footer that names the deal before a dash ("Project Grease - share purchase agreement 1").
-    tail = re.split(r"\s[-\u2013\u2014]\s", _TOC_TRAILING_PAGE_RE.sub("", text).strip())
-    if len(tail) > 1 and running_title_kind(tail[-1].strip()) == "title":
         return True
     return "|" in text and any(running_title_kind(part.strip()) == "title" for part in text.split("|"))
 
@@ -791,11 +837,12 @@ def _select_toc_extras(
 ) -> list[tuple[int, list[str]]]:
     """The printed extras among the candidate blocks.
 
-    Furniture lines and lines whose repeat key is in drop_keys are left out. A
-    filing legend, a paragraph of prose or an agreement preamble after the first
-    entry element ends the extras of the page (the lines after a legend continue
-    it), and before the first entry element a block counts only from the first
-    one that opens with an ARTICLE or Section heading.
+    Furniture lines and lines whose repeat key is in drop_keys are left out, and so
+    is a bare agreement title that is the first or last extra on the page. A filing
+    legend, a paragraph of prose or an agreement preamble after the first entry
+    element ends the extras of the page (the lines after a legend continue it), and
+    before the first entry element a block counts only from the first one that opens
+    with an ARTICLE or Section heading.
     """
     extras: list[tuple[int, list[str]]] = []
     leading_open = False
@@ -809,20 +856,22 @@ def _select_toc_extras(
         ]
         if not lines:
             continue
-        if any(
-            _TOC_LEGEND_RE.search(line) is not None
-            or len(line) > _TOC_PROSE_CHARS
-            or (_TOC_PREAMBLE_RE.search(line) is not None and _TOC_LIST_ITEM_RE.match(line) is None)
-            for line in lines
-        ):
+        if any(_toc_line_ends_extras(line) for line in lines):
             if position == 0:
                 continue
             break
         if position == 0 and not leading_open:
-            if _TOC_ENTRY_START_RE.match(lines[0]) is None:
+            heading = next((line for line in lines if not _toc_is_bare_title(line.strip())), None)
+            if heading is None or _TOC_ENTRY_START_RE.match(heading) is None:
                 continue
             leading_open = True
         extras.append((position, lines))
+    # A bare title at either end of the page's extras is a running header or footer.
+    for end in (0, -1):
+        while extras and _toc_is_bare_title(extras[end][1][end].strip()):
+            del extras[end][1][end]
+            if not extras[end][1]:
+                del extras[end]
     return extras
 
 
