@@ -217,6 +217,15 @@ class RepeatedLineTests(unittest.TestCase):
         stripped = _strip(pages)
         self.assertEqual(stripped[:6], [f"<page>{n}</page> {word} of the Company." for n, word in zip(range(2, 8), words)])
 
+    def test_index_page_reference_equal_to_the_tagged_page_number_stays(self) -> None:
+        # 3487d2cc: an index of defined terms on page 52 ends "affiliates 52", and the
+        # page number 52 is already its own tag; the filing prints "52" twice.
+        terms = ["Agreement", "Board", "Closing", "Code", "affiliates", "Person"]
+        pages = [_page(f"{term} means the {term.lower()} {n}\n<page>{n}</page>",
+                       _html(f"{term} means the {term.lower()}", str(n), str(n)), n + 4)
+                 for n, term in zip(range(48, 54), terms)]
+        self.assertEqual(_strip(pages), [page.text for page in pages])
+
     def test_number_the_filing_prints_inside_the_sentence_stays(self) -> None:
         pages = [_page(f"{n} or to be so licensed\n<page>{n}</page>", f"{n} or to be so licensed\nmore text\n\n{n}\n", n, is_html=False)
                  for n in range(5, 11)]

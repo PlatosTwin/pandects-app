@@ -2704,7 +2704,14 @@ def _raw_affix_cuts(
                 continue
             index = remaining[0] if side == "top" else remaining[-1]
             tokens = lines[index].split()
+            # Page numbers the page already carries as a tag between this line and its
+            # edge: a run that prints one of them again is text ("affiliates 52" in an
+            # index of terms, above "<page>52</page>").
+            outer = range(index) if side == "top" else range(index + 1, len(lines))
+            elsewhere = {value for i in outer for value in _clean_tag_values(lines[i])}
             for run in candidates:  # longest first
+                if any(_PLAIN_NUMBER_RE.fullmatch(token) and int(token) in elsewhere for token in run):
+                    continue
                 if not any(_DOC_ID_TOKEN_RE.search(token) for token in run):
                     # A page number glued to the text: the filing prints it as its own line.
                     edge_line = raw_lines[k][0] if side == "top" else raw_lines[k][-1]
