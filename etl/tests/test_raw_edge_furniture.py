@@ -407,6 +407,34 @@ class FollowUpTests(unittest.TestCase):
                        _html(_clause(n + 40)) + RAW_BODY + _html(_clause(n), f"{n} | 100"), n - 1) for n in range(14, 20)]
         self.assertEqual(_strip(pages), [f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n<page>{n}</page>" for n in range(14, 20)])
 
+    def test_only_a_bare_number_before_the_tag_keeps_the_line(self) -> None:
+        # dc15879e "2844184.4 01 <page>6</page>": the "01" ends the document ID, not a printed page number.
+        for printed in ("2844184.4 01", "Exhibit 3"):
+            pages = [_page(f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n{printed} <page>{n}</page>",
+                           _html(_clause(n + 40)) + RAW_BODY + _html(_clause(n), printed, str(n)), n + 4) for n in range(6, 12)]
+            self.assertEqual(_strip(pages), [f"{_clause(n + 40)}\n{BODY}\n{_clause(n)}\n<page>{n}</page>" for n in range(6, 12)], printed)
+
+    def test_contents_doc_id_cut_leaving_leaders_and_a_roman(self) -> None:
+        # 0073813b p1 "... 30 - i - LEGAL02/39540989v11", a contents page filed as one run.
+        pages = []
+        for n, roman in enumerate(["i", "ii", "iii", "iv", "v", "vi"]):
+            entry = f"Section 4.{n} Title of entry {n}"
+            raw = f"<p>TABLE OF CONTENTS Page ARTICLE {n} HEADING {'.' * 20} {n} {entry} {'.' * 40} {30 + n} - {roman} - LEGAL02/39540989v11</p>"
+            text = f"TABLE OF CONTENTS\nPage\nARTICLE {n} HEADING {'.' * 20} {n}\n    {entry}\n{'.' * 40} {30 + n} - {roman} - LEGAL02/39540989v11"
+            pages.append(_page(text, raw, n + 1, "toc"))
+        for out in _strip(pages):
+            self.assertNotIn("LEGAL02", out)
+
+    def test_two_cut_remnants_do_not_empty_a_page(self) -> None:
+        # Each remnant ("vii" after its document ID) goes only while another line stays.
+        doc_id = "1103593863\\14\\AMERICAS"
+        romans = ["i", "ii", "iii", "iv", "v", "vi"]
+        pages = [_page(f"{doc_id} {roman}\nSchedule {chr(65 + n)} - Form {n}\nSchedule {chr(75 + n)} - Form {n + 10}\n{roman} {doc_id}",
+                       _html(doc_id, roman, f"Schedule {chr(65 + n)} - Form {n}", f"Schedule {chr(75 + n)} - Form {n + 10}", roman, doc_id),
+                       n + 1, "toc") for n, roman in enumerate(romans)]
+        two = _page(f"{doc_id} vii\nvii {doc_id}", _html(doc_id, "vii", "vii", doc_id), 7, "toc")
+        self.assertTrue(_strip(pages + [two])[-1].strip())
+
     def test_annex_page_labels_with_a_number_or_dashes(self) -> None:
         # 31ce40ab "Annex 1-6", ea75ff9e "Annex A -5-".
         for label in ("Annex 1-{n}", "Annex A -{n}-"):

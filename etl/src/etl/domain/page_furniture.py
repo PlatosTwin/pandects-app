@@ -2171,6 +2171,8 @@ _MARKER_LEGEND_RE = re.compile(
 )
 _DOC_ID_TOKEN_RE = re.compile(r"\d{6,}|\d{4}-\d{4}-\d{4}")
 _PLAIN_NUMBER_RE = re.compile(r"\d{1,3}")
+# "56 | <page>76</page>": a bare page number, an optional bar, and the tagged total.
+_TOTAL_TAGGED_RE = re.compile(r"(?P<number>\d{1,3})\s*\|?\s*<page>[^<]*</page>")
 _TOC_COLUMN_HEADER_RE = re.compile(r"page(?:\s+page)?|section\s+page|page\s+no\.?", re.IGNORECASE)
 _RAW_HEADING_START_RE = re.compile(
     r"\(?(?:article|section|clause|part|chapter|rule|regulation|paragraph|item|step|schedule|exhibit|annex|appendix)\b",
@@ -2559,11 +2561,11 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         kept = [m.group(0) for m in _ANY_PAGE_TAG_RE.finditer(line) if _page_token(m.group("inner")) is not None]
         if kept:
             # "56 | <page>76</page>": the tagger wrapped the page total, and the
-            # printed page number is the number before it; leave the line as filed.
-            # ("<page>15</page> | 100" and "... <page>2</page> of 20" print the total after.)
-            values = set(_clean_tag_values(line))
-            before = line[: _ANY_PAGE_TAG_RE.search(line).start()]
-            if any(int(token) not in values for token in before.split() if _PLAIN_NUMBER_RE.fullmatch(token)):
+            # printed page number is the bare number before it; leave the line as
+            # filed. Only that shape: "<page>15</page> | 100", "... <page>2</page> of
+            # 20", "2844184.4 01 <page>6</page>" and "Exhibit 3 <page>12</page>" go.
+            match = _TOTAL_TAGGED_RE.fullmatch(line)
+            if match and int(match.group("number")) not in _clean_tag_values(line):
                 return False, None
         return True, " ".join(kept) or None
 
@@ -2696,7 +2698,7 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
                     continue  # the filing runs it on from (or into) the text: a wrapped sentence, not glued
                 if continues_into_furniture(k, key, rest, side):
                     continue  # the rest of the line is more of the same legend: leave it whole
-                if not (_has_words(rest) or _page_token(rest) is not None) or not is_furniture_text(k, cut, side):
+                if not (_keeps_text(rest, pages[k].zone) or _page_token(rest) is not None) or not is_furniture_text(k, cut, side):
                     continue
                 if joined().count(key) > len(edge_shapes.get(_line_shape(key), {})):
                     continue  # the agreement prints it elsewhere: it can end a clause
@@ -2712,7 +2714,7 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
         if not drop and not page_cuts:
             continue
         kept: list[str] = []
-        left = [i for i in _countable_indexes(lines) if i not in drop]  # never empty the page
+        left = sum(1 for i in _countable_indexes(lines) if i not in drop)  # never empty the page
         for index, line in enumerate(lines):
             if index in drop:
                 kind, keep = drop[index]
@@ -2727,14 +2729,17 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
                     if shorter != line:
                         result.removed.append(RemovedFurnitureLine(page_index=k, line=cut, kind="raw_fused_line"))
                         # What a cut leaves can be the page number alone ("iv" after its document ID).
-                        if len(left) > 1 and is_page_number(k, index, side, shorter):
+                        # Each one empties its line, so count down the lines the page keeps.
+                        if left > 1 and is_page_number(k, index, side, shorter):
                             result.removed.append(RemovedFurnitureLine(page_index=k, line=shorter.strip(), kind="raw_page_number"))
                             shorter = ""
-                        elif len(left) > 1 and near_running_line(k, _ANY_PAGE_TAG_RE.sub(" ", shorter)):
+                            left -= 1
+                        elif left > 1 and near_running_line(k, _ANY_PAGE_TAG_RE.sub(" ", shorter)):
                             # Or a running title the filing misprints on this page ("Refinery Assel ...").
                             title = _clean_raw_line(_ANY_PAGE_TAG_RE.sub(" ", shorter))
                             result.removed.append(RemovedFurnitureLine(page_index=k, line=title, kind="raw_repeated_line"))
                             shorter = " ".join(m.group(0) for m in _ANY_PAGE_TAG_RE.finditer(shorter))
+                            left -= 1
                     line = shorter
             if line.strip():
                 kept.append(line)
@@ -2949,6 +2954,20 @@ def _has_words(text: str) -> bool:
     return _WORD_RE.search(text) is not None
 
 
+# The end of a contents entry: leader dots, its page number, a roman page number ("..... 30 - i -", "39 i").
+_TOC_ENTRY_TAIL_RE = re.compile(
+    r"[.\u2026\u00b7_\s]*(?:\d{1,4})?[\s\-\u2013\u2014]*(?:[ivxlc]{1,7})?[\s\-\u2013\u2014]*", re.IGNORECASE
+)
+
+
+def _keeps_text(text: str, zone: str) -> bool:
+    """Whether a cut leaves text: a word of two or more letters ("A05230281/1.15/02" has
+    none), or, on a contents page, the tail of an entry the line runs on from."""
+    if _has_words(text):
+        return True
+    return zone == "toc" and _TOC_ENTRY_TAIL_RE.fullmatch(text) is not None and any(ch.isalnum() or ch == "." for ch in text)
+
+
 def _end_tokens(lines: list[_RawLine], limit: int) -> tuple[list[str], list[str], int]:
     """The first and last ``limit`` + 1 words of a filed page, and its word count
     (capped at ``limit`` + 1: no run is longer than ``limit``)."""
@@ -3051,7 +3070,7 @@ def _raw_affix_cuts(
                 if [_clean_raw_line(_ANY_PAGE_TAG_RE.sub(lambda m: m.group("inner"), t)) for t in edge] != run:
                     continue
                 rest = " ".join(tokens[len(run):] if side == "top" else tokens[: -len(run)])
-                if not _has_words(_ANY_PAGE_TAG_RE.sub(" ", rest)) and _page_token(rest) is None:
+                if not _keeps_text(_ANY_PAGE_TAG_RE.sub(" ", rest), pages[k].zone) and _page_token(rest) is None:
                     break  # nothing but furniture would stay: leave the line as filed
                 cuts[(k, index, side)] = (rest, " ".join(run))
                 if len(run) == MAX_RAW_AFFIX_TOKENS:
