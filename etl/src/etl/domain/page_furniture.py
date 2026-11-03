@@ -2067,10 +2067,19 @@ _TOKEN_LABEL_PAGE_RE = re.compile(
 )
 
 
+MAX_PAGE_TOKEN_CHARS = 64
+MAX_PAGE_TOKEN_RAW_CHARS = 400  # a .txt page number can sit behind a long run of spaces
+
+
 @lru_cache(maxsize=65536)
 def _page_token(line: str) -> _PageToken | None:
     """The page number a whole line prints, with an optional stray "." or "|" beside it."""
-    match = _TOKEN_RESIDUE_RE.fullmatch(_normalized(line))
+    if len(line) > MAX_PAGE_TOKEN_RAW_CHARS:
+        return None
+    normalized = _normalized(line)
+    if len(normalized) > MAX_PAGE_TOKEN_CHARS:
+        return None  # the longest form, "Attachment 12.3(a) - Page 123 of 456", is under 50
+    match = _TOKEN_RESIDUE_RE.fullmatch(normalized)
     assert match is not None
     core = match.group("core").strip()
     if not core:
@@ -2371,7 +2380,8 @@ def strip_raw_edge_furniture(pages: list[RawEdgePage]) -> FurnitureStripResult:
     edge_copies: dict[str, dict[int, list[str]]] = {}
     for k, edges in enumerate(raw_edges):
         for key, (sides, whole) in edges.items():
-            if whole and _page_token(key) is None:
+            # Longer runs are never furniture text (``_raw_line_is_eligible``).
+            if whole and len(key) <= MAX_RAW_LEGEND_CHARS and _page_token(key) is None:
                 found = edge_shapes.setdefault(_line_shape(key), {})
                 found[k] = found.get(k, frozenset()) | sides
                 edge_copies.setdefault(_line_shape(key), {}).setdefault(k, key.split())
@@ -2605,11 +2615,18 @@ def _drop_continued_cuts(
 def _cut_affix(line: str, cut: str, side: str) -> str:
     """The line without ``cut`` at its start (top) or end (bottom), whitespace-insensitive."""
     pattern = r"\s+".join(rf"(?:<page>\s*{re.escape(token)}\s*</page>|{re.escape(token)})" for token in cut.split())
-    regex = rf"^\s*{pattern}(?:\s+|$)" if side == "top" else rf"(?:^|\s+){pattern}\s*$"
-    match = re.search(regex, line, flags=re.IGNORECASE)
-    if match is None:
-        return line
-    rest = line[match.end():] if side == "top" else line[: match.start()]
+    if side == "top":
+        match = re.match(rf"\s*{pattern}(?:\s+|$)", line, flags=re.IGNORECASE)
+        if match is None:
+            return line
+        rest = line[match.end():]
+    else:
+        # Search only the line's tail: a page filed as one run can be a very long line.
+        start = max(0, len(line) - (len(cut) + 40 * len(cut.split()) + 64))
+        match = re.search(rf"(?:^|\s+){pattern}\s*$", line[start:], flags=re.IGNORECASE)
+        if match is None or (match.start() == 0 and start > 0 and not line[start].isspace()):
+            return line
+        rest = line[: start + match.start()]
     # A page tag the tagger put inside the run stays ("<page>4</page> LEGAL\67828860\11 ...").
     tags = " ".join(tag.group(0) for tag in _ANY_PAGE_TAG_RE.finditer(match.group(0)))
     if not tags:
@@ -2643,6 +2660,24 @@ def _opens_own_paragraph(lines: list[_RawLine], length: int, side: str) -> bool:
     return True
 
 
+def _end_tokens(lines: list[_RawLine], limit: int) -> tuple[list[str], list[str], int]:
+    """The first and last ``limit`` + 1 words of a filed page, and its word count
+    (capped at ``limit`` + 1: no run is longer than ``limit``)."""
+    head: list[str] = []
+    for raw_line in lines:
+        head += raw_line.text.split()
+        if len(head) > limit:
+            break
+    if len(head) <= limit:
+        return head, head, len(head)
+    tail: list[str] = []
+    for raw_line in reversed(lines):
+        tail = raw_line.text.split() + tail
+        if len(tail) > limit:
+            break
+    return head[: limit + 1], tail[-(limit + 1):], limit + 1
+
+
 _SHORT_NUMBER_RE = re.compile(r"(?<!\d)\d{1,3}(?!\d)")
 
 
@@ -2665,17 +2700,18 @@ def _raw_affix_cuts(
 
     Returns (page, line, edge) -> (the line without the run, the run), and the
     cuts whose run is ``MAX_RAW_AFFIX_TOKENS`` words long."""
-    raw_tokens = [" ".join(raw_line.text for raw_line in lines).split() for lines in raw_lines]
+    raw_ends = [_end_tokens(lines, MAX_RAW_AFFIX_TOKENS) for lines in raw_lines]
     orders = [page.page_order for page in pages]
     cuts: dict[tuple[int, int, str], tuple[str, str]] = {}
     capped: set[tuple[int, int, str]] = set()
     for side in ("top", "bottom"):
         # (length, shape) -> {page: the run's tokens}
         runs: dict[tuple[int, str], dict[int, list[str]]] = {}
-        for k, tokens in enumerate(raw_tokens):
+        for k, (head, tail, count) in enumerate(raw_ends):
+            tokens = head if side == "top" else tail
             # A run's shape is its tokens' shapes joined (digits never span a space).
             shapes = [_run_token_shape(token) for token in (tokens if side == "top" else tokens[::-1])[:MAX_RAW_AFFIX_TOKENS]]
-            for length in range(1, min(MAX_RAW_AFFIX_TOKENS, len(tokens) - 1) + 1):
+            for length in range(1, min(MAX_RAW_AFFIX_TOKENS, count - 1) + 1):
                 run = tokens[:length] if side == "top" else tokens[-length:]
                 shape = " ".join(shapes[:length] if side == "top" else shapes[:length][::-1])
                 runs.setdefault((length, shape), {})[k] = run
