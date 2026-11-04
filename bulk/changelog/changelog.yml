@@ -21,6 +21,20 @@
 # minor = additive/cosmetic.
 
 unreleased:
+- type: data
+  severity: notable
+  summary: "The xml table in the dump now holds only each agreement's latest XML version (latest = 1); previous dumps also included some superseded versions."
+  details: >
+    The dump carries one xml row per agreement: its latest version, whether
+    verified or not. Superseded versions stay out of the dump. Sections,
+    latest_sections_search and the API are all built from the latest version,
+    so they are unaffected. reader_index rows and clauses.xml_version values
+    that name a superseded version no longer have a matching xml row.
+  tables: [xml]
+  migration: >
+    Queries that joined on older xml versions should use the latest one
+    (xml.latest = 1, joined on agreement_uuid). Filter on status = 'verified'
+    for the current public text.
 - type: mcp
   severity: breaking
   summary: "MCP tools are tuned for progressive tool discovery in Claude and Codex: self-contained descriptions, standard annotations, a task-to-tool map in the instructions, a compact get_server_capabilities default, and result data in the text content."

@@ -1,0 +1,12 @@
+# Row filters for the bulk dumps. A table listed here is dumped with only the
+# rows matching its WHERE condition, in both the public SQL dump and the private
+# logical backup, and every row count bulk/push_to_r2.sh records for it (restore
+# manifest, changelog stats) counts only those rows.
+# Read by bulk/push_to_r2.sh and bulk/changelog/render_changelog.py.
+# One table per line: <table> <WHERE condition>. Everything after # is ignored,
+# so a condition must not contain #.
+#
+# xml keeps every superseded version locally; the dumps carry only each
+# agreement's latest version, the only one the backend serves and the one
+# sections, latest_sections_search and section_text_search are built from.
+xml latest = 1
