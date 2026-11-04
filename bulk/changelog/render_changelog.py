@@ -35,6 +35,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHANGELOG_PATH = REPO_ROOT / "bulk" / "changelog" / "changelog.yml"
 ALLOWLIST_PATH = REPO_ROOT / "bulk" / "public_tables.txt"
+ROW_FILTERS_PATH = REPO_ROOT / "bulk" / "dump_row_filters.txt"
 MARKDOWN_OUT_PATH = REPO_ROOT / "bulk" / "changelog" / "CHANGELOG.md"
 DOCS_GUIDE_OUT_PATH = REPO_ROOT / "docs" / "docs" / "guides" / "changelog.md"
 
@@ -73,6 +74,16 @@ def load_allowlist() -> list[str]:
     if not tables:
         _fail(f"no tables found in {ALLOWLIST_PATH}")
     return tables
+
+
+def load_row_filters() -> dict[str, str]:
+    """Table -> WHERE condition the dumps apply (bulk/dump_row_filters.txt)."""
+    filters: dict[str, str] = {}
+    for raw_line in ROW_FILTERS_PATH.read_text().splitlines():
+        parts = raw_line.split("#", 1)[0].strip().split(None, 1)
+        if len(parts) == 2:
+            filters[parts[0]] = parts[1].strip()
+    return filters
 
 
 def load_changelog(path: Path | None = None) -> dict[str, object]:
@@ -378,11 +389,14 @@ def _query_row_counts() -> dict[str, int]:
         password=creds["MARIADB_PASSWORD"],
         database=creds["MARIADB_DATABASE"],
     )
+    # Count what the dump holds: a filtered table counts only its dumped rows.
+    row_filters = load_row_filters()
     counts: dict[str, int] = {}
     try:
         with connection.cursor() as cursor:
             for table in load_allowlist():
-                cursor.execute(f"SELECT COUNT(*) FROM `{table}`")
+                where = f" WHERE {row_filters[table]}" if table in row_filters else ""
+                cursor.execute(f"SELECT COUNT(*) FROM `{table}`{where}")
                 counts[table] = int(cursor.fetchone()[0])
     finally:
         connection.close()

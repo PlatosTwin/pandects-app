@@ -137,6 +137,12 @@ class ChangelogTests(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     self.renderer.validate(data)
 
+    def test_row_counts_use_the_dump_row_filters(self) -> None:
+        # Release stats count what the dump holds: only the latest xml version.
+        filters = self.renderer.load_row_filters()
+        self.assertEqual(filters, {"xml": "latest = 1"})
+        self.assertTrue(set(filters) <= set(self.renderer.load_allowlist()))
+
     def test_release_roll_up_round_trips(self) -> None:
         renderer = _load_renderer()  # fresh module: path globals get monkeypatched
         with tempfile.TemporaryDirectory() as tmp:

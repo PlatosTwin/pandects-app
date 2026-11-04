@@ -36,9 +36,26 @@ class BulkSyncMetadataTests(unittest.TestCase):
         script = _PUSH_TO_R2_PATH.read_text()
         self.assertIn('PRIVATE_RESTORE_TABLES_FILE=', script)
         self.assertIn('table allowlist not found:', script)
-        self.assertIn('--tables-list="${RESTORE_TABLES_LIST}"', script)
-        self.assertIn('"${PUBLIC_TABLES[@]}"', script)
+        self.assertIn('run_logical_dump "$LOGICAL_DIR" "${RESTORE_TABLES[@]}"', script)
+        self.assertIn('run_public_sql_dump "$SQL_DUMP_FILE" "${PUBLIC_TABLES[@]}"', script)
         self.assertIn('"private_restore_tables"', script)
+
+    def test_push_script_dumps_only_latest_xml(self) -> None:
+        script = _PUSH_TO_R2_PATH.read_text()
+        filters_path = _REPO_ROOT / "bulk" / "dump_row_filters.txt"
+        self.assertIn('DUMP_ROW_FILTERS_FILE="${SCRIPT_DIR}/dump_row_filters.txt"', script)
+        filters = {
+            parts[0]: parts[1].strip()
+            for line in filters_path.read_text().splitlines()
+            for parts in [line.split("#", 1)[0].strip().split(None, 1)]
+            if len(parts) == 2
+        }
+        self.assertEqual(filters, {"xml": "latest = 1"})
+        # Both dumps apply the filter, and the recorded counts use it too.
+        self.assertIn('--where="$where"', script)
+        self.assertIn('--where="$(row_filter_for "$table")"', script)
+        self.assertIn("merge_mydumper_metadata", script)
+        self.assertIn('where = f" WHERE {row_filters[table]}"', script)
 
     def test_push_script_gates_private_table_integrity_and_records_counts(self) -> None:
         script = _PUSH_TO_R2_PATH.read_text()
