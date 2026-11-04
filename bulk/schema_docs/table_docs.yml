@@ -171,7 +171,9 @@ tables:
       verified XML and stored as gzip-compressed JSON (`payload_gz`). Join on
       `xml.agreement_uuid` and `xml.version` with `xml.latest = 1` for the
       current index of an agreement. A row is rebuilt when the XML version or
-      the enricher version changes.
+      the enricher version changes. Rows built from a superseded XML version
+      have no matching `xml` row in the bulk dump, which holds latest versions
+      only.
     columns:
       agreement_uuid: Agreement the index belongs to (composite PK with `xml_version`).
       xml_version: The `xml.version` this index was computed from (composite PK with `agreement_uuid`).
@@ -202,10 +204,12 @@ tables:
 
   xml:
     description: >-
-      Versioned XML conversions of each agreement. The ETL pipeline converts
-      the raw filing into structured XML (articles, sections, sub-clauses);
-      re-runs produce new versions rather than overwriting. Use `latest = 1`
-      and `status = 'verified'` for the current public text of an agreement.
+      XML conversion of each agreement. The ETL pipeline converts the raw
+      filing into structured XML (articles, sections, sub-clauses); re-runs
+      produce new versions rather than overwriting. The bulk dump holds only
+      each agreement's latest version (`latest = 1`), whether verified or not;
+      superseded versions are not included. Filter on `status = 'verified'`
+      for the current public text of an agreement.
     columns:
       agreement_uuid: Agreement this XML conversion belongs to (composite PK with `version`).
       xml: Full agreement text as structured Pandects XML.
@@ -217,7 +221,9 @@ tables:
         How the status was assigned: asset (automated pipeline validation) or
         manual (human review).
       created_date: When this version was produced (UTC).
-      latest: 1 for the newest XML version of each agreement; older versions keep 0.
+      latest: >-
+        1 for the newest XML version of each agreement. Always 1 in the bulk
+        dump, which leaves out superseded versions.
       gated: 1 if this XML version is gated out of public serving.
       validation_priority: Internal review-queue priority flag.
       status_reason_code: >-
@@ -264,7 +270,9 @@ tables:
       clause_uuid: Primary key (UUID).
       agreement_uuid: Agreement the clause belongs to.
       section_uuid: Section the clause was carved from.
-      xml_version: XML version of the parent section at extraction time.
+      xml_version: >-
+        XML version of the parent section at extraction time. It can name a
+        superseded version, which the bulk dump's `xml` table does not hold.
       module: Clause-taxonomy module the clause was extracted for. Currently always tax.
       clause_order: Order of the clause within its section.
       anchor_label: 'Subsection anchor the clause starts at (e.g. (a), (h)), when present.'

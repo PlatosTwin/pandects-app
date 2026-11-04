@@ -66,7 +66,7 @@ One row per merger agreement. Rows are discovered from SEC EDGAR filings (or the
 
 ### `xml`
 
-Versioned XML conversions of each agreement. The ETL pipeline converts the raw filing into structured XML (articles, sections, sub-clauses); re-runs produce new versions rather than overwriting. Use `latest = 1` and `status = 'verified'` for the current public text of an agreement.
+XML conversion of each agreement. The ETL pipeline converts the raw filing into structured XML (articles, sections, sub-clauses); re-runs produce new versions rather than overwriting. The bulk dump holds only each agreement's latest version (`latest = 1`), whether verified or not; superseded versions are not included. Filter on `status = 'verified'` for the current public text of an agreement.
 
 **Primary key**: `agreement_uuid`, `version`
 
@@ -101,7 +101,7 @@ A derived index of each agreement's XML that powers the smart reader: the outlin
 
 ### `reader_index`
 
-One row per indexed XML version. The index is computed from the latest verified XML and stored as gzip-compressed JSON (`payload_gz`). Join on `xml.agreement_uuid` and `xml.version` with `xml.latest = 1` for the current index of an agreement. A row is rebuilt when the XML version or the enricher version changes.
+One row per indexed XML version. The index is computed from the latest verified XML and stored as gzip-compressed JSON (`payload_gz`). Join on `xml.agreement_uuid` and `xml.version` with `xml.latest = 1` for the current index of an agreement. A row is rebuilt when the XML version or the enricher version changes. Rows built from a superseded XML version have no matching `xml` row in the bulk dump, which holds latest versions only.
 
 **Primary key**: `agreement_uuid`, `xml_version`
 

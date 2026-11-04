@@ -6,6 +6,54 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VENV_DIR="${SCRIPT_DIR}/.venv"
 PYTHON_BIN="${VENV_DIR}/bin/python3"
 
+usage() {
+  cat <<'USAGE'
+Usage: bulk/push_to_r2.sh
+       bulk/push_to_r2.sh --dump-only OUTPUT_DIR [--tables t1,t2,...]
+
+With no arguments: regenerate schema docs, run the changelog prechecks, take
+the private logical backup and the public SQL dump, upload both to R2, and
+roll the changelog release.
+
+--dump-only OUTPUT_DIR   Only take the two dumps (OUTPUT_DIR/logical and
+                         OUTPUT_DIR/public.sql.gz) against the local MariaDB
+                         and stop. Nothing is uploaded, no docs or changelog
+                         files are touched, and no R2 credentials are needed.
+--tables t1,t2,...       With --dump-only, restrict both dumps to these
+                         tables (each must be in a table allowlist).
+USAGE
+}
+
+DUMP_ONLY_DIR=""
+DUMP_ONLY_TABLES=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --dump-only)
+      [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+      DUMP_ONLY_DIR="$2"
+      shift 2
+      ;;
+    --tables)
+      [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+      DUMP_ONLY_TABLES="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "❌ Error: unknown argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+if [ -n "$DUMP_ONLY_TABLES" ] && [ -z "$DUMP_ONLY_DIR" ]; then
+  echo "❌ Error: --tables is only allowed with --dump-only." >&2
+  exit 2
+fi
+
 # ── Config ──────────────────────────────────────────────────────
 # Load DB env from backend/.env and only R2 env from bulk/.env.
 if [ -f "${REPO_ROOT}/backend/.env" ]; then
@@ -44,8 +92,12 @@ TARGET_DB="${MARIADB_DATABASE:-pdx}"
 # the public schema docs always cover exactly the downloadable SQL dump.
 PUBLIC_TABLES_FILE="${SCRIPT_DIR}/public_tables.txt"
 PRIVATE_RESTORE_TABLES_FILE="${SCRIPT_DIR}/private_restore_tables.txt"
+# Tables dumped with a row filter (both dumps), e.g. xml keeps only latest = 1.
+# Shared with the row counts below and bulk/changelog/render_changelog.py so
+# every recorded count matches what the dumps hold.
+DUMP_ROW_FILTERS_FILE="${SCRIPT_DIR}/dump_row_filters.txt"
 
-for table_file in "$PUBLIC_TABLES_FILE" "$PRIVATE_RESTORE_TABLES_FILE"; do
+for table_file in "$PUBLIC_TABLES_FILE" "$PRIVATE_RESTORE_TABLES_FILE" "$DUMP_ROW_FILTERS_FILE"; do
   if [ ! -f "$table_file" ]; then
     echo "❌ Error: table allowlist not found: ${table_file}."
     exit 1
@@ -84,6 +136,82 @@ if [ "$(printf '%s\n' "${RESTORE_TABLES[@]}" | sort -u | wc -l | tr -d ' ')" -ne
     exit 1
 fi
 
+# --dump-only --tables: keep only the named tables, in allowlist order.
+if [ -n "$DUMP_ONLY_TABLES" ]; then
+  REQUESTED_TABLES=()
+  while IFS= read -r table; do
+    [ -n "$table" ] && REQUESTED_TABLES+=("$table")
+  done < <(printf '%s\n' "$DUMP_ONLY_TABLES" | tr ',' '\n' | tr -d ' \t')
+  if [ "${#REQUESTED_TABLES[@]}" -eq 0 ]; then
+    echo "❌ Error: --tables names no tables."
+    exit 1
+  fi
+  for table in "${REQUESTED_TABLES[@]}"; do
+    if ! printf '%s\n' "${RESTORE_TABLES[@]}" | grep -qxF "$table"; then
+      echo "❌ Error: --tables names ${table}, which is in no table allowlist."
+      exit 1
+    fi
+  done
+  keep_requested() {
+    local table
+    for table in "$@"; do
+      if printf '%s\n' "${REQUESTED_TABLES[@]}" | grep -qxF "$table"; then
+        printf '%s\n' "$table"
+      fi
+    done
+  }
+  PUBLIC_TABLES_ALL=("${PUBLIC_TABLES[@]}")
+  PUBLIC_TABLES=()
+  while IFS= read -r table; do
+    PUBLIC_TABLES+=("$table")
+  done < <(keep_requested "${PUBLIC_TABLES_ALL[@]}")
+  PRIVATE_RESTORE_TABLES_ALL=(${PRIVATE_RESTORE_TABLES[@]+"${PRIVATE_RESTORE_TABLES[@]}"})
+  PRIVATE_RESTORE_TABLES=()
+  while IFS= read -r table; do
+    PRIVATE_RESTORE_TABLES+=("$table")
+  done < <(keep_requested ${PRIVATE_RESTORE_TABLES_ALL[@]+"${PRIVATE_RESTORE_TABLES_ALL[@]}"})
+  RESTORE_TABLES=(${PUBLIC_TABLES[@]+"${PUBLIC_TABLES[@]}"} ${PRIVATE_RESTORE_TABLES[@]+"${PRIVATE_RESTORE_TABLES[@]}"})
+  if [ "${#PUBLIC_TABLES[@]}" -eq 0 ]; then
+    echo "❌ Error: --tables must name at least one table from ${PUBLIC_TABLES_FILE}."
+    exit 1
+  fi
+fi
+
+# Row filters: "<table> <WHERE condition>" per line; # starts a comment.
+FILTERED_TABLES=()
+FILTERED_WHERES=()
+while IFS= read -r line; do
+  line="${line%%#*}"
+  read -r table where <<< "$line" || true
+  [ -n "${table:-}" ] || continue
+  if [ -z "${where:-}" ]; then
+    echo "❌ Error: row filter for ${table} has no WHERE condition in ${DUMP_ROW_FILTERS_FILE}."
+    exit 1
+  fi
+  if [ "${#FILTERED_TABLES[@]}" -gt 0 ] && printf '%s\n' "${FILTERED_TABLES[@]}" | grep -qxF "$table"; then
+    echo "❌ Error: duplicate row filter for ${table} in ${DUMP_ROW_FILTERS_FILE}."
+    exit 1
+  fi
+  if [ -z "$DUMP_ONLY_TABLES" ] && ! printf '%s\n' "${RESTORE_TABLES[@]}" | grep -qxF "$table"; then
+    echo "❌ Error: row filter names ${table}, which is in no table allowlist."
+    exit 1
+  fi
+  FILTERED_TABLES+=("$table")
+  FILTERED_WHERES+=("$where")
+done < "$DUMP_ROW_FILTERS_FILE"
+
+# Prints the row filter for a table and succeeds, or fails if it has none.
+row_filter_for() {
+  local i
+  for ((i = 0; i < ${#FILTERED_TABLES[@]}; i++)); do
+    if [ "${FILTERED_TABLES[$i]}" = "$1" ]; then
+      printf '%s' "${FILTERED_WHERES[$i]}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 qualified_tables_csv() {
   local csv=""
   for table in "$@"; do
@@ -100,6 +228,201 @@ PUBLIC_TABLES_LIST="$(qualified_tables_csv "${PUBLIC_TABLES[@]}")"
 PRIVATE_RESTORE_TABLES_LIST=""
 if [ "${#PRIVATE_RESTORE_TABLES[@]}" -gt 0 ]; then
   PRIVATE_RESTORE_TABLES_LIST="$(qualified_tables_csv "${PRIVATE_RESTORE_TABLES[@]}")"
+fi
+
+# ── Dump helpers ────────────────────────────────────────────────
+# Both dumps take every table whole except those in dump_row_filters.txt,
+# which are dumped in a second pass with their WHERE condition.
+
+# Splits "$@" into the globals DUMP_UNFILTERED and DUMP_FILTERED.
+split_by_row_filter() {
+  local table
+  DUMP_UNFILTERED=()
+  DUMP_FILTERED=()
+  for table in "$@"; do
+    if row_filter_for "$table" > /dev/null; then
+      DUMP_FILTERED+=("$table")
+    else
+      DUMP_UNFILTERED+=("$table")
+    fi
+  done
+}
+
+mydumper_conn_args() {
+  MYDUMPER_ARGS=(
+    --host="${MARIADB_HOST}"
+    --port="${MARIADB_PORT:-3306}"
+    --user="${MARIADB_USER}"
+    --password="${MARIADB_PASSWORD}"
+    --database="${TARGET_DB}"
+    --threads="${MYDUMPER_THREADS:-6}"
+    --rows="${MYDUMPER_ROWS:-100000}"
+  )
+}
+
+# Copies the table sections of a part dump's metadata into the main metadata,
+# ahead of the main file's closing [config] block, and keeps the larger
+# max-statement-size so a newer myloader sizes its buffer for every table.
+merge_mydumper_metadata() {
+  local main_metadata="$1"
+  local part_metadata="$2"
+  local merged="${main_metadata}.merged"
+  awk -v part="$part_metadata" '
+    BEGIN {
+      in_table = 0; sections = ""; part_max = 0
+      while ((getline line < part) > 0) {
+        if (line ~ /^\[`/) in_table = 1
+        else if (line ~ /^\[/ || line ~ /^# Finished/) in_table = 0
+        if (in_table) sections = sections line "\n"
+        if (line ~ /^max-statement-size *=/) {
+          value = line; sub(/^max-statement-size *= */, "", value); part_max = value + 0
+        }
+      }
+      close(part)
+      if (sections == "") { failed = 1; exit 2 }
+    }
+    { lines[NR] = $0; if ($0 == "[config]") last_config = NR }
+    END {
+      if (failed) { print "no table section in " part > "/dev/stderr"; exit 2 }
+      if (last_config <= 1) last_config = NR + 1
+      for (i = 1; i < last_config; i++) print lines[i]
+      printf "%s", sections
+      for (i = last_config; i <= NR; i++) {
+        line = lines[i]
+        if (line ~ /^max-statement-size *=/) {
+          value = line; sub(/^max-statement-size *= */, "", value)
+          if (part_max > value + 0) line = "max-statement-size = " part_max
+        }
+        print line
+      }
+    }
+  ' "$main_metadata" > "$merged"
+  mv "$merged" "$main_metadata"
+}
+
+# Private logical backup for the production restore (myloader reads the dir).
+run_logical_dump() {
+  local outdir="$1"
+  shift
+  local table where part_dir file name
+  split_by_row_filter "$@"
+  mydumper_conn_args
+  if [ "${#DUMP_UNFILTERED[@]}" -eq 0 ]; then
+    echo "❌ Error: the logical dump needs at least one table without a row filter."
+    exit 1
+  fi
+  mkdir -p "$outdir"
+  mydumper "${MYDUMPER_ARGS[@]}" \
+    --tables-list="$(qualified_tables_csv "${DUMP_UNFILTERED[@]}")" \
+    --outputdir="$outdir" \
+    --triggers \
+    --routines \
+    --events
+
+  if [ "${#DUMP_FILTERED[@]}" -gt 0 ]; then
+    for table in "${DUMP_FILTERED[@]}"; do
+      where="$(row_filter_for "$table")"
+      echo "   ↪ ${table} WHERE ${where}"
+      part_dir="$(mktemp -d "${outdir}.part-${table}.XXXXXX")"
+      mydumper "${MYDUMPER_ARGS[@]}" \
+        --tables-list="${TARGET_DB}.${table}" \
+        --where="$where" \
+        --outputdir="$part_dir" \
+        --triggers
+      if [ ! -f "${part_dir}/${TARGET_DB}.${table}-schema.sql" ] || [ ! -f "${part_dir}/metadata" ]; then
+        echo "❌ Error: filtered dump of ${table} is missing its schema or metadata file."
+        ls -la "$part_dir" || true
+        exit 1
+      fi
+      # Move the table's own files (schema, triggers, data chunks) into the
+      # main dir; the part's database DDL and metadata are not needed.
+      for file in "${part_dir}/${TARGET_DB}.${table}-schema"* "${part_dir}/${TARGET_DB}.${table}."*; do
+        [ -e "$file" ] || continue
+        name="$(basename "$file")"
+        if [ -e "${outdir}/${name}" ]; then
+          echo "❌ Error: ${name} is in both the main and the filtered dump."
+          exit 1
+        fi
+        mv "$file" "${outdir}/${name}"
+      done
+      merge_mydumper_metadata "${outdir}/metadata" "${part_dir}/metadata"
+      rm -f "${part_dir}/metadata" "${part_dir}/${TARGET_DB}-schema-create.sql"
+      find "$part_dir" -name '._*' -delete
+      find "$part_dir" -name '.DS_Store' -delete
+      if ! rmdir "$part_dir"; then
+        echo "❌ Error: filtered dump of ${table} left unexpected files:"
+        ls -la "$part_dir" || true
+        exit 1
+      fi
+    done
+  fi
+}
+
+# Public SQL dump: one gzip stream, unfiltered tables first, then each
+# filtered table with its WHERE condition (one CREATE TABLE per table).
+run_public_sql_dump() {
+  local outfile="$1"
+  shift
+  local table
+  split_by_row_filter "$@"
+  local mysqldump_args=(
+    --host="${MARIADB_HOST}"
+    --port="${MARIADB_PORT:-3306}"
+    --user="${MARIADB_USER}"
+    --password="${MARIADB_PASSWORD}"
+    --single-transaction
+    --quick
+    --lock-tables=false
+  )
+  {
+    if [ "${#DUMP_UNFILTERED[@]}" -gt 0 ]; then
+      mysqldump "${mysqldump_args[@]}" --routines "${TARGET_DB}" "${DUMP_UNFILTERED[@]}"
+    fi
+    if [ "${#DUMP_FILTERED[@]}" -gt 0 ]; then
+      for table in "${DUMP_FILTERED[@]}"; do
+        mysqldump "${mysqldump_args[@]}" --where="$(row_filter_for "$table")" "${TARGET_DB}" "$table"
+      done
+    fi
+  } | gzip > "$outfile"
+}
+
+# Fails unless a mydumper output dir has a metadata file and SQL files.
+check_logical_dump() {
+  local outdir="$1"
+  if [ ! -f "$outdir/metadata" ]; then
+      echo "❌ Error: mydumper output missing metadata file."
+      echo "   Contents of $outdir:"
+      ls -la "$outdir" || true
+      exit 1
+  fi
+  if ! find "$outdir" -maxdepth 1 -type f -name "*.sql" | grep -q .; then
+      echo "❌ Error: mydumper output contains no .sql files."
+      echo "   Contents of $outdir:"
+      ls -la "$outdir" || true
+      exit 1
+  fi
+}
+
+if [ -n "$DUMP_ONLY_DIR" ]; then
+  if [ -z "${MARIADB_HOST:-}" ] || [ -z "${MARIADB_USER:-}" ] || [ -z "${MARIADB_PASSWORD:-}" ] || [ -z "${MARIADB_DATABASE:-}" ]; then
+      echo "❌ Error: MariaDB credentials are missing (expected from backend/.env)."
+      exit 1
+  fi
+  if [ -e "${DUMP_ONLY_DIR}/logical" ] || [ -e "${DUMP_ONLY_DIR}/public.sql.gz" ]; then
+      echo "❌ Error: ${DUMP_ONLY_DIR} already holds dump output; pick an empty directory."
+      exit 1
+  fi
+  echo "🧪 Dump-only run into ${DUMP_ONLY_DIR} (nothing is uploaded)"
+  echo "📚 Public dump tables (${#PUBLIC_TABLES[@]}): ${PUBLIC_TABLES[*]}"
+  echo "📦 Restore dump tables (${#RESTORE_TABLES[@]}): ${RESTORE_TABLES[*]}"
+  mkdir -p "$DUMP_ONLY_DIR"
+  echo "📦 Taking logical backup (mydumper)..."
+  run_logical_dump "${DUMP_ONLY_DIR}/logical" "${RESTORE_TABLES[@]}"
+  check_logical_dump "${DUMP_ONLY_DIR}/logical"
+  echo "📄 Taking public SQL dump (mysqldump)..."
+  run_public_sql_dump "${DUMP_ONLY_DIR}/public.sql.gz" "${PUBLIC_TABLES[@]}"
+  echo "✅ Dump-only run complete: ${DUMP_ONLY_DIR}"
+  exit 0
 fi
 
 # ── Checks ──────────────────────────────────────────────────────
@@ -185,7 +508,7 @@ mkdir -p "$LOGICAL_DIR"
 # never become the promoted restore snapshot.
 echo "🔎 [0b/4] Validating private restore tables..."
 export PRIVATE_RESTORE_TABLES_FILE PRIVATE_TABLE_ROW_COUNTS_FILE
-export RESTORE_TABLES_LIST RESTORE_TABLE_ROW_COUNTS_FILE
+export RESTORE_TABLES_LIST RESTORE_TABLE_ROW_COUNTS_FILE DUMP_ROW_FILTERS_FILE
 "$PYTHON_BIN" - <<'PY'
 import json
 import os
@@ -209,7 +532,18 @@ def quote_identifier(identifier: str) -> str:
     return f"`{identifier}`"
 
 
+def read_row_filters(path: Path) -> dict[str, str]:
+    filters: dict[str, str] = {}
+    for raw_line in path.read_text().splitlines():
+        parts = raw_line.split("#", 1)[0].strip().split(None, 1)
+        if len(parts) == 2:
+            filters[parts[0]] = parts[1].strip()
+    return filters
+
+
 private_tables = read_table_file(Path(os.environ["PRIVATE_RESTORE_TABLES_FILE"]))
+# Count what the dumps hold: filtered tables only count their dumped rows.
+row_filters = read_row_filters(Path(os.environ["DUMP_ROW_FILTERS_FILE"]))
 restore_tables = [
     entry.rsplit(".", 1)[-1]
     for entry in os.environ["RESTORE_TABLES_LIST"].split(",")
@@ -229,7 +563,10 @@ try:
     with connection.cursor() as cursor:
         restore_row_counts: dict[str, int] = {}
         for table in restore_tables:
-            cursor.execute(f"SELECT COUNT(*) AS row_count FROM {quote_identifier(table)}")
+            where = f" WHERE {row_filters[table]}" if table in row_filters else ""
+            cursor.execute(
+                f"SELECT COUNT(*) AS row_count FROM {quote_identifier(table)}{where}"
+            )
             row = cursor.fetchone()
             if row is None:
                 raise RuntimeError(f"Could not count restore table: {table}")
@@ -356,36 +693,12 @@ echo "✅ Private restore table integrity checks passed"
 
 # ── 1. Create Logical Backup (For Fly Restore) ──────────────────
 echo "📦 [1/4] Taking Logical Backup (mydumper)..."
-mydumper \
-  --host="${MARIADB_HOST}" \
-  --port="${MARIADB_PORT:-3306}" \
-  --user="${MARIADB_USER}" \
-  --password="${MARIADB_PASSWORD}" \
-  --database="${TARGET_DB}" \
-  --tables-list="${RESTORE_TABLES_LIST}" \
-  --outputdir="$LOGICAL_DIR" \
-  --threads="${MYDUMPER_THREADS:-6}" \
-  --rows="${MYDUMPER_ROWS:-100000}" \
-  --triggers \
-  --routines \
-  --events
+run_logical_dump "$LOGICAL_DIR" "${RESTORE_TABLES[@]}"
 
 find "$LOGICAL_DIR" -name '._*' -delete
 find "$LOGICAL_DIR" -name '.DS_Store' -delete
 
-if [ ! -f "$LOGICAL_DIR/metadata" ]; then
-    echo "❌ Error: mydumper output missing metadata file."
-    echo "   Contents of $LOGICAL_DIR:"
-    ls -la "$LOGICAL_DIR" || true
-    exit 1
-fi
-
-if ! find "$LOGICAL_DIR" -maxdepth 1 -type f -name "*.sql" | grep -q .; then
-    echo "❌ Error: mydumper output contains no .sql files."
-    echo "   Contents of $LOGICAL_DIR:"
-    ls -la "$LOGICAL_DIR" || true
-    exit 1
-fi
+check_logical_dump "$LOGICAL_DIR"
 
 echo "✅ Logical dump sanity checks passed"
 
@@ -399,18 +712,7 @@ echo "✅ Logical checksum file created: $LOGICAL_CHECKSUM_FILE"
 
 # ── 2. Create SQL Dump (For Public Access) ──────────────────────
 echo "📄 [2/4] Taking SQL Dump (for Public Access)..."
-mysqldump \
-  --host="${MARIADB_HOST}" \
-  --port="${MARIADB_PORT:-3306}" \
-  --user="${MARIADB_USER}" \
-  --password="${MARIADB_PASSWORD}" \
-  --single-transaction \
-  --quick \
-  --lock-tables=false \
-  --routines \
-  "${TARGET_DB}" \
-  "${PUBLIC_TABLES[@]}" \
-  | gzip > "$SQL_DUMP_FILE"
+run_public_sql_dump "$SQL_DUMP_FILE" "${PUBLIC_TABLES[@]}"
 
 echo "✅ SQL Dump Ready: $(du -h "$SQL_DUMP_FILE" | cut -f1)"
 

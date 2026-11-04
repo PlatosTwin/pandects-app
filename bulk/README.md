@@ -23,6 +23,7 @@ The public download and private production restore use separate table sets:
 
 - `public_tables.txt` — public SQL dump tables, shared by `push_to_r2.sh` and the docs generator.
 - `private_restore_tables.txt` — internal serving tables added only to the private logical backup used for production restore.
+- `dump_row_filters.txt` — tables dumped with a `WHERE` condition, in both dumps. `xml` is dumped with `latest = 1`: the local table keeps every superseded version, but the dumps hold only each agreement's latest version (verified or not). Every recorded row count (restore manifest, changelog stats) counts only the dumped rows.
 - `schema_docs/table_docs.yml` — hand-written table/column descriptions.
 - `schema_docs/generate_schema_docs.py` — introspects the live MariaDB schema, merges the descriptions, and regenerates two checked-in artifacts: `schema_docs/pandects.dbml` (published to [dbdocs.io](https://dbdocs.io/nmbogdan/Pandects) by `.github/workflows/publish-dbdocs.yml`) and `docs/docs/guides/bulk-data-schema.md` (deployed with the docs site).
 
@@ -45,6 +46,21 @@ Pause section-writing ETL for the final convergence pass, integrity gate, and
 logical dump. The manifest records pre-dump counts and the restore rechecks them,
 so an intervening write fails closed, but quiescing avoids publishing an unusable
 snapshot in the first place.
+
+A filtered table is dumped in a second pass. The public SQL dump appends a
+`mysqldump --where` of the table to the same gzip stream, so the file stays one
+SQL script with one `CREATE TABLE` per table. The logical backup runs a second
+`mydumper --where` into a temporary directory, moves the table's schema and
+data files into the main directory, and merges its table section into the main
+`metadata` file, so myloader restores one directory. The two passes are
+separate snapshots, which is one more reason to quiesce writes during the dump.
+
+To try the dumps without uploading anything, run only the dump step into an
+empty scratch directory (optionally limited to a few tables):
+
+```bash
+bash bulk/push_to_r2.sh --dump-only /path/to/scratch --tables naics_sectors,xml
+```
 
 `MYLOADER_THREADS` defaults to `2`, sized for the current single-vCPU,
 memory-constrained production VM. Override it only after benchmarking the
