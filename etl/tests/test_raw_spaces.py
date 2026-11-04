@@ -255,6 +255,13 @@ class CellBlockWrapTests(unittest.TestCase):
                 "Sirois Trust Class A, Class B and Class D shares 10013,500 Eger Trust",
                 "Sirois Trust Class A, Class B and Class D shares 100 1 3,500 Eger Trust",
             ),
+            (
+                # 603d539d: an office line and a mobile line.
+                "<table><tr><td>Recipient contact details</td><td><div>O:847-485-4752</div>"
+                "<div>M: 847-284-4495</div></td></tr></table>",
+                "Recipient contact details O:847-485-4752M: 847-284-4495",
+                "Recipient contact details O:847-485-4752 M: 847-284-4495",
+            ),
         )
         for raw, text, expected in cases:
             self.assertEqual(restore(text, raw), expected)

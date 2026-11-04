@@ -573,19 +573,32 @@ def _is_cell_block_wrap(
     The id is whole when the agreement prints it unbroken elsewhere, or when the
     left piece fills its line (8 or more letters or digits, no space before them
     on the line) and the right piece is at most 2 letters or digits or a short
-    id tail. Two lines ("MAC C7300-107</div><div>1700 Lincoln St",
-    "100</div><div>1</div><div>3,500") keep their space."""
+    id tail, and that tail is its whole line. Two lines ("MAC C7300-107</div><div>1700 Lincoln St",
+    "100</div><div>1</div><div>3,500", "O:847-485-4752</div><div>M: 847-284-4495") keep their space."""
     if not raw.cells or raw.cells[a] < 0 or raw.cells[a] != raw.cells[b]:
         return False
     if any(raw.bounds.get(x, NONE) not in (NONE, HARD) for x in range(a + 1, b + 1)):
         return False
     if left_run + right_run in printed.tokens:
         return True
-    start = a - len(left_run) + 1
-    fills_line = (start == 0 or start in raw.bounds) and sum(c.isalnum() for c in left_run) >= 8
-    if not fills_line:
+    start, end = a - len(left_run) + 1, b + len(right_run)
+    if not (_at_line_edge(raw, start - 1, -1) and _at_line_edge(raw, end, 1)):
+        return False  # the left piece must start its line and the right piece must be its whole line
+    if sum(c.isalnum() for c in left_run) < 8:
         return False
     return sum(c.isalnum() for c in right_run) <= 2 or _is_id_tail(left_run, right_run)
+
+
+def _at_line_edge(raw: RawSpaceStream, pos: int, step: int) -> bool:
+    """Whether a run that stops just before ``pos`` (stepping by ``step``) meets the edge of its line:
+    the page edge or an element boundary, after at most one space."""
+    edge = pos + 1 if step < 0 else pos
+    if edge <= 0 or edge >= len(raw.text) or edge in raw.bounds:
+        return True
+    if raw.text[pos] == " ":
+        nxt = pos if step < 0 else pos + 1
+        return nxt <= 0 or nxt >= len(raw.text) or nxt in raw.bounds
+    return False
 
 
 def restore_raw_spaces(
