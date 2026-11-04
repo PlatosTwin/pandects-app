@@ -136,6 +136,8 @@ class RawSpaceStream:
     others: frozenset[int] = frozenset()
     # for each character, the table cell (<td>/<th>) it sits in, innermost; -1 outside cells
     cells: tuple[int, ...] = ()
+    # positions with an unsure (SOFT) boundary, even where a hard boundary at the same place outranks it in bounds
+    softs: frozenset[int] = frozenset()
 
 
 def _style(tag: Tag) -> str:
@@ -161,12 +163,15 @@ class _Builder:
         self.brs: set[int] = set()
         self.others: set[int] = set()
         self.cells: list[int] = []
+        self.softs: set[int] = set()
         self.cell = -1
         self.cell_count = 0
 
-    def boundary(self, kind: int, *, br: bool = False) -> None:
+    def boundary(self, kind: int, *, br: bool = False, unsure: bool = True) -> None:
         at = len(self.chars)
         (self.brs if br else self.others).add(at)
+        if kind == SOFT and unsure:
+            self.softs.add(at)
         if self.bounds.get(at, NONE) < kind:
             self.bounds[at] = kind
 
@@ -207,14 +212,16 @@ class _Builder:
                 kind = HARD
             else:  # images, unknown elements, the end-tag marker
                 kind = SOFT
-            self.boundary(kind)
+            # the end-tag marker only keeps a place; it is not an unsure layout box
+            unsure = name != "rsp-break"
+            self.boundary(kind, unsure=unsure)
             outer = self.cell
             if name in ("td", "th"):
                 self.cell_count += 1
                 self.cell = self.cell_count
             self.walk(child)
             self.cell = outer
-            self.boundary(kind)
+            self.boundary(kind, unsure=unsure)
 
 
 def raw_space_stream(raw_html: str) -> RawSpaceStream:
@@ -231,6 +238,7 @@ def raw_space_stream(raw_html: str) -> RawSpaceStream:
         brs=frozenset(builder.brs),
         others=frozenset(builder.others),
         cells=tuple(builder.cells),
+        softs=frozenset(builder.softs),
     )
 
 
@@ -549,12 +557,26 @@ def _is_wrapped_token(raw: RawSpaceStream, a: int, b: int, printed: PrintedWords
     return _is_id_tail(left_run, right_run)
 
 
+# A date ends the left piece ("12/31/2020", "07.12.2018"): what follows is another value, never its tail.
+_DATE_END_RE = re.compile(r"\d{1,4}[/.\-]\d{1,2}[/.\-]\d{2,4}$")
+
+
+def _is_id_joint(left_run: str, right_run: str) -> bool:
+    """The joined run is one id-shaped token with a digit in its left piece, and the left piece is not a date.
+    Amounts ("$12,500,000"), words ("Wilmington") and dates ("12/31/2020") never join."""
+    return (
+        _ID_SHAPE_RE.fullmatch(left_run + right_run) is not None
+        and any(c.isdigit() for c in left_run)
+        and _DATE_END_RE.search(left_run) is None
+    )
+
+
 def _is_id_tail(left_run: str, right_run: str) -> bool:
     """The right piece is a short tail of one id-shaped token (see ``_is_wrapped_token``)."""
     left_alnum = [c for c in left_run if c.isalnum()]
     right_alnum = [c for c in right_run if c.isalnum()]
     return (
-        _ID_SHAPE_RE.fullmatch(left_run + right_run) is not None
+        _is_id_joint(left_run, right_run)
         and len(right_alnum) <= 4
         and len(right_alnum) < len(left_alnum)
         and any(c.isdigit() for c in left_alnum)
@@ -568,25 +590,30 @@ def _is_cell_block_wrap(
     """Whether block boundaries inside one table cell ("<td><p>0602CA00070</p><p>3</p></td>")
     wrap one id rather than separate two lines.
 
-    Only when both sides sit in the same <td>/<th> and every boundary between
-    them is a hard one (a <p>, <div> or <br>, never a cell edge or an unsure box).
-    The id is whole when the agreement prints it unbroken elsewhere, or when the
-    left piece fills its line (8 or more letters or digits, no space before them
-    on the line) and the right piece is at most 2 letters or digits or a short
-    id tail, and that tail is its whole line. Two lines ("MAC C7300-107</div><div>1700 Lincoln St",
+    Only when both sides sit in the same <td>/<th> and no boundary between them
+    is an unsure one (a float, a positioned or inline-block box, an image), even
+    where a hard boundary at the same place outranks it. The id is whole when the
+    agreement prints the joined run (6 or more letters or digits) unbroken
+    elsewhere, or when the left piece fills its line (8 or more letters or
+    digits, starting the line), the right piece is its whole line, the joined run
+    is one id-shaped token (``_is_id_joint``), and the right piece is at most 2
+    letters or digits or a short id tail. Two lines ("MAC C7300-107</div><div>1700 Lincoln St",
     "100</div><div>1</div><div>3,500", "O:847-485-4752</div><div>M: 847-284-4495") keep their space."""
     if not raw.cells or raw.cells[a] < 0 or raw.cells[a] != raw.cells[b]:
         return False
-    if any(raw.bounds.get(x, NONE) not in (NONE, HARD) for x in range(a + 1, b + 1)):
+    if any(x in raw.softs for x in range(a + 1, b + 1)):
         return False
-    if left_run + right_run in printed.tokens:
+    joined = left_run + right_run
+    if joined in printed.tokens and sum(c.isalnum() for c in joined) >= 6:
         return True
     start, end = a - len(left_run) + 1, b + len(right_run)
     if not (_at_line_edge(raw, start - 1, -1) and _at_line_edge(raw, end, 1)):
         return False  # the left piece must start its line and the right piece must be its whole line
     if sum(c.isalnum() for c in left_run) < 8:
         return False
-    return sum(c.isalnum() for c in right_run) <= 2 or _is_id_tail(left_run, right_run)
+    if sum(c.isalnum() for c in right_run) <= 2:
+        return _is_id_joint(left_run, right_run)
+    return _is_id_tail(left_run, right_run)
 
 
 def _at_line_edge(raw: RawSpaceStream, pos: int, step: int) -> bool:

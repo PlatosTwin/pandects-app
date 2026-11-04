@@ -272,6 +272,69 @@ class CellBlockWrapTests(unittest.TestCase):
         self.assertEqual(restore(text, raw), "Equipment schedule serial 0602CA00070 3 units delivered to the Company")
 
 
+class CellBlockWrapBoundaryTests(unittest.TestCase):
+    """The edges of the cell-internal wrap rule: each case pins one of its conditions."""
+
+    LABEL = "Equipment schedule serial number assigned"
+
+    def cell(self, inner: str) -> str:
+        return f"<table><tr><td>{self.LABEL}</td><td>{inner}</td><td>Base unit delivered</td></tr></table>"
+
+    def check(self, inner: str, glued: str, expected: str, printed: PrintedWords | None = None) -> None:
+        text = f"{self.LABEL} {glued} Base unit delivered"
+        want = f"{self.LABEL} {expected} Base unit delivered"
+        got = restore_raw_spaces(text, self.cell(inner), printed_words=printed).text if printed else restore(text, self.cell(inner))
+        self.assertEqual(got, want)
+
+    def test_eight_character_id_with_a_one_character_tail_joins(self) -> None:
+        self.check("<p>12345678</p><p>9</p>", "123456789", "123456789")
+
+    def test_seven_character_left_piece_keeps_its_space(self) -> None:
+        self.check("<p>1234567</p><p>8</p>", "12345678", "1234567 8")
+
+    def test_three_character_tail_without_a_digit_keeps_its_space(self) -> None:
+        self.check("<p>0602CA00070</p><p>ABC</p>", "0602CA00070ABC", "0602CA00070 ABC")
+
+    def test_short_id_tail_with_a_digit_joins(self) -> None:
+        self.check("<p>20172253</p><p>535</p>", "20172253535", "20172253535")
+
+    def test_left_piece_that_does_not_start_its_line_keeps_its_space(self) -> None:
+        self.check("<p>No. 0602CA00070</p><p>3</p>", "No. 0602CA000703", "No. 0602CA00070 3")
+
+    def test_tail_that_runs_on_in_its_line_keeps_its_space(self) -> None:
+        self.check("<p>0602CA00070</p><p>3 units</p>", "0602CA000703 units", "0602CA00070 3 units")
+
+    def test_pieces_in_two_cells_keep_their_space(self) -> None:
+        raw = f"<table><tr><td>{self.LABEL}</td><td>12345678</td><td>9</td><td>Base unit delivered</td></tr></table>"
+        text = f"{self.LABEL} 123456789 Base unit delivered"
+        self.assertEqual(restore(text, raw), f"{self.LABEL} 12345678 9 Base unit delivered")
+
+    def test_paragraphs_outside_a_table_keep_their_space(self) -> None:
+        raw = f"<p>{self.LABEL}</p><p>12345678</p><p>9</p><p>Base unit delivered</p>"
+        text = f"{self.LABEL} 123456789 Base unit delivered"
+        self.assertEqual(restore(text, raw), f"{self.LABEL} 12345678 9 Base unit delivered")
+
+    def test_float_box_is_not_a_wrap(self) -> None:
+        self.check('<div style="float:left">0602CA00070</div><div>3</div>', "0602CA000703", "0602CA00070 3")
+
+    def test_amounts_words_and_dates_never_join(self) -> None:
+        cases = (
+            ("<div>$12,500,000</div><div>25</div>", "$12,500,00025", "$12,500,000 25"),
+            ("<div>12,500,000</div><div>10</div>", "12,500,00010", "12,500,000 10"),
+            ("<div>$10,000,000</div><div>or</div><div>$5,000,000</div>", "$10,000,000or$5,000,000", "$10,000,000 or $5,000,000"),
+            ("<div>Wilmington</div><div>12</div>", "Wilmington12", "Wilmington 12"),
+            ("<p>12/31/2020</p><p>2021</p>", "12/31/20202021", "12/31/2020 2021"),
+            ("12/31/2020<br/>2021", "12/31/20202021", "12/31/2020 2021"),
+        )
+        for inner, glued, expected in cases:
+            with self.subTest(inner=inner):
+                self.check(inner, glued, expected)
+
+    def test_short_run_printed_whole_elsewhere_does_not_join(self) -> None:
+        printed = PrintedWords.of({"12", "23", "123", "Equipment"})
+        self.check("<div>1</div><div>2</div><div>3</div>", "123", "1 2 3", printed)
+
+
 class CjkTests(unittest.TestCase):
     def test_no_space_between_han_characters_at_a_line_break(self) -> None:
         # f2a3107b page 44: Lite-On Semiconductor Co., Ltd. wrapped in a centered cell.
