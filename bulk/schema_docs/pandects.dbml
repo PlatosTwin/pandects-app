@@ -100,7 +100,7 @@ Table agreements {
   filing_company_cik varchar(256) [note: 'SEC Central Index Key (CIK) of the filer.']
   form_type varchar(256) [note: 'SEC form type of the parent filing (e.g. 8-K, S-4, DEFM14A).']
   exhibit_type exhibit_type [note: 'Exhibit series the agreement appeared as: 2 (EX-2.x), 10 (EX-10.x), or 99 (EX-99.x).']
-  transaction_price_total decimal(18,2) [note: 'Total transaction value, in USD.']
+  transaction_price_total decimal(18,2) [note: 'Total transaction value, in USD. On public targets, the value announced at signing, which may include assumed debt, so it need not equal the sum of the cash, stock and asset legs.']
   transaction_price_stock decimal(18,2) [note: 'Stock component of the transaction value, in USD.']
   transaction_price_cash decimal(18,2) [note: 'Cash component of the transaction value, in USD.']
   transaction_price_assets decimal(18,2) [note: 'Asset component of the transaction value, in USD.']
