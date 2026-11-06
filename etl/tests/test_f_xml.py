@@ -9,6 +9,81 @@ import pandas as pd
 from etl.domain import f_xml
 
 
+class LeadingTocTailTests(unittest.TestCase):
+    PREAMBLE = (
+        "AGREEMENT AND PLAN OF MERGER\n\n"
+        "AGREEMENT AND PLAN OF MERGER (this \u201cAgreement\u201d), dated as of June 20, 2000, among A and B.\n\n"
+        "WHEREAS, the parties wish to merge.\n\n<article>ARTICLE I THE MERGER</article>"
+    )
+
+    def _lines(self, *pages: str) -> list[int]:
+        return f_xml.leading_toc_tail_lines(list(pages))
+
+    def test_moves_toc_lines_above_the_agreement_title(self) -> None:
+        tail = (
+            "Section 3.24 Opinion of Financial Advisor..........22\n\n"
+            "ARTICLE VIII MISCELLANEOUS........36 Section 8.1 Nonsurvival........36\n\nii"
+        )
+        self.assertEqual(self._lines(f"{tail}\n\n{self.PREAMBLE}"), [len(tail.split("\n")) + 1])
+
+    def test_moves_exhibit_lists_and_flat_index_rows(self) -> None:
+        for tail in (
+            "EXHIBITS\n\nExhibit A Form of Transition Services Agreement Exhibit B Allocation Schedule\n\nSCHEDULES\n\nSchedule 7.5(b)",
+            "Merger 8 Regulatory Authority 68 Merger Sub 8 Representative 68 NASDAQ Rules 67 Order 67",
+            "\u201cEnvironmental Laws\u201d \u2014 Section 3.19(f)(ii) \u201cEnvironmental Permits\u201d \u2014 Section 3.19(b)",
+            "Exhibit \u201cA\u201d \u2013 Preliminary Allocation Schedule\n\nIntegration Cost Schedule",
+        ):
+            self.assertTrue(self._lines(f"{tail}\n\n{self.PREAMBLE}"), tail)
+
+    def test_moves_a_page_that_is_all_toc(self) -> None:
+        first = "Section 11.7 Specific Performance 155 Section 11.8 Governing Law 156\n\niv"
+        self.assertEqual(self._lines(first, self.PREAMBLE), [3, 0])
+
+    def test_keeps_a_page_that_opens_with_the_preamble(self) -> None:
+        self.assertEqual(self._lines(self.PREAMBLE), [])
+        self.assertEqual(self._lines(f"Exhibit 2.1\n\nEXECUTION COPY\n\n{self.PREAMBLE}"), [])
+        self.assertEqual(self._lines(f"Exhibit 2(B)\n\n{self.PREAMBLE}"), [])
+        self.assertEqual(self._lines(f"Exhibit 2 AFFILIATION AGREEMENT\n\n{self.PREAMBLE}"), [])
+
+    def test_keeps_cover_lines_and_clause_text(self) -> None:
+        for head in (
+            "Section 1.1 Definitions... 3\n\nAmong the parties named on the cover page of this document",
+            "Section 1.1 Definitions... 3\n\nThe Disclosure Schedule shall include the following Sections:",
+            "A. Identity Systems, LLC, a Delaware limited liability company (the \u201cCompany\u201d), owns the business",
+            "A. Sellers own all of the issued and outstanding membership interests of the Company and all of its assets",
+        ):
+            self.assertEqual(self._lines(f"{head}\n\n{self.PREAMBLE}"), [], head)
+
+    def test_keeps_lines_when_a_heading_tag_comes_first(self) -> None:
+        self.assertEqual(self._lines(f"3.1 Title 5\n\n<article>ARTICLE I</article>\n\n{self.PREAMBLE}"), [])
+
+    def test_keeps_toc_lines_when_no_preamble_follows(self) -> None:
+        self.assertEqual(self._lines("Section 1.1 Definitions... 3\n\nSection 1.2 Closing... 4"), [])
+
+    def test_generate_xml_serves_the_tail_in_the_toc_zone(self) -> None:
+        tail = "Section 8.1 Nonsurvival........36\n\nSection 8.2 Notices........37"
+        rows = [
+            {"page_order": 0, "page_uuid": "toc-1", "source_page_type": "toc", "tagged_output": "Section 1.1 Closing... 2"},
+            {"page_order": 1, "page_uuid": "body-1", "source_page_type": "body", "tagged_output": f"{tail}\n\n{self.PREAMBLE}"},
+        ]
+        df = pd.DataFrame(rows).assign(
+            agreement_uuid="agreement-1", url="u", filing_date=date(2020, 1, 1), source_is_html=False,
+            source_is_txt=False, raw_page_content=None,
+        )
+
+        xml_rows, failures = f_xml.generate_xml(df)
+
+        self.assertEqual(failures, [])
+        root = ET.fromstring(xml_rows[0].xml)
+        toc = root.find("tableOfContents")
+        body = root.find("body")
+        assert toc is not None and body is not None
+        self.assertIn("Section 8.2 Notices........37", " ".join(toc.itertext()))
+        self.assertIn("body-1", [el.text for el in toc.iter("pageUUID")])
+        self.assertNotIn("Nonsurvival", " ".join(body.itertext()))
+        self.assertIn("WHEREAS", " ".join(body.itertext()))
+
+
 class XMLGenerationTests(unittest.TestCase):
     def test_format_toc_html_like_screen_preserves_table_rows(self) -> None:
         raw_html = """
