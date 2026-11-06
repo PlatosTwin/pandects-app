@@ -30,6 +30,7 @@ from etl.domain.page_furniture import (
     strip_page_furniture,
     strip_raw_edge_furniture,
 )
+from etl.domain.page_joins import JoinPage, join_across_pages
 from etl.domain.raw_block_joins import join_raw_block_splits
 from etl.domain.raw_spaces import agreement_printed_words, heading_id_titles, restore_page_text
 from etl.domain.txt_underlines import strip_inline_underlines
@@ -2245,6 +2246,20 @@ def _restore_raw_spaces(groups: list[tuple[Any, list[str]]]) -> list[list[str]]:
     ]
 
 
+def _join_cut_paragraphs(rows: Any, texts: list[str]) -> list[str]:
+    """Run ``join_across_pages`` over one zone's page texts (in page order)."""
+    pages = [
+        JoinPage(
+            text=text,
+            raw=str(row.get("raw_page_content")) if _has_text_value(row.get("raw_page_content")) else None,
+            is_html=row.get("source_is_html") == row.get("source_is_html") and bool(row.get("source_is_html")),
+            page_order=int(row["page_order"]) if row.get("page_order") == row.get("page_order") and row.get("page_order") is not None else None,
+        )
+        for row, text in zip(rows.to_dict("records"), texts)
+    ]
+    return join_across_pages(pages).page_texts
+
+
 def generate_xml(
     df: Any, version_map: dict[str, int] | None = None
 ) -> tuple[list[XMLData], list[XMLGenerationFailure]]:
@@ -2365,6 +2380,8 @@ def generate_xml(
             fm_texts, toc_texts, body_page_texts, nonbody_texts = _restore_raw_spaces(
                 [(fm_rows, fm_texts), (toc_rows, toc_texts), (body_rows, body_page_texts), (nonbody_rows, nonbody_texts)]
             )
+            # Paragraphs a page break cut; the page markers stay in order after them.
+            body_page_texts = _join_cut_paragraphs(body_rows, body_page_texts)
             nonbody_text_by_uuid = dict(zip(nonbody_rows["page_uuid"].to_list(), nonbody_texts))
 
             # frontMatter and tableOfContents
