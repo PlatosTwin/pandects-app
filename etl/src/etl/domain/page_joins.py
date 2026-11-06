@@ -17,12 +17,14 @@ joined only when all of these hold:
   caps or title case).
 * The left line does not end a sentence or a clause (``. : ; ! ?``, also before
   a closing quote or bracket), it does not end a list item (``; and``, ``; or``),
-  and it does not end in a dash.
+  and it does not end in a dash. Neither line has dot leaders (an index).
 * The left line is not a line of a notice block (an e-mail address, a phone or
   fax number, an "Attention" line).
 * The right text runs up to the first heading or page marker on its line. It is
-  not an enumerated list item, a "(continued)" or "page N" label, or the next
-  line of a notice block ("with a copy to:", "if to Seller,"), and:
+  not an enumerated list item (also "7.7.6", unless the left line is listing
+  section numbers), a "(continued)" or "page N" label, a bare page number or a
+  line with no letters, the next line of a notice block ("with a copy to:",
+  "if to Seller,"), or a page that prints only footnotes, and:
 
   - it starts with a lowercase letter or with closing punctuation, or
   - the left line has at least four words and ends in a word that cannot end a
@@ -33,8 +35,10 @@ joined only when all of these hold:
 * Neither line repeats at the same page edge elsewhere in the agreement.
 * On HTML pages, the filed page confirms both sides: each is found on its page,
   outside tables, lists and hidden elements, and the two sides have the same
-  font size (a footnote is smaller than the sentence it interrupts). Neither is
-  in a heading element or a centered block, unless its line is long enough to be
+  font size (a footnote is smaller than the sentence it interrupts). A footnote
+  in the same size is caught by its superscript mark: the right text does not
+  open on one and the left line does not start on one. Neither side is in a
+  heading element or a centered block, unless its line is long enough to be
   prose (some filings set whole paragraphs in ``<h5>``).
 
 The join changes white space and nothing else, with one exception. A left line
@@ -63,12 +67,23 @@ _LINE_CONTENT_RE = re.compile(r"[^\W_]")
 _ENUMERATOR_RE = re.compile(
     r"^(?:\(\s*[A-Za-z0-9]{1,6}\s*\)|\[\s*[A-Za-z0-9]{1,6}\s*\]|[A-Za-z0-9]{1,4}\)"
     r"|\d{1,3}(?:\.\d{1,3})*\.(?:\s|$)|[ivxlcdmIVXLCDM]{1,6}\.(?:\s|$)|[A-Za-z]\.(?:\s|$)"
-    r"|[•·▪◦●○■□\-–—*§¶])"
+    r"|[•·▪◦●○■□\-–—*§¶†‡])"
 )
+# "7.7.6 then, ..." opens a list item; "2.5 times" is a decimal and "6.06 of this
+# Agreement" ends a list of section numbers ("Sections 6.02, 6.03 and").
+_DOTTED_NUMBER_RE = re.compile(r"^(\d{1,3}(?:\.\d{1,3})+)(?:\([^)\s]{1,6}\))*(?:\s+(\S)|$)")
+_NUMBER_LIST_END_RE = re.compile(
+    r"(?:\d\.\d\S*|\b(?:sections?|articles?|paragraphs?|clauses?|schedules?|exhibits?|annex(?:es)?)\s+\S+),?\s+(?:and|or|and/or|through|to)$",
+    re.IGNORECASE,
+)
+_LIST_JOINERS = frozenset({"and", "or", "nor", "but", "and/or"})
+_PAGE_NUMBER_ONLY_RE = re.compile(r"^(?:[a-z]{1,3}\s*-\s*\d+|(?=[ivx])x{0,3}(?:ix|iv|v?i{0,3}))$", re.IGNORECASE)
+_FOOTNOTE_RE = re.compile(r"^\d{1,3}\s+[A-Z]")
+_DOT_LEADER_RE = re.compile(r"\.{4,}|(?:\.\s){3,}|…{2,}")
 _SENTENCE_END_RE = re.compile(r"[.:;!?…][\"'”’»)\]]*$")
 _DASH_END_RE = re.compile(r"[–—―]$|(?:^|\s)-$|--$")
 _WORD_HYPHEN_END_RE = re.compile(r"([^\W\d_]+(?:-[^\W\d_]+)*)-$")
-_PAGE_LABEL_END_RE = re.compile(r"(?:^|\s)-\d+-$")
+_PAGE_LABEL_END_RE = re.compile(r"(?<!\d)-\d+-$")
 _RIGHT_WORD_RE = re.compile(r"[^\W\d_]+")
 _WORD_TOKEN_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*")
 _LABEL_RE = re.compile(r"^\(?(?:continued|cont(?:'|’|\.)d?|page\s+\d+|\d+\s+of\s+\d+)\b", re.IGNORECASE)
@@ -205,6 +220,8 @@ def _left_problem(left: str, heading_open: bool) -> str | None:
         return "left_ends_sentence"
     if _DASH_END_RE.search(tail):
         return "left_dash"
+    if _DOT_LEADER_RE.search(tail):
+        return "left_dot_leader"
     if _LIST_ITEM_END_RE.search(tail):
         return "left_list_item_end"
     if _CONTACT_LEFT_RE.search(tail[-80:]):
@@ -220,8 +237,27 @@ def _is_all_caps_word(word: str) -> bool:
 
 
 def _open_end(left: str) -> bool:
+    """Whether the line ends in an open word: lowercase, or any case on an all-caps line ("Annex A" stays)."""
     words = left.rstrip().rsplit(None, 1)
-    return bool(words) and words[-1].casefold() in _OPEN_END_WORDS
+    if not words:
+        return False
+    plain = _plain(left)
+    return words[-1] in _OPEN_END_WORDS or (plain == plain.upper() and words[-1].casefold() in _OPEN_END_WORDS)
+
+
+def _dotted_item(right: str, left: str) -> bool:
+    """Whether the right text opens on a multi-level list number, not a decimal or a listed section."""
+    m = _DOTTED_NUMBER_RE.match(right)
+    if m is None or _NUMBER_LIST_END_RE.search(left):
+        return False
+    if m.group(1).count(".") > 1:
+        return True
+    return m.group(2) is None or m.group(2).isupper() or left.rsplit(None, 1)[-1].casefold() in _LIST_JOINERS
+
+
+def _only_footnotes(rest: str) -> bool:
+    """Whether every line left on the page is a numbered note or has no letters."""
+    return all(_FOOTNOTE_RE.match(line) or not any(c.isalpha() for c in line) for line in map(_plain, _LINE_RE.findall(rest)))
 
 
 def _right_problem(right: str, left: str) -> str | None:
@@ -229,17 +265,18 @@ def _right_problem(right: str, left: str) -> str | None:
     stripped = right.strip()
     if not stripped:
         return "right_heading"
-    if _LABEL_RE.match(stripped):
+    if not any(c.isalpha() for c in stripped):
+        return "right_no_letters"
+    if _LABEL_RE.match(stripped) or _PAGE_NUMBER_ONLY_RE.match(stripped):
         return "right_label"
+    if _DOT_LEADER_RE.search(stripped):
+        return "right_dot_leader"
     if _CONTACT_RIGHT_RE.match(stripped):
         return "right_contact"
     if _CLOSING_START_RE.match(stripped):
         return None
-    if _ENUMERATOR_RE.match(stripped):
+    if _ENUMERATOR_RE.match(stripped) or _dotted_item(stripped, left):
         return "right_enumerator"
-    first = next((c for c in stripped if c.isalnum()), "")
-    if not first:
-        return "right_no_letters"
     if stripped[0].islower():
         return None
     if not _open_end(left) or len(_plain(left).split()) < _OPEN_END_MIN_WORDS:
@@ -261,11 +298,12 @@ _LIST_TAGS = frozenset({"li", "ul", "ol", "dl", "dt", "dd"})
 _HEADING_TAGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
 _ALIGN_RE = re.compile(r"text-align\s*:\s*([a-z-]+)|\balign\s*=\s*[\"']?([a-z]+)", re.IGNORECASE)
 _HIDDEN_RE = re.compile(r"display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|(?:^|\s)hidden(?:\s*=|\s|/?$)", re.IGNORECASE)
-_FONT_SIZE_RE = re.compile(r"font-size\s*:\s*([\d.]+\s*[a-z%]*)", re.IGNORECASE)
+_SUPER_RE = re.compile(r"vertical-align\s*:\s*super", re.IGNORECASE)
+_FONT_SIZE_RE = re.compile(r"font(?:-size)?\s*:\s*(?:[a-z-]+\s+)*([\d.]+\s*[a-z%]*)", re.IGNORECASE)
 _FONT_ATTR_RE = re.compile(r"\bsize\s*=\s*[\"']?([+-]?\d+)", re.IGNORECASE)
 
-_TABLE, _LIST, _HEADING, _CENTER, _HIDDEN = 1, 2, 4, 8, 16
-_FLAG_NAMES = ((_TABLE, "table"), (_LIST, "list"), (_HEADING, "heading"), (_CENTER, "centered"), (_HIDDEN, "hidden"))
+_TABLE, _LIST, _HEADING, _CENTER, _HIDDEN, _SUPER = 1, 2, 4, 8, 16, 32
+_FLAG_NAMES = ((_TABLE, "table"), (_LIST, "list"), (_HEADING, "heading"), (_CENTER, "centered"), (_HIDDEN, "hidden"), (_SUPER, "superscript"))
 
 
 @dataclass
@@ -347,6 +385,8 @@ def read_raw_page(raw: str) -> RawPage:
                 bit &= ~_CENTER
         if _HIDDEN_RE.search(attrs):
             bit |= _HIDDEN
+        if name == "sup" or _SUPER_RE.search(attrs):
+            bit |= _SUPER
         size = _FONT_SIZE_RE.search(attrs)
         font = _FONT_ATTR_RE.search(attrs) if name == "font" else None
         value = _normal_size(size.group(1)) if size else "font" + font.group(1) if font else parent_size
@@ -386,7 +426,11 @@ def _raw_problem(left: str, right: str, left_raw: str, right_raw: str) -> str | 
     right_run = _locate(right_page, right_key, last=False)
     if left_run is None or right_run is None or left_run < 0 or right_run < 0:
         return "raw_unlocated"
-    flags = 0
+    # A footnote: its mark opens the right text or the left line. A call mark at the end of the left line is fine.
+    left_start = _locate(left_page, left_key, last=False)
+    flags = right_page.flags[right_run] & _SUPER
+    if left_start is not None and left_start >= 0:
+        flags |= left_page.flags[left_start] & _SUPER
     for line, side_flags in ((left, left_page.flags[left_run]), (right, right_page.flags[right_run])):
         flags |= side_flags & (_TABLE | _LIST | _HIDDEN)
         if len(_plain(line).split()) < _PROSE_WORDS:
@@ -410,11 +454,11 @@ def _hyphen_join(left: str, right: str, words: Counter[str]) -> tuple[str, str]:
     if word is None:
         return left, ""
     tail = word.group(0)
+    if m is not None and words[(m.group(1) + tail).casefold()] > words[f"{m.group(1)}-{tail}".casefold()]:
+        return left[:-1], ""
     # "one-" / "to four-family" is a suspended pair; "up-" / "to-date" is one word.
     if tail.casefold() in _SUSPENDED_WORDS and right[word.end() : word.end() + 1] != "-":
         return left, " "
-    if m is not None and words[(m.group(1) + tail).casefold()] > words[f"{m.group(1)}-{tail}".casefold()]:
-        return left[:-1], ""
     return left, ""
 
 
@@ -479,6 +523,9 @@ def join_across_pages(pages: list[JoinPage], *, collect: bool = False) -> PageJo
         why = _right_problem(right_plain, left_plain)
         if why is not None:
             skip(why, i, left_edge, right_edge)
+            continue
+        if _FOOTNOTE_RE.match(right_plain) and _only_footnotes(right_page.text[right_edge.end :]):
+            skip("right_footnote", i, left_edge, right_edge)
             continue
         if last_keys[_edge_key(left_edge.line)] > _REPEAT_LIMIT or first_keys[_edge_key(right_edge.line)] > _REPEAT_LIMIT:
             skip("repeated_line", i, left_edge, right_edge)

@@ -116,6 +116,62 @@ class TextRuleTests(unittest.TestCase):
         for right in ("(a) the amount due.", "(iv) the amount due.", "a. the amount due.", "ii. the amount due.", "• the amount due."):
             self.assert_kept("the amount payable by the", right, "right_enumerator")
 
+    def test_bare_page_number_after_the_cut_stays(self) -> None:
+        left = "to Articles, Sections, Schedules and Exhibits mean the"
+        self.assert_kept(left, "28", "right_no_letters")
+        self.assert_kept(left, "(28)", "right_no_letters")
+        self.assert_kept(left, "A-8", "right_label")
+        self.assert_kept(left, "iv", "right_label")
+
+    def test_decimal_amount_with_words_after_an_open_word_joins(self) -> None:
+        self.assertEqual(
+            self.joined("the Purchaser shall pay an amount equal to", "28 days of interest on the balance.")[0],
+            "the Purchaser shall pay an amount equal to 28 days of interest on the balance.",
+        )
+
+    def test_page_of_footnotes_after_the_cut_stays(self) -> None:
+        left = "in the ordinary course of business consistent with past practice that"
+        self.assert_kept(left, "1 Please provide schedule.\n\n<page>50</page>", "right_footnote")
+        self.assert_kept(left, "1 Please provide schedule.\n\n2 Same for the other.", "right_footnote")
+
+    def test_number_then_capital_with_text_after_it_joins(self) -> None:
+        left = "in the ordinary course of business within the"
+        self.assertEqual(len(join_across_pages(_pages(left, "30 Business Days after Closing.\n\nThe next paragraph.")).joins), 1)
+
+    def test_dagger_note_stays(self) -> None:
+        self.assert_kept("in the ordinary course of business that", "† Please provide schedule.", "right_enumerator")
+
+    def test_multi_level_list_number_stays(self) -> None:
+        left = "7.7.5 under the Earn-Out Agreement and"
+        self.assert_kept(left, "7.7.6 then, with respect to Claims, the Buyer shall", "right_enumerator")
+        self.assert_kept("the Buyer shall deliver the amount under this Agreement or", "7.7 then, with respect to Claims,", "right_enumerator")
+        self.assert_kept("the Buyer shall deliver the amount under all of the", "7.8 Indemnification Claims.", "right_enumerator")
+
+    def test_section_number_list_and_decimals_join(self) -> None:
+        for left, right in (
+            ("the conditions set forth in Sections 6.02, 6.03 and", "6.06 of this Agreement."),
+            ("the conditions set forth in Section 7.2.1 or", "7.2.2 of this Agreement."),
+            ("as provided in Section 5(a) and", "5.2 of this Agreement."),
+            ("the Leverage Ratio is not greater than", "2.5 times the amount."),
+        ):
+            self.assertEqual(len(join_across_pages(_pages(left, right)).joins), 1, left)
+
+    def test_dot_leaders_stay(self) -> None:
+        self.assert_kept("Purchase Price and the rest of the items ........ of", "the Sellers", "left_dot_leader")
+        self.assert_kept("the amount payable by the buyer", "at closing . . . . 12", "right_dot_leader")
+
+    def test_capital_a_ending_an_index_line_is_not_an_open_word(self) -> None:
+        self.assert_kept("the form of the Agreement in Annex A", "Definitions of the Terms", "right_not_continuation")
+
+    def test_open_word_floor_counts_four_words(self) -> None:
+        self.assertEqual(len(join_across_pages(_pages("sold to the", "Company Records.")).joins), 0)
+        self.assertEqual(len(join_across_pages(_pages("assets sold to the", "Company Records.")).joins), 1)
+
+    def test_caption_limit_is_ten_words(self) -> None:
+        self.assert_kept("Purchase Price Adjustment And Working Capital Escrow Release Date Mechanics", "for the Sellers", "left_caption")
+        left = "Purchase Price Adjustment And Working Capital Escrow Release Date Closing Mechanics"
+        self.assertEqual(len(join_across_pages(_pages(left, "for the Sellers")).joins), 1)
+
     def test_right_label(self) -> None:
         self.assert_kept("the amount payable by the", "(continued)", "right_label")
         self.assert_kept("the amount payable by the", "page 12", "right_label")
@@ -192,6 +248,18 @@ class HyphenTests(unittest.TestCase):
         result = join_across_pages(_pages("under the Non-", "Assignable Assets clause."))
         self.assertEqual(result.joins, [])
 
+    def test_counts_cover_every_page_of_the_agreement(self) -> None:
+        result = join_across_pages(_pages("the agreement requires con-", "sent of the buyer", "Their consent and consent."))
+        self.assertEqual(result.page_texts[0], "the agreement requires consent of the buyer")
+
+    def test_printed_closed_word_beats_the_suspended_words(self) -> None:
+        result = join_across_pages(_pages("from here-", "to the parties. Hereto and hereto."))
+        self.assertEqual(result.page_texts[0], "from hereto the parties. Hereto and hereto.")
+
+    def test_page_label_glued_to_a_word_stays(self) -> None:
+        for left in ("four of whom A-8-", "four of whom-8-"):
+            self.assertEqual(join_across_pages(_pages(left, "shall be")).skipped["hyphen_page_label"], 1)
+
     def test_closing_punctuation_after_a_hyphen_stays(self) -> None:
         result = join_across_pages(_pages("the pre-", ", and the post-closing period."))
         self.assertEqual(result.skipped["hyphen_upper"], 1)
@@ -262,6 +330,47 @@ class RawEvidenceTests(unittest.TestCase):
         right_raw = f'<p><span style="font-size:10pt">{self.right}</span></p>'
         self.assertEqual(len(self.result(left_raw, right_raw).joins), 1)
 
+    def test_font_attribute_sizes_differ(self) -> None:
+        result = self.result(f'<p><font size="2">{self.left}</font></p>', f'<p><font size="1">{self.right}</font></p>')
+        self.assertEqual(result.skipped["raw_font_size"], 1)
+
+    def test_font_shorthand_sizes_differ(self) -> None:
+        result = self.result(f'<p style="font: italic 8pt Times">{self.left}</p>', f'<p style="font: 12pt/14pt Times">{self.right}</p>')
+        self.assertEqual(result.skipped["raw_font_size"], 1)
+
+    def test_same_size_footnote_mark_opens_the_right_side(self) -> None:
+        left = self.left + " that"
+        for mark in ("<sup>1</sup>", '<span style="vertical-align: super">1</span>'):
+            raws = (_html(left), _html(f"{mark} Please provide schedule of the items."))
+            pages = _pages(left, "1 Please provide schedule of the items.\n\nAnd the rest of the note.", raws=raws)
+            self.assertEqual(join_across_pages(pages).skipped["raw_superscript"], 1, mark)
+
+    def test_footnote_ending_the_left_page_stays(self) -> None:
+        left = "1 Please provide the schedule of all of the"
+        pages = _pages(left, self.right, raws=(_html("<sup>1</sup> Please provide the schedule of all of the"), _html(self.right)))
+        self.assertEqual(join_across_pages(pages).skipped["raw_superscript"], 1)
+
+    def test_footnote_call_at_the_end_of_the_left_side_joins(self) -> None:
+        left = "the amount payable by the Purchaser under this clause 1"
+        pages = _pages(left, self.right, raws=(_html("the amount payable by the Purchaser under this clause<sup>1</sup>"), _html(self.right)))
+        self.assertEqual(len(join_across_pages(pages).joins), 1)
+
+    def test_later_printing_of_the_left_side_decides(self) -> None:
+        raw = f"<table><tr><td>{self.left}</td></tr></table>" + _html(self.left)
+        self.assertEqual(len(self.result(raw, _html(self.right)).joins), 1)
+
+    def test_earlier_printing_of_the_right_side_decides(self) -> None:
+        raw = _html(self.right) + f"<table><tr><td>{self.right}</td></tr></table>"
+        self.assertEqual(len(self.result(_html(self.left), raw).joins), 1)
+
+    def test_left_side_is_read_at_its_last_letter(self) -> None:
+        left_raw = (
+            '<p><span style="font-size:8pt">the amount payable by the Purchaser</span>'
+            ' <span style="font-size:10pt">under this clause</span></p>'
+        )
+        right_raw = f'<p><span style="font-size:10pt">{self.right}</span></p>'
+        self.assertEqual(len(self.result(left_raw, right_raw).joins), 1)
+
     def test_text_not_on_the_filed_page_stays(self) -> None:
         self.assertEqual(self.result(_html("something else entirely"), _html(self.right)).skipped["raw_unlocated"], 1)
 
@@ -275,19 +384,19 @@ class RawEvidenceTests(unittest.TestCase):
 
 
 class GenerateXmlTests(unittest.TestCase):
-    def build(self, pages: list[str]) -> str:
+    def build(self, pages: list[str], raws: list[str] | None = None) -> str:
         df = pd.DataFrame(
             {
                 "agreement_uuid": ["a"] * len(pages),
                 "page_uuid": [f"p{i}" for i in range(len(pages))],
                 "page_order": list(range(len(pages))),
-                "raw_page_content": [None] * len(pages),
+                "raw_page_content": raws or [None] * len(pages),
                 "source_page_type": ["body"] * len(pages),
                 "tagged_output": pages,
                 "url": ["http://x"] * len(pages),
                 "filing_date": [date(2020, 1, 1)] * len(pages),
-                "source_is_txt": [True] * len(pages),
-                "source_is_html": [False] * len(pages),
+                "source_is_txt": [raws is None] * len(pages),
+                "source_is_html": [raws is not None] * len(pages),
             }
         )
         xml, failures = generate_xml(df, {})
@@ -306,6 +415,18 @@ class GenerateXmlTests(unittest.TestCase):
         self.assertLess(xml.index("<pageUUID>p0</pageUUID>"), xml.index('title="1.2 Closing."'))
         self.assertIn('title="1.2 Closing."', xml)
         self.assertRegex(xml, r'title="1\.2 Closing\."[^>]*pageUUID="p1"')
+
+    def test_html_rows_join_on_raw_evidence(self) -> None:
+        left, right = "the amount payable by the Purchaser under this", "clause to the Sellers at closing."
+        heading = "<article>ARTICLE I</article>\n\n<section>1.1 Sale.</section> "
+        xml = self.build([heading + left, right], [_html("ARTICLE I", "1.1 Sale.", left), _html(right)])
+        self.assertIn(f"{left} {right}", xml)
+
+    def test_html_rows_reach_the_raw_guards(self) -> None:
+        left, right = "the amount payable by the Purchaser under this", "clause to the Sellers at closing."
+        heading = "<article>ARTICLE I</article>\n\n<section>1.1 Sale.</section> "
+        xml = self.build([heading + left, right], [_html("ARTICLE I", "1.1 Sale.") + f"<table><tr><td>{left}</td></tr></table>", _html(right)])
+        self.assertNotIn(f"{left} {right}", xml)
 
     def test_section_ids_do_not_move(self) -> None:
         tail = "\n\n<section>1.2 Closing.</section> The Closing occurs."
