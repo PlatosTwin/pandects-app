@@ -350,6 +350,27 @@ class XMLVerifyAssetTests(unittest.TestCase):
             self._normalized_text_without_heading_tags(repaired_text),
         )
 
+    def _toc_and_body_df(self, toc: str, article_one: str) -> pd.DataFrame:
+        toc_row = self._xml_build_df(toc).assign(page_uuid="toc-page", page_order=0, source_page_type="toc")
+        return pd.concat([toc_row, self._xml_build_df(self._five_article_text(article_one))], ignore_index=True)
+
+    def test_safe_xml_tag_repairs_read_the_toc_for_a_stray_number(self) -> None:
+        article_one = (
+            "<section>1.1 First</section>Text.\n\n1.2. As of the Execution Date the letter is in force.\n\n"
+            "<section>1.3. No Brokers.</section> Text."
+        )
+        repaired_df = _apply_safe_xml_tag_repairs_to_df(
+            self._toc_and_body_df("1.1 First 3\n1.2 No Brokers 4\n1.3 Survival 5", article_one)
+        )
+        self.assertNotIn("<section>1.2", cast(str, repaired_df.iloc[1]["tagged_output"]))
+
+    def test_safe_xml_tag_repairs_keep_a_real_heading_that_shares_its_title(self) -> None:
+        article_one = "<section>1.1 First</section>Text.\n\n1.2 Reserved.\n\n<section>1.3 Reserved.</section>"
+        repaired_df = _apply_safe_xml_tag_repairs_to_df(
+            self._toc_and_body_df("1.1 First 3\n1.2 Reserved 4\n1.3 Reserved 4", article_one)
+        )
+        self.assertIn("<section>1.2 Reserved.</section>", cast(str, repaired_df.iloc[1]["tagged_output"]))
+
     def test_safe_xml_tag_repairs_insert_heading_after_sentence_end_or_capitalized_clause(self) -> None:
         for interim, expected in (
             (

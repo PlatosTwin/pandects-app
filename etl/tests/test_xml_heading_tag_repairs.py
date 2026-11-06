@@ -322,10 +322,37 @@ class InsertMissingSectionHeadingTagTests(unittest.TestCase):
             "6.6. As of the Execution Date the Financing Letter has not been amended.\n\n"
             "<section>6.7. No Brokers.</section> Purchaser has no Liability."
         )
-        gap = SectionGap(article_num=6, expected=6, found=7, toc_title="No Brokers")
+        gap = SectionGap(article_num=6, expected=6, found=7, toc_text="6.6 No Brokers 44\n6.7 Survival 45")
         self.assertEqual(insert_missing_section_heading_tags(text, [gap])[0], text)
-        other = SectionGap(article_num=6, expected=6, found=7, toc_title="Financing Letter")
+        other = SectionGap(article_num=6, expected=6, found=7, toc_text="6.6 Financing Letter 44")
         self.assertIn("<section>6.6.", insert_missing_section_heading_tags(text, [other])[0])
+
+    def test_skips_number_when_the_toc_has_no_line_for_the_next_heading(self) -> None:
+        text = (
+            "<section>6.5 Financing.</section>\nPurchaser has delivered the Financing Letter.\n\n"
+            "6.6. As of the Execution Date the Financing Letter has not been amended.\n\n"
+            "<section>6.7. No Brokers.</section> Purchaser has no Liability."
+        )
+        gap = SectionGap(article_num=6, expected=6, found=7, toc_text="6.5 Financing 43\n6.6 No Brokers 44")
+        self.assertEqual(insert_missing_section_heading_tags(text, [gap])[0], text)
+
+    def test_tags_a_real_heading_when_the_next_section_shares_its_title(self) -> None:
+        for title in ("Reserved", "Intentionally Omitted"):
+            text = (
+                "<section>6.5 Financing.</section>\nPurchaser has delivered the Financing Letter.\n\n"
+                f"6.6 {title}.\n\n<section>6.7 {title}.</section>"
+            )
+            gap = SectionGap(article_num=6, expected=6, found=7, toc_text=f"6.6 {title} 41\n6.7 {title} 41")
+            self.assertIn(f"<section>6.6 {title}.</section>", insert_missing_section_heading_tags(text, [gap])[0])
+
+    def test_short_toc_title_is_no_evidence(self) -> None:
+        text = (
+            "<section>6.5 Financing.</section>\nPurchaser has delivered the Financing Letter.\n\n"
+            "6.6. As of the Execution Date the Financing Letter has not been amended.\n\n"
+            "<section>6.7 Tax.</section> Purchaser pays."
+        )
+        gap = SectionGap(article_num=6, expected=6, found=7, toc_text="6.6 Tax 44\n6.7 Survival 45")
+        self.assertIn("<section>6.6.", insert_missing_section_heading_tags(text, [gap])[0])
 
     def test_toc_section_title(self) -> None:
         self.assertEqual(toc_section_title("6.6. No Brokers                 44", 6, 6), "No Brokers")
@@ -732,6 +759,18 @@ class TitleBoundaryTests(unittest.TestCase):
             self._repair("<section>5.3 Guarantee. RTL hereby guarantees payment.</section>"),
             "<section>5.3 Guarantee.</section> RTL hereby guarantees payment.",
         )
+
+    def test_keeps_a_title_when_the_next_words_read_as_the_clause(self) -> None:
+        long_title = " ".join(["Consolidated Holdings"] * 7)
+        for text in (
+            "<section>4.2 Sale to Acme Co.</section> Acme Holdings Group Limited. The Company agrees.",
+            "<section>4.2 Sale of Smith Co.</section> Holdings by way of merger. The Company agrees.",
+            "<section>4.2 Sale of Smith Co.</section> Holdings is Complete. The Company agrees.",
+            f"<section>4.2 {long_title} Co.</section> Group of America Limited. The Company agrees.",
+            "<section>4.2 Sale of Smith Co.</section> One Two Three Four Five Six Seven Eight Nine Ten "
+            "Eleven Twelve Thirteen. The Company agrees.",
+        ):
+            self.assertEqual(self._repair(text), text)
 
     def test_keeps_a_title_of_two_printed_headings(self) -> None:
         for text in (

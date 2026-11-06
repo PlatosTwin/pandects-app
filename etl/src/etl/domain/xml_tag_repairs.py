@@ -133,8 +133,8 @@ class SectionGap:
     article_num: int
     expected: int
     found: int
-    # The title the agreement's table of contents prints for the expected number.
-    toc_title: str | None = None
+    # The agreement's table of contents, to read what it prints for a section number.
+    toc_text: str | None = None
 
 
 @dataclass
@@ -742,7 +742,7 @@ def _is_stray_section_number(tagged_text: str, start: int, number_end: int) -> b
     ):
         return True
     before = _PAGE_MARKERS_TAIL_RE.sub("", tagged_text[max(0, start - 200) : start])
-    return before[-1:] != ">" and MISSING_HEADING_UNFINISHED_LINE_RE.search(before) is not None
+    return MISSING_HEADING_UNFINISHED_LINE_RE.search(before) is not None
 
 
 def toc_section_title(toc_text: str, article_num: int, section_num: int) -> str | None:
@@ -761,18 +761,23 @@ def _letters(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
-def _next_heading_holds_toc_title(tagged_text: str, end: int, toc_title: str) -> bool:
-    """True when the next heading on the page prints the title the TOC gives this number.
+def _next_heading_holds_toc_title(tagged_text: str, end: int, gap: SectionGap) -> bool:
+    """True when the next heading on the page prints the title the TOC gives the gap's number.
 
     "6.6. As of the Execution Date ... <section>6.7. No Brokers.</section>" with a TOC line
     "6.6. No Brokers 44": Word numbered a stray paragraph, so the printed numbers run one
-    ahead of the TOC, and 6.6 is not a heading.
+    ahead of the TOC, and 6.6 is not a heading. If the TOC gives the next heading's own
+    number the same title, the two really share it ("6.6 Reserved", "6.7 Reserved").
     """
+    toc_title = toc_section_title(gap.toc_text or "", gap.article_num, gap.expected)
     heading = SECTION_TAG_RE.search(tagged_text, end)
-    if heading is None:
+    if toc_title is None or heading is None or len(_letters(toc_title)) < 4:
         return False
-    title = re.sub(r"^\s*(?:(?:Section|SECTION)\s+)?\d+\s*\.\s*\d+\.?", "", heading.group(1))
-    return len(_letters(toc_title)) >= 4 and _letters(title) == _letters(toc_title)
+    printed = re.match(r"\s*(?:(?:Section|SECTION)\s+)?(\d+)\s*\.\s*(\d+)\.?", heading.group(1))
+    if printed is None or _letters(heading.group(1)[printed.end() :]) != _letters(toc_title):
+        return False
+    own_title = toc_section_title(gap.toc_text or "", int(printed.group(1)), int(printed.group(2)))
+    return own_title is None or _letters(own_title) != _letters(toc_title)
 
 
 def _missing_heading_title_end(tagged_text: str, start: int, number_end: int) -> tuple[int, str] | None:
@@ -881,7 +886,7 @@ def insert_missing_section_heading_tags(
                 continue  # "pursuant to Section 5.11 ...", "in 2.2 ...", "(see 4.3 ...)"
             if _is_stray_section_number(tagged_text, match.start(), match.end()):
                 continue
-            if gap.toc_title and _next_heading_holds_toc_title(tagged_text, match.end(), gap.toc_title):
+            if _next_heading_holds_toc_title(tagged_text, match.end(), gap):
                 continue
             # A defined term ("1.42 Existing Debt Facilities means ...") is a heading
             # wherever it sits in flattened definitions text.

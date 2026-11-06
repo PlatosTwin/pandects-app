@@ -28,7 +28,6 @@ from etl.domain.sentence_split_titles import repair_sentence_split_section_title
 from etl.domain.xml_tag_repairs import (
     SectionGap,
     XMLTagRepairStats,
-    toc_section_title,
     apply_body_start_tag_repairs,
     dedupe_adjacent_same_number_headings,
     insert_missing_section_heading_tags,
@@ -1545,7 +1544,7 @@ def _section_gaps_from_violations(
 
 
 def _with_toc_titles(gaps: List[SectionGap], df: pd.DataFrame) -> List[SectionGap]:
-    """The gaps, each with the title the agreement's TOC prints for its expected number."""
+    """The gaps, each with the TOC text that gives the title printed for a section number."""
     xml_rows, _ = generate_xml(df)
     if not xml_rows:
         return gaps
@@ -1553,7 +1552,7 @@ def _with_toc_titles(gaps: List[SectionGap], df: pd.DataFrame) -> List[SectionGa
     if toc is None:
         return gaps
     toc_text = "\n".join(node.text or "" for node in toc.iter("text"))
-    return [replace(gap, toc_title=toc_section_title(toc_text, gap.article_num, gap.expected)) for gap in gaps]
+    return [replace(gap, toc_text=toc_text) for gap in gaps]
 
 
 def _hard_rule_result_for_df(
