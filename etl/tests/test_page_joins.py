@@ -183,7 +183,10 @@ class HyphenTests(unittest.TestCase):
     def test_page_label_at_the_end_of_the_line_stays(self) -> None:
         result = join_across_pages(_pages("four of whom -8-", "shall be designated by the Company."))
         self.assertEqual(result.joins, [])
-        self.assertEqual(result.skipped["hyphen_digit"], 1)
+        self.assertEqual(result.skipped["hyphen_page_label"], 1)
+
+    def test_number_compound_joins(self) -> None:
+        self.assertEqual(self.join("during the 12-", "month period.", ""), "during the 12-month period.")
 
     def test_uppercase_right_stays(self) -> None:
         result = join_across_pages(_pages("under the Non-", "Assignable Assets clause."))

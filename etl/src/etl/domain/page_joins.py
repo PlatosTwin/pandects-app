@@ -68,7 +68,7 @@ _ENUMERATOR_RE = re.compile(
 _SENTENCE_END_RE = re.compile(r"[.:;!?…][\"'”’»)\]]*$")
 _DASH_END_RE = re.compile(r"[–—―]$|(?:^|\s)-$|--$")
 _WORD_HYPHEN_END_RE = re.compile(r"([^\W\d_]+(?:-[^\W\d_]+)*)-$")
-_DIGIT_HYPHEN_END_RE = re.compile(r"\d-$")
+_PAGE_LABEL_END_RE = re.compile(r"(?:^|\s)-\d+-$")
 _RIGHT_WORD_RE = re.compile(r"[^\W\d_]+")
 _WORD_TOKEN_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*")
 _LABEL_RE = re.compile(r"^\(?(?:continued|cont(?:'|’|\.)d?|page\s+\d+|\d+\s+of\s+\d+)\b", re.IGNORECASE)
@@ -496,9 +496,9 @@ def join_across_pages(pages: list[JoinPage], *, collect: bool = False) -> PageJo
             if not right_plain[0].islower():
                 skip("hyphen_upper", i, left_edge, right_edge)
                 continue
-            if _DIGIT_HYPHEN_END_RE.search(left_plain):
+            if _PAGE_LABEL_END_RE.search(left_plain):
                 # A page label left in the text ("-8-"), not a word cut at the margin.
-                skip("hyphen_digit", i, left_edge, right_edge)
+                skip("hyphen_page_label", i, left_edge, right_edge)
                 continue
             if words is None:
                 words = agreement_words([p.text for p in pages])
