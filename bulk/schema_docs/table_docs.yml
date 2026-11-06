@@ -111,7 +111,10 @@ tables:
       exhibit_type: >-
         Exhibit series the agreement appeared as: 2 (EX-2.x), 10 (EX-10.x), or
         99 (EX-99.x).
-      transaction_price_total: Total transaction value, in USD.
+      transaction_price_total: >-
+        Total transaction value, in USD. On many public targets this is the value announced at
+        signing, which may include assumed debt, so it need not equal the sum of
+        the cash, stock and asset legs.
       transaction_price_stock: Stock component of the transaction value, in USD.
       transaction_price_cash: Cash component of the transaction value, in USD.
       transaction_price_assets: Asset component of the transaction value, in USD.
