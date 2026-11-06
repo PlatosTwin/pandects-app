@@ -53,6 +53,12 @@ _PRE_ARTICLE_RUN_IN_HEADING_RE = re.compile(r"^(?:certain\s+)?definitions?(?=\s*
 _PRE_ARTICLE_NOT_LEAD_IN_RE = re.compile(r"^\s*(?:WHEREAS|NOW,?\s+THEREFORE|THIS\b)", re.IGNORECASE)
 _PRE_ARTICLE_MAX_LEAD_INS = 2
 _PRE_ARTICLE_HEADING_MAX_WORDS = 5
+# The agreement's own opening, which some filings print after the definitions. The XML nests
+# it in the last definition: preamble, recitals and the consideration clause.
+_PRE_ARTICLE_AGREEMENT_OPENING_RE = re.compile(
+    r"^(?:WHEREAS\b|RECITALS?\b|BACKGROUND\s*:?$|NOW,?\s+THEREFORE\b|THIS\s"
+    r"|This\s[^.]{0,80}\bAgreement\b.{0,120}\b(?:made|entered|executed|dated|by\s+and|between|among)\b)"
+)
 
 
 def _local_tag_name(tag: str) -> str:
@@ -163,14 +169,39 @@ def _element_text(element: ET.Element) -> str:
     return _WHITESPACE_RE.sub(" ", " ".join(_visible_text_chunks(element))).strip()
 
 
+def _is_agreement_opening(element: ET.Element) -> bool:
+    return element.tag == "text" and _PRE_ARTICLE_AGREEMENT_OPENING_RE.match(_element_text(element)) is not None
+
+
+def _is_stray_caps_line(element: ET.Element) -> bool:
+    """An all-caps line with no quoted term: an agreement title or "THE MERGER", never a definition."""
+    text = _element_text(element)
+    return element.tag == "text" and text == text.upper() and not re.search(r"[\"\u201C\u201D]", text)
+
+
+def _without_agreement_opening(element: ET.Element) -> ET.Element:
+    """The last definition without what the XML nests after it: the agreement's opening and title."""
+    children = list(element)
+    end = next((i for i, child in enumerate(children) if _is_agreement_opening(child)), len(children))
+    while end > 1 and (children[end - 1].tag in ("page", "pageUUID") or _is_stray_caps_line(children[end - 1])):
+        end -= 1
+    if end == len(children):
+        return element
+    trimmed = ET.Element(element.tag, element.attrib)
+    trimmed.text = element.text
+    trimmed.extend(children[:end])
+    return trimmed
+
+
 def _pre_article_definitions_row(root: ET.Element, body: ET.Element) -> Dict[str, Any] | None:
     """The article-level row for a definitions block printed before Article 1, or None.
 
     Some agreements print their definitions between the recitals and Article 1.
     The XML serves them as loose text in <body>, so without this row they reach
     no section row and no section search. The row runs from the block's printed
-    lead-in to the first article. The preamble and recitals stay out, and the
-    XML is not touched. Its article title is the block's printed heading, or
+    lead-in to the end of the definitions: to the first article, or to the
+    agreement's own opening where it is printed after them. The preamble and
+    recitals stay out either way, and the XML is not touched. Its article title is the block's printed heading, or
     blank if the block prints none; no heading is ever made up.
     """
     agreement_uuid = root.get("uuid")
@@ -215,7 +246,9 @@ def _pre_article_definitions_row(root: ET.Element, body: ET.Element) -> Dict[str
             heading = line.rstrip(" :.")
             break
 
-    block = children[start:first_article]
+    last = definitions[-1]
+    end = next((i for i in range(last + 1, first_article) if _is_agreement_opening(children[i])), first_article)
+    block = [*children[start:last], _without_agreement_opening(children[last]), *children[last + 1 : end]]
     return {
         # No XML element carries this row, so its id derives from the agreement alone.
         "section_uuid": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{agreement_uuid}\x1fpre-article-definitions")),
