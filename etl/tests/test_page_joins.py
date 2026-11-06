@@ -176,6 +176,15 @@ class HyphenTests(unittest.TestCase):
     def test_suspended_pair_keeps_the_space(self) -> None:
         self.assertEqual(self.join("the pre-", "and post-closing periods.", ""), "the pre- and post-closing periods.")
 
+    def test_compound_after_a_small_word_is_not_suspended(self) -> None:
+        self.assertEqual(self.join("complete, accurate, up-", "to-date records.", ""), "complete, accurate, up-to-date records.")
+        self.assertEqual(self.join("a customary stop-look-", "and-listen notice.", ""), "a customary stop-look-and-listen notice.")
+
+    def test_page_label_at_the_end_of_the_line_stays(self) -> None:
+        result = join_across_pages(_pages("four of whom -8-", "shall be designated by the Company."))
+        self.assertEqual(result.joins, [])
+        self.assertEqual(result.skipped["hyphen_digit"], 1)
+
     def test_uppercase_right_stays(self) -> None:
         result = join_across_pages(_pages("under the Non-", "Assignable Assets clause."))
         self.assertEqual(result.joins, [])

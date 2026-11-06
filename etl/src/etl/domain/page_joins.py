@@ -68,6 +68,7 @@ _ENUMERATOR_RE = re.compile(
 _SENTENCE_END_RE = re.compile(r"[.:;!?…][\"'”’»)\]]*$")
 _DASH_END_RE = re.compile(r"[–—―]$|(?:^|\s)-$|--$")
 _WORD_HYPHEN_END_RE = re.compile(r"([^\W\d_]+(?:-[^\W\d_]+)*)-$")
+_DIGIT_HYPHEN_END_RE = re.compile(r"\d-$")
 _RIGHT_WORD_RE = re.compile(r"[^\W\d_]+")
 _WORD_TOKEN_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*")
 _LABEL_RE = re.compile(r"^\(?(?:continued|cont(?:'|’|\.)d?|page\s+\d+|\d+\s+of\s+\d+)\b", re.IGNORECASE)
@@ -409,7 +410,8 @@ def _hyphen_join(left: str, right: str, words: Counter[str]) -> tuple[str, str]:
     if word is None:
         return left, ""
     tail = word.group(0)
-    if tail.casefold() in _SUSPENDED_WORDS:
+    # "one-" / "to four-family" is a suspended pair; "up-" / "to-date" is one word.
+    if tail.casefold() in _SUSPENDED_WORDS and right[word.end() : word.end() + 1] != "-":
         return left, " "
     if m is not None and words[(m.group(1) + tail).casefold()] > words[f"{m.group(1)}-{tail}".casefold()]:
         return left[:-1], ""
@@ -493,6 +495,10 @@ def join_across_pages(pages: list[JoinPage], *, collect: bool = False) -> PageJo
         if left_plain.endswith("-"):
             if not right_plain[0].islower():
                 skip("hyphen_upper", i, left_edge, right_edge)
+                continue
+            if _DIGIT_HYPHEN_END_RE.search(left_plain):
+                # A page label left in the text ("-8-"), not a word cut at the margin.
+                skip("hyphen_digit", i, left_edge, right_edge)
                 continue
             if words is None:
                 words = agreement_words([p.text for p in pages])
