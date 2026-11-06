@@ -886,6 +886,82 @@ def _toc_is_bare_title(text: str) -> bool:
     return len(tail) > 1 and running_title_kind(tail[-1].strip()) == "title"
 
 
+# The line the agreement's own text opens with on a first body page that still carries a TOC tail.
+_BODY_OPENING_RE = re.compile(
+    r"^\s*(?:WHEREAS\b|W\s*I\s*T\s*N\s*E\s*S\s*S\s*E\s*T\s*H|WITNESSETH|RECITALS?\b|Recitals?\s*:?\s*$|BACKGROUND\s*:?\s*$)"
+    r"|^\s*(?:THIS|This)\b.{0,160}\bA(?:GREEMENT|greement)\b"
+    r"|\bA(?:GREEMENT|greement)\b.{0,80}\((?:the|this)\s+[\x22\u201c]"
+    r"|\bdated\s+as\s+of\b.{0,60}\b(?:by\s+and\s+)?(?:among|between)\b"
+)
+_TOC_TAIL_CLAUSE_RE = re.compile(r"\b(?:shall|hereby|WHEREAS|means|desires?)\b|\((?:the|collectively)\b")
+_TOC_DOT_LEADER_RE = re.compile(r"(?:\.\s?){4,}|_{4,}")
+# Index rows flattened onto one line: "\u201cEnvironmental Laws\u201d \u2014 Section 3.19(f)(ii) \u201cEnvironmental ...".
+_TOC_FLAT_INDEX_RE = re.compile(r"[\u201d\x22]\s*[-\u2013\u2014]+\s*(?:Sections?|Articles?|Preamble|Recitals?)\b")
+_TOC_TAIL_NUMBER_RE = re.compile(r"(?<![\w.,])\d{1,3}(?:\.\d{1,3})*(?:\([a-z0-9]{1,4}\))*(?![\w,])")
+_TOC_QUOTED_LABEL_ITEM_RE = re.compile(r"(?:Exhibit|Schedule|Annex)\s+[\x22\u201c]")
+_TOC_TAIL_MAX_PAGES = 3
+_TOC_TAIL_MIN_WORDS = 5
+_TOC_TAIL_SHORT_WORDS = 14
+_TOC_TAIL_LIST_ITEM_WORDS = 8
+
+
+def _toc_tail_line(line: str, in_list: bool = False) -> bool:
+    """A contents, index or exhibit-list line, flat or not. A clause sentence never is one."""
+    text = line.strip()
+    if _TOC_TAIL_CLAUSE_RE.search(text) is not None:
+        return False
+    if _TOC_DOT_LEADER_RE.search(text) is not None or _TOC_FLAT_INDEX_RE.search(text) is not None:
+        return True
+    words = len(text.split())
+    numbers = len(_TOC_TAIL_NUMBER_RE.findall(text))
+    if _toc_is_list_line(text) or _TOC_QUOTED_LABEL_ITEM_RE.match(text) is not None:
+        # A lettered recital reads as a list item: a long line must carry its entries.
+        return (
+            words <= _TOC_TAIL_SHORT_WORDS
+            or numbers >= 2
+            or len(_TOC_INLINE_ITEM_RE.findall(text)) >= 2
+            or _toc_is_name_run(text)
+        )
+    if in_list and words <= _TOC_TAIL_LIST_ITEM_WORDS and text.istitle() and text[-1:].isalpha():
+        return True  # an unlabeled item inside an exhibit list: "Integration Cost Schedule"
+    # Index rows flattened onto one line: "Merger 8 Regulatory Authority 68 Merger Sub 8 ...".
+    return numbers >= 3 and words <= numbers * 6 and _TOC_TAIL_NUMBER_RE.search(text[-8:]) is not None
+
+
+def leading_toc_tail_lines(page_texts: list[str]) -> list[int]:
+    """How many leading lines of the first body pages are the end of the table of contents.
+
+    The last TOC page often also holds the preamble, so it is labeled body and its TOC lines
+    serve as agreement text before Article 1; a page or two may be all TOC. Every line above
+    the preamble must then be a TOC line or page furniture, and there must be a real entry
+    among them, not a lone filing banner ("Exhibit 2(B)"). Nothing moves if a heading tag or
+    any other line comes first, or if the preamble is not reached. Returns one count per page,
+    ending at the preamble's page, or [].
+    """
+    entry_words = 0
+    counts: list[int] = []
+    for page_text in page_texts[:_TOC_TAIL_MAX_PAGES]:
+        lines = page_text.split("\n")
+        for i, line in enumerate(lines):
+            text = line.strip()
+            if not text or re.fullmatch(r"<page>[^<]*</page>", text):
+                continue
+            if "<" in text and re.search(r"</?(?:article|section|page|pageUUID)>", text):
+                return []
+            following = next((later.strip() for later in lines[i + 1 :] if later.strip()), "")
+            if _BODY_OPENING_RE.search(text) is not None or (
+                _toc_is_bare_title(text) and _BODY_OPENING_RE.search(following) is not None
+            ):
+                return [*counts, i] if entry_words >= _TOC_TAIL_MIN_WORDS else []
+            if _toc_extra_is_furniture(text) or _toc_is_heading_continuation(text):
+                continue
+            if not _toc_tail_line(text, in_list=entry_words > 0):
+                return []
+            entry_words += len(text.split())
+        counts.append(len(lines))
+    return []
+
+
 def _toc_extra_is_furniture(text: str) -> bool:
     """A page number, a doc ID, a banner, a running title, or a "TABLE OF CONTENTS"/"Page" label."""
     if (
@@ -2367,18 +2443,38 @@ def generate_xml(
             )
             nonbody_text_by_uuid = dict(zip(nonbody_rows["page_uuid"].to_list(), nonbody_texts))
 
+            # The end of the TOC printed above the preamble on the first body pages goes back
+            # to the TOC zone, where it stays right before the body in reading order.
+            toc_tail_blocks: list[str] = []
+            toc_tail_counts = leading_toc_tail_lines(body_page_texts)
+            if toc_tail_counts:
+                body_page_texts, body_id_texts = list(body_page_texts), list(body_id_texts)
+            for page_index, line_count in enumerate(toc_tail_counts):
+                if not line_count:
+                    continue
+                page_lines = body_page_texts[page_index].split("\n")
+                tail = "\n".join(page_lines[:line_count])
+                toc_tail_blocks.append(f"{tail}<pageUUID>{body_rows['page_uuid'].to_list()[page_index]}</pageUUID>")
+                body_page_texts[page_index] = "\n".join(page_lines[line_count:])
+                id_page_lines = body_id_texts[page_index].split("\n")
+                if len(id_page_lines) == len(page_lines):
+                    body_id_texts[page_index] = "\n".join(id_page_lines[line_count:])
+
             # frontMatter and tableOfContents
             for rows, texts, container_name in (
                 (fm_rows, fm_texts, "frontMatter"),
                 (toc_rows, toc_texts, "tableOfContents"),
             ):
-                if rows.empty:
+                is_toc = container_name == "tableOfContents"
+                if rows.empty and not (is_toc and toc_tail_blocks):
                     continue
                 container_el = ET.SubElement(root, container_name)
-                text_block = "\n".join(
+                page_blocks = [
                     f"{text}<pageUUID>{page_uuid}</pageUUID>" for text, page_uuid in zip(texts, rows["page_uuid"].to_list())
-                )
-                add_text_nodes_simple(container_el, text_block)
+                ]
+                if is_toc:
+                    page_blocks += toc_tail_blocks
+                add_text_nodes_simple(container_el, "\n".join(page_blocks))
 
             if not body_rows.empty:
                 body_el = ET.SubElement(root, "body")

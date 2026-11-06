@@ -7,6 +7,12 @@ clause's first sentence:
     <section>15.1 Subject to clauses</section> 15.2 and 15.3, no party may ...
     <section>Section 11.5. Calculation of LossesNotwithstanding</section> anything ...
 
+It also moves a closing tag to the title's first sentence end, past an initial or
+an abbreviation that is not one:
+
+    <section>3.8 Opinion of Robert W.</section> Baird Co. Incorporated. The NV5 ...
+    <section>4.10 Reasonable Restrictions. Seller</section> (i) has carefully read ...
+
 The repair only moves the closing tag; the text is never changed. It keeps a
 real heading whenever there is evidence of one (a period, a run-in heading that
 ends before a sentence opener or the clause's subject, bold/underlined text or
@@ -94,6 +100,12 @@ _SUBJECT_STOP_WORDS = frozenset("the any each no none neither every all such thi
 _NOT_A_TERM_START = frozenset("the this that it a an such each these those its any all".split())
 _ADVERB_RE = re.compile(r"(?:\w+ly|hereby|each|jointly|severally|also)$")
 _RUN_MAX_WORDS = 12
+# A period that does not end a sentence: a single initial ("Robert W.", "Non-U.", "C.F.") or a
+# common abbreviation ("St.", "Mr.", "Jr.", "Co.").
+_ABBREVIATION_END_RE = re.compile(
+    r"(?:(?<![A-Za-z])[A-Z]|\b(?:Mr|Mrs|Ms|Messrs|Dr|Hon|Prof|Rev|St|Mt|Ft|Co|Inc|Corp|Ltd|Bros|Jr|Sr|Nos?))\.$"
+)
+_SENTENCE_END_RE = re.compile(rf"\.(?={_HSPACE}+[A-Z\x22“(]|{_HSPACE}*(?:\n|$))")
 
 
 def _norm(word: str) -> str:
@@ -292,6 +304,75 @@ def _run_end(words: list[re.Match[str]], i: int, subject: bool = False) -> int |
     return words[i - 1].end()
 
 
+# --- title boundaries -----------------------------------------------------------------------
+
+
+def _first_sentence_end(text: str, start: int = 0) -> int | None:
+    """Offset just after the first period in text that ends a sentence, skipping initials and
+    abbreviations ("A.T. Massey Sub.", "Lindahl, Jr. State Industries Trust.")."""
+    for match in _SENTENCE_END_RE.finditer(text, start):
+        if _ABBREVIATION_END_RE.search(text[: match.end()]) is None:
+            return match.end()
+    return None
+
+
+def _abbreviation_cut_end(rest: str, follow: str) -> int | None:
+    """End of a heading whose closing tag stopped at an initial or abbreviation, or None.
+
+    "Opinion of Robert W." + " Baird Co. Incorporated. The NV5 ...", "Capitalization of Altair
+    U." + "S. There are ...". The heading runs to the next real sentence end on the line, and
+    the words up to there must read as the rest of the heading, not as the clause: "Regulation
+    D." + " The Company is aware ...", "Endo Pharmaceuticals Inc." + " Endo Guarantor shall ...".
+    """
+    if _ABBREVIATION_END_RE.search(rest.rstrip()) is None:
+        return None
+    line = follow.split("\n", 1)[0]
+    glued_initial = re.match(rf"[A-Z]\.(?={_HSPACE}+(?P<next>\S+))", line)
+    if glued_initial is not None and _norm(glued_initial.group("next")) in _SENTENCE_START_WORDS:
+        return len(rest) + glued_initial.end()  # "Altair U." + "S. There are ..."
+    end = _first_sentence_end(line)
+    if end is None:
+        return None
+    fragment = line[:end]
+    words = fragment.split()
+    title_words = {_norm(word) for word in rest.split()}
+    if (
+        not words
+        or len(words) > _HEADING_MAX_WORDS
+        or not words[0][:1].isupper()
+        or _norm(words[0]) in _SENTENCE_START_WORDS
+        or _norm(words[0]) in title_words  # "AT&T." + " AT&T Broadband, LLC, a Delaware ..."
+        or _CLAUSE_VERB_RE.search(fragment) is not None
+        or len(rest) + end > _EXTENDED_TITLE_MAX_CHARS
+        or not _is_title_case(rest + fragment)
+    ):
+        return None
+    return len(rest) + end
+
+
+def _past_sentence_end(rest: str, follow: str) -> int | None:
+    """End of the heading when the title runs past it into the clause's first words, or None.
+
+    "Reasonable Restrictions. Seller" + " (i) has carefully read ...", "Assistance to CPA18. W."
+    + " P. Carey will ...", "Guarantee. RTL hereby guarantees". A second heading stays in the
+    title: "Access to Information. Confidentiality.", "Entire Agreement. Changes in Writing.".
+    """
+    end = _first_sentence_end(rest)
+    if end is None or not rest[end:].strip():
+        return None
+    heading, tail = rest[:end], rest[end:].strip()
+    words = tail.split()
+    if not _looks_like_heading(heading) or _REFERENCE_START_RE.match(heading) or _REFERENCE_START_RE.match(tail):
+        return None
+    if re.fullmatch(r"[A-Z]\.", tail):
+        return end  # an initial: the clause's first words are "W. P. Carey will ..."
+    if len(words) <= 3 and not tail.endswith(".") and re.match(r"\s*(?:\([a-z0-9]{1,4}\)\s*)?[a-z]", follow):
+        return end  # the clause's subject: "Seller" + " (i) has ..."
+    if _CLAUSE_VERB_RE.search(tail) is not None and not _is_title_case(tail) and not _strip_word(words[-1])[:1].isupper():
+        return end  # "Guarantee. RTL hereby guarantees payment.", not "Notices. Time is of the Essence."
+    return None
+
+
 # --- the repair -----------------------------------------------------------------------------
 
 
@@ -395,6 +476,12 @@ def _repair_sentence_split_title(
     glued = _glued_cut(rest, follow)
     if glued is not None:
         return result(glued)  # "Calculation of LossesNotwithstanding" + " anything ..."
+
+    boundary = _abbreviation_cut_end(rest, follow)
+    if boundary is None:
+        boundary = _past_sentence_end(rest, follow)
+    if boundary is not None:
+        return result(boundary)
 
     last, nxt = inner[-1:], follow[:1]
     digit_split = re.search(r"\d\.?$", rest) is not None and nxt.isdigit()

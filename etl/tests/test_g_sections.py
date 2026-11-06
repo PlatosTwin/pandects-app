@@ -9,6 +9,128 @@ from etl.domain.g_sections import (
 )
 
 
+def _definitions_xml(lead_in: str, definitions: int = 10) -> str:
+    rows = "".join(f'<definition term="t{i}">“Term {i}” means thing {i}.</definition>' for i in range(definitions))
+    return f"""
+    <document uuid="agreement-1">
+      <body>
+        <text>THIS AGREEMENT is made by and among the parties.</text>
+        <text>WHEREAS, the parties have defined terms below.</text>
+        {lead_in}{rows}<pageUUID>page-2</pageUUID>
+        <article title="ARTICLE I" uuid="article-1" order="1">
+          <section title="Section 1.1 First" uuid="section-1" order="1"><text>Alpha</text></section>
+        </article>
+      </body>
+    </document>
+    """
+
+
+class PreArticleDefinitionsRowTests(unittest.TestCase):
+    def test_block_gets_an_article_level_row_with_its_printed_heading(self) -> None:
+        sections = extract_sections_from_xml(
+            _definitions_xml("<text>DEFINITIONS</text><text>The following terms have these meanings:</text>")
+        )
+
+        self.assertEqual(len(sections), 2)
+        row = sections[0]
+        self.assertEqual(row["article_title"], "DEFINITIONS")
+        self.assertEqual(row["article_title_normed"], "definitions")
+        self.assertEqual(row["section_title"], "")
+        self.assertIsNone(row["article_order"])
+        self.assertIsNone(row["section_order"])
+        plain_text = section_plain_text_from_xml(row["xml_content"])
+        self.assertTrue(plain_text.startswith("DEFINITIONS The following terms have these meanings:"))
+        self.assertTrue(plain_text.endswith("“Term 9” means thing 9."))
+        self.assertNotIn("WHEREAS", plain_text)
+        self.assertEqual(sections[1]["section_uuid"], "section-1")
+
+    def _xml_with_definitions_first(self, closing: str) -> str:
+        rows = "".join(f"<definition>“Term {i}” means thing {i}.</definition>" for i in range(9))
+        return f"""
+        <document uuid="agreement-1"><body>
+          <text>DEFINITIONS</text>{rows}
+          <definition><text>“Last” means the last term.</text><page>3</page><pageUUID>page-3</pageUUID>{closing}</definition>
+          <article title="ARTICLE I" uuid="article-1" order="1">
+            <section title="Section 1.1 First" uuid="section-1" order="1"><text>Alpha</text></section>
+          </article>
+        </body></document>
+        """
+
+    def test_opening_printed_after_the_definitions_stays_out(self) -> None:
+        for closing in (
+            "<text>ASSET PURCHASE AGREEMENT</text><text>This Asset Purchase Agreement, dated May 1, is between A and B."
+            "</text><text>WHEREAS, Seller owns assets.</text><text>NOW, THEREFORE, the Parties agree as follows:</text>",
+            "<text>AGREEMENT OF SALE</text><text>This Agreement is executed on May 1 by and between A and B.</text>"
+            "<text>RECITALS</text><text>A. Seller owns the Assets.</text>",
+            "<text>NOW THEREFORE, the Parties agree as follows:</text>",
+            "<text>THE MERGER</text>",
+        ):
+            plain_text = section_plain_text_from_xml(extract_sections_from_xml(self._xml_with_definitions_first(closing))[0]["xml_content"])
+            self.assertTrue(plain_text.endswith("“Last” means the last term."), plain_text)
+
+    def test_opening_after_the_definitions_at_top_level_stays_out(self) -> None:
+        xml = _definitions_xml("").replace(
+            "<pageUUID>page-2</pageUUID>", "<text>(b) More terms.</text><text>WHEREAS, Seller owns assets.</text><text>Loose.</text>"
+        )
+        plain_text = section_plain_text_from_xml(extract_sections_from_xml(xml)[0]["xml_content"])
+        self.assertTrue(plain_text.endswith("(b) More terms."), plain_text)
+
+    def test_text_after_the_last_definition_stays_in(self) -> None:
+        plain_text = section_plain_text_from_xml(
+            extract_sections_from_xml(self._xml_with_definitions_first("<text>(b) This Agreement governs the term.</text>"))[0]["xml_content"]
+        )
+        self.assertTrue(plain_text.endswith("(b) This Agreement governs the term."), plain_text)
+
+    def test_a_section_before_article_one_means_no_row(self) -> None:
+        xml = _definitions_xml("").replace(
+            "<text>WHEREAS, the parties have defined terms below.</text>",
+            '<section title="Section 0.1 Intro" uuid="section-0" order="1"><text>Intro</text></section>',
+        )
+        self.assertNotIn("", [section["section_title"] for section in extract_sections_from_xml(xml)])
+
+    def test_lead_in_stops_at_recitals_and_after_two_lines(self) -> None:
+        for lead_in in ("<text>WHEREAS, the following terms are defined.</text>", "<text>THIS AGREEMENT uses the following terms.</text>"):
+            plain_text = section_plain_text_from_xml(extract_sections_from_xml(_definitions_xml(lead_in))[0]["xml_content"])
+            self.assertTrue(plain_text.startswith("“Term 0”"), plain_text)
+        lead_ins = "".join(f"<text>Line {i} of the following terms apply here.</text>" for i in range(3))
+        plain_text = section_plain_text_from_xml(extract_sections_from_xml(_definitions_xml(lead_ins))[0]["xml_content"])
+        self.assertTrue(plain_text.startswith("Line 1 of"), plain_text)
+
+    def test_lead_in_is_found_across_a_page_break(self) -> None:
+        sections = extract_sections_from_xml(_definitions_xml("<text>DEFINITIONS</text><page>2</page><pageUUID>page-1</pageUUID>"))
+        self.assertEqual(sections[0]["article_title"], "DEFINITIONS")
+
+    def test_run_in_heading_is_the_printed_label(self) -> None:
+        sections = extract_sections_from_xml(
+            _definitions_xml("<text>Definitions: For all purposes of this Agreement, the following terms apply.</text>")
+        )
+
+        self.assertEqual(sections[0]["article_title"], "Definitions")
+
+    def test_no_heading_is_made_up(self) -> None:
+        sections = extract_sections_from_xml(_definitions_xml(""))
+
+        self.assertEqual(sections[0]["article_title"], "")
+        self.assertEqual(sections[0]["section_title"], "")
+
+    def test_row_id_is_stable(self) -> None:
+        first = extract_sections_from_xml(_definitions_xml(""))[0]["section_uuid"]
+        self.assertEqual(first, extract_sections_from_xml(_definitions_xml("<text>DEFINITIONS</text>"))[0]["section_uuid"])
+
+    def test_definition_paragraphs_served_as_text_count(self) -> None:
+        xml = _definitions_xml("", definitions=4).replace(
+            "<pageUUID>page-2</pageUUID>",
+            "".join(f"<text>“Other {i}” has the meaning set forth in Section 1.{i}.</text>" for i in range(6)),
+        )
+
+        self.assertEqual(len(extract_sections_from_xml(xml)), 2)
+
+    def test_a_few_inline_terms_get_no_row(self) -> None:
+        sections = extract_sections_from_xml(_definitions_xml("<text>DEFINITIONS</text>", definitions=9))
+
+        self.assertEqual([section["section_uuid"] for section in sections], ["section-1"])
+
+
 class ExtractSectionsFromXmlTests(unittest.TestCase):
     def test_section_plain_text_decodes_entities_and_omits_page_metadata(self) -> None:
         fragment = (

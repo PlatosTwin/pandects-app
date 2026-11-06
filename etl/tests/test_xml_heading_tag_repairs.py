@@ -11,6 +11,7 @@ from etl.domain.xml_tag_repairs import (
     dedupe_adjacent_same_number_headings,
     insert_missing_section_heading_tags,
     split_combined_missing_section_tags,
+    toc_section_title,
     merge_number_only_section_titles,
     unwrap_bare_article_tags_before_other_article_sections,
     unwrap_same_line_cross_article_section_tags,
@@ -282,13 +283,88 @@ class InsertMissingSectionHeadingTagTests(unittest.TestCase):
             self._insert(text, 9, 14),
         )
 
-    def test_tags_clause_label_followed_by_uppercase_word(self) -> None:
+    def test_tags_first_clause_label_followed_by_uppercase_word(self) -> None:
         text = (
-            "<section>1.1 Contribution.</section>\nBody; and\n\n"
-            "1.2 (b) Northwest shall redeem such number of shares of Northwest Common Stock as is equal to "
+            "<section>1.1 Contribution.</section>\nBody.\n\n"
+            "1.2 (a) Northwest shall redeem such number of shares of Northwest Common Stock as is equal to "
             "the total number of outstanding shares.\n<section>1.3 Closing.</section>"
         )
-        self.assertIn("\n\n<section>1.2</section> (b) Northwest shall redeem", self._insert(text, 1, 2))
+        self.assertIn("\n\n<section>1.2</section> (a) Northwest shall redeem", self._insert(text, 1, 2))
+
+    def test_skips_number_before_a_later_clause_label(self) -> None:
+        text = (
+            "<section>1.1 Contribution.</section>\n(a) ES shall distribute all of its cash to ES Acquisition.\n\n"
+            "1.2 (b) Northwest shall redeem such number of shares.\n<section>1.3 Closing.</section>"
+        )
+        self.assertEqual(self._insert(text, 1, 2), text)
+
+    def test_skips_number_after_a_paragraph_that_runs_on(self) -> None:
+        text = (
+            "<section>8.10 Specific Performance.</section>\nEnforcement in the courts described in\n\n"
+            "Section 8.11 Governing Law applies in addition to any other remedy.\n"
+            "<section>8.12 Notices.</section>"
+        )
+        self.assertEqual(self._insert(text, 8, 11), text)
+        text = text.replace("described in\n\n", "of the Company and\n<page>12</page>\n")
+        self.assertEqual(self._insert(text, 8, 11), text)
+
+    def test_skips_number_followed_by_another_number(self) -> None:
+        text = (
+            "<section>8.10 Specific Performance.</section>\nThe remedies are cumulative.\n\n"
+            "Section 8.11 Section 8.9 applies in addition to any other remedy.\n"
+            "<section>8.12 Notices.</section>"
+        )
+        self.assertEqual(self._insert(text, 8, 11), text)
+
+    def test_skips_number_when_the_next_heading_holds_its_toc_title(self) -> None:
+        text = (
+            "<section>6.5 Financing.</section>\nPurchaser has delivered the Financing Letter.\n\n"
+            "6.6. As of the Execution Date the Financing Letter has not been amended.\n\n"
+            "<section>6.7. No Brokers.</section> Purchaser has no Liability."
+        )
+        gap = SectionGap(article_num=6, expected=6, found=7, toc_text="6.6 No Brokers 44\n6.7 Survival 45")
+        self.assertEqual(insert_missing_section_heading_tags(text, [gap])[0], text)
+        other = SectionGap(article_num=6, expected=6, found=7, toc_text="6.6 Financing Letter 44")
+        self.assertIn("<section>6.6.", insert_missing_section_heading_tags(text, [other])[0])
+
+    def test_skips_number_when_the_toc_has_no_line_for_the_next_heading(self) -> None:
+        text = (
+            "<section>6.5 Financing.</section>\nPurchaser has delivered the Financing Letter.\n\n"
+            "6.6. As of the Execution Date the Financing Letter has not been amended.\n\n"
+            "<section>6.7. No Brokers.</section> Purchaser has no Liability."
+        )
+        gap = SectionGap(article_num=6, expected=6, found=7, toc_text="6.5 Financing 43\n6.6 No Brokers 44")
+        self.assertEqual(insert_missing_section_heading_tags(text, [gap])[0], text)
+
+    def test_tags_a_real_heading_when_the_next_section_shares_its_title(self) -> None:
+        for title in ("Reserved", "Intentionally Omitted"):
+            text = (
+                "<section>6.5 Financing.</section>\nPurchaser has delivered the Financing Letter.\n\n"
+                f"6.6 {title}.\n\n<section>6.7 {title}.</section>"
+            )
+            gap = SectionGap(article_num=6, expected=6, found=7, toc_text=f"6.6 {title} 41\n6.7 {title} 41")
+            self.assertIn(f"<section>6.6 {title}.</section>", insert_missing_section_heading_tags(text, [gap])[0])
+
+    def test_short_toc_title_is_no_evidence(self) -> None:
+        text = (
+            "<section>6.5 Financing.</section>\nPurchaser has delivered the Financing Letter.\n\n"
+            "6.6. As of the Execution Date the Financing Letter has not been amended.\n\n"
+            "<section>6.7 Tax.</section> Purchaser pays."
+        )
+        gap = SectionGap(article_num=6, expected=6, found=7, toc_text="6.6 Tax 44\n6.7 Survival 45")
+        self.assertIn("<section>6.6.", insert_missing_section_heading_tags(text, [gap])[0])
+
+    def test_toc_section_title(self) -> None:
+        self.assertEqual(toc_section_title("6.6. No Brokers                 44", 6, 6), "No Brokers")
+        toc = "3.1 Corporate Organization.......7 3.2 Capitalization.......8"
+        self.assertEqual(toc_section_title(toc, 3, 2), "Capitalization")
+        self.assertEqual(toc_section_title("Section 4.19 Litigation Support 64", 4, 19), "Litigation Support")
+        self.assertIsNone(toc_section_title(toc, 3, 3))
+
+    def test_tags_number_after_a_finished_paragraph_or_heading(self) -> None:
+        for before in ("The remedies are cumulative.\n\n", "<page>12</page>\n", ""):
+            text = f"<section>8.10 Specific Performance.</section>\n{before}8.11 Governing Law.\n<section>8.12 Notices.</section>"
+            self.assertIn("<section>8.11 Governing Law.</section>", self._insert(text, 8, 11))
 
     def test_tags_unquoted_defined_term_in_flattened_definitions(self) -> None:
         text = (
@@ -637,6 +713,76 @@ class GluedHeadingTitleTests(unittest.TestCase):
                 self.assertEqual(normalize_glued_section_title(title), title)
 
 
+class TitleBoundaryTests(unittest.TestCase):
+    def _repair(self, text: str) -> str:
+        repaired, _ = repair_sentence_split_section_titles(text)
+        return repaired
+
+    def test_title_runs_past_an_initial_or_abbreviation(self) -> None:
+        for before, after in (
+            ("<section>2.4 Non-U.S.</section> Plans. Each Non-U.S. Plan is in compliance.",
+             "<section>2.4 Non-U.S. Plans.</section> Each Non-U.S. Plan is in compliance."),
+            ("<section>3.8 Opinion of Robert W.</section> Baird Co. Incorporated. The NV5 Board",
+             "<section>3.8 Opinion of Robert W. Baird Co. Incorporated.</section> The NV5 Board"),
+            ("<section>3.4 Capitalization of Altair U.</section>S. There are 100 shares",
+             "<section>3.4 Capitalization of Altair U.S.</section> There are 100 shares"),
+            ("<section>6.11 Purchase of St.</section> Nazaire Site. Spirit France has exercised",
+             "<section>6.11 Purchase of St. Nazaire Site.</section> Spirit France has exercised"),
+            ("<section>10.1 Beneficiaries of the Herbert W.</section> Lindahl, Jr. State Industries Trust. Evalyn",
+             "<section>10.1 Beneficiaries of the Herbert W. Lindahl, Jr. State Industries Trust.</section> Evalyn"),
+            ("<section>3.25 Notifications (14 C.F.</section>R. Part 119). To Seller’s Knowledge",
+             "<section>3.25 Notifications (14 C.F.R. Part 119).</section> To Seller’s Knowledge"),
+        ):
+            self.assertEqual(self._repair(before), after)
+
+    def test_keeps_a_title_that_really_ends_at_an_abbreviation(self) -> None:
+        for text in (
+            "<section>4.20 Regulation U.</section> The Company has executed the following.",
+            "<section>7.9 Section 280G.</section> Prior to the Closing, the Company shall act.",
+            "<section>6.10 Endo Pharmaceuticals Inc.</section> Endo Guarantor shall guarantee this.",
+            "<section>6.15 Sale of PJ6, Inc.</section> Mr. Sirkin shall cause all links to go.",
+            "<section>1.4. AT&T.</section> AT&T Broadband, LLC, a Delaware limited liability company.",
+            "<section>5.20 Berkshire Insurance Group, Inc.</section>\nBerkshire Insurance is an agency.",
+        ):
+            self.assertEqual(self._repair(text), text)
+
+    def test_title_stops_at_its_first_sentence_end(self) -> None:
+        self.assertEqual(
+            self._repair("<section>4.10 Reasonable Restrictions. Seller</section> (i) has carefully read this."),
+            "<section>4.10 Reasonable Restrictions.</section> Seller (i) has carefully read this.",
+        )
+        self.assertEqual(
+            self._repair("<section>5.2 Assistance to CPA18. W.</section> P. Carey will assist."),
+            "<section>5.2 Assistance to CPA18.</section> W. P. Carey will assist.",
+        )
+        self.assertEqual(
+            self._repair("<section>5.3 Guarantee. RTL hereby guarantees payment.</section>"),
+            "<section>5.3 Guarantee.</section> RTL hereby guarantees payment.",
+        )
+
+    def test_keeps_a_title_when_the_next_words_read_as_the_clause(self) -> None:
+        long_title = " ".join(["Consolidated Holdings"] * 7)
+        for text in (
+            "<section>4.2 Sale to Acme Co.</section> Acme Holdings Group Limited. The Company agrees.",
+            "<section>4.2 Sale of Smith Co.</section> Holdings by way of merger. The Company agrees.",
+            "<section>4.2 Sale of Smith Co.</section> Holdings is Complete. The Company agrees.",
+            f"<section>4.2 {long_title} Co.</section> Group of America Limited. The Company agrees.",
+            "<section>4.2 Sale of Smith Co.</section> One Two Three Four Five Six Seven Eight Nine Ten "
+            "Eleven Twelve Thirteen. The Company agrees.",
+        ):
+            self.assertEqual(self._repair(text), text)
+
+    def test_keeps_a_title_of_two_printed_headings(self) -> None:
+        for text in (
+            "<section>6.7 Access to Information. Confidentiality.</section> From the date hereof.",
+            "<section>14.2 Entire Agreement. Changes in Writing.</section> This Agreement is whole.",
+            "<section>10.16 Non-Survival. Reserved.</section>",
+            "<section>9.7 Notices. Time is of the Essence.</section> Time is of the essence.",
+        ):
+            self.assertEqual(self._repair(text), text)
+
+
+
 if __name__ == "__main__":
     _ = unittest.main()
 
@@ -683,7 +829,6 @@ class SentenceSplitSectionTitleTests(unittest.TestCase):
             "<section>Section 4.2 No Conflict.</section> The execution of this Agreement does not conflict.",
             "<section>1.26 Interest Subsidy Loan</section> has the meaning given in Clause 4.",
             "<section>1.12 \u201cPlans\u201d</section> shall have the meaning set forth in Section 3.",
-            "<section>2.4 Non-U.S.</section> Plans. Each Non-U.S. Plan is in compliance.",
             "<section>3.1 Purchase Price</section>\n\nThe purchase price is $10.",
             "<section>5.2</section> The Buyer shall pay the price.",
             "<section>7.1 Conditions</section> (a) the approval of the shareholders.",
