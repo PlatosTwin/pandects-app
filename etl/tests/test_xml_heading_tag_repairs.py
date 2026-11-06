@@ -686,6 +686,68 @@ class GluedHeadingTitleTests(unittest.TestCase):
                 self.assertEqual(normalize_glued_section_title(title), title)
 
 
+class TitleBoundaryTests(unittest.TestCase):
+    def _repair(self, text: str) -> str:
+        repaired, _ = repair_sentence_split_section_titles(text)
+        return repaired
+
+    def test_title_runs_past_an_initial_or_abbreviation(self) -> None:
+        for before, after in (
+            ("<section>2.4 Non-U.S.</section> Plans. Each Non-U.S. Plan is in compliance.",
+             "<section>2.4 Non-U.S. Plans.</section> Each Non-U.S. Plan is in compliance."),
+            ("<section>3.8 Opinion of Robert W.</section> Baird Co. Incorporated. The NV5 Board",
+             "<section>3.8 Opinion of Robert W. Baird Co. Incorporated.</section> The NV5 Board"),
+            ("<section>3.4 Capitalization of Altair U.</section>S. There are 100 shares",
+             "<section>3.4 Capitalization of Altair U.S.</section> There are 100 shares"),
+            ("<section>6.11 Purchase of St.</section> Nazaire Site. Spirit France has exercised",
+             "<section>6.11 Purchase of St. Nazaire Site.</section> Spirit France has exercised"),
+            ("<section>10.1 Beneficiaries of the Herbert W.</section> Lindahl, Jr. State Industries Trust. Evalyn",
+             "<section>10.1 Beneficiaries of the Herbert W. Lindahl, Jr. State Industries Trust.</section> Evalyn"),
+            ("<section>3.25 Notifications (14 C.F.</section>R. Part 119). To Seller’s Knowledge",
+             "<section>3.25 Notifications (14 C.F.R. Part 119).</section> To Seller’s Knowledge"),
+        ):
+            self.assertEqual(self._repair(before), after)
+
+    def test_keeps_a_title_that_really_ends_at_an_abbreviation(self) -> None:
+        for text in (
+            "<section>4.20 Regulation U.</section> The Company has executed the following.",
+            "<section>7.9 Section 280G.</section> Prior to the Closing, the Company shall act.",
+            "<section>6.10 Endo Pharmaceuticals Inc.</section> Endo Guarantor shall guarantee this.",
+            "<section>6.15 Sale of PJ6, Inc.</section> Mr. Sirkin shall cause all links to go.",
+            "<section>1.4. AT&T.</section> AT&T Broadband, LLC, a Delaware limited liability company.",
+            "<section>5.20 Berkshire Insurance Group, Inc.</section>\nBerkshire Insurance is an agency.",
+        ):
+            self.assertEqual(self._repair(text), text)
+
+    def test_title_stops_at_its_first_sentence_end(self) -> None:
+        self.assertEqual(
+            self._repair("<section>4.10 Reasonable Restrictions. Seller</section> (i) has carefully read this."),
+            "<section>4.10 Reasonable Restrictions.</section> Seller (i) has carefully read this.",
+        )
+        self.assertEqual(
+            self._repair("<section>5.2 Assistance to CPA18. W.</section> P. Carey will assist."),
+            "<section>5.2 Assistance to CPA18.</section> W. P. Carey will assist.",
+        )
+        self.assertEqual(
+            self._repair("<section>5.3 Guarantee. RTL hereby guarantees payment.</section>"),
+            "<section>5.3 Guarantee.</section> RTL hereby guarantees payment.",
+        )
+
+    def test_keeps_a_title_of_two_printed_headings(self) -> None:
+        for text in (
+            "<section>6.7 Access to Information. Confidentiality.</section> From the date hereof.",
+            "<section>14.2 Entire Agreement. Changes in Writing.</section> This Agreement is whole.",
+            "<section>10.16 Non-Survival. Reserved.</section>",
+            "<section>9.7 Notices. Time is of the Essence.</section> Time is of the essence.",
+        ):
+            self.assertEqual(self._repair(text), text)
+
+
+
+if __name__ == "__main__":
+    _ = unittest.main()
+
+
 class SentenceSplitSectionTitleTests(unittest.TestCase):
     def _repair(self, text: str) -> str:
         repaired, _ = repair_sentence_split_section_titles(text)
@@ -728,7 +790,6 @@ class SentenceSplitSectionTitleTests(unittest.TestCase):
             "<section>Section 4.2 No Conflict.</section> The execution of this Agreement does not conflict.",
             "<section>1.26 Interest Subsidy Loan</section> has the meaning given in Clause 4.",
             "<section>1.12 \u201cPlans\u201d</section> shall have the meaning set forth in Section 3.",
-            "<section>2.4 Non-U.S.</section> Plans. Each Non-U.S. Plan is in compliance.",
             "<section>3.1 Purchase Price</section>\n\nThe purchase price is $10.",
             "<section>5.2</section> The Buyer shall pay the price.",
             "<section>7.1 Conditions</section> (a) the approval of the shareholders.",
