@@ -11,6 +11,7 @@ from etl.domain.xml_tag_repairs import (
     dedupe_adjacent_same_number_headings,
     insert_missing_section_heading_tags,
     split_combined_missing_section_tags,
+    toc_section_title,
     merge_number_only_section_titles,
     unwrap_bare_article_tags_before_other_article_sections,
     unwrap_same_line_cross_article_section_tags,
@@ -282,13 +283,61 @@ class InsertMissingSectionHeadingTagTests(unittest.TestCase):
             self._insert(text, 9, 14),
         )
 
-    def test_tags_clause_label_followed_by_uppercase_word(self) -> None:
+    def test_tags_first_clause_label_followed_by_uppercase_word(self) -> None:
         text = (
-            "<section>1.1 Contribution.</section>\nBody; and\n\n"
-            "1.2 (b) Northwest shall redeem such number of shares of Northwest Common Stock as is equal to "
+            "<section>1.1 Contribution.</section>\nBody.\n\n"
+            "1.2 (a) Northwest shall redeem such number of shares of Northwest Common Stock as is equal to "
             "the total number of outstanding shares.\n<section>1.3 Closing.</section>"
         )
-        self.assertIn("\n\n<section>1.2</section> (b) Northwest shall redeem", self._insert(text, 1, 2))
+        self.assertIn("\n\n<section>1.2</section> (a) Northwest shall redeem", self._insert(text, 1, 2))
+
+    def test_skips_number_before_a_later_clause_label(self) -> None:
+        text = (
+            "<section>1.1 Contribution.</section>\n(a) ES shall distribute all of its cash to ES Acquisition.\n\n"
+            "1.2 (b) Northwest shall redeem such number of shares.\n<section>1.3 Closing.</section>"
+        )
+        self.assertEqual(self._insert(text, 1, 2), text)
+
+    def test_skips_number_after_a_paragraph_that_runs_on(self) -> None:
+        text = (
+            "<section>8.10 Specific Performance.</section>\nEnforcement in the courts described in\n\n"
+            "Section 8.11 Governing Law applies in addition to any other remedy.\n"
+            "<section>8.12 Notices.</section>"
+        )
+        self.assertEqual(self._insert(text, 8, 11), text)
+        text = text.replace("described in\n\n", "of the Company and\n<page>12</page>\n")
+        self.assertEqual(self._insert(text, 8, 11), text)
+
+    def test_skips_number_followed_by_another_number(self) -> None:
+        text = (
+            "<section>8.10 Specific Performance.</section>\nThe remedies are cumulative.\n\n"
+            "Section 8.11 Section 8.9 applies in addition to any other remedy.\n"
+            "<section>8.12 Notices.</section>"
+        )
+        self.assertEqual(self._insert(text, 8, 11), text)
+
+    def test_skips_number_when_the_next_heading_holds_its_toc_title(self) -> None:
+        text = (
+            "<section>6.5 Financing.</section>\nPurchaser has delivered the Financing Letter.\n\n"
+            "6.6. As of the Execution Date the Financing Letter has not been amended.\n\n"
+            "<section>6.7. No Brokers.</section> Purchaser has no Liability."
+        )
+        gap = SectionGap(article_num=6, expected=6, found=7, toc_title="No Brokers")
+        self.assertEqual(insert_missing_section_heading_tags(text, [gap])[0], text)
+        other = SectionGap(article_num=6, expected=6, found=7, toc_title="Financing Letter")
+        self.assertIn("<section>6.6.", insert_missing_section_heading_tags(text, [other])[0])
+
+    def test_toc_section_title(self) -> None:
+        self.assertEqual(toc_section_title("6.6. No Brokers                 44", 6, 6), "No Brokers")
+        toc = "3.1 Corporate Organization.......7 3.2 Capitalization.......8"
+        self.assertEqual(toc_section_title(toc, 3, 2), "Capitalization")
+        self.assertEqual(toc_section_title("Section 4.19 Litigation Support 64", 4, 19), "Litigation Support")
+        self.assertIsNone(toc_section_title(toc, 3, 3))
+
+    def test_tags_number_after_a_finished_paragraph_or_heading(self) -> None:
+        for before in ("The remedies are cumulative.\n\n", "<page>12</page>\n", ""):
+            text = f"<section>8.10 Specific Performance.</section>\n{before}8.11 Governing Law.\n<section>8.12 Notices.</section>"
+            self.assertIn("<section>8.11 Governing Law.</section>", self._insert(text, 8, 11))
 
     def test_tags_unquoted_defined_term_in_flattened_definitions(self) -> None:
         text = (
@@ -635,10 +684,6 @@ class GluedHeadingTitleTests(unittest.TestCase):
         for title in ("Section 4.1A Foo", "Section 5.1(a) Closing", "Section 5.1 Closing"):
             with self.subTest(title=title):
                 self.assertEqual(normalize_glued_section_title(title), title)
-
-
-if __name__ == "__main__":
-    _ = unittest.main()
 
 
 class SentenceSplitSectionTitleTests(unittest.TestCase):
