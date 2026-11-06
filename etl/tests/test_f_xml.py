@@ -57,6 +57,14 @@ class LeadingTocTailTests(unittest.TestCase):
     def test_keeps_lines_when_a_heading_tag_comes_first(self) -> None:
         self.assertEqual(self._lines(f"3.1 Title 5\n\n<article>ARTICLE I</article>\n\n{self.PREAMBLE}"), [])
 
+    def test_keeps_lines_tagged_as_headings(self) -> None:
+        self.assertEqual(self._lines(f"<section>Section 1.1 Definitions and Other Terms........3</section>\n\n{self.PREAMBLE}"), [])
+
+    def test_tail_is_limited_to_three_pages(self) -> None:
+        toc = "Section 1.1 Definitions........3"
+        self.assertEqual(self._lines(toc, toc, self.PREAMBLE), [1, 1, 0])
+        self.assertEqual(self._lines(toc, toc, toc, self.PREAMBLE), [])
+
     def test_keeps_toc_lines_when_no_preamble_follows(self) -> None:
         self.assertEqual(self._lines("Section 1.1 Definitions... 3\n\nSection 1.2 Closing... 4"), [])
 
