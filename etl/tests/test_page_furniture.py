@@ -870,7 +870,7 @@ class GenerateXmlStripsFurnitureTests(unittest.TestCase):
         section_text = [t.text for t in section.iter("text")]
         self.assertEqual(
             section_text,
-            ["All notices shall be in writing", "and delivered by hand.", "Notices are effective on receipt."],
+            ["All notices shall be in writing and delivered by hand.", "Notices are effective on receipt."],
         )
         self.assertEqual([p.text for p in section.iter("pageUUID")], ["body-0", "body-1", "body-2"])
         self.assertEqual([p.text for p in root.iter("pageUUID")], ["body-0", "body-1", "body-2"])
