@@ -189,6 +189,10 @@ class HyphenTests(unittest.TestCase):
         result = join_across_pages(_pages("under the Non-", "Assignable Assets clause."))
         self.assertEqual(result.joins, [])
 
+    def test_closing_punctuation_after_a_hyphen_stays(self) -> None:
+        result = join_across_pages(_pages("the pre-", ", and the post-closing period."))
+        self.assertEqual(result.skipped["hyphen_upper"], 1)
+
     def test_agreement_words_counts_hyphenated_words_whole(self) -> None:
         self.assertEqual(agreement_words(["third-party third Party"]), Counter({"third-party": 1, "third": 1, "party": 1}))
 
