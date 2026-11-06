@@ -129,8 +129,8 @@ tables:
       attitude: Deal attitude (friendly, hostile, or unsolicited).
       deal_type: Transaction structure.
       purpose: Whether the acquisition is strategic or financial.
-      target_pe: 1 if a named buyout-style private equity sponsor owns or controls the target. Venture-capital backing does not count.
-      acquirer_pe: 1 if the acquirer is private-equity-owned or -backed.
+      target_pe: 1 if a named buyout-style private equity sponsor owns or controls the target. Venture-capital, hedge and credit funds do not count.
+      acquirer_pe: 1 if the stored acquirer is a private equity sponsor, its fund or its acquisition vehicle. A portfolio company buying in its own name is 0.
       metadata_sources: >-
         JSON blob of per-field citations backing the extracted deal metadata
         (field, source URL, supporting quote).

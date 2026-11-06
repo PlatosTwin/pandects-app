@@ -196,7 +196,7 @@ unreleased:
 
 - type: data
   severity: breaking
-  summary: "Deal parties and listing status corrected: acquirer changed on 2,559 and target on 1,189 of the 9,560 continuing agreements; acquirer_type on 749, target_type on 491, acquirer_pe on 172, target_pe on 187."
+  summary: "Deal parties and listing status corrected: acquirer changed on 2,559 and target on 1,189 of the 9,560 continuing agreements; acquirer_type on 749, target_type on 491, acquirer_pe on 172, target_pe on 353."
   details: >
     Parties now follow written rules applied to the whole corpus: the acquirer
     and target are the parties the agreement prints (a parent counts only when
@@ -212,10 +212,11 @@ unreleased:
     text by an independent second read before they were written. Missing parties
     among the served corpus: none (all 11,979 have target and acquirer). Type
     coverage: target_type 11,979 and acquirer_type 11,979 of 11,979. target_pe
-    is 1 only where a named buyout-style sponsor owns or controls the target.
-    Venture-capital backing no longer counts: 296 private targets across the
-    served corpus were set from 1 to 0 because they showed VC investors or no
-    sponsor, and 52 with an unclear investor stay at 1.
+    now counts only named buyout-style sponsors, not venture-capital, hedge,
+    distressed or credit funds. All 2,004 served targets stored at 1 were
+    reviewed: 527 (459 private, 68 public) were set to 0, and 175 with an
+    unclear investor stay at 1. Against the previous release, 342 of the 527
+    went from 1 to 0, 79 were empty, 9 were already 0 and 97 are newly served.
   tables: [agreements, latest_sections_search, agreement_index_summary, agreement_filter_option_summary]
   refs: []
 
