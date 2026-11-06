@@ -7,7 +7,7 @@ import os
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import pandas as pd
@@ -1543,6 +1543,18 @@ def _section_gaps_from_violations(
     return gaps
 
 
+def _with_toc_titles(gaps: List[SectionGap], df: pd.DataFrame) -> List[SectionGap]:
+    """The gaps, each with the TOC text that gives the title printed for a section number."""
+    xml_rows, _ = generate_xml(df)
+    if not xml_rows:
+        return gaps
+    toc = ET.fromstring(xml_rows[0].xml).find("tableOfContents")
+    if toc is None:
+        return gaps
+    toc_text = "\n".join(node.text or "" for node in toc.iter("text"))
+    return [replace(gap, toc_text=toc_text) for gap in gaps]
+
+
 def _hard_rule_result_for_df(
     df: pd.DataFrame,
 ) -> Tuple[Counter[str], List[XMLHardRuleViolation]]:
@@ -2049,6 +2061,8 @@ def _apply_safe_xml_tag_repairs_to_df(
             gaps = _section_gaps_from_violations(current_violations)
             if repair_name in {"split_combined", "insert_missing"} and not gaps:
                 continue
+            if repair_name == "insert_missing":
+                gaps = _with_toc_titles(gaps, current_df)
             if repair_name == "cross_row_article":
                 candidate_df, stats = _apply_cross_row_article_heading_repairs(current_df)
                 if stats.applied:

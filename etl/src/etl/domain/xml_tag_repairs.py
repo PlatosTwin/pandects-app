@@ -133,6 +133,8 @@ class SectionGap:
     article_num: int
     expected: int
     found: int
+    # The agreement's table of contents, to read what it prints for a section number.
+    toc_text: str | None = None
 
 
 @dataclass
@@ -151,8 +153,8 @@ def _section_heading_pattern(article_num: int, section_num: int) -> re.Pattern[s
     The number must be followed by the end of the line, a tag, or (after an
     optional period or dash) a heading-like token: an uppercase letter, a
     quote, a bracket, a number after a space ("1.2 2014 Option Rights"), or a
-    spaced clause label followed by an uppercase word ("1.2 (b) Northwest
-    shall"). Cross-reference followers such as ``,``, ``(a)``, ``)``, ``;`` or
+    spaced clause label followed by an uppercase word ("3.2 (a) The
+    authorized"). Cross-reference followers such as ``,``, ``(a)``, ``)``, ``;`` or
     a lowercase word (``of``, ``and``, ``date hereof``) never match.
     """
     pattern = (
@@ -683,6 +685,21 @@ MISSING_HEADING_XREF_PREFIX_RE = re.compile(
     r"pursuant to|of|in|under|to|and|or|with|by|see|per|than|at|on|from|this|that|such|said)"
     r"|[\u00a7(,])[^\S\r\n]*$"
 )
+# A paragraph that stops on one of these runs on into the next line, so a number
+# opening that line sits mid-sentence: "... described in\n\nSection 8.11 Section 8.9 ...".
+MISSING_HEADING_UNFINISHED_LINE_RE = re.compile(
+    r"(?:\b(?:pursuant to|of|in|under|to|and|or|with|by|see|per|than|at|on|from|this|that|such|said)|,)$"
+)
+_PAGE_MARKERS_TAIL_RE = re.compile(
+    r"(?:\s|<pageUUID>[^<]*</pageUUID>|<page>[^<]*</page>|(?<=\n)[ \t]*[-\u2013\u2014]?[ \t]*\d{1,3}[ \t]*[-\u2013\u2014]?(?=\s))+$"
+)
+# A clause label after the number that cannot open a section: "1.2 (b) Northwest shall ...".
+# A section can open with its first label: "3.2 (a) The authorized capital stock ...".
+MISSING_HEADING_LATER_CLAUSE_LABEL_RE = re.compile(
+    r"[^\S\r\n]*\.?[^\S\r\n]*\((?![aAiI1]\))[A-Za-z0-9]{1,4}\)"
+)
+# A second section number right after the first: "Section 8.11 Section 8.9 in addition".
+MISSING_HEADING_NEXT_NUMBER_RE = re.compile(r"[^\S\r\n]*\.?[^\S\r\n]*(?:(?:Sections?|SECTIONS?)[^\S\r\n]+)?\d{1,3}\.\d{1,3}\b")
 _CAPS_TERM_RE = re.compile(r"(?P<term>[A-Z][A-Z0-9&\-]{1,15})(?=[^\S\r\n]+[A-Z][a-z])")
 _DEFINITION_FOLLOWER_RE = re.compile(
     r"[^\S\r\n]*[.:]?[^\S\r\n]*(?:means|has the meaning|shall have the meaning|shall mean)\b"
@@ -710,6 +727,57 @@ def _in_definitions_run(tagged_text: str, pos: int) -> bool:
     if re.search(r"[\x22\u201c\u201d]", inner):
         return True
     return _DEFINITION_FOLLOWER_RE.match(tagged_text, close_at + len("</section>"), pos) is not None
+
+
+def _is_stray_section_number(tagged_text: str, start: int, number_end: int) -> bool:
+    """True for a printed number that fills a gap but cannot be a heading.
+
+    Word auto-numbers and cross-references get left inside a clause, so a number
+    can stand at the start of a line and still sit mid-sentence: the paragraph
+    before it runs on, or a later clause label or another number follows it.
+    """
+    if (
+        MISSING_HEADING_LATER_CLAUSE_LABEL_RE.match(tagged_text, number_end)
+        or MISSING_HEADING_NEXT_NUMBER_RE.match(tagged_text, number_end)
+    ):
+        return True
+    before = _PAGE_MARKERS_TAIL_RE.sub("", tagged_text[max(0, start - 200) : start])
+    return MISSING_HEADING_UNFINISHED_LINE_RE.search(before) is not None
+
+
+def toc_section_title(toc_text: str, article_num: int, section_num: int) -> str | None:
+    """The title printed after a section number in the TOC, or None."""
+    match = re.search(
+        rf"(?<![\d.])(?:(?:Section|SECTION)\s+)?{article_num}\s*\.\s*0*{section_num}(?![\d])\.?[ \t\u00a0]+(?P<title>[^\n]{{1,160}})",
+        toc_text,
+    )
+    if match is None:
+        return None
+    title = re.split(r"\.{2,}|\s{2,}|\s\d{1,3}(?:\s|$)", match.group("title"), maxsplit=1)[0]
+    return title.strip(" .") or None
+
+
+def _letters(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def _next_heading_holds_toc_title(tagged_text: str, end: int, gap: SectionGap) -> bool:
+    """True when the next heading on the page prints the title the TOC gives the gap's number.
+
+    "6.6. As of the Execution Date ... <section>6.7. No Brokers.</section>" with a TOC line
+    "6.6. No Brokers 44": Word numbered a stray paragraph, so the printed numbers run one
+    ahead of the TOC, and 6.6 is not a heading. If the TOC gives the next heading's own
+    number the same title, the two really share it ("6.6 Reserved", "6.7 Reserved").
+    """
+    toc_title = toc_section_title(gap.toc_text or "", gap.article_num, gap.expected)
+    heading = SECTION_TAG_RE.search(tagged_text, end)
+    if toc_title is None or heading is None or len(_letters(toc_title)) < 4:
+        return False
+    printed = re.match(r"\s*(?:(?:Section|SECTION)\s+)?(\d+)\s*\.\s*(\d+)\.?", heading.group(1))
+    if printed is None or _letters(heading.group(1)[printed.end() :]) != _letters(toc_title):
+        return False
+    own_title = toc_section_title(gap.toc_text or "", int(printed.group(1)), int(printed.group(2)))
+    return own_title is None or _letters(own_title) != _letters(toc_title)
 
 
 def _missing_heading_title_end(tagged_text: str, start: int, number_end: int) -> tuple[int, str] | None:
@@ -789,7 +857,8 @@ def insert_missing_section_heading_tags(
     lowercase word qualifies ("... 10.4(d) 1.2 Other Capitalized Terms. For").
     The number must also be followed by a heading-like token (see
     _section_heading_pattern), so mid-sentence
-    cross-references ("Subject to Section 2.2, ...") are never promoted. The
+    cross-references ("Subject to Section 2.2, ...") are never promoted, and it
+    must not be stray (see _is_stray_section_number). The
     inserted tag closes at the end of the heading's title (see
     _missing_heading_title_end); the rest stays body text.
     """
@@ -815,6 +884,10 @@ def insert_missing_section_heading_tags(
             )
             if not at_real_line_start and MISSING_HEADING_XREF_PREFIX_RE.search(line_prefix):
                 continue  # "pursuant to Section 5.11 ...", "in 2.2 ...", "(see 4.3 ...)"
+            if _is_stray_section_number(tagged_text, match.start(), match.end()):
+                continue
+            if _next_heading_holds_toc_title(tagged_text, match.end(), gap):
+                continue
             # A defined term ("1.42 Existing Debt Facilities means ...") is a heading
             # wherever it sits in flattened definitions text.
             is_definition = _defines_term_at(tagged_text, match.end())
