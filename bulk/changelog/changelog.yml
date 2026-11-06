@@ -259,8 +259,8 @@ unreleased:
     Mixed cash-and-stock deals whose agreement does not value the stock get
     the announced total, and the stock leg stays empty. On 240 single-form
     deals the cash or stock leg moved with the total: 17 were checked against
-    share counts, and on the other 223 the value is under 25% above the prior
-    leg and can include some debt. 15 further legs were corrected from the
+    share counts, and on the other 223 the value is at most 25% above the
+    prior leg and can include some debt. 15 further legs were corrected from the
     filings. All other legs are untouched by this entry. These totals come
     from the release, not the agreement, and metadata_sources cites it. A deal
     with no announced value in the filer's own announcement filings keeps its
