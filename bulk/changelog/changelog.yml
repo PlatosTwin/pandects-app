@@ -196,7 +196,7 @@ unreleased:
 
 - type: data
   severity: breaking
-  summary: "Deal parties and listing status corrected: acquirer changed on 2,531 and target on 1,138 of the 9,560 continuing agreements; acquirer_type on 743, target_type on 486, acquirer_pe on 143."
+  summary: "Deal parties and listing status corrected: acquirer changed on 2,559 and target on 1,189 of the 9,560 continuing agreements; acquirer_type on 749, target_type on 491, acquirer_pe on 172, target_pe on 370."
   details: >
     Parties now follow written rules applied to the whole corpus: the acquirer
     and target are the parties the agreement prints (a parent counts only when
@@ -211,7 +211,14 @@ unreleased:
     without a quote are private. Most changes were checked against the agreement
     text by an independent second read before they were written. Missing parties
     among the served corpus: none (all 11,979 have target and acquirer). Type
-    coverage: target_type 11,979 and acquirer_type 11,979 of 11,979.
+    coverage: target_type 11,979 and acquirer_type 11,979 of 11,979. target_pe
+    now counts only named buyout-style sponsors, not venture-capital, hedge,
+    distressed or credit funds. All 2,004 served targets stored at 1 were
+    reviewed for venture backing, and hedge and credit holders were then swept
+    by manager name, so a few of those may remain: 547 (476 private, 71 public)
+    were set to 0, and 203 with an unclear investor stay at 1. Against the
+    previous release, 359 of the 547 went from 1 to 0, 79 were empty, 9 were
+    already 0 and 100 are newly served.
   tables: [agreements, latest_sections_search, agreement_index_summary, agreement_filter_option_summary]
   refs: []
 
@@ -322,11 +329,11 @@ unreleased:
   summary: "Summary tables rebuilt from the corrected data."
   details: >
     agreement_index_summary 9,787 -> 11,979 rows;
-    agreement_filter_option_summary 18,707 -> 22,870;
+    agreement_filter_option_summary 18,707 -> 22,876;
     agreement_counsel_leaderboard_summary 7,110 -> 8,806;
     agreement_industry_pairing_summary 936 -> 1,023;
     agreement_target_industry_summary 1,620 -> 1,663; summary_data 1,826 ->
-    1,827; agreement_deal_type_summary 130 -> 134;
+    1,823; agreement_deal_type_summary 130 -> 134;
     agreement_buyer_type_matrix_summary 7 -> 6; agreement_status_summary 102 ->
     73 (fewer pipeline stages are populated). agreement_overview_summary: latest
     filing 2026-08-14 -> 2026-10-09, metadata coverage 99.9% -> 100.0%, taxonomy
