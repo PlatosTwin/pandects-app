@@ -1,0 +1,319 @@
+{
+ "agreements": 50,
+ "arms": {
+  "sonnet": {
+   "arm": "sonnet",
+   "gold": "gold",
+   "split": null,
+   "agreements": 50,
+   "missing": [],
+   "quote_validity": 1.0,
+   "quotes": 430,
+   "detection": {
+    "financing.structure": {
+     "tp": 34,
+     "fp": 1,
+     "fn": 0,
+     "tn": 15,
+     "precision": 0.971,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "financing.structure": {
+     "recall": 0.754,
+     "precision": 0.964,
+     "gold": 142,
+     "pred": 112
+    },
+    "indemn.cap": {
+     "recall": 0.819,
+     "precision": 0.968,
+     "gold": 127,
+     "pred": 94
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     27,
+     34
+    ],
+    "financing.structure.cooperation": [
+     33,
+     34
+    ],
+    "financing.structure.efforts": [
+     33,
+     34
+    ],
+    "financing.structure.financing_condition": [
+     34,
+     34
+    ],
+    "financing.structure.marketing_period": [
+     34,
+     34
+    ],
+    "indemn.cap.cap_amounts": [
+     18,
+     20
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     20,
+     20
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.931,
+    "indemn.cap.cap_amounts": 0.946
+   },
+   "detection_before_adjudication": {
+    "financing.structure": {
+     "tp": 33,
+     "fp": 2,
+     "fn": 0,
+     "tn": 15,
+     "precision": 0.943,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "verdicts": {},
+   "extractor_errors": {}
+  },
+  "sonnet_pc": {
+   "arm": "sonnet_pc",
+   "gold": "gold",
+   "split": null,
+   "agreements": 50,
+   "missing": [],
+   "quote_validity": 1.0,
+   "quotes": 430,
+   "detection": {
+    "financing.structure": {
+     "tp": 34,
+     "fp": 1,
+     "fn": 0,
+     "tn": 15,
+     "precision": 0.971,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "financing.structure": {
+     "recall": 0.754,
+     "precision": 0.964,
+     "gold": 142,
+     "pred": 112
+    },
+    "indemn.cap": {
+     "recall": 0.819,
+     "precision": 0.968,
+     "gold": 127,
+     "pred": 94
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     27,
+     34
+    ],
+    "financing.structure.cooperation": [
+     33,
+     34
+    ],
+    "financing.structure.efforts": [
+     33,
+     34
+    ],
+    "financing.structure.financing_condition": [
+     34,
+     34
+    ],
+    "financing.structure.marketing_period": [
+     34,
+     34
+    ],
+    "indemn.cap.cap_amounts": [
+     18,
+     20
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     20,
+     20
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.931,
+    "indemn.cap.cap_amounts": 0.946
+   },
+   "detection_before_adjudication": {
+    "financing.structure": {
+     "tp": 33,
+     "fp": 2,
+     "fn": 0,
+     "tn": 15,
+     "precision": 0.943,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "verdicts": {
+    "gold_correct": 9,
+    "schema_ambiguous": 3,
+    "extractor_correct": 2
+   },
+   "extractor_errors": {
+    "missed_rule": 3,
+    "wrong_code": 1,
+    "missed_in_candidates": 3,
+    "retrieval_gap": 2
+   }
+  }
+ },
+ "pct_first_sonnet": {
+  "fields": {
+   "financing.structure.committed": [
+    27,
+    34
+   ],
+   "financing.structure.cooperation": [
+    33,
+    34
+   ],
+   "financing.structure.efforts": [
+    33,
+    34
+   ],
+   "financing.structure.financing_condition": [
+    34,
+    34
+   ],
+   "financing.structure.marketing_period": [
+    34,
+    34
+   ],
+   "indemn.cap.cap_amounts": [
+    18,
+    20
+   ],
+   "indemn.cap.escrow_sole_recourse": [
+    20,
+    20
+   ]
+  },
+  "set_field_f1": {
+   "financing.structure.committed": 0.931,
+   "indemn.cap.cap_amounts": 0.946
+  }
+ },
+ "postcheck_changes": {
+  "agreements": 0,
+  "by_rule": {},
+  "detail": {}
+ },
+ "stage1_gold_span_recall": {
+  "hit": 268,
+  "total": 269,
+  "recall": 0.996,
+  "missed_by_concept": {
+   "financing.structure": 1
+  }
+ },
+ "stage1_comparison": {
+  "router": {
+   "hit": 256,
+   "total": 269,
+   "recall": 0.9517,
+   "median_share": 0.205
+  },
+  "v7": {
+   "hit": 263,
+   "total": 269,
+   "recall": 0.9777,
+   "median_share": 0.408
+  },
+  "union": {
+   "hit": 268,
+   "total": 269,
+   "recall": 0.996,
+   "median_share": 0.442
+  }
+ },
+ "postcheck_before_fix": {
+  "cap_amounts": [
+   17,
+   20
+  ],
+  "set_field_f1": {
+   "financing.structure.committed": 0.931,
+   "indemn.cap.cap_amounts": 0.904
+  },
+  "changes": {
+   "agreements": 2,
+   "by_rule": {
+    "v2.3 rule 2": 2
+   },
+   "detail": {
+    "2fafb339-f83f-5c81-822a-9bda908e2857": [
+     {
+      "concept": "ma.indemn.cap",
+      "rule": "v2.3 rule 2",
+      "was": {
+       "amount": "not_stated",
+       "currency": "USD",
+       "basis": "formula",
+       "pct": null,
+       "quote": "exceed an amount equal to the Purchase Price, less the aggregate amount of all Buyer Claims for which Seller is liable pursuant to Section 11.2(a)"
+      },
+      "match": "exceed an amount equal to the Purchase Price"
+     }
+    ],
+    "67e84aa3-2c7a-50bf-8306-e5cf776c6a88": [
+     {
+      "concept": "ma.indemn.cap",
+      "rule": "v2.3 rule 2",
+      "was": {
+       "amount": "not_stated",
+       "currency": "USD",
+       "basis": "pct_of_purchase_price",
+       "pct": 35,
+       "quote": "shall be limited to an amount equal to thirty five percent (35%) of the sum of (x) the portion of the Merger Consideration that has been paid in respect of all Indemnifying Shares attributable to such Indemnifying Stockholder plus (y)"
+      },
+      "match": "portion of the Merger Consideration that has been paid"
+     }
+    ]
+   }
+  }
+ }
+}

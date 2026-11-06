@@ -1,0 +1,266 @@
+{
+ "verdicts": {
+  "schema_ambiguous": 23,
+  "gold": 30,
+  "neither": 2,
+  "candidate": 1
+ },
+ "arms": {
+  "sonnet": {
+   "arm": "sonnet",
+   "gold": "gold",
+   "missing": [],
+   "quote_validity": 0.9941,
+   "quotes": 1351,
+   "detection": {
+    "ma.termination.fee.target": {
+     "tp": 34,
+     "fp": 0,
+     "fn": 0,
+     "tn": 16,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "ma.termination.fee.reverse": {
+     "tp": 21,
+     "fp": 0,
+     "fn": 0,
+     "tn": 29,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "ma.termination.outside_date": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "ma.termination.fee.target": {
+     "gold": 354,
+     "gold_hit": 166,
+     "pred": 173,
+     "pred_hit": 173,
+     "recall": 0.469,
+     "precision": 1.0
+    },
+    "ma.termination.outside_date": {
+     "gold": 77,
+     "gold_hit": 71,
+     "pred": 78,
+     "pred_hit": 78,
+     "recall": 0.922,
+     "precision": 1.0
+    },
+    "ma.termination.fee.reverse": {
+     "gold": 197,
+     "gold_hit": 98,
+     "pred": 90,
+     "pred_hit": 88,
+     "recall": 0.497,
+     "precision": 0.978
+    }
+   },
+   "fields": {
+    "reverse.amounts": "19/21 = 0.905",
+    "reverse.kind": "16/21 = 0.762",
+    "reverse.pay_once_only": "21/21 = 1.000",
+    "reverse.payor": "14/21 = 0.667",
+    "reverse.remedy": "18/21 = 0.857",
+    "reverse.triggers": "14/21 = 0.667",
+    "target.amounts": "33/34 = 0.971",
+    "target.pay_once_only": "34/34 = 1.000",
+    "target.payor": "34/34 = 1.000",
+    "target.remedy": "29/34 = 0.853",
+    "target.triggers": "18/34 = 0.529",
+    "outside_date.breach_bar": "41/49 = 0.837",
+    "outside_date.effect": "49/49 = 1.000",
+    "outside_date.extension_conditions": "42/49 = 0.857",
+    "outside_date.initial": "49/49 = 1.000",
+    "outside_date.n_extensions": "47/49 = 0.959"
+   },
+   "span_recall_by_role": {
+    "reverse.amount": "2/3",
+    "reverse.definition": "8/12",
+    "reverse.operative": "34/35",
+    "reverse.other": "6/40",
+    "reverse.remedy": "18/35",
+    "reverse.trigger": "30/72",
+    "target.amount": "2/2",
+    "target.definition": "15/28",
+    "target.operative": "60/64",
+    "target.other": "5/44",
+    "target.remedy": "20/50",
+    "target.trigger": "64/166",
+    "outside_date.definition": "2/3",
+    "outside_date.extension": "16/16",
+    "outside_date.operative": "50/50",
+    "outside_date.other": "3/8"
+   },
+   "set_field_f1": {
+    "reverse.amounts": 0.957,
+    "reverse.payor": 0.694,
+    "reverse.triggers": 0.842,
+    "target.amounts": 0.986,
+    "target.payor": 1.0,
+    "target.triggers": 0.929,
+    "outside_date.extension_conditions": 0.822
+   },
+   "fields_excluding_schema_ambiguous": {
+    "reverse.amounts": "19/21 = 0.905",
+    "reverse.kind": "16/18 = 0.889",
+    "reverse.pay_once_only": "21/21 = 1.000",
+    "reverse.payor": "14/16 = 0.875",
+    "reverse.remedy": "18/19 = 0.947",
+    "reverse.triggers": "14/18 = 0.778",
+    "target.amounts": "33/33 = 1.000",
+    "target.pay_once_only": "34/34 = 1.000",
+    "target.payor": "34/34 = 1.000",
+    "target.remedy": "29/29 = 1.000",
+    "target.triggers": "18/27 = 0.667",
+    "outside_date.breach_bar": "41/49 = 0.837",
+    "outside_date.effect": "49/49 = 1.000",
+    "outside_date.extension_conditions": "42/48 = 0.875",
+    "outside_date.initial": "49/49 = 1.000",
+    "outside_date.n_extensions": "47/48 = 0.979"
+   }
+  },
+  "haiku": {
+   "arm": "haiku",
+   "gold": "gold",
+   "missing": [],
+   "quote_validity": 0.994,
+   "quotes": 1176,
+   "detection": {
+    "ma.termination.fee.target": {
+     "tp": 34,
+     "fp": 1,
+     "fn": 0,
+     "tn": 15,
+     "precision": 0.971,
+     "recall": 1.0
+    },
+    "ma.termination.fee.reverse": {
+     "tp": 21,
+     "fp": 0,
+     "fn": 0,
+     "tn": 29,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "ma.termination.outside_date": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "ma.termination.fee.target": {
+     "gold": 354,
+     "gold_hit": 133,
+     "pred": 148,
+     "pred_hit": 146,
+     "recall": 0.376,
+     "precision": 0.986
+    },
+    "ma.termination.outside_date": {
+     "gold": 77,
+     "gold_hit": 66,
+     "pred": 107,
+     "pred_hit": 100,
+     "recall": 0.857,
+     "precision": 0.935
+    },
+    "ma.termination.fee.reverse": {
+     "gold": 197,
+     "gold_hit": 83,
+     "pred": 79,
+     "pred_hit": 77,
+     "recall": 0.421,
+     "precision": 0.975
+    }
+   },
+   "fields": {
+    "reverse.amounts": "19/21 = 0.905",
+    "reverse.kind": "13/21 = 0.619",
+    "reverse.pay_once_only": "21/21 = 1.000",
+    "reverse.payor": "19/21 = 0.905",
+    "reverse.remedy": "18/21 = 0.857",
+    "reverse.triggers": "12/21 = 0.571",
+    "target.amounts": "31/34 = 0.912",
+    "target.pay_once_only": "34/34 = 1.000",
+    "target.payor": "34/34 = 1.000",
+    "target.remedy": "28/34 = 0.824",
+    "target.triggers": "16/34 = 0.471",
+    "outside_date.breach_bar": "40/49 = 0.816",
+    "outside_date.effect": "49/49 = 1.000",
+    "outside_date.extension_conditions": "40/49 = 0.816",
+    "outside_date.initial": "48/49 = 0.980",
+    "outside_date.n_extensions": "46/49 = 0.939"
+   },
+   "span_recall_by_role": {
+    "reverse.amount": "2/3",
+    "reverse.definition": "7/12",
+    "reverse.operative": "33/35",
+    "reverse.other": "5/40",
+    "reverse.remedy": "12/35",
+    "reverse.trigger": "24/72",
+    "target.amount": "2/2",
+    "target.definition": "13/28",
+    "target.operative": "51/64",
+    "target.other": "6/44",
+    "target.remedy": "16/50",
+    "target.trigger": "45/166",
+    "outside_date.definition": "2/3",
+    "outside_date.extension": "13/16",
+    "outside_date.operative": "49/50",
+    "outside_date.other": "2/8"
+   },
+   "set_field_f1": {
+    "reverse.amounts": 0.957,
+    "reverse.payor": 0.936,
+    "reverse.triggers": 0.741,
+    "target.amounts": 0.958,
+    "target.payor": 1.0,
+    "target.triggers": 0.892,
+    "outside_date.extension_conditions": 0.806
+   },
+   "fields_excluding_schema_ambiguous": {
+    "reverse.amounts": "19/21 = 0.905",
+    "reverse.kind": "13/18 = 0.722",
+    "reverse.pay_once_only": "21/21 = 1.000",
+    "reverse.payor": "19/19 = 1.000",
+    "reverse.remedy": "18/19 = 0.947",
+    "reverse.triggers": "12/18 = 0.667",
+    "target.amounts": "31/33 = 0.939",
+    "target.pay_once_only": "34/34 = 1.000",
+    "target.payor": "34/34 = 1.000",
+    "target.remedy": "28/30 = 0.933",
+    "target.triggers": "16/27 = 0.593",
+    "outside_date.breach_bar": "40/49 = 0.816",
+    "outside_date.effect": "49/49 = 1.000",
+    "outside_date.extension_conditions": "40/49 = 0.816",
+    "outside_date.initial": "48/49 = 0.980",
+    "outside_date.n_extensions": "46/49 = 0.939"
+   }
+  }
+ },
+ "stage1_gold_span_recall": {
+  "hit": 612,
+  "total": 628,
+  "recall": 0.975,
+  "missed_by_role": {
+   "reverse.other": 6,
+   "target.other": 2,
+   "target.definition": 5,
+   "outside_date.other": 2,
+   "reverse.trigger": 1
+  }
+ }
+}
