@@ -2498,7 +2498,7 @@ On M11 to M13, gold quotes found verbatim in the candidates rise from 5,988 to 6
 
 ### 7.33 M3 plan: running the corpus pass, its cost, and what to serve (2026-10-30)
 
-This section plans the M3 corpus pass. It does not run it. The paid trial it calls for could not run: the API key reached its spending limit, which reopens on 2026-11-01. The costs below are therefore built from measured input and output sizes, not from billed usage. The trial's runner is written but has not yet made a successful API call.
+This section plans the M3 corpus pass. It does not run it. The trial ran later: see [7.34](#734-m3-trial-extraction-through-the-claude-api-on-8-and-then-50-m13-agreements-2026-11-06). The paid trial it calls for could not run at the time: the API key reached its spending limit, which reopens on 2026-11-01. The costs below are therefore built from measured input and output sizes, not from billed usage. The trial's runner is written but has not yet made a successful API call.
 
 **The pipeline as piloted.** Section 8.1 describes five stages. The pilot that passed runs four:
 1. **Stage 0:** the text layer (`prepare_v7.py`).
@@ -2568,6 +2568,45 @@ The token ranges assume 3 to 4 characters per token, because the tokenizer could
 - **Set-valued fields pass on set F1, not exact match.** These are target-fee triggers (exact 0.884), reverse-fee triggers (0.915), MAE carve-out categories (0.811) and cap amounts (0.942). Serve them as sets. An aggregate that counts whole sets (for example, "deals whose triggers are exactly X") should wait or say so.
 - **Non-US agreements,** about 5%: no bar has been measured for them. Serve them flagged as not evaluated, and leave them out of headline aggregates.
 - **Quotes not found in the layer:** drop the span and send the instance to review, as 8.1's stage 4 says.
+
+### 7.34 M3 trial: extraction through the Claude API, on 8 and then 50 M13 agreements (2026-11-06)
+
+This runs the trial 7.33 planned. It is not blind: schema v2.16 and the 7.32 stage 1 were written after seeing M13, and the gold was adjudicated against the subagent arm's disputes, so that arm is favored. The API arms' disagreements were not adjudicated, so each one below counts as an error even where the gold could be wrong. Results are in `pilot/m3_trial_results.json`. Costs are computed from the API's `usage` fields at list prices, not read from a bill.
+
+**Eight agreements, standard prices.** The bar from 7.33 allows the subagent arm's own differences plus 2.5% of field values: 1 + 4.1 on 163 values.
+
+| Arm | Field differences | Detection errors | Quotes not in the layer | Cost |
+|---|---|---|---|---|
+| Subagents (`sonnet_pc`) | 1 | 0 | 0 | not metered |
+| Sonnet 5.5, high effort | 3 | 0 | 0 | $1.56 |
+| Sonnet 5.5, medium effort | 9 | 1 | 0 | $1.12 |
+| Haiku 5.5, high effort | 7 | 2 | 2 | $0.24 |
+
+- **Sonnet at high effort passes.** The other two fail. Both false detections on Haiku are fees or reimbursements that gold marks absent (e4c33baa, f5f1289e).
+- **Two runner failures.** Three Haiku replies hit the 32,000-token cap and returned nothing usable, so the cap is now 64,000 and they were rerun (the table includes those reruns' results, not their cost). One Sonnet reply did not parse and was not kept; the rerun parsed. That is 1 of 59 Sonnet high calls in this trial, so the corpus pass needs a retry step. The runner now saves any unparsed reply.
+- **Empty quotes.** The scorer's quote validity counts an empty `quote_end` as invalid. All the Sonnet misses are that; no non-empty Sonnet quote failed.
+
+**All 50 agreements, Sonnet 5.5 at high effort, Message Batches.** All 50 returned, none was truncated, and all parsed.
+
+| 50 agreements, 1,112 field values | Subagents | Batch |
+|---|---|---|
+| Field differences from gold | 29 | 44 |
+| Exact fields | 97.4% | 96.0% |
+| Detection errors | 1 | 1 |
+| Quote validity | 0.9965 | 0.9962 |
+| Pooled span recall | 0.842 | 0.852 |
+
+- **The arm passes the bar:** 44 against 29 + 27.8. Quote validity and span recall match the subagent arm.
+- **Where the batch arm is weaker:** target-fee triggers (exact 20/25 against 23/25), committed financing (30/37 against 33/37, set F1 0.943 against 0.968) and baskets (set F1 0.955 against 1.000). Baskets and committed financing are already among the five fields 7.33 holds back. Nothing here changes that list, because these 50 are not a blind holdout.
+
+**Measured cost.**
+- **Per agreement:** $0.092 at batch prices, from a mean of 38.6K uncached input tokens, 19.7K cached and 10.1K output.
+- **Caching worked:** one write, and 49 of 50 requests read the one-hour cache.
+- **The pass:** scaled by 7.33's 1.086 to the 11,979 agreements served now, about $1,200 for Sonnet at high effort, plus the picker ($8 to $16, not measured here) and retries. That is inside 7.33's $660 to $1,660.
+- **Tokens:** the text ran about 2.8 to 2.9 characters per token, below the 3 to 4 that 7.33 assumed.
+- **Trial spend:** $7.70 in all.
+
+**What the trial does not settle.** Candidates are from the text as of 2026-10-30. Since then, rebuilds changed the text layer of 112 of the 149 M11 to M13 agreements that could be compared, though 8,282 of their 8,304 gold quotes are still found. PRs 256 and 257 will change most of the corpus again, so the pass should wait for them and rebuild candidates from the XML then.
 
 ## 8. Extraction pipeline
 
