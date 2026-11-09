@@ -145,8 +145,7 @@ unreleased:
   severity: breaking
   summary: "Section text and structure corrected across the corpus: of the 9,554 agreements served in both releases, 4,853 have changed words, 330 have a different number of sections and 2,598 have a changed outline; 663 keep identical section text, though their titles may differ."
   details: >
-    Every served XML was rebuilt with the current builder (see the refs below), and at least 1,844 agreements (1,811 of them served, 1,141 continuing) also had
-    hand-reviewed corrections to their heading tags, page labels or source text
+    Every served XML was rebuilt with the current builder (see the refs below), and at least 1,844 agreements (1,811 of them served, 1,141 continuing) also had reviewed corrections to their heading tags, page labels or source text
     (23,317 text edits, 736 page-label edits). Main changes: (1) Page
     furniture is no longer served as section text: running titles, page numbers,
     document IDs, "Execution Version" and confidentiality legends ("confidential
@@ -165,7 +164,7 @@ unreleased:
     before closing punctuation, split ordinals and possessives rejoined ("3 rd"
     -> "3rd"), glued words separated, page-text lines the HTML prints as one
     block joined, table rows of malformed HTML emitted once, and HTML paragraphs
-    kept in page order. 553 continuing agreements changed only in spacing or punctuation; 136,683 words were added in all (rejoined tokens and recovered text, including the definitions in (5)). (4) A final text pass changed 257 agreements (165 continuing, 92 newly served)
+    kept in page order. 553 continuing agreements keep the same words in the same order (only spacing, punctuation, markup or section boundaries changed); 136,683 words were added in all (rejoined tokens and recovered text, including the definitions in (5)). (4) A final text pass changed 257 agreements (165 continuing, 92 newly served)
     with 5,179 text fixes, counted against the text just before that pass; the
     continuing ones are included in the counts above.
     In 210 agreements it repaired inline text (5,118 fixes): page furniture left
@@ -222,11 +221,9 @@ unreleased:
   summary: "Deal price, consideration and dates corrected: price total changed on 3,369, filled on 509 and cleared on 699 continuing agreements; consideration type changed on 849; deal type changed on 293; deal status filled on 172 and changed on 166."
   details: >
     Prices now mean the headline price at signing, including assumed or repaid
-    debt, without earnouts or CVRs, and as signed (not as later amended). The
-    headline comes from the signed agreement, except on public-target deals,
-    where the value the parties announced at signing takes precedence (see the
+    debt, without earnouts or CVRs, and as signed (not as later amended). The headline comes from the signed agreement, except mainly on public-target deals, where the value the parties announced at signing takes precedence (see the
     separate entry on announced values). Elsewhere a stock leg the agreement
-    does not value is cleared, and so is the total. Where no single total is printed but its pieces are, the total is arithmetic on printed figures only (a per-share price times a printed share count, or cash plus separately stated assumed debt); a partial purchase is priced at what is actually bought; an agreement buying several separately printed companies lists them all as the target and sums their prices; and a deal priced in a foreign currency has a USD price only where the agreement or a party's release prints one. Legs follow the signed figures too: a leg the agreement does not print is empty. Price total coverage among served agreements fell from
+    does not value is cleared, and so is the total unless a party release states one. Where no single total is printed but its pieces are, the total is arithmetic on printed figures only (a per-share price times a printed share count, or cash plus separately stated assumed debt); a partial purchase is priced at what is actually bought; an agreement buying several separately printed companies lists them all as the target and sums their prices; and a deal priced in a foreign currency has a USD price only where the agreement or a party's release prints one. Legs follow the signed figures too: a leg the agreement does not print is empty, except the 228 legs set from the announced value (next entry). Price total coverage among served agreements fell from
     89.4% (8,752 of 9,787) to 86.1% (10,306 of 11,973) for two reasons. Among
     continuing agreements 699 totals were cleared, mostly where the agreement
     does not value a stock leg, and 509 were filled (89.5% -> 87.5%). The 2,419
@@ -235,7 +232,7 @@ unreleased:
     (a deal with one real form of payment is no longer mixed, and cash paid in
     lieu of fractional shares does not count as a second form); served deals
     marked mixed 3,193 -> 2,968 while the corpus grew by 2,186. Deal type: a two-step deal (a tender or exchange offer followed by a back-end merger) is now tender_offer, so 272 continuing agreements moved from merger to tender_offer. Deal status: 156
-    empty and 124 pending deals are now complete, 34 pending and 15 empty now cancelled (a deal that went dark, delisted or passed its deadline without closing is cancelled); empty deal_status among served agreements 182 -> 3. Close date filled on 281, changed on 110 and cleared on 33 (it is the last closing of a staged deal, and empty where sources give only the month); announce date changed on 181 and filled on 11 (it is the announcement of the signed agreement, not of an earlier offer).
+    empty and 124 pending deals are now complete, 34 pending and 15 empty are now 'cancelled' (a deal that went dark, delisted or passed its deadline without closing is 'cancelled'); empty deal_status among served agreements 182 -> 3. Close date filled on 281, changed on 110 and cleared on 33 (it is the last closing of a staged deal, and empty where sources give only the month); announce date changed on 181 and filled on 11 (it is the announcement of the signed agreement, not of an earlier offer).
   tables: [agreements, latest_sections_search, summary_data, agreement_ownership_deal_size_summary, agreement_ownership_mix_summary, agreement_buyer_type_matrix_summary, agreement_industry_pairing_summary, agreement_counsel_leaderboard_summary]
   migration: >
     Sums and medians of transaction_price_total change, and fewer deals have a
@@ -261,9 +258,7 @@ unreleased:
     prior leg and can include some debt. 15 further legs were corrected from the
     filings. All other legs are untouched by this entry. After the final metadata review, 228
     of the legs set from the announced value still hold it. These totals come
-    from the release, not the agreement, and metadata_sources cites it. A deal
-    with no announced value in the filer's own announcement filings keeps its
-    existing total, so across public targets the field holds a debt-inclusive
+    from the release, not the agreement, and metadata_sources cites it. A deal with no announced value in the filer's own announcement filings (or, in the final metadata review, a party's own release page or deck) keeps its existing total, so across public targets the field holds a debt-inclusive
     value on some deals and an equity value on others. Other private-target
     deals are unchanged by this entry. The 1,475 continuing agreements are
     included in the price counts in the entry above.
