@@ -313,8 +313,8 @@ unreleased:
   severity: notable
   summary: "Summary tables rebuilt from the corrected data."
   details: >
-    agreement_index_summary 9,787 -> 11,973 rows; agreement_filter_option_summary 18,707 -> 22,998; agreement_counsel_leaderboard_summary 7,110 -> 8,949; agreement_industry_pairing_summary 936 -> 1,008; agreement_target_industry_summary 1,620 -> 1,656; summary_data 1,826 -> 1,853; agreement_deal_type_summary 130 -> 135;
-    agreement_buyer_type_matrix_summary 7 -> 6; agreement_status_summary 102 -> 74 (fewer pipeline stages are populated). agreement_overview_summary: latest
+    agreement_index_summary 9,787 -> 11,973 rows; agreement_filter_option_summary 18,707 -> 22,998; agreement_counsel_leaderboard_summary 7,110 -> 8,949; agreement_industry_pairing_summary 936 -> 1,008; agreement_target_industry_summary 1,620 -> 1,656; summary_data 1,826 -> 1,850; agreement_deal_type_summary 130 -> 135;
+    agreement_buyer_type_matrix_summary 7 -> 6; agreement_status_summary 102 -> 73 (fewer pipeline stages are populated). agreement_overview_summary: latest
     filing 2026-08-14 -> 2026-10-09, metadata coverage 99.9% -> 100.0%, taxonomy
     coverage 47.7% -> 38.4% (the 47.7% is the published overview row; a recount
     of the same dump gives the 47.6% in the taxonomy entry). NAICS and taxonomy
