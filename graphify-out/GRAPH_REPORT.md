@@ -1,7 +1,7 @@
-# Graph Report - pandects-app  (2026-11-06)
+# Graph Report - pandects-app  (2026-11-09)
 
 ## Corpus Check
-- 940 files · ~1,067,562 words
+- 940 files · ~1,069,300 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 54 file(s) not represented in the graph (top: (none) 15, .toml 7, .example 6)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `4552d021`
+- Built from commit: `d191302d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -404,12 +404,12 @@
   .github/workflows/backend-quality.yml → backend/ARCHITECTURE.md
 - `2.1 Reader (frontend)` --references--> `AgreementReader()`  [INFERRED]
   docs/plans/smart-reader.md → frontend/client/components/AgreementReader.tsx
+- `6.3 Payload and the anchor contract` --references--> `normalizeXmlText()`  [INFERRED]
+  docs/plans/smart-reader.md → frontend/client/components/XMLRenderer.tsx
 - `6.4 API` --references--> `get_section()`  [INFERRED]
   docs/plans/smart-reader.md → backend/services/agreements_service.py
 - `7. MCP integration` --references--> `_server_capabilities_payload()`  [INFERRED]
   bulk/changelog/DESIGN.md → backend/mcp/tools/__init__.py
-- `6.3 Payload and the anchor contract` --references--> `normalizeXmlText()`  [INFERRED]
-  docs/plans/smart-reader.md → frontend/client/components/XMLRenderer.tsx
 
 ## Import Cycles
 - None detected.
@@ -1567,7 +1567,7 @@ Nodes (4): overrides, diff, qs, shell-quote
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `page()` connect `agreements_service.py` to `Search.tsx`, `react-router-dom`?**
-  _High betweenness centrality (0.274) - this node is a cross-community bridge._
+  _High betweenness centrality (0.213) - this node is a cross-community bridge._
 - **Are the 8 inferred relationships involving `McpTests` (e.g. with `ExternalIdentity` and `FulltextSearchBusy`) actually correct?**
   _`McpTests` has 8 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `Public dump table allowlist`, `Bulk tooling dependencies (boto3, PyMySQL, PyYAML)`, `RFC-8252` to the rest of the system?**
@@ -1575,7 +1575,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `FavoritesAgreementMetadataTests` be split into smaller, more focused modules?**
   _Cohesion score 0.13725490196078433 - nodes in this community are weakly interconnected._
 - **Why does `Design Notes` connect `agreements_service.py` to `standard_id_labels`?**
-  _High betweenness centrality (0.224) - this node is a cross-community bridge._
+  _High betweenness centrality (0.177) - this node is a cross-community bridge._
 
 ### Low-confidence Hints
 _AMBIGUOUS edges — the extractor was unsure. Verify before acting on these._
