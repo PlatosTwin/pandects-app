@@ -103,7 +103,7 @@ unreleased:
     were labeled and checked by model reviewers and their XML went through the
     same validation as the rest of the corpus. Metadata is filled: target,
     acquirer, consideration, deal type and announce date for all 2,231, price
-    total for 1,897 (85%; the rest state no price, or pay in stock that no party
+    total for 1,918 (86%; the rest state no price, or pay in stock that no party
     values), target counsel for 1,918. Their sections carry no taxonomy
     label (standard_id) until the taxonomy is rebuilt, so filtering sections by
     clause type does not yet return them.
@@ -257,25 +257,35 @@ unreleased:
 
 - type: data
   severity: breaking
-  summary: "Deal price, consideration and dates corrected: price total changed on 3,669, filled on 581 and cleared on 430 continuing agreements; consideration type changed on 852; deal type changed on 635; deal status filled on 170 and changed on 169."
+  summary: "Deal price, consideration and dates corrected: price total changed on 3,743, filled on 571 and cleared on 479 continuing agreements; consideration type changed on 878; deal type changed on 635; deal status filled on 170 and changed on 169."
   details: >
     Prices now mean the headline price at signing, including assumed or repaid
     debt, and as signed (not as later amended). The rules on stated per-share
     values, seller notes, "up to" headlines, elections and collars, de-SPAC
-    prices and late filings below came last; only the price rows held for a
-    ruling (114 agreements) were read again under them. Earnouts and CVRs count only
-    where the headline the parties announce counts them; a headline "up to $X"
-    that counts them is stored as X. The headline comes from the signed agreement, except mainly on public-target deals, where the value the parties announced at signing takes precedence (see the
+    prices and late filings below came last. Two readers applied them first to
+    the price rows held for a ruling (114 agreements). A full price pass then
+    read 3,075 agreements, most of them filed since November 2021 (see the end
+    of this entry). Some of the finer points below were settled while that pass
+    ran, and agreements read before a point was settled were not all read
+    again. The other 9,123 served agreements have not had this pass: 2,485 had
+    a two-reader price read in the earlier passes, and 6,638, all filed before
+    2021-11-11, have not had a two-reader price read under these rules. Earnouts, CVRs and other contingent payments are in no
+    leg. They count in the total only where a party prints the combined
+    figure "up to $X" in the signing release or the signing 8-K, which is then
+    stored as X. Shares the buyer already
+    owns and shares that holders roll over are left out of the total; their
+    count may come from the merger proxy or a Schedule 13D or 13E-3 where no
+    signing source prints it. The headline comes from the signed agreement, except mainly on public-target deals, where the value the parties announced at signing takes precedence (see the
     separate entry on announced values). Elsewhere a stock leg is valued only
     where a party states a per-share value that holders get (in the signing
     release, an investor deck, or the agreement's own collar or reference price)
-    and the agreement prints the share count; a market price quoted in passing
+    and a signing source prints the share count; a market price quoted in passing
     does not count. A stock leg with no such value is cleared, and so is the
-    total unless a party release states one. Where no single total is printed but its pieces are, the total is arithmetic on printed figures only (a per-share price times a printed share count, or cash plus separately stated assumed debt); a partial purchase is priced at what is actually bought; an agreement buying several separately printed companies lists them all as the target and sums their prices; a deal priced in a foreign currency has a USD price only where the agreement or a party's release prints one; a price that depends on an election, collar or cap settled after signing holds the base case or cap printed at signing; and a de-SPAC price is the target holders' equity at the SPAC share price plus printed cash, never a pro forma or combined value. Legs follow the same standard: a leg holds a dollar figure that a party prints for that leg, valued at signing, or arithmetic on printed figures. A seller note or a fixed deferred payment goes in the assets leg. A closing-date or purchase-accounting value does not count, and neither does the difference between two other figures. A value a party prints only in a later filing counts only when its value date is within 7 days of signing. A leg with no such figure is empty, except the 229 legs set from the announced value (next entry). Price total coverage among served agreements rose from
-    89.4% (8,752 of 9,787) to 89.8% (10,950 of 12,198). Among
-    continuing agreements 430 totals were cleared, mostly where no party values
-    a stock leg, and 581 were filled (89.5% -> 91.1%). The 2,708
-    newly served agreements have lower coverage (85.2%). Two later passes read
+    total unless a party release states one. Where no single total is printed but its pieces are, the total is arithmetic on printed figures only (a per-share price times a printed share count, or cash plus separately stated assumed debt); a partial purchase is priced at what is actually bought; an agreement buying several separately printed companies lists them all as the target and sums their prices; a deal priced in a foreign currency has a USD price only where the agreement or a party's release prints one; a price that depends on an election, collar or cap settled after signing holds the base case or cap printed at signing; and a de-SPAC price is the equity value the agreement prints for the target holders' shares at the SPAC share price (usually $10.00) plus printed cash, never a pro forma or combined value; earnout shares count in no field. An exchange-ratio valuation in a reverse merger or a merger of equals is not a price; a party's statement that the deal values the target at a stated amount counts. Legs follow the same standard: a leg holds a dollar figure that a party prints for that leg, valued at signing, or arithmetic on printed figures, such as a per-share price times a printed share count. A seller note, or a fixed cash payment due on a fixed date or schedule more than 90 days after closing, goes in the assets leg; deferred stock stays in the stock leg; cash plus such a payment has the consideration label mixed. A closing-date or purchase-accounting value does not count, and neither does a leg that no party prints and that is only a share or a difference of other figures. A value a party prints only in a later filing counts only when its value date is within 7 days of signing; an implied value a party prints in the proxy as of such a date counts. A leg with no such figure is empty, except the 224 legs set from the announced value (next entry). Price total coverage among served agreements rose from
+    89.4% (8,752 of 9,787) to 89.5% (10,912 of 12,198). Among
+    continuing agreements 479 totals were cleared, mostly where no party values
+    a stock leg, and 571 were filled (89.5% -> 90.5%). The 2,708
+    newly served agreements have lower coverage (85.9%). Two later passes read
     the parties' signing announcement (a release, an 8-K or an investor deck)
     for served deals with an empty total. The first read 676 of the 1,673 served
     deals that then had an empty total and filled 353 (346 with a private
@@ -305,31 +315,50 @@ unreleased:
     Of the 149 deals held with an empty total in the two passes on empty totals,
     43 now have a total and 106 are empty. 25 price fields on 23 agreements stay
     held for review, 13 of them totals of those 149 deals.
-    Stock price legs: 1,242 cleared, 660 changed; cash legs: 1,705 changed, 674 cleared; asset legs: 388 cleared. Of the cleared legs, 138 stock, 207 cash and 157 asset
-    legs were stored zeros. Consideration type: 419 mixed deals are now cash and 408 now stock
-    (a deal with one real form of payment is no longer mixed, cash paid in
+    The full price pass then read 3,075 served agreements: the 3,000 filed from
+    2021-11-12 to 2026-10-09 whose price row no earlier two-reader pass had
+    read, 60 filed in 2005 and 2018, and 15 whose legs exceeded the total. A
+    first reader checked the total, the three legs and the consideration label
+    against the agreement and the signing announcement. A second reader checked
+    every proposed change. Where the two did not agree, a third reader or a
+    final review decided. The pass changed 1,307 fields on 736 agreements:
+    totals 301 changed, 53 filled and 91 cleared; cash legs 237 changed, 37
+    filled and 94 cleared; stock legs 70 changed, 46 filled and 127 cleared;
+    asset legs 3 changed, 106 filled and 21 cleared; and 121 consideration
+    labels. The readers most often found values from closing documents or
+    purchase accounting, deferred payments and seller notes stored in the cash
+    leg, legs that were only a share or a difference of other figures, "up to"
+    headlines whose contingent part was missed, and totals that counted
+    rolled-over or buyer-owned shares. After the pass a blind sample of 60 of
+    the 3,000 agreements found a price error on 2 (3 of 300 price and label
+    fields); both errors were corrected. In the second sample above, 5 of the
+    60 agreements had a price error. This sample measures only the agreements the pass read.
+    Stock price legs: 1,303 cleared, 708 changed; cash legs: 1,771 changed, 722 cleared; asset legs: 398 cleared. Of the cleared legs, 138 stock, 207 cash and 156 asset
+    legs were stored zeros. Consideration type: 427 mixed deals are now cash and 419 now stock
+    (a deal with one real form of payment is no longer mixed, cash plus a seller
+    note or a fixed deferred payment is mixed, cash paid in
     lieu of fractional shares does not count as a second form, and cash paid to
     a parent before a spin-off and funded by debt that the merged company
     assumes counts as debt, which makes 5 deals stock); served deals
-    marked mixed 3,193 -> 3,047 while the corpus grew by 2,411. Deal type: a two-step deal (a tender or exchange offer followed by a back-end merger) is now tender_offer, so 615 continuing agreements moved from merger to tender_offer. Deal status: 154
+    marked mixed 3,193 -> 3,069 while the corpus grew by 2,411. Deal type: a two-step deal (a tender or exchange offer followed by a back-end merger) is now tender_offer, so 615 continuing agreements moved from merger to tender_offer. Deal status: 154
     empty and 124 pending deals are now complete, 34 pending and 15 empty are now 'cancelled' (a deal that went dark, delisted or passed its deadline without closing is 'cancelled', and so is a deal the parties replaced with a new agreement that closed); empty deal_status among served agreements 182 -> 3. Close date filled on 279, changed on 116 and cleared on 35 (it is the last closing of a staged deal, and empty where sources give only the month); announce date changed on 200 and filled on 11 (it is the announcement of the signed agreement, not of an earlier offer; for a served amended and restated agreement it is the announcement of the restated agreement, which changed 105 dates).
   tables: [agreements, latest_sections_search, summary_data, agreement_ownership_deal_size_summary, agreement_ownership_mix_summary, agreement_buyer_type_matrix_summary, agreement_industry_pairing_summary, agreement_counsel_leaderboard_summary]
   migration: >
-    Sums and medians of transaction_price_total change: 430 continuing agreements
-    lost their total and 581 gained one. The summary tables were rebuilt from the
+    Sums and medians of transaction_price_total change: 479 continuing agreements
+    lost their total and 571 gained one. The summary tables were rebuilt from the
     corrected values.
   refs: ["#179", "65a87fcb"]
 
 - type: data
   severity: breaking
-  summary: "transaction_price_total on 1,528 deals, 1,509 of them with a public target, was set to the value the parties announced at signing, including the debt-inclusive headline where one was stated; 1,518 still hold it; the cash and stock legs moved with it only on 240 single-form deals."
+  summary: "transaction_price_total on 1,528 deals, 1,509 of them with a public target, was set to the value the parties announced at signing, including the debt-inclusive headline where one was stated; 1,509 still hold it; the cash and stock legs moved with it only on 240 single-form deals."
   details: >
     On public-target deals, the value stated in the announcement press release
     or filing at signing now takes precedence over per-share arithmetic or a
     closing-date value when they differ by more than 5%: 1,409 totals changed
     and 119 were filled, measured against the value stored before this pass. The final metadata
-    review and the later price passes then changed 7 of these totals and cleared 3. Against the previous
-    release, 1,371 changed, 91 were filled, 10 match and 3 were cleared among the 1,475 continuing agreements; the other 53 are newly served. Where
+    review and the later price passes then changed 17 of these totals and cleared 2. Against the previous
+    release, 1,371 changed, 91 were filled, 11 match and 2 were cleared among the 1,475 continuing agreements; the other 53 are newly served. Where
     the release states a value including assumed or
     repaid debt, or the deal's enterprise value, the total holds that figure. The final metadata review also took a value from a party's own release page or investor deck where EDGAR holds none; a combined-company or pro forma value never counts.
     Mixed cash-and-stock deals where no party values the stock get
@@ -337,7 +366,7 @@ unreleased:
     deals the cash or stock leg moved with the total: 17 were checked against
     share counts, and on the other 223 the value is at most 25% above the
     prior leg and can include some debt. 15 further legs were corrected from the
-    filings. All other legs are untouched by this entry. Now 229
+    filings. All other legs are untouched by this entry. Now 224
     of the legs set from the announced value still hold it. These totals come
     from the release, not the agreement, and metadata_sources cites it. A deal with no announced value in the filer's own announcement filings (or, in the final metadata review, a party's own release page or deck) keeps its existing total, so across public targets the field holds a debt-inclusive
     value on some deals and an equity value on others. Other private-target
@@ -348,11 +377,11 @@ unreleased:
   migration: >
     transaction_price_total need not equal the sum of transaction_price_cash,
     transaction_price_stock and transaction_price_assets: it exceeds the legs
-    by more than 1% on 2,212 served agreements and falls below them by more than 1% on 22. Do not test total = cash + stock + assets, and do not treat the
+    by more than 1% on 2,384 served agreements and falls below them by more than 1% on 10. Do not test total = cash + stock + assets, and do not treat the
     gap as an exact debt figure. The legs are the closest measure of what
-    holders receive, with three limits: on the 229 deals above the leg holds
+    holders receive, with three limits: on the 224 deals above the leg holds
     the announced value; a leg is empty where no party prints a value for it at signing
-    (the stock leg on 1,000 served mixed deals that have a total); and 448 served deals with a total have no legs. No field gives a like-for-like
+    (the stock leg on 1,066 served mixed deals that have a total); and 474 served deals with a total have no legs. No field gives a like-for-like
     equity value across all deals. Sums and medians of deal value change; the summary tables were
     rebuilt from the new values.
   refs: []
