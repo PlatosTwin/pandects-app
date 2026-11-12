@@ -48,25 +48,24 @@ unreleased:
 
 - type: data
   severity: notable
-  summary: "Served agreements 9,787 -> 12,038 (+2,487 added, -236 removed) and searchable sections 954,483 -> 1,181,700; this release is mostly a data-quality release (see the entries below)."
+  summary: "Served agreements 9,787 -> 12,198 (+2,708 added, -297 removed) and searchable sections 954,483 -> 1,196,572; this release is mostly a data-quality release (see the entries below)."
   details: >
     "Served" means the agreement has a verified XML and rows in
-    latest_sections_search. Of the 9,787 agreements served in 2026-09-09, 9,551 are still served; 236 were removed (167 filings outside the dataset's scope, 69 duplicates). 2,487 are newly served: 2,061 from a review of the
-    previously unadmitted EDGAR queue, 129 newly filed (2026-08-17 to
-    2026-10-09), 253 whose XML previously failed validation and 44 that
+    latest_sections_search. Of the 9,787 agreements served in 2026-09-09, 9,490 are still served; 297 were removed (226 filings outside the dataset's scope, 71 duplicates). 2,708 are newly served: 2,231 from a review of the
+    previously unadmitted EDGAR queue, 135 newly filed (2026-08-17 to
+    2026-10-09), 297 whose XML previously failed validation and 45 that
     previously had no XML. Every served XML was rebuilt with the current builder
-    (none of the 9,551 continuing agreements has a byte-identical XML), so text,
+    (none of the 9,490 continuing agreements has a byte-identical XML), so text,
     sections and metadata changed widely; the entries below give the exact
-    counts. Words in served section text: 385.1M -> 469.0M. The taxonomy
-    (standard_id) labels are not yet rebuilt. Not served, besides the 1,540 rows with agreements.status = 'invalid': 61 filings whose XML cannot be
-    validated, 5 superseded originals whose amended and restated version is served (see the removal entry), and 571 filings that the page splitter leaves at 10 pages or fewer, so no XML is built for them
+    counts. Words in served section text: 385.1M -> 474.8M. The taxonomy
+    (standard_id) labels are not yet rebuilt. Not served, besides the 1,432 rows with agreements.status = 'invalid': 7 superseded originals whose amended and restated version is served (see the removal entry), 5 duplicates of a served agreement, 2 side agreements, and 571 filings that the page splitter leaves at 10 pages or fewer, so no XML is built for them
     (a known limit).
   tables: [agreements, xml, sections, latest_sections_search]
   refs: []
 
 - type: data
   severity: notable
-  summary: "2,061 agreements added from a review of the previously unadmitted EDGAR filing queue (filings 2021-01-04 to 2026-08-13), with 205,713 searchable sections."
+  summary: "2,231 agreements added from a review of the previously unadmitted EDGAR filing queue (filings 2021-01-04 to 2026-08-13), with 221,766 searchable sections."
   details: >
     The automatic title check had held EDGAR filings out of the dataset. Each
     was reviewed against a written rubric (an executed, arm's-length, definitive
@@ -77,26 +76,35 @@ unreleased:
     1 is a superseded original and 1 is held for review; these 9 keep status
     'invalid'. A second reader then read the 1,059 other rejected filings that had
     only one read (1,038 from this queue and 21 from the monthly load below): 729
-    stay rejected, 263 are held for review and 67 were found valid. A third,
+    stay rejected, 263 were held for a ruling and 67 were found valid. A third,
     independent reader confirmed 38 of the 67, rejected 7 and held 22, and 3 more
-    of the 38 are held for review. Of the other 35, 31 are now served (29 from this
+    of the 38 were held. Of the other 35, 31 are now served (29 from this
     queue and 2 from the monthly load), 3 cannot be split into pages and 1 is a
-    duplicate of a served agreement. The held, rejected and unsplit filings keep
-    status 'invalid'. Of the filings rejected in the first review, those with no
-    second read are duplicates of other filings or filings on which two readers
-    already agreed. 2,061 of the
-    queue filings now have verified XML and sections. 1,280 carry
+    duplicate of a served agreement. The maintainer then ruled on the 288 held
+    filings by class (draft legends on signed copies, control stakes below 100%,
+    property and plant sales, related-party deals and the like): 185 were
+    admitted and 103 stay rejected. Of the 185, 161 are now served (155 from this
+    queue and 6 from the monthly load), 14 cannot be split into pages, 5 are
+    duplicates of a served agreement, 2 are side agreements and 3 are outside the
+    dataset's scope. Each of the 161 has reviewed page labels, a structure check
+    against the filed document, metadata from two readers and counsel from its
+    notices section where it names a law firm (129 of the 161). The rejected and unsplit filings keep status 'invalid'. Of
+    the filings rejected in the first review, those with no second read are
+    duplicates of other filings or filings on which two readers already agreed.
+    2,231 of the
+    queue filings now have verified XML and sections. 1,118 carry
     agreements.status = 'invalid': the filings rejected (duplicates of filings already in the queue or
     dataset, single-asset and property sales, oil and gas packages, affiliate
     deals, minority stakes and joint ventures, unexecuted forms, financing
-    documents, shells and the like), held or left unsplit as above; 4 more duplicates were deleted. 114 others passed review but are not served:
-    15 have XML that fails validation, 2 are superseded originals whose amended and
-    restated version is served (see the removal entry) and 97 have no XML. Their pages
+    documents, shells and the like), held, left unsplit or found outside the dataset's scope as above; 4 more duplicates were deleted. 106 others passed review but are not served:
+    97 have no XML, 5 are duplicates of a served agreement, 2 are side agreements,
+    and 2 are superseded originals whose amended and restated version is served
+    (see the removal entry). Their pages
     were labeled and checked by model reviewers and their XML went through the
     same validation as the rest of the corpus. Metadata is filled: target,
-    acquirer, consideration, deal type and announce date for all 2,061, price
-    total for 1,752 (85%; the rest state no price, or pay in stock the agreement
-    does not value), target counsel for 1,785. Their sections carry no taxonomy
+    acquirer, consideration, deal type and announce date for all 2,231, price
+    total for 1,897 (85%; the rest state no price, or pay in stock that no party
+    values), target counsel for 1,918. Their sections carry no taxonomy
     label (standard_id) until the taxonomy is rebuilt, so filtering sections by
     clause type does not yet return them.
   tables: [agreements, xml, sections, latest_sections_search, agreement_counsel]
@@ -104,9 +112,9 @@ unreleased:
 
 - type: data
   severity: notable
-  summary: "Monthly load: 129 agreements filed 2026-08-17 to 2026-10-09 added, with 14,167 searchable sections."
+  summary: "Monthly load: 135 agreements filed 2026-08-17 to 2026-10-09 added, with 14,664 searchable sections."
   details: >
-    From the new EDGAR filings ingested on 2026-10-19 and 2026-10-20, 129 are served (4 of them after a second read of filings first rejected; see the entry above), 27 were rejected or held on review (status 'invalid') and 3 cannot be split into
+    From the new EDGAR filings ingested on 2026-10-19 and 2026-10-20, 135 are served (12 of them after a re-read of filings first rejected: 10 through the re-reads in the entry above and 2 restored after an earlier removal for a blank date), 21 were rejected on review (status 'invalid') and 3 cannot be split into
     pages, so they have no XML. The newest served
     filing is 2026-10-09 (2026-08-14 in the previous release).
   tables: [agreements, xml, sections, latest_sections_search]
@@ -114,7 +122,7 @@ unreleased:
 
 - type: data
   severity: notable
-  summary: "297 agreements that were already in the dataset but not searchable are now served: 253 whose XML failed validation and 44 that had pages but no XML."
+  summary: "342 agreements that were already in the dataset but not searchable are now served: 297 whose XML failed validation and 45 that had pages but no XML."
   details: >
     Failing XMLs were reviewed against the filing. Where the failure came from a
     tagging error, a mislabeled page or an isolated numbering typo in the
@@ -122,72 +130,80 @@ unreleased:
     match the source and the XML rebuilt. Where the filing itself has an unusual
     but valid structure (an inserted 4.7A section, a printed numbering restart,
     an agreement that starts at Article 0), the XML was accepted as printed;
-    such hand-accepted XMLs carry xml.status_source = 'manual' (158 served, up from 35). Latest XMLs that fail validation fell from 352 to 61: 253 of the
-    352 were cured and are served, 54 were rejected on review and 45 still fail,
-    and 16 filings with no XML in the last release now fail too. The 6 side agreements removed from serving (see the removal entry), 6 superseded originals whose restated version is served and 1 duplicate of a served agreement have a latest XML with status 'invalid' as well, so 74 latest XMLs carry that status. The 61 are
-    filings whose numbering is garbled throughout, scanned images with lost
-    section numbers, or documents with missing pages, and are not served.
+    such hand-accepted XMLs carry xml.status_source = 'manual' (220 served, up from 35). An agreement whose whole text prints no section numbers is served with its printed headings as section titles. Latest XMLs that fail validation fell from 352 to none: 297 of the
+    352 were cured and are served, 54 were rejected on review, and 1 was cured,
+    served and later removed as outside the dataset's scope (see the removal entry). 22 latest XMLs
+    still carry status 'invalid' because their agreement is not served: 8 side
+    agreements (the 6 removed from serving, see the removal entry, and 2 newly
+    admitted filings), 8 superseded originals whose restated version is served and
+    6 duplicates of a served agreement.
   tables: [xml, sections, latest_sections_search]
   refs: ["03a480f2", "#178", "#227"]
 
 - type: data
   severity: breaking
-  summary: "236 previously served agreements removed: 167 filings outside the dataset's scope and 69 duplicates. agreements now holds 1,540 rows with status = 'invalid'."
+  summary: "297 previously served agreements removed: 226 filings outside the dataset's scope and 71 duplicates. agreements now holds 1,432 rows with status = 'invalid'."
   details: >
-    Outside the dataset's scope (167): sponsor drop-downs to a controlled MLP or
+    Outside the dataset's scope (226): sponsor drop-downs to a controlled MLP or
     affiliate, guaranties, voting and support agreements, subscription,
     registration-rights and note-purchase agreements, financing documents,
-    unexecuted forms and bidder proposals, amendments, proxy statements and an option plan, and 6 side agreements rather than acquisitions (PIPEs, a recapitalization, a block share sale, a JV contribution and a financing). Their sections, counsel, clauses and index rows are removed, and so is the XML of all but those 6, whose latest XML stays with status 'invalid'; the agreements row stays, with status = 'invalid', so the filing is
-    not re-ingested. Duplicates (69 served): 68 originals superseded
+    unexecuted forms and bidder proposals, amendments, proxy statements and an option plan, and 6 side agreements rather than acquisitions (PIPEs, a recapitalization, a block share sale, a JV contribution and a financing), 167 in all.
+    59 more were removed after two independent reads. 58 fail the property
+    rule: 52 are bare property or lease packages and 6 are vehicles with no
+    business of their own (companies that only hold property or projects). 1 is
+    the formation of a 50/50 joint venture in which no party gains control, a
+    side agreement rather than an acquisition. Their sections, counsel, clauses and index rows are removed, and so is the XML of all but those 6 side agreements, whose latest XML stays with status 'invalid'; the agreements row stays, with status = 'invalid', so the filing is
+    not re-ingested. Duplicates (71 served): 70 originals superseded
     by their amended and restated version, which is now served under its own
     agreement_uuid, and 1 agreement filed twice (the earlier copy is kept).
     The agreements rows of 65 of the superseded originals and of the copy filed
     twice are deleted (70 agreements rows deleted in all, counting 4 duplicates
-    from the EDGAR queue review). The other 3 superseded originals were removed
+    from the EDGAR queue review). The other 5 superseded originals were removed
     later and keep their agreements row, with status 'verified', and their XML,
     whose latest version has status 'invalid'; their sections, counsel and index
     rows are removed. In the previous release no agreements row
-    had status 'invalid'; now 1,540 do (1,280 from the EDGAR queue review, the 167 removed above, 27 rejected or held new filings, and 66 filings that
-    were never served, rejected after their XML failed validation or was never
-    built).
+    had status 'invalid'; now 1,432 do (1,118 from the EDGAR queue review, the 226 removed above, 21 rejected new filings, and 67 filings that
+    were not served in the previous release: 66 rejected after their XML failed
+    validation or was never built, and 1 newly served agreement later removed
+    under the property rule).
   tables: [agreements, xml, sections, latest_sections_search, latest_sections_search_standard_ids, agreement_counsel, agreement_index_summary, clauses, tax_clause_assignments]
   migration: >
     Count or join served agreements through latest_sections_search or
     agreement_index_summary. Do not derive them from agreements: a plain
-    COUNT(*) includes 1,540 invalid rows and other unserved filings, status
+    COUNT(*) includes 1,432 invalid rows and other unserved filings, status
     is NULL on most served agreements, so `status <> 'invalid'` drops them, and
-    status = 'verified' does not mean served (the 3 superseded originals above
+    status = 'verified' does not mean served (the 5 superseded originals above
     are among the exceptions). 70
     agreement_uuid values from the previous dump no longer exist; for the 65
     amended and restated replacements, look the deal up by target and acquirer.
-    The agreement_uuid values of the other 3 superseded originals still exist in
+    The agreement_uuid values of the other 5 superseded originals still exist in
     agreements but have no sections.
   refs: []
 
 - type: data
   severity: breaking
-  summary: "Section text and structure corrected across the corpus: of the 9,551 agreements served in both releases, 4,851 have changed words, 330 have a different number of sections and 2,598 have a changed outline; 662 keep identical section text, though their titles may differ."
+  summary: "Section text and structure corrected across the corpus: of the 9,490 agreements served in both releases, 4,820 have changed words, 325 have a different number of sections and 2,580 have a changed outline; 656 keep identical section text, though their titles may differ."
   details: >
-    Every served XML was rebuilt with the current builder (see the refs below), and at least 1,879 agreements (1,844 of them served, 1,140 continuing) also had reviewed corrections to their heading tags, page labels or source text
-    (24,112 text edits, 736 page-label edits). Main changes: (1) Page
+    Every served XML was rebuilt with the current builder (see the refs below), and at least 1,957 agreements (1,930 of them served, 1,130 continuing) also had reviewed corrections to their heading tags, page labels or source text
+    (29,546 text edits, 736 page-label edits). Main changes: (1) Page
     furniture is no longer served as section text: running titles, page numbers,
     document IDs, "Execution Version" and confidentiality legends ("confidential
     treatment requested ... omitted and filed separately with the Securities and
     Exchange Commission"), table-of-contents headers repeated on body pages and
-    EDGAR SGML markup. Across all the changes in this entry, 330,304 words were removed from section
-    text in continuing agreements, 4,726 agreements lost at least one word and 522 lost 50 or
+    EDGAR SGML markup. Across all the changes in this entry, 329,508 words were removed from section
+    text in continuing agreements, 4,697 agreements lost at least one word and 518 lost 50 or
     more. (2) Headings not detected before are now their own sections: final
     sections folded into the one before, whole articles, sections printed
     without a number, back-to-back headings of the same kind, and closing
-    sections that sat on a page labeled as a signature page. 282 agreements gained sections and 48 lost some (signature pages, exhibits and schedules
+    sections that sat on a page labeled as a signature page. 277 agreements gained sections and 48 lost some (signature pages, exhibits and schedules
     that had been served as the last sections, or as the first ones from a table
-    of contents); net +604 sections. Section and article titles were cleaned
+    of contents); net +597 sections. Section and article titles were cleaned
     (cross-references no longer read as titles, glued words split, heading
-    periods and separator dashes dropped), which changes the outline of 2,598 agreements. (3) Spacing and punctuation now follow the filed page: no space
+    periods and separator dashes dropped), which changes the outline of 2,580 agreements. (3) Spacing and punctuation now follow the filed page: no space
     before closing punctuation, split ordinals and possessives rejoined ("3 rd"
     -> "3rd"), glued words separated, page-text lines the HTML prints as one
     block joined, table rows of malformed HTML emitted once, and HTML paragraphs
-    kept in page order. 553 continuing agreements keep the same words in the same order (only spacing, punctuation, markup or section boundaries changed); 136,680 words were added in all (rejoined tokens and recovered text, including the definitions in (5)). (4) A final text pass changed 257 agreements (165 continuing, 92 newly served)
+    kept in page order. 552 continuing agreements keep the same words in the same order (only spacing, punctuation, markup or section boundaries changed); 136,459 words were added in all (rejoined tokens and recovered text, including the definitions in (5)). (4) A final text pass changed 257 agreements (164 continuing, 91 newly served and 2 since removed)
     with 5,179 text fixes, counted against the text just before that pass; the
     continuing ones are included in the counts above.
     In 210 agreements it repaired inline text (5,118 fixes): page furniture left
@@ -197,22 +213,22 @@ unreleased:
     abbreviation, body text served as a title, and stray numbers or
     cross-references tagged as sections. In 3 it restored to the body a title,
     preamble and recitals that were served only with the table of contents,
-    so those agreements now open at the start of the text. (5) Two builder changes were then rolled out, rebuilding 8,754 agreements. A paragraph cut by a page break is now joined into one paragraph where the builder can tell that the sentence continues, with the page number and page id that split it placed after it (about 60,000 cut paragraphs are left as two): 3,485 continuing agreements keep exactly the same words, in a different order, and in nearly all of them only those page markers moved. Stray numbers are no longer promoted to sections, titles cut at an abbreviation or running past the heading now end where the printed heading ends, definitions printed before Article 1 are served as their own article-level section (25 agreements), and table-of-contents lines left above the preamble are no longer served as text (23 agreements). Conventions: an article that prints no sections is served as one
-    untitled section holding the article's text (98 agreements have no titled
-    section at all, up from 42; 33,270 untitled sections, up from 24,913; 3,089 sections have no text, up from 2,178); a signature block printed on the same
+    so those agreements now open at the start of the text. (5) Two builder changes were then rolled out, rebuilding 8,754 agreements. A paragraph cut by a page break is now joined into one paragraph where the builder can tell that the sentence continues, with the page number and page id that split it placed after it (about 60,000 cut paragraphs are left as two): 3,462 continuing agreements keep exactly the same words, in a different order, and in nearly all of them only those page markers moved. Stray numbers are no longer promoted to sections, titles cut at an abbreviation or running past the heading now end where the printed heading ends, definitions printed before Article 1 are served as their own article-level section (25 agreements), and table-of-contents lines left above the preamble are no longer served as text (23 agreements). Conventions: an article that prints no sections is served as one
+    untitled section holding the article's text (99 agreements have no titled
+    section at all, up from 42; 33,757 untitled sections, up from 24,913; 3,160 sections have no text, up from 2,178); a signature block printed on the same
     page as the last clause stays in the body; the testimonium may sit inside
     the last section.
   tables: [xml, sections, latest_sections_search]
   migration: >
-    96.7% of section_uuid values survive: 922,717 of the 954,483 previous ids still exist. 11,813 ids in 776 continuing agreements changed (resectioned
-    agreements) and 19,953 belong to removed agreements. Re-fetch section ids
+    96.1% of section_uuid values survive: 916,850 of the 954,483 previous ids still exist. 11,699 ids in 767 continuing agreements changed (resectioned
+    agreements) and 25,934 belong to removed agreements. Re-fetch section ids
     rather than joining on ids saved from the previous dump; to find changed
-    agreements, compare sections rather than whole XMLs: no continuing XML is byte-identical, while 728,689 of the 922,717 surviving sections (79.0%) are.
+    agreements, compare sections rather than whole XMLs: no continuing XML is byte-identical, while 723,869 of the 916,850 surviving sections (79.0%) are.
   refs: ["#175", "#177", "#227", "#228", "#229", "#230", "#231", "#232", "#233", "#234", "#235", "#236", "#237", "#238", "#239", "#241", "#242", "#244", "#245", "#246", "#248", "#249", "#250", "#256", "#257", "b5a626a2", "54955dea", "5fc61492", "17706a9b"]
 
 - type: data
   severity: breaking
-  summary: "Deal parties and listing status corrected: acquirer changed on 4,284 and target on 3,463 of the 9,551 continuing agreements; acquirer_type on 795, target_type on 557, acquirer_pe on 217, target_pe on 432."
+  summary: "Deal parties and listing status corrected: acquirer changed on 4,315 and target on 3,886 of the 9,490 continuing agreements; acquirer_type on 783, target_type on 539, acquirer_pe on 216, target_pe on 429."
   details: >
     Parties now follow written rules applied to the whole corpus: the acquirer
     and target are the parties the agreement prints (a parent counts only when
@@ -221,16 +237,16 @@ unreleased:
     merger subsidiary gives way to the parent named as a party while a printed
     buying vehicle stays as printed, a sponsor buying through a vehicle is
     stored as the printed sponsor funds, a portfolio company buying in its own
-    name is stored as that company, and names are as at signing. A name the agreement prints in all capitals is stored in mixed case, and a long final suffix is stored in its short form (Corp., Inc., Ltd., Co.). A later pass set 1,626 party names on 1,511 served agreements to the form the agreement prints outside its all-capital lines (letter case and the comma before the suffix). Of the changes counted here, 1,885 target changes and 1,563 acquirer changes are changes of letter case, suffix form or punctuation only. A carve-out target is stored as the seller followed by a business tag between slashes. On about 1,075 of the 1,430 tagged targets the tag is not a phrase the agreement prints; these tags are still under review. In a de-SPAC the SPAC is the acquirer and the operating company the target, even where a new holding company is printed; in a merger of equals or a combination under a new holding company, the printed new parent or surviving company is stored. A printed
+    name is stored as that company, and names are as at signing. A name the agreement prints in all capitals is stored in mixed case, and a long final suffix is stored in its short form (Corp., Inc., Ltd., Co.). A later pass set 1,626 party names on 1,511 agreements served at the time (1,484 of them are still served) to the form the agreement prints outside its all-capital lines (letter case and the comma before the suffix). Of the changes counted here, 1,753 target changes and 1,545 acquirer changes are changes of letter case, suffix form or punctuation only. A carve-out target is stored as the seller followed by a business tag between slashes, and the tag uses words the agreement prints. A later pass read every stored tag whose words a script could not find in the agreement and, after an independent second read, changed 679 target names: tags were rewritten in printed words, and a printed target company replaced a parent plus a tag. 1,175 served targets now carry a tag. 18 of them keep their stored tag as an exception: on 11 the agreement prints only a bare term such as "Business", so a descriptive tag stays, and on 7 the readers did not agree. Further passes removed from 139 agreements 150 name tags the agreement does not print (places in brackets and count suffixes such as "(3)"), and 67 EDGAR suffixes such as /Old/, and changed 7 acquirers after two independent reads. In a de-SPAC the SPAC is the acquirer and the operating company the target, even where a new holding company is printed; in a merger of equals or a combination under a new holding company, the printed new parent or surviving company is stored. A printed
     unlisted subsidiary of a listed parent is a public acquirer; OTC-quoted
     companies are public; non-traded REITs and BDCs and blank-check shells
     without a quote are private. Most changes of substance were checked against the agreement
     text by an independent second read before they were written. Missing parties
-    among the served corpus: none (all 12,038 have target and acquirer). Type coverage: target_type 12,038 and acquirer_type 12,038 of 12,038. target_pe now counts only named buyout-style sponsors that hold a majority or a stated control group, not venture-capital, hedge, distressed or credit funds or a minority block. All 2,004 served targets stored at 1 were
+    among the served corpus: none (all 12,198 have target and acquirer). Type coverage: target_type 12,198 and acquirer_type 12,198 of 12,198. target_pe now counts only named buyout-style sponsors that hold a majority or a stated control group, not venture-capital, hedge, distressed or credit funds or a minority block. All 2,004 served targets stored at 1 were
     reviewed for venture backing, and hedge and credit holders were then swept
     by manager name, so a few of those may remain: 547 were set to 0, and 203 with an unclear investor
-    stayed at 1. The final metadata review then returned 2 of the 547 to 1 (2 more are no longer served) and set 45 other served targets from 1 to 0. Of the 543 still at 0 (476 private, 67 public),
-    against the previous release 356 went from 1 to 0, 78 were empty, 9 were
+    stayed at 1. The final metadata review then returned 2 of the 547 to 1 (4 more are no longer served) and set 45 other served targets from 1 to 0. Of the 541 still at 0 (474 private, 67 public),
+    against the previous release 354 went from 1 to 0, 78 were empty, 9 were
     already 0 and 100 are newly served. The final metadata review read every agreement served at that time (11,973, plus the 6 side agreements later removed) against the agreement text and, where the text did not settle a field, SEC filings or a party's own announcement. Against the values stored just before
     that review, it changed at least one metadata field (parties, types, sponsor
     flags, prices, consideration, deal type, dates, deal status or industries) on 3,291 agreements and counsel on 334, or 3,497 agreements in all. These
@@ -241,28 +257,37 @@ unreleased:
 
 - type: data
   severity: breaking
-  summary: "Deal price, consideration and dates corrected: price total changed on 3,673, filled on 569 and cleared on 440 continuing agreements; consideration type changed on 855; deal type changed on 635; deal status filled on 172 and changed on 168."
+  summary: "Deal price, consideration and dates corrected: price total changed on 3,669, filled on 581 and cleared on 430 continuing agreements; consideration type changed on 852; deal type changed on 635; deal status filled on 170 and changed on 169."
   details: >
     Prices now mean the headline price at signing, including assumed or repaid
-    debt, without earnouts or CVRs, and as signed (not as later amended). The headline comes from the signed agreement, except mainly on public-target deals, where the value the parties announced at signing takes precedence (see the
-    separate entry on announced values). Elsewhere a stock leg the agreement
-    does not value is cleared, and so is the total unless a party release states one. Where no single total is printed but its pieces are, the total is arithmetic on printed figures only (a per-share price times a printed share count, or cash plus separately stated assumed debt); a partial purchase is priced at what is actually bought; an agreement buying several separately printed companies lists them all as the target and sums their prices; and a deal priced in a foreign currency has a USD price only where the agreement or a party's release prints one. Legs follow the same standard: a leg holds a dollar figure that a party prints for that leg, valued at signing, or arithmetic on printed figures. A closing-date or purchase-accounting value does not count, and neither does the difference between two other figures. A leg with no such figure is empty, except the 229 legs set from the announced value (next entry). Price total coverage among served agreements rose from
-    89.4% (8,752 of 9,787) to 89.7% (10,793 of 12,038). Among
-    continuing agreements 440 totals were cleared, mostly where the agreement
-    does not value a stock leg, and 569 were filled (89.5% -> 90.9%). The 2,487
-    newly served agreements have lower coverage (85.0%). Two later passes read
+    debt, and as signed (not as later amended). The rules on stated per-share
+    values, seller notes, "up to" headlines, elections and collars, de-SPAC
+    prices and late filings below came last; only the price rows held for a
+    ruling (114 agreements) were read again under them. Earnouts and CVRs count only
+    where the headline the parties announce counts them; a headline "up to $X"
+    that counts them is stored as X. The headline comes from the signed agreement, except mainly on public-target deals, where the value the parties announced at signing takes precedence (see the
+    separate entry on announced values). Elsewhere a stock leg is valued only
+    where a party states a per-share value that holders get (in the signing
+    release, an investor deck, or the agreement's own collar or reference price)
+    and the agreement prints the share count; a market price quoted in passing
+    does not count. A stock leg with no such value is cleared, and so is the
+    total unless a party release states one. Where no single total is printed but its pieces are, the total is arithmetic on printed figures only (a per-share price times a printed share count, or cash plus separately stated assumed debt); a partial purchase is priced at what is actually bought; an agreement buying several separately printed companies lists them all as the target and sums their prices; a deal priced in a foreign currency has a USD price only where the agreement or a party's release prints one; a price that depends on an election, collar or cap settled after signing holds the base case or cap printed at signing; and a de-SPAC price is the target holders' equity at the SPAC share price plus printed cash, never a pro forma or combined value. Legs follow the same standard: a leg holds a dollar figure that a party prints for that leg, valued at signing, or arithmetic on printed figures. A seller note or a fixed deferred payment goes in the assets leg. A closing-date or purchase-accounting value does not count, and neither does the difference between two other figures. A value a party prints only in a later filing counts only when its value date is within 7 days of signing. A leg with no such figure is empty, except the 229 legs set from the announced value (next entry). Price total coverage among served agreements rose from
+    89.4% (8,752 of 9,787) to 89.8% (10,950 of 12,198). Among
+    continuing agreements 430 totals were cleared, mostly where no party values
+    a stock leg, and 581 were filled (89.5% -> 91.1%). The 2,708
+    newly served agreements have lower coverage (85.2%). Two later passes read
     the parties' signing announcement (a release, an 8-K or an investor deck)
     for served deals with an empty total. The first read 676 of the 1,673 served
     deals that then had an empty total and filled 353 (346 with a private
-    target); 243 have no usable party figure and stay empty, and 80 are held for
-    review. The second read 485 more, each with a public target or mixed
-    consideration, and filled 112 (105 with a private target); 304 stay empty
-    and 69 are held for review. A second, independent reader confirmed each
+    target); 243 had no usable party figure, and 80 were held for review. The
+    second read 485 more, each with a public target or mixed consideration, and
+    filled 112 (105 with a private target); 304 had no usable party figure, and
+    69 were held for review. A second, independent reader confirmed each
     fill, and metadata_sources cites the source. A leg was filled only where the
     source prints that leg's own dollar value (166 legs in the first pass, 38 in
     the second). Of the 465 filled, 349 are continuing agreements: 62 count as
-    filled and 225 as changed in this entry, and 62 hold their 2026-09-09 total
-    again. The other 116 are newly served. Two further passes, each with two
+    filled and 225 as changed in this entry, 61 hold their 2026-09-09 total
+    again and 1 was later cleared. The other 116 are newly served. Two further passes, each with two
     readers, checked price legs against the standard above. The first read 504
     served deals whose stock leg matched only a closing-date source and changed
     395 fields on 229 of them. The second read 652 deals (legs above the total
@@ -273,34 +298,41 @@ unreleased:
     field by field. In the second, 7 of 240 price fields and 4 of about 1,020
     other fields were wrong, on 8 agreements, and those errors were corrected,
     apart from a few held for a ruling. Price legs are the least reliable fields.
-    Stock price legs: 1,241 cleared, 649 changed; cash legs: 1,700 changed, 663 cleared; asset legs: 389 cleared. Of the cleared legs, 138 stock, 207 cash and 157 asset
-    legs were stored zeros. Consideration type: 421 mixed deals are now cash and 409 now stock
+    The maintainer then ruled on the cases that had been held (the rules above on
+    stated per-share values, seller notes, "up to" headlines, elections and
+    collars, de-SPAC prices and late filings). Two readers read the held rows
+    again under these rulings, and 150 price fields changed on 114 agreements.
+    Of the 149 deals held with an empty total in the two passes on empty totals,
+    43 now have a total and 106 are empty. 25 price fields on 23 agreements stay
+    held for review, 13 of them totals of those 149 deals.
+    Stock price legs: 1,242 cleared, 660 changed; cash legs: 1,705 changed, 674 cleared; asset legs: 388 cleared. Of the cleared legs, 138 stock, 207 cash and 157 asset
+    legs were stored zeros. Consideration type: 419 mixed deals are now cash and 408 now stock
     (a deal with one real form of payment is no longer mixed, cash paid in
     lieu of fractional shares does not count as a second form, and cash paid to
     a parent before a spin-off and funded by debt that the merged company
     assumes counts as debt, which makes 5 deals stock); served deals
-    marked mixed 3,193 -> 2,985 while the corpus grew by 2,251. Deal type: a two-step deal (a tender or exchange offer followed by a back-end merger) is now tender_offer, so 615 continuing agreements moved from merger to tender_offer. Deal status: 156
-    empty and 124 pending deals are now complete, 34 pending and 15 empty are now 'cancelled' (a deal that went dark, delisted or passed its deadline without closing is 'cancelled'); empty deal_status among served agreements 182 -> 3. Close date filled on 281, changed on 117 and cleared on 35 (it is the last closing of a staged deal, and empty where sources give only the month); announce date changed on 189 and filled on 11 (it is the announcement of the signed agreement, not of an earlier offer).
+    marked mixed 3,193 -> 3,047 while the corpus grew by 2,411. Deal type: a two-step deal (a tender or exchange offer followed by a back-end merger) is now tender_offer, so 615 continuing agreements moved from merger to tender_offer. Deal status: 154
+    empty and 124 pending deals are now complete, 34 pending and 15 empty are now 'cancelled' (a deal that went dark, delisted or passed its deadline without closing is 'cancelled', and so is a deal the parties replaced with a new agreement that closed); empty deal_status among served agreements 182 -> 3. Close date filled on 279, changed on 116 and cleared on 35 (it is the last closing of a staged deal, and empty where sources give only the month); announce date changed on 200 and filled on 11 (it is the announcement of the signed agreement, not of an earlier offer; for a served amended and restated agreement it is the announcement of the restated agreement, which changed 105 dates).
   tables: [agreements, latest_sections_search, summary_data, agreement_ownership_deal_size_summary, agreement_ownership_mix_summary, agreement_buyer_type_matrix_summary, agreement_industry_pairing_summary, agreement_counsel_leaderboard_summary]
   migration: >
-    Sums and medians of transaction_price_total change: 440 continuing agreements
-    lost their total and 569 gained one. The summary tables were rebuilt from the
+    Sums and medians of transaction_price_total change: 430 continuing agreements
+    lost their total and 581 gained one. The summary tables were rebuilt from the
     corrected values.
   refs: ["#179", "65a87fcb"]
 
 - type: data
   severity: breaking
-  summary: "transaction_price_total on 1,528 deals, 1,509 of them with a public target, was set to the value the parties announced at signing, including the debt-inclusive headline where one was stated; 1,520 still hold it; the cash and stock legs moved with it only on 240 single-form deals."
+  summary: "transaction_price_total on 1,528 deals, 1,509 of them with a public target, was set to the value the parties announced at signing, including the debt-inclusive headline where one was stated; 1,518 still hold it; the cash and stock legs moved with it only on 240 single-form deals."
   details: >
     On public-target deals, the value stated in the announcement press release
     or filing at signing now takes precedence over per-share arithmetic or a
     closing-date value when they differ by more than 5%: 1,409 totals changed
     and 119 were filled, measured against the value stored before this pass. The final metadata
-    review and the later price passes then changed 6 of these totals and cleared 2. Against the previous
-    release, 1,372 changed, 91 were filled, 10 match and 2 were cleared among the 1,475 continuing agreements; the other 53 are newly served. Where
+    review and the later price passes then changed 7 of these totals and cleared 3. Against the previous
+    release, 1,371 changed, 91 were filled, 10 match and 3 were cleared among the 1,475 continuing agreements; the other 53 are newly served. Where
     the release states a value including assumed or
     repaid debt, or the deal's enterprise value, the total holds that figure. The final metadata review also took a value from a party's own release page or investor deck where EDGAR holds none; a combined-company or pro forma value never counts.
-    Mixed cash-and-stock deals whose agreement does not value the stock get
+    Mixed cash-and-stock deals where no party values the stock get
     the announced total, and the stock leg stays empty. On 240 single-form
     deals the cash or stock leg moved with the total: 17 were checked against
     share counts, and on the other 223 the value is at most 25% above the
@@ -316,46 +348,50 @@ unreleased:
   migration: >
     transaction_price_total need not equal the sum of transaction_price_cash,
     transaction_price_stock and transaction_price_assets: it exceeds the legs
-    by more than 1% on 2,176 served agreements and falls below them by more than 1% on 23. Do not test total = cash + stock + assets, and do not treat the
+    by more than 1% on 2,212 served agreements and falls below them by more than 1% on 22. Do not test total = cash + stock + assets, and do not treat the
     gap as an exact debt figure. The legs are the closest measure of what
     holders receive, with three limits: on the 229 deals above the leg holds
     the announced value; a leg is empty where no party prints a value for it at signing
-    (the stock leg on 946 served mixed deals that have a total); and 420 served deals with a total have no legs. No field gives a like-for-like
+    (the stock leg on 1,000 served mixed deals that have a total); and 448 served deals with a total have no legs. No field gives a like-for-like
     equity value across all deals. Sums and medians of deal value change; the summary tables were
     rebuilt from the new values.
   refs: []
 
 - type: data
   severity: breaking
-  summary: "Counsel rebuilt from each agreement's notices section: counsel changed on 1,632 continuing agreements and filled on 239; links 18,619 -> 24,514, firms with a link 1,398 -> 1,774 (the counsel table holds 1,869 rows; 95 have no link)."
+  summary: "Counsel rebuilt from each agreement's notices section: counsel changed on 1,623 continuing agreements and filled on 238; links 18,619 -> 24,818, firms with a link 1,398 -> 1,812 (the counsel table holds 1,910 rows; 98 have no link)."
   details: >
     Counsel is the law firm the agreement's notices clause copies for each side
     ("with a copy, which shall not constitute notice, to"). Strings that joined
     two firms were split, variants, renames and offices of one firm were folded
     into one counsel row (never across a merger of two firms), and counsel that
-    appears only elsewhere was dropped. 19 continuing agreements lost all
+    appears only elsewhere was dropped. 17 continuing agreements lost all
     counsel (the notices name none). Served agreements with any counsel: 9,208
-    of 9,787 (94.1%) -> 11,526 of 12,038 (95.7%).
+    of 9,787 (94.1%) -> 11,672 of 12,198 (95.7%).
   tables: [agreement_counsel, counsel, agreements, latest_sections_search, agreement_filter_option_summary, agreement_counsel_leaderboard_summary]
   migration: >
     counsel_id values are stable for the 1,211 firms in both releases (no
-    renames); 187 ids were retired, by folding variants or splitting strings
-    that joined two firms, with no forwarding row, and 658 are new.
+    renames). 187 ids from the previous dump no longer exist, and none has a
+    forwarding row. 162 of them were retired when variants of one firm were
+    folded together or strings that joined two firms were split. The other 25
+    are firms that exist again under a new id with the same canonical_name (for
+    example Milbank, 306 -> 2088); match these by canonical_name. 699 ids are
+    new, and 25 of them are those re-created firms.
   refs: ["f341db34"]
 
 - type: data
   severity: notable
-  summary: "Taxonomy labels and tax clauses not rebuilt yet: 1,601 tax clauses in 47 agreements and 812 labels removed; standard_id labels cover 38.1% of searchable sections (47.6% before)."
+  summary: "Taxonomy labels and tax clauses not rebuilt yet: 1,859 tax clauses in 52 agreements and 885 labels removed; standard_id labels cover 37.4% of searchable sections (47.6% before)."
   details: >
     Tax clauses and labels whose section no longer exists after a rebuild, or
-    whose agreement was removed, were deleted (clauses 29,635 -> 28,034;
-    tax_clause_assignments 11,432 -> 10,620, of which 667 labels sat on those
-    clauses and 145 had no clause row in the previous dump; no new ones). All 28,034 remaining
+    whose agreement was removed, were deleted (clauses 29,635 -> 27,776;
+    tax_clause_assignments 11,432 -> 10,547, of which 740 labels sat on those
+    clauses and 145 had no clause row in the previous dump; no new ones). All 27,776 remaining
     clauses keep the xml_version they were extracted from, which is now
     superseded, so join them through section_uuid, not to xml. Sections that got new
     ids carry no standard_id until the taxonomy is rebuilt, and neither do most
-    newly served agreements (74 of the 2,487 have labels, none of them from the
-    EDGAR queue review): latest_sections_search_standard_ids 472,839 -> 469,009 rows, latest_sections_search rows with a standard_id 454,267 -> 450,681.
+    newly served agreements (74 of the 2,708 have labels, none of them from the
+    EDGAR queue review): latest_sections_search_standard_ids 472,839 -> 465,940 rows, latest_sections_search rows with a standard_id 454,267 -> 447,728.
   tables: [clauses, tax_clause_assignments, latest_sections_search_standard_ids, latest_sections_search]
   refs: ["21e983d4"]
 
@@ -363,10 +399,10 @@ unreleased:
   severity: notable
   summary: "Summary tables rebuilt from the corrected data."
   details: >
-    agreement_index_summary 9,787 -> 12,038 rows; agreement_filter_option_summary 18,707 -> 22,954; agreement_counsel_leaderboard_summary 7,110 -> 8,983; agreement_industry_pairing_summary 936 -> 1,012; agreement_target_industry_summary 1,620 -> 1,656; summary_data 1,826 -> 1,837; agreement_deal_type_summary 130 -> 135;
-    agreement_buyer_type_matrix_summary 7 -> 6; agreement_status_summary 102 -> 73 (fewer pipeline stages are populated). agreement_overview_summary: latest
+    agreement_index_summary 9,787 -> 12,198 rows; agreement_filter_option_summary 18,707 -> 23,218; agreement_counsel_leaderboard_summary 7,110 -> 9,064; agreement_industry_pairing_summary 936 -> 1,022; agreement_target_industry_summary 1,620 -> 1,660; summary_data 1,826 -> 1,845; agreement_deal_type_summary 130 -> 135;
+    agreement_buyer_type_matrix_summary 7 -> 6; agreement_status_summary 102 -> 60 (fewer pipeline stages are populated). agreement_overview_summary: latest
     filing 2026-08-14 -> 2026-10-09, metadata coverage 99.9% -> 100.0%, taxonomy
-    coverage 47.7% -> 38.1% (the 47.7% is the published overview row; a recount
+    coverage 47.7% -> 37.4% (the 47.7% is the published overview row; a recount
     of the same dump gives the 47.6% in the taxonomy entry). NAICS and taxonomy
     reference tables are unchanged.
   tables: [agreement_index_summary, agreement_filter_option_summary, agreement_counsel_leaderboard_summary, agreement_industry_pairing_summary, agreement_target_industry_summary, summary_data, agreement_deal_type_summary, agreement_buyer_type_matrix_summary, agreement_status_summary, agreement_overview_summary, agreement_metadata_field_coverage_summary, agreement_ownership_deal_size_summary, agreement_ownership_mix_summary]
