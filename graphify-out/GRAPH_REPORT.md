@@ -1,7 +1,7 @@
-# Graph Report - pandects-app  (2026-11-10)
+# Graph Report - pandects-app  (2026-11-12)
 
 ## Corpus Check
-- 940 files · ~1,070,044 words
+- 940 files · ~1,072,466 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 54 file(s) not represented in the graph (top: (none) 15, .toml 7, .example 6)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6e83597e`
+- Built from commit: `ef4d68da`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
