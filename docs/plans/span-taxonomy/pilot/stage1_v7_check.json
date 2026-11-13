@@ -1,0 +1,51 @@
+{
+ "note": "not blind: the M5 misses informed v7; M3 and M4 are earlier samples",
+ "stage1_gold_span_recall": {
+  "m3holdout": {
+   "prepare_v6": [
+    1024,
+    1031
+   ],
+   "prepare_v7": [
+    1025,
+    1031
+   ],
+   "median_candidate_share": [
+    0.382,
+    0.409
+   ]
+  },
+  "m4holdout": {
+   "prepare_v6": [
+    394,
+    400
+   ],
+   "prepare_v7": [
+    395,
+    400
+   ],
+   "median_candidate_share": [
+    0.352,
+    0.383
+   ]
+  },
+  "m5holdout": {
+   "prepare_v6": [
+    244,
+    254
+   ],
+   "prepare_v7": [
+    252,
+    254
+   ],
+   "median_candidate_share": [
+    0.367,
+    0.42
+   ],
+   "financing_spans_missed": [
+    8,
+    0
+   ]
+  }
+ }
+}

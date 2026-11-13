@@ -1,0 +1,965 @@
+{
+ "what": "Schema v2.14 and two post-check changes after M10 (plan section 7.26), not blind: the v2.8 rule 8 escrow check skips sentences about fundamental-representation or own-breach claims, and the v2.2 rule 12 check rejoins definitions split across text-layer lines and falls back to the full text. M10 re-scored; M7 to M9 could not be re-run because their scratch was deleted.",
+ "postcheck_fires_m10": {
+  "before": {
+   "050572a3-15dc-552c-8113-fb7ab3efffad": [
+    {
+     "concept": "ma.termination.outside_date",
+     "rule": "v2.13 rule 3",
+     "recoded": "only the conditions in Sections 10.1(d) and 10.2(d) remain unsatisfied or unwaived if only the conditions to Closing set"
+    }
+   ],
+   "2d3cf3b5-bfef-5031-a284-cd3aeb94b11c": [
+    {
+     "concept": "ma.termination.fee.target",
+     "rule": "v2.2 rule 12",
+     "added": "fails to publicly recommend against acceptance of such tender or exchange offer by the"
+    }
+   ],
+   "84d63ad6-de51-54ed-bb7e-ee3ce2066a5a": [
+    {
+     "concept": "ma.indemn.cap",
+     "rule": "v2.8 rule 8",
+     "changed": "escrow_sole_recourse not_stated -> false",
+     "quote": "In respect of any claims pursuant to Section 11.2(i) (i.e., for misrepresentations and breaches of warranties), the firs"
+    }
+   ],
+   "b4b56b47-11e1-565e-8904-ada64c47b65f": [
+    {
+     "concept": "ma.termination.outside_date",
+     "rule": "v2.13 rule 1",
+     "merged": "the Termination Date will automatically be extended by (i) the amount of time during which that action is pending, plus "
+    }
+   ],
+   "e1533237-92d9-5e40-b5d4-f9268bf64e41": [
+    {
+     "concept": "ma.indemn.cap",
+     "rule": "v2.8 rule 8",
+     "changed": "escrow_sole_recourse True -> false",
+     "quote": "(d) For Losses incurred based on breaches of or inaccuracies in any of the Fundamental Representations and Losses result"
+    }
+   ],
+   "ec5c1541-e908-558b-9cfb-abe8085df75a": [
+    {
+     "concept": "ma.indemn.cap",
+     "rule": "v2.8 rule 8",
+     "changed": "escrow_sole_recourse True -> false",
+     "quote": "(B) Section 9.2.1(a) (solely with respect to the Fundamental Representations), and Section 9.2.1(c) will be satisfied on"
+    }
+   ]
+  },
+  "after": {
+   "050572a3-15dc-552c-8113-fb7ab3efffad": [
+    {
+     "concept": "ma.termination.outside_date",
+     "rule": "v2.13 rule 3",
+     "recoded": "only the conditions in Sections 10.1(d) and 10.2(d) remain unsatisfied or unwaived if only the conditions to Closing set"
+    }
+   ],
+   "0e2268be-ef72-5ec9-9a53-cd87ea8d0235": [
+    {
+     "concept": "ma.termination.fee.target",
+     "rule": "v2.2 rule 12",
+     "added": "fail to recommend against acceptance of such tender or exchange offer by the"
+    }
+   ],
+   "2d3cf3b5-bfef-5031-a284-cd3aeb94b11c": [
+    {
+     "concept": "ma.termination.fee.target",
+     "rule": "v2.2 rule 12",
+     "added": "fails to publicly recommend against acceptance of such tender or exchange offer by the"
+    }
+   ],
+   "84d63ad6-de51-54ed-bb7e-ee3ce2066a5a": [
+    {
+     "concept": "ma.indemn.cap",
+     "rule": "v2.8 rule 8",
+     "changed": "escrow_sole_recourse not_stated -> false",
+     "quote": "In respect of any claims pursuant to Section 11.2(i) (i.e., for misrepresentations and breaches of warranties), the firs"
+    }
+   ],
+   "b4b56b47-11e1-565e-8904-ada64c47b65f": [
+    {
+     "concept": "ma.termination.outside_date",
+     "rule": "v2.13 rule 1",
+     "merged": "the Termination Date will automatically be extended by (i) the amount of time during which that action is pending, plus "
+    }
+   ],
+   "bcf14416-6f2d-5e3c-94e4-09fdb634d4ae": [
+    {
+     "concept": "ma.termination.fee.target",
+     "rule": "v2.2 rule 12",
+     "added": "fail to make"
+    }
+   ],
+   "fdaa819a-d62f-5a31-bbf3-4074014e4a33": [
+    {
+     "concept": "ma.termination.fee.target",
+     "rule": "v2.2 rule 12",
+     "added": "fail to make or withdraw (or modify or qualify in any manner adverse to"
+    }
+   ]
+  }
+ },
+ "postcheck_changes": {
+  "removed_wrong": [
+   "e1533237 v2.8 rule 8",
+   "ec5c1541 v2.8 rule 8"
+  ],
+  "added_right": [
+   "0e2268be v2.2 rule 12",
+   "bcf14416 v2.2 rule 12",
+   "fdaa819a v2.2 rule 12"
+  ],
+  "added_wrong": []
+ },
+ "considered_not_done": {
+  "guarantee_as_committed_other": "Four M10 misses drop a parent or sponsor guarantee (v2.8 rule 1), but guarantee wording also appears in seven M10 agreements whose gold correctly has no `other`, and M3 to M9 are not on disk to test a narrower pattern.",
+  "expense_reimbursement_cap": "Passes in the 192-agreement pool (35/36). The one miss is M9's (10/11), whose inputs were deleted, so no cause can be checked.",
+  "escrow_left": [
+   "7c620a27: escrow backing direct seller liability coded not_stated (v2.9 rule 5)",
+   "0f3367d4: holdback plus earn-out set-off, now true under v2.14 rule 3; extractor false"
+  ]
+ },
+ "gold_changes": [],
+ "m10_us_50_after": {
+  "holdouts": [
+   "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/.claude/worktrees/span-taxonomy-design-a2f823/.claude/span-taxonomy-runs/m10holdout:sonnet_pc:gold"
+  ],
+  "agreements": 50,
+  "detection": {
+   "termination.fee.target": {
+    "tp": 21,
+    "fp": 0,
+    "fn": 0,
+    "tn": 29,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "termination.fee.reverse": {
+    "tp": 16,
+    "fp": 0,
+    "fn": 0,
+    "tn": 34,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "termination.expense_reimbursement": {
+    "tp": 7,
+    "fp": 0,
+    "fn": 0,
+    "tn": 43,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "termination.outside_date": {
+    "tp": 47,
+    "fp": 0,
+    "fn": 0,
+    "tn": 3,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "mae.definition": {
+    "tp": 48,
+    "fp": 0,
+    "fn": 1,
+    "tn": 1,
+    "precision": 1.0,
+    "recall": 0.98,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "financing.structure": {
+    "tp": 33,
+    "fp": 0,
+    "fn": 1,
+    "tn": 16,
+    "precision": 1.0,
+    "recall": 0.971,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "indemn.cap": {
+    "tp": 24,
+    "fp": 0,
+    "fn": 0,
+    "tn": 26,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "indemn.basket": {
+    "tp": 20,
+    "fp": 0,
+    "fn": 0,
+    "tn": 30,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "indemn.survival": {
+    "tp": 50,
+    "fp": 0,
+    "fn": 0,
+    "tn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "election.338h10": {
+    "tp": 8,
+    "fp": 0,
+    "fn": 0,
+    "tn": 42,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   }
+  },
+  "fields": {
+   "election.338h10.decides": {
+    "right": 8,
+    "n": 8,
+    "accuracy": 1.0,
+    "lower95": 0.688,
+    "meets_bar": true
+   },
+   "election.338h10.election": {
+    "right": 8,
+    "n": 8,
+    "accuracy": 1.0,
+    "lower95": 0.688,
+    "meets_bar": true
+   },
+   "election.338h10.tax_cost_payer": {
+    "right": 8,
+    "n": 8,
+    "accuracy": 1.0,
+    "lower95": 0.688,
+    "set_f1": 1.0,
+    "meets_bar": true
+   },
+   "financing.structure.committed": {
+    "right": 29,
+    "n": 33,
+    "accuracy": 0.879,
+    "lower95": 0.744,
+    "set_f1": 0.959,
+    "meets_bar": false
+   },
+   "financing.structure.cooperation": {
+    "right": 32,
+    "n": 33,
+    "accuracy": 0.97,
+    "lower95": 0.864,
+    "meets_bar": true
+   },
+   "financing.structure.efforts": {
+    "right": 33,
+    "n": 33,
+    "accuracy": 1.0,
+    "lower95": 0.913,
+    "meets_bar": true
+   },
+   "financing.structure.financing_condition": {
+    "right": 32,
+    "n": 33,
+    "accuracy": 0.97,
+    "lower95": 0.864,
+    "meets_bar": true
+   },
+   "financing.structure.marketing_period": {
+    "right": 33,
+    "n": 33,
+    "accuracy": 1.0,
+    "lower95": 0.913,
+    "meets_bar": true
+   },
+   "indemn.basket.baskets": {
+    "right": 19,
+    "n": 20,
+    "accuracy": 0.95,
+    "lower95": 0.784,
+    "set_f1": 0.978,
+    "meets_bar": true
+   },
+   "indemn.basket.de_minimis": {
+    "right": 20,
+    "n": 20,
+    "accuracy": 1.0,
+    "lower95": 0.861,
+    "meets_bar": true
+   },
+   "indemn.cap.cap_amounts": {
+    "right": 21,
+    "n": 24,
+    "accuracy": 0.875,
+    "lower95": 0.708,
+    "set_f1": 0.923,
+    "meets_bar": false
+   },
+   "indemn.cap.escrow_sole_recourse": {
+    "right": 22,
+    "n": 24,
+    "accuracy": 0.917,
+    "lower95": 0.76,
+    "meets_bar": false
+   },
+   "indemn.survival.fundamental_reps": {
+    "right": 50,
+    "n": 50,
+    "accuracy": 1.0,
+    "lower95": 0.942,
+    "meets_bar": true
+   },
+   "indemn.survival.general_reps": {
+    "right": 50,
+    "n": 50,
+    "accuracy": 1.0,
+    "lower95": 0.942,
+    "meets_bar": true
+   },
+   "indemn.survival.no_survival": {
+    "right": 50,
+    "n": 50,
+    "accuracy": 1.0,
+    "lower95": 0.942,
+    "meets_bar": true
+   },
+   "mae.definition.ability_to_consummate": {
+    "right": 47,
+    "n": 48,
+    "accuracy": 0.979,
+    "lower95": 0.905,
+    "meets_bar": true
+   },
+   "mae.definition.carveout_categories": {
+    "right": 35,
+    "n": 48,
+    "accuracy": 0.729,
+    "lower95": 0.604,
+    "set_f1": 0.978,
+    "meets_bar": true
+   },
+   "mae.definition.disproportionate_exception": {
+    "right": 47,
+    "n": 48,
+    "accuracy": 0.979,
+    "lower95": 0.905,
+    "meets_bar": true
+   },
+   "mae.definition.n_definitions": {
+    "right": 45,
+    "n": 48,
+    "accuracy": 0.938,
+    "lower95": 0.846,
+    "meets_bar": false
+   },
+   "mae.definition.prospects": {
+    "right": 47,
+    "n": 48,
+    "accuracy": 0.979,
+    "lower95": 0.905,
+    "meets_bar": true
+   },
+   "termination.expense_reimbursement.cap": {
+    "right": 7,
+    "n": 7,
+    "accuracy": 1.0,
+    "lower95": 0.652,
+    "meets_bar": true
+   },
+   "termination.expense_reimbursement.payor_side": {
+    "right": 7,
+    "n": 7,
+    "accuracy": 1.0,
+    "lower95": 0.652,
+    "set_f1": 1.0,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.amounts": {
+    "right": 16,
+    "n": 16,
+    "accuracy": 1.0,
+    "lower95": 0.829,
+    "set_f1": 1.0,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.kind": {
+    "right": 16,
+    "n": 16,
+    "accuracy": 1.0,
+    "lower95": 0.829,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.payor_side": {
+    "right": 16,
+    "n": 16,
+    "accuracy": 1.0,
+    "lower95": 0.829,
+    "set_f1": 1.0,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.remedy": {
+    "right": 16,
+    "n": 16,
+    "accuracy": 1.0,
+    "lower95": 0.829,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.triggers": {
+    "right": 15,
+    "n": 16,
+    "accuracy": 0.938,
+    "lower95": 0.736,
+    "set_f1": 0.987,
+    "meets_bar": true
+   },
+   "termination.fee.target.amounts": {
+    "right": 20,
+    "n": 21,
+    "accuracy": 0.952,
+    "lower95": 0.793,
+    "set_f1": 0.982,
+    "meets_bar": true
+   },
+   "termination.fee.target.payor_side": {
+    "right": 21,
+    "n": 21,
+    "accuracy": 1.0,
+    "lower95": 0.867,
+    "set_f1": 1.0,
+    "meets_bar": true
+   },
+   "termination.fee.target.remedy": {
+    "right": 20,
+    "n": 21,
+    "accuracy": 0.952,
+    "lower95": 0.793,
+    "meets_bar": false
+   },
+   "termination.fee.target.triggers": {
+    "right": 17,
+    "n": 21,
+    "accuracy": 0.81,
+    "lower95": 0.616,
+    "set_f1": 0.973,
+    "meets_bar": true
+   },
+   "termination.outside_date.breach_causation": {
+    "right": 47,
+    "n": 47,
+    "accuracy": 1.0,
+    "lower95": 0.938,
+    "set_f1": 1.0,
+    "meets_bar": true
+   },
+   "termination.outside_date.effect": {
+    "right": 47,
+    "n": 47,
+    "accuracy": 1.0,
+    "lower95": 0.938,
+    "meets_bar": true
+   },
+   "termination.outside_date.extension_conditions": {
+    "right": 47,
+    "n": 47,
+    "accuracy": 1.0,
+    "lower95": 0.938,
+    "set_f1": 1.0,
+    "meets_bar": true
+   },
+   "termination.outside_date.initial": {
+    "right": 47,
+    "n": 47,
+    "accuracy": 1.0,
+    "lower95": 0.938,
+    "meets_bar": true
+   },
+   "termination.outside_date.n_extensions": {
+    "right": 46,
+    "n": 47,
+    "accuracy": 0.979,
+    "lower95": 0.903,
+    "meets_bar": true
+   }
+  },
+  "set_field_counts": {
+   "election.338h10.tax_cost_payer": [
+    2,
+    2,
+    2
+   ],
+   "financing.structure.committed": [
+    58,
+    58,
+    63
+   ],
+   "indemn.basket.baskets": [
+    22,
+    22,
+    23
+   ],
+   "indemn.cap.cap_amounts": [
+    36,
+    39,
+    39
+   ],
+   "mae.definition.carveout_categories": [
+    448,
+    456,
+    460
+   ],
+   "termination.expense_reimbursement.payor_side": [
+    7,
+    7,
+    7
+   ],
+   "termination.fee.reverse.amounts": [
+    20,
+    20,
+    20
+   ],
+   "termination.fee.reverse.payor_side": [
+    16,
+    16,
+    16
+   ],
+   "termination.fee.reverse.triggers": [
+    39,
+    39,
+    40
+   ],
+   "termination.fee.target.amounts": [
+    27,
+    27,
+    28
+   ],
+   "termination.fee.target.payor_side": [
+    21,
+    21,
+    21
+   ],
+   "termination.fee.target.triggers": [
+    109,
+    112,
+    112
+   ],
+   "termination.outside_date.breach_causation": [
+    45,
+    45,
+    45
+   ],
+   "termination.outside_date.extension_conditions": [
+    22,
+    22,
+    22
+   ]
+  }
+ },
+ "pooled_us_192_after": {
+  "holdouts": [
+   "m9_v213_results.json#pooled_us_142_after",
+   "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/.claude/worktrees/span-taxonomy-design-a2f823/.claude/span-taxonomy-runs/m10holdout:sonnet_pc:gold"
+  ],
+  "agreements": 192,
+  "detection": {
+   "termination.fee.target": {
+    "tp": 90,
+    "fp": 0,
+    "fn": 0,
+    "tn": 102,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "termination.fee.reverse": {
+    "tp": 58,
+    "fp": 0,
+    "fn": 0,
+    "tn": 134,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "termination.expense_reimbursement": {
+    "tp": 36,
+    "fp": 1,
+    "fn": 0,
+    "tn": 155,
+    "precision": 0.973,
+    "recall": 1.0,
+    "fp_per_agreement": 0.005,
+    "meets_bar": true
+   },
+   "termination.outside_date": {
+    "tp": 185,
+    "fp": 0,
+    "fn": 0,
+    "tn": 7,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "mae.definition": {
+    "tp": 189,
+    "fp": 0,
+    "fn": 2,
+    "tn": 1,
+    "precision": 1.0,
+    "recall": 0.99,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "financing.structure": {
+    "tp": 142,
+    "fp": 2,
+    "fn": 2,
+    "tn": 46,
+    "precision": 0.986,
+    "recall": 0.986,
+    "fp_per_agreement": 0.01,
+    "meets_bar": true
+   },
+   "indemn.cap": {
+    "tp": 74,
+    "fp": 0,
+    "fn": 0,
+    "tn": 118,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "indemn.basket": {
+    "tp": 68,
+    "fp": 0,
+    "fn": 0,
+    "tn": 124,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "indemn.survival": {
+    "tp": 192,
+    "fp": 0,
+    "fn": 0,
+    "tn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "fp_per_agreement": 0.0,
+    "meets_bar": true
+   },
+   "election.338h10": {
+    "tp": 23,
+    "fp": 1,
+    "fn": 0,
+    "tn": 168,
+    "precision": 0.958,
+    "recall": 1.0,
+    "fp_per_agreement": 0.005,
+    "meets_bar": true
+   }
+  },
+  "fields": {
+   "election.338h10.decides": {
+    "right": 23,
+    "n": 23,
+    "accuracy": 1.0,
+    "lower95": 0.878,
+    "meets_bar": true
+   },
+   "election.338h10.election": {
+    "right": 23,
+    "n": 23,
+    "accuracy": 1.0,
+    "lower95": 0.878,
+    "meets_bar": true
+   },
+   "election.338h10.tax_cost_payer": {
+    "right": 23,
+    "n": 23,
+    "accuracy": 1.0,
+    "lower95": 0.878,
+    "set_f1": 1.0,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "financing.structure.committed": {
+    "right": 131,
+    "n": 142,
+    "accuracy": 0.923,
+    "lower95": 0.875,
+    "set_f1": 0.971,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "financing.structure.cooperation": {
+    "right": 138,
+    "n": 142,
+    "accuracy": 0.972,
+    "lower95": 0.937,
+    "meets_bar": true
+   },
+   "financing.structure.efforts": {
+    "right": 140,
+    "n": 142,
+    "accuracy": 0.986,
+    "lower95": 0.956,
+    "meets_bar": true
+   },
+   "financing.structure.financing_condition": {
+    "right": 139,
+    "n": 142,
+    "accuracy": 0.979,
+    "lower95": 0.946,
+    "meets_bar": true
+   },
+   "financing.structure.marketing_period": {
+    "right": 141,
+    "n": 142,
+    "accuracy": 0.993,
+    "lower95": 0.967,
+    "meets_bar": true
+   },
+   "indemn.basket.baskets": {
+    "right": 67,
+    "n": 68,
+    "accuracy": 0.985,
+    "lower95": 0.932,
+    "set_f1": 0.994,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "indemn.basket.de_minimis": {
+    "right": 68,
+    "n": 68,
+    "accuracy": 1.0,
+    "lower95": 0.957,
+    "meets_bar": true
+   },
+   "indemn.cap.cap_amounts": {
+    "right": 68,
+    "n": 74,
+    "accuracy": 0.919,
+    "lower95": 0.846,
+    "set_f1": 0.96,
+    "set_f1_approx": true,
+    "meets_bar": false
+   },
+   "indemn.cap.escrow_sole_recourse": {
+    "right": 70,
+    "n": 74,
+    "accuracy": 0.946,
+    "lower95": 0.881,
+    "meets_bar": false
+   },
+   "indemn.survival.fundamental_reps": {
+    "right": 190,
+    "n": 192,
+    "accuracy": 0.99,
+    "lower95": 0.968,
+    "meets_bar": true
+   },
+   "indemn.survival.general_reps": {
+    "right": 192,
+    "n": 192,
+    "accuracy": 1.0,
+    "lower95": 0.985,
+    "meets_bar": true
+   },
+   "indemn.survival.no_survival": {
+    "right": 192,
+    "n": 192,
+    "accuracy": 1.0,
+    "lower95": 0.985,
+    "meets_bar": true
+   },
+   "mae.definition.ability_to_consummate": {
+    "right": 187,
+    "n": 189,
+    "accuracy": 0.989,
+    "lower95": 0.967,
+    "meets_bar": true
+   },
+   "mae.definition.carveout_categories": {
+    "right": 156,
+    "n": 189,
+    "accuracy": 0.825,
+    "lower95": 0.774,
+    "set_f1": 0.982,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "mae.definition.disproportionate_exception": {
+    "right": 186,
+    "n": 189,
+    "accuracy": 0.984,
+    "lower95": 0.959,
+    "meets_bar": true
+   },
+   "mae.definition.n_definitions": {
+    "right": 184,
+    "n": 189,
+    "accuracy": 0.974,
+    "lower95": 0.945,
+    "meets_bar": true
+   },
+   "mae.definition.prospects": {
+    "right": 186,
+    "n": 189,
+    "accuracy": 0.984,
+    "lower95": 0.959,
+    "meets_bar": true
+   },
+   "termination.expense_reimbursement.cap": {
+    "right": 35,
+    "n": 36,
+    "accuracy": 0.972,
+    "lower95": 0.875,
+    "meets_bar": true
+   },
+   "termination.expense_reimbursement.payor_side": {
+    "right": 36,
+    "n": 36,
+    "accuracy": 1.0,
+    "lower95": 0.92,
+    "set_f1": 1.0,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.amounts": {
+    "right": 57,
+    "n": 58,
+    "accuracy": 0.983,
+    "lower95": 0.921,
+    "set_f1": 0.992,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.kind": {
+    "right": 57,
+    "n": 58,
+    "accuracy": 0.983,
+    "lower95": 0.921,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.payor_side": {
+    "right": 58,
+    "n": 58,
+    "accuracy": 1.0,
+    "lower95": 0.95,
+    "set_f1": 1.0,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.remedy": {
+    "right": 57,
+    "n": 58,
+    "accuracy": 0.983,
+    "lower95": 0.921,
+    "meets_bar": true
+   },
+   "termination.fee.reverse.triggers": {
+    "right": 53,
+    "n": 58,
+    "accuracy": 0.914,
+    "lower95": 0.827,
+    "set_f1": 0.98,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "termination.fee.target.amounts": {
+    "right": 88,
+    "n": 90,
+    "accuracy": 0.978,
+    "lower95": 0.932,
+    "set_f1": 0.99,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "termination.fee.target.payor_side": {
+    "right": 90,
+    "n": 90,
+    "accuracy": 1.0,
+    "lower95": 0.967,
+    "set_f1": 1.0,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "termination.fee.target.remedy": {
+    "right": 87,
+    "n": 90,
+    "accuracy": 0.967,
+    "lower95": 0.916,
+    "meets_bar": false
+   },
+   "termination.fee.target.triggers": {
+    "right": 76,
+    "n": 90,
+    "accuracy": 0.844,
+    "lower95": 0.768,
+    "set_f1": 0.983,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "termination.outside_date.breach_causation": {
+    "right": 182,
+    "n": 185,
+    "accuracy": 0.984,
+    "lower95": 0.959,
+    "set_f1": 0.997,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "termination.outside_date.effect": {
+    "right": 185,
+    "n": 185,
+    "accuracy": 1.0,
+    "lower95": 0.984,
+    "meets_bar": true
+   },
+   "termination.outside_date.extension_conditions": {
+    "right": 185,
+    "n": 185,
+    "accuracy": 1.0,
+    "lower95": 0.984,
+    "set_f1": 1.0,
+    "set_f1_approx": true,
+    "meets_bar": true
+   },
+   "termination.outside_date.initial": {
+    "right": 184,
+    "n": 185,
+    "accuracy": 0.995,
+    "lower95": 0.975,
+    "meets_bar": true
+   },
+   "termination.outside_date.n_extensions": {
+    "right": 183,
+    "n": 185,
+    "accuracy": 0.989,
+    "lower95": 0.966,
+    "meets_bar": true
+   }
+  },
+  "set_field_counts": null
+ }
+}
