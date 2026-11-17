@@ -21,6 +21,7 @@ WEB_SEARCH_CITABLE_FIELDS = (
     "purchase_price.cash",
     "purchase_price.stock",
     "purchase_price.assets",
+    "purchase_price.rollover",
     "target_public",
     "acquirer_public",
     "target_pe",
@@ -54,6 +55,7 @@ RETRY_FOCUS_FIELD_ORDER = (
     "purchase_price.cash",
     "purchase_price.stock",
     "purchase_price.assets",
+    "purchase_price.rollover",
     "target_public",
     "acquirer_public",
     "announce_date",
@@ -85,8 +87,18 @@ def json_schema_transaction_metadata() -> Dict[str, Any]:
                     "cash": {"type": ["number", "null"], "minimum": 0},
                     "stock": {"type": ["number", "null"], "minimum": 0},
                     "assets": {"type": ["number", "null"], "minimum": 0},
+                    "rollover": {
+                        "type": ["number", "null"],
+                        "minimum": 0,
+                        "description": (
+                            "Value in USD at the deal price of target equity that sellers, management or other "
+                            "holders exchange for equity of the buyer or its parent instead of selling it; "
+                            "it is not part of cash, stock or assets, and is null when the deal has no rollover "
+                            "or no source states its size."
+                        ),
+                    },
                 },
-                "required": ["cash", "stock", "assets"],
+                "required": ["cash", "stock", "assets", "rollover"],
             },
             "target_public": {"type": ["boolean", "null"]},
             "acquirer_public": {"type": ["boolean", "null"]},
@@ -393,6 +405,7 @@ def _existing_web_search_metadata_obj(agreement: Dict[str, Any]) -> Dict[str, An
             "cash": _numeric_or_none(agreement.get("transaction_price_cash")),
             "stock": _numeric_or_none(agreement.get("transaction_price_stock")),
             "assets": _numeric_or_none(agreement.get("transaction_price_assets")),
+            "rollover": _numeric_or_none(agreement.get("transaction_price_rollover")),
         },
         "target_public": _db_type_to_public_flag(agreement.get("target_type")),
         "acquirer_public": _db_type_to_public_flag(agreement.get("acquirer_type")),
@@ -1081,6 +1094,8 @@ def build_tx_metadata_update_params(
     price_cash = _to_float_or_none(price.get("cash"))
     price_stock = _to_float_or_none(price.get("stock"))
     price_assets = _to_float_or_none(price.get("assets"))
+    # Rolled-over equity is part of the total but is not a consideration leg.
+    price_rollover = _to_float_or_none(price.get("rollover"))
     if consideration == "cash" and ((price_stock or 0.0) > 0.0 or (price_assets or 0.0) > 0.0):
         raise ValueError(
             "consideration_type='all_cash' is inconsistent with non-zero stock/assets values."
@@ -1109,6 +1124,8 @@ def build_tx_metadata_update_params(
         else:
             # Mixed deals need at least two populated components before the total is reliable.
             price_total = None
+    if price_total is not None and price_rollover is not None:
+        price_total = float(price_total + price_rollover)
 
     target_type = map_public_flag_to_type(tx_metadata_obj.get("target_public"))
     acquirer_type = map_public_flag_to_type(tx_metadata_obj.get("acquirer_public"))
@@ -1257,6 +1274,7 @@ def build_tx_metadata_update_params(
     _require("purchase_price.cash", price_cash)
     _require("purchase_price.stock", price_stock)
     _require("purchase_price.assets", price_assets)
+    _require("purchase_price.rollover", price_rollover)
     _require("target_public", tx_metadata_obj.get("target_public"))
     _require("acquirer_public", tx_metadata_obj.get("acquirer_public"))
     _require("target_pe", target_pe)
@@ -1302,7 +1320,7 @@ def build_tx_metadata_update_params(
 
     notes_normalized = notes.strip().lower() if isinstance(notes, str) else ""
     has_non_usd_note = "not stated in usd" in notes_normalized or "non-usd" in notes_normalized or "non usd" in notes_normalized
-    if has_non_usd_note and any(value is not None for value in (price_cash, price_stock, price_assets)):
+    if has_non_usd_note and any(value is not None for value in (price_cash, price_stock, price_assets, price_rollover)):
         raise ValueError("Non-USD price notes require all purchase_price fields to be null.")
 
     metadata_payload = {
@@ -1316,6 +1334,7 @@ def build_tx_metadata_update_params(
         "price_cash": price_cash,
         "price_stock": price_stock,
         "price_assets": price_assets,
+        "price_rollover": price_rollover,
         "price_total": price_total,
         "target_type": target_type,
         "acquirer_type": acquirer_type,

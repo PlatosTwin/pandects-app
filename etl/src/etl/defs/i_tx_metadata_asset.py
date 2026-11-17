@@ -2005,6 +2005,7 @@ def _run_web_search_mode(
             a.transaction_price_cash,
             a.transaction_price_stock,
             a.transaction_price_assets,
+            a.transaction_price_rollover,
             a.transaction_price_total,
             a.target_type,
             a.acquirer_type,
@@ -2145,6 +2146,7 @@ def _run_web_search_mode(
             transaction_price_cash = :price_cash,
             transaction_price_stock = :price_stock,
             transaction_price_assets = :price_assets,
+            transaction_price_rollover = :price_rollover,
             transaction_price_total = :price_total,
             target_type = :target_type,
             acquirer_type = :acquirer_type,
@@ -2166,6 +2168,7 @@ def _run_web_search_mode(
             OR NOT (transaction_price_cash <=> :price_cash)
             OR NOT (transaction_price_stock <=> :price_stock)
             OR NOT (transaction_price_assets <=> :price_assets)
+            OR NOT (transaction_price_rollover <=> :price_rollover)
             OR NOT (transaction_price_total <=> :price_total)
             OR NOT (target_type <=> :target_type)
             OR NOT (acquirer_type <=> :acquirer_type)

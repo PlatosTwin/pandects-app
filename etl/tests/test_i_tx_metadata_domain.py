@@ -53,6 +53,11 @@ class TxMetadataDomainTests(unittest.TestCase):
             },
         }
 
+    def _add_citation(self, payload: dict[str, object], field: str) -> None:
+        sources = cast(dict[str, object], payload["metadata_sources"])
+        citations = cast(list[dict[str, object]], sources["citations"])
+        citations.append(self._citation(field))
+
     def _citation(self, field: str) -> dict[str, object]:
         return {
             "field": field,
@@ -77,6 +82,7 @@ class TxMetadataDomainTests(unittest.TestCase):
             "transaction_price_cash": 100.0,
             "transaction_price_stock": None,
             "transaction_price_assets": None,
+            "transaction_price_rollover": None,
             "transaction_price_total": 100.0,
             "target_type": "public",
             "acquirer_type": "private",
@@ -217,6 +223,49 @@ class TxMetadataDomainTests(unittest.TestCase):
         )
 
         self.assertEqual(params["price_total"], 15.0)
+
+    def test_build_update_params_web_search_only_adds_rollover_to_cash_total(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": 100.0, "stock": None, "assets": None, "rollover": 20.0}
+        payload["consideration_type"] = "all_cash"
+        self._add_citation(payload, "purchase_price.rollover")
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["consideration"], "cash")
+        self.assertEqual(params["price_cash"], 100.0)
+        self.assertEqual(params["price_rollover"], 20.0)
+        self.assertEqual(params["price_total"], 120.0)
+
+    def test_build_update_params_web_search_only_rollover_alone_gives_no_total(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": None, "stock": None, "assets": None, "rollover": 20.0}
+        payload["consideration_type"] = "all_cash"
+        self._add_citation(payload, "purchase_price.rollover")
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["price_rollover"], 20.0)
+        self.assertIsNone(params["price_total"])
+
+    def test_build_update_params_web_search_only_requires_rollover_citation(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": 100.0, "stock": None, "assets": None, "rollover": 20.0}
+
+        with self.assertRaisesRegex(ValueError, "purchase_price.rollover"):
+            _ = build_tx_metadata_update_params_web_search_only(
+                agreement_uuid="agreement-1",
+                tx_metadata_obj=payload,
+                response_usage=self._usage(),
+            )
 
     def test_build_tx_metadata_request_body_web_search_only_includes_sec_url(self) -> None:
         request_body = build_tx_metadata_request_body_web_search_only(
