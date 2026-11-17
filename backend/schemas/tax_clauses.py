@@ -21,6 +21,7 @@ class TaxClausesArgsPayload(TypedDict):
     transaction_price_stock: list[str]
     transaction_price_cash: list[str]
     transaction_price_assets: list[str]
+    transaction_price_rollover: list[str]
     transaction_consideration: list[str]
     target_type: list[str]
     acquirer_type: list[str]
@@ -62,6 +63,7 @@ class TaxClausesArgsSchema(Schema):
     transaction_price_stock = price_bucket_list_field()
     transaction_price_cash = price_bucket_list_field()
     transaction_price_assets = price_bucket_list_field()
+    transaction_price_rollover = price_bucket_list_field()
     transaction_consideration = fields.List(fields.Str(), load_default=[])
     target_type = fields.List(fields.Str(), load_default=[])
     acquirer_type = fields.List(fields.Str(), load_default=[])

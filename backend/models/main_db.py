@@ -284,6 +284,7 @@ else:
         Column("transaction_price_stock", TEXT, nullable=True),
         Column("transaction_price_cash", TEXT, nullable=True),
         Column("transaction_price_assets", TEXT, nullable=True),
+        Column("transaction_price_rollover", TEXT, nullable=True),
         Column("transaction_consideration", TEXT, nullable=True),
         Column("target_type", TEXT, nullable=True),
         Column("acquirer_type", TEXT, nullable=True),
@@ -391,6 +392,7 @@ else:
         Column("transaction_price_stock", TEXT, nullable=True),
         Column("transaction_price_cash", TEXT, nullable=True),
         Column("transaction_price_assets", TEXT, nullable=True),
+        Column("transaction_price_rollover", TEXT, nullable=True),
         Column("transaction_consideration", TEXT, nullable=True),
         Column("target_type", TEXT, nullable=True),
         Column("acquirer_type", TEXT, nullable=True),
@@ -547,6 +549,7 @@ class Agreements(db.Model):
     transaction_price_stock: ClassVar[Mapped[str | None]]
     transaction_price_cash: ClassVar[Mapped[str | None]]
     transaction_price_assets: ClassVar[Mapped[str | None]]
+    transaction_price_rollover: ClassVar[Mapped[str | None]]
     transaction_consideration: ClassVar[Mapped[str | None]]
     target_type: ClassVar[Mapped[str | None]]
     acquirer_type: ClassVar[Mapped[str | None]]
@@ -586,6 +589,7 @@ class LatestSectionsSearch(db.Model):
     transaction_price_stock: ClassVar[Mapped[str | None]]
     transaction_price_cash: ClassVar[Mapped[str | None]]
     transaction_price_assets: ClassVar[Mapped[str | None]]
+    transaction_price_rollover: ClassVar[Mapped[str | None]]
     transaction_consideration: ClassVar[Mapped[str | None]]
     target_type: ClassVar[Mapped[str | None]]
     acquirer_type: ClassVar[Mapped[str | None]]

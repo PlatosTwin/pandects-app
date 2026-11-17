@@ -1045,6 +1045,12 @@
               "type": "string"
             }
           },
+          "transaction_price_rollover": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "transaction_price_assets": {
             "type": "array",
             "items": {
@@ -1622,6 +1628,12 @@
               "type": "string"
             }
           },
+          "transaction_price_rollover": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "transaction_price_assets": {
             "type": "array",
             "items": {
@@ -1741,6 +1753,7 @@
                 "transaction_price_stock",
                 "transaction_price_cash",
                 "transaction_price_assets",
+                "transaction_price_rollover",
                 "transaction_consideration",
                 "target_type",
                 "acquirer_type",
@@ -2302,6 +2315,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "transaction_price_rollover": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "transaction_price_assets": {
             "type": "array",
@@ -2870,6 +2889,12 @@
               "type": "string"
             }
           },
+          "transaction_price_rollover": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "transaction_price_assets": {
             "type": "array",
             "items": {
@@ -3028,6 +3053,7 @@
                 "transaction_price_stock",
                 "transaction_price_cash",
                 "transaction_price_assets",
+                "transaction_price_rollover",
                 "transaction_consideration",
                 "target_type",
                 "acquirer_type",
@@ -3157,6 +3183,12 @@
                   ]
                 },
                 "transaction_price_cash": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "transaction_price_rollover": {
                   "type": [
                     "number",
                     "null"
@@ -3946,6 +3978,12 @@
               "null"
             ]
           },
+          "transaction_price_rollover": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
           "transaction_price_assets": {
             "type": [
               "number",
@@ -4205,6 +4243,12 @@
                   ]
                 },
                 "transaction_price_cash": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "transaction_price_rollover": {
                   "type": [
                     "number",
                     "null"
@@ -4981,6 +5025,7 @@
                 "transaction_price_stocks",
                 "transaction_price_cashes",
                 "transaction_price_assets",
+                "transaction_price_rollovers",
                 "transaction_considerations",
                 "target_types",
                 "acquirer_types",
@@ -5014,6 +5059,7 @@
                 "transaction_price_stocks",
                 "transaction_price_cashes",
                 "transaction_price_assets",
+                "transaction_price_rollovers",
                 "transaction_considerations",
                 "target_types",
                 "acquirer_types",
@@ -5124,6 +5170,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "transaction_price_rollovers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "transaction_price_assets": {
             "type": "array",

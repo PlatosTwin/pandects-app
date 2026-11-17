@@ -195,6 +195,13 @@ def _filter_option_metadata() -> dict[str, dict[str, object]]:
             "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
             "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
         },
+        "transaction_price_rollovers": {
+            "retrieval_parameter": "transaction_price_rollover",
+            "applies_to": ["agreements", "sections"],
+            "value_kind": "bucket",
+            "allowed_values": list(_TRANSACTION_PRICE_BUCKET_OPTIONS),
+            "recommended_tools": ["search_agreements", "list_agreements", "search_sections"],
+        },
         "transaction_considerations": {"retrieval_parameter": "transaction_consideration", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
         "target_types": {"retrieval_parameter": "target_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
         "acquirer_types": {"retrieval_parameter": "acquirer_type", "applies_to": ["agreements", "sections"], "value_kind": "exact_string", "recommended_tools": ["search_agreements", "list_agreements", "search_sections"]},
@@ -241,7 +248,7 @@ def _structured_filter_properties(*, include_cursor: bool = False, include_xml: 
                 "description": "Agreement filing years to include.",
             }
         elif field_name == "transaction_price_total":
-            # The stock/cash/assets buckets share these labels; their descriptions point
+            # The stock/cash/assets/rollover buckets share these labels; their descriptions point
             # here instead of repeating the enum, which keeps the search tools under
             # Codex's 5,000-byte input-schema budget. The handler still rejects any
             # label outside the set, naming the valid ones.

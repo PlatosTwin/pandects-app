@@ -1744,6 +1744,8 @@ def _list_filter_options(
         payload_out["transaction_price_cashes"] = list(_TRANSACTION_PRICE_BUCKET_OPTIONS)
     if "transaction_price_assets" in selected_fields:
         payload_out["transaction_price_assets"] = list(_TRANSACTION_PRICE_BUCKET_OPTIONS)
+    if "transaction_price_rollovers" in selected_fields:
+        payload_out["transaction_price_rollovers"] = list(_TRANSACTION_PRICE_BUCKET_OPTIONS)
     if "transaction_considerations" in selected_fields:
         payload_out["transaction_considerations"] = [
             cast(str, row[0])
@@ -1979,6 +1981,7 @@ def _list_filter_options(
             "transaction_price_stocks": "transaction_price_stock",
             "transaction_price_cashes": "transaction_price_cash",
             "transaction_price_assets": "transaction_price_assets",
+            "transaction_price_rollovers": "transaction_price_rollover",
             "transaction_considerations": "transaction_consideration",
             "target_types": "target_type",
             "acquirer_types": "acquirer_type",

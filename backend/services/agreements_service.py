@@ -77,6 +77,7 @@ AGREEMENT_METADATA_COLUMNS: tuple[str, ...] = (
     "transaction_price_stock",
     "transaction_price_cash",
     "transaction_price_assets",
+    "transaction_price_rollover",
     "transaction_consideration",
     "target_type",
     "acquirer_type",

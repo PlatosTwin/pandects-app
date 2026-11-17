@@ -43,7 +43,8 @@ _TRANSACTION_PRICE_BUCKETS: dict[str, tuple[Decimal, Decimal | None]] = {
     "20B+": (Decimal("20000000000"), None),
 }
 # The canonical price-bucket labels, in ascending order. Every price filter
-# (`transaction_price_total` / `_stock` / `_cash` / `_assets`) accepts only these.
+# (`transaction_price_total` / `_stock` / `_cash` / `_assets` / `_rollover`)
+# accepts only these.
 TRANSACTION_PRICE_BUCKETS: tuple[str, ...] = tuple(_TRANSACTION_PRICE_BUCKETS)
 
 
@@ -213,6 +214,7 @@ AGREEMENT_PRICE_FILTER_FIELDS: tuple[str, ...] = (
     "transaction_price_stock",
     "transaction_price_cash",
     "transaction_price_assets",
+    "transaction_price_rollover",
 )
 AGREEMENT_PE_FILTER_FIELDS: tuple[str, ...] = ("target_pe", "acquirer_pe")
 AGREEMENT_RANGE_FILTER_FIELDS: tuple[str, ...] = (

@@ -141,21 +141,28 @@
           "items": {
             "type": "string"
           },
-          "description": "Stock deal-value buckets; same labels as transaction_price_total."
+          "description": "Stock buckets; labels as total."
         },
         "transaction_price_cash": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Cash deal-value buckets; same labels as transaction_price_total."
+          "description": "Cash buckets; labels as total."
+        },
+        "transaction_price_rollover": {
+          "description": "Rollover buckets; labels as total.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "transaction_price_assets": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Asset deal-value buckets; same labels as transaction_price_total."
+          "description": "Asset buckets; labels as total."
         },
         "transaction_consideration": {
           "type": "array",
@@ -702,21 +709,28 @@
           "items": {
             "type": "string"
           },
-          "description": "Stock deal-value buckets; same labels as transaction_price_total."
+          "description": "Stock buckets; labels as total."
         },
         "transaction_price_cash": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Cash deal-value buckets; same labels as transaction_price_total."
+          "description": "Cash buckets; labels as total."
+        },
+        "transaction_price_rollover": {
+          "description": "Rollover buckets; labels as total.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "transaction_price_assets": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Asset deal-value buckets; same labels as transaction_price_total."
+          "description": "Asset buckets; labels as total."
         },
         "transaction_consideration": {
           "type": "array",
@@ -842,6 +856,7 @@
               "transaction_price_stock",
               "transaction_price_cash",
               "transaction_price_assets",
+              "transaction_price_rollover",
               "transaction_consideration",
               "target_type",
               "acquirer_type",
@@ -1367,21 +1382,28 @@
           "items": {
             "type": "string"
           },
-          "description": "Stock deal-value buckets; same labels as transaction_price_total."
+          "description": "Stock buckets; labels as total."
         },
         "transaction_price_cash": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Cash deal-value buckets; same labels as transaction_price_total."
+          "description": "Cash buckets; labels as total."
+        },
+        "transaction_price_rollover": {
+          "description": "Rollover buckets; labels as total.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "transaction_price_assets": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Asset deal-value buckets; same labels as transaction_price_total."
+          "description": "Asset buckets; labels as total."
         },
         "transaction_consideration": {
           "type": "array",
@@ -1924,21 +1946,28 @@
           "items": {
             "type": "string"
           },
-          "description": "Stock deal-value buckets; same labels as transaction_price_total."
+          "description": "Stock buckets; labels as total."
         },
         "transaction_price_cash": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Cash deal-value buckets; same labels as transaction_price_total."
+          "description": "Cash buckets; labels as total."
+        },
+        "transaction_price_rollover": {
+          "description": "Rollover buckets; labels as total.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "transaction_price_assets": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Asset deal-value buckets; same labels as transaction_price_total."
+          "description": "Asset buckets; labels as total."
         },
         "transaction_consideration": {
           "type": "array",
@@ -2101,6 +2130,7 @@
               "transaction_price_stock",
               "transaction_price_cash",
               "transaction_price_assets",
+              "transaction_price_rollover",
               "transaction_consideration",
               "target_type",
               "acquirer_type",
@@ -2229,6 +2259,12 @@
                 ]
               },
               "transaction_price_cash": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transaction_price_rollover": {
                 "type": [
                   "number",
                   "null"
@@ -2942,6 +2978,12 @@
             "null"
           ]
         },
+        "transaction_price_rollover": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "transaction_price_assets": {
           "type": [
             "number",
@@ -3177,6 +3219,12 @@
                 ]
               },
               "transaction_price_cash": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transaction_price_rollover": {
                 "type": [
                   "number",
                   "null"
@@ -3876,6 +3924,7 @@
               "transaction_price_stocks",
               "transaction_price_cashes",
               "transaction_price_assets",
+              "transaction_price_rollovers",
               "transaction_considerations",
               "target_types",
               "acquirer_types",
@@ -3909,6 +3958,7 @@
               "transaction_price_stocks",
               "transaction_price_cashes",
               "transaction_price_assets",
+              "transaction_price_rollovers",
               "transaction_considerations",
               "target_types",
               "acquirer_types",
@@ -4019,6 +4069,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "transaction_price_rollovers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "transaction_price_assets": {
           "type": "array",
