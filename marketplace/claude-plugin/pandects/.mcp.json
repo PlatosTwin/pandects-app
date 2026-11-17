@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pandects": {
+      "type": "http",
+      "url": "https://api.pandects.org/mcp"
+    }
+  }
+}
