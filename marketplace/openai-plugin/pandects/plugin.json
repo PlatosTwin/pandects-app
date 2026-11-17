@@ -1,0 +1,98 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "pandects",
+  "version": "0.1.0",
+  "description": "Search and read SEC-filed M&A agreements: deal metadata, law-firm counsel, clause-level text, a clause taxonomy, and extracted tax clauses.",
+  "author": {
+    "name": "Pandects",
+    "url": "https://pandects.org"
+  },
+  "homepage": "https://docs.pandects.org/docs/mcp/setup",
+  "repository": "https://github.com/PlatosTwin/pandects-app",
+  "license": "GPL-3.0-only",
+  "keywords": ["m&a", "merger agreements", "sec", "edgar", "legal research", "contracts"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Pandects",
+        "shortDescription": "Search SEC M&A agreements",
+        "longDescription": "Pandects is an open database of merger and acquisition agreements that companies filed with the SEC on EDGAR. This plugin gives ChatGPT read access to that corpus.\n\nWhat you can do:\n- Find agreements by party name, filing year, deal size range, deal type, consideration, industry (NAICS code), public or private status, private-equity involvement, and target-side or acquirer-side law firm.\n- Read agreement metadata: parties, counsel, filing and deal dates, price, consideration, and the link to the SEC filing.\n- Search clause-level section text by phrase or by clause family (for example termination fees, no-shop, material adverse effect, efforts covenants and indemnification), and read the full section.\n- Search extracted tax clauses by tax concept (for example an intended tax-free reorganization).\n- Get year-by-year corpus trends: public and private targets, buyer types and industries.\n\nEach agreement result links to the SEC filing. The corpus holds agreements that an SEC filer attached as an exhibit, so deals between two private companies are mostly absent, and one deal can appear in several filings.\n\nYou need a Pandects account with a verified email address. When you connect, ChatGPT opens the Pandects sign-in page.",
+        "developerName": "Pandects",
+        "category": "Research",
+        "capabilities": [
+          "Find M&A agreements by party, year, deal size, deal type, industry and law firm",
+          "Read deal metadata and the link to each SEC filing",
+          "Search clause text by phrase or clause family and read full sections",
+          "Search extracted tax clauses by tax concept",
+          "Show year-by-year M&A corpus trends"
+        ],
+        "websiteURL": "https://pandects.org",
+        "supportURL": "https://pandects.org/support",
+        "privacyPolicyURL": "https://pandects.org/privacy-policy",
+        "termsOfServiceURL": "https://pandects.org/terms",
+        "defaultPrompt": [
+          "Find the Salesforce-Slack merger agreement and tell me which law firm advised each side.",
+          "Show reverse termination fee clauses from 2023 deals valued between $1B and $2B.",
+          "Which 2022 deals had Wachtell, Lipton, Rosen & Katz as target counsel?"
+        ],
+        "composerIcon": "./assets/composer-icon.png",
+        "logo": "./assets/logo.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Find a known deal and its counsel",
+              "prompt": "Find the Salesforce-Slack merger agreement and tell me which law firm advised each side.",
+              "tools_triggered": "search_agreements",
+              "expected_behavior": "Returns the 2020 agreement between salesforce.com, inc. (acquirer) and Slack Technologies, Inc. (target) with its SEC filing link. Target counsel: Latham & Watkins. Acquirer counsel: Wachtell, Lipton, Rosen & Katz."
+            },
+            {
+              "description": "Find clause language by concept with deal filters",
+              "prompt": "Show reverse termination fee clauses from 2023 deals valued between $1B and $2B.",
+              "tools_triggered": "suggest_clause_families, search_sections",
+              "expected_behavior": "Maps the concept to the clause family 'Termination Fee / Reverse Termination Fee; Expense Reimbursement' (standard_id 4207f2e8f6698935), then returns 2023 sections in the 1B - 2B price range with snippets, for example Section 7.3 Termination Fee in the SP Plus Corporation / Metropolis Technologies agreement. About 10 matching sections."
+            },
+            {
+              "description": "Filter deals by law firm and year",
+              "prompt": "Which 2022 deals had Wachtell, Lipton, Rosen & Katz as target counsel?",
+              "tools_triggered": "search_agreements",
+              "expected_behavior": "Lists 2022 agreements where Wachtell, Lipton, Rosen & Katz advised the target, for example Continental Resources, Inc. / Omega Acquisition, Inc. and TEGNA Inc. / Teton Parent Corp. About 10 agreements."
+            },
+            {
+              "description": "Find tax clauses by tax concept",
+              "prompt": "Find 2024 merger agreement clauses saying the merger is intended to qualify as a tax-free reorganization.",
+              "tools_triggered": "suggest_clause_families, search_tax_clauses",
+              "expected_behavior": "Maps the concept to the tax node 'Intended Tax-Free Reorganization' (tax.1.1.1), then returns 2024 tax clauses that refer to a reorganization under Section 368(a) of the Code, for example from the Penns Woods Bancorp, Inc. / Northwest Bancshares, Inc. agreement. About 10 clauses."
+            },
+            {
+              "description": "Corpus trends",
+              "prompt": "How did the median deal size for public targets change from 2020 to 2024 in Pandects?",
+              "tools_triggered": "get_agreement_trends",
+              "expected_behavior": "Returns per-year public-target deal counts and median transaction values for 2020 to 2024 from the ownership trends, and states that these are counts of filed agreements in the corpus, not all market deals."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Unrelated question",
+              "prompt": "What will the weather be in Boston tomorrow?"
+            },
+            {
+              "description": "Request to buy securities",
+              "prompt": "Buy 100 shares of Salesforce for me."
+            },
+            {
+              "description": "Request to change or delete data",
+              "prompt": "Delete the Slack merger agreement from Pandects."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "This plugin does not sell products or process payments."
+      },
+      "publication": {
+        "release_notes": "Initial release."
+      }
+    }
+  }
+}
