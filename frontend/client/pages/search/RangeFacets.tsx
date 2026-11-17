@@ -130,7 +130,9 @@ const UPPER_OPTIONS = TRANSACTION_PRICE_OPTIONS.filter((bucket) => bucket.includ
 );
 
 /**
- * Deal value as a min/max range per component (total, cash, stock, assets).
+ * Deal value as a min/max range per component (total, cash, stock, assets,
+ * rollover). The five component segments sit on two rows (three, then two) so
+ * each label fits the narrow sidebar.
  * The API filters on value buckets, so the range maps to the buckets it spans.
  */
 export function ValueRangeFilter({
@@ -169,7 +171,7 @@ export function ValueRangeFilter({
         aria-label="Deal value component"
         value={component}
         onValueChange={(value) => setComponent(value as PriceField)}
-        className="mb-2 w-full [&>*]:min-w-0 [&>*]:flex-1 [&>*]:shrink [&>*]:px-1"
+        className="mb-2 grid w-full grid-cols-6 [&>*:nth-child(-n+3)]:col-span-2 [&>*:nth-child(n+4)]:col-span-3 [&>*]:min-w-0 [&>*]:px-1"
         options={PRICE_FIELDS.map((field) => ({
           value: field,
           label: (
