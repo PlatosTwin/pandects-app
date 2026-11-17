@@ -1206,6 +1206,31 @@ def _tool_list_description(spec: McpToolSpec) -> str:
     return "\n\n".join(parts)
 
 
+# Tools whose handlers accept a token with any scope (they check only that
+# principal.scopes is non-empty). Their pandects/requiredScopes still names
+# agreements:search for older clients; securitySchemes declares no specific scope.
+_ANY_SCOPE_TOOLS = frozenset({"get_server_capabilities", "get_server_metrics", "submit_feedback"})
+# Scopes a handler checks only for some arguments (list_agreements requires
+# agreements:read_fulltext for include_xml=true). get_agreement's redacting
+# full-text scope comes from spec.fulltext_scope.
+_CONDITIONAL_TOOL_SCOPES: dict[str, tuple[str, ...]] = {
+    "list_agreements": ("agreements:read_fulltext",),
+}
+
+
+def _security_scheme_scopes(spec: McpToolSpec) -> list[str]:
+    if spec.name in _ANY_SCOPE_TOOLS:
+        return []
+    scopes = list(spec.scopes)
+    extra = list(_CONDITIONAL_TOOL_SCOPES.get(spec.name, ()))
+    if spec.fulltext_scope:
+        extra.append(spec.fulltext_scope)
+    for scope in extra:
+        if scope not in scopes:
+            scopes.append(scope)
+    return scopes
+
+
 def _tool_list_entry(spec: McpToolSpec) -> dict[str, object]:
     return {
         "name": spec.name,
@@ -1225,8 +1250,11 @@ def _tool_list_entry(spec: McpToolSpec) -> dict[str, object]:
             "pandects/requiredScopes": list(spec.scopes),
             "pandects/pagination": spec.pagination,
             # Per-tool auth declaration read by ChatGPT (OpenAI Apps SDK). Every tool
-            # needs an OAuth token; this states that and changes no server behavior.
-            "securitySchemes": [{"type": "oauth2", "scopes": list(spec.scopes)}],
+            # needs an OAuth token; the scopes list every scope the handler can check,
+            # so a client that builds its request from these asks for full text too.
+            # An empty list means any authenticated token (modeled on OpenAI's
+            # profile-tool example). Declaration only; no server behavior changes.
+            "securitySchemes": [{"type": "oauth2", "scopes": _security_scheme_scopes(spec)}],
         },
     }
 

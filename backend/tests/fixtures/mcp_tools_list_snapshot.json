@@ -1844,7 +1844,8 @@
         {
           "type": "oauth2",
           "scopes": [
-            "agreements:search"
+            "agreements:search",
+            "agreements:read_fulltext"
           ]
         }
       ]
@@ -2886,7 +2887,8 @@
         {
           "type": "oauth2",
           "scopes": [
-            "agreements:read"
+            "agreements:read",
+            "agreements:read_fulltext"
           ]
         }
       ]
@@ -4848,9 +4850,7 @@
       "securitySchemes": [
         {
           "type": "oauth2",
-          "scopes": [
-            "agreements:search"
-          ]
+          "scopes": []
         }
       ]
     },
@@ -4943,9 +4943,7 @@
       "securitySchemes": [
         {
           "type": "oauth2",
-          "scopes": [
-            "agreements:search"
-          ]
+          "scopes": []
         }
       ]
     },
@@ -6306,9 +6304,7 @@
       "securitySchemes": [
         {
           "type": "oauth2",
-          "scopes": [
-            "agreements:search"
-          ]
+          "scopes": []
         }
       ]
     },

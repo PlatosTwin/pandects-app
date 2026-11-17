@@ -732,11 +732,22 @@ class McpTests(unittest.TestCase):
     def test_tools_list_declares_oauth_security_scheme_per_tool(self):
         from backend.mcp.tools import tool_definitions
 
+        special = {
+            # Handlers accept any authenticated scope.
+            "get_server_capabilities": [],
+            "get_server_metrics": [],
+            "submit_feedback": [],
+            # include_xml checks agreements:read_fulltext (strict in list_agreements,
+            # redacting in get_agreement).
+            "list_agreements": ["agreements:search", "agreements:read_fulltext"],
+            "get_agreement": ["agreements:read", "agreements:read_fulltext"],
+        }
         for tool in tool_definitions():
             meta = tool["_meta"]
+            expected = special.get(tool["name"], meta["pandects/requiredScopes"])
             self.assertEqual(
                 meta["securitySchemes"],
-                [{"type": "oauth2", "scopes": meta["pandects/requiredScopes"]}],
+                [{"type": "oauth2", "scopes": expected}],
                 tool["name"],
             )
 
