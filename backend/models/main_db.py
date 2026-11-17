@@ -16,18 +16,20 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     MetaData,
+    Numeric,
     Table,
     and_,
     create_engine,
     func,
     literal_column,
+    null,
     or_,
     select,
     cast as sql_cast,
 )
 from sqlalchemy.dialects import mysql as mysql_dialect
 from sqlalchemy.exc import NoSuchTableError, SQLAlchemyError
-from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import Mapped, column_property
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.types import NullType
 
@@ -608,6 +610,14 @@ class LatestSectionsSearch(db.Model):
     section_standard_ids: ClassVar[Mapped[str | None]]
     article_title: ClassVar[Mapped[str | None]]
     section_title: ClassVar[Mapped[str | None]]
+
+
+# transaction_price_rollover reaches the prod schema with the next data push. Until a
+# reflected table has it, serve the field as SQL NULL: rows return null and a rollover
+# bucket filter matches nothing, which is what the column holds once it exists.
+for _model in (Agreements, LatestSectionsSearch):
+    if "transaction_price_rollover" not in _model.__table__.c:
+        setattr(_model, "transaction_price_rollover", column_property(sql_cast(null(), Numeric(18, 2))))
 
 
 ReaderIndex: type[Any] | None = None
