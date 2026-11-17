@@ -1,4 +1,11 @@
 User-agent: *
 Allow: /
 
+# AI training preference (draft-kelley-aipref-training-preference-signal).
+# This group is a usage preference, not a crawl rule: it asks AI providers
+# not to use this site's content to train generative AI models. Crawling
+# and search indexing are still governed by the group above.
+User-agent: __usage_ai-training
+Disallow: /
+
 Sitemap: https://docs.pandects.org/sitemap.xml
