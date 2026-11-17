@@ -1163,6 +1163,20 @@ def _concept_notes_payload() -> list[dict[str, object]]:
             "scope_note": "Antitrust-efforts concepts may span several nearby clause families and should be validated in the returned section text.",
         },
         {
+            "concept": "rollover equity",
+            "recommended_tools": ["search_agreements", "list_agreements", "get_agreement"],
+            "representation": "first_class_agreement_field",
+            "canonical_or_proxy": "canonical",
+            "scope_note": (
+                "transaction_price_rollover is the value, in USD at the deal price, of target "
+                "equity that sellers, management or other holders exchange for equity of the "
+                "buyer or its parent instead of selling it. It is included in "
+                "transaction_price_total and is not part of the cash, stock or assets legs. "
+                "It is null on most agreements: when the deal has no rollover or no source "
+                "prints its size."
+            ),
+        },
+        {
             "concept": "corpus provenance and coverage",
             "recommended_tools": ["list_filter_options", "search_agreements", "list_agreements"],
             "representation": "not_represented",
