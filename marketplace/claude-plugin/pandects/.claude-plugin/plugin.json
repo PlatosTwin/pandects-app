@@ -1,0 +1,14 @@
+{
+  "name": "pandects",
+  "version": "0.1.0",
+  "description": "Search and read SEC-filed M&A agreements: deal metadata, law-firm counsel, clause-level text, a clause taxonomy, and extracted tax clauses.",
+  "author": {
+    "name": "Pandects",
+    "url": "https://pandects.org"
+  },
+  "homepage": "https://docs.pandects.org/docs/mcp/setup",
+  "privacyPolicyUrl": "https://pandects.org/privacy-policy",
+  "repository": "https://github.com/PlatosTwin/pandects-app",
+  "license": "GPL-3.0-only",
+  "keywords": ["m&a", "merger agreements", "sec", "edgar", "legal research", "contracts"]
+}
