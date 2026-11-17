@@ -1,5 +1,7 @@
 import importlib.util
+import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -43,6 +45,40 @@ def _load_main_db_module_isolated(module_name: str):
 
 
 _set_default_env()
+
+# Run in a fresh interpreter: reflect main_db from MAIN_DATABASE_URI (a SQLite file, so
+# the schema token maps to None), then call one REST route and print its JSON.
+_ROLLOVER_ROUTE_PROBE = """
+import json, os
+from unittest.mock import patch
+import sqlalchemy
+
+_create_engine = sqlalchemy.create_engine
+
+
+def _sqlite_engine(url, **kwargs):
+    options = dict(kwargs.pop("execution_options", {}) or {})
+    options["schema_translate_map"] = {key: None for key in options.get("schema_translate_map", {})}
+    return _create_engine(url, execution_options=options)
+
+
+with patch("sqlalchemy.create_engine", _sqlite_engine):
+    import backend.models.main_db  # noqa: F401  (reflects the tables once, here)
+
+import backend.app as app_module
+
+app = app_module.create_test_app(
+    config_overrides={
+        "MAIN_DB_SCHEMA": "",
+        "SQLALCHEMY_DATABASE_URI": os.environ["MAIN_DATABASE_URI"],
+        "SQLALCHEMY_BINDS": {"auth": os.environ["AUTH_DATABASE_URI"]},
+    }
+)
+with app.app_context():
+    app_module.db.create_all(bind_key="auth")
+res = app.test_client().get("/v1/agreements?page_size=10")
+print(json.dumps({"status": res.status_code, "body": res.get_json()}))
+"""
 
 
 def _sqlite_main_db_engine(*, include_section_text_search: bool):
@@ -103,6 +139,73 @@ class MainDbStartupTests(unittest.TestCase):
         self.assertEqual(mod.SectionTextSearch.__table__.name, "section_text_search")
         self.assertEqual(len(logs.output), 1)
         self.assertIn("section_text_search table is empty", logs.output[0])
+
+    def test_missing_rollover_column_is_served_as_null(self):
+        # The prod schema gets transaction_price_rollover only with a data push; until
+        # then the reflected models must map it to CAST(NULL AS DECIMAL(18,2)).
+        engine = _sqlite_main_db_engine(include_section_text_search=True)
+        with engine.begin() as conn:
+            for table in ("agreements", "latest_sections_search"):
+                _ = conn.exec_driver_sql(f"ALTER TABLE {table} DROP COLUMN transaction_price_rollover")
+        mod = _load_reflected_main_db("_main_db_probe_missing_rollover", engine)
+
+        from sqlalchemy import select
+        from sqlalchemy.dialects import mysql
+
+        from backend.filtering import build_transaction_price_bucket_filter
+
+        for model in (mod.Agreements, mod.LatestSectionsSearch):
+            self.assertNotIn("transaction_price_rollover", model.__table__.c)
+            column = model.transaction_price_rollover
+            bucket = build_transaction_price_bucket_filter(column, ["0 - 100M"])
+            query = select(column.label("rollover")).where(bucket).order_by(column)
+            sql = str(query.compile(dialect=mysql.dialect(), compile_kwargs={"literal_binds": True}))
+            self.assertIn("CAST(NULL AS DECIMAL(18, 2)) AS rollover", sql)
+            self.assertIn("WHERE CAST(NULL AS DECIMAL(18, 2)) >= 0", sql)
+            self.assertIn("ORDER BY CAST(NULL AS DECIMAL(18, 2))", sql)
+
+        with engine.begin() as conn:
+            _ = conn.exec_driver_sql(
+                "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, url, "
+                "transaction_price_total, transaction_consideration) VALUES "
+                "('a1', '2021-02-01', 'Target A', 'Acquirer A', 1, 'http://example.com/a1', '100', 'cash')"
+            )
+            _ = conn.exec_driver_sql(
+                "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                "('a1', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000001\">"
+                "<text>A1</text></section></article></document>', 1, 'verified', 1)"
+            )
+        # backend.app binds the models at import, so the route check needs a fresh interpreter.
+        auth_db = tempfile.NamedTemporaryFile(prefix="pandects_auth_", suffix=".sqlite", delete=False)
+        auth_db.close()
+        env = {
+            **os.environ,
+            "ENABLE_MAIN_DB_REFLECTION": "1",
+            "SKIP_MAIN_DB_REFLECTION": "0",
+            "MAIN_DATABASE_URI": str(engine.url),
+            "MAIN_DB_SCHEMA": "",
+            "AUTH_DATABASE_URI": f"sqlite:///{auth_db.name}",
+            "TEMPORARY_ACCESS_LOCKDOWN": "0",
+            "AUTH_SECRET_KEY": "test-auth-secret",
+            "PUBLIC_API_BASE_URL": "http://localhost:5000",
+            "PUBLIC_FRONTEND_BASE_URL": "http://localhost:8080",
+            "AUTH_SESSION_TRANSPORT": "bearer",
+        }
+        result = subprocess.run(
+            [sys.executable, "-c", _ROLLOVER_ROUTE_PROBE],
+            cwd=str(_MAIN_DB_PATH.parents[2]),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr[-3000:])
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertEqual(payload["status"], 200, payload)
+        rows = payload["body"]["results"]
+        self.assertEqual([row["agreement_uuid"] for row in rows], ["a1"])
+        self.assertIn("transaction_price_rollover", rows[0])
+        self.assertIsNone(rows[0]["transaction_price_rollover"])
 
     def test_static_fallback_always_exposes_section_text_search(self):
         mod = _load_main_db_module_isolated("_main_db_probe_fallback_text_search")

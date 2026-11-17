@@ -615,6 +615,8 @@ class LatestSectionsSearch(db.Model):
 # transaction_price_rollover reaches the prod schema with the next data push. Until a
 # reflected table has it, serve the field as SQL NULL: rows return null and a rollover
 # bucket filter matches nothing, which is what the column holds once it exists.
+# The choice is made at import, so the backend must restart after the data push adds
+# the column.
 for _model in (Agreements, LatestSectionsSearch):
     if "transaction_price_rollover" not in _model.__table__.c:
         setattr(_model, "transaction_price_rollover", column_property(sql_cast(null(), Numeric(18, 2))))
