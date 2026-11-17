@@ -51,7 +51,7 @@
               "description": "Find clause language by concept with deal filters",
               "prompt": "Show reverse termination fee clauses from 2023 deals valued between $1B and $2B.",
               "tools_triggered": "suggest_clause_families, search_sections",
-              "expected_behavior": "Maps the concept to the clause family 'Termination Fee / Reverse Termination Fee; Expense Reimbursement' (standard_id 4207f2e8f6698935), then returns 2023 sections in the 1B - 2B price range with snippets, for example Section 7.3 Termination Fee in the SP Plus Corporation / Metropolis Technologies agreement. About 10 matching sections."
+              "expected_behavior": "Maps the concept to the clause family 'Termination Fee / Reverse Termination Fee; Expense Reimbursement' (standard_id 4207f2e8f6698935), then returns 2023 sections in the 1B - 2B price range with snippets, for example Section 7.3 Termination Fee in the SP Plus Corporation / Metropolis Technologies agreement and Section 9.03 Termination Fees in the POINT Biopharma / Eli Lilly agreement. A handful of agreements match (10 sections from 9 agreements on 2026-11-17); the total the server reports for these filters can be an estimate."
             },
             {
               "description": "Filter deals by law firm and year",
