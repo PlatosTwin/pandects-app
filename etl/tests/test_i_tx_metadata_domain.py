@@ -256,16 +256,66 @@ class TxMetadataDomainTests(unittest.TestCase):
         self.assertEqual(params["price_rollover"], 20.0)
         self.assertIsNone(params["price_total"])
 
-    def test_build_update_params_web_search_only_requires_rollover_citation(self) -> None:
+    def test_build_update_params_web_search_only_logs_uncited_rollover(self) -> None:
         payload = self._valid_web_search_obj()
         payload["purchase_price"] = {"cash": 100.0, "stock": None, "assets": None, "rollover": 20.0}
 
-        with self.assertRaisesRegex(ValueError, "purchase_price.rollover"):
-            _ = build_tx_metadata_update_params_web_search_only(
-                agreement_uuid="agreement-1",
-                tx_metadata_obj=payload,
-                response_usage=self._usage(),
-            )
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["price_rollover"], 20.0)
+        self.assertIn("purchase_price.rollover", json.loads(params["metadata_uncited_fields"]))
+
+    def test_build_update_params_web_search_only_zero_leg_ignores_rollover_in_total(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": 0.0, "stock": None, "assets": None, "rollover": 20.0}
+        payload["consideration_type"] = "all_cash"
+        self._add_citation(payload, "purchase_price.rollover")
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["price_rollover"], 20.0)
+        self.assertEqual(params["price_total"], 0.0)
+
+    def test_build_update_params_web_search_only_maps_zero_rollover_to_null(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {"cash": 100.0, "stock": None, "assets": None, "rollover": 0.0}
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertIsNone(params["price_rollover"])
+        self.assertEqual(params["price_total"], 100.0)
+        self.assertNotIn("purchase_price.rollover", json.loads(params["metadata_uncited_fields"]))
+
+    def test_retry_keeps_stored_uncited_rollover_when_model_returns_null(self) -> None:
+        agreement = self._requeue_agreement_row(transaction_price_rollover=20.0, transaction_price_total=120.0)
+        retry_payload = self._valid_web_search_obj()
+        retry_payload["purchase_price"] = {"cash": 100.0, "stock": None, "assets": None, "rollover": None}
+
+        merged = merge_retry_web_search_response(agreement=agreement, tx_metadata_obj=retry_payload)
+        merged_price = cast(dict[str, object], merged["purchase_price"])
+        self.assertEqual(merged_price["rollover"], 20.0)
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=merged,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["price_rollover"], 20.0)
+        self.assertEqual(params["price_total"], 120.0)
+        self.assertIn("purchase_price.rollover", json.loads(params["metadata_uncited_fields"]))
 
     def test_build_tx_metadata_request_body_web_search_only_includes_sec_url(self) -> None:
         request_body = build_tx_metadata_request_body_web_search_only(

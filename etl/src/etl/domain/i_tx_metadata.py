@@ -47,6 +47,9 @@ NON_CORE_CITATION_OPTIONAL_FIELDS = (
     "deal_status",
     "attitude",
     "purpose",
+    # A stored rollover may predate the citation rule; a missing citation is logged,
+    # not fatal, so retries of such rows do not fail.
+    "purchase_price.rollover",
 )
 
 TOKEN_USAGE_REQUIRED_FIELDS = ("input_tokens", "output_tokens", "total_tokens")
@@ -220,6 +223,7 @@ TX_METADATA_INSTRUCTIONS_WEB_SEARCH = (
     "1) consideration_type using EXACTLY one of: 'all_cash', 'all_stock', 'mixed', 'unknown'. "
     "If any asset/non-cash/non-stock component is present, classify as 'mixed'. "
     "Cash paid only in lieu of fractional shares does not make a deal mixed; such a deal is 'all_stock'. "
+    "Rolled-over equity never changes consideration_type: a cash buyout with a management rollover is 'all_cash'. "
     "2) the purchase price components (USD), without accounting for any assumed debt, notes, etc. "
     "(i.e., equity value / consideration paid to sellers, not enterprise value). "
     "Return full USD amounts (e.g., $4.18 billion -> 4180000000), not shorthand units; "
@@ -232,6 +236,9 @@ TX_METADATA_INSTRUCTIONS_WEB_SEARCH = (
     "Contingent consideration (earn-outs, milestone payments, CVRs) is not part of the price; count only fixed consideration. "
     "Value the stock component as the shares issued to the target's holders times the acquirer share price used in the announcement; "
     "never value all post-merger shares. "
+    "Target equity that sellers, management or other holders exchange for equity of the buyer or its parent "
+    "instead of selling it (rolled-over equity) goes only in purchase_price.rollover, valued in USD at the deal price; "
+    "it is never part of cash, stock or assets. Use null for rollover when the deal has none or no source states its size. "
     "3) whether the target was public or private at announcement. Public means the target itself is publicly traded (listed or OTC) or is an SEC reporting issuer; "
     "if the target is a privately held subsidiary of a public parent, treat the target as private unless the target itself is publicly traded/SEC-reporting. "
     "If you cannot determine, use null. "
@@ -1096,6 +1103,9 @@ def build_tx_metadata_update_params(
     price_assets = _to_float_or_none(price.get("assets"))
     # Rolled-over equity is part of the total but is not a consideration leg.
     price_rollover = _to_float_or_none(price.get("rollover"))
+    if price_rollover == 0.0:
+        # A model may answer 0 for "no rollover"; store null, which needs no citation.
+        price_rollover = None
     if consideration == "cash" and ((price_stock or 0.0) > 0.0 or (price_assets or 0.0) > 0.0):
         raise ValueError(
             "consideration_type='all_cash' is inconsistent with non-zero stock/assets values."
@@ -1124,7 +1134,7 @@ def build_tx_metadata_update_params(
         else:
             # Mixed deals need at least two populated components before the total is reliable.
             price_total = None
-    if price_total is not None and price_rollover is not None:
+    if price_total is not None and price_total > 0.0 and price_rollover is not None:
         price_total = float(price_total + price_rollover)
 
     target_type = map_public_flag_to_type(tx_metadata_obj.get("target_public"))
