@@ -13,7 +13,7 @@ The Pandects MCP is available at `https://api.pandects.org/mcp`.
 
 You need only two things:
 
-1. A Pandects account
+1. A Pandects account ([sign in](https://pandects.org/login))
 2. An MCP client that supports a remote HTTP server and browser sign-in
 
 ## Server URL
@@ -86,7 +86,7 @@ Add Pandects as a custom connector:
 1. In Claude, go to **Customize > Connectors**.
 2. Select **Add**, then **Add custom connector**.
 3. Enter `Pandects` as the name and `https://api.pandects.org/mcp` as the server URL, then click **Continue**.
-4. Keep the authentication options that Claude marks **Detected**, then click **Add**.
+4. Keep the authentication options that Claude marks **Detected**. Under **OAuth client**, choose **Register automatically**: Pandects does not support the **Use Claude's published identity** option. Then click **Add**.
 5. Click **Connect** and sign in with your Pandects account in the browser window that opens.
 
 On a Team or Enterprise plan, an Owner adds the connector under **Organization settings > Connectors**, and each member then connects with their own Pandects account. Every Pandects tool only reads data, except `submit_feedback`, which saves a note for the maintainer.
@@ -99,7 +99,9 @@ Add Pandects as a custom MCP server:
 2. Select the plus button, then **Add custom MCP server**.
 3. Enter `Pandects` as the name and a short description.
 4. Under **Connection**, enter `https://api.pandects.org/mcp`.
-5. Choose OAuth for authentication and finish the steps, then sign in with your Pandects account when the browser opens.
+5. Choose OAuth for authentication, review the risk warning, and select **I understand and want to continue**.
+6. Select **Create as a plugin**.
+7. Review the tools ChatGPT found on the server, then sign in with your Pandects account when the browser opens.
 
 Your ChatGPT account or workspace policy decides whether you can add custom MCP servers.
 
