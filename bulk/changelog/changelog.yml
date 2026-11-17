@@ -438,15 +438,16 @@ unreleased:
     Before the rule on rolled equity, rolled equity was left out of the total,
     and the second part of the full price pass emptied totals whose announced
     headline covers it. A separate rollover reread then applied the rule. It
-    read 404 served agreements that are not de-SPAC deals and that print a
-    rollover term or had a note on rolled equity from a reader of the full
+    read 404 served agreements that were not flagged as de-SPAC deals and that
+    print a rollover term or had a note on rolled equity from a reader of the full
     price pass. The first reader found rolled equity in 207 of them; the others
     had no rollover (64), only employee awards that the buyer assumes (40),
     de-SPAC terms (39), buyer-owned shares (34), listed acquirer stock (12) or
     an unsold stake (8). A second reader checked every proposed change or hold
     (325 fields on 166 agreements: 213 confirmed, 94 rejected, 18 held). A
-    third reader decided the 116 fields on 61 agreements that the two did not
-    settle (14 set, 101 kept, 1 held), and a final review decided 2 rows. The
+    third reader decided 116 fields on 61 agreements: the 112 that the two did
+    not settle, 2 confirmed fields tied to them and 2 more that it found (14
+    set, 101 kept, 1 held). A final review decided 2 rows. The
     21 agreements with rolled equity whose field was still empty and whose
     sources print a percentage were then read again, and 3 got a value. The
     reread changed 233 fields on 130 agreements: 101 rollover values filled;
@@ -464,16 +465,17 @@ unreleased:
     HCA / Bain Capital and KKR $800 million. The three totals that the second
     part of the full price pass had emptied are restored: Emdeon / Blackstone
     $3.0 billion, Worldwide Vision / Blackstone $2.825 billion and Dynacast /
-    Partners Group $1.1 billion. 106 of the 207 agreements with rolled equity
-    have an empty rollover field because no source prints its size, so an
-    empty field does not mean that the deal had no rollover. 2 agreements hold
+    Partners Group $1.1 billion. Later readers found that 29 of the 207
+    agreements hold listed acquirer stock or buyer-owned shares instead of
+    rolled equity. Of the other 178, 77 have an empty rollover field, mostly
+    because no source prints its size at signing, so an empty field does not
+    mean that the deal had no rollover. 2 agreements hold
     a rollover value and no total, because no source prints a usable total.
     The reread covers only agreements that print a rollover term or that a
     reader of the full price pass flagged. An agreement that describes a
-    rollover in other words, and that the full price pass has not read, can
-    have an empty rollover field. After the reread a blind sample of 30 of the
-    199 agreements where the first reader proposed no change and no second
-    reader had looked was read by one more reader, who did not see the first
+    rollover in other words can have an empty rollover field. After the reread a blind sample of 30 of the
+    199 agreements, other than de-SPAC rows, where the first reader proposed
+    no change and no second reader had looked was read by one more reader, who did not see the first
     read. It found a difference in a stored field on 1 agreement (1 of 180
     price and label fields): Baldwin Insurance Group, where a party prints the
     rolled stake as a percentage. That led to the reread of the percentage
@@ -524,7 +526,7 @@ unreleased:
     transaction_price_total need not equal the sum of transaction_price_cash,
     transaction_price_stock, transaction_price_assets and
     transaction_price_rollover: it exceeds that sum by more than 1% on 2,674
-    served agreements and falls below it by more than 1% on 15. Do not test
+    served agreements (9 of them hold a rollover value and no leg) and falls below it by more than 1% on 15. Do not test
     total = cash + stock + assets + rollover, and do not treat the gap as an
     exact debt figure: an empty leg or an empty rollover field also leaves a
     gap. The legs are the closest measure of what holders receive in cash,
