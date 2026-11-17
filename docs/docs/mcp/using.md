@@ -9,7 +9,7 @@ sidebar_position: 1
 
 The Pandects MCP is available at `https://api.pandects.org/mcp`.
 
-Use it inside MCP clients such as Codex or Claude Code to work with merger agreements in plain language.
+Use it inside MCP clients such as Codex, Claude Code, Claude, or ChatGPT to work with merger agreements in plain language.
 
 You can ask your client to find agreements, compare clause language, inspect specific sections, pull tax-related provisions, and use Pandects reference data while you work.
 

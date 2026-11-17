@@ -1,7 +1,7 @@
 ---
 id: setup
 title: Setup
-description: Connect The Pandects MCP to Codex or Claude Code.
+description: Connect The Pandects MCP to Codex, Claude Code, Claude, or ChatGPT.
 sidebar_position: 2
 ---
 
@@ -79,12 +79,38 @@ Then authenticate the `pandects` server inside the MCP UI and finish the browser
 
 Claude Code loads MCP tools on demand through tool search: at the start of a session Claude sees only the tool names and the server instructions, and loads a tool's full definition when a task needs it. If you use Pandects in nearly every session and want its tools loaded up front, set `"alwaysLoad": true` on the `pandects` entry in your MCP configuration; this costs context in every conversation.
 
+## Claude (web, desktop, and mobile)
+
+Add Pandects as a custom connector:
+
+1. In Claude, go to **Customize > Connectors**.
+2. Select **Add**, then **Add custom connector**.
+3. Enter `Pandects` as the name and `https://api.pandects.org/mcp` as the server URL, then click **Continue**.
+4. Keep the authentication options that Claude marks **Detected**, then click **Add**.
+5. Click **Connect** and sign in with your Pandects account in the browser window that opens.
+
+On a Team or Enterprise plan, an Owner adds the connector under **Organization settings > Connectors**, and each member then connects with their own Pandects account. Every Pandects tool only reads data, except `submit_feedback`, which saves a note for the maintainer.
+
+## ChatGPT
+
+Add Pandects as a custom MCP server:
+
+1. Go to [chatgpt.com/plugins](https://chatgpt.com/plugins).
+2. Select the plus button, then **Add custom MCP server**.
+3. Enter `Pandects` as the name and a short description.
+4. Under **Connection**, enter `https://api.pandects.org/mcp`.
+5. Choose OAuth for authentication and finish the steps, then sign in with your Pandects account when the browser opens.
+
+Your ChatGPT account or workspace policy decides whether you can add custom MCP servers.
+
 ## Supported Clients Right Now
 
 Pandects currently documents setup for:
 
 - Codex
 - Claude Code
+- Claude (web, desktop, and mobile)
+- ChatGPT
 
 Other MCP clients may work if they support remote HTTP MCP servers with browser-based authentication.
 
