@@ -1224,6 +1224,9 @@ def _tool_list_entry(spec: McpToolSpec) -> dict[str, object]:
         "_meta": {
             "pandects/requiredScopes": list(spec.scopes),
             "pandects/pagination": spec.pagination,
+            # Per-tool auth declaration read by ChatGPT (OpenAI Apps SDK). Every tool
+            # needs an OAuth token; this states that and changes no server behavior.
+            "securitySchemes": [{"type": "oauth2", "scopes": list(spec.scopes)}],
         },
     }
 

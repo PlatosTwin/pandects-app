@@ -48,6 +48,7 @@ This file explains the environment variables used across the repository and how 
 - `MCP_SERVER_NAME`
 - `MCP_SERVER_VERSION`
 - `MCP_SUPPORTED_SCOPES`
+- `OPENAI_APPS_CHALLENGE_TOKEN`: the domain-verification token from the OpenAI plugin submission portal, served as plain text at `/.well-known/openai-apps-challenge` (the path answers 404 while unset)
 - `CORS_ORIGINS`
 
 ### Maintainer-only or secret

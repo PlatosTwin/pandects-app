@@ -713,6 +713,33 @@ class McpTests(unittest.TestCase):
         self.assertEqual(payload["resource"], self.mcp_runtime.mcp_resource_url())
         self.assertIn("http://localhost:5000/v1/auth/oauth", payload["authorization_servers"])
 
+    def test_openai_apps_challenge_is_404_until_token_is_set(self):
+        client = self.app.test_client()
+        with patch.dict(os.environ, {"OPENAI_APPS_CHALLENGE_TOKEN": ""}):
+            res = client.get("/.well-known/openai-apps-challenge")
+        self.assertEqual(res.status_code, 404)
+        self.assertEqual(res.get_json()["error"], "not_found")
+
+    def test_openai_apps_challenge_serves_token_as_plain_text(self):
+        client = self.app.test_client()
+        with patch.dict(os.environ, {"OPENAI_APPS_CHALLENGE_TOKEN": "  tok-123  "}):
+            res = client.get("/.well-known/openai-apps-challenge")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_data(as_text=True), "tok-123")
+        self.assertTrue(res.mimetype.startswith("text/plain"))
+        self.assertEqual(res.headers["Cache-Control"], "no-store")
+
+    def test_tools_list_declares_oauth_security_scheme_per_tool(self):
+        from backend.mcp.tools import tool_definitions
+
+        for tool in tool_definitions():
+            meta = tool["_meta"]
+            self.assertEqual(
+                meta["securitySchemes"],
+                [{"type": "oauth2", "scopes": meta["pandects/requiredScopes"]}],
+                tool["name"],
+            )
+
     def test_pathed_authorization_server_metadata_unknown_path_uses_error_envelope(self):
         client = self.app.test_client()
         with patch("backend.mcp.routes.mcp_oauth_issuer", return_value="https://api.example.com/v1/auth/oauth"):
