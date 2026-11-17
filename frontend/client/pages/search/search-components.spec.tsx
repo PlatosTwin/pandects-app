@@ -171,6 +171,7 @@ function deal(overrides: Partial<TransactionSearchResult>): TransactionSearchRes
     transaction_price_stock: null,
     transaction_price_cash: null,
     transaction_price_assets: null,
+    transaction_price_rollover: null,
     transaction_consideration: "cash",
     target_type: null,
     acquirer_type: null,

@@ -50,6 +50,11 @@ export const SEARCH_FILTER_FIELDS: ReadonlyArray<
     kind: "array",
   },
   {
+    field: "transaction_price_rollover",
+    param: "transaction_price_rollover",
+    kind: "array",
+  },
+  {
     field: "transaction_consideration",
     param: "transaction_consideration",
     kind: "array",

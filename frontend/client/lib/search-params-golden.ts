@@ -14,6 +14,7 @@ export const FULL_FILTERS: SearchQueryFilters = {
   transaction_price_stock: ["0-100M"],
   transaction_price_cash: ["1B+"],
   transaction_price_assets: ["0-100M"],
+  transaction_price_rollover: ["100M-1B"],
   transaction_consideration: ["cash"],
   target_type: ["public"],
   acquirer_type: ["private"],
@@ -36,6 +37,7 @@ export const FULL_FILTERS: SearchQueryFilters = {
 const FILTER_PARAMS =
   "year=2021&year=2020&target=Target+A&acquirer=Acq+%26+Co&transaction_price_total=100M-1B" +
   "&transaction_price_stock=0-100M&transaction_price_cash=1B%2B&transaction_price_assets=0-100M" +
+  "&transaction_price_rollover=100M-1B" +
   "&transaction_consideration=cash&target_type=public&acquirer_type=private&target_counsel=Firm+A" +
   "&acquirer_counsel=Firm+B&target_industry=51&acquirer_industry=52&deal_status=complete" +
   "&attitude=friendly&deal_type=merger&purpose=strategic&target_pe=true&acquirer_pe=false" +

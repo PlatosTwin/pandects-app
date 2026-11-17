@@ -23,6 +23,7 @@ export const PRICE_FIELDS = [
   "transaction_price_cash",
   "transaction_price_stock",
   "transaction_price_assets",
+  "transaction_price_rollover",
 ] as const;
 export type PriceField = (typeof PRICE_FIELDS)[number];
 

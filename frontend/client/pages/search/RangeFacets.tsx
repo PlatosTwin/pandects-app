@@ -117,6 +117,7 @@ const COMPONENT_LABELS: Record<PriceField, string> = {
   transaction_price_cash: "Cash",
   transaction_price_stock: "Stock",
   transaction_price_assets: "Assets",
+  transaction_price_rollover: "Rollover",
 };
 
 const money = (value: string) => (value === "0" ? "$0" : `$${value}`);
