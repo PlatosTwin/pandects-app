@@ -46,6 +46,29 @@ unreleased:
     the index.
   refs: []
 
+- type: schema
+  severity: notable
+  summary: "New column transaction_price_rollover in agreements and latest_sections_search, also served by the REST API and the MCP tools; transaction_price_total now includes rolled-over equity."
+  details: >
+    transaction_price_rollover is DECIMAL(18,2), placed after
+    transaction_price_assets. It holds the value, in USD at the deal price, of
+    target equity that sellers, management or other holders exchange for
+    equity of the buyer or its parent instead of selling it. It is part of
+    transaction_price_total. It is not part of the cash, stock or assets legs,
+    and it does not change transaction_consideration: a cash buyout with a
+    management rollover stays cash. It is null when the deal has no rollover
+    or when no source prints its size. The REST API returns it on agreement
+    and section rows and accepts it as a price-bucket filter, like
+    transaction_price_assets. The MCP tools return it, accept it as a filter
+    argument, and list its buckets in list_filter_options under
+    transaction_price_rollovers.
+  tables: [agreements, latest_sections_search]
+  migration: >
+    A plain restore of the dump needs no action. If you load the data into a
+    table you created yourself, add the column after transaction_price_assets
+    first.
+  refs: []
+
 - type: data
   severity: notable
   summary: "Served agreements 9,787 -> 12,198 (+2,709 added, -298 removed) and searchable sections 954,483 -> 1,196,580; this release is mostly a data-quality release (see the entries below)."

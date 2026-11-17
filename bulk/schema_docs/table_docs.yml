@@ -118,6 +118,7 @@ tables:
       transaction_price_stock: Stock component of the transaction value, in USD.
       transaction_price_cash: Cash component of the transaction value, in USD.
       transaction_price_assets: Asset component of the transaction value, in USD.
+      transaction_price_rollover: Rolled-over equity component of the transaction value, in USD.
       transaction_consideration: Form of consideration paid to target holders.
       target_type: Whether the target is a public or private company.
       acquirer_type: Whether the acquirer is a public or private company.
@@ -377,6 +378,7 @@ tables:
       transaction_price_stock: Copied from `agreements.transaction_price_stock`.
       transaction_price_cash: Copied from `agreements.transaction_price_cash`.
       transaction_price_assets: Copied from `agreements.transaction_price_assets`.
+      transaction_price_rollover: Copied from `agreements.transaction_price_rollover`.
       transaction_consideration: Copied from `agreements.transaction_consideration`.
       target_type: Copied from `agreements.target_type`.
       acquirer_type: Copied from `agreements.acquirer_type`.
