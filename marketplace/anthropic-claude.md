@@ -92,7 +92,7 @@ a filter", "Brief on deal trends for a slice") and resources.
   2. Read and compare how a clause is drafted across deals (termination fees, no-shop, MAE, efforts covenants, indemnification).
   3. Find tax structure language, such as intended tax-free reorganization clauses.
   4. Get year-by-year context on the M&A agreements in the corpus.
-- What users need before they connect: a Pandects account (sign up at `https://pandects.org/signup`) with a verified email address. `[MAINTAINER: confirm that no paid plan is needed; the terms name no fees]`
+- What users need before they connect: a Pandects account with a verified email address (sign-in page `https://pandects.org/login`). `[MAINTAINER: confirm that no paid plan is needed; the terms name no fees.]` While the signup lockdown is on, only existing accounts can connect; see the first item of the [checklist](README.md#checklist) before you submit.
 - Reads or writes: **Both**. 24 tools read the corpus. `submit_feedback` adds a feedback note for the Pandects maintainer and changes no user data.
 
 ## Step 5. Company
@@ -118,7 +118,7 @@ a filter", "Brief on deal trends for a slice") and resources.
 
 Confirm only after you have done this:
 
-1. In Claude, **Customize > Connectors > Add > Add custom connector**, URL `https://api.pandects.org/mcp`, keep the detected settings, **Add**, **Connect**, sign in.
+1. In Claude, **Customize > Connectors > Add > Add custom connector**, URL `https://api.pandects.org/mcp`, keep the detected settings, under **OAuth client** choose **Register automatically** (the server has no Client ID Metadata Document support), **Add**, **Connect**, sign in with an existing account.
 2. Call every tool once from a conversation. The five prompts in
    [openai-chatgpt.md](openai-chatgpt.md#test-cases) cover the main tools; also ask for
    `get_server_capabilities`, `get_clause_taxonomy`, `get_naics_catalog` and `get_server_metrics`.

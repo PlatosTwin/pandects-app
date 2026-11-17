@@ -19,8 +19,15 @@ been submitted.
 Items still NOT MET or UNCLEAR, in the order to do them. "Maintainer" means only the maintainer
 can do it (an account, a decision, legal text, or a production change).
 
+Audit totals ([audit.md](audit.md)): Anthropic connector 15 MET, 4 NOT MET, 3 UNCLEAR (plus one
+item needed only on request); OpenAI plugin 17 MET, 7 NOT MET, 3 UNCLEAR.
+
 Before submitting to either program:
 
+- [ ] Decide whether to end the signup lockdown before listing; the listing cannot work for
+      new users while it is on. `TEMPORARY_ACCESS_LOCKDOWN` defaults to on in production, so
+      password signup and first-time Google or OAuth sign-in return 403 (audit A23, O27).
+      (Maintainer; production setting)
 - [ ] Merge the PR that added this folder, so the setup docs for Claude and ChatGPT, the
       per-tool `securitySchemes` and the OpenAI verification route go live. (Maintainer; a
       merge deploys to production.)
@@ -31,8 +38,9 @@ Before submitting to either program:
       has a draft). Both programs require the policy to cover the data the connector handles.
       (Maintainer; legal text)
 - [ ] Create a dedicated reviewer account: email-verified, no MFA, password sign-in, works from
-      outside your network. OpenAI requires it at submission; Anthropic asks for it only if it
-      escalates to Verified review. (Maintainer)
+      outside your network. While the lockdown is on, create it with the pre-authorization
+      script, not through signup. OpenAI requires it at submission; Anthropic asks for it only
+      if it escalates to Verified review. (Maintainer; production write)
 - [ ] Choose a support contact (the `/support` page links to GitHub issues) and the company
       name for the listings. (Maintainer)
 

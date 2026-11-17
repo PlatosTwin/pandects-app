@@ -96,7 +96,11 @@ Counts can change as the corpus grows.
 
 - Reviewer test account: `[MAINTAINER: email and password of a dedicated Pandects account]`.
   It must have a verified email, no MFA, no email or SMS codes, and must work from outside your
-  network. Sign-in with email and password must work for it (not only Google sign-in).
+  network. Sign-in with email and password must work for it (not only Google sign-in). While
+  the signup lockdown is on, reviewers cannot sign up: create this account with the
+  pre-authorization script before you submit. Also decide on the lockdown itself (first item
+  of the [checklist](README.md#checklist)); OpenAI rejects plugins that new users cannot
+  finish setting up.
 - Demo video: `[MAINTAINER: URL]`, a walkthrough of P1 to P5 in ChatGPT.
 - Commerce: none.
 

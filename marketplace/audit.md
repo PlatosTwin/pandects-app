@@ -19,6 +19,7 @@ account or a vendor decision). "This PR" means the item was closed on this branc
 | Token endpoint reads form-encoded bodies, returns `invalid_grant` for bad refresh tokens, rotates refresh tokens and revokes the family on reuse. | `backend/routes/auth/mcp_oauth.py:796-910` |
 | Access tokens carry the MCP resource URL as audience. | `backend/routes/auth/mcp_oauth.py:766` |
 | Token exchange fails with "Linked Pandects account is not verified" for an unverified account. | `backend/routes/auth/mcp_oauth.py:830`, `:886` |
+| New accounts cannot be created in production. `TEMPORARY_ACCESS_LOCKDOWN` defaults to on, and `backend/fly.toml` does not set it. While it is on, password signup gets 403, and a new Google or OAuth identity is rolled back with 403 "New user creation is temporarily disabled". Existing accounts can still sign in, and the gate on `/v1/` data routes does not cover `/mcp`. | `backend/core/config.py:185-198`; `backend/auth/access.py:219-226`; `backend/routes/auth/website_auth.py:279-288` |
 | 25 tools. 24 read only. `submit_feedback` writes a row to the `mcp_feedback` table. | `backend/tests/fixtures/mcp_tools_list_snapshot.json` |
 | Every tool has `title` and `annotations` with explicit `readOnlyHint`, `destructiveHint` (always `false`), `idempotentHint`, `openWorldHint` (always `false`). | `backend/mcp/tools/__init__.py` `_tool_list_entry`; snapshot fixture |
 | Longest tool name: `list_agreement_sections_batch` (29 characters). | Snapshot fixture |
@@ -32,7 +33,7 @@ account or a vendor decision). "This PR" means the item was closed on this branc
 
 ## Anthropic: Connectors Directory (MCP connector)
 
-Summary: 15 MET, 3 NOT MET, 3 UNCLEAR, 1 needed only on request (A22).
+Summary: 15 MET, 4 NOT MET, 3 UNCLEAR, 1 needed only on request (A22).
 
 | # | Requirement | Status | Evidence or note | Who acts |
 | --- | --- | --- | --- | --- |
@@ -57,7 +58,8 @@ Summary: 15 MET, 3 NOT MET, 3 UNCLEAR, 1 needed only on request (A22).
 | A19 | Tested as a custom connector in Claude, every tool called | NOT MET | Needs a claude.ai account and a Pandects account. Not done here | Maintainer |
 | A20 | Listing materials: icon, support contact, docs URL, privacy URL | UNCLEAR | Icon file exists. Support contact: `https://pandects.org/support` points to GitHub issues; the portal also asks for a contact, and only the maintainer can choose the address | Maintainer |
 | A21 | Submitter on a paid Claude plan | NOT MET / unknown | Only the maintainer can check | Maintainer |
-| A22 | Test account for Verified review (reviewer asks by email) | not required at submission | Needed only if Anthropic escalates to Verified review. Account must be email-verified (`mcp_oauth.py:830`) | Maintainer, if asked |
+| A22 | Test account for Verified review (reviewer asks by email) | not required at submission | Needed only if Anthropic escalates to Verified review. Account must be email-verified (`mcp_oauth.py:830`). While signup is locked (A23), the maintainer creates it through the pre-authorization script, not through signup | Maintainer, if asked |
+| A23 | A directory user who clicks Connect can get an account and finish sign-in | NOT MET | Signup lockdown (see facts table). Only people with an existing account can connect; everyone else gets 403 at sign-in | Maintainer decides whether to end the lockdown before listing |
 
 High-traffic note from Anthropic's auth page: DCR makes a new client on every fresh connection.
 The page recommends CIMD or Anthropic-held credentials for servers that expect directory
@@ -81,7 +83,7 @@ folder. This branch adds one at `marketplace/claude-plugin/pandects/`.
 
 ## OpenAI: ChatGPT Directory (plugin with a remote MCP server)
 
-Summary: 17 MET, 6 NOT MET, 3 UNCLEAR.
+Summary: 17 MET, 7 NOT MET, 3 UNCLEAR.
 
 | # | Requirement | Status | Evidence or note | Who acts |
 | --- | --- | --- | --- | --- |
@@ -94,7 +96,7 @@ Summary: 17 MET, 6 NOT MET, 3 UNCLEAR.
 | O7 | OAuth: DCR or CIMD registration | MET | DCR | |
 | O8 | OAuth: redirect `https://chatgpt.com/connector/oauth/{callback_id}` accepted | MET | DCR accepts any HTTPS redirect URI. The server does not advertise RFC 9207 `iss`, so ChatGPT uses the callback-ID form | |
 | O9 | OAuth: `resource` parameter bound into the token audience | UNCLEAR | Tokens use the fixed MCP resource URL as `aud` (`mcp_oauth.py:766`), which equals the value ChatGPT sends. The code does not compare the request's `resource` value. Works for this single-resource server | |
-| O10 | Per-tool `_meta.securitySchemes` | MET (this PR) | `{"type": "oauth2", "scopes": [...]}` on every tool | |
+| O10 | Per-tool `_meta.securitySchemes` | MET (this PR) | `{"type": "oauth2", "scopes": [...]}` on every tool, listing every scope the handler can check (`list_agreements` and `get_agreement` add `agreements:read_fulltext`). OpenAI documents no form for "any authenticated user". The three tools that accept any scope (`get_server_capabilities`, `get_server_metrics`, `submit_feedback`) declare `"scopes": []`, modeled on OpenAI's profile-tool example, which is the only empty-scope form the docs show | |
 | O11 | All three annotations explicit on every tool | MET | Snapshot | |
 | O12 | `readOnlyHint` correct | MET | 24 reads `true`; `submit_feedback` `false` | |
 | O13 | `destructiveHint` correct | UNCLEAR | `submit_feedback` is `false`. OpenAI says `false` fits "additive writes with no destructive or irreversible effects" but `true` fits "irreversible sends". A feedback note is additive and the user cannot recall it. See [proposals.md](proposals.md#p4-destructivehint-on-submit_feedback) | Maintainer decides |
@@ -110,7 +112,8 @@ Summary: 17 MET, 6 NOT MET, 3 UNCLEAR.
 | O23 | Suitable for general audiences including ages 13-17 | MET with note | Content is public SEC filings. The Pandects terms restrict accounts to 18+, which is stricter than OpenAI's rule, not a conflict | |
 | O24 | 5 positive and 3 negative test cases | MET (this PR) | In `plugin.json` and [openai-chatgpt.md](openai-chatgpt.md). Positive cases were run against the live server on 2026-11-17 | |
 | O25 | Demo video URL | NOT MET | Maintainer records the five positive cases | Maintainer |
-| O26 | Reviewer test account: full features, sample data, no MFA, no email codes | NOT MET | Maintainer creates an email-verified Pandects account for reviewers and enters it only in the portal's Review details form | Maintainer |
+| O26 | Reviewer test account: full features, sample data, no MFA, no email codes | NOT MET | While signup is locked (O27), the maintainer creates an email-verified account through the pre-authorization script, not through signup, and enters it only in the portal's Review details form | Maintainer |
+| O27 | A ChatGPT user who connects can get an account and finish sign-in | NOT MET | Signup lockdown (see facts table). New users get 403 at sign-in. OpenAI rejects plugins that are not "complete" or that need sign-ups a reviewer cannot finish | Maintainer decides whether to end the lockdown before listing |
 
 Not applicable: UI and iframe rules (no UI resources), commerce, location, file inputs, EU data
 residency (the maintainer's OpenAI project must use global residency).

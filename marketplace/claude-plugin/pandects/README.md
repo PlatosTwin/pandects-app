@@ -15,8 +15,8 @@ clauses and year-by-year trends.
 
 ## Requirements
 
-A Pandects account with a verified email address. When the server first connects, your client
-opens the Pandects sign-in page in your browser.
+A Pandects account with a verified email address (sign in at https://pandects.org/login). When
+the server first connects, your client opens the Pandects sign-in page in your browser.
 
 ## Tools
 

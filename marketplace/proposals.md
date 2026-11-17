@@ -19,6 +19,9 @@ send feedback on its own, during and at the end of a session. Both programs chec
 A note that the model writes on its own, from the user's session, to the server owner is the
 pattern both reviews look for.
 
+**Independent reviewer's assessment.** Both programs' rules on prompt injection and conversation
+data make a rejection likely without P1.
+
 **Recommendation.** Keep the tool. Change the wording so the model offers feedback when it
 fits, and sends it when the user agrees or asks. Expect fewer feedback rows.
 
@@ -47,6 +50,9 @@ instructions test change with it.
 current policy (`frontend/public/legal/privacy-policy.md`) covers accounts, server logs and API
 usage in general terms but does not name the MCP server, the per-user tool usage records, or
 feedback notes.
+
+**Independent reviewer's assessment.** Both programs require a privacy policy that covers the
+connector's data, so P2 is needed before either submission.
 
 **Recommendation.** Add a short subsection. Draft (the maintainer must check it against what
 the service really does and against the retention practice):
