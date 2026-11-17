@@ -1349,6 +1349,7 @@ export interface components {
             transaction_price_stock?: number | null;
             transaction_price_cash?: number | null;
             transaction_price_assets?: number | null;
+            transaction_price_rollover?: number | null;
             transaction_consideration?: string | null;
             target_type?: string | null;
             acquirer_type?: string | null;
@@ -1439,6 +1440,7 @@ export interface components {
             transaction_price_stock: number | null;
             transaction_price_cash: number | null;
             transaction_price_assets: number | null;
+            transaction_price_rollover: number | null;
             transaction_consideration: string | null;
             target_type: string | null;
             acquirer_type: string | null;
@@ -1491,6 +1493,7 @@ export interface components {
             transaction_price_stock: number | null;
             transaction_price_cash: number | null;
             transaction_price_assets: number | null;
+            transaction_price_rollover: number | null;
             transaction_consideration: string | null;
             target_type: string | null;
             acquirer_type: string | null;
@@ -1717,6 +1720,7 @@ export interface components {
             transaction_price_stock: number | null;
             transaction_price_cash: number | null;
             transaction_price_assets: number | null;
+            transaction_price_rollover: number | null;
             transaction_consideration: string | null;
             target_type: string | null;
             acquirer_type: string | null;
@@ -2498,6 +2502,7 @@ export interface operations {
                 transaction_price_stock?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_price_cash?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_price_assets?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
+                transaction_price_rollover?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_consideration?: string[];
                 target_type?: string[];
                 acquirer_type?: string[];
@@ -2512,7 +2517,7 @@ export interface operations {
                 target_pe?: string[];
                 acquirer_pe?: string[];
                 /** @description Additional agreement metadata fields to include in each result under `results[].metadata`. Repeat query key for multiple values. */
-                metadata?: ("filing_date" | "prob_filing" | "filing_company_name" | "filing_company_cik" | "form_type" | "exhibit_type" | "transaction_price_total" | "transaction_price_stock" | "transaction_price_cash" | "transaction_price_assets" | "transaction_consideration" | "target_type" | "acquirer_type" | "target_industry" | "acquirer_industry" | "announce_date" | "close_date" | "deal_status" | "attitude" | "deal_type" | "purpose" | "target_pe" | "acquirer_pe" | "url")[];
+                metadata?: ("filing_date" | "prob_filing" | "filing_company_name" | "filing_company_cik" | "form_type" | "exhibit_type" | "transaction_price_total" | "transaction_price_stock" | "transaction_price_cash" | "transaction_price_assets" | "transaction_price_rollover" | "transaction_consideration" | "target_type" | "acquirer_type" | "target_industry" | "acquirer_industry" | "announce_date" | "close_date" | "deal_status" | "attitude" | "deal_type" | "purpose" | "target_pe" | "acquirer_pe" | "url")[];
                 /** @description Filter to one agreement UUID. */
                 agreement_uuid?: string | null;
                 /** @description Filter to one section UUID. */
@@ -2579,6 +2584,7 @@ export interface operations {
                 transaction_price_stock?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_price_cash?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_price_assets?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
+                transaction_price_rollover?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_consideration?: string[];
                 target_type?: string[];
                 acquirer_type?: string[];
@@ -2780,6 +2786,7 @@ export interface operations {
                 transaction_price_stock?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_price_cash?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_price_assets?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
+                transaction_price_rollover?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_consideration?: string[];
                 target_type?: string[];
                 acquirer_type?: string[];
@@ -2844,6 +2851,7 @@ export interface operations {
                 transaction_price_stock?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_price_cash?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_price_assets?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
+                transaction_price_rollover?: ("0 - 100M" | "100M - 250M" | "250M - 500M" | "500M - 750M" | "750M - 1B" | "1B - 2B" | "2B - 5B" | "5B - 10B" | "10B - 20B" | "20B+")[];
                 transaction_consideration?: string[];
                 target_type?: string[];
                 acquirer_type?: string[];
@@ -2858,7 +2866,7 @@ export interface operations {
                 target_pe?: string[];
                 acquirer_pe?: string[];
                 /** @description Additional agreement metadata fields to include in each result under `results[].metadata`. Repeat query key for multiple values. */
-                metadata?: ("filing_date" | "prob_filing" | "filing_company_name" | "filing_company_cik" | "form_type" | "exhibit_type" | "transaction_price_total" | "transaction_price_stock" | "transaction_price_cash" | "transaction_price_assets" | "transaction_consideration" | "target_type" | "acquirer_type" | "target_industry" | "acquirer_industry" | "announce_date" | "close_date" | "deal_status" | "attitude" | "deal_type" | "purpose" | "target_pe" | "acquirer_pe" | "url")[];
+                metadata?: ("filing_date" | "prob_filing" | "filing_company_name" | "filing_company_cik" | "form_type" | "exhibit_type" | "transaction_price_total" | "transaction_price_stock" | "transaction_price_cash" | "transaction_price_assets" | "transaction_price_rollover" | "transaction_consideration" | "target_type" | "acquirer_type" | "target_industry" | "acquirer_industry" | "announce_date" | "close_date" | "deal_status" | "attitude" | "deal_type" | "purpose" | "target_pe" | "acquirer_pe" | "url")[];
                 /** @description Filter to one agreement UUID. */
                 agreement_uuid?: string | null;
                 /** @description Filter to one section UUID. */
