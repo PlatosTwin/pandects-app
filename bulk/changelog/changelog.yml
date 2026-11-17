@@ -961,6 +961,20 @@ unreleased:
     non-numeric value or a code whose sector is also missing stays null.
   refs: []
 
+- type: mcp
+  severity: minor
+  summary: "Every MCP tool now declares its OAuth security scheme and scopes in _meta.securitySchemes; tool behavior is unchanged."
+  details: >
+    tools/list returns, for each tool, _meta.securitySchemes with type oauth2
+    and the scopes that the tool checks. The three tools that accept any
+    authenticated caller (get_server_capabilities, get_server_metrics,
+    submit_feedback) declare an empty scope list. list_agreements and
+    get_agreement also declare agreements:read_fulltext, which they need for
+    full agreement text. Clients that ignore _meta see no change. The server
+    also answers GET /.well-known/openai-apps-challenge with a domain
+    verification token when one is configured, and with 404 otherwise.
+  refs: []
+
 releases:
 - version: '2026-09-09'
   released: '2026-09-09T23:37:59Z'

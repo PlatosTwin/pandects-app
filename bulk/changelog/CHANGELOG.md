@@ -120,6 +120,8 @@ the MCP surface. Machine-readable version:
   - get_section_snippet, get_section_snippets_batch, get_sections_batch, and search_sections / search_agreements with snippets now drop the <page> and <pageUUID> markers before excerpting, so snippets read as clean text and a focus term that spans a page break is found. monetary_values is extracted from the same cleaned text.
 - **[mcp/minor]** MCP industry labels roll an unlisted NAICS code up to its sector, as REST does.
   - target_industry_label / acquirer_industry_label (list_agreements, get_agreement, get_agreements_batch, search_sections metadata) and the list_filter_options industry_labels map used to match the code exactly, so a code with no catalog entry of its own (for example "459", "513", "922") was null in MCP while REST labeled it with its 2-digit sector ("Retail Trade" for "459"). Both surfaces now share one resolver. A non-numeric value or a code whose sector is also missing stays null.
+- **[mcp/minor]** Every MCP tool now declares its OAuth security scheme and scopes in _meta.securitySchemes; tool behavior is unchanged.
+  - tools/list returns, for each tool, _meta.securitySchemes with type oauth2 and the scopes that the tool checks. The three tools that accept any authenticated caller (get_server_capabilities, get_server_metrics, submit_feedback) declare an empty scope list. list_agreements and get_agreement also declare agreements:read_fulltext, which they need for full agreement text. Clients that ignore _meta see no change. The server also answers GET /.well-known/openai-apps-challenge with a domain verification token when one is configured, and with 404 otherwise.
 
 ## 2026-09-09 — released 2026-09-09
 

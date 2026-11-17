@@ -14,7 +14,15 @@
       "pandects/requiredScopes": [
         "agreements:search"
       ],
-      "pandects/pagination": "page"
+      "pandects/pagination": "page",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -594,7 +602,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "page"
+      "pandects/pagination": "page",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -1314,7 +1330,15 @@
       "pandects/requiredScopes": [
         "agreements:read"
       ],
-      "pandects/pagination": "page"
+      "pandects/pagination": "page",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:read"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -1837,7 +1861,16 @@
       "pandects/requiredScopes": [
         "agreements:search"
       ],
-      "pandects/pagination": "cursor"
+      "pandects/pagination": "cursor",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:search",
+            "agreements:read_fulltext"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -2480,7 +2513,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "page"
+      "pandects/pagination": "page",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -2665,7 +2706,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -2869,7 +2918,16 @@
       "pandects/requiredScopes": [
         "agreements:read"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:read",
+            "agreements:read_fulltext"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -3123,7 +3181,15 @@
       "pandects/requiredScopes": [
         "agreements:read"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:read"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -3407,7 +3473,15 @@
       "pandects/requiredScopes": [
         "agreements:read"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:read"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -3480,7 +3554,15 @@
       "pandects/requiredScopes": [
         "agreements:read"
       ],
-      "pandects/pagination": "page"
+      "pandects/pagination": "page",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:read"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -3694,7 +3776,15 @@
       "pandects/requiredScopes": [
         "agreements:read"
       ],
-      "pandects/pagination": "page"
+      "pandects/pagination": "page",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:read"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -3908,7 +3998,15 @@
       "pandects/requiredScopes": [
         "agreements:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -4184,7 +4282,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -4341,7 +4447,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -4447,7 +4561,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -4600,7 +4722,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -4772,7 +4902,13 @@
       "pandects/requiredScopes": [
         "agreements:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": []
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -4859,7 +4995,13 @@
       "pandects/requiredScopes": [
         "agreements:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": []
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -5472,7 +5614,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -5542,7 +5692,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -5612,7 +5770,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -5672,7 +5838,15 @@
       "pandects/requiredScopes": [
         "sections:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "sections:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -5751,7 +5925,15 @@
       "pandects/requiredScopes": [
         "agreements:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -5794,7 +5976,15 @@
       "pandects/requiredScopes": [
         "agreements:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "agreements:search"
+          ]
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",
@@ -6166,7 +6356,13 @@
       "pandects/requiredScopes": [
         "agreements:search"
       ],
-      "pandects/pagination": "none"
+      "pandects/pagination": "none",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": []
+        }
+      ]
     },
     "inputSchema": {
       "type": "object",

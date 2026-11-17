@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import cast
 from urllib.parse import urlparse
@@ -75,6 +76,19 @@ def register_mcp_routes(target_app: Flask, *, deps: McpDeps) -> Blueprint:
             return urlparse(mcp_oauth_issuer()).path.strip("/")
         except Exception:  # pragma: no cover - defensive
             return ""
+
+    @mcp_blp.get("/.well-known/openai-apps-challenge")
+    def openai_apps_challenge() -> Response:
+        # Domain verification for the OpenAI plugin submission portal: it asks the
+        # owner to serve a token as plain text at this path. The route answers 404
+        # until the maintainer sets OPENAI_APPS_CHALLENGE_TOKEN.
+        token = os.environ.get("OPENAI_APPS_CHALLENGE_TOKEN", "").strip()
+        if not token:
+            return json_error(404, error=error_code_for_status(404), message="Not found.")
+        response = make_response(token, 200)
+        response.mimetype = "text/plain"
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     @mcp_blp.get("/.well-known/oauth-authorization-server")
     def oauth_authorization_server_root_metadata() -> Response:
