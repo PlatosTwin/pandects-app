@@ -80,10 +80,15 @@ unreleased:
     the minority of its subsidiary, a controlling holder that takes its
     company private, or a bidder's prior stake. It is not part of
     transaction_price_total, which is the value of what the deal acquires, and
-    it is not part of the cash, stock or assets legs. The implied value of the
-    whole company is transaction_price_total plus this column. It does not
+    it is not part of the cash, stock or assets legs. Where the stake is
+    sized, the implied value of the whole company is transaction_price_total
+    plus this column; the total may include debt where the price rules put
+    debt in the total. It does not
     change transaction_consideration. It is null when there is no prior stake
-    or when no source prints its size. The price reviews leave it empty on
+    or when no source prints its size. In this release 157 served agreements
+    hold a value. Only agreements that the buyer-owned reread read can hold
+    one (see the price entry); on the others the field is empty, also where
+    the buyer held a stake. The price reviews leave it empty on
     de-SPAC rows, and the extraction prompt tells the model to leave it empty
     there; no check in the code enforces this.
     The REST API returns it on agreement and section rows and accepts it as a
@@ -318,13 +323,16 @@ unreleased:
 
 - type: data
   severity: breaking
-  summary: "Deal price, consideration and dates corrected: price total changed on 4,203, filled on 588 and cleared on 509 continuing agreements; consideration type changed on 1,000; deal type changed on 664; deal status filled on 170 and changed on 170."
+  summary: "Deal price, consideration and dates corrected: price total changed on 4,219, filled on 589 and cleared on 499 continuing agreements; consideration type changed on 1,000; deal type changed on 664; deal status filled on 170 and changed on 170."
   details: >
     Prices now mean the headline price at signing, including assumed or repaid
-    debt and rolled equity, and as signed (not as later amended). The rules on stated per-share
+    debt and rolled equity, and as signed (not as later amended). The total
+    is the value of what the deal acquires: shares that the buyer already
+    holds are left out. The rules on stated per-share
     values, seller notes, "up to" headlines, elections and collars, de-SPAC
-    prices and late filings below came late, and the rule on rolled equity
-    came last (see the rollover reread below). Two readers applied them first to
+    prices and late filings below came late, and the rules on rolled equity
+    and on shares the buyer already holds came last (see the rollover and
+    buyer-owned rereads below). Two readers applied them first to
     the price rows held for a ruling (114 agreements). A full price pass then
     read 9,622 agreements in three parts (see the end of this entry). Some of the
     finer points below were settled while that pass ran, and agreements read
@@ -344,7 +352,8 @@ unreleased:
     no leg and does not change the consideration label, so a cash buyout with
     a rollover has the label cash. Holders who join a vehicle that an outside
     sponsor or another buyer controls roll equity. Holders who are themselves
-    the controlling buyer keep buyer-owned shares, which stay out. Stock of a
+    the controlling buyer hold buyer-owned shares, which stay out of the
+    total. Stock of a
     listed acquirer is the stock leg, also where the agreement calls it a
     rollover; rolled equity is equity of a private buying vehicle. De-SPAC
     rows keep the de-SPAC rule below. The rollover value is a dollar amount
@@ -359,19 +368,16 @@ unreleased:
     that the buyer or the holder that controls it already owns, the unsold
     part of a stake, and employee awards that the buyer assumes; the count of
     such shares or of rolled shares may come from the merger proxy or a Schedule 13D or 13E-3 where no
-    signing source prints it. A headline that also covers shares of the acquirer itself is not used where the price of the shares bought is printed (GreenLight Biosciences, KnowBe4); the total is then the cash for the shares bought plus the rolled equity. Where the buyer's stake cannot be sized from printed figures, the announced headline stays the total (Jaguar Holding / PPD, $9.05 billion); a total is not emptied only because the headline covers the buyer's own shares. The value of shares the buyer already owns is not stored in this release. The exception
-    is the check of the largest deals: there a headline value that the parties
-    announced for the whole company stays as the total, and only the legs
-    leave buyer-owned shares out. The headline comes from the signed agreement, except mainly on public-target deals, where the value the parties announced at signing takes precedence (see the
+    signing source prints it. The value of shares that the buyer or the holder that controls it already owns is stored in transaction_price_buyer_owned (see the buyer-owned reread below). Where the stored total was a headline for the whole company that covers the buyer's stake, the total is the value of the part bought where a party prints it, else the headline less the stake where a source prints the stake's size. A headline that also covers shares of the acquirer itself is not used where the price of the shares bought is printed (GreenLight Biosciences, KnowBe4); the total is then the cash for the shares bought plus the rolled equity. Where the buyer's stake cannot be sized from printed figures, the announced headline stays the total (Jaguar Holding / PPD, $9.05 billion); a total is not emptied only because the headline covers the buyer's own shares. These rules apply to every pass, the check of the largest deals included. The headline comes from the signed agreement, except mainly on public-target deals, where the value the parties announced at signing takes precedence (see the
     separate entry on announced values). Elsewhere a stock leg is valued only
     where a party states a per-share value that holders get (in the signing
     release, an investor deck, or the agreement's own collar or reference price)
     and a signing source prints the share count; a market price quoted in passing
     does not count. A stock leg with no such value is cleared, and so is the
     total unless a party release states one. Where no single total is printed but its pieces are, the total is arithmetic on printed figures only (a per-share price times a printed share count, or cash plus separately stated assumed debt); a partial purchase is priced at what is actually bought; an agreement buying several separately printed companies lists them all as the target and sums their prices; a deal priced in a foreign currency has a USD price only where the agreement or a party's signing release prints one, and a USD value that first appears in a closing document, or a USD figure net of cash where the parties print the equity value only in the foreign currency, does not count (Leitch / Harris); one price that covers this agreement and a sister agreement, with no printed split, leaves the price fields empty (Emmis Television / SJL); a price that depends on an election, collar or cap settled after signing holds the base case or cap printed at signing, and a cash price is the base case where stock is paid only if the buyer's financing fails (KPMG Consulting AG); and a de-SPAC price is the equity value the agreement prints for the target holders' shares at the SPAC share price (usually $10.00) plus printed cash, never a pro forma or combined value; earnout shares count in no field. An exchange-ratio valuation in a reverse merger or a merger of equals is not a price; a party's statement that the deal values the target at a stated amount counts. Where no party prints the equity value, an announced value net of cash acquired, or an enterprise value below the equity value, is the total. A go-private done as a company tender offer and a merger under one agreement has one price for both steps. Where a new holding company is the acquirer and both combining companies are the target, the total and the stock leg are empty unless a signing source prints a dollar value for the holders of each company (the total is then the sum); the value of one company's shares alone, or a combined or pro forma value, does not count. None of the 14 served rows of this form holds a total, and Cedar Fair / Six Flags keeps a cash leg that a party prints. Legs follow the same standard: a leg holds a dollar figure that a party prints for that leg, valued at signing, or arithmetic on printed figures, such as a per-share price times a printed share count. Where a party states the value per share that holders get for mixed consideration and prints the cash part per share, the stock leg is that value less the cash part, times the printed share count. A seller note, or a fixed cash payment due on a fixed date or schedule more than 90 days after closing, goes in the assets leg; deferred stock stays in the stock leg; cash plus such a payment has the consideration label mixed. A closing-date or purchase-accounting value does not count, and neither does a leg that no party prints and that is only a share or a difference of other figures. A value a party prints only in a later filing counts only when its value date is within 7 days of signing; an implied value a party prints in the proxy as of such a date counts. The exception is a fixed cash price per share: the aggregate at that price that the tender offer document prints shortly after signing counts (9 and 11 days after signing on the two deals concerned). A leg with no such figure is empty, except the 203 legs set from the announced value (next entry). Price total coverage among served agreements rose from
-    89.4% (8,752 of 9,787) to 89.5% (10,915 of 12,198). Among continuing agreements 509 totals were cleared, mostly where no party values
-    a stock leg, and 588 were filled (89.5% -> 90.3%). The 2,709
-    newly served agreements have lower coverage (86.5%). Two later passes read
+    89.4% (8,752 of 9,787) to 89.6% (10,927 of 12,198). Among continuing agreements 499 totals were cleared, mostly where no party values
+    a stock leg, and 589 were filled (89.5% -> 90.4%). The 2,709
+    newly served agreements have lower coverage (86.6%). Two later passes read
     the parties' signing announcement (a release, an 8-K or an investor deck)
     for served deals with an empty total. The first read 676 of the 1,673 served
     deals that then had an empty total and filled 353 (346 with a private
@@ -509,8 +515,9 @@ unreleased:
     and moved to the rollover field; where the label was mixed only because of
     it, the label is now cash. 18 of the 20 lowered cash legs had counted
     rolled shares as paid in cash. After the third part of the full price
-    pass (above), which filled 9 rollover values and changed 1, 110 served
-    agreements hold a rollover value, $28.67 billion in all, for example
+    pass (above), which filled 9 rollover values and changed 1, and the
+    buyer-owned reread (below), which filled 2, 112 served
+    agreements hold a rollover value, $28.77 billion in all, for example
     Dell / Silver Lake $3.73 billion (total raised to $24.4 billion), Kinder
     Morgan / GS Capital Partners $2.42 billion (total $22 billion, filled) and
     HCA / Bain Capital and KKR $800 million. The three totals that the second
@@ -518,7 +525,9 @@ unreleased:
     $3.0 billion, Worldwide Vision / Blackstone $2.825 billion and Dynacast /
     Partners Group $1.1 billion. Later readers found that 29 of the 207
     agreements hold listed acquirer stock or buyer-owned shares instead of
-    rolled equity. Of the other 178, 76 have an empty rollover field, mostly
+    rolled equity; on one of them, Franchise Group, the buyer-owned reread
+    then also found rolled equity of holders outside the controlling group
+    and filled it. Of the other 178, 76 have an empty rollover field, mostly
     because no source prints its size at signing, so an empty field does not
     mean that the deal had no rollover. 2 agreements hold
     a rollover value and no total, because no source prints a usable total.
@@ -535,7 +544,68 @@ unreleased:
     rolled stake as a percentage. That led to the reread of the percentage
     rows above, which fixed it. The class of the rollover differed on 9
     agreements, with no effect on a stored value.
-    Stock price legs: 1,344 cleared, 1,015 changed; cash legs: 2,277 changed, 801 cleared; asset legs: 433 cleared. Of the cleared legs, 136 stock, 206 cash and 155 asset
+    A buyer-owned reread then applied the rule on shares that the buyer, or
+    the holder that controls it, already holds. A text scan of every served
+    agreement found 715 candidates by signs such as a going-private filing
+    under Rule 13e-3, a majority-of-the-minority vote or a stated ownership
+    percentage of the buyer; readers' notes from the earlier passes and the
+    rollover reread added more. The 151 candidates among the 2,437
+    agreements that had only an earlier, narrower two-reader price read
+    (see above) were left out. All 511 agreements with a
+    strong sign or a reader's note were read. Of the 150 with only weaker
+    signs, a first list of 35 was read and showed no stake, and the other
+    115 were not read. A first reader read each of the 546 agreements. A
+    second reader checked every proposed change or hold (232 fields on 179
+    agreements: 178 confirmed, 12 rejected, 42 held). A third reader decided
+    51 fields on 34 agreements (15 set, 34 kept, 2 held), and a final review
+    decided the fields still held, on 10 agreements. A blind sample of 30 of
+    the 338 agreements where the first reader proposed no change and no
+    second reader had looked was then read by one more reader, who did not
+    see the first read. It agreed on whether the buyer held a stake on all
+    30, but on 2 the first reader had left a stake without a size where a
+    printed figure sizes it (Collateral Therapeutics / Schering, Ziggo /
+    Liberty Global). Two routes were then settled: an implied per-share
+    value that a party prints in the merger proxy, and the difference
+    between a printed value of the whole company and a printed value of the
+    part bought. All 59 agreements where a reader had found a stake and left
+    the field empty were read again under them, with a second read of every
+    change. The reread changed 198 fields on 164 agreements: 157 buyer-owned
+    values filled; totals 9 lowered, 12 filled and 4 raised; cash legs 9
+    lowered and 5 filled; and 2 rollover values filled. These counts are not
+    part of the counts of the passes above. The 9 lowered totals were
+    headlines for the whole company or the price times all shares, for
+    example Twitter / X Holdings, now $40.04 billion instead of the announced
+    $44 billion, with $3.96 billion buyer-owned. Of the 12 filled totals, 7
+    hold the value of the part bought or the headline less the printed
+    stake, and 5 hold the announced headline for the whole company because
+    the stake has no printed size. 3 of the raised totals had held a
+    filing-fee figure for the shares bought and now hold the announced
+    headline less the stake (where the headline includes debt, so does the
+    total); the fourth, Franchise Group, now includes rolled equity. 8 of
+    the 9 lowered cash legs had counted the buyer's shares as paid, and on
+    the ninth the amount was rolled equity. Of the 190 agreements of the
+    check of the largest deals, 6 now hold a buyer-owned value; only the
+    Twitter total changed, because the other 5 already held the value of
+    the part bought or a figure within 2% of it. 157 served agreements now
+    hold a buyer-owned value, $169.12 billion in all, for example Avangrid /
+    Iberdrola $11.28 billion (a parent that buys the minority of its
+    subsidiary; total $2.55 billion). Coca-Cola gives up its 34% stake in
+    Coca-Cola Enterprises as part of the price it pays, so that row has no
+    buyer-owned value. On McMoRan / Freeport the field holds only Freeport's
+    own stake ($460.9 million): the McMoRan shares of Plains Exploration,
+    which Freeport buys under a sister agreement, are bought, not held. On
+    Azurix / Enron it holds the block of Atlantic Water Trust, which the
+    agreement places on the buyer side. On 42 other agreements the readers
+    found a prior stake that no source sizes, so the field is empty, and
+    where the total is a headline for the whole company it still includes
+    the stake. The field is filled only where a reader found a prior stake
+    and a source prints its size. The reread did not read those 2,437
+    agreements (151 of them candidates), the 115 agreements with only weaker
+    signs, or
+    agreements whose text shows no sign. On those rows the field is empty,
+    and a total that is a headline for the whole company may still include
+    the buyer's stake.
+    Stock price legs: 1,344 cleared, 1,015 changed; cash legs: 2,288 changed, 797 cleared; asset legs: 433 cleared. Of the cleared legs, 136 stock, 206 cash and 155 asset
     legs were stored zeros. Consideration type: 471 mixed deals are now cash and 436 now stock
     (a deal with one real form of payment is no longer mixed, cash plus a seller
     note or a fixed deferred payment is mixed, cash paid in
@@ -546,7 +616,7 @@ unreleased:
     empty and 125 pending deals are now complete, 34 pending and 15 empty are now 'cancelled' (a deal that went dark, delisted or passed its deadline without closing is 'cancelled', and so is a deal the parties replaced with a new agreement that closed); empty deal_status among served agreements 182 -> 3. Close date filled on 280, changed on 117 and cleared on 35 (it is the last closing of a staged deal, and empty where sources give only the month); announce date changed on 205 and filled on 11 (it is the announcement of the signed agreement, not of an earlier offer; for a served amended and restated agreement it is the announcement of the restated agreement, which changed 105 dates).
   tables: [agreements, latest_sections_search, summary_data, agreement_ownership_deal_size_summary, agreement_ownership_mix_summary, agreement_buyer_type_matrix_summary, agreement_industry_pairing_summary, agreement_counsel_leaderboard_summary]
   migration: >
-    Sums and medians of transaction_price_total change: 509 continuing agreements lost their total and 588 gained one. The summary tables were rebuilt from the
+    Sums and medians of transaction_price_total change: 499 continuing agreements lost their total and 589 gained one. The summary tables were rebuilt from the
     corrected values.
   refs: ["#179", "65a87fcb"]
 
@@ -558,10 +628,10 @@ unreleased:
     or filing at signing now takes precedence over per-share arithmetic or a
     closing-date value when they differ by more than 5%: 1,409 totals changed
     and 119 were filled, measured against the value stored before this pass. The final metadata
-    review, the later price passes, the check of the largest deals and the rollover reread then left 29 of these totals changed and 3 cleared. Against the previous
-    release, 1,366 changed, 91 were filled, 15 match and 3 were cleared among the 1,475 continuing agreements; the other 53 are newly served. Where
+    review, the later price passes, the check of the largest deals and the rollover and buyer-owned rereads then left 29 of these totals changed and 3 cleared. Against the previous
+    release, 1,367 changed, 91 were filled, 14 match and 3 were cleared among the 1,475 continuing agreements; the other 53 are newly served. Where
     the release states a value including assumed or
-    repaid debt, or the deal's enterprise value, the total holds that figure. The final metadata review also took a value from a party's own release page or investor deck where EDGAR holds none; a combined-company or pro forma value never counts.
+    repaid debt, or the deal's enterprise value, the total holds that figure, less the buyer's own stake where a source prints its size. The final metadata review also took a value from a party's own release page or investor deck where EDGAR holds none; a combined-company or pro forma value never counts.
     Mixed cash-and-stock deals where no party values the stock get
     the announced total, and the stock leg stays empty. On 240 single-form
     deals the cash or stock leg moved with the total: 17 were checked against
@@ -578,13 +648,13 @@ unreleased:
   migration: >
     transaction_price_total need not equal the sum of transaction_price_cash,
     transaction_price_stock, transaction_price_assets and
-    transaction_price_rollover: it exceeds that sum by more than 1% on 2,771 served agreements (9 of them hold a rollover value and no leg) and falls below it by more than 1% on 15. Do not test
+    transaction_price_rollover: it exceeds that sum by more than 1% on 2,778 served agreements (9 of them hold a rollover value and no leg) and falls below it by more than 1% on 15. Do not test
     total = cash + stock + assets + rollover, and do not treat the gap as an
     exact debt figure: an empty leg or an empty rollover field also leaves a
     gap. The legs are the closest measure of what holders receive in cash,
     stock and assets, with three limits: on the 203 deals above the leg holds
     the announced value; a leg is empty where no party prints a value for it at signing
-    (the stock leg on 1,069 served mixed deals that have a total); and 497 served deals with a total have no legs (9 of them hold a rollover value). No field gives a like-for-like
+    (the stock leg on 1,070 served mixed deals that have a total); and 504 served deals with a total have no legs (9 of them hold a rollover value). No field gives a like-for-like
     equity value across all deals. Sums and medians of deal value change; the summary tables were
     rebuilt from the new values.
   refs: []
