@@ -69,6 +69,35 @@ unreleased:
     first.
   refs: []
 
+- type: schema
+  severity: notable
+  summary: "New column transaction_price_buyer_owned in agreements and latest_sections_search, also served by the REST API and the MCP tools; it is not part of transaction_price_total."
+  details: >
+    transaction_price_buyer_owned is DECIMAL(18,2), placed after
+    transaction_price_rollover. It holds the value, in USD at the deal price,
+    of target shares that the acquirer, or the holder that controls the
+    acquirer, already holds before the deal: for example a parent that buys
+    the minority of its subsidiary, a controlling holder that takes its
+    company private, or a bidder's prior stake. It is not part of
+    transaction_price_total, which is the value of what the deal acquires, and
+    it is not part of the cash, stock or assets legs. The implied value of the
+    whole company is transaction_price_total plus this column. It does not
+    change transaction_consideration. It is null when there is no prior stake
+    or when no source prints its size, and it is always null on de-SPAC rows.
+    The REST API returns it on agreement and section rows and accepts it as a
+    price-bucket filter, like transaction_price_rollover. The MCP tools return
+    it, accept it as a filter argument, and list its buckets in
+    list_filter_options under transaction_price_buyer_owned. In the MCP input
+    schemas, the stock, cash, assets, rollover and buyer-owned price filters no
+    longer have their own descriptions; the description of
+    transaction_price_total says that every price filter takes its labels.
+  tables: [agreements, latest_sections_search]
+  migration: >
+    A plain restore of the dump needs no action. If you load the data into a
+    table you created yourself, add the column after transaction_price_rollover
+    first.
+  refs: []
+
 - type: data
   severity: notable
   summary: "Served agreements 9,787 -> 12,198 (+2,709 added, -298 removed) and searchable sections 954,483 -> 1,196,580; this release is mostly a data-quality release (see the entries below)."
