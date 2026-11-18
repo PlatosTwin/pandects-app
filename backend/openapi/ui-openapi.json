@@ -265,6 +265,32 @@
           },
           {
             "in": "query",
+            "name": "transaction_price_buyer_owned",
+            "schema": {
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "0 - 100M",
+                  "100M - 250M",
+                  "250M - 500M",
+                  "500M - 750M",
+                  "750M - 1B",
+                  "1B - 2B",
+                  "2B - 5B",
+                  "5B - 10B",
+                  "10B - 20B",
+                  "20B+"
+                ]
+              }
+            },
+            "required": false,
+            "explode": true,
+            "style": "form"
+          },
+          {
+            "in": "query",
             "name": "transaction_consideration",
             "schema": {
               "type": "array",
@@ -470,6 +496,7 @@
                   "transaction_price_cash",
                   "transaction_price_assets",
                   "transaction_price_rollover",
+                  "transaction_price_buyer_owned",
                   "transaction_consideration",
                   "target_type",
                   "acquirer_type",
@@ -889,6 +916,32 @@
           {
             "in": "query",
             "name": "transaction_price_rollover",
+            "schema": {
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "0 - 100M",
+                  "100M - 250M",
+                  "250M - 500M",
+                  "500M - 750M",
+                  "750M - 1B",
+                  "1B - 2B",
+                  "2B - 5B",
+                  "5B - 10B",
+                  "10B - 20B",
+                  "20B+"
+                ]
+              }
+            },
+            "required": false,
+            "explode": true,
+            "style": "form"
+          },
+          {
+            "in": "query",
+            "name": "transaction_price_buyer_owned",
             "schema": {
               "type": "array",
               "default": [],
@@ -1631,6 +1684,32 @@
           },
           {
             "in": "query",
+            "name": "transaction_price_buyer_owned",
+            "schema": {
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "0 - 100M",
+                  "100M - 250M",
+                  "250M - 500M",
+                  "500M - 750M",
+                  "750M - 1B",
+                  "1B - 2B",
+                  "2B - 5B",
+                  "5B - 10B",
+                  "10B - 20B",
+                  "20B+"
+                ]
+              }
+            },
+            "required": false,
+            "explode": true,
+            "style": "form"
+          },
+          {
+            "in": "query",
             "name": "transaction_consideration",
             "schema": {
               "type": "array",
@@ -2201,6 +2280,32 @@
           },
           {
             "in": "query",
+            "name": "transaction_price_buyer_owned",
+            "schema": {
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "0 - 100M",
+                  "100M - 250M",
+                  "250M - 500M",
+                  "500M - 750M",
+                  "750M - 1B",
+                  "1B - 2B",
+                  "2B - 5B",
+                  "5B - 10B",
+                  "10B - 20B",
+                  "20B+"
+                ]
+              }
+            },
+            "required": false,
+            "explode": true,
+            "style": "form"
+          },
+          {
+            "in": "query",
             "name": "transaction_consideration",
             "schema": {
               "type": "array",
@@ -2406,6 +2511,7 @@
                   "transaction_price_cash",
                   "transaction_price_assets",
                   "transaction_price_rollover",
+                  "transaction_price_buyer_owned",
                   "transaction_consideration",
                   "target_type",
                   "acquirer_type",
@@ -5295,6 +5401,10 @@
             "type": "number",
             "nullable": true
           },
+          "transaction_price_buyer_owned": {
+            "type": "number",
+            "nullable": true
+          },
           "transaction_consideration": {
             "type": "string",
             "nullable": true
@@ -5628,6 +5738,10 @@
             "type": "number",
             "nullable": true
           },
+          "transaction_price_buyer_owned": {
+            "type": "number",
+            "nullable": true
+          },
           "transaction_consideration": {
             "type": "string",
             "nullable": true
@@ -5723,6 +5837,7 @@
           "target_type",
           "transaction_consideration",
           "transaction_price_assets",
+          "transaction_price_buyer_owned",
           "transaction_price_cash",
           "transaction_price_rollover",
           "transaction_price_stock",
@@ -5848,6 +5963,10 @@
             "type": "number",
             "nullable": true
           },
+          "transaction_price_buyer_owned": {
+            "type": "number",
+            "nullable": true
+          },
           "transaction_consideration": {
             "type": "string",
             "nullable": true
@@ -5944,6 +6063,7 @@
           "target_type",
           "transaction_consideration",
           "transaction_price_assets",
+          "transaction_price_buyer_owned",
           "transaction_price_cash",
           "transaction_price_rollover",
           "transaction_price_stock",
@@ -6694,6 +6814,10 @@
             "type": "number",
             "nullable": true
           },
+          "transaction_price_buyer_owned": {
+            "type": "number",
+            "nullable": true
+          },
           "transaction_consideration": {
             "type": "string",
             "nullable": true
@@ -6796,6 +6920,7 @@
           "target_type",
           "transaction_consideration",
           "transaction_price_assets",
+          "transaction_price_buyer_owned",
           "transaction_price_cash",
           "transaction_price_rollover",
           "transaction_price_stock",
