@@ -90,9 +90,10 @@ unreleased:
     price-bucket filter, like transaction_price_rollover. The MCP tools return
     it, accept it as a filter argument, and list its buckets in
     list_filter_options under transaction_price_buyer_owned. In the MCP input
-    schemas, the stock, cash, assets, rollover and buyer-owned price filters no
-    longer have their own descriptions; the description of
-    transaction_price_total says that every price filter takes its labels.
+    schemas, the stock, cash, assets and rollover price filters no longer have
+    their own descriptions; the description of transaction_price_total says
+    that every price filter takes its labels. The buyer-owned filter keeps a
+    short description because it is not part of the total.
   tables: [agreements, latest_sections_search]
   migration: >
     A plain restore of the dump needs no action. If you load the data into a

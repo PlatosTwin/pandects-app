@@ -1187,7 +1187,8 @@ def _concept_notes_payload() -> list[dict[str, object]]:
                 "before the deal, such as a parent that buys the minority of its subsidiary or a "
                 "bidder's prior stake. It is not part of transaction_price_total or of any leg; "
                 "the implied value of the whole company is the total plus this field. It is null "
-                "when there is no prior stake, no source prints its size, or the deal is a de-SPAC."
+                "when there is no prior stake or no source prints its size. The price reviews and "
+                "the extraction prompt leave it null on de-SPAC deals."
             ),
         },
         {

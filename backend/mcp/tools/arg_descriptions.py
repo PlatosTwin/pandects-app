@@ -24,13 +24,14 @@ _SHARED: dict[str, str] = {
     "target": "Exact target company names.",
     "acquirer": "Exact acquirer company names.",
     # The other price filters drop their descriptions to keep search_sections under the
-    # Codex budget; the total's description says they take the same labels.
+    # Codex budget; the total's description says they take the same labels. Only the
+    # buyer-owned filter keeps a short one, because it is not part of the total.
     "transaction_price_total": "Total deal-value buckets; every price filter takes these labels.",
     "transaction_price_stock": "",
     "transaction_price_cash": "",
     "transaction_price_assets": "",
     "transaction_price_rollover": "",
-    "transaction_price_buyer_owned": "",
+    "transaction_price_buyer_owned": "Buyer's prior stake; not in total.",
     "transaction_consideration": "cash, stock, or mixed.",
     "target_type": "public or private.",
     "acquirer_type": "public or private (PE-backed buyers: acquirer_pe).",

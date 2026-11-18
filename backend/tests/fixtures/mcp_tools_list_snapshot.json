@@ -166,7 +166,8 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Buyer's prior stake; not in total."
         },
         "transaction_price_assets": {
           "type": "array",
@@ -744,7 +745,8 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Buyer's prior stake; not in total."
         },
         "transaction_price_assets": {
           "type": "array",
@@ -1428,7 +1430,8 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Buyer's prior stake; not in total."
         },
         "transaction_price_assets": {
           "type": "array",
@@ -2003,7 +2006,8 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Buyer's prior stake; not in total."
         },
         "transaction_price_assets": {
           "type": "array",
