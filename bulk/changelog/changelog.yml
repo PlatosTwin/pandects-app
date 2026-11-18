@@ -86,11 +86,11 @@ unreleased:
     debt in the total. It does not
     change transaction_consideration. It is null when no reader found a prior
     stake or when no source prints its size. In this release 290 served
-    agreements hold a value. Readers read this field on 4,932 of the 12,198
+    agreements hold a value. Readers read this field on 4,948 of the 12,198
     served agreements: the 2,437 of the fourth part of the full price pass and
     the agreements that text screens, ownership filings, earlier readers'
     notes and deal documents marked for the buyer-owned reads (see the price
-    entry). On the other 7,266 no screen found a sign of a stake and no reader
+    entry). On the other 7,250 no screen flagged the agreement and no reader
     read the field; there an empty value means that no stake was found, not
     that the buyer held none. The price reviews leave it empty on
     de-SPAC rows, and the extraction prompt tells the model to leave it empty
@@ -635,8 +635,12 @@ unreleased:
     with more signs (for example "already owns", "not already owned", a
     remaining percentage, or a buyer that is a member or partner of the
     target), marked 1,293 of them, and readers read all 1,293: the first
-    readers found a prior stake on 51. The other 7,807 show no sign in the
-    agreement text. Three further screens looked for a stake that is printed
+    readers found a prior stake on 51. The other 7,807 scored below the cut
+    of that screen: 1,408 of them have at least one sign, in most cases a
+    weak one such as a reference to unaffiliated holders, and the rest have
+    none. Readers also read the 16 that have a strong sign and fell below
+    the cut because the deal is a de-SPAC or an asset purchase; none has a
+    stake. Three further screens looked for a stake that is printed
     only outside the agreement, and readers read every agreement that a
     screen flagged: Schedule 13D and 13G filings on the target by the
     acquirer or its group in the 10 years before signing (52 agreements, a
@@ -645,15 +649,18 @@ unreleased:
     the deal documents outside the agreement, that is the merger proxy,
     tender offer document, Schedule 14D-9 or S-4 of a public target, and
     otherwise the signing 8-K and release (289 agreements flagged, 262 of
-    them not flagged by the other screens; a stake on 24). The 60 stakes
-    that readers of all the buyer-owned reads had left without a size were
+    them not flagged by the other screens; a stake on 24). 60 stakes
+    that earlier readers had left without a size were
     then read again under one more route: for a company with no printed
     unit count, such as a joint venture, an LLC or a partnership, where a
     party prints the percentage that the buyer side holds, the percentage it
     buys and the equity price of the part bought, fixed at signing, the
     stake is that price times the held percentage divided by the bought
-    percentage (NRG held 50% of West Coast Power and paid $205 million for
-    the other 50%, so its stake is $205 million). 10 of the 60 got a value,
+    percentage (for example, NRG held 50% of West Coast Power and paid $205
+    million for the other 50%, so its stake is $205 million; that value was
+    set in the read of the 1,293). 10 of the 60 got a value (9 by this
+    route; 1, ESS PRISA III / Extra Space, as the printed value of the whole
+    venture less the printed value of the part bought),
     for example Classified Ventures / Gannett $672.6 million and AmerGen /
     Exelon $276.5 million; the other 50 stay empty, mostly because the price
     also covers other assets, includes debt or is set only at closing (UOP /
@@ -683,21 +690,24 @@ unreleased:
     which Freeport buys under a sister agreement, are bought, not held. On
     Azurix / Enron it holds the block of Atlantic Water Trust, which the
     agreement places on the buyer side. On 61 other agreements the readers
-    of the buyer-owned reads found a prior stake that no source sizes, and
+    of the buyer-owned reads found a prior stake that has no accepted size
+    (on 53 no source sizes it; on 8 a second or third reader rejected the
+    size that a reader proposed), and
     the readers of the fourth part found more such stakes (for example
     Pivotal Software / VMware); on these the field is empty, and
     where the total is a headline for the whole company it still includes
     the stake. The field is filled only where a reader found a prior stake
     and a source prints its size. The fourth part of the full price pass read
     the field on all its 2,437 agreements, the 151 candidates among them
-    included. Readers thus read the field on 4,932 served agreements. On the
-    other 7,266 (the 7,807 with no sign in the text, less the 541 that a
-    later screen flagged) no screen shows a sign of a stake, and no reader
-    read the field; 490 of them have no deal document that the document
-    screen could read. The screens do not find every stake, and they
+    included. Readers thus read the field on 4,948 served agreements. On the
+    other 7,250 (the 7,807 below the cut of the text screen, less the 541
+    that a later screen flagged and the 16 with a strong sign) no screen
+    flagged the agreement, and no reader read the field; 1,301 of them have
+    a weaker sign in the text, and 490 have no deal document that the
+    document screen could read. The screens do not find every stake, and they
     overlap only in part: of the 29 stakes that the ownership filings and
     the readers' notes found, the document screen flagged 11 (2 of the 29
-    have no document). On those 7,266 rows an empty value means that no
+    have no document). On those 7,250 rows an empty value means that no
     stake was found, not that the buyer held none, and a total that is a
     headline for the whole company may still include the buyer's stake.
     Because of the blind sample of the fourth part (above), a stock-value
