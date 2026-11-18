@@ -83,7 +83,9 @@ unreleased:
     it is not part of the cash, stock or assets legs. The implied value of the
     whole company is transaction_price_total plus this column. It does not
     change transaction_consideration. It is null when there is no prior stake
-    or when no source prints its size, and it is always null on de-SPAC rows.
+    or when no source prints its size. The price reviews leave it empty on
+    de-SPAC rows, and the extraction prompt tells the model to leave it empty
+    there; no check in the code enforces this.
     The REST API returns it on agreement and section rows and accepts it as a
     price-bucket filter, like transaction_price_rollover. The MCP tools return
     it, accept it as a filter argument, and list its buckets in
