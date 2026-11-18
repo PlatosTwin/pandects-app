@@ -462,8 +462,8 @@ unreleased:
     more), 82 filled and 16 cleared; rollover values 5 filled and 2 cleared;
     buyer-owned values 39 filled; and 139 consideration labels. The 2 cleared
     rollover values had been set by the rollover reread below: on A.L. Grading
-    Contractors / Cardinal Civil Contracting the amount is listed acquirer
-    stock and is now the stock leg, and on Serena Software / Silver Lake the
+    Contractors / Cardinal Civil Contracting the rolled amount is listed
+    acquirer stock and is now in the stock leg ($116.9 million), and on Serena Software / Silver Lake the
     printed count covers only some of the holders who roll equity. Totals stay
     empty where no signing source that can be opened states a deal value or
     values the stock (Franklin Mountain Energy / Coterra, Double Eagle III /
@@ -637,9 +637,9 @@ unreleased:
     and a total that is a headline for the whole company may still include
     the buyer's stake.
     Because of the blind sample of the fourth part (above), a stock-value
-    reread then read every served agreement with the label stock or mixed and
-    an empty stock leg, and every de-SPAC row with an empty total, whose
-    acquirer is public or that is a de-SPAC deal: 1,652 agreements (773 from
+    reread then read every served agreement with the label stock or mixed, an
+    empty stock leg and a public acquirer (de-SPAC rows included): 1,652
+    agreements (773 from
     the fourth part, 848 from the first three parts and 31 from the check of
     the largest deals). A first reader read each and looked for a value of
     the stock that a party states: in the signing release, 8-K or investor
@@ -657,10 +657,15 @@ unreleased:
     18 fields on 14 agreements. The reread changed 684 fields on 456
     agreements: 446 stock legs filled; totals 193 filled and 4 changed; cash
     legs 30 filled, 2 changed and 2 cleared; 2 asset legs cleared; 4
-    buyer-owned values filled; and 1 consideration label. On 188 agreements
+    buyer-owned values filled; and 1 consideration label (1 of the cleared
+    cash legs and 1 of the cleared asset legs were a stored zero on one
+    agreement, found by a data check). On 188 agreements
     the stock value was the missing piece of the total, and both were filled.
-    These counts are not part of the counts of the passes above; 21 of these
-    fields had also been changed by the fourth part. On Flyers Energy / World
+    These counts are not part of the counts of the passes above. 21 of these
+    fields had also been changed by the fourth part and 97 by the first three
+    parts; 93 of the 97 (74 stock legs, 17 totals and 2 cash legs) had been
+    cleared by those parts and were filled again here, from a value that a
+    party states. On Flyers Energy / World
     Fuel Services the cash leg was cleared, because no party prints the cash
     alone (the release's $675 million closing payment includes the stock). 8
     agreements now hold legs 2% to 5% above the total, for example Teads /
@@ -669,9 +674,9 @@ unreleased:
     review with an empty field: Franklin Mountain Energy / Coterra (stock leg
     and total) and The Necessity Retail REIT / Global Net Lease (total; the
     signing deck's $4 billion may also cover the internalization of the
-    managers under sister agreements). After the reread 1,466 served
+    managers under sister agreements). After the reread 1,465 served
     agreements with the label stock or mixed have an empty stock leg (1,912
-    before it). 1,206 of them were candidates, and no party states a value of
+    before it). 1,205 of them were candidates, and no party states a value of
     the stock in a source that the readers could open; the other 260 have a
     private acquirer and were not candidates. The reread opened the proxy or
     registration statement only for the candidates, did not read again a
@@ -680,23 +685,32 @@ unreleased:
     A closing blind sample then covered all four parts of the full price
     pass. Two blind readers, who were also told to look for a value of the
     stock in the investor presentation, the merger proxy and the S-4, read 60
-    of 12,014 agreements that the four parts read, and their reads were
+    of 12,014 of the agreements that the four parts read (the 12,059 less the
+    45 agreements of two lists that were left out of the sample frame), and
+    their reads were
     compared with the stored rows after every change of the stock-value
     reread. They differed by more than 5% on 10 fields of 9 agreements. A
     third reader checked each against the sources and found the stored value
     wrong on 5 fields of 4 agreements (5 of 420 price and label fields) and
-    right on the other 5. The 4 were corrected: JH Capital Group / Easterly
+    right on the other 5. A final review kept 1 of the 5 (below). The other 4
+    fields, on 3 agreements, were corrected: JH Capital Group / Easterly
     Acquisition (a $1 million cash leg cleared; label mixed, now stock),
     ViroPharma / Shire (cash leg now $4.2 billion, the total consideration
-    that the release states for an all-cash deal, instead of $3.30 billion),
-    Omthera Pharmaceuticals / Zeneca (AstraZeneca; total now $443 million,
+    that the release states for an all-cash deal, instead of $3.30 billion)
+    and Omthera Pharmaceuticals / Zeneca (AstraZeneca; total now $443 million,
     the total potential value with the contingent payments that the release
-    states, instead of $323 million) and Panhandle Eastern Pipe Line /
-    Southern Union (stock leg cleared, because its value was a market price
-    and not a value that a party states). None of the 4 was an empty stock
-    leg that a party values. These 5 fields are not part of the counts of
-    the passes above. The five blind samples taken after the full price pass
-    found a price error on 2, 2, 0, 5 and 4 of their 60 agreements.
+    states, instead of $323 million). The field that was kept is the stock leg
+    of Panhandle Eastern Pipe Line / Southern Union ($38.4 million), which the
+    stock-value reread had filled. The third reader of the sample read its
+    per-share price as a market price. The final review kept the value,
+    because a quarterly report that the seller's group filed within days of
+    signing prints the signing-day share price in its statement of the value
+    of the deal, and the legs with the assumed debt then sum to the $1.79
+    billion purchase price that the buyer's release states. None of the
+    errors was an empty stock leg that a party values. These 4 fields are not
+    part of the counts of the passes above. The five blind samples taken
+    after the full price pass found a price error on 2, 2, 0, 5 and 3 of
+    their 60 agreements.
     Stock price legs: 819 cleared, 1,537 changed; cash legs: 2,417 changed, 793 cleared; asset legs: 435 cleared. Of the cleared legs, 131 stock, 206 cash and 155 asset
     legs were stored zeros. Consideration type: 489 mixed deals are now cash and 492 now stock
     (a deal with one real form of payment is no longer mixed, cash plus a seller
@@ -746,7 +760,7 @@ unreleased:
     gap. The legs are the closest measure of what holders receive in cash,
     stock and assets, with three limits: on the 203 deals above the leg holds
     the announced value; a leg is empty where no party prints a value for it at signing
-    (the stock leg on 640 served mixed deals that have a total); and 365 served deals with a total have no legs (10 of them hold a rollover value). No field gives a like-for-like
+    (the stock leg on 639 served mixed deals that have a total); and 365 served deals with a total have no legs (10 of them hold a rollover value). No field gives a like-for-like
     equity value across all deals. Sums and medians of deal value change; the summary tables were
     rebuilt from the new values.
   refs: []
