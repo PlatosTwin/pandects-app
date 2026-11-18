@@ -561,13 +561,12 @@ unreleased:
     decided the fields still held, on 10 agreements. A blind sample of 30 of
     the 338 agreements where the first reader proposed no change and no
     second reader had looked was then read by one more reader, who did not
-    see the first read. It agreed on whether the buyer held a stake on all
-    30, but on 2 the first reader had left a stake without a size where a
-    printed figure sizes it (Collateral Therapeutics / Schering, Ziggo /
-    Liberty Global). Two routes were then settled: an implied per-share
+    see the first read. It agreed on whether the buyer held a stake on all 30, but on 2 it found
+    printed figures that could size a stake the first reader had left
+    without a size (Collateral Therapeutics / Schering, Ziggo / Liberty Global). Two routes were then settled: an implied per-share
     value that a party prints in the merger proxy, and the difference
     between a printed value of the whole company and a printed value of the
-    part bought. All 59 agreements where a reader had found a stake and left
+    part bought. All 59 agreements where a reader had found or suspected a stake and left
     the field empty were read again under them, with a second read of every
     change. The reread changed 198 fields on 164 agreements: 157 buyer-owned
     values filled; totals 9 lowered, 12 filled and 4 raised; cash legs 9
@@ -577,10 +576,10 @@ unreleased:
     example Twitter / X Holdings, now $40.04 billion instead of the announced
     $44 billion, with $3.96 billion buyer-owned. Of the 12 filled totals, 7
     hold the value of the part bought or the headline less the printed
-    stake, and 5 hold the announced headline for the whole company because
-    the stake has no printed size. 3 of the raised totals had held a
-    filing-fee figure for the shares bought and now hold the announced
-    headline less the stake (where the headline includes debt, so does the
+    stake, and 5 hold the headline for the whole company (announced, or printed in
+    the agreement) because the stake has no printed size. 3 of the raised totals had held a filing-fee figure for the shares bought,
+    taken from a later filing and so not a signing value, and now hold the
+    announced headline less the stake (where the headline includes debt, so does the
     total); the fourth, Franchise Group, now includes rolled equity. 8 of
     the 9 lowered cash legs had counted the buyer's shares as paid, and on
     the ninth the amount was rolled equity. Of the 190 agreements of the
@@ -753,8 +752,8 @@ unreleased:
     search_tax_clauses, argument descriptions are shorter so each input
     schema fits the 5,000 bytes Codex allows before it strips all of them,
     and transaction_price_stock, transaction_price_cash and
-    transaction_price_assets no longer repeat the bucket enum, nor does the
-    new transaction_price_rollover (their labels
+    transaction_price_assets no longer repeat the bucket enum, nor do the
+    new transaction_price_rollover and transaction_price_buyer_owned (their labels
     are the ones on transaction_price_total; other values are still
     rejected). search_agreements no longer advertises cursor or include_xml,
     which it accepted but ignored. get_server_capabilities reports unknown
@@ -1033,8 +1032,8 @@ unreleased:
   summary: "An unknown price bucket is a 422 instead of being ignored."
   details: >
     transaction_price_total, transaction_price_stock, transaction_price_cash,
-    transaction_price_assets, and the new transaction_price_rollover accept
-    only the canonical bucket labels
+    transaction_price_assets, and the new transaction_price_rollover and
+    transaction_price_buyer_owned accept only the canonical bucket labels
     (0 - 100M, 100M - 250M, 250M - 500M, 500M - 750M, 750M - 1B, 1B - 2B,
     2B - 5B, 5B - 10B, 10B - 20B, 20B+). Any other value (for example
     "1B - 5B") used to be dropped silently, so the request returned results
