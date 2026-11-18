@@ -1163,6 +1163,35 @@ def _concept_notes_payload() -> list[dict[str, object]]:
             "scope_note": "Antitrust-efforts concepts may span several nearby clause families and should be validated in the returned section text.",
         },
         {
+            "concept": "rollover equity",
+            "recommended_tools": ["search_agreements", "list_agreements", "get_agreement"],
+            "representation": "first_class_agreement_field",
+            "canonical_or_proxy": "canonical",
+            "scope_note": (
+                "transaction_price_rollover is the value, in USD at the deal price, of target "
+                "equity that sellers, management or other holders exchange for equity of the "
+                "buyer or its parent instead of selling it. It is included in "
+                "transaction_price_total and is not part of the cash, stock or assets legs. "
+                "It is null on most agreements: when the deal has no rollover or no source "
+                "prints its size."
+            ),
+        },
+        {
+            "concept": "buyer-owned stake",
+            "recommended_tools": ["search_agreements", "list_agreements", "get_agreement"],
+            "representation": "first_class_agreement_field",
+            "canonical_or_proxy": "canonical",
+            "scope_note": (
+                "transaction_price_buyer_owned is the value, in USD at the deal price, of target "
+                "shares that the acquirer, or the holder that controls the acquirer, already holds "
+                "before the deal, such as a parent that buys the minority of its subsidiary or a "
+                "bidder's prior stake. It is not part of transaction_price_total or of any leg; "
+                "the implied value of the whole company is the total plus this field. It is null "
+                "when there is no prior stake or no source prints its size. The price reviews and "
+                "the extraction prompt leave it null on de-SPAC deals."
+            ),
+        },
+        {
             "concept": "corpus provenance and coverage",
             "recommended_tools": ["list_filter_options", "search_agreements", "list_agreements"],
             "representation": "not_represented",

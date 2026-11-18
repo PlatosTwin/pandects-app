@@ -16,18 +16,20 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     MetaData,
+    Numeric,
     Table,
     and_,
     create_engine,
     func,
     literal_column,
+    null,
     or_,
     select,
     cast as sql_cast,
 )
 from sqlalchemy.dialects import mysql as mysql_dialect
 from sqlalchemy.exc import NoSuchTableError, SQLAlchemyError
-from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import Mapped, column_property
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.types import NullType
 
@@ -284,6 +286,8 @@ else:
         Column("transaction_price_stock", TEXT, nullable=True),
         Column("transaction_price_cash", TEXT, nullable=True),
         Column("transaction_price_assets", TEXT, nullable=True),
+        Column("transaction_price_rollover", TEXT, nullable=True),
+        Column("transaction_price_buyer_owned", TEXT, nullable=True),
         Column("transaction_consideration", TEXT, nullable=True),
         Column("target_type", TEXT, nullable=True),
         Column("acquirer_type", TEXT, nullable=True),
@@ -391,6 +395,8 @@ else:
         Column("transaction_price_stock", TEXT, nullable=True),
         Column("transaction_price_cash", TEXT, nullable=True),
         Column("transaction_price_assets", TEXT, nullable=True),
+        Column("transaction_price_rollover", TEXT, nullable=True),
+        Column("transaction_price_buyer_owned", TEXT, nullable=True),
         Column("transaction_consideration", TEXT, nullable=True),
         Column("target_type", TEXT, nullable=True),
         Column("acquirer_type", TEXT, nullable=True),
@@ -547,6 +553,8 @@ class Agreements(db.Model):
     transaction_price_stock: ClassVar[Mapped[str | None]]
     transaction_price_cash: ClassVar[Mapped[str | None]]
     transaction_price_assets: ClassVar[Mapped[str | None]]
+    transaction_price_rollover: ClassVar[Mapped[str | None]]
+    transaction_price_buyer_owned: ClassVar[Mapped[str | None]]
     transaction_consideration: ClassVar[Mapped[str | None]]
     target_type: ClassVar[Mapped[str | None]]
     acquirer_type: ClassVar[Mapped[str | None]]
@@ -586,6 +594,8 @@ class LatestSectionsSearch(db.Model):
     transaction_price_stock: ClassVar[Mapped[str | None]]
     transaction_price_cash: ClassVar[Mapped[str | None]]
     transaction_price_assets: ClassVar[Mapped[str | None]]
+    transaction_price_rollover: ClassVar[Mapped[str | None]]
+    transaction_price_buyer_owned: ClassVar[Mapped[str | None]]
     transaction_consideration: ClassVar[Mapped[str | None]]
     target_type: ClassVar[Mapped[str | None]]
     acquirer_type: ClassVar[Mapped[str | None]]
@@ -604,6 +614,18 @@ class LatestSectionsSearch(db.Model):
     section_standard_ids: ClassVar[Mapped[str | None]]
     article_title: ClassVar[Mapped[str | None]]
     section_title: ClassVar[Mapped[str | None]]
+
+
+# transaction_price_rollover and transaction_price_buyer_owned reach the prod schema with
+# the next data push. Until a reflected table has a column, serve that field as SQL NULL:
+# rows return null and a bucket filter on it matches nothing, which is what the column
+# holds once it exists. The choice is made at import, so the backend must restart after
+# the data push adds the columns.
+_NULL_FALLBACK_PRICE_COLUMNS = ("transaction_price_rollover", "transaction_price_buyer_owned")
+for _model in (Agreements, LatestSectionsSearch):
+    for _column_name in _NULL_FALLBACK_PRICE_COLUMNS:
+        if _column_name not in _model.__table__.c:
+            setattr(_model, _column_name, column_property(sql_cast(null(), Numeric(18, 2))))
 
 
 ReaderIndex: type[Any] | None = None
