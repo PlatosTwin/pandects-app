@@ -338,8 +338,8 @@ Table latest_sections_search {
   filing_company_cik varchar(256) [note: 'Copied from `agreements.filing_company_cik`.']
   form_type varchar(256) [note: 'Copied from `agreements.form_type`.']
   exhibit_type exhibit_type [note: 'Copied from `agreements.exhibit_type`.']
-  target varchar(512) [note: 'Copied from `agreements.target`.']
-  acquirer varchar(512) [note: 'Copied from `agreements.acquirer`.']
+  target varchar(1024) [note: 'Copied from `agreements.target`.']
+  acquirer varchar(1024) [note: 'Copied from `agreements.acquirer`.']
   transaction_price_total decimal(18,2) [note: 'Copied from `agreements.transaction_price_total`.']
   transaction_price_stock decimal(18,2) [note: 'Copied from `agreements.transaction_price_stock`.']
   transaction_price_cash decimal(18,2) [note: 'Copied from `agreements.transaction_price_cash`.']
@@ -387,6 +387,7 @@ Table latest_sections_search {
     transaction_consideration [name: 'idx_lss_transaction_consideration']
     transaction_price_assets [name: 'idx_lss_txn_price_assets']
     transaction_price_cash [name: 'idx_lss_txn_price_cash']
+    transaction_price_rollover [name: 'idx_lss_txn_price_rollover']
     transaction_price_stock [name: 'idx_lss_txn_price_stock']
     transaction_price_total [name: 'idx_lss_txn_price_total']
   }
