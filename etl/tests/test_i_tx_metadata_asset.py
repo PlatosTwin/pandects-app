@@ -407,6 +407,7 @@ class TxMetadataProjectionRefreshTests(unittest.TestCase):
             "transaction_price_stock": None,
             "transaction_price_assets": None,
             "transaction_price_rollover": None,
+            "transaction_price_buyer_owned": None,
             "transaction_price_total": 100.0 if initial_metadata_pass == 0 else None,
             "target_type": "public" if initial_metadata_pass == 0 else None,
             "acquirer_type": "private" if initial_metadata_pass == 0 else None,

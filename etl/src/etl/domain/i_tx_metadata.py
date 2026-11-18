@@ -22,6 +22,7 @@ WEB_SEARCH_CITABLE_FIELDS = (
     "purchase_price.stock",
     "purchase_price.assets",
     "purchase_price.rollover",
+    "purchase_price.buyer_owned",
     "target_public",
     "acquirer_public",
     "target_pe",
@@ -50,6 +51,8 @@ NON_CORE_CITATION_OPTIONAL_FIELDS = (
     # A stored rollover may predate the citation rule; a missing citation is logged,
     # not fatal, so retries of such rows do not fail.
     "purchase_price.rollover",
+    # The buyer-owned stake is new too; the same rule keeps retries of older rows safe.
+    "purchase_price.buyer_owned",
 )
 
 TOKEN_USAGE_REQUIRED_FIELDS = ("input_tokens", "output_tokens", "total_tokens")
@@ -59,6 +62,7 @@ RETRY_FOCUS_FIELD_ORDER = (
     "purchase_price.stock",
     "purchase_price.assets",
     "purchase_price.rollover",
+    "purchase_price.buyer_owned",
     "target_public",
     "acquirer_public",
     "announce_date",
@@ -100,8 +104,20 @@ def json_schema_transaction_metadata() -> Dict[str, Any]:
                             "or no source states its size."
                         ),
                     },
+                    "buyer_owned": {
+                        "type": ["number", "null"],
+                        "minimum": 0,
+                        "description": (
+                            "Value in USD at the deal price of target shares that the acquirer, or the holder "
+                            "that controls the acquirer, already holds before the deal (a parent that buys the "
+                            "minority of its subsidiary, a controlling holder that takes its company private, "
+                            "a bidder's prior stake); it is not part of cash, stock, assets or the total, and is "
+                            "null when there is no prior stake, no source states its size, or the deal is a "
+                            "SPAC business combination."
+                        ),
+                    },
                 },
-                "required": ["cash", "stock", "assets", "rollover"],
+                "required": ["cash", "stock", "assets", "rollover", "buyer_owned"],
             },
             "target_public": {"type": ["boolean", "null"]},
             "acquirer_public": {"type": ["boolean", "null"]},
@@ -239,6 +255,13 @@ TX_METADATA_INSTRUCTIONS_WEB_SEARCH = (
     "Target equity that sellers, management or other holders exchange for equity of the buyer or its parent "
     "instead of selling it (rolled-over equity) goes only in purchase_price.rollover, valued in USD at the deal price; "
     "it is never part of cash, stock or assets. Use null for rollover when the deal has none or no source states its size. "
+    "Target shares that the acquirer, or the holder that controls the acquirer, already holds before the deal "
+    "(a parent that buys the minority of its subsidiary, a controlling holder that takes its company private, "
+    "a bidder's prior stake) go only in purchase_price.buyer_owned, valued in USD at the deal price; "
+    "they are never part of cash, stock, assets or the price, which covers only what is acquired. "
+    "A buyer-owned stake never changes consideration_type. "
+    "Use null for buyer_owned when there is no prior stake, no source states its size, "
+    "or the deal is a SPAC business combination. "
     "3) whether the target was public or private at announcement. Public means the target itself is publicly traded (listed or OTC) or is an SEC reporting issuer; "
     "if the target is a privately held subsidiary of a public parent, treat the target as private unless the target itself is publicly traded/SEC-reporting. "
     "If you cannot determine, use null. "
@@ -413,6 +436,7 @@ def _existing_web_search_metadata_obj(agreement: Dict[str, Any]) -> Dict[str, An
             "stock": _numeric_or_none(agreement.get("transaction_price_stock")),
             "assets": _numeric_or_none(agreement.get("transaction_price_assets")),
             "rollover": _numeric_or_none(agreement.get("transaction_price_rollover")),
+            "buyer_owned": _numeric_or_none(agreement.get("transaction_price_buyer_owned")),
         },
         "target_public": _db_type_to_public_flag(agreement.get("target_type")),
         "acquirer_public": _db_type_to_public_flag(agreement.get("acquirer_type")),
@@ -1106,6 +1130,11 @@ def build_tx_metadata_update_params(
     if price_rollover == 0.0:
         # A model may answer 0 for "no rollover"; store null, which needs no citation.
         price_rollover = None
+    # The buyer's prior stake is not acquired: it is in no leg and never in the total.
+    price_buyer_owned = _to_float_or_none(price.get("buyer_owned"))
+    if price_buyer_owned == 0.0:
+        # A model may answer 0 for "no prior stake"; store null, which needs no citation.
+        price_buyer_owned = None
     if consideration == "cash" and ((price_stock or 0.0) > 0.0 or (price_assets or 0.0) > 0.0):
         raise ValueError(
             "consideration_type='all_cash' is inconsistent with non-zero stock/assets values."
@@ -1285,6 +1314,7 @@ def build_tx_metadata_update_params(
     _require("purchase_price.stock", price_stock)
     _require("purchase_price.assets", price_assets)
     _require("purchase_price.rollover", price_rollover)
+    _require("purchase_price.buyer_owned", price_buyer_owned)
     _require("target_public", tx_metadata_obj.get("target_public"))
     _require("acquirer_public", tx_metadata_obj.get("acquirer_public"))
     _require("target_pe", target_pe)
@@ -1330,7 +1360,10 @@ def build_tx_metadata_update_params(
 
     notes_normalized = notes.strip().lower() if isinstance(notes, str) else ""
     has_non_usd_note = "not stated in usd" in notes_normalized or "non-usd" in notes_normalized or "non usd" in notes_normalized
-    if has_non_usd_note and any(value is not None for value in (price_cash, price_stock, price_assets, price_rollover)):
+    if has_non_usd_note and any(
+        value is not None
+        for value in (price_cash, price_stock, price_assets, price_rollover, price_buyer_owned)
+    ):
         raise ValueError("Non-USD price notes require all purchase_price fields to be null.")
 
     metadata_payload = {
@@ -1345,6 +1378,7 @@ def build_tx_metadata_update_params(
         "price_stock": price_stock,
         "price_assets": price_assets,
         "price_rollover": price_rollover,
+        "price_buyer_owned": price_buyer_owned,
         "price_total": price_total,
         "target_type": target_type,
         "acquirer_type": acquirer_type,
