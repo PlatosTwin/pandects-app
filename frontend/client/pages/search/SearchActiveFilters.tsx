@@ -48,6 +48,7 @@ const PRICE_LABELS: Record<(typeof PRICE_FIELDS)[number], string> = {
   transaction_price_stock: "Stock",
   transaction_price_assets: "Assets",
   transaction_price_rollover: "Rollover",
+  transaction_price_buyer_owned: "Buyer-owned",
 };
 
 export interface ActiveChip {

@@ -14,6 +14,7 @@ export interface SearchFilters {
   transaction_price_cash?: string[];
   transaction_price_assets?: string[];
   transaction_price_rollover?: string[];
+  transaction_price_buyer_owned?: string[];
   transaction_consideration?: string[];
   target_type?: string[];
   acquirer_type?: string[];

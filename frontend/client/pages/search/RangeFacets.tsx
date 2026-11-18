@@ -118,6 +118,7 @@ const COMPONENT_LABELS: Record<PriceField, string> = {
   transaction_price_stock: "Stock",
   transaction_price_assets: "Assets",
   transaction_price_rollover: "Rollover",
+  transaction_price_buyer_owned: "Buyer-owned",
 };
 
 const money = (value: string) => (value === "0" ? "$0" : `$${value}`);
@@ -131,8 +132,9 @@ const UPPER_OPTIONS = TRANSACTION_PRICE_OPTIONS.filter((bucket) => bucket.includ
 
 /**
  * Deal value as a min/max range per component (total, cash, stock, assets,
- * rollover). The five component segments sit on two rows (three, then two) so
- * each label fits the narrow sidebar.
+ * rollover, buyer-owned). The six component segments sit on two rows of three.
+ * The columns size to their widest label, so "Buyer-owned" fits the narrow
+ * sidebar.
  * The API filters on value buckets, so the range maps to the buckets it spans.
  */
 export function ValueRangeFilter({
@@ -171,11 +173,11 @@ export function ValueRangeFilter({
         aria-label="Deal value component"
         value={component}
         onValueChange={(value) => setComponent(value as PriceField)}
-        className="mb-2 grid w-full grid-cols-6 [&>*:nth-child(-n+3)]:col-span-2 [&>*:nth-child(n+4)]:col-span-3 [&>*]:min-w-0 [&>*]:px-1"
+        className="mb-2 grid w-full grid-cols-[auto_auto_auto] [&>*]:min-w-0 [&>*]:px-0.5"
         options={PRICE_FIELDS.map((field) => ({
           value: field,
           label: (
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-0.5">
               {COMPONENT_LABELS[field]}
               <span
                 className={cn(

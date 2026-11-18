@@ -55,6 +55,11 @@ export const SEARCH_FILTER_FIELDS: ReadonlyArray<
     kind: "array",
   },
   {
+    field: "transaction_price_buyer_owned",
+    param: "transaction_price_buyer_owned",
+    kind: "array",
+  },
+  {
     field: "transaction_consideration",
     param: "transaction_consideration",
     kind: "array",
