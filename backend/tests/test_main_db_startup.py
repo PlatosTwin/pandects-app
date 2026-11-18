@@ -46,6 +46,8 @@ def _load_main_db_module_isolated(module_name: str):
 
 _set_default_env()
 
+_NULL_FALLBACK_COLUMNS = ("transaction_price_rollover", "transaction_price_buyer_owned")
+
 # Run in a fresh interpreter: reflect main_db from MAIN_DATABASE_URI (a SQLite file, so
 # the schema token maps to None), then call one REST route and print its JSON.
 _ROLLOVER_ROUTE_PROBE = """
@@ -141,12 +143,14 @@ class MainDbStartupTests(unittest.TestCase):
         self.assertIn("section_text_search table is empty", logs.output[0])
 
     def test_missing_rollover_column_is_served_as_null(self):
-        # The prod schema gets transaction_price_rollover only with a data push; until
-        # then the reflected models must map it to CAST(NULL AS DECIMAL(18,2)).
+        # The prod schema gets transaction_price_rollover and transaction_price_buyer_owned
+        # only with a data push; until then the reflected models must map each to
+        # CAST(NULL AS DECIMAL(18,2)).
         engine = _sqlite_main_db_engine(include_section_text_search=True)
         with engine.begin() as conn:
             for table in ("agreements", "latest_sections_search"):
-                _ = conn.exec_driver_sql(f"ALTER TABLE {table} DROP COLUMN transaction_price_rollover")
+                for column_name in _NULL_FALLBACK_COLUMNS:
+                    _ = conn.exec_driver_sql(f"ALTER TABLE {table} DROP COLUMN {column_name}")
         mod = _load_reflected_main_db("_main_db_probe_missing_rollover", engine)
 
         from sqlalchemy import select
@@ -155,14 +159,15 @@ class MainDbStartupTests(unittest.TestCase):
         from backend.filtering import build_transaction_price_bucket_filter
 
         for model in (mod.Agreements, mod.LatestSectionsSearch):
-            self.assertNotIn("transaction_price_rollover", model.__table__.c)
-            column = model.transaction_price_rollover
-            bucket = build_transaction_price_bucket_filter(column, ["0 - 100M"])
-            query = select(column.label("rollover")).where(bucket).order_by(column)
-            sql = str(query.compile(dialect=mysql.dialect(), compile_kwargs={"literal_binds": True}))
-            self.assertIn("CAST(NULL AS DECIMAL(18, 2)) AS rollover", sql)
-            self.assertIn("WHERE CAST(NULL AS DECIMAL(18, 2)) >= 0", sql)
-            self.assertIn("ORDER BY CAST(NULL AS DECIMAL(18, 2))", sql)
+            for column_name in _NULL_FALLBACK_COLUMNS:
+                self.assertNotIn(column_name, model.__table__.c)
+                column = getattr(model, column_name)
+                bucket = build_transaction_price_bucket_filter(column, ["0 - 100M"])
+                query = select(column.label("price")).where(bucket).order_by(column)
+                sql = str(query.compile(dialect=mysql.dialect(), compile_kwargs={"literal_binds": True}))
+                self.assertIn("CAST(NULL AS DECIMAL(18, 2)) AS price", sql)
+                self.assertIn("WHERE CAST(NULL AS DECIMAL(18, 2)) >= 0", sql)
+                self.assertIn("ORDER BY CAST(NULL AS DECIMAL(18, 2))", sql)
 
         with engine.begin() as conn:
             _ = conn.exec_driver_sql(
@@ -204,8 +209,28 @@ class MainDbStartupTests(unittest.TestCase):
         self.assertEqual(payload["status"], 200, payload)
         rows = payload["body"]["results"]
         self.assertEqual([row["agreement_uuid"] for row in rows], ["a1"])
-        self.assertIn("transaction_price_rollover", rows[0])
-        self.assertIsNone(rows[0]["transaction_price_rollover"])
+        for column_name in _NULL_FALLBACK_COLUMNS:
+            self.assertIn(column_name, rows[0])
+            self.assertIsNone(rows[0][column_name])
+
+    def test_missing_buyer_owned_column_alone_is_served_as_null(self):
+        # The fallback is per column: a table that has the rollover column but not the
+        # buyer-owned one keeps the real rollover column.
+        engine = _sqlite_main_db_engine(include_section_text_search=True)
+        with engine.begin() as conn:
+            for table in ("agreements", "latest_sections_search"):
+                _ = conn.exec_driver_sql(f"ALTER TABLE {table} DROP COLUMN transaction_price_buyer_owned")
+        mod = _load_reflected_main_db("_main_db_probe_missing_buyer_owned", engine)
+
+        from sqlalchemy import select
+        from sqlalchemy.dialects import mysql
+
+        for model in (mod.Agreements, mod.LatestSectionsSearch):
+            self.assertIn("transaction_price_rollover", model.__table__.c)
+            self.assertNotIn("transaction_price_buyer_owned", model.__table__.c)
+            query = select(model.transaction_price_buyer_owned.label("buyer_owned"))
+            sql = str(query.compile(dialect=mysql.dialect(), compile_kwargs={"literal_binds": True}))
+            self.assertIn("CAST(NULL AS DECIMAL(18, 2)) AS buyer_owned", sql)
 
     def test_static_fallback_always_exposes_section_text_search(self):
         mod = _load_main_db_module_isolated("_main_db_probe_fallback_text_search")

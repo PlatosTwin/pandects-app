@@ -2669,6 +2669,7 @@ class MainRoutesTests(unittest.TestCase):
             "transaction_price_cash",
             "transaction_price_assets",
             "transaction_price_rollover",
+            "transaction_price_buyer_owned",
         )
         for path in paths:
             for field in fields_:

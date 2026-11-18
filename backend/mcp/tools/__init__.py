@@ -1177,6 +1177,20 @@ def _concept_notes_payload() -> list[dict[str, object]]:
             ),
         },
         {
+            "concept": "buyer-owned stake",
+            "recommended_tools": ["search_agreements", "list_agreements", "get_agreement"],
+            "representation": "first_class_agreement_field",
+            "canonical_or_proxy": "canonical",
+            "scope_note": (
+                "transaction_price_buyer_owned is the value, in USD at the deal price, of target "
+                "shares that the acquirer, or the holder that controls the acquirer, already holds "
+                "before the deal, such as a parent that buys the minority of its subsidiary or a "
+                "bidder's prior stake. It is not part of transaction_price_total or of any leg; "
+                "the implied value of the whole company is the total plus this field. It is null "
+                "when there is no prior stake, no source prints its size, or the deal is a de-SPAC."
+            ),
+        },
+        {
             "concept": "corpus provenance and coverage",
             "recommended_tools": ["list_filter_options", "search_agreements", "list_agreements"],
             "representation": "not_represented",
