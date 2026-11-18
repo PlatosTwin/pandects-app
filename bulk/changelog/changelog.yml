@@ -85,11 +85,12 @@ unreleased:
     plus this column; the total may include debt where the price rules put
     debt in the total. It does not
     change transaction_consideration. It is null when there is no prior stake
-    or when no source prints its size. In this release 200 served agreements
+    or when no source prints its size. In this release 209 served agreements
     hold a value. Only agreements that a reader checked for a prior stake can
-    hold one: those of the buyer-owned reread and of the fourth part of the
-    full price pass, and 4 values from the stock-value reread (see the price
-    entry); on the others the field is empty, also where the buyer held a stake. The price reviews leave it empty on
+    hold one: those of the buyer-owned reread (the 115 agreements with only
+    weaker signs included) and of the fourth part of the full price pass,
+    and 4 values from the stock-value reread (see the price entry); on the
+    others the field is empty, also where the buyer held a stake. The price reviews leave it empty on
     de-SPAC rows, and the extraction prompt tells the model to leave it empty
     there; no check in the code enforces this.
     The REST API returns it on agreement and section rows and accepts it as a
@@ -166,7 +167,7 @@ unreleased:
     were labeled and checked by model reviewers and their XML went through the
     same validation as the rest of the corpus. Metadata is filled: target,
     acquirer, consideration, deal type and announce date for all 2,231, price
-    total for 1,992 (89%; the rest state no price, or pay in stock that no party
+    total for 1,995 (89%; the rest state no price, or pay in stock that no party
     values), target counsel for 1,918. Their sections carry no taxonomy
     label (standard_id) until the taxonomy is rebuilt, so filtering sections by
     clause type does not yet return them.
@@ -324,7 +325,7 @@ unreleased:
 
 - type: data
   severity: breaking
-  summary: "Deal price, consideration and dates corrected: price total changed on 4,381, filled on 674 and cleared on 367 continuing agreements; consideration type changed on 1,081; deal type changed on 664; deal status filled on 170 and changed on 170."
+  summary: "Deal price, consideration and dates corrected: price total changed on 4,383, filled on 675 and cleared on 363 continuing agreements; consideration type changed on 1,081; deal type changed on 664; deal status filled on 170 and changed on 170."
   details: >
     Prices now mean the headline price at signing, including assumed or repaid
     debt and rolled equity, and as signed (not as later amended). The total
@@ -374,9 +375,9 @@ unreleased:
     and a signing source prints the share count; a market price quoted in passing
     does not count. A stock leg with no such value is cleared, and so is the
     total unless a party release states one. Where no single total is printed but its pieces are, the total is arithmetic on printed figures only (a per-share price times a printed share count, or cash plus separately stated assumed debt); a partial purchase is priced at what is actually bought; a served agreement that covers one part of a larger deal holds the price it prints for that part (Westcor Realty LP / Macerich: $284.4 million, not the $1.475 billion of the whole deal); the total of a leveraged joint-venture carve-out is the printed price of the stake the buyer takes (Emerald JV (Emerson Climate Technologies) / Blackstone: the $4.4 billion equity contribution that the joint signing release prints, not the $14.0 billion headline or the $9.5 billion of cash to the seller, which the venture's own debt partly funds); an agreement buying several separately printed companies lists them all as the target and sums their prices; a deal priced in a foreign currency has a USD price only where the agreement or a party's signing release prints one, and a USD value that first appears in a closing document, or a USD figure net of cash where the parties print the equity value only in the foreign currency, does not count (Leitch / Harris); one price that covers this agreement and a sister agreement, with no printed split, leaves the price fields empty (Emmis Television / SJL); a price that depends on an election, collar or cap settled after signing holds the base case or cap printed at signing, and a cash price is the base case where stock is paid only if the buyer's financing fails (KPMG Consulting AG); and a de-SPAC price is the equity value the agreement prints for the target holders' shares at the SPAC share price (usually $10.00) plus printed cash, never a pro forma or combined value; earnout shares count in no field, and cash that the target pays to buy back its own shares under separate agreements is not consideration (HeartFlow / Longview Acquisition Corp. II). An exchange-ratio valuation in a reverse merger or a merger of equals is not a price; a party's statement that the deal values the target at a stated amount counts. Where no party prints the equity value, an announced value net of cash acquired, or an enterprise value below the equity value, is the total. A go-private done as a company tender offer and a merger under one agreement has one price for both steps. Where a new holding company is the acquirer and both combining companies are the target, the total and the stock leg are empty unless a signing source prints a dollar value for the holders of each company (the total is then the sum); the value of one company's shares alone, or a combined or pro forma value, does not count. None of the 14 served rows of this form holds a total, and Cedar Fair / Six Flags keeps a cash leg that a party prints. Legs follow the same standard: a leg holds a dollar figure that a party prints for that leg, valued at signing, or arithmetic on printed figures, such as a per-share price times a printed share count. Printed legs may sum to up to 5% more than the total, mostly where the total is a rounded headline, and the total then stays: 12 served agreements have legs 2% to 5% above the total (for example VISX / Advanced Medical Optics, 4.4% above the rounded $1.27 billion), and none more than 5%. Where a party states the value per share that holders get for mixed consideration and prints the cash part per share, the stock leg is that value less the cash part, times the printed share count. A seller note, or a fixed cash payment due on a fixed date or schedule more than 90 days after closing, goes in the assets leg; deferred stock stays in the stock leg; cash plus such a payment has the consideration label mixed. A closing-date or purchase-accounting value does not count, and neither does a leg that no party prints and that is only a share or a difference of other figures. A value a party prints only in a later filing counts only when its value date is within 7 days of signing; an implied value a party prints in the proxy as of such a date counts. The exception is a fixed cash price per share: the aggregate at that price that the tender offer document prints shortly after signing counts (9 and 11 days after signing on the two deals concerned). A leg with no such figure is empty, except the 203 legs set from the announced value (next entry). Price total coverage among served agreements rose from
-    89.4% (8,752 of 9,787) to 92.0% (11,217 of 12,198). Among continuing agreements 367 totals were cleared, mostly where no party values
-    a stock leg, and 674 were filled (89.5% -> 92.7%). The 2,709
-    newly served agreements have lower coverage (89.3%). Two later passes read
+    89.4% (8,752 of 9,787) to 92.0% (11,225 of 12,198). Among continuing agreements 363 totals were cleared, mostly where no party values
+    a stock leg, and 675 were filled (89.5% -> 92.8%). The 2,709
+    newly served agreements have lower coverage (89.4%). Two later passes read
     the parties' signing announcement (a release, an 8-K or an investor deck)
     for served deals with an empty total. The first read 676 of the 1,673 served
     deals that then had an empty total and filled 353 (346 with a private
@@ -387,8 +388,8 @@ unreleased:
     fill, and metadata_sources cites the source. A leg was filled only where the
     source prints that leg's own dollar value (166 legs in the first pass, 38 in
     the second). Of the 465 filled, 349 are continuing agreements: 60 count as
-    filled and 223 as changed in this entry, 61 hold their 2026-09-09 total
-    again, and 5 were later emptied (3 of them count as cleared). The other 116 are newly served. Two further passes, each with two
+    filled and 223 as changed in this entry, 62 hold their 2026-09-09 total
+    again, and 4 were later emptied (2 of them count as cleared). The other 116 are newly served. Two further passes, each with two
     readers, checked price legs against the standard above. The first read 504
     served deals whose stock leg matched only a closing-date source and changed
     395 fields on 229 of them. The second read 652 deals (legs above the total
@@ -405,7 +406,7 @@ unreleased:
     again under these rulings, and 150 price fields changed on 114 agreements.
     Of the 149 deals held with an empty total in the two passes on empty totals,
     43 had a total after this step and 106 were empty; after the passes below,
-    87 have a total and 62 are empty. 25 price fields on 23 agreements were
+    88 have a total and 61 are empty. 25 price fields on 23 agreements were
     still held for review after this step, 13 of them totals of those 149
     deals. The full price pass below read 24 of the 25: the first three parts
     settled 1, and of the 23 fields on 21 agreements that are on the lists of
@@ -579,7 +580,7 @@ unreleased:
     (see above). All 511 agreements with a
     strong sign or a reader's note were read. Of the 150 with only weaker
     signs, a first list of 35 was read and showed no stake, and the other
-    115 were not read. A first reader read each of the 546 agreements. A
+    115 were read later (below). A first reader read each of the 546 agreements. A
     second reader checked every proposed change or hold (232 fields on 179
     agreements: 178 confirmed, 12 rejected, 42 held). A third reader decided
     51 fields on 34 agreements (15 set, 34 kept, 2 held), and a final review
@@ -608,16 +609,30 @@ unreleased:
     total); the fourth, Franchise Group, now includes rolled equity. 8 of
     the 9 lowered cash legs had counted the buyer's shares as paid, and on
     the ninth the amount was rolled equity. Of the 190 agreements of the
-    check of the largest deals, 6 now hold a buyer-owned value; only the
-    Twitter total changed, because the other 5 already held the value of
-    the part bought or a figure within 2% of it. The fourth part of the full
-    price pass (above) then filled 39 more buyer-owned values and the
-    stock-value reread (below) 4, so 200 served agreements now
-    hold a buyer-owned value, $211.83 billion in all, for example Avangrid /
-    Iberdrola $11.28 billion (a parent that buys the minority of its
-    subsidiary; total $2.55 billion). 1 of them has no total (Crestwood
-    Midstream / Crestwood Equity: the preferred units convert into units
-    that no party values). Coca-Cola gives up its 34% stake in
+    check of the largest deals, the reread filled a buyer-owned value on 6;
+    only the Twitter total changed, because the other 5 already held the
+    value of the part bought or a figure within 2% of it. The fourth part of
+    the full price pass (above) then filled 39 more buyer-owned values and the
+    stock-value reread (below) 4. A last read then covered the 115 agreements
+    with only weaker signs. The first readers found a prior stake on 13 of them, mostly a
+    parent that buys the public units of its own listed partnership. 9
+    values were filled (7 confirmed by the second reader, 1 set by a third
+    reader and 1 by a final review), and no total changed. Of the other 4,
+    1 already held the value that the stock-value reread had filled, 2 are
+    stakes that no source sizes, and on Andeavor Logistics / MPLX the
+    parent's units are converted in the merger at their own ratio, so they
+    are paid in the deal and are not buyer-owned; the same holds on
+    Williams Partners / Access Midstream Partners (2014). The largest of the 9 are Williams
+    Partners / Williams (2018) $29.47 billion, which counts the Class B
+    units like common units, as on EQM Midstream / Equitrans, and Cheniere
+    Energy Partners LP Holdings / Cheniere $6.59 billion. 209 served
+    agreements now hold a buyer-owned value, $256.12 billion in all, for
+    example Avangrid / Iberdrola $11.28 billion (a parent that buys the
+    minority of its subsidiary; total $2.55 billion). 2 of them have no
+    total: Crestwood Midstream / Crestwood Equity (the preferred units
+    convert into units that no party values) and EQM Midstream / Equitrans
+    (the remaining preferred units receive preferred shares that no signing
+    source values). Coca-Cola gives up its 34% stake in
     Coca-Cola Enterprises as part of the price it pays, so that row has no
     buyer-owned value. On McMoRan / Freeport the field holds only Freeport's
     own stake ($460.9 million): the McMoRan shares of Plains Exploration,
@@ -631,57 +646,64 @@ unreleased:
     the stake. The field is filled only where a reader found a prior stake
     and a source prints its size. The fourth part of the full price pass read
     the field on all its 2,437 agreements, the 151 candidates among them
-    included. Not read for this field are the 115 agreements with only weaker
-    signs and, outside the fourth part, the agreements whose text shows no
-    sign. On those rows the field is empty,
+    included. Not read for this field are, outside the fourth part, the
+    agreements whose text shows no sign of a prior stake. On those rows the
+    field is empty,
     and a total that is a headline for the whole company may still include
     the buyer's stake.
     Because of the blind sample of the fourth part (above), a stock-value
-    reread then read every served agreement with the label stock or mixed, an
-    empty stock leg and a public acquirer (de-SPAC rows included): 1,652
-    agreements (773 from
-    the fourth part, 848 from the first three parts and 31 from the check of
-    the largest deals). A first reader read each and looked for a value of
-    the stock that a party states: in the signing release, 8-K or investor
-    presentation; a per-share value that a party prints at signing, times a
-    printed share count; the implied value per target share that the merger
-    proxy, S-4, F-4 or 424B3 prints for the last trading day before the
-    announcement (or another date within 7 days of signing), times the
-    printed outstanding count; and, for a de-SPAC deal, the holders' shares
-    at the SPAC share price plus printed cash. The price rules did not change;
-    the reread opened more sources. The first reader proposed a change or a
-    hold on 564 agreements. A second reader checked every proposed change or
-    hold (845 fields on 564 agreements: 592 confirmed, 99 rejected, 154 held).
-    A third reader decided 263 fields on 183 agreements (100 set, 160 kept, 3
-    held) and added 5 fields so that a row fits, and a final review decided
-    18 fields on 14 agreements. The reread changed 684 fields on 456
-    agreements: 446 stock legs filled; totals 193 filled and 4 changed; cash
-    legs 30 filled, 2 changed and 2 cleared; 2 asset legs cleared; 4
-    buyer-owned values filled; and 1 consideration label (1 of the cleared
-    cash legs and 1 of the cleared asset legs were a stored zero on one
-    agreement, found by a data check). On 188 agreements
-    the stock value was the missing piece of the total, and both were filled.
-    These counts are not part of the counts of the passes above. 21 of these
-    fields had also been changed by the fourth part and 97 by the first three
-    parts; 93 of the 97 (74 stock legs, 17 totals and 2 cash legs) had been
-    cleared by those parts and were filled again here, from a value that a
-    party states. On Flyers Energy / World
-    Fuel Services the cash leg was cleared, because no party prints the cash
-    alone (the release's $675 million closing payment includes the stock). 8
-    agreements now hold legs 2% to 5% above the total, for example Teads /
-    Outbrain ($1.024 billion of legs against a rounded $1 billion headline);
-    they are among the 12 such rows named in the rules above. Still held for
-    review with an empty field: Franklin Mountain Energy / Coterra (stock leg
-    and total) and The Necessity Retail REIT / Global Net Lease (total; the
-    signing deck's $4 billion may also cover the internalization of the
-    managers under sister agreements). After the reread 1,465 served
-    agreements with the label stock or mixed have an empty stock leg (1,912
-    before it). 1,205 of them were candidates, and no party states a value of
-    the stock in a source that the readers could open; the other 260 have a
-    private acquirer and were not candidates. The reread opened the proxy or
-    registration statement only for the candidates, did not read again a
-    stock leg that already held a value, and uses only values that a party
-    prints, not a market price that a reader looked up.
+    reread then read every served agreement with the label stock or mixed and
+    an empty stock leg (de-SPAC rows included): 1,912 agreements (883 from
+    the fourth part, 997 from the first three parts and 32 from the check of
+    the largest deals). It read the 1,652 with a public acquirer first and
+    the 260 with a private acquirer last. A first reader read each and looked
+    for a value of the stock that a party states: in the signing release,
+    8-K or investor presentation; a per-share value that a party prints at
+    signing, times a printed share count; the implied value per target share
+    that the merger proxy, S-4, F-4 or 424B3 prints for the last trading day
+    before the announcement (or another date within 7 days of signing), times
+    the printed outstanding count; and, for a de-SPAC deal, the holders'
+    shares at the SPAC share price plus printed cash. On the 260 the reader
+    first checked whether the company that issues the shares was in fact
+    listed. Where it was private, the stock leg holds a value only where a
+    party prints one: a dollar amount of stock in the agreement or the
+    release, or a deemed price per share times a printed count. The price
+    rules did not change; the reread opened more sources. The first reader
+    proposed a change or a hold on 581 agreements (17 of them among the
+    260). A second reader checked every proposed change or hold (871 fields
+    on 581 agreements: 608 confirmed, 104 rejected, 159 held). A third reader
+    decided 273 fields on 191 agreements (104 set, 165 kept, 4 held) and
+    added 6 fields so that a row fits, and a final review decided 20 fields
+    on 15 agreements. The reread changed 705 fields on 469 agreements: 458
+    stock legs filled; totals 201 filled and 4 changed; cash legs 31 filled,
+    2 changed and 2 cleared; 2 asset legs cleared; 4 buyer-owned values
+    filled; and 1 consideration label (1 of the cleared cash legs and 1 of
+    the cleared asset legs were a stored zero on one agreement, found by a
+    data check). Of the 260 with a private acquirer, 13 changed (21 fields).
+    On 195 agreements the stock value was the missing piece
+    of the total, and both were filled. These counts are not part of the
+    counts of the passes above. 21 of these fields had also been changed by
+    the fourth part and 99 by the first three parts; 95 of the 99 (75 stock
+    legs, 17 totals and 3 cash legs) had been cleared by those parts and were
+    filled again here, from a value that a party states. On Flyers Energy /
+    World Fuel Services the cash leg was cleared, because no party prints the
+    cash alone (the release's $675 million closing payment includes the
+    stock). On Matthews International (SGK business) / Peninsula the stock
+    leg is the $50 million of preferred equity that the release counts in the
+    $350 million of upfront consideration; the 40% common interest that the
+    seller keeps is a retained stake and is in no leg. 8 agreements now hold
+    legs 2% to 5% above the total, for example Teads / Outbrain ($1.024
+    billion of legs against a rounded $1 billion headline); they are among
+    the 12 such rows named in the rules above. Still held for review with an
+    empty field: Franklin Mountain Energy / Coterra (stock leg and total) and
+    The Necessity Retail REIT / Global Net Lease (total; the signing deck's
+    $4 billion may also cover the internalization of the managers under
+    sister agreements). After the reread 1,453 served agreements with the
+    label stock or mixed have an empty stock leg (1,912 before it), 248 of
+    them with a private acquirer: on each, no party states a value of the
+    stock in a source that the readers could open. The reread did not read
+    again a stock leg that already held a value, and uses only values that a
+    party prints, not a market price that a reader looked up.
     A closing blind sample then covered all four parts of the full price
     pass. Two blind readers, who were also told to look for a value of the
     stock in the investor presentation, the merger proxy and the S-4, read 60
@@ -711,7 +733,7 @@ unreleased:
     part of the counts of the passes above. The five blind samples taken
     after the full price pass found a price error on 2, 2, 0, 5 and 3 of
     their 60 agreements.
-    Stock price legs: 819 cleared, 1,537 changed; cash legs: 2,417 changed, 793 cleared; asset legs: 435 cleared. Of the cleared legs, 131 stock, 206 cash and 155 asset
+    Stock price legs: 814 cleared, 1,540 changed; cash legs: 2,418 changed, 792 cleared; asset legs: 435 cleared. Of the cleared legs, 131 stock, 206 cash and 155 asset
     legs were stored zeros. Consideration type: 489 mixed deals are now cash and 492 now stock
     (a deal with one real form of payment is no longer mixed, cash plus a seller
     note or a fixed deferred payment is mixed, cash paid in
@@ -722,7 +744,7 @@ unreleased:
     empty and 125 pending deals are now complete, 34 pending and 15 empty are now 'cancelled' (a deal that went dark, delisted or passed its deadline without closing is 'cancelled', and so is a deal the parties replaced with a new agreement that closed); empty deal_status among served agreements 182 -> 3. Close date filled on 280, changed on 117 and cleared on 35 (it is the last closing of a staged deal, and empty where sources give only the month); announce date changed on 205 and filled on 11 (it is the announcement of the signed agreement, not of an earlier offer; for a served amended and restated agreement it is the announcement of the restated agreement, which changed 105 dates).
   tables: [agreements, latest_sections_search, summary_data, agreement_ownership_deal_size_summary, agreement_ownership_mix_summary, agreement_buyer_type_matrix_summary, agreement_industry_pairing_summary, agreement_counsel_leaderboard_summary]
   migration: >
-    Sums and medians of transaction_price_total change: 367 continuing agreements lost their total and 674 gained one. The summary tables were rebuilt from the
+    Sums and medians of transaction_price_total change: 363 continuing agreements lost their total and 675 gained one. The summary tables were rebuilt from the
     corrected values.
   refs: ["#179", "65a87fcb"]
 
@@ -754,13 +776,13 @@ unreleased:
   migration: >
     transaction_price_total need not equal the sum of transaction_price_cash,
     transaction_price_stock, transaction_price_assets and
-    transaction_price_rollover: it exceeds that sum by more than 1% on 2,758 served agreements (10 of them hold a rollover value and no leg) and falls below it by more than 1% on 32 (by 2% to 5% on 12 of them, and by more than 5% on none). Do not test
+    transaction_price_rollover: it exceeds that sum by more than 1% on 2,761 served agreements (10 of them hold a rollover value and no leg) and falls below it by more than 1% on 32 (by 2% to 5% on 12 of them, and by more than 5% on none). Do not test
     total = cash + stock + assets + rollover, and do not treat the gap as an
     exact debt figure: an empty leg or an empty rollover field also leaves a
     gap. The legs are the closest measure of what holders receive in cash,
     stock and assets, with three limits: on the 203 deals above the leg holds
     the announced value; a leg is empty where no party prints a value for it at signing
-    (the stock leg on 639 served mixed deals that have a total); and 365 served deals with a total have no legs (10 of them hold a rollover value). No field gives a like-for-like
+    (the stock leg on 636 served mixed deals that have a total); and 362 served deals with a total have no legs (10 of them hold a rollover value). No field gives a like-for-like
     equity value across all deals. Sums and medians of deal value change; the summary tables were
     rebuilt from the new values.
   refs: []
