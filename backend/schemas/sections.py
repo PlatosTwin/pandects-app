@@ -20,6 +20,8 @@ SECTIONS_RESULT_METADATA_FIELDS = (
     "transaction_price_stock",
     "transaction_price_cash",
     "transaction_price_assets",
+    "transaction_price_rollover",
+    "transaction_price_buyer_owned",
     "transaction_consideration",
     "target_type",
     "acquirer_type",
@@ -73,6 +75,8 @@ class SectionsArgsPayload(TypedDict):
     transaction_price_stock: list[str]
     transaction_price_cash: list[str]
     transaction_price_assets: list[str]
+    transaction_price_rollover: list[str]
+    transaction_price_buyer_owned: list[str]
     transaction_consideration: list[str]
     target_type: list[str]
     acquirer_type: list[str]
@@ -150,6 +154,8 @@ class SectionsArgsSchema(Schema):
     transaction_price_stock = price_bucket_list_field()
     transaction_price_cash = price_bucket_list_field()
     transaction_price_assets = price_bucket_list_field()
+    transaction_price_rollover = price_bucket_list_field()
+    transaction_price_buyer_owned = price_bucket_list_field()
     transaction_consideration = fields.List(fields.Str(), load_default=[])
     target_type = fields.List(fields.Str(), load_default=[])
     acquirer_type = fields.List(fields.Str(), load_default=[])
@@ -302,6 +308,8 @@ class SectionsResultMetadataSchema(IndustryLabelsSchema):
     transaction_price_stock = fields.Float(allow_none=True)
     transaction_price_cash = fields.Float(allow_none=True)
     transaction_price_assets = fields.Float(allow_none=True)
+    transaction_price_rollover = fields.Float(allow_none=True)
+    transaction_price_buyer_owned = fields.Float(allow_none=True)
     transaction_consideration = fields.Str(allow_none=True)
     target_type = fields.Str(allow_none=True)
     acquirer_type = fields.Str(allow_none=True)

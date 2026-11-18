@@ -136,7 +136,7 @@
               "20B+"
             ]
           },
-          "description": "Total deal-value buckets.",
+          "description": "Total deal-value buckets; every price filter takes these labels.",
           "examples": [
             [
               "100M - 250M",
@@ -148,22 +148,32 @@
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Stock deal-value buckets; same labels as transaction_price_total."
+          }
         },
         "transaction_price_cash": {
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "transaction_price_rollover": {
+          "items": {
+            "type": "string"
           },
-          "description": "Cash deal-value buckets; same labels as transaction_price_total."
+          "type": "array"
+        },
+        "transaction_price_buyer_owned": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Buyer's prior stake; not in total."
         },
         "transaction_price_assets": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Asset deal-value buckets; same labels as transaction_price_total."
+          }
         },
         "transaction_consideration": {
           "type": "array",
@@ -705,7 +715,7 @@
               "20B+"
             ]
           },
-          "description": "Total deal-value buckets.",
+          "description": "Total deal-value buckets; every price filter takes these labels.",
           "examples": [
             [
               "100M - 250M",
@@ -717,22 +727,32 @@
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Stock deal-value buckets; same labels as transaction_price_total."
+          }
         },
         "transaction_price_cash": {
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "transaction_price_rollover": {
+          "items": {
+            "type": "string"
           },
-          "description": "Cash deal-value buckets; same labels as transaction_price_total."
+          "type": "array"
+        },
+        "transaction_price_buyer_owned": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Buyer's prior stake; not in total."
         },
         "transaction_price_assets": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Asset deal-value buckets; same labels as transaction_price_total."
+          }
         },
         "transaction_consideration": {
           "type": "array",
@@ -858,6 +878,8 @@
               "transaction_price_stock",
               "transaction_price_cash",
               "transaction_price_assets",
+              "transaction_price_rollover",
+              "transaction_price_buyer_owned",
               "transaction_consideration",
               "target_type",
               "acquirer_type",
@@ -1378,7 +1400,7 @@
               "20B+"
             ]
           },
-          "description": "Total deal-value buckets.",
+          "description": "Total deal-value buckets; every price filter takes these labels.",
           "examples": [
             [
               "100M - 250M",
@@ -1390,22 +1412,32 @@
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Stock deal-value buckets; same labels as transaction_price_total."
+          }
         },
         "transaction_price_cash": {
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "transaction_price_rollover": {
+          "items": {
+            "type": "string"
           },
-          "description": "Cash deal-value buckets; same labels as transaction_price_total."
+          "type": "array"
+        },
+        "transaction_price_buyer_owned": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Buyer's prior stake; not in total."
         },
         "transaction_price_assets": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Asset deal-value buckets; same labels as transaction_price_total."
+          }
         },
         "transaction_consideration": {
           "type": "array",
@@ -1944,7 +1976,7 @@
               "20B+"
             ]
           },
-          "description": "Total deal-value buckets.",
+          "description": "Total deal-value buckets; every price filter takes these labels.",
           "examples": [
             [
               "100M - 250M",
@@ -1956,22 +1988,32 @@
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Stock deal-value buckets; same labels as transaction_price_total."
+          }
         },
         "transaction_price_cash": {
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "transaction_price_rollover": {
+          "items": {
+            "type": "string"
           },
-          "description": "Cash deal-value buckets; same labels as transaction_price_total."
+          "type": "array"
+        },
+        "transaction_price_buyer_owned": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Buyer's prior stake; not in total."
         },
         "transaction_price_assets": {
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "Asset deal-value buckets; same labels as transaction_price_total."
+          }
         },
         "transaction_consideration": {
           "type": "array",
@@ -2134,6 +2176,8 @@
               "transaction_price_stock",
               "transaction_price_cash",
               "transaction_price_assets",
+              "transaction_price_rollover",
+              "transaction_price_buyer_owned",
               "transaction_consideration",
               "target_type",
               "acquirer_type",
@@ -2262,6 +2306,18 @@
                 ]
               },
               "transaction_price_cash": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transaction_price_rollover": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transaction_price_buyer_owned": {
                 "type": [
                   "number",
                   "null"
@@ -3000,6 +3056,18 @@
             "null"
           ]
         },
+        "transaction_price_rollover": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "transaction_price_buyer_owned": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "transaction_price_assets": {
           "type": [
             "number",
@@ -3243,6 +3311,18 @@
                 ]
               },
               "transaction_price_cash": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transaction_price_rollover": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "transaction_price_buyer_owned": {
                 "type": [
                   "number",
                   "null"
@@ -3974,6 +4054,8 @@
               "transaction_price_stocks",
               "transaction_price_cashes",
               "transaction_price_assets",
+              "transaction_price_rollovers",
+              "transaction_price_buyer_owned",
               "transaction_considerations",
               "target_types",
               "acquirer_types",
@@ -4007,6 +4089,8 @@
               "transaction_price_stocks",
               "transaction_price_cashes",
               "transaction_price_assets",
+              "transaction_price_rollovers",
+              "transaction_price_buyer_owned",
               "transaction_considerations",
               "target_types",
               "acquirer_types",
@@ -4117,6 +4201,18 @@
           "items": {
             "type": "string"
           }
+        },
+        "transaction_price_rollovers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transaction_price_buyer_owned": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "transaction_price_assets": {
           "type": "array",
