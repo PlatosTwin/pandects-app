@@ -55,6 +55,20 @@ NON_CORE_CITATION_OPTIONAL_FIELDS = (
     "purchase_price.buyer_owned",
 )
 
+# A 0 or negative answer for these fields means "no value": it is stored as null and a
+# retry treats it as no answer, so it never replaces a stored value.
+NON_POSITIVE_MEANS_NO_ANSWER_FIELDS = (
+    "purchase_price.rollover",
+    "purchase_price.buyer_owned",
+)
+
+
+def _no_answer_if_non_positive(value: Any) -> Any:
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value <= 0:
+        return None
+    return value
+
+
 TOKEN_USAGE_REQUIRED_FIELDS = ("input_tokens", "output_tokens", "total_tokens")
 RETRY_FOCUS_FIELD_ORDER = (
     "consideration_type",
@@ -714,6 +728,8 @@ def merge_retry_web_search_response(
     for field_name in RETRY_FOCUS_FIELD_ORDER:
         existing_value = _get_output_field_value(existing_obj, field_name)
         incoming_value = _get_output_field_value(merged_obj, field_name)
+        if field_name in NON_POSITIVE_MEANS_NO_ANSWER_FIELDS:
+            incoming_value = _no_answer_if_non_positive(incoming_value)
         if existing_value is None:
             continue
         if field_name in focus_fields:
@@ -1126,15 +1142,12 @@ def build_tx_metadata_update_params(
     price_stock = _to_float_or_none(price.get("stock"))
     price_assets = _to_float_or_none(price.get("assets"))
     # Rolled-over equity is part of the total but is not a consideration leg.
-    price_rollover = _to_float_or_none(price.get("rollover"))
-    if price_rollover == 0.0:
-        # A model may answer 0 for "no rollover"; store null, which needs no citation.
-        price_rollover = None
+    # A model may answer 0 for "no rollover"; store null, which needs no citation.
+    # A negative answer is invalid and is treated the same way.
+    price_rollover = _no_answer_if_non_positive(_to_float_or_none(price.get("rollover")))
     # The buyer's prior stake is not acquired: it is in no leg and never in the total.
-    price_buyer_owned = _to_float_or_none(price.get("buyer_owned"))
-    if price_buyer_owned == 0.0:
-        # A model may answer 0 for "no prior stake"; store null, which needs no citation.
-        price_buyer_owned = None
+    # A 0 ("no prior stake") or negative answer is stored as null, which needs no citation.
+    price_buyer_owned = _no_answer_if_non_positive(_to_float_or_none(price.get("buyer_owned")))
     if consideration == "cash" and ((price_stock or 0.0) > 0.0 or (price_assets or 0.0) > 0.0):
         raise ValueError(
             "consideration_type='all_cash' is inconsistent with non-zero stock/assets values."

@@ -427,6 +427,94 @@ class TxMetadataDomainTests(unittest.TestCase):
         self.assertEqual(params["price_total"], 100.0)
         self.assertIn("purchase_price.buyer_owned", json.loads(params["metadata_uncited_fields"]))
 
+    def test_retry_cited_zero_rollover_keeps_stored_value(self) -> None:
+        agreement = self._requeue_agreement_row(transaction_price_rollover=300.0, transaction_price_total=120.0)
+        retry_payload = self._valid_web_search_obj()
+        retry_payload["purchase_price"] = {
+            "cash": 100.0,
+            "stock": None,
+            "assets": None,
+            "rollover": 0.0,
+            "buyer_owned": None,
+        }
+        self._add_citation(retry_payload, "purchase_price.rollover")
+
+        merged = merge_retry_web_search_response(agreement=agreement, tx_metadata_obj=retry_payload)
+        merged_price = cast(dict[str, object], merged["purchase_price"])
+        self.assertEqual(merged_price["rollover"], 300.0)
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=merged,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["price_rollover"], 300.0)
+
+    def test_build_update_params_web_search_only_maps_negative_rollover_to_null(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {
+            "cash": 100.0,
+            "stock": None,
+            "assets": None,
+            "rollover": -5.0,
+            "buyer_owned": None,
+        }
+        self._add_citation(payload, "purchase_price.rollover")
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertIsNone(params["price_rollover"])
+        self.assertEqual(params["price_total"], 100.0)
+
+    def test_retry_cited_zero_buyer_owned_keeps_stored_value(self) -> None:
+        agreement = self._requeue_agreement_row(transaction_price_buyer_owned=300.0, transaction_price_total=100.0)
+        retry_payload = self._valid_web_search_obj()
+        retry_payload["purchase_price"] = {
+            "cash": 100.0,
+            "stock": None,
+            "assets": None,
+            "buyer_owned": 0.0,
+            "rollover": None,
+        }
+        self._add_citation(retry_payload, "purchase_price.buyer_owned")
+
+        merged = merge_retry_web_search_response(agreement=agreement, tx_metadata_obj=retry_payload)
+        merged_price = cast(dict[str, object], merged["purchase_price"])
+        self.assertEqual(merged_price["buyer_owned"], 300.0)
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=merged,
+            response_usage=self._usage(),
+        )
+
+        self.assertEqual(params["price_buyer_owned"], 300.0)
+
+    def test_build_update_params_web_search_only_maps_negative_buyer_owned_to_null(self) -> None:
+        payload = self._valid_web_search_obj()
+        payload["purchase_price"] = {
+            "cash": 100.0,
+            "stock": None,
+            "assets": None,
+            "buyer_owned": -5.0,
+            "rollover": None,
+        }
+        self._add_citation(payload, "purchase_price.buyer_owned")
+
+        params = build_tx_metadata_update_params_web_search_only(
+            agreement_uuid="agreement-1",
+            tx_metadata_obj=payload,
+            response_usage=self._usage(),
+        )
+
+        self.assertIsNone(params["price_buyer_owned"])
+        self.assertEqual(params["price_total"], 100.0)
+
     def test_build_tx_metadata_request_body_web_search_only_includes_sec_url(self) -> None:
         request_body = build_tx_metadata_request_body_web_search_only(
             {
