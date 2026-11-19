@@ -191,7 +191,7 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
       <div className="space-y-4">
         {activeView === "table" ? (
           <div className="flex flex-col gap-1">
-            <Eyebrow>Table window</Eyebrow>
+            <Eyebrow>Filing year</Eyebrow>
             <SegmentedControl
               value={tableYear}
               onValueChange={setTableYear}
@@ -242,8 +242,8 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
         ) : (
           <>
             <p id={tableId} className="sr-only">
-              100 percent stacked area chart showing yearly share of the selected metric across the
-              current top {chartRows.length} firms.
+              100 percent stacked area chart showing each firm&apos;s yearly share among the
+              top {chartRows.length} firms across all years.
               {chartFirms.other.length > 0
                 ? ` The top ${chartFirms.named.length} are shown individually; the rest are combined as Other.`
                 : null}
@@ -315,12 +315,12 @@ export default function Leaderboards() {
           <>
             <LeaderboardSection
               title="Buy-Side Counsel"
-              description="Top acquirer-side counsel across public-eligible agreements."
+              description="The top law firms that advised acquirers."
               side={data.buy_side}
             />
             <LeaderboardSection
               title="Sell-Side Counsel"
-              description="Top target-side counsel across public-eligible agreements."
+              description="The top law firms that advised targets."
               side={data.sell_side}
             />
           </>
