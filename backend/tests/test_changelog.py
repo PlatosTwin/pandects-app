@@ -359,6 +359,20 @@ class ChangelogTests(unittest.TestCase):
         self.assertEqual(escape("---"), "\\---")
         for plain in ("#175 fixed", "-5 degrees", "1,432 rows", "*kept* text", "(1) first"):
             self.assertEqual(escape(plain), plain)
+        # Three or more backticks or tildes would open a code block.
+        self.assertEqual(escape("```sql rows"), "\\```sql rows")
+        self.assertEqual(escape("````"), "\\````")
+        self.assertEqual(escape("~~~ text"), "\\~~~ text")
+        self.assertEqual(escape("~~~~"), "\\~~~~")
+        # Inline code spans are not fences: one or two backticks, or a
+        # triple-backtick span closed on the same line, stay as written.
+        for code in ("`id` is now text", "``a`b`` text", "```x``` text", "~~ two tildes"):
+            self.assertEqual(escape(code), code)
+        lines = self.renderer._render_change(
+            {"type": "api", "severity": "minor", "summary": "s", "details": "```json is gone"},
+            mdx=True,
+        )
+        self.assertEqual(lines[3], "\\```json is gone")
         change = {
             "type": "api",
             "severity": "minor",

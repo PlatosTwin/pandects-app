@@ -222,15 +222,20 @@ def _markdown_escape(text: str) -> str:
 
 _BLOCK_MARKER_RE = re.compile(r"(#{1,6}(?=\s|$)|[-+*>](?=\s|$)|\||[-=*_]{3,}$)")
 _ORDERED_MARKER_RE = re.compile(r"^(\d{1,9})([.)])(?=\s|$)")
+# A run of three or more tildes opens a code fence. So does a run of three or
+# more backticks, but only when no backtick follows on the line: "```x```" is
+# an inline code span, which must stay as written.
+_FENCE_MARKER_RE = re.compile(r"(~{3,}|`{3,}(?=[^`]*$))")
 
 
 def _escape_block_start(paragraph: str) -> str:
     """Keep a paragraph a paragraph.
 
     Each paragraph of an entry starts its own line, so prose that opens with
-    "# of rows", "- " or "3) " would otherwise render as a heading or a list.
+    "# of rows", "- " or "3) " would otherwise render as a heading or a list,
+    and prose that opens with "```" or "~~~" would open a code block.
     """
-    if _BLOCK_MARKER_RE.match(paragraph):
+    if _BLOCK_MARKER_RE.match(paragraph) or _FENCE_MARKER_RE.match(paragraph):
         return "\\" + paragraph
     return _ORDERED_MARKER_RE.sub(r"\1\\\2", paragraph, count=1)
 
