@@ -10,12 +10,10 @@ import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ErrorState } from "@/components/StateMessage";
-import { CodeBlock } from "@/components/ui/code-block";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { ExternalLink } from "@/components/ui/external-link";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -59,7 +57,16 @@ const downloadManifest = async (url: string) => {
   }
 };
 
-function DumpActions({ dump, className }: { dump: DumpInfo; className: string }) {
+function DumpActions({
+  dump,
+  className,
+  primary = false,
+}: {
+  dump: DumpInfo;
+  className: string;
+  /** Solid download button, for the one "latest" card. */
+  primary?: boolean;
+}) {
   const trackDownload = (downloadType: "sql" | "manifest") => {
     trackEvent("bulk_download_click", {
       download_type: downloadType,
@@ -76,7 +83,7 @@ function DumpActions({ dump, className }: { dump: DumpInfo; className: string })
 
   return (
     <div className={className}>
-      <Button asChild variant="outline" size="sm">
+      <Button asChild variant={primary ? "default" : "outline"} size="sm">
         <a
           href={dump.sql}
           onClick={() => trackDownload("sql")}
@@ -103,6 +110,48 @@ function DumpActions({ dump, className }: { dump: DumpInfo; className: string })
   );
 }
 
+interface UsageCommand {
+  id: string;
+  caption: string;
+  code: string;
+  copyLabel: string;
+  /** False while `code` is still a placeholder. */
+  ready: boolean;
+  copyTarget: string;
+}
+
+/** One shell command in the Usage card: caption, command line, copy button. */
+function CommandRow({
+  command,
+  onCopied,
+}: {
+  command: UsageCommand;
+  onCopied: (ok: boolean) => void;
+}) {
+  return (
+    <li className="flex items-center gap-2 py-3 pl-4 pr-2 sm:pl-6 sm:pr-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-muted-foreground">{command.caption}</p>
+        {/* Wraps at every width, so the whole command is always on screen. */}
+        <pre className="mt-1 whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-foreground [overflow-wrap:anywhere]">
+          {command.ready ? (
+            <span aria-hidden="true" className="select-none text-muted-foreground">
+              ${" "}
+            </span>
+          ) : null}
+          <code>{command.code}</code>
+        </pre>
+      </div>
+      <CopyButton
+        value={command.code}
+        label={command.copyLabel}
+        disabled={!command.ready}
+        onCopied={onCopied}
+      />
+    </li>
+  );
+}
+
 export default function BulkData() {
   const docsUrl = getDocsUrl();
   const {
@@ -120,6 +169,7 @@ export default function BulkData() {
   const formatSize = (bytes?: number): string => {
     if (!bytes) return "—";
     const megabytes = bytes / (1024 * 1024);
+    if (megabytes >= 1024) return `${(megabytes / 1024).toFixed(2)} GB`;
     return `${megabytes.toFixed(1)} MB`;
   };
 
@@ -148,7 +198,32 @@ export default function BulkData() {
     : loading
       ? "Loading latest SHA256..."
       : 'echo "<SHA256>  latest.sql.gz" | sha256sum -c -';
-  const commandsUnavailable = !loading && (!latestSqlUrl || !latestSha256);
+  const usageCommands: UsageCommand[] = [
+    {
+      id: "wget",
+      caption: "Download latest version with wget",
+      code: wgetCommand,
+      copyLabel: "Copy wget command for latest SQL",
+      ready: Boolean(latestSqlUrl),
+      copyTarget: "wget_latest",
+    },
+    {
+      id: "checksum",
+      caption: "Verify the checksum",
+      code: checksumCommand,
+      copyLabel: "Copy checksum verification command",
+      ready: Boolean(latestSha256),
+      copyTarget: "checksum_verify_latest",
+    },
+    {
+      id: "api",
+      caption: "Pull metadata for all dumps via API",
+      code: apiCommand,
+      copyLabel: "Copy API curl command",
+      ready: true,
+      copyTarget: "api_call",
+    },
+  ];
 
   const trackCopy = (copyTarget: string) => () => {
     trackEvent("bulk_copy_click", { copy_target: copyTarget });
@@ -227,7 +302,7 @@ export default function BulkData() {
                   <Eyebrow asChild>
                     <dt>Download size</dt>
                   </Eyebrow>
-                  <dd className="mt-1 text-sm text-foreground">
+                  <dd className="mt-1 text-sm tabular-nums text-foreground">
                     {formatSize(latestDump.size_bytes)}
                   </dd>
                 </div>
@@ -247,7 +322,7 @@ export default function BulkData() {
                 </div>
               </dl>
               <div className="flex flex-wrap items-center gap-2">
-                <DumpActions dump={latestDump} className="flex flex-wrap gap-2" />
+                <DumpActions dump={latestDump} className="flex flex-wrap gap-2" primary />
                 <CopyButton
                   value={`wget ${latestDump.sql}`}
                   label="Copy wget command for latest SQL"
@@ -296,10 +371,12 @@ export default function BulkData() {
                   >
                     <div className="w-40">
                       <Skeleton className="h-5 w-32" />
-                      {row === 0 ? <Skeleton className="h-4 w-24" /> : null}
+                      {row === 0 ? (
+                        <Skeleton className="mt-1 h-[22px] w-24 xl:hidden" />
+                      ) : null}
                     </div>
                     <Skeleton className="h-8 w-56" />
-                    <Skeleton className="h-5 w-16" />
+                    <Skeleton className="ml-auto h-5 w-16" />
                     <div className="flex gap-2">
                       <Skeleton className="h-9 w-32" />
                       <Skeleton className="h-9 w-28" />
@@ -344,22 +421,22 @@ export default function BulkData() {
                     <TableRow>
                       <TableHead className="px-6">Version</TableHead>
                       <TableHead className="px-6">SHA256 hash</TableHead>
-                      <TableHead className="px-6">Download size</TableHead>
-                      <TableHead className="px-6">Actions</TableHead>
+                      <TableHead className="whitespace-nowrap px-6 text-right">Download size</TableHead>
+                      <TableHead className="px-6 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {historyDumps.map((dump) => (
                       <TableRow key={dump.timestamp}>
                         <TableCell className="whitespace-nowrap px-6 py-3">
-                          <div className="flex flex-col">
+                          {/* Below xl the badge sits under the date: side by
+                              side it pushes the action buttons out of the card. */}
+                          <div className="flex flex-col items-start gap-1 xl:flex-row xl:items-center xl:gap-2">
                             <span className="font-medium text-foreground">
                               {formatTimestamp(dump.timestamp)}
                             </span>
                             {latestSha256 && dump.sha256 === latestSha256 && (
-                              <span className="text-xs font-medium text-primary">
-                                Same as latest
-                              </span>
+                              <Badge variant="secondary">Same as latest</Badge>
                             )}
                           </div>
                         </TableCell>
@@ -374,11 +451,11 @@ export default function BulkData() {
                             <CopyButton value={dump.sha256} label="Copy SHA256" />
                           </div>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap px-6 py-3 text-sm text-foreground/90">
+                        <TableCell className="whitespace-nowrap px-6 py-3 text-right text-sm tabular-nums text-foreground/90">
                           {formatSize(dump.size_bytes)}
                         </TableCell>
                         <TableCell className="whitespace-nowrap px-6 py-3">
-                          <DumpActions dump={dump} className="flex gap-2" />
+                          <DumpActions dump={dump} className="flex justify-end gap-2" />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -400,7 +477,7 @@ export default function BulkData() {
                           </Badge>
                         )}
                       </div>
-                      <div className="text-xs text-foreground/90">
+                      <div className="text-xs tabular-nums text-foreground/90">
                         {formatSize(dump.size_bytes)}
                       </div>
                     </div>
@@ -421,95 +498,62 @@ export default function BulkData() {
           )}
         </section>
 
-        {/* Usage commands */}
-        <section aria-labelledby="bulk-usage-heading" className="space-y-3">
-          <h2
-            id="bulk-usage-heading"
-            className="text-lg font-semibold tracking-tight text-foreground"
+        <div className="grid gap-8 lg:grid-cols-5">
+          {/* Usage commands */}
+          <section
+            aria-labelledby="bulk-usage-heading"
+            className="overflow-hidden rounded-xl border border-border bg-card shadow-raised lg:col-span-3"
           >
-            Usage
-          </h2>
-          <Tabs defaultValue="api">
-            <TabsList className="h-auto max-w-full flex-wrap justify-start">
-              <TabsTrigger value="api">API</TabsTrigger>
-              <TabsTrigger value="wget">wget</TabsTrigger>
-              <TabsTrigger value="checksum">Checksum</TabsTrigger>
-            </TabsList>
-            <TabsContent value="api" className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Pull metadata for all dumps via API
-              </p>
-              <CodeBlock
-                label="# API call to get dumps info"
-                code={apiCommand}
-                copyLabel="Copy API curl command"
-                onCopied={trackCopy("api_call")}
-              />
-            </TabsContent>
-            <TabsContent value="wget" className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Download latest version with wget
-              </p>
-              <CodeBlock
-                label="# Download latest dump"
-                code={wgetCommand}
-                copyLabel="Copy wget command for latest SQL"
-                copyDisabled={!latestSqlUrl}
-                onCopied={trackCopy("wget_latest")}
-              />
-            </TabsContent>
-            <TabsContent value="checksum" className="space-y-2">
-              <p className="text-sm text-muted-foreground">Verify the checksum</p>
-              <CodeBlock
-                label="# Verify file integrity"
-                code={checksumCommand}
-                copyLabel="Copy checksum verification command"
-                copyDisabled={!latestSha256}
-                onCopied={trackCopy("checksum_verify_latest")}
-              />
-            </TabsContent>
-          </Tabs>
-          {commandsUnavailable ? (
-            <p className="text-sm text-muted-foreground">
-              Pull metadata for all dumps via API:{" "}
-              <ExternalLink
-                href={`${API_BASE_URL}/v1/dumps`}
-                className="font-mono text-primary underline underline-offset-2"
+            <div className="border-b border-border px-4 py-4 sm:px-6">
+              <h2
+                id="bulk-usage-heading"
+                className="text-lg font-semibold tracking-tight text-foreground"
               >
-                {`${API_BASE_URL}/v1/dumps`}
-              </ExternalLink>
-            </p>
-          ) : null}
-        </section>
+                Usage
+              </h2>
+            </div>
+            <ul className="divide-y divide-border">
+              {usageCommands.map((command) => (
+                <CommandRow
+                  key={command.id}
+                  command={command}
+                  onCopied={trackCopy(command.copyTarget)}
+                />
+              ))}
+            </ul>
+          </section>
 
-        {/* Database Info */}
-        <section
-          aria-labelledby="bulk-about-heading"
-          className="rounded-xl border border-border bg-card shadow-raised p-4 sm:p-6"
-        >
-          <h2
-            id="bulk-about-heading"
-            className="mb-2 text-lg font-semibold tracking-tight text-foreground"
+          {/* Database Info */}
+          <section
+            aria-labelledby="bulk-about-heading"
+            className="overflow-hidden rounded-xl border border-border bg-card shadow-raised lg:col-span-2"
           >
-            About the SQL Dump
-          </h2>
-          <p className="prose prose-copy max-w-none">
-            The database dumps are in MariaDB SQL format. For installation, setup,
-            and usage instructions, visit the{" "}
-            <ExternalLink href="https://mariadb.org/documentation/">
-              MariaDB Documentation
-            </ExternalLink>
-            . For a table-by-table reference of what the dump contains, see the{" "}
-            <ExternalLink href={`${docsUrl}/docs/guides/bulk-data-schema`}>
-              Bulk Data Schema guide
-            </ExternalLink>
-            ; column-level documentation and an interactive ER diagram are on{" "}
-            <ExternalLink href="https://dbdocs.io/nmbogdan/Pandects">dbdocs.io</ExternalLink>
-            . Schema and data changes between releases are listed in the{" "}
-            <ExternalLink href={`${docsUrl}/docs/guides/changelog`}>Changelog</ExternalLink>
-            , which records the SHA256 of the dump each change shipped in.
-          </p>
-        </section>
+            <div className="border-b border-border px-4 py-4 sm:px-6">
+              <h2
+                id="bulk-about-heading"
+                className="text-lg font-semibold tracking-tight text-foreground"
+              >
+                About the SQL Dump
+              </h2>
+            </div>
+            <p className="prose prose-copy max-w-none px-4 py-4 sm:px-6">
+              The database dumps are in MariaDB SQL format. For installation, setup,
+              and usage instructions, visit the{" "}
+              <ExternalLink href="https://mariadb.org/documentation/">
+                MariaDB Documentation
+              </ExternalLink>
+              . For a table-by-table reference of what the dump contains, see the{" "}
+              <ExternalLink href={`${docsUrl}/docs/guides/bulk-data-schema`}>
+                Bulk Data Schema guide
+              </ExternalLink>
+              ; column-level documentation and an interactive ER diagram are on{" "}
+              <ExternalLink href="https://dbdocs.io/nmbogdan/Pandects">dbdocs.io</ExternalLink>
+              . Schema and data changes between releases are listed in the{" "}
+              <ExternalLink href={`${docsUrl}/docs/guides/changelog`}>Changelog</ExternalLink>
+              , which records the SHA256 of the dump each change shipped in.
+            </p>
+          </section>
+        </div>
       </div>
     </PageShell>
   );

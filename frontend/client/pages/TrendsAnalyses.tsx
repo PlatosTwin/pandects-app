@@ -821,7 +821,7 @@ export default function TrendsAnalyses() {
 
         {!loading && !error && data ? (
           <Tabs defaultValue="ownership" className="space-y-4">
-            <TabsList className="grid h-auto w-full grid-cols-2">
+            <TabsList>
               <TabsTrigger value="ownership">Ownership Structure</TabsTrigger>
               <TabsTrigger value="industry">Industry Dynamics</TabsTrigger>
             </TabsList>
