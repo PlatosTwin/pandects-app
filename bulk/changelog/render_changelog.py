@@ -216,8 +216,9 @@ def _escape_outside_code(
 
 # Docusaurus enables remark-directive, which reads a colon directly followed
 # by a letter as a text directive (":name"), unless another colon comes first.
-# Prose such as "agreements:read_fulltext" would be parsed as one and printed
-# back with a build warning.
+# Prose such as "agreements:read_fulltext" is parsed as one. Docusaurus puts
+# the plain form back without a word, but "scope:name[label]" loses its label
+# and the build prints an unused-directive warning.
 _DIRECTIVE_COLON_RE = re.compile(r"(?<!:):(?=[A-Za-z])")
 
 

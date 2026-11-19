@@ -809,9 +809,8 @@ export default function TrendsAnalyses() {
       title="Trends & Analyses"
       description={
         <span className="prose-copy">
-          Charts of the agreements in this dataset, most of them by filing year. Ownership Structure
-          compares public and private targets and types of buyer. Industry Dynamics shows target
-          industries and the most common pairings of target and acquirer industries.
+          Charts of public and private targets, types of buyer, and target and acquirer
+          industries across the dataset, most of them by filing year.
         </span>
       }
     >

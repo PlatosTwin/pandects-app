@@ -301,8 +301,8 @@ export default function Leaderboards() {
       title="Leaderboards"
       description={
         <span className="prose-copy">
-          Ranks the law firms that advised acquirers and targets in these agreements, by number of
-          agreements or by total transaction value. Each ranking shows up to 15 firms.
+          Law firms that advised acquirers and targets, ranked by number of agreements or by
+          total transaction value. Each ranking shows up to 15 firms.
         </span>
       }
     >
