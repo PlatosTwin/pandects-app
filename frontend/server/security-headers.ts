@@ -38,7 +38,7 @@ export const FRONTEND_SECURITY_HEADERS = {
   "Content-Security-Policy": FRONTEND_CONTENT_SECURITY_POLICY.join("; "),
   "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
   "Cross-Origin-Resource-Policy": "same-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), interest-cohort=()",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=()",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=15552000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
