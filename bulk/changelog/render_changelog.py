@@ -191,12 +191,18 @@ def validate(data: dict[str, object]) -> None:
 # ── Rendering ────────────────────────────────────────────────────
 
 
-def _escape_outside_code(text: str, replacements: tuple[tuple[str, str], ...]) -> str:
+def _escape_outside_code(
+    text: str,
+    replacements: tuple[tuple[str, str], ...],
+    patterns: tuple[tuple[re.Pattern[str], str], ...] = (),
+) -> str:
     # Backtick code spans are already literal, and entity references inside
     # them would render verbatim, so only prose outside code spans is escaped.
     def _escape(segment: str) -> str:
         for raw, escaped in replacements:
             segment = segment.replace(raw, escaped)
+        for pattern, escaped in patterns:
+            segment = pattern.sub(escaped, segment)
         return segment
 
     parts = text.split("`")
@@ -208,10 +214,22 @@ def _escape_outside_code(text: str, replacements: tuple[tuple[str, str], ...]) -
     return _escape(text)
 
 
+# Docusaurus enables remark-directive, which reads a colon directly followed
+# by a letter as a text directive (":name"), unless another colon comes first.
+# Prose such as "agreements:read_fulltext" would be parsed as one and printed
+# back with a build warning.
+_DIRECTIVE_COLON_RE = re.compile(r"(?<!:):(?=[A-Za-z])")
+
+
 def _mdx_escape(text: str) -> str:
     # The docs guide is MDX: a bare `{`, `}`, or `<` in entry prose would be
-    # parsed as an expression/JSX and break the docs build.
-    return _escape_outside_code(text, (("{", "&#123;"), ("}", "&#125;"), ("<", "&lt;")))
+    # parsed as an expression/JSX and break the docs build. A colon before a
+    # letter becomes an entity so it cannot start a directive.
+    return _escape_outside_code(
+        text,
+        (("{", "&#123;"), ("}", "&#125;"), ("<", "&lt;")),
+        ((_DIRECTIVE_COLON_RE, "&#58;"),),
+    )
 
 
 def _markdown_escape(text: str) -> str:

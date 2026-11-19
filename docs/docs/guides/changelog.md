@@ -595,7 +595,7 @@ target_industry_label / acquirer_industry_label (list_agreements, get_agreement,
 <details>
 <summary>**MCP:** Every MCP tool now declares its OAuth security scheme and scopes in _meta.securitySchemes; tool behavior is unchanged.</summary>
 
-tools/list returns, for each tool, _meta.securitySchemes with type oauth2 and the scopes that the tool checks. The three tools that accept any authenticated caller (get_server_capabilities, get_server_metrics, submit_feedback) declare an empty scope list. list_agreements and get_agreement also declare agreements:read_fulltext, which they need for full agreement text. Clients that ignore _meta see no change. The server also answers GET /.well-known/openai-apps-challenge with a domain verification token when one is configured, and with 404 otherwise.
+tools/list returns, for each tool, _meta.securitySchemes with type oauth2 and the scopes that the tool checks. The three tools that accept any authenticated caller (get_server_capabilities, get_server_metrics, submit_feedback) declare an empty scope list. list_agreements and get_agreement also declare agreements&#58;read_fulltext, which they need for full agreement text. Clients that ignore _meta see no change. The server also answers GET /.well-known/openai-apps-challenge with a domain verification token when one is configured, and with 404 otherwise.
 
 </details>
 

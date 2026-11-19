@@ -288,6 +288,30 @@ class ChangelogTests(unittest.TestCase):
         )
         self.assertEqual(lines, ["**API:** Renamed `{old}` to &lt;new>", ""])
 
+    def test_mdx_escape_keeps_colons_from_starting_directives(self) -> None:
+        # The docs site parses ":name" as a text directive, so a colon before
+        # a letter becomes an entity in MDX prose.
+        mdx = self.renderer._mdx_escape
+        self.assertEqual(mdx("declare scope:name too"), "declare scope&#58;name too")
+        self.assertEqual(mdx("x:y[label]"), "x&#58;y[label]")
+        for kept in (
+            "in `scope:name` code",
+            "see https://x.y/z",
+            "at 10:30 today",
+            "Label: value",
+            "a::b",
+        ):
+            self.assertEqual(mdx(kept), kept)
+        # CHANGELOG.md is not MDX and keeps the colon.
+        self.assertEqual(self.renderer._markdown_escape("scope:name"), "scope:name")
+        self.assertEqual(
+            self.renderer._render_change(
+                {"type": "mcp", "severity": "minor", "summary": "Adds agreements:read_fulltext"},
+                mdx=True,
+            ),
+            ["**MCP:** Adds agreements&#58;read_fulltext", ""],
+        )
+
     def test_entry_prose_keeps_paragraph_breaks(self) -> None:
         # A line break in details or migration starts a paragraph (a blank
         # line in a folded YAML scalar loads as one); other whitespace folds.
