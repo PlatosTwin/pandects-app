@@ -23,9 +23,10 @@ const SMART_READER_KEY = "pandects.reader.smart";
 
 /**
  * The smart reader (defined terms, cross-reference links, subsection contents)
- * is behind a flag while it is checked by hand: on in development and when
- * VITE_SMART_READER=1 is set at build time, and for one browser in production
- * after `localStorage.setItem("pandects.reader.smart", "1")`.
+ * is on in development and when VITE_SMART_READER=1 is set at build time. The
+ * production build sets it in fly.toml since 2026-11-18. A build without it
+ * keeps the reader off, except for one browser after
+ * `localStorage.setItem("pandects.reader.smart", "1")`.
  */
 export function isSmartReaderEnabled(): boolean {
   if (!import.meta.env.PROD || import.meta.env.VITE_SMART_READER === "1") return true;

@@ -277,13 +277,13 @@ class WebsiteAuthService:
             deps, external_identity=external_identity
         )
         if action == "register" and temporary_access_lockdown_enabled():
-            # TEMPORARY (September reopen): new account creation is disabled, so
+            # TEMPORARY (December reopen): new account creation is disabled, so
             # discard the just-created user/link instead of provisioning it.
             deps.db.session.rollback()
             abort(
                 403,
                 description=(
-                    "New user creation is temporarily disabled. Please check back in September."
+                    "New user creation is temporarily disabled. Please check back in December."
                 ),
             )
         claims = getattr(external_identity, "claims", None)
