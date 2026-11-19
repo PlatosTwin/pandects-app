@@ -183,15 +183,15 @@ def require_verified_user() -> tuple[AuthUser, AccessContext]:
 # --- Temporary access restrictions -------------------------------------------
 # New account creation is disabled and the data API is limited to accounts that
 # already existed before the current day, surfaced in-app as a "check back in
-# September" notice. To reopen access, remove temporary_access_gate (and its
+# December" notice. To reopen access, remove temporary_access_gate (and its
 # before_request registration in backend.app._register_request_hooks) plus the
 # OAuth register guard in backend/routes/auth/__init__.py.
 REGISTRATION_DISABLED_MESSAGE = (
-    "New user creation is temporarily disabled. Please check back in September."
+    "New user creation is temporarily disabled. Please check back in December."
 )
 DATA_API_DISABLED_MESSAGE = (
     "This API is temporarily disabled for non-authenticated users. "
-    "Please check back in September."
+    "Please check back in December."
 )
 
 

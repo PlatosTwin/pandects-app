@@ -9,6 +9,9 @@ primary_region = 'iad'
 [build]
   [build.args]
     VITE_API_BASE_URL = "https://api.pandects.org"
+    # Smart reader on for everyone since 2026-11-18. Remove this line to put it
+    # back behind the per-browser flag.
+    VITE_SMART_READER = "1"
 
 [http_service]
   internal_port = 80

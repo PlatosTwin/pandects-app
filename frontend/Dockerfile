@@ -19,6 +19,9 @@ FROM base AS build
 # Vite env vars are baked in at build time; pass as Docker build args (configured in fly.toml).
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL="${VITE_API_BASE_URL}"
+# "1" turns the smart reader on for every visitor (client/components/reader/reader-preferences.ts).
+ARG VITE_SMART_READER
+ENV VITE_SMART_READER="${VITE_SMART_READER}"
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
