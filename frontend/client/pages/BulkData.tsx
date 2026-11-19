@@ -132,19 +132,13 @@ function CommandRow({
     <li className="flex items-center gap-2 py-3 pl-4 pr-2 sm:pl-6 sm:pr-4">
       <div className="min-w-0 flex-1">
         <p className="text-sm text-muted-foreground">{command.caption}</p>
-        <pre
-          // Focusable so keyboard users can scroll a long command into view.
-          // Phones wrap the command. From sm up it stays on one line and
-          // scrolls sideways: the right edge fades out to show there is more,
-          // and the padding keeps a short command clear of the fade.
-          tabIndex={0}
-          role="region"
-          aria-label={command.caption}
-          className="mt-1 whitespace-pre-wrap break-all rounded-sm font-mono text-[13px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:overflow-x-auto sm:whitespace-pre sm:break-normal sm:pr-8 sm:[mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:[scrollbar-width:none]"
-        >
-          <span aria-hidden="true" className="select-none text-muted-foreground">
-            ${" "}
-          </span>
+        {/* Wraps at every width, so the whole command is always on screen. */}
+        <pre className="mt-1 whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-foreground [overflow-wrap:anywhere]">
+          {command.ready ? (
+            <span aria-hidden="true" className="select-none text-muted-foreground">
+              ${" "}
+            </span>
+          ) : null}
           <code>{command.code}</code>
         </pre>
       </div>
@@ -423,7 +417,7 @@ export default function BulkData() {
                     <TableRow>
                       <TableHead className="px-6">Version</TableHead>
                       <TableHead className="px-6">SHA256 hash</TableHead>
-                      <TableHead className="px-6 text-right">Download size</TableHead>
+                      <TableHead className="whitespace-nowrap px-6 text-right">Download size</TableHead>
                       <TableHead className="px-6 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -431,7 +425,9 @@ export default function BulkData() {
                     {historyDumps.map((dump) => (
                       <TableRow key={dump.timestamp}>
                         <TableCell className="whitespace-nowrap px-6 py-3">
-                          <div className="flex items-center gap-2">
+                          {/* Below xl the badge sits under the date: side by
+                              side it pushes the action buttons out of the card. */}
+                          <div className="flex flex-col items-start gap-1 xl:flex-row xl:items-center xl:gap-2">
                             <span className="font-medium text-foreground">
                               {formatTimestamp(dump.timestamp)}
                             </span>

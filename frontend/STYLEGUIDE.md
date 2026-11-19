@@ -38,7 +38,7 @@ do not invent new arbitrary values.
 |-------|------|-------------|
 | `text-[11px]` | Field labels ("Target", "Acquirer"), eval-table headers, micro chips (`Badge` `chip` variant) | Usually `font-semibold uppercase tracking-wide text-muted-foreground` |
 | `text-[10px]` | Smallest tier: BETA pill, reader-toolbar labels, mono file-format chips, tiny count pills | Same uppercase treatment, or `font-mono font-normal` for format chips |
-| `text-[13px]` | Taxonomy L1 mono IDs only — a deliberate per-level step (L1 `13px` → L2/L3 `11px`) | `font-mono text-foreground/80` |
+| `text-[13px]` | Taxonomy L1 mono IDs — a deliberate per-level step (L1 `13px` → L2/L3 `11px`) — and code: `CodeBlock` and the Bulk Data command rows | `font-mono text-foreground/80` for IDs; `font-mono text-foreground` for code |
 | `text-[9px]` | `.tooltip-help-trigger-compact` glyph only | Defined in `global.css`, not used inline |
 
 Rule of thumb: `text-xs` is the floor for readable sentences; the px tiers are
