@@ -198,7 +198,6 @@ export default function BulkData() {
     : loading
       ? "Loading latest SHA256..."
       : 'echo "<SHA256>  latest.sql.gz" | sha256sum -c -';
-  const commandsUnavailable = !loading && (!latestSqlUrl || !latestSha256);
   const usageCommands: UsageCommand[] = [
     {
       id: "wget",
@@ -370,7 +369,12 @@ export default function BulkData() {
                     key={row}
                     className="flex items-center gap-12 border-b border-border px-6 py-3 last:border-b-0"
                   >
-                    <Skeleton className="h-5 w-40" />
+                    <div className="w-40">
+                      <Skeleton className="h-5 w-32" />
+                      {row === 0 ? (
+                        <Skeleton className="mt-1 h-[22px] w-24 xl:hidden" />
+                      ) : null}
+                    </div>
                     <Skeleton className="h-8 w-56" />
                     <Skeleton className="ml-auto h-5 w-16" />
                     <div className="flex gap-2">
@@ -517,17 +521,6 @@ export default function BulkData() {
                 />
               ))}
             </ul>
-            {commandsUnavailable ? (
-              <p className="border-t border-border px-4 py-3 text-sm text-muted-foreground sm:px-6">
-                Pull metadata for all dumps via API:{" "}
-                <ExternalLink
-                  href={`${API_BASE_URL}/v1/dumps`}
-                  className="font-mono text-primary underline underline-offset-2"
-                >
-                  {`${API_BASE_URL}/v1/dumps`}
-                </ExternalLink>
-              </p>
-            ) : null}
           </section>
 
           {/* Database Info */}
