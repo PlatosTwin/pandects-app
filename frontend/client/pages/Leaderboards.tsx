@@ -301,8 +301,8 @@ export default function Leaderboards() {
       title="Leaderboards"
       description={
         <span className="prose-copy">
-          Canonical counsel rankings for acquirer and target sides. The metric toggle swaps between
-          distinct top-15 sets for deal count and total transaction value.
+          Ranks the law firms that advised acquirers and targets in these agreements, by number of
+          agreements or by total transaction value. Each ranking shows up to 15 firms.
         </span>
       }
     >

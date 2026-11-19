@@ -809,8 +809,9 @@ export default function TrendsAnalyses() {
       title="Trends & Analyses"
       description={
         <span className="prose-copy">
-          A set of deeper cuts on ownership structure and sector composition, built from
-          public-eligible agreements and designed to complement the headline leaderboards.
+          Charts of the agreements in this dataset, most of them by filing year. Ownership Structure
+          compares public and private targets and types of buyer. Industry Dynamics shows target
+          industries and the most common pairings of target and acquirer industries.
         </span>
       }
     >
