@@ -85,11 +85,11 @@ class MainRoutesTests(unittest.TestCase):
                         "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
                         "('a1', '<document><article>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000002\"><text>STALE</text></section>"
-                        "</article></document>', 1, NULL, 0), "
+                        "</article></document>', 1, 'verified', 0), "
                         "('a1', '<document><article>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000001\"><text>KEEP</text></section>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000003\"><text>HIDE</text></section>"
-                        "</article></document>', 2, NULL, 1), "
+                        "</article></document>', 2, 'verified', 1), "
                         "('a2', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000011\"><text>A2</text></section></article></document>', 1, 'verified', 1), "
                         "('a3', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000021\"><text>A3</text></section></article></document>', 1, 'verified', 1), "
                         "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000041\"><text>OLD VERIFIED</text></section></article></document>', 1, 'verified', 0), "
@@ -455,11 +455,11 @@ class MainRoutesTests(unittest.TestCase):
                         "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
                         "('a1', '<document><article>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000002\"><text>STALE</text></section>"
-                        "</article></document>', 1, NULL, 0), "
+                        "</article></document>', 1, 'verified', 0), "
                         "('a1', '<document><article>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000001\"><text>KEEP</text></section>"
                         "<section uuid=\"00000000-0000-0000-0000-000000000003\"><text>HIDE</text></section>"
-                        "</article></document>', 2, NULL, 1), "
+                        "</article></document>', 2, 'verified', 1), "
                         "('a2', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000011\"><text>A2</text></section></article></document>', 1, 'verified', 1), "
                         "('a3', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000021\"><text>A3</text></section></article></document>', 1, 'verified', 1), "
                         "('a4', '<document><article><section uuid=\"00000000-0000-0000-0000-000000000041\"><text>OLD VERIFIED</text></section></article></document>', 1, 'verified', 0), "
@@ -1779,6 +1779,115 @@ class MainRoutesTests(unittest.TestCase):
                     conn.execute(text("DELETE FROM sections WHERE agreement_uuid = 'a_gated_hidden'"))
                     conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_gated_hidden'"))
                     conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_gated_hidden'"))
+                clear_all_ttl_caches()
+
+    def test_unvalidated_latest_xml_is_not_served_until_verified(self):
+        # A latest XML with status NULL has not been validated yet. The Agreement
+        # Index shows such an agreement as awaiting validation and tells users it
+        # is not served, so no agreement, section, or tax-clause route may return it.
+        section_uuid = "00000000-0000-0000-0000-000000000095"
+        with self.app.app_context():
+            engine = self.app_module.db.engine
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO agreements (agreement_uuid, filing_date, target, acquirer, verified, gated, url) "
+                        "VALUES ('a_unvalidated', '2025-07-01', 'Target Unvalidated', 'Acquirer Unvalidated', 1, 0, 'http://example.com/a_unvalidated')"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
+                        f"('a_unvalidated', '<document><article><section uuid=\"{section_uuid}\"><text>UNVALIDATED</text></section></article></document>', 1, NULL, 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO sections (agreement_uuid, section_uuid, article_title, section_title, "
+                        "xml_content, section_standard_id, xml_version) VALUES "
+                        f"('a_unvalidated', '{section_uuid}', 'ARTICLE I', 'Unvalidated Section', '<section>UNVALIDATED</section>', '[\"s1\"]', 1)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO clauses ("
+                        "clause_uuid, agreement_uuid, section_uuid, xml_version, module, clause_order, "
+                        "anchor_label, start_char, end_char, clause_text, source_method, context_type"
+                        ") VALUES ("
+                        f"'clause-unvalidated-1', 'a_unvalidated', '{section_uuid}', 1, 'tax', 1, "
+                        "'(a)', 0, 17, 'Unvalidated clause', 'enumerated_split', 'operative'"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "INSERT INTO tax_clause_assignments (clause_uuid, standard_id, is_gold_label, model_name, assigned_at) VALUES "
+                        "('clause-unvalidated-1', 'tax_transfer', 1, 'gpt-5-mini', '2026-04-02T00:00:00Z')"
+                    )
+                )
+        clear_all_ttl_caches()
+
+        try:
+            client = self.app.test_client()
+
+            list_res = client.get("/v1/agreements?agreement_uuid=a_unvalidated&page_size=10")
+            self.assertEqual(list_res.status_code, 200)
+            self.assertEqual(list_res.get_json().get("results", []), [])
+            self.assertEqual(client.get("/v1/agreements/a_unvalidated").status_code, 404)
+            self.assertEqual(client.get(f"/v1/sections/{section_uuid}").status_code, 404)
+
+            agreement_tax_res = client.get("/v1/agreements/a_unvalidated/tax-clauses")
+            self.assertEqual(agreement_tax_res.status_code, 200)
+            self.assertEqual(agreement_tax_res.get_json(), {"clauses": []})
+            section_tax_res = client.get(f"/v1/sections/{section_uuid}/tax-clauses")
+            self.assertEqual(section_tax_res.status_code, 200)
+            self.assertEqual(section_tax_res.get_json(), {"clauses": []})
+            tax_search_res = client.get("/v1/tax-clauses?agreement_uuid=a_unvalidated&page=1&page_size=10")
+            self.assertEqual(tax_search_res.status_code, 200)
+            self.assertEqual(tax_search_res.get_json().get("results", []), [])
+
+            # Once validation marks the same XML verified, every route serves it.
+            with self.app.app_context():
+                with self.app_module.db.engine.begin() as conn:
+                    conn.execute(
+                        text("UPDATE xml SET status = 'verified' WHERE agreement_uuid = 'a_unvalidated'")
+                    )
+            clear_all_ttl_caches()
+
+            list_res = client.get("/v1/agreements?agreement_uuid=a_unvalidated&page_size=10")
+            self.assertEqual(
+                [row["agreement_uuid"] for row in list_res.get_json().get("results", [])],
+                ["a_unvalidated"],
+            )
+            self.assertEqual(client.get("/v1/agreements/a_unvalidated").status_code, 200)
+            section_res = client.get(f"/v1/sections/{section_uuid}")
+            self.assertEqual(section_res.status_code, 200)
+            self.assertEqual(section_res.get_json().get("agreement_uuid"), "a_unvalidated")
+
+            agreement_tax_res = client.get("/v1/agreements/a_unvalidated/tax-clauses")
+            self.assertEqual(
+                [row["clause_uuid"] for row in agreement_tax_res.get_json().get("clauses", [])],
+                ["clause-unvalidated-1"],
+            )
+            section_tax_res = client.get(f"/v1/sections/{section_uuid}/tax-clauses")
+            self.assertEqual(
+                [row["clause_uuid"] for row in section_tax_res.get_json().get("clauses", [])],
+                ["clause-unvalidated-1"],
+            )
+            tax_search_res = client.get("/v1/tax-clauses?agreement_uuid=a_unvalidated&page=1&page_size=10")
+            self.assertEqual(
+                [row["clause_uuid"] for row in tax_search_res.get_json().get("results", [])],
+                ["clause-unvalidated-1"],
+            )
+        finally:
+            with self.app.app_context():
+                engine = self.app_module.db.engine
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM tax_clause_assignments WHERE clause_uuid = 'clause-unvalidated-1'"))
+                    conn.execute(text("DELETE FROM clauses WHERE agreement_uuid = 'a_unvalidated'"))
+                    conn.execute(text("DELETE FROM sections WHERE agreement_uuid = 'a_unvalidated'"))
+                    conn.execute(text("DELETE FROM xml WHERE agreement_uuid = 'a_unvalidated'"))
+                    conn.execute(text("DELETE FROM agreements WHERE agreement_uuid = 'a_unvalidated'"))
                 clear_all_ttl_caches()
 
     def test_section_search_excludes_gated_unverified_rows_in_search_table(self):

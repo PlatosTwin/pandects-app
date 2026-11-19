@@ -655,7 +655,7 @@ class FavoritesAgreementMetadataTests(unittest.TestCase):
                     text(
                         "INSERT INTO xml (agreement_uuid, version, status, latest) VALUES "
                         "('fav-meta-1', 1, 'verified', 1), "
-                        "('fav-meta-3', 1, NULL, 1), "
+                        "('fav-meta-3', 1, 'verified', 1), "
                         "('fav-meta-4', 1, 'draft', 1)"
                     )
                 )
@@ -772,7 +772,7 @@ class FavoritesSectionDetailsTests(unittest.TestCase):
                     text(
                         "INSERT INTO xml (agreement_uuid, version, status, latest) VALUES "
                         "('fav-sec-ag-1', 1, 'verified', 0), "
-                        "('fav-sec-ag-1', 2, NULL, 1), "
+                        "('fav-sec-ag-1', 2, 'verified', 1), "
                         "('fav-sec-ag-2', 1, 'draft', 1)"
                     )
                 )

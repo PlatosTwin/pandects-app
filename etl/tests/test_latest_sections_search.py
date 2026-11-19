@@ -288,6 +288,31 @@ class LatestSectionsSearchRefreshTests(unittest.TestCase):
             ],
         )
 
+    def test_refresh_skips_sections_when_latest_xml_is_not_validated(self) -> None:
+        # A NULL status means the latest XML has not been validated yet; the backend
+        # serves only verified XML, so the search table must not hold its sections.
+        assert self.conn is not None
+        _ = self.conn.execute(
+            text("INSERT INTO xml (agreement_uuid, version, status, latest) VALUES ('a1', 1, NULL, 1)")
+        )
+        _ = self.conn.execute(
+            text(
+                """
+            INSERT INTO sections (
+                section_uuid, agreement_uuid, article_title, section_title,
+                section_standard_id, section_standard_id_gold_label, xml_version
+            ) VALUES ('unvalidated-section', 'a1', 'ARTICLE I', 'New', '["new"]', NULL, 1)
+            """
+            )
+        )
+
+        inserted = refresh_latest_sections_search(self.conn, "", ["a1"])
+
+        self.assertEqual(inserted, 0)
+        for table_name in ("latest_sections_search", "latest_sections_search_standard_ids"):
+            count = self.conn.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar_one()
+            self.assertEqual(count, 0, table_name)
+
     def test_refresh_deletes_rows_when_latest_xml_is_invalid(self) -> None:
         assert self.conn is not None
         _ = self.conn.execute(

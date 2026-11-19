@@ -23,7 +23,6 @@ from sqlalchemy import (
     func,
     literal_column,
     null,
-    or_,
     select,
     cast as sql_cast,
 )
@@ -788,7 +787,17 @@ def agreement_year_expr():
 
 
 def xml_latest_ok_filter():
-    return and_(XML.latest == 1, or_(XML.status.is_(None), XML.status == "verified"))
+    # Serve only a latest XML that passed validation. A NULL status means the XML
+    # has not been validated yet, and the Agreement Index tells users that such
+    # agreements are not served. Keep XML_LATEST_OK_SQL and the ETL's
+    # latest_sections_search build (etl/src/etl/utils/latest_sections_search.py)
+    # on the same rule.
+    return and_(XML.latest == 1, XML.status == "verified")
+
+
+# Raw-SQL form of xml_latest_ok_filter() for text() queries. Format it with the
+# xml table alias, for example XML_LATEST_OK_SQL.format(alias="x").
+XML_LATEST_OK_SQL = "{alias}.latest = 1 AND {alias}.status = 'verified'"
 
 
 def agreement_latest_xml_join_condition():
@@ -1057,6 +1066,7 @@ __all__ = [
     "TaxonomyL2",
     "TaxonomyL3",
     "XML",
+    "XML_LATEST_OK_SQL",
     "agreement_latest_xml_join_condition",
     "agreement_year_expr",
     "coalesced_section_standard_ids",

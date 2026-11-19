@@ -68,6 +68,7 @@ from backend.mcp.tools.shared import (
     _taxonomy_coverage,
 )
 from backend.models import McpFeedback
+from backend.models.main_db import XML_LATEST_OK_SQL
 from backend.routes.deps import AgreementsDeps, ReferenceDataDeps, SectionsServiceDeps
 from backend.schemas.public_api import (
     AgreementArgsPayload,
@@ -1684,9 +1685,9 @@ def _list_filter_options(
         "EXISTS ("
         "  SELECT 1 FROM {t}xml x "
         "  WHERE x.agreement_uuid = a.agreement_uuid "
-        "    AND (x.status IS NULL OR x.status = 'verified')"
+        "    AND {xml_ok}"
         ")"
-    ).format(t=schema_prefix())
+    ).format(t=schema_prefix(), xml_ok=XML_LATEST_OK_SQL.format(alias="x"))
     has_sections = (
         "EXISTS ("
         "  SELECT 1 FROM {t}sections s "

@@ -55,8 +55,8 @@ class TaxonomyServiceTests(unittest.TestCase):
                 "('a2', '2021-01-01', 'T2', 'A2', 0, NULL, 'http://example.com/a2'), "
                 "('a3', '2022-01-01', 'T3', 'A3', 0, 1, 'http://example.com/a3')",
                 "INSERT INTO xml (agreement_uuid, xml, version, status, latest) VALUES "
-                "('a1', '<document/>', 1, 'verified', 1), ('a2', '<document/>', 1, NULL, 1), "
-                "('a3', '<document/>', 1, NULL, 1)",
+                "('a1', '<document/>', 1, 'verified', 1), ('a2', '<document/>', 1, 'verified', 1), "
+                "('a3', '<document/>', 1, 'verified', 1)",
                 # s1 carries two leaves under one L2: the L2/L1 counts must not double it.
                 "INSERT INTO latest_sections_search_standard_ids (standard_id, section_uuid, agreement_uuid) VALUES "
                 "('t1.fees.co', 's1', 'a1'), ('t1.fees.rev', 's1', 'a1'), "
