@@ -207,27 +207,132 @@ def _mdx_escape(text: str) -> str:
     return _escape(text)
 
 
-def _render_change_lines(change: dict[str, object], *, mdx: bool = False) -> list[str]:
+_TYPE_LABELS = {
+    "schema": "Schema",
+    "data": "Data",
+    "api": "API",
+    "mcp": "MCP",
+    "docs": "Docs",
+    "pipeline": "Pipeline",
+}
+_SEVERITY_LABELS = {"breaking": "Breaking", "notable": "Notable", "minor": "Minor"}
+_SEVERITY_ORDER = {name: i for i, name in enumerate(SEVERITIES)}
+_TYPE_ORDER = {name: i for i, name in enumerate(CHANGE_TYPES)}
+
+# A release with fewer changes than this gets the one-line count only; the
+# area-by-severity table adds nothing to a list a reader sees whole.
+_OVERVIEW_TABLE_MIN_CHANGES = 10
+
+
+def _paragraphs(text: object) -> list[str]:
+    """Split entry prose into paragraphs.
+
+    A line break inside `details` or `migration` starts a new paragraph: a
+    blank line in a folded (`>`) YAML scalar loads as one line break, and the
+    roll-up writes line breaks back verbatim. Other whitespace is collapsed.
+    """
+    if not isinstance(text, str):
+        return []
+    return [" ".join(block.split()) for block in text.splitlines() if block.strip()]
+
+
+def _render_change(change: dict[str, object], *, mdx: bool = False) -> list[str]:
+    """One entry: a summary line, then its details, tables, migration and refs.
+
+    The docs guide folds everything below the summary into a `<details>`
+    element, so a reader scans the summaries and opens what concerns them.
+    CHANGELOG.md keeps it as an indented block under a list item.
+    """
     escape = _mdx_escape if mdx else (lambda text: text)
-    lines = [
-        f"- **[{change['type']}/{change['severity']}]** {escape(str(change['summary']).strip())}"
-    ]
-    details = change.get("details")
-    if isinstance(details, str) and details.strip():
-        lines.append(f"  - {escape(' '.join(details.split()))}")
+    change_type = str(change["type"])
+    label = _TYPE_LABELS.get(change_type, change_type)
+    head = f"**{label}:** {escape(' '.join(str(change['summary']).split()))}"
+
+    blocks = [escape(paragraph) for paragraph in _paragraphs(change.get("details"))]
     tables = change.get("tables")
     if isinstance(tables, list) and tables:
-        lines.append(f"  - Tables: {', '.join(str(t) for t in tables)}")
-    migration = change.get("migration")
-    if isinstance(migration, str) and migration.strip():
-        lines.append(f"  - Migration: {escape(' '.join(migration.split()))}")
+        blocks.append("**Tables:** " + ", ".join(f"`{table}`" for table in tables))
+    migration = [escape(paragraph) for paragraph in _paragraphs(change.get("migration"))]
+    if migration:
+        blocks.append(f"**Migration:** {migration[0]}")
+        blocks.extend(migration[1:])
     refs = change.get("refs")
     if isinstance(refs, list) and refs:
-        lines.append(f"  - Refs: {escape(', '.join(str(r) for r in refs))}")
+        blocks.append("**Refs:** " + escape(", ".join(str(r) for r in refs)))
+
+    if mdx:
+        if not blocks:
+            return [head, ""]
+        lines = ["<details>", f"<summary>{head}</summary>", ""]
+        for block in blocks:
+            lines.extend([block, ""])
+        lines.extend(["</details>", ""])
+        return lines
+    lines = [f"- {head}"]
+    for block in blocks:
+        lines.extend(["", f"  {block}"])
+    lines.append("")
     return lines
 
 
-_SEVERITY_ORDER = {name: i for i, name in enumerate(SEVERITIES)}
+def _change_sort_key(change: dict[str, object]) -> tuple[int, int]:
+    return (
+        _SEVERITY_ORDER.get(str(change.get("severity")), 99),
+        _TYPE_ORDER.get(str(change.get("type")), 99),
+    )
+
+
+def _render_overview(changes: list[dict[str, object]]) -> list[str]:
+    """The count line, plus an area-by-severity table for a large release."""
+    by_severity = {
+        severity: sum(1 for change in changes if change.get("severity") == severity)
+        for severity in SEVERITIES
+    }
+    noun = "change" if len(changes) == 1 else "changes"
+    parts = [f"{count} {severity}" for severity, count in by_severity.items() if count]
+    lines = [f"{len(changes)} {noun}: {', '.join(parts)}.", ""]
+    if len(changes) < _OVERVIEW_TABLE_MIN_CHANGES:
+        return lines
+    lines.append("| Area | " + " | ".join(_SEVERITY_LABELS[s] for s in SEVERITIES) + " | Total |")
+    lines.append("| --- |" + " ---: |" * (len(SEVERITIES) + 1))
+    for change_type in CHANGE_TYPES:
+        row = [
+            sum(
+                1
+                for change in changes
+                if change.get("type") == change_type and change.get("severity") == severity
+            )
+            for severity in SEVERITIES
+        ]
+        if not any(row):
+            continue
+        cells = " | ".join(str(count) if count else "–" for count in row)
+        lines.append(f"| {_TYPE_LABELS[change_type]} | {cells} | {sum(row)} |")
+    lines.append("")
+    return lines
+
+
+def _render_changes(
+    changes: list[dict[str, object]], *, anchor: str, mdx: bool = False
+) -> list[str]:
+    """Overview, then the entries under one heading per severity."""
+    lines = _render_overview(changes)
+    ordered = sorted(changes, key=_change_sort_key)
+    for severity in SEVERITIES:
+        group = [change for change in ordered if change.get("severity") == severity]
+        if not group:
+            continue
+        heading = f"### {_SEVERITY_LABELS[severity]} ({len(group)})"
+        if mdx:
+            # Every release repeats these headings; an explicit id keeps the
+            # anchors stable instead of Docusaurus numbering the duplicates.
+            # The docs site runs with `future.v4`, which reads the id from an
+            # MDX comment and no longer accepts the `{#id}` form.
+            heading += f" {{/* #{anchor}-{severity} */}}"
+        lines.extend([heading, ""])
+        for change in group:
+            lines.extend(_render_change(change, mdx=mdx))
+    return lines
 
 
 def _render_body(data: dict[str, object], include_unreleased: bool, *, mdx: bool = False) -> list[str]:
@@ -236,11 +341,7 @@ def _render_body(data: dict[str, object], include_unreleased: bool, *, mdx: bool
     if include_unreleased and isinstance(unreleased, list) and unreleased:
         lines.append("## Unreleased")
         lines.append("")
-        for change in sorted(
-            unreleased, key=lambda c: _SEVERITY_ORDER.get(str(c.get("severity")), 99)
-        ):
-            lines.extend(_render_change_lines(change, mdx=mdx))
-        lines.append("")
+        lines.extend(_render_changes(unreleased, anchor="unreleased", mdx=mdx))
     releases = data.get("releases") or []
     for release in releases if isinstance(releases, list) else []:
         released = str(release.get("released", ""))[:10]
@@ -248,12 +349,6 @@ def _render_body(data: dict[str, object], include_unreleased: bool, *, mdx: bool
         lines.append("")
         lines.append(f"- Dump: `{release['dump_key']}`")
         lines.append(f"- SHA-256: `{release['dump_sha256']}`")
-        lines.append("")
-        for change in sorted(
-            release.get("changes", []),
-            key=lambda c: _SEVERITY_ORDER.get(str(c.get("severity")), 99),
-        ):
-            lines.extend(_render_change_lines(change, mdx=mdx))
         stats = release.get("stats")
         if isinstance(stats, dict) and isinstance(stats.get("row_counts"), dict):
             total = sum(stats["row_counts"].values())
@@ -262,6 +357,13 @@ def _render_body(data: dict[str, object], include_unreleased: bool, *, mdx: bool
                 " (per-table counts in the machine-readable changelog)"
             )
         lines.append("")
+        lines.extend(
+            _render_changes(
+                release.get("changes", []),
+                anchor=str(release["version"]).replace(".", "-"),
+                mdx=mdx,
+            )
+        )
     return lines
 
 
@@ -312,6 +414,16 @@ def render_docs_guide(data: dict[str, object]) -> str:
         "  history, published next to the dumps",
         "- `GET /v1/changelog` — same data via the API, filterable with",
         "  `?since=<version>` or `?dump_sha256=<hash>`",
+        "",
+        "Each release groups its changes by severity:",
+        "",
+        "- **Breaking**: queries written against the previous dump can return wrong",
+        "  or empty results.",
+        "- **Notable**: results change, but existing queries still run.",
+        "- **Minor**: additive or cosmetic.",
+        "",
+        "Open an entry to read its details, the tables it touches, and any",
+        "migration note.",
         "",
     ]
     # The docs site documents published releases only; unreleased entries are

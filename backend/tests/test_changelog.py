@@ -282,11 +282,119 @@ class ChangelogTests(unittest.TestCase):
             self.renderer._mdx_escape("oops `unclosed {x}"),
             "oops `unclosed &#123;x&#125;",
         )
-        lines = self.renderer._render_change_lines(
+        lines = self.renderer._render_change(
             {"type": "api", "severity": "minor", "summary": "Renamed `{old}` to <new>"},
             mdx=True,
         )
-        self.assertEqual(lines, ["- **[api/minor]** Renamed `{old}` to &lt;new>"])
+        self.assertEqual(lines, ["**API:** Renamed `{old}` to &lt;new>", ""])
+
+    def test_entry_prose_keeps_paragraph_breaks(self) -> None:
+        # A line break in details or migration starts a paragraph (a blank
+        # line in a folded YAML scalar loads as one); other whitespace folds.
+        self.assertEqual(
+            self.renderer._paragraphs("First  point,\twrapped.\n\nSecond point.\nThird.\n"),
+            ["First point, wrapped.", "Second point.", "Third."],
+        )
+        self.assertEqual(self.renderer._paragraphs(None), [])
+        change = {
+            "type": "data",
+            "severity": "breaking",
+            "summary": "Prices corrected",
+            "details": "What changed.\n\nWhy <it> changed.\n",
+            "tables": ["agreements", "sections"],
+            "migration": "Recompute sums.\n\nRe-fetch ids.",
+            "refs": ["#1", "abc123"],
+        }
+        self.assertEqual(
+            self.renderer._render_change(change, mdx=True),
+            [
+                "<details>",
+                "<summary>**Data:** Prices corrected</summary>",
+                "",
+                "What changed.",
+                "",
+                "Why &lt;it> changed.",
+                "",
+                "**Tables:** `agreements`, `sections`",
+                "",
+                "**Migration:** Recompute sums.",
+                "",
+                "Re-fetch ids.",
+                "",
+                "**Refs:** #1, abc123",
+                "",
+                "</details>",
+                "",
+            ],
+        )
+        self.assertEqual(
+            self.renderer._render_change(change),
+            [
+                "- **Data:** Prices corrected",
+                "",
+                "  What changed.",
+                "",
+                "  Why <it> changed.",
+                "",
+                "  **Tables:** `agreements`, `sections`",
+                "",
+                "  **Migration:** Recompute sums.",
+                "",
+                "  Re-fetch ids.",
+                "",
+                "  **Refs:** #1, abc123",
+                "",
+            ],
+        )
+
+    def test_release_changes_are_grouped_by_severity(self) -> None:
+        def change(change_type: str, severity: str, summary: str) -> dict[str, object]:
+            return {"type": change_type, "severity": severity, "summary": summary}
+
+        few = [change("mcp", "minor", "m1"), change("data", "breaking", "b1")]
+        lines = self.renderer._render_changes(few, anchor="2026-01-02", mdx=True)
+        # A short release gets the count line and no table.
+        self.assertEqual(lines[0], "2 changes: 1 breaking, 1 minor.")
+        self.assertFalse(any(line.startswith("|") for line in lines))
+        headings = [line for line in lines if line.startswith("### ")]
+        self.assertEqual(
+            headings,
+            [
+                "### Breaking (1) {/* #2026-01-02-breaking */}",
+                "### Minor (1) {/* #2026-01-02-minor */}",
+            ],
+        )
+        self.assertEqual(
+            self.renderer._render_changes([few[0]], anchor="x")[0], "1 change: 1 minor."
+        )
+
+        many = (
+            [change("api", "minor", f"a{i}") for i in range(6)]
+            + [change("data", "notable", "d1"), change("schema", "notable", "s1")]
+            + [change("data", "breaking", "d2"), change("mcp", "minor", "m1")]
+        )
+        lines = self.renderer._render_changes(many, anchor="2026-01-03")
+        self.assertEqual(lines[0], "10 changes: 1 breaking, 2 notable, 7 minor.")
+        table = [line for line in lines if line.startswith("|")]
+        self.assertEqual(
+            table,
+            [
+                "| Area | Breaking | Notable | Minor | Total |",
+                "| --- | ---: | ---: | ---: | ---: |",
+                "| Schema | – | 1 | – | 1 |",
+                "| Data | 1 | 1 | – | 2 |",
+                "| API | – | – | 6 | 6 |",
+                "| MCP | – | – | 1 | 1 |",
+            ],
+        )
+        # Plain markdown headings carry no docs-site id; within a severity,
+        # entries follow the area order and then the order they were written.
+        self.assertIn("### Notable (2)", lines)
+        entries = [line for line in lines if line.startswith("- **")]
+        self.assertEqual(
+            entries[:3], ["- **Data:** d2", "- **Schema:** s1", "- **Data:** d1"]
+        )
+        self.assertEqual(entries[3:], [f"- **API:** a{i}" for i in range(6)] + ["- **MCP:** m1"])
 
     def test_rendered_artifacts_are_current(self) -> None:
         """CHANGELOG.md and the docs guide must match changelog.yml (regenerate
