@@ -29,6 +29,7 @@ import json
 import re
 import statistics
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import yaml
@@ -191,12 +192,18 @@ def validate(data: dict[str, object]) -> None:
 # ── Rendering ────────────────────────────────────────────────────
 
 
-def _escape_outside_code(text: str, replacements: tuple[tuple[str, str], ...]) -> str:
+def _escape_outside_code(
+    text: str,
+    replacements: tuple[tuple[str, str], ...],
+    patterns: tuple[tuple[re.Pattern[str], str | Callable[[re.Match[str]], str]], ...] = (),
+) -> str:
     # Backtick code spans are already literal, and entity references inside
     # them would render verbatim, so only prose outside code spans is escaped.
     def _escape(segment: str) -> str:
         for raw, escaped in replacements:
             segment = segment.replace(raw, escaped)
+        for pattern, escaped in patterns:
+            segment = pattern.sub(escaped, segment)
         return segment
 
     parts = text.split("`")
@@ -208,10 +215,32 @@ def _escape_outside_code(text: str, replacements: tuple[tuple[str, str], ...]) -
     return _escape(text)
 
 
+# Docusaurus enables remark-directive, which reads a colon directly followed
+# by a letter as a text directive (":name"), unless another colon comes first.
+# Prose such as "agreements:read_fulltext" is parsed as one. Docusaurus puts
+# the plain form back without a word, but "scope:name[label]" loses its label
+# and the build prints an unused-directive warning.
+#
+# A bare URL is matched first and kept as written. remark-gfm links it from
+# the raw text, so an entity inside it would stay in the link address.
+_DIRECTIVE_COLON_RE = re.compile(
+    r"(?P<url>(?:[A-Za-z][A-Za-z0-9+.-]*://|www\.)\S+)|(?<!:):(?=[A-Za-z])"
+)
+
+
+def _escape_directive_colon(match: re.Match[str]) -> str:
+    return match.group("url") or "&#58;"
+
+
 def _mdx_escape(text: str) -> str:
     # The docs guide is MDX: a bare `{`, `}`, or `<` in entry prose would be
-    # parsed as an expression/JSX and break the docs build.
-    return _escape_outside_code(text, (("{", "&#123;"), ("}", "&#125;"), ("<", "&lt;")))
+    # parsed as an expression/JSX and break the docs build. A colon before a
+    # letter becomes an entity so it cannot start a directive.
+    return _escape_outside_code(
+        text,
+        (("{", "&#123;"), ("}", "&#125;"), ("<", "&lt;")),
+        ((_DIRECTIVE_COLON_RE, _escape_directive_colon),),
+    )
 
 
 def _markdown_escape(text: str) -> str:
@@ -222,15 +251,20 @@ def _markdown_escape(text: str) -> str:
 
 _BLOCK_MARKER_RE = re.compile(r"(#{1,6}(?=\s|$)|[-+*>](?=\s|$)|\||[-=*_]{3,}$)")
 _ORDERED_MARKER_RE = re.compile(r"^(\d{1,9})([.)])(?=\s|$)")
+# A run of three or more tildes opens a code fence. So does a run of three or
+# more backticks, but only when no backtick follows on the line: "```x```" is
+# an inline code span, which must stay as written.
+_FENCE_MARKER_RE = re.compile(r"(~{3,}|`{3,}(?=[^`]*$))")
 
 
 def _escape_block_start(paragraph: str) -> str:
     """Keep a paragraph a paragraph.
 
     Each paragraph of an entry starts its own line, so prose that opens with
-    "# of rows", "- " or "3) " would otherwise render as a heading or a list.
+    "# of rows", "- " or "3) " would otherwise render as a heading or a list,
+    and prose that opens with "```" or "~~~" would open a code block.
     """
-    if _BLOCK_MARKER_RE.match(paragraph):
+    if _BLOCK_MARKER_RE.match(paragraph) or _FENCE_MARKER_RE.match(paragraph):
         return "\\" + paragraph
     return _ORDERED_MARKER_RE.sub(r"\1\\\2", paragraph, count=1)
 

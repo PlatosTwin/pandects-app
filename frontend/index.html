@@ -8,8 +8,10 @@
   <meta name="theme-color" content="#ffffff" />
   <!-- Pre-paint theme init. Mirrors client/lib/theme.ts (storage key, class,
        color-scheme). Body is CSP-hashed: editing it requires `npm run
-       compute:csp` and updating nginx.conf / netlify.toml script-src. -->
-  <script>
+       compute:csp` and updating nginx.conf / netlify.toml script-src.
+       data-cfasync="false" keeps Cloudflare Rocket Loader from deferring it
+       until after first paint; the attribute is outside the hashed body. -->
+  <script data-cfasync="false">
     (function () {
       var dark = false;
       try {
