@@ -1162,7 +1162,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                     return "section_fallback", ol.subs[group].id, None
             # "Section 8" in agreements whose top level is "SECTION 8" (or "8."), or a flat item.
             # Under "ARTICLE VIII" with sections 8.1, 8.2, a bare "Section 8" is a statute, another
-            # document or an exhibit's own section, never the article (0.8.0 sample: 3 of 28 right).
+            # document or an exhibit's own section, and seldom the article (0.8.0 sample: 3 of 28 right).
             if "." not in base and not subs and base in ol.articles and _section_style_article(ol, base):
                 arts = ol.articles[base]
                 if len(arts) > 1:
