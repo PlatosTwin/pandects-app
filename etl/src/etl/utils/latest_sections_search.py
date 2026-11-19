@@ -222,7 +222,9 @@ def refresh_latest_sections_search(
            AND x.version = s.xml_version
         WHERE s.agreement_uuid IN :agreement_uuids
           AND x.latest = 1
-          AND (x.status IS NULL OR x.status = 'verified')
+          -- Same rule as the backend's xml_latest_ok_filter(): only a validated
+          -- latest XML is served. A NULL status means not validated yet.
+          AND x.status = 'verified'
         """
     ).bindparams(bindparam("agreement_uuids", expanding=True))
     result = conn.execute(insert_sql, {"agreement_uuids": target_uuids})

@@ -957,12 +957,13 @@ export function AgreementIndexOverview() {
         description={
           <span id={stagedChartDescriptionId} className="prose-copy">
             Every ingested agreement by pipeline stage and filing year. Staged
-            agreements have not yet gone through our pipelines; agreements
-            awaiting validation tripped one of our validations and are waiting
-            for review. Neither appears in search results or in the API&apos;s{" "}
-            <span className="font-mono text-foreground">/v1/sections/*</span> or{" "}
+            agreements have not finished processing. Agreements awaiting
+            validation failed one of our automated checks or have not been
+            checked yet. Search results and the API&apos;s{" "}
+            <span className="font-mono text-foreground">/v1/sections/*</span> and{" "}
             <span className="font-mono text-foreground">/v1/agreements/*</span>{" "}
-            routes.
+            routes include an agreement only when its latest XML has passed
+            validation.
           </span>
         }
         footnote={
