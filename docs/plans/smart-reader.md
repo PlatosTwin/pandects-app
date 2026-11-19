@@ -918,7 +918,7 @@ Rulings 1, 2, 3, 6 and 7 apply rules already in rubric v1.5. Ruling 4 is new, an
 
 ### 10.9 Phase 3: the reader (2026-10-30)
 
-The reader uses the index behind a flag. The flag is on in development and on a build with `VITE_SMART_READER=1`. Any one production browser can opt in with `localStorage.setItem("pandects.reader.smart", "1")`. With the flag off, or with no index for the agreement (404), the reader works exactly as before.
+The reader uses the index behind a flag. The flag is on in development and on a build with `VITE_SMART_READER=1`. The production build sets it since 2026-11-18 (`frontend/fly.toml`). Any one production browser can opt in with `localStorage.setItem("pandects.reader.smart", "1")`. With the flag off, or with no index for the agreement (404), the reader works exactly as before.
 
 **What it does:**
 
