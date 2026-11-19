@@ -917,7 +917,7 @@ Rulings 1, 2, 3, 6 and 7 apply rules already in rubric v1.5. Ruling 4 is new, an
 
 ### 10.9 Phase 3: the reader (2026-10-30)
 
-The reader uses the index behind a flag. The flag is on in development and on a build with `VITE_SMART_READER=1`. Any one production browser can opt in with `localStorage.setItem("pandects.reader.smart", "1")`. With the flag off, or with no index for the agreement (404), the reader works exactly as before.
+The reader uses the index behind a flag. The flag is on in development and on a build with `VITE_SMART_READER=1`. The production build sets it since 2026-11-18 (`frontend/fly.toml`). Any one production browser can opt in with `localStorage.setItem("pandects.reader.smart", "1")`. With the flag off, or with no index for the agreement (404), the reader works exactly as before.
 
 **What it does:**
 
@@ -952,9 +952,9 @@ The reader uses the index behind a flag. The flag is on in development and on a 
 
 **Still to do:**
 
-1. **Prod data.** The prod rollout in 10.8.
-2. **Manual pass.** A manual pass on five long agreements with the flag on in production.
-3. **Then the flag.** Turn the flag on for everyone.
+1. **Prod data.** Done with the 2026-11-18 release: `reader_index` is in the serving schema (34,658 rows, one current row at enricher 0.7.0 for each of the 12,198 served agreements), and the API reflects it.
+2. **Manual pass.** Not done in production. The maintainer chose on 2026-11-18 to turn the flag on first; a production build with the flag was checked locally before the change.
+3. **Then the flag.** Done 2026-11-18: `frontend/fly.toml` sets the build argument `VITE_SMART_READER=1`. Remove that line to put the reader back behind the per-browser flag.
 
 ### 10.10 Enricher 0.5.0 (2026-10-30)
 
