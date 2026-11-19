@@ -275,15 +275,17 @@ FT_INDEX=$(db_sql "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABL
 [[ "$FT_INDEX" == "1" ]] || die "section_text_search has no FULLTEXT index (got '$FT_INDEX')"
 echo "FULLTEXT index on section_text_search: present"
 
-# The probe has to be a narrow phrase. A dense one such as "material adverse
+# The probe has to be one rare word. A dense phrase such as "material adverse
 # effect" (about 16% of the corpus) outgrows innodb_ft_result_cache_limit (64M
 # in db/fly.toml) and fails with "ERROR 128: Table handler out of memory" on a
 # healthy database: the API expects that and falls back to its date-ordered
-# plan, so it says nothing about the restore. "ticking fee" matches a few dozen
-# sections.
-SMOKE=$(db_sql "SELECT COUNT(*) FROM (SELECT 1 FROM section_text_search WHERE MATCH(normalized_text) AGAINST('+ticking +fee' IN BOOLEAN MODE) LIMIT 5) probe" | tr -d '[:space:]')
-[[ "$SMOKE" =~ ^[1-5]$ ]] || die "FULLTEXT smoke query matched '$SMOKE' rows for 'ticking fee' (expected 1 to 5)"
-echo "FULLTEXT smoke query: $SMOKE matches found for 'ticking fee'"
+# plan, so it says nothing about the restore. Even one common word in the probe
+# (such as "fee", about 4.5% of the corpus) could reach the bound as the corpus
+# grows. "ticking" matches about 90 sections.
+SMOKE_RAW=$(db_sql "SELECT COUNT(*) FROM (SELECT 1 FROM section_text_search WHERE MATCH(normalized_text) AGAINST('+ticking' IN BOOLEAN MODE) LIMIT 5) probe")
+SMOKE=$(tr -d '[:space:]' <<< "$SMOKE_RAW")
+[[ "$SMOKE" =~ ^[1-5]$ ]] || die "FULLTEXT smoke query for 'ticking' returned '$SMOKE_RAW' (expected 1 to 5 rows)"
+echo "FULLTEXT smoke query: $SMOKE matches found for 'ticking'"
 
 echo "Recent MariaDB log lines:"
 fly logs --app "$DB_APP" --no-tail 2>/dev/null | tail -n 15 || true
