@@ -29,6 +29,7 @@ import json
 import re
 import statistics
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import yaml
@@ -194,7 +195,7 @@ def validate(data: dict[str, object]) -> None:
 def _escape_outside_code(
     text: str,
     replacements: tuple[tuple[str, str], ...],
-    patterns: tuple[tuple[re.Pattern[str], str], ...] = (),
+    patterns: tuple[tuple[re.Pattern[str], str | Callable[[re.Match[str]], str]], ...] = (),
 ) -> str:
     # Backtick code spans are already literal, and entity references inside
     # them would render verbatim, so only prose outside code spans is escaped.
@@ -219,7 +220,16 @@ def _escape_outside_code(
 # Prose such as "agreements:read_fulltext" is parsed as one. Docusaurus puts
 # the plain form back without a word, but "scope:name[label]" loses its label
 # and the build prints an unused-directive warning.
-_DIRECTIVE_COLON_RE = re.compile(r"(?<!:):(?=[A-Za-z])")
+#
+# A bare URL is matched first and kept as written. remark-gfm links it from
+# the raw text, so an entity inside it would stay in the link address.
+_DIRECTIVE_COLON_RE = re.compile(
+    r"(?P<url>(?:[A-Za-z][A-Za-z0-9+.-]*://|www\.)\S+)|(?<!:):(?=[A-Za-z])"
+)
+
+
+def _escape_directive_colon(match: re.Match[str]) -> str:
+    return match.group("url") or "&#58;"
 
 
 def _mdx_escape(text: str) -> str:
@@ -229,7 +239,7 @@ def _mdx_escape(text: str) -> str:
     return _escape_outside_code(
         text,
         (("{", "&#123;"), ("}", "&#125;"), ("<", "&lt;")),
-        ((_DIRECTIVE_COLON_RE, "&#58;"),),
+        ((_DIRECTIVE_COLON_RE, _escape_directive_colon),),
     )
 
 

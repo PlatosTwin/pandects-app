@@ -297,11 +297,19 @@ class ChangelogTests(unittest.TestCase):
         for kept in (
             "in `scope:name` code",
             "see https://x.y/z",
+            # A bare URL keeps its colons, or its link address would break.
+            "see https://x.y/a:b now",
+            "see www.x.y/a:b now",
+            "[text](https://x.y/a:b)",
             "at 10:30 today",
             "Label: value",
             "a::b",
         ):
             self.assertEqual(mdx(kept), kept)
+        self.assertEqual(
+            mdx("see https://x.y/a:b and scope:name"),
+            "see https://x.y/a:b and scope&#58;name",
+        )
         # CHANGELOG.md is not MDX and keeps the colon.
         self.assertEqual(self.renderer._markdown_escape("scope:name"), "scope:name")
         self.assertEqual(
