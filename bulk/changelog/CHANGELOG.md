@@ -11,7 +11,7 @@ the MCP surface. Machine-readable version:
 
 ## Unreleased
 
-1 change: 1 notable.
+2 changes: 1 notable, 1 minor.
 
 ### Notable (1)
 
@@ -20,6 +20,12 @@ the MCP surface. Machine-readable version:
   A cross-reference printed as a bare "Section N", "clause N" or a bare list member now resolves to article N only when that article's heading prints as a section ("SECTION 8", "8.") or the article has no sections inside. Under an "ARTICLE VIII" heading with sections 8.1, 8.2, such references mostly cite a statute, another document, a disclosure schedule or an exhibit's own section. A dry run over the 12,198 served agreements changes 11,354 cross-references in 2,289 agreements from resolved (article target) to unresolved. Outlines, terms and all other cross-references are unchanged.
 
   **Tables:** `reader_index`
+
+### Minor (1)
+
+- **API:** The API and the MCP tools serve an agreement only when its latest XML has passed validation.
+
+  The serving rule used to accept a latest XML with an empty validation status, which means the XML has not been checked yet. It now requires the status "verified". The search tables behind /v1/sections follow the same rule from their next build, and the MCP list_filter_options tool now uses the shared rule, which also limits it to the latest XML version. In the 2026-11-18 release no latest XML has an empty status and only latest versions are published, so results do not change.
 
 ## 2026-11-18 — released 2026-11-18
 
