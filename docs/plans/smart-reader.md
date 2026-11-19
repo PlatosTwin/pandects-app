@@ -1049,6 +1049,38 @@ A stray "I.1" section, such as an embedded plan, and lettered articles ("A.1", "
 
 **Prod.** As with 0.6.0, the next data push carries the 0.7.0 rows.
 
+### 10.13 Enricher 0.8.0: a bare "Section 8" is not "ARTICLE VIII" (2026-11-18)
+
+**Report.** In TechTarget (`f02240cd`), "Section 2" linked to Article II. The text is in Annex B, the separation principles: "the provisions of Section 3 of this Annex B ... pursuant to this Section 2". It means the annex's own Section 2. The agreement's definitions index had the same fault: "Annex B, Section 1" linked to Article I.
+
+**Cause.** Rule 2 in Section 10 ("Section 8" can be an article) fired whenever no section numbered 8 existed. That is always the case under "ARTICLE VIII" with sections 8.1, 8.2. The glossary test for back matter (three or more paragraphs that open with a quoted term) also counts an annex or exhibit that has its own definitions. Its bare references then reach the resolver as references to the body.
+
+**Size.** Of the 12,198 served agreements, 2,810 had at least one bare "Section N" linked to an article: 30,168 links in all. A stratified sample of 60 links from 60 agreements, each read in context, split cleanly on how the target article prints its own heading:
+
+| Target article heading | Right | Wrong target | Should not be a link |
+|---|---|---|---|
+| "ARTICLE"/"Article" (28) | 3 | 5 | 20 |
+| "SECTION 8" or "8." (32) | 24 | 0 | 8 |
+
+Under "ARTICLE" headings, the wrong targets are OCR splits ("Section 7. 2(b)", which means 7.2(b)). The links that should not exist cite a statute or regulation ("Section 4 of Revenue Procedure 2004-53", "Section 5 of the (U.S.) Federal Trade Commission Act"), another document ("Section 7 of ... the Investor Rights Agreement"), a disclosure schedule ("Section 2. 15(u) of the Disclosure Schedule"), or an exhibit's own section (voting agreements, bylaws, notes, registration rights agreements). The 3 right ones are two flat articles (no sections inside) and one "this Section 8" inside Article VIII.
+
+**Rule.** A bare "Section N" (and "clause N", and the bare members of a list such as "Sections 4 and 5") resolves to article N only when that article is flat, or when its heading does not start with ARTICLE, Article, PART or Part. Otherwise it stays `unresolved`. "Section 2" still resolves to a section numbered 2 when one exists. "Article II", "Section 2.01" and statute tails are unchanged.
+
+**Corpus.** A dry run over all 12,198 served agreements, with 0 failures, compared 0.7.0 and 0.8.0:
+- Outlines are unchanged.
+- 11,354 references in 2,289 agreements change: 11,351 article links become `unresolved`, and 3 `ambiguous` become `unresolved`. Of these, 9,937 are bare "Section N", 1,331 are bare list members ("5" in "Sections 4 and 5", or "3" in a regulation number like "Section 1.368-3"), and 86 are "clause N".
+- A second sample of 30 removed links, one per agreement: 28 removals are right and 2 lose a right link. Both are body text that cites "ARTICLE VIII" as "Section 8" ("termination rights under Section 8").
+- TechTarget loses all 21 of its links of this kind. None was right.
+
+**Gold.** All 125 fixtures are unchanged: 1,928 exact links, 128 section links, 2 wrong. No fixture has a bare "Section N" under an "ARTICLE" heading.
+
+**Known limits:**
+- About 1 in 10 of the removed links was right: body text that calls an "ARTICLE" a "Section". These now show as plain text.
+- OCR splits ("Section 7. 2(b)") stay unresolved. Joining them to 7.2(b) is a separate rule.
+- Under "SECTION 8" or "8." headings, statute tails the parser misses ("Section 5 of the (U.S.) Federal Trade Commission Act") and exhibits with their own definitions still link wrongly. About a quarter of that group in the sample. The glossary test for back matter needs a tighter signal before that can change.
+
+**Prod.** The new rule reaches the served data only after the local `reader_index` table is rebuilt at 0.8.0 and the next production release is pushed.
+
 ## 11. Decisions (2026-10-22)
 
 The user answered the open questions on 2026-10-22. Items 3, 6 and 7 use the defaults proposed in the hand-off, and the user did not object to them.

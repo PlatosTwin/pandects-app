@@ -306,6 +306,61 @@ class XrefTests(unittest.TestCase):
         self.assertEqual(by_text[(5, "8.2")]["target"], "s8.2")
 
 
+class BareSectionToArticleTests(unittest.TestCase):
+    """A bare "Section 2" links to article 2 only when that article is printed as a section."""
+
+    def _status(self, xml: str) -> dict[str, tuple[str, str | None]]:
+        return {r["text"]: (r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]}
+
+    def test_section_headed_top_level_resolves(self) -> None:
+        refs = self._status(
+            _doc(
+                _article("a2", "SECTION 2 REPRESENTATIONS", _section("s21", "2.1 Organization", "x"))
+                + _article("a3", "3. Covenants", _section("s31", "3.1 Conduct", "x"))
+                + _article("a4", "SECTION 4 TERMINATION", _section("s41", "4.1 Refs", "See Section 2 and Section 3."))
+            )
+        )
+        self.assertEqual(refs["Section 2"], ("resolved", "a2"))
+        self.assertEqual(refs["Section 3"], ("resolved", "a3"))
+
+    def test_article_headed_top_level_does_not_resolve(self) -> None:
+        # TechTarget (f02240cd): "this Section 2" in Annex B and the index's "Annex B, Section 1"
+        # linked to ARTICLE II and ARTICLE I of the agreement
+        refs = self._status(
+            _doc(
+                _article("a1", "ARTICLE I The Separation", _section("s11", "Section 1.01. Closing.", "x"))
+                + _article("a2", "Article 2 Merger", _section("s21", "Section 2.01 Effect", "x"))
+                + _article(
+                    "a3",
+                    "ARTICLE III Definitions",
+                    _section("s31", "Section 3.01 Index", "Bluefin Transferred Contracts Annex B, Section 1"),
+                    )
+                + _article("a4", "ARTICLE IV Misc", _section("s41", "Section 4.01 Refs", "See Section 2 and Section 2.01 and Article II."))
+            )
+        )
+        self.assertEqual(refs["Section 1"], ("unresolved", None))
+        self.assertEqual(refs["Section 2"], ("unresolved", None))
+        self.assertEqual(refs["Section 2.01"], ("resolved", "s2.1"))
+        self.assertEqual(refs["Article II"], ("resolved", "a2"))
+
+    def test_flat_article_still_resolves(self) -> None:
+        refs = self._status(
+            _doc(
+                _article("a5", "ARTICLE 5 Representations", "<text>(a) Organization.</text><text>(b) Disclosure.</text>")
+                + _article("a6", "ARTICLE 6 Refs", "<text>The representations in this Section 5 are true.</text>")
+            )
+        )
+        self.assertEqual(refs["Section 5"], ("resolved", "a5"))
+
+    def test_numbered_section_wins_and_statutes_stay_external(self) -> None:
+        xml = _doc(
+            _article("a2", "ARTICLE 2 Price", _section("s2", "Section 2. Price", "x"))
+            + _article("a3", "ARTICLE 3 Refs", _section("s3", "Section 3. Refs", "Under Section 2 the price is paid. Registration follows Section 2 of the Securities Act."))
+        )
+        got = [(r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]]
+        self.assertEqual(got, [("resolved", "s2"), ("external", None)])
+
+
 class ReaderHealthShapeTests(unittest.TestCase):
     """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""
 
