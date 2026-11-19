@@ -245,6 +245,7 @@ on them, and on any bordered, rounded `bg-card` surface with no shadow.
 | `FactCard` | `components/FactCard.tsx` | `icon?`, `eyebrow?`, `title`, `description?`, `href?` (router path, `http(s)`, or `mailto:`), `titleAs?` |
 | `ChartPanel` | `components/ChartPanel.tsx` | `title`, `description?`, `controls?`, `children` (chart), `footnote?`, `mobileExpand?` (`true` or a render fn for the modal), `titleAs?`, `id?` |
 | `SegmentedControl` | `components/ui/segmented-control.tsx` | `value`, `onValueChange`, `options: {value, label, disabled?}[]`, `aria-label`, `size?: "sm" \| "default"` |
+| `Tabs` | `components/ui/tabs.tsx` | Radix tabs with the same pill look as `SegmentedControl`. The list is as wide as its labels; never stretch it across the page (`w-full`, `grid-cols-N`). |
 | `ErrorState` | `components/StateMessage.tsx` | `error?` (`{status?, code?, message?}`, `Error`, or string), `title?`, `body?`, `onRetry?`, `action?`, `signInHref?`, `variant?: "card" \| "inline"` |
 | `EmptyState` | `components/StateMessage.tsx` | `icon?`, `title`, `body?`, `action?`, `variant?` |
 | `describeError` | `components/StateMessage.tsx` | Maps 401/403 → sign in, 404, 429 → slow down, network → retry, 5xx |
