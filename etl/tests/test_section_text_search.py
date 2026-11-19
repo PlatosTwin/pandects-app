@@ -274,7 +274,7 @@ class SectionTextSearchRefreshTests(unittest.TestCase):
                     ('a1-old', 'a1', 1, '<text>Old language.</text>'),
                     ('a1-new-1', 'a1', 2, '<text>Buyer &amp; Seller.</text>'),
                     ('a1-new-2', 'a1', 2, '<text>Second café clause.</text>'),
-                    ('a2-new', 'a2', 1, '<text>Null status remains eligible.</text>'),
+                    ('a2-new', 'a2', 1, '<text>Not validated yet.</text>'),
                     ('a3-invalid', 'a3', 1, '<text>Must not be searchable.</text>')
                 """
             )
@@ -287,7 +287,9 @@ class SectionTextSearchRefreshTests(unittest.TestCase):
             write_batch_size=1,
         )
 
-        self.assertEqual(refreshed, 3)
+        # a2's latest XML has a NULL status (not validated yet) and a3's is invalid,
+        # so only a1's latest verified sections become searchable.
+        self.assertEqual(refreshed, 2)
         rows = self.conn.execute(
             text(
                 """
@@ -316,15 +318,6 @@ class SectionTextSearchRefreshTests(unittest.TestCase):
                         "<text>Second café clause.</text>".encode("utf-8")
                     ).digest(),
                     "second café clause.",
-                ),
-                (
-                    "a2-new",
-                    "a2",
-                    1,
-                    hashlib.sha256(
-                        b"<text>Null status remains eligible.</text>"
-                    ).digest(),
-                    "null status remains eligible.",
                 ),
             ],
         )

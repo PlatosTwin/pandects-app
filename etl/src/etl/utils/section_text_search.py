@@ -124,7 +124,7 @@ def _delete_stale_rows(
                   WHERE s.section_uuid = {section_text_table}.section_uuid
                     AND s.agreement_uuid = {section_text_table}.agreement_uuid
                     AND x.latest = 1
-                    AND (x.status IS NULL OR x.status = 'verified')
+                    AND x.status = 'verified'
               )
             """
         ).bindparams(bindparam("agreement_uuids", expanding=True)),
@@ -175,7 +175,7 @@ def refresh_section_text_search(
          AND x.version = s.xml_version
         WHERE s.agreement_uuid IN :agreement_uuids
           AND x.latest = 1
-          AND (x.status IS NULL OR x.status = 'verified')
+          AND x.status = 'verified'
         ORDER BY s.agreement_uuid, s.section_uuid
         """
     ).bindparams(bindparam("agreement_uuids", expanding=True))

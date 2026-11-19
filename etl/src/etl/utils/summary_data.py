@@ -467,7 +467,7 @@ def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
             FROM {schema}.agreements a
             JOIN tmp_xml_latest x
                 ON x.agreement_uuid = a.agreement_uuid
-            WHERE (x.status IS NULL OR x.status = 'verified')
+            WHERE x.status = 'verified'
               AND {_summary_eligible_agreement_where_sql(alias='a')}
             """
         )
@@ -490,7 +490,7 @@ def _build_summary_temp_tables(conn: Connection, *, schema: str) -> None:
                 ON x.agreement_uuid = a.agreement_uuid
             JOIN tmp_sections_agg s
                 ON s.agreement_uuid = a.agreement_uuid
-            WHERE (x.status IS NULL OR x.status = 'verified')
+            WHERE x.status = 'verified'
               AND {_summary_eligible_agreement_where_sql(alias='a')}
             """
         )
@@ -623,7 +623,7 @@ def _refresh_metadata_field_coverage_summary_table(conn: Connection, *, schema: 
         f"SELECT 1 FROM {schema}.xml x "
         "WHERE x.agreement_uuid = a.agreement_uuid "
         "AND x.latest = 1 "
-        "AND (x.status IS NULL OR x.status = 'verified')"
+        "AND x.status = 'verified'"
         ")"
     )
     processed_where = "\n                      AND ".join(processed_where_parts)
@@ -790,7 +790,7 @@ def _refresh_counsel_leaderboard_summary_table(conn: Connection, *, schema: str)
                 ON a.agreement_uuid = ac.agreement_uuid
             JOIN tmp_xml_latest x
                 ON x.agreement_uuid = a.agreement_uuid
-            WHERE (x.status IS NULL OR x.status = 'verified')
+            WHERE x.status = 'verified'
               AND {_summary_eligible_agreement_where_sql(alias='a')}
               AND c.canonical_name IS NOT NULL
               AND TRIM(c.canonical_name) <> ''

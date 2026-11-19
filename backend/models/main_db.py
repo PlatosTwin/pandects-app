@@ -789,9 +789,9 @@ def agreement_year_expr():
 def xml_latest_ok_filter():
     # Serve only a latest XML that passed validation. A NULL status means the XML
     # has not been validated yet, and the Agreement Index tells users that such
-    # agreements are not served. Keep XML_LATEST_OK_SQL and the ETL's
-    # latest_sections_search build (etl/src/etl/utils/latest_sections_search.py)
-    # on the same rule.
+    # agreements are not served. Keep XML_LATEST_OK_SQL and the ETL builds of the
+    # served tables on the same rule: latest_sections_search.py,
+    # section_text_search.py and summary_data.py in etl/src/etl/utils/.
     return and_(XML.latest == 1, XML.status == "verified")
 
 
