@@ -412,7 +412,7 @@ function OwnershipStructurePanel({
             value={mixMetric}
             onValueChange={setMixMetric}
             options={VALUE_METRIC_OPTIONS}
-            ariaLabel="Ownership mix metric"
+            ariaLabel="Public vs. private target mix metric"
           />
         }
         mobileExpand={() => mixChart(true)}
@@ -446,7 +446,7 @@ function OwnershipStructurePanel({
         title="Target Type by Buyer Type"
         description={
           <span className="prose-copy">
-            Counts or median deal value for each target-buyer bucket combination.
+            Deal count or median deal value for each pairing of target type and buyer type.
           </span>
         }
         controls={
@@ -455,7 +455,7 @@ function OwnershipStructurePanel({
             value={matrixMetric}
             onValueChange={setMatrixMetric}
             options={HEATMAP_METRIC_OPTIONS}
-            ariaLabel="Buyer matrix metric"
+            ariaLabel="Target type by buyer type metric"
           />
         }
         footnote="Private targets include PE-backed targets. Private-equity buyers are broken out separately from private strategic buyers."
@@ -770,7 +770,7 @@ function IndustryDynamicsPanel({
         mobileExpand={() => concentrationChart(true)}
         footnote={
           <>
-            Current top-five basket share:{" "}
+            Share of these five industries in the latest year:{" "}
             <span className="font-mono tabular-nums text-foreground">
               {concentrationTrend.data.length > 0
                 ? formatPercent(
@@ -809,8 +809,8 @@ export default function TrendsAnalyses() {
       title="Trends & Analyses"
       description={
         <span className="prose-copy">
-          A set of deeper cuts on ownership structure and sector composition, built from
-          public-eligible agreements and designed to complement the headline leaderboards.
+          Charts of public and private targets, types of buyer, and target and acquirer
+          industries across the dataset, most of them by filing year.
         </span>
       }
     >
