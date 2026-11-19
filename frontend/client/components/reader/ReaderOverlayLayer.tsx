@@ -34,6 +34,8 @@ interface ReaderOverlayLayerProps {
   isMobile: boolean;
   /** Jump to an outline node (a cross-reference), recording where it came from. */
   onFollowXref: (xref: ReaderXref, source: HTMLElement) => void;
+  /** Jump to an outline node by id (an entry of the printed table of contents). */
+  onFollowOutline: (outlineId: string, source: HTMLElement) => void;
   /** Jump to a `<text>` element by anchor key ("Go to definition"). */
   onGoToAnchor: (key: string, revealUuid: string) => void;
 }
@@ -54,6 +56,7 @@ export function ReaderOverlayLayer({
   containerRef,
   isMobile,
   onFollowXref,
+  onFollowOutline,
   onGoToAnchor,
 }: ReaderOverlayLayerProps) {
   const [active, setActive] = useState<Active | null>(null);
@@ -129,6 +132,15 @@ export function ReaderOverlayLayer({
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
         return;
       }
+      const outlineLink = (event.target as Element | null)?.closest<HTMLElement>(
+        "[data-outline-id]",
+      );
+      if (outlineLink && container.contains(outlineLink)) {
+        event.preventDefault();
+        close();
+        onFollowOutline(outlineLink.dataset.outlineId ?? "", outlineLink);
+        return;
+      }
       const target = targetOf(event);
       if (!target) return;
       event.preventDefault();
@@ -164,7 +176,16 @@ export function ReaderOverlayLayer({
       container.removeEventListener("focusin", onFocusIn);
       clearTimers();
     };
-  }, [clearTimers, close, containerRef, isMobile, onFollowXref, overlay, scheduleClose]);
+  }, [
+    clearTimers,
+    close,
+    containerRef,
+    isMobile,
+    onFollowOutline,
+    onFollowXref,
+    overlay,
+    scheduleClose,
+  ]);
 
   // Mark the term whose card is open; the overlay re-renders rarely, so a
   // data attribute on the element is enough.

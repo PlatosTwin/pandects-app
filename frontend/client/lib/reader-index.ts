@@ -265,3 +265,115 @@ export function outlineTrail(overlay: ReaderOverlay, id: string): ReaderOutlineN
   const ids = [...(overlay.outlinePath.get(id) ?? []), id];
   return ids.map((i) => overlay.outlineById.get(i)).filter((n): n is ReaderOutlineNode => !!n);
 }
+
+// ---- Printed table of contents ------------------------------------------------
+// The agreement's own table of contents is plain text in the XML. With an
+// outline, each of its entries can link to the article or section it names.
+
+const ROMAN_VALUES: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+const ROMAN_RE = /^[IVXLCDM]+$/;
+const TOC_ARTICLE_RE = /^ARTICLE\s+([IVXLCDM]+|\d+)\b[\s.:\u2013\u2014-]*/i;
+// The number must be whole: "2.1A" and "10.1(a)" are not Section 2 or 10, so
+// the match may not stop in front of another ".1".
+const TOC_SECTION_RE =
+  /^(?:Section\s+)?(\d+(?:\.\d+)*)(?!\.\d)(?=[.\s:)\u2013\u2014-]|$)[\s.:)\u2013\u2014-]*/i;
+
+function romanToInt(roman: string): number {
+  let total = 0;
+  for (let i = 0; i < roman.length; i++) {
+    const value = ROMAN_VALUES[roman[i]] ?? 0;
+    total += value < (ROMAN_VALUES[roman[i + 1]] ?? 0) ? -value : value;
+  }
+  return total;
+}
+
+/** "5.08" and "5.8" are one label; so are "IV" and "4". */
+function normalizeOutlineLabel(label: string): string {
+  const trimmed = label.trim().replace(/[.\s]+$/, "").toUpperCase();
+  if (ROMAN_RE.test(trimmed)) return String(romanToInt(trimmed));
+  return trimmed
+    .split(".")
+    .map((part) => (/^\d+$/.test(part) ? String(Number(part)) : part))
+    .join(".");
+}
+
+function normalizeHeading(text: string): string {
+  return decodeXmlEntities(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+/** A heading without its own number: "ARTICLE II SALE AND PURCHASE" -> "saleandpurchase". */
+function headingWords(text: string): string {
+  const decoded = decodeXmlEntities(text).trim();
+  return normalizeHeading(decoded.replace(TOC_ARTICLE_RE, "").replace(TOC_SECTION_RE, ""));
+}
+
+/**
+ * A printed entry and an outline node with the same number name the same
+ * place unless their words plainly differ (a table of contents that also
+ * lists an exhibit's own sections, say). Printed entries are often shortened,
+ * so only the start of the words is compared.
+ */
+function headingsAgree(entry: string, node: ReaderOutlineNode): boolean {
+  const a = headingWords(entry);
+  const b = headingWords(node.title);
+  if (!a || !b) return true;
+  const length = Math.min(a.length, b.length, 8);
+  return a.slice(0, length) === b.slice(0, length);
+}
+
+interface TocLookup {
+  /** "article:2" / "section:2.1" -> outline node, null when two nodes share the label. */
+  byLabel: Map<string, ReaderOutlineNode | null>;
+  byHeading: Map<string, ReaderOutlineNode | null>;
+}
+
+const tocLookups = new WeakMap<ReaderOverlay, TocLookup>();
+
+function tocLookupFor(overlay: ReaderOverlay): TocLookup {
+  const cached = tocLookups.get(overlay);
+  if (cached) return cached;
+  const lookup: TocLookup = { byLabel: new Map(), byHeading: new Map() };
+  const put = (map: Map<string, ReaderOutlineNode | null>, key: string, node: ReaderOutlineNode) => {
+    map.set(key, map.has(key) ? null : node);
+  };
+  for (const node of overlay.outlineById.values()) {
+    if (node.kind !== "article" && node.kind !== "section") continue;
+    if (node.label) put(lookup.byLabel, `${node.kind}:${normalizeOutlineLabel(node.label)}`, node);
+    const heading = normalizeHeading(node.title);
+    if (heading) put(lookup.byHeading, heading, node);
+  }
+  tocLookups.set(overlay, lookup);
+  return lookup;
+}
+
+/**
+ * The outline id a printed table-of-contents entry points at, or null when
+ * the entry names no article or section of the outline (an exhibit, a
+ * schedule, a number that two sections share).
+ */
+export function tocEntryOutlineId(overlay: ReaderOverlay, entryText: string): string | null {
+  const lookup = tocLookupFor(overlay);
+  const text = entryText.trim();
+  const accept = (node: ReaderOutlineNode | null | undefined) =>
+    node && headingsAgree(text, node) ? node.id : null;
+
+  const article = TOC_ARTICLE_RE.exec(text);
+  if (article) {
+    return accept(lookup.byLabel.get(`article:${normalizeOutlineLabel(article[1])}`));
+  }
+  const section = TOC_SECTION_RE.exec(text);
+  if (section) {
+    const label = normalizeOutlineLabel(section[1]);
+    // A number two sections share is stored as null and stays without a link.
+    if (lookup.byLabel.has(`section:${label}`)) {
+      return accept(lookup.byLabel.get(`section:${label}`));
+    }
+    // "1. DEFINITIONS" in a table whose top level is numbered articles.
+    if (!label.includes(".") && !/^section\b/i.test(text) && lookup.byLabel.has(`article:${label}`)) {
+      return accept(lookup.byLabel.get(`article:${label}`));
+    }
+  }
+  return lookup.byHeading.get(normalizeHeading(text))?.id ?? null;
+}

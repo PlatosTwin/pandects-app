@@ -459,9 +459,9 @@ export function AgreementReader({
   // A cross-reference jump is a history entry: Back returns to the citing
   // text (the entry left behind keeps its scroll position), and the new
   // entry's hash is the target's outline id, so the URL can be shared.
-  const followXref = useCallback(
-    (xref: ReaderXref, source: HTMLElement) => {
-      if (!xref.target || !overlay?.outlineById.has(xref.target)) return;
+  const followOutline = useCallback(
+    (target: string, source: HTMLElement) => {
+      if (!target || !overlay?.outlineById.has(target)) return;
       const sourceKey = source.closest("[data-anchor]")?.getAttribute("data-anchor");
       const here = { pathname: window.location.pathname, search: window.location.search };
       navigate(
@@ -469,17 +469,26 @@ export function AgreementReader({
         { replace: true, state: { ...historyState, readerY: window.scrollY } satisfies ReaderHistoryState },
       );
       navigate(
-        { ...here, hash: `#${encodeURIComponent(xref.target)}` },
+        { ...here, hash: `#${encodeURIComponent(target)}` },
         {
           state: {
-            readerJump: xref.target,
-            readerBack: (sourceKey && placeOfAnchor(overlay, sourceKey)) || undefined,
+            readerJump: target,
+            readerBack:
+              (sourceKey && placeOfAnchor(overlay, sourceKey)) ||
+              // An entry of the printed table of contents has no text anchor.
+              (source.closest("[data-outline-id]") ? "Table of Contents" : undefined),
           } satisfies ReaderHistoryState,
         },
       );
-      jumpToOutline(xref.target);
+      jumpToOutline(target);
     },
     [historyState, jumpToOutline, navigate, overlay],
+  );
+  const followXref = useCallback(
+    (xref: ReaderXref, source: HTMLElement) => {
+      if (xref.target) followOutline(xref.target, source);
+    },
+    [followOutline],
   );
 
   const scrollToAnchor = useCallback(
@@ -1183,6 +1192,7 @@ export function AgreementReader({
           containerRef={contentRef}
           isMobile={isMobile}
           onFollowXref={followXref}
+          onFollowOutline={followOutline}
           onGoToAnchor={(key, container) => scrollToTextAnchor(key, container)}
         />
       ) : null}

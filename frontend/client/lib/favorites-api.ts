@@ -153,19 +153,34 @@ export async function setFavoriteProjects(
   return res.project_ids;
 }
 
+// Each UUID costs 39 characters of query string, and the API server rejects a
+// request line over 4,094 bytes ("Request Line is too large"). An agreement
+// with more than about 100 sections went over that in one request, so the
+// check goes out in batches: 90 uuids are about 3,600 characters. The batches
+// succeed or fail as one, so a caller that retries on failure retries them all.
+export const FAVORITES_EXISTS_BATCH_SIZE = 90;
+
 export async function favoritesExists(
   itemType: FavoriteItemType,
   itemUuids: string[],
 ): Promise<Record<string, string>> {
   if (itemUuids.length === 0) return {};
-  const params = new URLSearchParams({
-    item_type: itemType,
-    item_uuids: itemUuids.join(","),
-  });
-  const res = await apiFetchJson<FavoritesExistsResponse>(
-    apiUrl(`v1/me/favorites/exists?${params.toString()}`),
+  const batches: string[][] = [];
+  for (let start = 0; start < itemUuids.length; start += FAVORITES_EXISTS_BATCH_SIZE) {
+    batches.push(itemUuids.slice(start, start + FAVORITES_EXISTS_BATCH_SIZE));
+  }
+  const responses = await Promise.all(
+    batches.map((batch) => {
+      const params = new URLSearchParams({
+        item_type: itemType,
+        item_uuids: batch.join(","),
+      });
+      return apiFetchJson<FavoritesExistsResponse>(
+        apiUrl(`v1/me/favorites/exists?${params.toString()}`),
+      );
+    }),
   );
-  return res.favorites;
+  return Object.assign({}, ...responses.map((res) => res.favorites)) as Record<string, string>;
 }
 
 export async function upsertFavorite(

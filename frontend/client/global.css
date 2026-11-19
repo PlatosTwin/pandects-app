@@ -347,7 +347,7 @@
   /* Smart reader overlay (docs/plans/smart-reader.md, Section 6.5). Thousands
      of these render per agreement, so they are classes, not utility strings. */
   .reader-term {
-    @apply cursor-pointer rounded-sm underline decoration-foreground/35 decoration-dotted decoration-1 underline-offset-[3px] hover:bg-primary/10 hover:decoration-primary print:no-underline;
+    @apply cursor-pointer rounded-sm underline decoration-primary/70 decoration-dotted decoration-[1.5px] underline-offset-[4px] hover:bg-primary/10 hover:decoration-primary print:no-underline;
   }
 
   .reader-term[data-active="true"] {
@@ -356,6 +356,11 @@
 
   .reader-xref {
     @apply rounded-sm text-primary underline decoration-primary/40 underline-offset-[3px] hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:text-inherit print:no-underline;
+  }
+
+  /* An entry of the printed table of contents that links to its section. */
+  .reader-toc-link {
+    @apply rounded-sm text-primary underline decoration-transparent underline-offset-[3px] transition-colors hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:text-inherit print:no-underline;
   }
 
   /* A cross-reference or "Go to definition" target, marked for a moment. */
