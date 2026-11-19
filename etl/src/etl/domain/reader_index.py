@@ -27,7 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-ENRICHER_VERSION = "0.7.0"
+ENRICHER_VERSION = "0.8.0"
 PAYLOAD_SCHEMA = 1
 
 # Regions whose text is indexed for term uses and cross-references. The table of
@@ -1120,6 +1120,14 @@ def _in_one_group(ol: _Outline, base: str, subs: str) -> _Node | None:
     return hits[0] if len(hits) == 1 else None
 
 
+_ARTICLE_WORD = re.compile(r"^\s*(?:ARTICLE|Article|PART|Part)\b")
+
+
+def _section_style_article(ol: _Outline, key: str) -> bool:
+    """Article `key` can be cited as "Section 8": its heading prints "SECTION 8" or "8.", or it is flat."""
+    return key in ol.flat_articles or not any(_ARTICLE_WORD.match(a.title) for a in ol.articles[key])
+
+
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
     """Returns (status, target id, ambiguous candidates)."""
     if ref.status:
@@ -1152,8 +1160,10 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                     return "resolved", ol.subs[group + subs].id, None
                 if group in ol.groups:
                     return "section_fallback", ol.subs[group].id, None
-            # "Section 8" in agreements whose top level is "SECTION 8"
-            if "." not in base and not subs and base in ol.articles:
+            # "Section 8" in agreements whose top level is "SECTION 8" (or "8."), or a flat item.
+            # Under "ARTICLE VIII" with sections 8.1, 8.2, a bare "Section 8" is a statute, another
+            # document or an exhibit's own section, never the article (0.8.0 sample: 3 of 28 right).
+            if "." not in base and not subs and base in ol.articles and _section_style_article(ol, base):
                 arts = ol.articles[base]
                 if len(arts) > 1:
                     return "ambiguous", None, [a.id for a in arts]
