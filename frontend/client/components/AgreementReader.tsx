@@ -473,7 +473,10 @@ export function AgreementReader({
         {
           state: {
             readerJump: target,
-            readerBack: (sourceKey && placeOfAnchor(overlay, sourceKey)) || undefined,
+            readerBack:
+              (sourceKey && placeOfAnchor(overlay, sourceKey)) ||
+              // An entry of the printed table of contents has no text anchor.
+              (source.closest("[data-outline-id]") ? "Table of Contents" : undefined),
           } satisfies ReaderHistoryState,
         },
       );

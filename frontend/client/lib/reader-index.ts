@@ -273,7 +273,10 @@ export function outlineTrail(overlay: ReaderOverlay, id: string): ReaderOutlineN
 const ROMAN_VALUES: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
 const ROMAN_RE = /^[IVXLCDM]+$/;
 const TOC_ARTICLE_RE = /^ARTICLE\s+([IVXLCDM]+|\d+)\b[\s.:\u2013\u2014-]*/i;
-const TOC_SECTION_RE = /^(?:Section\s+)?(\d+(?:\.\d+)*)(?=[.\s:)\u2013\u2014-]|$)[\s.:)\u2013\u2014-]*/i;
+// The number must be whole: "2.1A" and "10.1(a)" are not Section 2 or 10, so
+// the match may not stop in front of another ".1".
+const TOC_SECTION_RE =
+  /^(?:Section\s+)?(\d+(?:\.\d+)*)(?!\.\d)(?=[.\s:)\u2013\u2014-]|$)[\s.:)\u2013\u2014-]*/i;
 
 function romanToInt(roman: string): number {
   let total = 0;
@@ -363,11 +366,14 @@ export function tocEntryOutlineId(overlay: ReaderOverlay, entryText: string): st
   const section = TOC_SECTION_RE.exec(text);
   if (section) {
     const label = normalizeOutlineLabel(section[1]);
-    const byNumber =
-      lookup.byLabel.get(`section:${label}`) ??
-      // "1. DEFINITIONS" in a table whose top level is numbered articles.
-      (label.includes(".") || /^section\b/i.test(text) ? undefined : lookup.byLabel.get(`article:${label}`));
-    if (byNumber !== undefined) return accept(byNumber);
+    // A number two sections share is stored as null and stays without a link.
+    if (lookup.byLabel.has(`section:${label}`)) {
+      return accept(lookup.byLabel.get(`section:${label}`));
+    }
+    // "1. DEFINITIONS" in a table whose top level is numbered articles.
+    if (!label.includes(".") && !/^section\b/i.test(text) && lookup.byLabel.has(`article:${label}`)) {
+      return accept(lookup.byLabel.get(`article:${label}`));
+    }
   }
   return lookup.byHeading.get(normalizeHeading(text))?.id ?? null;
 }

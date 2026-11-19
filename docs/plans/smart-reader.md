@@ -961,7 +961,7 @@ The reader uses the index behind a flag. The flag is on in development and on a 
 
 - **Printed table of contents.** The agreement's own table of contents (`<tableOfContents>`) was plain text. With an outline, each entry that names an article or a section links to it (`tocEntryOutlineId` in `client/lib/reader-index.ts`): by number first ("ARTICLE II", "2.1", "Section 5.08"), then by heading. A number that two sections share gets no link, and neither does an entry whose words plainly differ from the heading with that number (an exhibit's own sections). Exhibits and schedules stay plain text until the outline has attachment nodes. A click is a history entry like a cross-reference, so Back returns to the table.
 - **Term underlines.** The dotted underline of a defined term was 1px at 35% of the text color and hard to see. It is now 1.5px in the link color at 70%.
-- **Favorites check.** `GET /v1/me/favorites/exists` carried every section uuid of the agreement in one query string. Past about 100 sections the request line went over gunicorn's 4,094 bytes and the server rejected it, so no section showed its saved state. The client now sends 60 uuids per request.
+- **Favorites check.** `GET /v1/me/favorites/exists` carried every section uuid of the agreement in one query string. Past about 100 sections the request line went over gunicorn's 4,094 bytes and the server rejected it, so no section showed its saved state. The client now sends 90 uuids per request.
 
 ### 10.10 Enricher 0.5.0 (2026-10-30)
 

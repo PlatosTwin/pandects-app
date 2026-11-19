@@ -156,8 +156,9 @@ export async function setFavoriteProjects(
 // Each UUID costs 39 characters of query string, and the API server rejects a
 // request line over 4,094 bytes ("Request Line is too large"). An agreement
 // with more than about 100 sections went over that in one request, so the
-// check goes out in batches.
-export const FAVORITES_EXISTS_BATCH_SIZE = 60;
+// check goes out in batches: 90 uuids are about 3,600 characters. The batches
+// succeed or fail as one, so a caller that retries on failure retries them all.
+export const FAVORITES_EXISTS_BATCH_SIZE = 90;
 
 export async function favoritesExists(
   itemType: FavoriteItemType,

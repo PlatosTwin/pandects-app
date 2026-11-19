@@ -136,7 +136,7 @@ describe("printed table of contents entries", () => {
       node("section", "s2.2", "2.2", "2.2 Closing Payments."),
     ]),
     node("article", "a5", "V", "ARTICLE V Covenants", [
-      node("section", "s5.8", "5.08", "Section 5.08. Retention of Books &amp; Records."),
+      node("section", "s5.8", "5.8", "Section 5.08. Retention of Books &amp; Records."),
     ]),
   ]);
 
@@ -165,9 +165,24 @@ describe("printed table of contents entries", () => {
   it("does not link a number that two sections share", () => {
     const twice = overlayOf([
       node("section", "s1.1", "1.1", "1.1 Definitions."),
-      node("section", "s1.1~2", "1.1", "1.1 Definitions."),
+      node("section", "s1.1~2", "1.1", "1.1 Interpretation."),
+      node("article", "a5", "5", "ARTICLE 5"),
+      node("section", "s5", "5", "5 Covenants."),
+      node("section", "s5~2", "5", "5 Conditions."),
     ]);
     expect(tocEntryOutlineId(twice, "1.1 Definitions")).toBeNull();
+    // Not Article 5 either: the shared section number is the better reading.
+    expect(tocEntryOutlineId(twice, "5 Covenants")).toBeNull();
+  });
+
+  it("does not cut a longer number down to an article", () => {
+    const bare = overlayOf([
+      node("article", "a2", "II", "ARTICLE II"),
+      node("article", "a10", "X", "ARTICLE X"),
+    ]);
+    expect(tocEntryOutlineId(bare, "2.1A Purchase Price Adjustment")).toBeNull();
+    expect(tocEntryOutlineId(bare, "10.1(a) Conditions")).toBeNull();
+    expect(tocEntryOutlineId(bare, "2. Sale and Purchase")).toBe("a2");
   });
 });
 
