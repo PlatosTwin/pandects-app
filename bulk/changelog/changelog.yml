@@ -22,7 +22,21 @@
 # wrong/empty results; notable = results change but queries still run;
 # minor = additive/cosmetic.
 
-unreleased: []
+unreleased:
+- type: data
+  severity: notable
+  summary: 'reader_index (enricher 0.8.0): a bare "Section 8" no longer links to "ARTICLE VIII".'
+  details: >
+    A cross-reference printed as a bare "Section N", "clause N" or a bare list member now
+    resolves to article N only when that article's heading prints as a section ("SECTION 8",
+    "8.") or the article has no sections inside. Under an "ARTICLE VIII" heading with sections
+    8.1, 8.2, such references mostly cite a statute, another document, a disclosure schedule
+    or an exhibit's own section. A dry run over the 12,198 served agreements changes 11,354
+    cross-references in 2,289 agreements from resolved (article target) to unresolved. Outlines,
+    terms and all other cross-references are unchanged.
+  tables: [reader_index]
+  migration: null
+  refs: []
 releases:
 - version: '2026-11-18'
   released: '2026-11-18T23:48:17Z'

@@ -9,6 +9,18 @@ Change history for the public Pandects database dumps, the REST API, and
 the MCP surface. Machine-readable version:
 <https://bulk.pandects.org/dumps/changelog.json>.
 
+## Unreleased
+
+1 change: 1 notable.
+
+### Notable (1)
+
+- **Data:** reader_index (enricher 0.8.0): a bare "Section 8" no longer links to "ARTICLE VIII".
+
+  A cross-reference printed as a bare "Section N", "clause N" or a bare list member now resolves to article N only when that article's heading prints as a section ("SECTION 8", "8.") or the article has no sections inside. Under an "ARTICLE VIII" heading with sections 8.1, 8.2, such references mostly cite a statute, another document, a disclosure schedule or an exhibit's own section. A dry run over the 12,198 served agreements changes 11,354 cross-references in 2,289 agreements from resolved (article target) to unresolved. Outlines, terms and all other cross-references are unchanged.
+
+  **Tables:** `reader_index`
+
 ## 2026-11-18 — released 2026-11-18
 
 - Dump: `dumps/public_2026-11-18_15-27-29.sql.gz`
