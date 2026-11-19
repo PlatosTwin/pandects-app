@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import statistics
 import sys
 from pathlib import Path
@@ -190,13 +191,13 @@ def validate(data: dict[str, object]) -> None:
 # ── Rendering ────────────────────────────────────────────────────
 
 
-def _mdx_escape(text: str) -> str:
-    # The docs guide is MDX: a bare `{`, `}`, or `<` in entry prose would be
-    # parsed as an expression/JSX and break the docs build. Backtick code
-    # spans are already literal in MDX — and entity references inside them
-    # would render verbatim — so only prose outside code spans is escaped.
+def _escape_outside_code(text: str, replacements: tuple[tuple[str, str], ...]) -> str:
+    # Backtick code spans are already literal, and entity references inside
+    # them would render verbatim, so only prose outside code spans is escaped.
     def _escape(segment: str) -> str:
-        return segment.replace("{", "&#123;").replace("}", "&#125;").replace("<", "&lt;")
+        for raw, escaped in replacements:
+            segment = segment.replace(raw, escaped)
+        return segment
 
     parts = text.split("`")
     if len(parts) % 2 == 1:  # balanced backticks: even-indexed parts are prose
@@ -205,6 +206,33 @@ def _mdx_escape(text: str) -> str:
         )
     # Unbalanced backticks: no well-formed code spans, escape everything.
     return _escape(text)
+
+
+def _mdx_escape(text: str) -> str:
+    # The docs guide is MDX: a bare `{`, `}`, or `<` in entry prose would be
+    # parsed as an expression/JSX and break the docs build.
+    return _escape_outside_code(text, (("{", "&#123;"), ("}", "&#125;"), ("<", "&lt;")))
+
+
+def _markdown_escape(text: str) -> str:
+    # CHANGELOG.md is read on GitHub, which treats `<page>` in prose as an
+    # HTML tag and drops it from the rendered text.
+    return _escape_outside_code(text, (("<", "&lt;"),))
+
+
+_BLOCK_MARKER_RE = re.compile(r"(#{1,6}(?=\s|$)|[-+*>](?=\s|$)|\||[-=*_]{3,}$)")
+_ORDERED_MARKER_RE = re.compile(r"^(\d{1,9})([.)])(?=\s|$)")
+
+
+def _escape_block_start(paragraph: str) -> str:
+    """Keep a paragraph a paragraph.
+
+    Each paragraph of an entry starts its own line, so prose that opens with
+    "# of rows", "- " or "3) " would otherwise render as a heading or a list.
+    """
+    if _BLOCK_MARKER_RE.match(paragraph):
+        return "\\" + paragraph
+    return _ORDERED_MARKER_RE.sub(r"\1\\\2", paragraph, count=1)
 
 
 _TYPE_LABELS = {
@@ -230,6 +258,8 @@ def _paragraphs(text: object) -> list[str]:
     A line break inside `details` or `migration` starts a new paragraph: a
     blank line in a folded (`>`) YAML scalar loads as one line break, and the
     roll-up writes line breaks back verbatim. Other whitespace is collapsed.
+    A literal (`|`) scalar keeps every line break, so each of its lines would
+    become a paragraph; entries use the folded form.
     """
     if not isinstance(text, str):
         return []
@@ -243,16 +273,20 @@ def _render_change(change: dict[str, object], *, mdx: bool = False) -> list[str]
     element, so a reader scans the summaries and opens what concerns them.
     CHANGELOG.md keeps it as an indented block under a list item.
     """
-    escape = _mdx_escape if mdx else (lambda text: text)
+    escape = _mdx_escape if mdx else _markdown_escape
+
+    def prose(text: object) -> list[str]:
+        return [escape(_escape_block_start(paragraph)) for paragraph in _paragraphs(text)]
+
     change_type = str(change["type"])
     label = _TYPE_LABELS.get(change_type, change_type)
     head = f"**{label}:** {escape(' '.join(str(change['summary']).split()))}"
 
-    blocks = [escape(paragraph) for paragraph in _paragraphs(change.get("details"))]
+    blocks = prose(change.get("details"))
     tables = change.get("tables")
     if isinstance(tables, list) and tables:
         blocks.append("**Tables:** " + ", ".join(f"`{table}`" for table in tables))
-    migration = [escape(paragraph) for paragraph in _paragraphs(change.get("migration"))]
+    migration = prose(change.get("migration"))
     if migration:
         blocks.append(f"**Migration:** {migration[0]}")
         blocks.extend(migration[1:])

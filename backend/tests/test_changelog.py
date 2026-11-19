@@ -334,7 +334,7 @@ class ChangelogTests(unittest.TestCase):
                 "",
                 "  What changed.",
                 "",
-                "  Why <it> changed.",
+                "  Why &lt;it> changed.",
                 "",
                 "  **Tables:** `agreements`, `sections`",
                 "",
@@ -346,6 +346,54 @@ class ChangelogTests(unittest.TestCase):
                 "",
             ],
         )
+
+    def test_paragraph_starts_and_tags_cannot_change_the_page_structure(self) -> None:
+        # Every paragraph of an entry starts its own line, so a block marker
+        # at its start would turn the paragraph into a heading or a list.
+        escape = self.renderer._escape_block_start
+        self.assertEqual(escape("# of rows changed"), "\\# of rows changed")
+        self.assertEqual(escape("- 5 rows"), "\\- 5 rows")
+        self.assertEqual(escape("3) Spacing"), "3\\) Spacing")
+        self.assertEqual(escape("12. Twelve, and 3. later"), "12\\. Twelve, and 3. later")
+        self.assertEqual(escape("> quoted"), "\\> quoted")
+        self.assertEqual(escape("---"), "\\---")
+        for plain in ("#175 fixed", "-5 degrees", "1,432 rows", "*kept* text", "(1) first"):
+            self.assertEqual(escape(plain), plain)
+        change = {
+            "type": "api",
+            "severity": "minor",
+            "summary": "Snippets drop <page> markers",
+            "details": "1. The `<page>` tag and <pageUUID> are dropped.\n\n# of rows: 5",
+        }
+        # CHANGELOG.md is read on GitHub, which would drop a bare <tag>.
+        self.assertEqual(
+            self.renderer._render_change(change),
+            [
+                "- **API:** Snippets drop &lt;page> markers",
+                "",
+                "  1\\. The `<page>` tag and &lt;pageUUID> are dropped.",
+                "",
+                "  \\# of rows: 5",
+                "",
+            ],
+        )
+
+    def test_paragraph_breaks_survive_the_release_roll_up(self) -> None:
+        # write_changelog must keep the line breaks that mark paragraphs.
+        text = "First paragraph, long enough to be folded at the width the writer uses for a scalar.\n\nSecond paragraph.\n"
+        data = {
+            "unreleased": [
+                {"type": "data", "severity": "minor", "summary": "s", "details": text}
+            ],
+            "releases": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "changelog.yml"
+            path.write_text("# header\n\nunreleased: []\nreleases: []\n")
+            self.renderer.write_changelog(data, path)
+            loaded = self.renderer.load_changelog(path)
+        self.assertEqual(loaded["unreleased"][0]["details"], text)
+        self.assertEqual(len(self.renderer._paragraphs(loaded["unreleased"][0]["details"])), 2)
 
     def test_release_changes_are_grouped_by_severity(self) -> None:
         def change(change_type: str, severity: str, summary: str) -> dict[str, object]:
@@ -366,6 +414,12 @@ class ChangelogTests(unittest.TestCase):
         )
         self.assertEqual(
             self.renderer._render_changes([few[0]], anchor="x")[0], "1 change: 1 minor."
+        )
+
+        # One change short of the threshold: still no table.
+        nine = [change("api", "minor", f"a{i}") for i in range(9)]
+        self.assertFalse(
+            any(line.startswith("|") for line in self.renderer._render_changes(nine, anchor="x"))
         )
 
         many = (

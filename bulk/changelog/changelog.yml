@@ -11,8 +11,9 @@
 #   - type: schema | data | api | mcp | docs | pipeline
 #     severity: breaking | notable | minor
 #     summary: "One-line, consumer-facing description."
-#     details: >            # optional longer prose; a blank line starts a
-#                           # new paragraph on the rendered page
+#     details: >            # optional longer prose. Use the folded form (>):
+#                           # a blank line starts a new paragraph on the
+#                           # rendered page (with | every line would)
 #     tables: [agreements]  # optional; must be subset of bulk/public_tables.txt
 #     migration: null       # optional guidance/SQL for consumers
 #     refs: ["<commit or PR>"]  # optional
@@ -316,12 +317,10 @@ releases:
       59 more were removed after two independent reads. 58 fail the property rule: 52 are
       bare property or lease packages and 6 are vehicles with no business of their own (companies
       that only hold property or projects). 1 is the formation of a 50/50 joint venture in
-      which no party gains control, a side agreement rather than an acquisition.
-
-
-      Their sections, counsel, clauses and index rows are removed, and so is the XML of all
-      but those 6 side agreements, whose latest XML stays with status ''invalid''; the agreements
-      row stays, with status = ''invalid'', so the filing is not re-ingested.
+      which no party gains control, a side agreement rather than an acquisition. Their sections,
+      counsel, clauses and index rows are removed, and so is the XML of all but those 6 side
+      agreements, whose latest XML stays with status ''invalid''; the agreements row stays,
+      with status = ''invalid'', so the filing is not re-ingested.
 
 
       Duplicates (72 served): 71 originals superseded by their amended and restated version,
@@ -531,19 +530,16 @@ releases:
       party in the preamble and is not the stored target; on most rows the agreement prints
       it as the owner of the holding company at signing. The same form is used where the buyer
       merges into the new company, or contributes a business to a new company that it owns,
-      and that company acquires the target.
-
-
-      Where both companies own the holding company in equal parts (Dow / DuPont), the holding
-      company alone is the acquirer and both companies are the target. Where the agreement
-      prints "merger of equals" and names the new company (Great Plains Energy / Westar, MB
-      Financial / MidCity), the new company alone is also the acquirer and both companies
-      are the target. On the rows that store both companies as the target, the counsel of
-      both is under target_counsel and acquirer_counsel is empty. Where the stored target
-      owns the holding company, the other company goes first if the target''s holders are
-      paid cash or the other company takes printed control of the holding company (WWE / Endeavor).
-      If the agreement prints neither, the owner is the buyer, which swapped the target and
-      acquirer on Veritas DGC / Petroleum Geo-Services.
+      and that company acquires the target. Where both companies own the holding company in
+      equal parts (Dow / DuPont), the holding company alone is the acquirer and both companies
+      are the target. Where the agreement prints "merger of equals" and names the new company
+      (Great Plains Energy / Westar, MB Financial / MidCity), the new company alone is also
+      the acquirer and both companies are the target. On the rows that store both companies
+      as the target, the counsel of both is under target_counsel and acquirer_counsel is empty.
+      Where the stored target owns the holding company, the other company goes first if the
+      target''s holders are paid cash or the other company takes printed control of the holding
+      company (WWE / Endeavor). If the agreement prints neither, the owner is the buyer, which
+      swapped the target and acquirer on Veritas DGC / Petroleum Geo-Services.
 
 
       This form was set on the largest deals (see the price entry) and then on the other served
@@ -560,11 +556,9 @@ releases:
       that the first reader kept or could not class, 147 in all, and a third reader tried
       to disprove each proposed change. 46 more kept candidates of the second and third searches
       are de-SPACs; they had no second read, because the de-SPAC rule above governs them,
-      and each stores the SPAC as the acquirer.
-
-
-      Of the 147, 111 agreements changed: 103 now store the buyer''s side and the holding
-      company, and 8 store the new company alone with both companies as the target.
+      and each stores the SPAC as the acquirer. Of the 147, 111 agreements changed: 103 now
+      store the buyer''s side and the holding company, and 8 store the new company alone with
+      both companies as the target.
 
 
       36 keep their stored form (2 of them had a name corrected). The reasons are: the agreement
