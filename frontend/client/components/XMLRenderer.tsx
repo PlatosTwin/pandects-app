@@ -21,6 +21,7 @@ import {
   buildReaderOverlay,
   collectTextAnchors,
   isLinkedXref,
+  tocEntryOutlineId,
   type OverlayRange,
   type ReaderIndex,
   type ReaderOverlay,
@@ -226,6 +227,9 @@ function renderAgreementTableOfContents(
 
         const isSubentry = TOC_SUBENTRY_START_RE.test(row.text);
         const isArticle = /^ARTICLE\b/i.test(row.text);
+        // Smart reader: an entry that names an article or section links to it.
+        const outlineId = shared.overlay ? tocEntryOutlineId(shared.overlay, row.text) : null;
+        const entryText = renderFindHighlights(row.text, shared.findRegex);
 
         return (
           <div
@@ -242,7 +246,17 @@ function renderAgreementTableOfContents(
                 isArticle && "font-medium tracking-[0.02em]",
               )}
             >
-              {renderFindHighlights(row.text, shared.findRegex)}
+              {outlineId ? (
+                <a
+                  href={`#${encodeURIComponent(outlineId)}`}
+                  className="reader-toc-link"
+                  data-outline-id={outlineId}
+                >
+                  {entryText}
+                </a>
+              ) : (
+                entryText
+              )}
             </span>
             {row.pageNumber ? (
               <span className="w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground">

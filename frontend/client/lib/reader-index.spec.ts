@@ -5,7 +5,9 @@ import {
   buildReaderOverlay,
   collectTextAnchors,
   excerpt,
+  tocEntryOutlineId,
   type ReaderIndex,
+  type ReaderOutlineNode,
 } from "@/lib/reader-index";
 
 // The same fixture etl/tests/test_reader_offset_contract.py pins on the
@@ -113,3 +115,59 @@ describe("excerpt", () => {
     expect(result.text.length).toBeLessThanOrEqual(50);
   });
 });
+
+describe("printed table of contents entries", () => {
+  const node = (
+    kind: "article" | "section",
+    id: string,
+    label: string,
+    title: string,
+    children?: ReaderOutlineNode[],
+  ): ReaderOutlineNode => ({ id, kind, label, title, anchor: { s: `uuid-${id}` }, children });
+  const overlayOf = (outline: ReaderOutlineNode[]) =>
+    buildReaderOverlay(
+      indexFrom({ outline, terms: [], uses: {}, xrefs: [] }),
+      collectTextAnchors(parseXMLContent("<document><body></body></document>")),
+    );
+  const overlay = overlayOf([
+    node("article", "a1", "I", "ARTICLE I DEFINITIONS"),
+    node("article", "a2", "II", "ARTICLE II SALE AND PURCHASE", [
+      node("section", "s2.1", "2.1", "2.1 Purchase and Sale of the Company Capital Stock; Purchase Price."),
+      node("section", "s2.2", "2.2", "2.2 Closing Payments."),
+    ]),
+    node("article", "a5", "V", "ARTICLE V Covenants", [
+      node("section", "s5.8", "5.08", "Section 5.08. Retention of Books &amp; Records."),
+    ]),
+  ]);
+
+  it("links articles and sections by their number", () => {
+    expect(tocEntryOutlineId(overlay, "ARTICLE II SALE AND PURCHASE")).toBe("a2");
+    expect(
+      tocEntryOutlineId(overlay, "2.1 Purchase and Sale of the Company Capital Stock; Purchase Price"),
+    ).toBe("s2.1");
+    expect(tocEntryOutlineId(overlay, "Section 5.08 Retention of Books & Records")).toBe("s5.8");
+    expect(tocEntryOutlineId(overlay, "Article 5 Covenants")).toBe("a5");
+  });
+
+  it("accepts a shortened printed heading and a bare number", () => {
+    expect(tocEntryOutlineId(overlay, "2.1 Purchase and Sale")).toBe("s2.1");
+    expect(tocEntryOutlineId(overlay, "2.2")).toBe("s2.2");
+    expect(tocEntryOutlineId(overlay, "1. DEFINITIONS")).toBe("a1");
+  });
+
+  it("leaves entries the outline does not hold as plain text", () => {
+    expect(tocEntryOutlineId(overlay, "2.5 Outstanding Receivables Amount")).toBeNull();
+    expect(tocEntryOutlineId(overlay, "Exhibit A Form of Escrow Agreement")).toBeNull();
+    // Same number, different words: an exhibit's own Section 2.2.
+    expect(tocEntryOutlineId(overlay, "2.2 Governing Law")).toBeNull();
+  });
+
+  it("does not link a number that two sections share", () => {
+    const twice = overlayOf([
+      node("section", "s1.1", "1.1", "1.1 Definitions."),
+      node("section", "s1.1~2", "1.1", "1.1 Definitions."),
+    ]);
+    expect(tocEntryOutlineId(twice, "1.1 Definitions")).toBeNull();
+  });
+});
+
