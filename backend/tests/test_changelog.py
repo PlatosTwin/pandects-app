@@ -288,6 +288,38 @@ class ChangelogTests(unittest.TestCase):
         )
         self.assertEqual(lines, ["**API:** Renamed `{old}` to &lt;new>", ""])
 
+    def test_mdx_escape_keeps_colons_from_starting_directives(self) -> None:
+        # The docs site parses ":name" as a text directive, so a colon before
+        # a letter becomes an entity in MDX prose.
+        mdx = self.renderer._mdx_escape
+        self.assertEqual(mdx("declare scope:name too"), "declare scope&#58;name too")
+        self.assertEqual(mdx("x:y[label]"), "x&#58;y[label]")
+        for kept in (
+            "in `scope:name` code",
+            "see https://x.y/z",
+            # A bare URL keeps its colons, or its link address would break.
+            "see https://x.y/a:b now",
+            "see www.x.y/a:b now",
+            "[text](https://x.y/a:b)",
+            "at 10:30 today",
+            "Label: value",
+            "a::b",
+        ):
+            self.assertEqual(mdx(kept), kept)
+        self.assertEqual(
+            mdx("see https://x.y/a:b and scope:name"),
+            "see https://x.y/a:b and scope&#58;name",
+        )
+        # CHANGELOG.md is not MDX and keeps the colon.
+        self.assertEqual(self.renderer._markdown_escape("scope:name"), "scope:name")
+        self.assertEqual(
+            self.renderer._render_change(
+                {"type": "mcp", "severity": "minor", "summary": "Adds agreements:read_fulltext"},
+                mdx=True,
+            ),
+            ["**MCP:** Adds agreements&#58;read_fulltext", ""],
+        )
+
     def test_entry_prose_keeps_paragraph_breaks(self) -> None:
         # A line break in details or migration starts a paragraph (a blank
         # line in a folded YAML scalar loads as one); other whitespace folds.
@@ -359,6 +391,20 @@ class ChangelogTests(unittest.TestCase):
         self.assertEqual(escape("---"), "\\---")
         for plain in ("#175 fixed", "-5 degrees", "1,432 rows", "*kept* text", "(1) first"):
             self.assertEqual(escape(plain), plain)
+        # Three or more backticks or tildes would open a code block.
+        self.assertEqual(escape("```sql rows"), "\\```sql rows")
+        self.assertEqual(escape("````"), "\\````")
+        self.assertEqual(escape("~~~ text"), "\\~~~ text")
+        self.assertEqual(escape("~~~~"), "\\~~~~")
+        # Inline code spans are not fences: one or two backticks, or a
+        # triple-backtick span closed on the same line, stay as written.
+        for code in ("`id` is now text", "``a`b`` text", "```x``` text", "~~ two tildes"):
+            self.assertEqual(escape(code), code)
+        lines = self.renderer._render_change(
+            {"type": "api", "severity": "minor", "summary": "s", "details": "```json is gone"},
+            mdx=True,
+        )
+        self.assertEqual(lines[3], "\\```json is gone")
         change = {
             "type": "api",
             "severity": "minor",

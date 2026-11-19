@@ -48,16 +48,16 @@ const STAGE_TOOLTIP_COPY = {
   "0_staging":
     "Agreements awaiting pre-processing (splitting into pages, classifying, etc.).",
   "1_pre_processing":
-    "Agreements that have been pre-processed and are awaiting tagging via the NER model.",
+    "Agreements that have been pre-processed and are awaiting tagging by our named-entity recognition (NER) model.",
   "2_tagging":
-    "Agreements that have been tagged and are awaiting compilation into XML. All tag validation is done at the XML level.",
+    "Agreements that have been tagged and are awaiting compilation into XML. The tags are checked when the XML is checked.",
   "3_xml":
-    "Agreements that have been compiled into XML and are awaiting verification (via AI or manually, if that fails) before an upsert to the sections table.",
+    "Agreements that have been compiled into XML and are awaiting verification (via AI or manually, if that fails) before their sections are stored.",
 } as const;
 
 /** The green bucket of the status summary (`color = 'green'` in the ETL). */
 const COMPLETE_STAGE_TOOLTIP =
-  "Passed every pipeline stage: verified XML, sections stored, and no stale tags.";
+  "Passed every pipeline stage: verified XML, sections stored, and no tags changed since the XML was built.";
 
 const DEAL_TYPE_DISPLAY_ORDER = [
   "merger",
@@ -180,8 +180,8 @@ export function AgreementIndexOverview() {
       <div className="space-y-1">
         <p className="text-xs font-medium text-foreground">Coverage by field</p>
         <p className="text-xs prose-copy">
-          Pricing fields use consideration-aware denominators for both ingested
-          and processed deals.
+          Price fields count only deals they apply to; for example, cash price
+          counts only cash or mixed deals.
         </p>
       </div>
       <div className="space-y-2">
@@ -888,7 +888,7 @@ export function AgreementIndexOverview() {
       <div className="hidden overflow-x-auto rounded-lg border border-border sm:block">
         <Table className="min-w-[520px]">
           <caption className="sr-only">
-            Staged versus awaiting validation agreements by pipeline stage.
+            Staged agreements and agreements awaiting validation, by pipeline stage.
           </caption>
           <TableHeader>
             <TableRow>
@@ -959,7 +959,7 @@ export function AgreementIndexOverview() {
             Every ingested agreement by pipeline stage and filing year. Staged
             agreements have not yet gone through our pipelines; agreements
             awaiting validation tripped one of our validations and are waiting
-            for review. Neither appears in the{" "}
+            for review. Neither appears in search results or in the API&apos;s{" "}
             <span className="font-mono text-foreground">/v1/sections/*</span> or{" "}
             <span className="font-mono text-foreground">/v1/agreements/*</span>{" "}
             routes.

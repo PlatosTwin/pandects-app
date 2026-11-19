@@ -105,7 +105,7 @@ export function CounselLeaderboardChart({
         className="h-[260px] w-full min-w-0 aspect-auto sm:h-[320px] lg:h-[380px]"
         config={chartConfig}
         role="img"
-        aria-label={`100 percent stacked area chart showing ${metricLabel} share by filing year for the selected counsel firms.`}
+        aria-label={`100 percent stacked area chart showing ${metricLabel} share by filing year for the top-ranked law firms.`}
         aria-describedby={`${describedBy} ${tableId}`}
       >
         <AreaChart data={percentData} margin={{ top: 6, right: 24, left: 8, bottom: 0 }}>

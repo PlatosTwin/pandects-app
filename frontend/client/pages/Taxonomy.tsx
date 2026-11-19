@@ -756,7 +756,7 @@ export default function Taxonomy() {
                 <EmptyState
                   variant="inline"
                   icon={ListTree}
-                  title="Select a node"
+                  title="Select an entry"
                   body="Its path, corpus count, and an example appear here."
                 />
               )}
