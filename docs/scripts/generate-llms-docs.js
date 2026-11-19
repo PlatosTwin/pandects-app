@@ -31,7 +31,10 @@ const readGuide = (relPath) => {
     if (t) title = t[1].trim();
     if (d) description = d[1].trim();
   }
-  return { relPath, title, description, body: stripFrontmatter(raw).trim() };
+  // Heading ids are written as MDX comments ("### Minor (2) {/* #id */}");
+  // they mean nothing outside the docs site.
+  const body = stripFrontmatter(raw).replace(/[ \t]*\{\/\* #[^\s*]+ \*\/\}$/gm, "").trim();
+  return { relPath, title, description, body };
 };
 
 const GUIDES = [

@@ -4,7 +4,7 @@ import { apiUrl } from "@/lib/api-config";
 const AUTH_WAKEUP_RETRY_DELAYS_MS = [300, 700, 1400] as const;
 const AUTH_PREWARM_TTL_MS = 30_000;
 
-export const AUTH_WAKEUP_MESSAGE = "Waiting for auth DB to wake up…";
+export const AUTH_WAKEUP_MESSAGE = "Waking up the sign-in service…";
 
 let authPrewarmPromise: Promise<void> | null = null;
 let authPrewarmAtMs = 0;

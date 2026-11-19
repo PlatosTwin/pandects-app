@@ -38,7 +38,7 @@ do not invent new arbitrary values.
 |-------|------|-------------|
 | `text-[11px]` | Field labels ("Target", "Acquirer"), eval-table headers, micro chips (`Badge` `chip` variant) | Usually `font-semibold uppercase tracking-wide text-muted-foreground` |
 | `text-[10px]` | Smallest tier: BETA pill, reader-toolbar labels, mono file-format chips, tiny count pills | Same uppercase treatment, or `font-mono font-normal` for format chips |
-| `text-[13px]` | Taxonomy L1 mono IDs only — a deliberate per-level step (L1 `13px` → L2/L3 `11px`) | `font-mono text-foreground/80` |
+| `text-[13px]` | Taxonomy L1 mono IDs — a deliberate per-level step (L1 `13px` → L2/L3 `11px`) — and code: `CodeBlock` and the Bulk Data command rows | `font-mono text-foreground/80` for IDs; `font-mono text-foreground` for code |
 | `text-[9px]` | `.tooltip-help-trigger-compact` glyph only | Defined in `global.css`, not used inline |
 
 Rule of thumb: `text-xs` is the floor for readable sentences; the px tiers are
@@ -245,6 +245,7 @@ on them, and on any bordered, rounded `bg-card` surface with no shadow.
 | `FactCard` | `components/FactCard.tsx` | `icon?`, `eyebrow?`, `title`, `description?`, `href?` (router path, `http(s)`, or `mailto:`), `titleAs?` |
 | `ChartPanel` | `components/ChartPanel.tsx` | `title`, `description?`, `controls?`, `children` (chart), `footnote?`, `mobileExpand?` (`true` or a render fn for the modal), `titleAs?`, `id?` |
 | `SegmentedControl` | `components/ui/segmented-control.tsx` | `value`, `onValueChange`, `options: {value, label, disabled?}[]`, `aria-label`, `size?: "sm" \| "default"` |
+| `Tabs` | `components/ui/tabs.tsx` | Radix tabs with the same pill look as `SegmentedControl`. The list is as wide as its labels; never stretch it across the page (`w-full`, `grid-cols-N`). |
 | `ErrorState` | `components/StateMessage.tsx` | `error?` (`{status?, code?, message?}`, `Error`, or string), `title?`, `body?`, `onRetry?`, `action?`, `signInHref?`, `variant?: "card" \| "inline"` |
 | `EmptyState` | `components/StateMessage.tsx` | `icon?`, `title`, `body?`, `action?`, `variant?` |
 | `describeError` | `components/StateMessage.tsx` | Maps 401/403 → sign in, 404, 429 → slow down, network → retry, 5xx |
