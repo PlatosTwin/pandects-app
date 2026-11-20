@@ -888,7 +888,7 @@ class StatusAndTargetRuleTests(unittest.TestCase):
                 ("Sections 7", "resolved", "a7"),
                 ("8", "unresolved", None),
                 ("Section 8", "external", None),
-                ("Section 8", "unresolved", None),
+                ("Section 8", "external", None),  # L1: "of Revenue Procedure 2004-53" names another document
                 ("Section 8", "unresolved", None),
             ],
         )
@@ -1713,6 +1713,36 @@ def _back(*texts: str) -> str:
 MAIN = _article("a1", "ARTICLE I DEFINITIONS", _section("s11", "Section 1.1 Definitions", "x")) + _article(
     "a2", "ARTICLE II THE MERGER", _section("s21", "Section 2.1 The Merger", "y")
 )
+
+
+class RoundTwoLeadRuleTests(unittest.TestCase):
+    """Round-2 lead rules L1 to L7 (2026-11-20, round2_PROPOSALS.md "For the lead after the merge")."""
+
+    def _all(self, body_text: str, back: str = "", main: str = MAIN) -> list[tuple[str, str, str | None]]:
+        xml = _doc(main + _article("a9", "ARTICLE IX MISC", _section("s91", "Section 9.1 Refs", body_text)), back=back)
+        return [(x["text"], x["status"], x.get("target")) for x in build_reader_index(xml)["xrefs"]]
+
+    # L1: no node and a tail that names something else
+    def test_l1_tail_naming_another_document_is_external(self) -> None:
+        refs = self._all("As set out in Section 7.3 of Revenue Procedure 2004-53 and Article 12 under the Stockholders Agreement.")
+        self.assertIn(("Section 7.3", "external", None), refs)
+        self.assertIn(("Article 12", "external", None), refs)
+
+    def test_l1_keeps_self_markers_articles_and_existing_nodes(self) -> None:
+        refs = self._all(
+            "Under this Section 7.3 pursuant to Regulation D, Section 8.5 of Article IX, Section 2.1 under the Escrow Terms "
+            "and Section 7.7 of the Company Disclosure Letter."
+        )
+        self.assertIn(("Section 7.3", "unresolved", None), refs)
+        self.assertIn(("Section 8.5", "unresolved", None), refs)
+        self.assertIn(("Section 2.1", "resolved", "s2.1"), refs)  # a node exists: L1 never applies
+        self.assertIn(("Section 7.7", "disclosure_schedule", None), refs)
+
+    def test_l1_in_back_matter_only_without_a_main_node(self) -> None:
+        back = _back("EXHIBIT A", "ESCROW TERMS", "Section 7.3 of Revenue Procedure 2004-53 and Section 2.1 of Revenue Procedure 2004-53 apply.")
+        refs = self._all("x", back=back)
+        self.assertIn(("Section 7.3", "external", None), refs)
+        self.assertIn(("Section 2.1", "unresolved", None), refs)
 
 
 class BackMatterSegmentTests(unittest.TestCase):

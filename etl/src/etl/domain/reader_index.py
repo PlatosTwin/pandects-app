@@ -24,7 +24,7 @@ import json
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 ENRICHER_VERSION = "0.10.0"
@@ -1372,6 +1372,8 @@ class _Ref:
     this_before: bool = False  # "this Section 8"
     plain_tail: bool = False  # no tail naming anything but this agreement, and no OCR continuation (".9", "-3")
     other_tail: bool = False  # "clause (iii) of paragraph 2 of Annex C of the Commitment Letter"
+    tail: str = ""  # the text after the run (90 characters, stray items dropped), shared by its members
+    self_marker: bool = False  # "this Section 6.3", "Section 6.3 hereof" (body only, rule 10)
 
 
 def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
@@ -1543,6 +1545,8 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
         other_tail = CLAUSE_OF_OTHER.match(tail) is not None
         for r in run:
             r.other_tail = other_tail
+        for r in run:
+            r.tail, r.self_marker = tail, self_marker
         run[0].lead = True
         run[0].this_before = THIS_BEFORE.search(before) is not None
         run[0].plain_tail = _plain_tail(tail)
@@ -1626,8 +1630,34 @@ def _is_large_bare_number(ref: _Ref, ol: _Outline, base: str, subs: str) -> bool
     return not any(k in ol.articles or k in ol.sections or k in ol.subs or (k + subs) in ol.subs for k in keys)
 
 
+# L1: "Section 2.3 of the Escrow Agreement", "Article 5 under the Plan": a tail that names something other than this
+# agreement, its own attachments or an article ("Section 9.5 of Article IX" is a charter's or bylaws' own numbering)
+NAMED_OTHER_TAIL = re.compile(
+    r"^\s*(?:\([^()]*\)\s*)*(?:of|under|pursuant\s+to)\s+(?:the\s+|such\s+|its\s+|their\s+)?"
+    + r"(?!this\b|Agreement\b|hereof\b|Merger\s+Agreement\b|(?:Exhibit|Annex|Schedule|Appendix|Part|Article)\b)[A-Z]"
+)
+
+
+def _names_other(ref: _Ref) -> bool:
+    """L1: the run's tail names another document or a statute, and no self marker says it is this agreement's."""
+    t = ref.tail
+    return (
+        ref.head in ("section", "article", "clause")
+        and not ref.self_marker
+        and NAMED_OTHER_TAIL.match(t) is not None
+        and not (DISCLOSURE.match(t) or ATTACHMENT_TAIL.match(t) or THEREOF_AFTER.match(t))
+    )
+
+
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
     """Returns (status, target id, ambiguous candidates)."""
+    if ref.status == "unresolved" and ref.detail == "exhibit_local" and _names_other(ref):
+        # L1 in back matter: an attachment's "Section 2.3 of the Escrow Agreement" is external when the main
+        # agreement has no such node either ("Section 2.1 of the Purchase Agreement" may be the main agreement's)
+        probe = replace(ref, status="", detail="")
+        if _resolve(probe, ol, tn, sec_text)[0] == "external":
+            ref.detail = ""
+            return "external", None, None
     if ref.status:
         return ref.status, None, None
     t = ref.target
@@ -1671,7 +1701,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                 if (one := _in_one_group(ol, base, subs)) is not None:
                     return "resolved", one.id, None
                 return "section_fallback", ol.articles[base][0].id, None
-            if _is_large_bare_number(ref, ol, base, subs):
+            if _is_large_bare_number(ref, ol, base, subs) or _names_other(ref):
                 return "external", None, None
             return "unresolved", None, None
         if len(nodes) > 1:
@@ -1703,7 +1733,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         key = str(as_int) if as_int else key
         arts = ol.articles.get(key)
         if not arts:
-            return "unresolved", None, None
+            return ("external" if _names_other(ref) else "unresolved"), None, None
         if len(arts) > 1:
             return "ambiguous", None, [a.id for a in arts]
         return "resolved", arts[0].id, None
