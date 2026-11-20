@@ -1192,5 +1192,34 @@ class BackMatterSegmentTests(unittest.TestCase):
             self.assertIsNone(OWN_NUMBER.match(t), t)
 
 
+    # Rule 4: an index of defined terms in back matter belongs to the agreement
+    INDEX = "Closing Section 2.1 Closing Date Section 2.1(a) Certificate of Merger Section 2.1(b) Definitions Section 1.1 Agreement Preamble"
+
+    def test_index_of_defined_terms_resolves_against_the_agreement(self) -> None:
+        main = MAIN.replace("<text>y</text>", "<text>(a) first.</text><text>(b) second.</text>")
+        x = _xrefs(build_reader_index(_doc(main, back=_back("EXHIBIT B", "INDEX OF DEFINED TERMS", self.INDEX))))
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+        self.assertEqual(x["Section 2.1(a)"]["target"], "s2.1(a)")
+        self.assertEqual(x["Section 1.1"]["target"], "s1.1")
+
+    def test_index_needs_four_pairs_and_no_own_numbering(self) -> None:
+        short = "Closing Section 2.1 Closing Date Section 2.1(a) Certificate of Merger Section 1.1"
+        x = _xrefs(build_reader_index(_doc(MAIN, back=_back("EXHIBIT B", short))))
+        self.assertEqual(x["Section 2.1"]["status"], "unresolved")
+        own = _back("EXHIBIT B", "1. Defined Terms.", self.INDEX, "2. Notices. Each notice is in writing.", "3. Counterparts.")
+        x = _xrefs(build_reader_index(_doc(MAIN, back=own)))
+        self.assertEqual(x["Section 2.1"]["status"], "unresolved")
+        self.assertNotIn("target", x["Section 2.1"])
+
+    def test_index_pairs_skip_prose_and_tables_of_contents(self) -> None:
+        from etl.domain.reader_index import _index_pairs
+
+        self.assertEqual(_index_pairs(self.INDEX), 4)
+        prose = "as set forth in Section 4.01 (Organization), Section 4.02 (Authority), the first sentence of Section 4.03(a), Section 4.04 and Section 4.05"
+        self.assertEqual(_index_pairs(prose), 0)
+        toc = "ARTICLE I DEFINITIONS 1 Section 1.1 Definitions 1 Section 1.2 Interpretation 4 Section 1.3 Other 5 Section 1.4 More 6"
+        self.assertEqual(_index_pairs(toc), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1278,6 +1278,31 @@ _OWN_NUMBERING_MIN = 3
 _OWN_NUMBERING_RATIO = 5  # at least one numbered paragraph per five definitions
 _DOTTED = re.compile(r"\d+\.\d+")
 _ATTACHMENT_HEADS = frozenset({"exhibit", "schedule", "annex", "appendix"})
+# An index of defined terms, "Acceptable Confidentiality Agreement Section 4.5(a) Additional Amounts Section 6.3(h)
+# Agreement Preamble": the places it cites, and the term before each one
+INDEX_PLACE = re.compile(
+    r"(?:Sections?|§)\s*\d+(?:\.\d+)*[A-Z]?(?:\s?\([A-Za-z0-9]{1,6}\))*|(?:Article|ARTICLE)\s+[IVXLC\d]+\b|Preamble\b|Recitals?\b"
+)
+_INDEX_TERM = re.compile(r"[A-Z0-9$“\"][\w’'&/\-.,“”\"$]*(?:\s+[\w’'&/\-.,“”\"$]+){0,9}")
+_INDEX_SMALL = frozenset("a an and as at by for in of on or the to under with".split())
+_INDEX_MIN_PAIRS = 4
+
+
+def _index_pairs(text: str) -> int:
+    """How many "Term Section N.M" pairs a paragraph holds. The text before each cited place must be a short
+    capitalized term: "Closing Date", "Certificate of Merger", but not "as set forth in" or "(Capitalization),"."""
+    pairs, prev = 0, 0
+    for m in INDEX_PLACE.finditer(text):
+        chunk = text[prev : m.start()].strip()
+        prev = m.end()
+        # a term that ends in a page number ("Definitions 1", "Term D-39") is a table-of-contents line
+        if not _INDEX_TERM.fullmatch(chunk) or chunk.endswith(",") or re.search(r"(?:^|\s)(?:[A-Z]-)?\d+$", chunk):
+            continue
+        words = chunk.split()
+        if words[-1].lower() in _INDEX_SMALL or any(not (w[0].isupper() or not w[0].isalpha() or w in _INDEX_SMALL) for w in words):
+            continue
+        pairs += m.group(0)[0] in "S§"  # "Preamble" and "Article II" separate entries; only sections count
+    return pairs
 
 
 @dataclass
@@ -1298,7 +1323,8 @@ def _back_segments(texts: list[_Text]) -> dict[int, _Segment]:
     agreement's Section 5.4, unless at least three of its paragraphs (and one per five definitions) open with their
     own section number. Such a
     segment is an attached document (registration rights, LLC, escrow or voting agreement) that defines its own
-    terms, and its bare references are to its own sections.
+    terms, and its bare references are to its own sections. A segment without its own numbering that holds an
+    index of defined terms (a paragraph with four or more "Term Section N.M" pairs) is the agreement's as well.
     """
     segments: list[tuple[_Segment, list[_Text]]] = [(_Segment(""), [])]
     for tn in texts:
@@ -1320,7 +1346,9 @@ def _back_segments(texts: list[_Text]) -> dict[int, _Segment]:
         # Agreement"): a few numbered paragraphs after a hundred definitions do not make it an attached document
         seg.own_numbered = own >= _OWN_NUMBERING_MIN and own * _OWN_NUMBERING_RATIO >= entries
         seg.defines_terms = entries >= _GLOSSARY_MIN_ENTRIES
-        seg.glossary = seg.defines_terms and not seg.own_numbered
+        # an index of the agreement's defined terms ("Closing Date Section 2.2") cites the agreement too
+        index = any(_index_pairs(tn.text) >= _INDEX_MIN_PAIRS for tn in seg_texts)
+        seg.glossary = (seg.defines_terms or index) and not seg.own_numbered
         out.update((id(tn), seg) for tn in seg_texts)
     return out
 
