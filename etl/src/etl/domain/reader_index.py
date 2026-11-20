@@ -973,6 +973,9 @@ SECTION_TARGET = re.compile(r"(\d+[A-Z]?(?:\.\d+[A-Z]?)*)((?:\([A-Za-z0-9]+\))*)
 
 _HEAD_NORM = {"annexe": "annex", "appendice": "appendix"}
 _IN_DOCUMENT_HEADS = frozenset({"section", "article", "clause", "paragraph"})
+# "Sections 8.2 and 9.1 thereof", but not "Section 3.22 (except for paragraph (g) thereof)": there the "thereof"
+# sits inside a parenthetical about Section 3.22 itself, so a skipped parenthetical may not hold another "("
+THEREOF_AFTER = re.compile(r"^\s*(?:\([^()]*\)\s*)*,?\s*thereof\b")
 
 
 @dataclass
@@ -1096,7 +1099,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             or (lower_head and LOWER_HEAD_OTHER.match(tail))
         ):
             status = "external"
-        elif THEREOF.match(tail):
+        elif THEREOF_AFTER.match(tail):
             # "Sections 8.2 and 9.1 thereof": the sections of a document named just before
             status = "unresolved"
             for r in run:

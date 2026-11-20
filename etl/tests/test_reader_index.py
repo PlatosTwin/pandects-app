@@ -155,6 +155,41 @@ class TermTests(unittest.TestCase):
         self.assertEqual(len(p["uses"]["s1/1"]), 1)
 
 
+ROUND_TWO = _doc(
+    _article(
+        "a3",
+        "ARTICLE III REPRESENTATIONS",
+        _section("s322", "Section 3.22 Taxes", "(a) Filed.", "(g) Paid."),
+    )
+    + _article(
+        "a5",
+        "ARTICLE V COVENANTS",
+        _section("s52", "Section 5.2 Conduct", "(a) Ordinary course.", "(b) Restrictions.", "(i) no dividends.", "(ii) no splits."),
+    )
+)
+
+
+def _round_two(text: str) -> dict[str, dict[str, Any]]:
+    xml = ROUND_TWO.replace("</body>", _article("a9", "ARTICLE IX MISC", _section("s91", "Section 9.1 Refs", text)) + "</body>")
+    return _xrefs(build_reader_index(xml))
+
+
+class RoundTwoRuleTests(unittest.TestCase):
+    """Round-2 census rules (2026-11-20): U05 "thereof" and U13 clause lists qualified by a section."""
+
+    def test_thereof_inside_a_parenthetical_keeps_the_section(self) -> None:
+        x = _round_two("The representations in Section 3.22 (except for paragraph (g) thereof) are true.")
+        self.assertEqual((x["Section 3.22"]["status"], x["Section 3.22"].get("target")), ("resolved", "s3.22"))
+        x = _round_two("A breach of Section 5.2(b) (other than clause (ii)(B) thereof) applies.")
+        self.assertEqual(x["Section 5.2(b)"]["status"], "resolved")
+
+    def test_thereof_after_the_reference_still_names_another_document(self) -> None:
+        x = _round_two("The Company complies with the DGCL, including Section 3.22 (as amended) thereof.")
+        self.assertEqual(x["Section 3.22"]["status"], "unresolved")
+        x = _round_two("Under the Lease, Sections 5.2 and 3.22 thereof apply.")
+        self.assertEqual(x["Sections 5.2"]["status"], "unresolved")
+
+
 class XrefTests(unittest.TestCase):
     def test_statuses(self) -> None:
         x = _xrefs(build_reader_index(BASIC))
