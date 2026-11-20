@@ -1367,6 +1367,21 @@ class BackMatterSegmentTests(unittest.TestCase):
         x = _xrefs(build_reader_index(_doc(self.UK, back=deed)))
         self.assertEqual(x["clause 9.2"]["status"], "unresolved")
 
+    def test_uk_clause_in_a_schedule_stays_local_above_another_document_or_in_us_drafting(self) -> None:
+        back = _back(
+            "SCHEDULE 10",
+            "WARRANTIES",
+            "2.3 Except as set forth in clause 9.2 above, nothing is issued.",
+            "2.4 The declaration (as defined in, and pursuant to clause 9.2 of, the Primary Policy) is delivered.",
+            "2.5 Liability is capped under clause 9.2.",
+        )
+        x = build_reader_index(_doc(self.UK, back=back))["xrefs"]
+        self.assertEqual([(r["status"], r.get("target")) for r in x if r["text"] == "clause 9.2"], [("unresolved", None), ("unresolved", None), ("resolved", "s9.2")])
+        # the same schedule under a US agreement that cites "Section 9.2" in its body
+        us = _article("c9", "ARTICLE IX WARRANTIES", _section("s92", "Section 9.2 Limits", "As set out in Section 9.2 and Section 9.3."))
+        x = build_reader_index(_doc(us, back=back))["xrefs"]
+        self.assertEqual({r["status"] for r in x if r["text"] == "clause 9.2"}, {"unresolved"})
+
 
 if __name__ == "__main__":
     unittest.main()

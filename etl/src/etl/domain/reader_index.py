@@ -1346,7 +1346,13 @@ _SCHEDULE_HEAD = re.compile(r"(?:SCHEDULE|Schedule)\b")
 _OWN_DEED = re.compile(r"\b[Tt]his\s+(?:[A-Z][a-z]+\s+)?(?:Deed|deed|Covenant|covenant)\b")
 _THIS_BEFORE = re.compile(r"\bthis\s+$", re.IGNORECASE)
 # "clause 2.1 of the Tax Covenant", "clause 4.2 of this Deed": another document; "of this agreement" is not
-_OTHER_DOC_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*,?\s*(?:of|in|under|to)\s+(?:this|the)\s+(?![Aa]greement\b|AGREEMENT\b)(?:[A-Z]|deed\b)")
+_OTHER_DOC_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*,?\s*(?:of|in|under|to),?\s+(?:this|the)\s+(?![Aa]greement\b|AGREEMENT\b)(?:[A-Z]|deed\b)")
+# "clause 2.1 above": the schedule's own paragraph
+_ABOVE_BELOW = re.compile(r"\s*(?:\([^)]*\)\s*)*(?:above|below)\b")
+# UK drafting cites its own clauses as "clause 9.2"; a US agreement says "Section 9.2" and its schedules' "clause 9.2"
+# is something else
+_CLAUSE_DOTTED = re.compile(r"\b[Cc]lauses?\s+\d+\.\d")
+_SECTION_DOTTED = re.compile(r"\b(?:Sections?|SECTIONS?)\s+\d+\.\d")
 
 
 @dataclass
@@ -1457,6 +1463,8 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
     sec_text_cache: dict[int, str] = {}
 
     back_segments = _back_segments(texts)
+    body_text = " ".join(t.text for t in texts if t.region == "body")
+    uk_clauses = len(_CLAUSE_DOTTED.findall(body_text)) >= len(_SECTION_DOTTED.findall(body_text))
     nodes_by_id: dict[str, _Node] = {}
     stack = list(ol.roots)
     while stack:
@@ -1536,10 +1544,12 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
             if (
                 r.status == "unresolved" and r.detail == "exhibit_local" and r.head == "clause" and seg is not None and _SCHEDULE_HEAD.match(seg.head) and _DOTTED.match(r.target)
                 and not seg.deed and not _THIS_BEFORE.search(tn.text, 0, r.start) and not _OTHER_DOC_TAIL.match(tn.text, r.end)
+                and not _ABOVE_BELOW.match(tn.text, r.end) and uk_clauses
             ):
                 # UK drafting: a schedule numbers its own items as paragraphs and cites the agreement's "clause 9.2".
                 # Not "this clause 9.3" (the schedule's own), a deed or covenant set out in the schedule, or a tail
-                # that names another document ("clause 2.1 of the Tax Covenant")
+                # that names another document ("clause 2.1 of the Tax Covenant", "clause 3.1 of, the Primary Policy"), or
+                # "clause 2.1 above"; and only when the agreement itself cites "clause N.M" at least as often as "Section N.M"
                 r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
             if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
