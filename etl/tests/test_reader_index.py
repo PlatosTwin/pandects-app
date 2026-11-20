@@ -1798,7 +1798,7 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
                 ("Section VIII", "unresolved", None),
                 ("Section IX", "resolved", "a9"),
                 ("Section IX", "unresolved", None),
-                ("Section VIII", "unresolved", None),
+                ("Section VIII", "external", None),  # L1b: "of the Seller" names something else
             ],
         )
 
@@ -1824,6 +1824,10 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
     def test_l7_disclosure_statement_is_the_disclosure_schedule(self) -> None:
         refs = self._all("Except as set forth in Section 3.13(b) of the Matrix Disclosure Statement or Section 2.1 of Seller’s Disclosure Statement.")
         self.assertEqual([s for _, s, _ in refs], ["disclosure_schedule", "disclosure_schedule"])
+
+    def test_l1_reaches_numbers_no_section_can_have(self) -> None:
+        refs = self._all("Under Section 1.368-2(g) of the Treasury regulations and Section 2510.3-101 of the Department of Labor regulations.")
+        self.assertEqual([s for _, s, _ in refs], ["external", "external"])
 
     # L8: "Sections 7.16-17" is a range of two sections, not a regulation number
     def test_l8_short_hyphen_range_links_both_ends(self) -> None:

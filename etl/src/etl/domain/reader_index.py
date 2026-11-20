@@ -1734,7 +1734,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         if not m:
             if (art := _roman_section_article(ref, ol, tn)) is not None:
                 return "resolved", art.id, None
-            return "unresolved", None, None
+            # L1 for a number no section can have ("Section 1.368-2(g) of the Treasury regulations")
+            return ("external" if _names_other(ref) else "unresolved"), None, None
         base = _norm_num(m.group(1))
         subs = m.group(2)
         nodes = ol.sections.get(base)
