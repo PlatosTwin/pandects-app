@@ -1085,5 +1085,110 @@ class AnchorTests(unittest.TestCase):
         self.assertEqual(build_reader_index(BASIC), build_reader_index(BASIC))
 
 
+def _back(*texts: str) -> str:
+    return "".join(f"<text>{t}</text>" for t in texts)
+
+
+# The agreement the back-matter tests cite: Sections 1.1 and 2.1 under ARTICLE headings
+MAIN = _article("a1", "ARTICLE I DEFINITIONS", _section("s11", "Section 1.1 Definitions", "x")) + _article(
+    "a2", "ARTICLE II THE MERGER", _section("s21", "Section 2.1 The Merger", "y")
+)
+
+
+class BackMatterSegmentTests(unittest.TestCase):
+    # Rule 1: own numbering ends a glossary segment
+    def test_attached_agreement_with_own_numbering_is_not_a_glossary(self) -> None:
+        back = _back(
+            "EXHIBIT C",
+            "REGISTRATION RIGHTS AGREEMENT",
+            "Section 1.1 Definitions. As used in this Agreement:",
+            "“Holder” means a holder of Registrable Securities.",
+            "“Registrable Securities” means the Shares.",
+            "“Shelf” means a shelf registration statement.",
+            "Section 2.1 Demand Registration. Subject to Section 1.1, a Holder may demand a registration.",
+            "Section 2.2 Piggyback. As provided in Section 2.1 of the Merger Agreement, the Holder may join.",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Section 1.1"]["status"], "unresolved")
+        self.assertNotIn("target", x["Section 1.1"])
+        # a tail that names the main agreement still resolves
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+
+    def test_attachment_names_in_an_attached_agreement_that_defines_terms_still_resolve(self) -> None:
+        back = _back(
+            "ANNEX 3.7",
+            "“Earn-Out Payment” means the payment under Section 3.7.1 of this Annex 3.7.",
+            "“EBITDA” means net income.",
+            "“Target” means USD 1.",
+            "3.7.1 FY 2017 Earn-Out. Paid as set out in Schedule A.",
+            "3.7.2 FY 2018 Earn-Out. Paid as set out in Section 2.1.",
+            "3.7.3 Maximum. Capped.",
+            "SCHEDULE A",
+            "PAYMENTS",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Annex 3.7"]["target"], "x-annex-3.7")
+        self.assertEqual(x["Schedule A"]["target"], "x-schedule-a")
+        self.assertEqual(x["Section 2.1"]["status"], "unresolved")
+
+    def test_numbered_definitions_annex_is_still_a_glossary(self) -> None:
+        back = _back(
+            "ANNEX A",
+            "DEFINITIONS",
+            "1.1 “Accounting Principles” means GAAP.",
+            "1.2 “Business Day” means a weekday.",
+            "1.3 “Closing” has the meaning set forth in Section 2.1.",
+            "1.4 “Holder” means a holder.",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+
+    def test_a_long_glossary_with_a_short_numbered_tail_stays_a_glossary(self) -> None:
+        defs = [f"“Term {i}” means item {i}." for i in range(16)]
+        back = _back(
+            "EXHIBIT A",
+            *defs,
+            "“Board” means the board, as provided in Section 2.1.",
+            "1. Amendment. Section 2.1 of the Merger Agreement is amended.",
+            "2. Effect. The rest stays.",
+            "3. Miscellaneous.",
+        )
+        first = next(x for x in build_reader_index(_doc(MAIN, back=back))["xrefs"] if x["text"] == "Section 2.1")
+        self.assertEqual(first["target"], "s2.1")
+
+    def test_an_sec_form_stays_external_in_an_attached_agreement(self) -> None:
+        back = _back(
+            "EXHIBIT C",
+            "“Holder” means a holder.",
+            "“Shares” means shares.",
+            "“Shelf” means a shelf.",
+            "Section 1.1 Transfers. No Holder transfers to a Person that filed a Schedule 13D.",
+            "Section 1.2 Notices. In writing.",
+            "Section 1.3 Law. Delaware.",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Schedule 13D"]["status"], "external")
+
+    def test_two_numbered_paragraphs_keep_the_glossary(self) -> None:
+        back = _back(
+            "EXHIBIT A",
+            "Section 1.1 Definitions.",
+            "“Holder” means a holder.",
+            "“Shelf” means a shelf registration, as described in Section 2.1.",
+            "“Shares” means common stock.",
+            "Section 1.2 Interpretation. Headings are for convenience.",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+
+    def test_own_number_shapes(self) -> None:
+        from etl.domain.reader_index import OWN_NUMBER
+
+        for t in ("Section 2.1 Demand Registration.", "2.1 Demand", "2. Transition Services.", "ARTICLE II GENERAL", "1 DEFINITIONS", "Section 7. Notices."):
+            self.assertIsNotNone(OWN_NUMBER.match(t), t)
+        for t in ("1.1 “Accounting Principles” means GAAP.", "100 Main Street", "2019 Annual Report", "(a) Parent shall", "1 Within 50 Business Days"):
+            self.assertIsNone(OWN_NUMBER.match(t), t)
+
+
 if __name__ == "__main__":
     unittest.main()

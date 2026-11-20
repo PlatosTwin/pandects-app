@@ -27,7 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-ENRICHER_VERSION = "0.9.0"
+ENRICHER_VERSION = "0.10.0"
 PAYLOAD_SCHEMA = 1
 
 # Regions whose text is indexed for term uses and cross-references. The table of
@@ -1263,32 +1263,66 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
 
 # ---------------------------------------------------------------- payload
 
-_DECL_START = re.compile(rf"^\s*(?:[A-Z0-9][^“”\".]{{0,80}}?\.\s+)?[{_Q_OPEN}][A-Z0-9][^{_Q_CLOSE}]{{0,80}}[{_Q_CLOSE}]")
+# 'Awards. "Awards" ...', '"Awards" ...' and a numbered definition, '1.1 "Accounting Principles" ...'
+_DECL_START = re.compile(rf"^\s*(?:[A-Z0-9][^“”\".]{{0,80}}?\.\s+|\d{{1,3}}(?:\.\d{{1,3}})+\.?\s+)?[{_Q_OPEN}][A-Z0-9][^{_Q_CLOSE}]{{0,80}}[{_Q_CLOSE}]")
 _GLOSSARY_MIN_ENTRIES = 3
 _DEFINITIONS_SECTION_MIN_DECLS = 5
+# A paragraph that opens with its own number: "Section 4.1 Title", "4.1 Title", "2. Title", "ARTICLE II", and the
+# UK "1 DEFINITIONS". A number before a quoted term ("1.1 “Accounting Principles” means") is a numbered
+# definition, so it does not count, and neither does a bare "100 Main Street".
+OWN_NUMBER = re.compile(
+    r"^\s*(?:(?:Section|SECTION|Sec\.|§)\s*\d{1,3}[A-Z]?(?:\.\d{1,3})*\.?|(?:Article|ARTICLE)\s+(?:\d{1,3}|[IVXL]+)\b\.?"
+    + r"|\d{1,3}(?:\.\d{1,3})+\.?|\d{1,3}\.|\d{1,2}(?=\s+[A-Z]{3,}\b))\s+(?=[A-Z(])"
+)
+_OWN_NUMBERING_MIN = 3
+_OWN_NUMBERING_RATIO = 5  # at least one numbered paragraph per five definitions
+_ATTACHMENT_HEADS = frozenset({"exhibit", "schedule", "annex", "appendix"})
 
 
-def _glossary_exhibit_texts(texts: list[_Text]) -> set[int]:
-    """Back-matter texts that sit in a definitions exhibit ("Exhibit A: Definitions").
+@dataclass
+class _Segment:
+    """A stretch of back matter that starts at an attachment heading (or at the start of back matter)."""
 
-    Back matter is split at attachment headings. A segment where at least three
-    paragraphs open with a quoted term is a glossary for the agreement itself, so
-    its bare "Section 5.4" means the agreement's Section 5.4. Other exhibits keep
-    the conservative exhibit-local rule.
+    head: str  # the heading line that opens it, "" before the first one
+    glossary: bool = False  # the agreement's own definitions: a bare "Section 5.4" there is the agreement's
+    own_numbered: bool = False  # its paragraphs carry their own section numbers: an attached document
+    defines_terms: bool = False  # three or more paragraphs open with a quoted term
+
+
+def _back_segments(texts: list[_Text]) -> dict[int, _Segment]:
+    """The segment of each back-matter text, by id().
+
+    Back matter is split at attachment headings. A segment where at least three paragraphs open with a quoted
+    term is a glossary for the agreement itself ("Exhibit A: Definitions"), so its bare "Section 5.4" means the
+    agreement's Section 5.4, unless at least three of its paragraphs (and one per five definitions) open with their
+    own section number. Such a
+    segment is an attached document (registration rights, LLC, escrow or voting agreement) that defines its own
+    terms, and its bare references are to its own sections.
     """
-    segments: list[list[_Text]] = [[]]
+    segments: list[tuple[_Segment, list[_Text]]] = [(_Segment(""), [])]
     for tn in texts:
         if tn.region != "backMatter":
             continue
         txt = tn.text.strip()
         if ATTACHMENT_HEADING.match(txt) and len(txt) < 120:
-            segments.append([])
-        segments[-1].append(tn)
-    out: set[int] = set()
-    for seg in segments:
-        if sum(1 for tn in seg if _DECL_START.match(tn.text)) >= _GLOSSARY_MIN_ENTRIES:
-            out.update(id(tn) for tn in seg)
+            segments.append((_Segment(txt), []))
+        segments[-1][1].append(tn)
+    out: dict[int, _Segment] = {}
+    for seg, seg_texts in segments:
+        own = sum(1 for tn in seg_texts if OWN_NUMBER.match(tn.text))
+        entries = sum(1 for tn in seg_texts if _DECL_START.match(tn.text))
+        # the agreement's own glossary can run on into a short unheaded document ("1. Amendment to the Merger
+        # Agreement"): a few numbered paragraphs after a hundred definitions do not make it an attached document
+        seg.own_numbered = own >= _OWN_NUMBERING_MIN and own * _OWN_NUMBERING_RATIO >= entries
+        seg.defines_terms = entries >= _GLOSSARY_MIN_ENTRIES
+        seg.glossary = seg.defines_terms and not seg.own_numbered
+        out.update((id(tn), seg) for tn in seg_texts)
     return out
+
+
+def _glossary_exhibit_texts(texts: list[_Text]) -> set[int]:
+    """Back-matter texts that sit in the agreement's own definitions exhibit (see _back_segments)."""
+    return {k for k, seg in _back_segments(texts).items() if seg.glossary}
 
 
 def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_version: int | None = None) -> dict[str, Any]:
@@ -1337,7 +1371,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
     body_counts: Counter[str] = Counter()  # in-document heads, body text only
     sec_text_cache: dict[int, str] = {}
 
-    glossary_texts = _glossary_exhibit_texts(texts)
+    back_segments = _back_segments(texts)
     # sections holding many declarations: their "(a)", "(i)" items belong to single definitions,
     # so a bare "clause (i)" there is never a subsection of the section
     decl_count = Counter(d.tn.s for d in decls)
@@ -1374,13 +1408,18 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
             sec_text = sec_text_cache[sk]
         else:
             sec_text = tn.text
-        in_exhibit = tn.region == "backMatter" and id(tn) not in glossary_texts
+        seg = back_segments.get(id(tn))
+        in_exhibit = tn.region == "backMatter" and not (seg is not None and seg.glossary)
         is_heading = ATTACHMENT_HEADING.match(tn.text.strip()) is not None and len(tn.text.strip()) < 120
         lead = len(tn.text) - len(tn.text.lstrip())
         numbered_para = (tn.s, tn.t) in ol.numbered_paras
         for r in _find_refs(tn.text, in_exhibit=in_exhibit):
             if (is_heading or numbered_para) and r.start == lead:
                 continue  # the heading "Annex 3.7" or "Section 5.16.1 Payments" itself, not a reference to it
+            if r.status == "unresolved" and r.detail == "exhibit_local" and r.head in _ATTACHMENT_HEADS and seg is not None and seg.defines_terms:
+                # own numbering is about section numbers: "this Annex 3.7" or "Schedule A, attached hereto" in a
+                # segment that defines terms still names a filed attachment, as it did before
+                r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
             if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
                 status, target, r.detail = "unresolved", None, "inline"
