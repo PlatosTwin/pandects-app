@@ -360,6 +360,9 @@ def _printed_article_key(title: str, expected: int) -> tuple[str, str] | None:
     """(key, raw) of an article title's printed number."""
     m = ARTICLE_NUM.match(title)
     raw = (m.group(1) or m.group(2)) if m else _glued_roman(title, expected)
+    if not raw and (sm := SPELLED_ARTICLE.match(title)):
+        # L3: "ARTICLE ONE", "Article Twelve" is article 1, article 12
+        return str(_SPELLED.index(sm.group(1).lower()) + 1), sm.group(1)
     if not raw:
         return None
     as_int = _roman_to_int(raw) if not raw.isdigit() else None
@@ -1287,6 +1290,8 @@ REF_HEAD = re.compile(r"(?<![A-Za-z])(Sections?|Articles?|SECTIONS?|ARTICLES?|se
 _SPELLED: tuple[str, ...] = tuple("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split())
 # "Article Three"
 SPELLED_ITEM = re.compile(r"(" + "|".join(w.capitalize() + "|" + w.upper() for w in _SPELLED) + r")\b")
+# "ARTICLE ONE": an article title that spells its number
+SPELLED_ARTICLE = re.compile(r"^\s*(?:ARTICLE|Article)\s+" + SPELLED_ITEM.pattern)
 # a letter suffix ("2.4A", "Section 409Aof") is not the start of a glued head ("6.4Section 6.3(a)")
 _SUFFIX = r"(?:[A-Z](?!ections?\b|ECTIONS?\b|rticles?\b|RTICLES?\b|chedules?\b|xhibits?\b|nnex))"
 GLUED_HEAD = re.compile(r"(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Schedules?|Exhibits?|Annex)\b")

@@ -1755,6 +1755,21 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
         self.assertIn(("Section 4", "unresolved", None), refs)  # this agreement's own exhibit
         self.assertIn(("Section 5", "unresolved", None), refs)
 
+    # L3: an article title that spells its number
+    def test_l3_spelled_article_title_is_numbered(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE ONE THE MERGER", _section("s11", "Section 1.1 Merger", "x"))
+            + _article("a2", "Article Seventeen Terms", _section("s21", "Section 17.1 Terms", "Under Article One, Article 1, Article XVII, Article Two and Section 1."))
+        )
+        p = build_reader_index(xml)
+        self.assertEqual([(n["id"], n["label"]) for n in p["outline"]], [("a1", "ONE"), ("a17", "Seventeen")])
+        refs = [(x["text"], x["status"], x.get("target")) for x in p["xrefs"]]
+        self.assertIn(("Article One", "resolved", "a1"), refs)
+        self.assertIn(("Article 1", "resolved", "a1"), refs)
+        self.assertIn(("Article XVII", "resolved", "a17"), refs)
+        self.assertIn(("Article Two", "unresolved", None), refs)
+        self.assertIn(("Section 1", "unresolved", None), refs)  # "ARTICLE ONE" is not cited as "Section 1"
+
 
 class BackMatterSegmentTests(unittest.TestCase):
     # Rule 1: own numbering ends a glossary segment
