@@ -1390,6 +1390,19 @@ class _Ref:
     after: str = ""  # the text from the end of this item to 60 characters past the end of its run
 
 
+def _section_range_end(base: str, hyphen: str, before: str) -> str | None:
+    """L8: "7.16" and "-17" make the range end "7.17" when the tail is a larger number with as many digits as the
+    base's last part and no authority precedes ("Treasury Regulations Section 1.368-2" stays one number)."""
+    m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})", base)
+    tm = re.match(r"[\-‑](\d+)(?![A-Z])", hyphen)  # what follows the digits ("(Taxes)", "(a)") stays in the tail
+    if not m or not tm or AUTHORITY_BEFORE.search(before):
+        return None
+    last, end = m.group(2), tm.group(1)
+    if len(end) != len(last) or int(end) <= int(last):
+        return None
+    return f"{m.group(1)}.{end}"
+
+
 def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
     # back: the text is in back matter, where "this Section 6.3" is an attached document's own section, so the
     # self markers and the verb guard do not apply there (2026-11-20 corpus read: 24 of 26 such links were wrong)
@@ -1421,6 +1434,12 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
             # The whole number fits no section, so it stays unresolved unless its tail makes it external.
             if run and re.fullmatch(r"\d+[A-Z]?(?:\.\d+[A-Z]?)+", run[-1].target) and (rm := REG_HYPHEN.match(text, pos)):
                 last = run[-1]
+                if head == "section" and (end := _section_range_end(last.target, rm.group(0), text[max(0, hm.start() - 40) : hm.start()])):
+                    # L8: "Sections 7.16-17 (Taxes)" is a range, 7.16 through 7.17; the second member prints only "17"
+                    stop = rm.start() + 1 + len(end.split(".")[1])
+                    run.append(_Ref(head, end, rm.start() + 1, stop, stop))
+                    pos = stop
+                    continue
                 last.target, last.end = last.target + re.sub(r"\s", "", rm.group(0)), rm.end()
                 pos = rm.end()
                 continue

@@ -1825,6 +1825,21 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
         refs = self._all("Except as set forth in Section 3.13(b) of the Matrix Disclosure Statement or Section 2.1 of Seller’s Disclosure Statement.")
         self.assertEqual([s for _, s, _ in refs], ["disclosure_schedule", "disclosure_schedule"])
 
+    # L8: "Sections 7.16-17" is a range of two sections, not a regulation number
+    def test_l8_short_hyphen_range_links_both_ends(self) -> None:
+        main = _article(
+            "a7", "ARTICLE VII COVENANTS", _section("s716", "Section 7.16 Taxes", "x") + _section("s717", "Section 7.17 Other", "y")
+        )
+        refs = self._all(
+            "Sections 7.16-17 (Taxes) apply. Treasury Regulations Section 7.16-17 applies. Section 1.368-2(g) of the Treasury "
+            "regulations applies. See Schedule 1.1-2 and Section 54.4980B-9 and Section 7.16-07.",
+            main=main,
+        )
+        self.assertEqual(refs[:2], [("Sections 7.16", "resolved", "s7.16"), ("17", "resolved", "s7.17")])
+        texts = [t for t, _, _ in refs]
+        for t in ("Section 7.16-17", "Section 1.368-2(g)", "Schedule 1.1-2", "Section 54.4980B-9", "Section 7.16-07"):
+            self.assertIn(t, texts)
+
 
 class BackMatterSegmentTests(unittest.TestCase):
     # Rule 1: own numbering ends a glossary segment
