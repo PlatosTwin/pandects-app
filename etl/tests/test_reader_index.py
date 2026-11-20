@@ -1802,6 +1802,11 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
             ],
         )
 
+    # L6: "K&S", "D&O", "U.S." are names, not single-letter items
+    def test_l6_ampersand_and_dotted_initials_are_not_items(self) -> None:
+        refs = self._all("Under the Schedule D&amp;O policy, Section U.S. Holder rules and Schedules K&amp;S Draft, see Exhibit A, B and C and Article IV.")
+        self.assertEqual([t for t, _, _ in refs], ["Exhibit A", "B", "C", "Article IV"])
+
 
 class BackMatterSegmentTests(unittest.TestCase):
     # Rule 1: own numbering ends a glossary segment

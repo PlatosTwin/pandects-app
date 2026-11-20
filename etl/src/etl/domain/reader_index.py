@@ -1295,7 +1295,9 @@ SPELLED_ARTICLE = re.compile(r"^\s*(?:ARTICLE|Article)\s+" + SPELLED_ITEM.patter
 # a letter suffix ("2.4A", "Section 409Aof") is not the start of a glued head ("6.4Section 6.3(a)")
 _SUFFIX = r"(?:[A-Z](?!ections?\b|ECTIONS?\b|rticles?\b|RTICLES?\b|chedules?\b|xhibits?\b|nnex))"
 GLUED_HEAD = re.compile(r"(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Schedules?|Exhibits?|Annex)\b")
-REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
+# L6: "K&S", "D&O", "U.S." after a head are names, not "Section K" or "Schedule U"
+_NOT_A_LETTER_ITEM = r"(?!&|\.[A-Z]\.)"
+REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b" + _NOT_A_LETTER_ITEM + r"|[A-Z]\b" + _NOT_A_LETTER_ITEM + r"(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 # "Section VIII.2(e)": tried first for section, article, clause and paragraph heads only ("Exhibit C.2" is Exhibit C)
 ROMAN_ITEM = re.compile(r"(" + _ROMAN_NUM + r"(?:\.\d+" + _SUFFIX + r"?)+(?:\s?\([A-Za-z0-9]{1,6}\))*)")
 # "Exhibit C-1", "Exhibit I-1": tried first for attachment heads, so the label is not Roman "C" plus a range "-1"
