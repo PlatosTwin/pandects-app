@@ -580,6 +580,14 @@ class StatusAndTargetRuleTests(unittest.TestCase):
             ],
         )
 
+    def test_self_style_skips_statute_citations(self) -> None:
+        got = self._self_style(
+            "The rights under this Section 8 survive.",
+            "Arbitration under 9 U.S.C., Section 8 et seq. applies. See Health Code, Chapter II, Section 8 et seq. "
+            + "Registered form under Section 8f.103-1(c) of the Treasury Regulations. See Section 8.",
+        )
+        self.assertEqual([s for _, s, _ in got], ["resolved", "unresolved", "unresolved", "unresolved", "resolved"])
+
     def test_self_style_needs_the_signal_inside_its_own_article(self) -> None:
         got = self._self_style("The rights under Section 8 survive.", "As provided in this Section 8, and Section 8.")
         self.assertEqual([s for _, s, _ in got], ["unresolved"] * 3)

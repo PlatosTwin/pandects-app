@@ -985,6 +985,8 @@ _OTHER_TAIL = re.compile(
     r"^[\s,]*(?:\([^)]*\)\s*)*,?\s*(?:(?:of|under|pursuant\s+to)\s|there(?:of|to|in|under)\b"
     + r"|(?:to|in)\s+(?:this\s+(?!Agreement\b)\w|(?:the|such|any|each|its|their)\s+[A-Z]|(?:Exhibit|Annex|Schedule|Appendix|Part)\s))"
     + r"|^(?:[.,]{1,2}\s?\d|\.l|-\d)"
+    # "9 U.S.C., Section 1 et seq.": a statute; "Section 5f.103-1(c)": a letter glued to the number
+    + r"|^[\s,]*et\.?\s+seq\b|^[A-Za-z]\.\d"
 )
 
 
