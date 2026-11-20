@@ -250,6 +250,28 @@ class PositionalSectionTests(unittest.TestCase):
         self.assertEqual(p["stats"]["sections_positional"], 0)
         self.assertEqual(sorted(_sections_by_id(p)), ["s1.1", "s3.1", "s3.2"])
 
+    def test_disclosure_schedule_item_is_not_a_numbered_paragraph(self) -> None:
+        xml = _doc(
+            _article(
+                "a5",
+                "ARTICLE V REPRESENTATIONS",
+                _section(
+                    "s1",
+                    "Section 5.12 Employee Benefits.",
+                    "(a) Each Plan is listed.",
+                    "Section 5.12.5 of the Company Disclosure Schedule sets forth each severance plan.",
+                    "(b) No Plan is subject to Title IV.",
+                    "5.12.6 Other Plans. See Section 5.12(b).",
+                ),
+            )
+        )
+        p = build_reader_index(xml)
+        x = _xrefs(p)
+        self.assertEqual(x["Section 5.12.5"]["status"], "disclosure_schedule")
+        self.assertEqual(x["Section 5.12(b)"]["target"], "s5.12(b)")
+        subs = [n["id"] for n in _sections_by_id(p)["s5.12"].get("children", [])]
+        self.assertEqual(subs, ["s5.12(a)", "s5.12(b)", "s5.12.6"])
+
 
 class TermTests(unittest.TestCase):
     def test_declarations_and_pointer_demotion(self) -> None:

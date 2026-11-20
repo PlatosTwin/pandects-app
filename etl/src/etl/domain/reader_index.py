@@ -588,6 +588,9 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                 continue
             txt = tn.text
             dm = DECIMAL_PARA.match(txt) or (ROMAN_DECIMAL_PARA.match(txt) if ol.roman_sections else None)
+            # "Section 5.12.5 of the Company Disclosure Schedule sets forth ...": a schedule item, not paragraph 5.12.5
+            if dm and DISCLOSURE.match(txt[dm.end() :]):
+                dm = None
             if dm:
                 key = _norm_num(_deroman(dm.group(1)))
                 if key != dm.group(1):
