@@ -924,7 +924,7 @@ def _sentence_initial(text: str, start: int) -> bool:
 STATUTE = re.compile(
     # "Section 4 para 1 and 2 AWG": German statutes cite paragraphs as "para"
     r"^\s*para\.?\s+\d|"
-    + r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant to)\s+(?:the\s+)?(?:[A-Z]{3,6}\b|Code|DGCL|Exchange Act|Securities Act|HSR Act|ERISA|Treasury Regulations?|Regulation|Rule|Delaware|General Corporation Law|Investment Company Act|Internal Revenue Code|(?:[A-Z][A-Za-z]+\s+){1,4}(?:Act|Law|Code|Statutes?)\b|Title)",
+    + r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant to)\s+(?:the\s+)?(?:[A-Z]{3,6}\b|Code|DGCL|Exchange Act|Securities Act|HSR Act|ERISA|Treasury Regulations?|Regulation|Rule|Delaware|General Corporation Law|Investment Company Act|Internal Revenue Code|(?:[A-Z][A-Za-z]+\s+){1,4}(?:Act|Law|Code|Statutes?)\b|(?:[A-Z][A-Za-z]+\s+){0,3}(?:1[89]|20)\d\d\s+Act\b|Title)",
 )
 DISCLOSURE = re.compile(
     # "of the Seller’s Disclosure Letter", "item 1 of the ...", "Disclosure ----- Schedule" across a page break
@@ -949,21 +949,23 @@ ZERO_SPLIT = re.compile(r"[^\S\n](\d)" + _ENUMS + _NOT_A_COUNT)
 REG_HYPHEN = re.compile(r"[\-‑]\d+[A-Z]?(?:\s?\([A-Za-z0-9]{1,6}\))*(?![\d\-‑]|\.\d)")
 COLON_NUMBER = re.compile(r":\d")
 LEFTOVER_ITEMS = re.compile(r"^(?:\s*,?\s*(?:and/or|and|or)?\s*\([A-Za-z0-9]{1,6}\))+")
+INCLUSIVE = re.compile(r"^\s*,?\s*inclusive\s*,?(?=\s*(?:of|to|in|under|hereof)\b)")
 THEREOF = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*thereof\b")
 ATTACHMENT_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Schedules?|Part|Annex|Appendix|Exhibit)\s+[A-Z0-9IVX]")
 SELF_DOC = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+Agreement\b")
 SELF_DOC_FROM_EXHIBIT = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+(?:Merger\s+)?Agreement\b")
 OTHER_DOC = re.compile(
-    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?!Agreement\b)(?:[A-Z][\w\-]*\s+){0,5}(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles)\b"
+    # "of the Company's Amended and Restated Certificate", "of Parent's Credit Agreement": a possessive name
+    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?!Agreement\b)(?:[A-Z][\w\-]*(?:[’']s?)?\s+){0,5}(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles)\b"
     + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:[a-z]+\s+){0,3}(?:bylaws|by-laws|charter|certificate of incorporation|articles of incorporation|operating agreement)\b"
-    + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:Amended\s+and\s+Restated\s+)?(?:Articles|Certificate)\s+of\s+(?:Incorporation|Association|Organization)\b",
+    + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:[A-Z][\w\-]*[’']s?\s+)?(?:Amended\s+and\s+Restated\s+)?(?:Articles|Certificate)\s+of\s+(?:Incorporation|Association|Organization)\b",
 )
 # Self markers: "this Section 6.3" and "Section 6.3 hereof" name the document's own section
 THIS_BEFORE = re.compile(r"(?i:\bthis)\s+$")
 HEREOF_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:hereof|herein|hereunder)\b")
 # "Section 14a-13 of the Exchange Act": an Act named after the reference. A verb before it means the Act
 # belongs to the rest of the sentence ("Section 6.3 shall not apply to filings under the Securities Act").
-ACT_LATER = re.compile(r"\bof\s+(?:the\s+)?[A-Z][\w .\-()]{2,60}\bAct\b")
+ACT_LATER = re.compile(r"\bof\s+(?:the\s+)?(?:[A-Z][\w .\-()]{2,60}|(?:1[89]|20)\d\d\s+)\bAct\b")
 _VERB = re.compile(r"\b(?:shall|will|is|are|must|may|would|should|was|were|has|have|be|been)\b")
 
 
@@ -973,7 +975,7 @@ def _act_later(tail: str) -> bool:
 
 
 # "Code Section 409A", "Treasury Regulations Section 1.368-2" (from the kirkland ingester)
-AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.)|§)\s*$")
+AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.|CFR|Regs\.)|§)\s*$")
 SEC_FORM = re.compile(r"^(?:\d{2}[A-Z](?:-\d+)?|TO|13E-3)$")
 # lowercase "section 3.5" and "article VI" are references too (rubric v1.4 lists the head words, not their case)
 # "Section 6.4Section 6.3(a)": a head glued to the number before it still starts a reference
@@ -1108,6 +1110,8 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         tail = re.sub(r"^\.(?=\s+(?:of|to|in|under)\b)", "", text[pos : pos + 90])
         # "Section 4.14(b), (c), (m) or (o) of the Code": items the run did not take still lead to the tail
         tail = LEFTOVER_ITEMS.sub("", tail, count=1)
+        # "Sections 2.2 to 2.5, inclusive, of the Distribution Agreement": the tail follows the "inclusive"
+        tail = INCLUSIVE.sub("", tail, count=1)
         before = text[max(0, hm.start() - 40) : hm.start()]
         lower_head = hm.group(1) in ("section", "sections", "article", "articles")
         self_doc = (SELF_DOC_FROM_EXHIBIT if in_exhibit else SELF_DOC).match(tail)

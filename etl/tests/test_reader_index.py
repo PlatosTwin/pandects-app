@@ -504,6 +504,28 @@ class StatusAndTargetRuleTests(unittest.TestCase):
         labels = [n["label"] for n in p["outline"] if n["kind"] == "attachment"]
         self.assertEqual(labels, ["2.02(a)", "2.02(b)", "B"])
 
+    # rule 12: small tail fixes
+    def test_small_tail_fixes(self) -> None:
+        got = self._all(
+            _doc(
+                _article("a13", "SECTION 13 Reports", _section("s131", "13.1 Filings", "x"))
+                + _section("s22", "Section 2.2 Assets", "(a) x.")
+                + _section("s25", "Section 2.5 Liabilities", "x")
+                + _section("s71", "Section 7.1 Charter", "(c) x.")
+                + _section(
+                    "s9",
+                    "Section 9.1 Refs",
+                    "Reports under Sections 13 or 14 of the 1934 Act are filed.",
+                    "As set out in Section 7.1(c) of the Company’s Amended and Restated Certificate of Incorporation.",
+                    "Under Section 2.2 of Parent's Credit Agreement, and Sections 2.2 to 2.5, inclusive, of the Distribution Agreement.",
+                    "See 12 CFR Section 225.2 and Treas. Regs. Section 1.1502-6.",
+                    "Sections 2.2 to 2.5, inclusive, hereof apply. Sections 2.2 to 2.5, inclusive, apply.",
+                )
+            )
+        )
+        self.assertEqual([s for _, s, _ in got[:8]], ["external"] * 8)
+        self.assertEqual(got[8:], [("Sections 2.2", "resolved", "s2.2"), ("2.5", "resolved", "s2.5")] * 2)
+
 
 class ReaderHealthShapeTests(unittest.TestCase):
     """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""
