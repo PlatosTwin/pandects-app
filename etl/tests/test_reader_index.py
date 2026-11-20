@@ -1829,6 +1829,31 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
         refs = self._all("Under Section 1.368-2(g) of the Treasury regulations and Section 2510.3-101 of the Department of Labor regulations.")
         self.assertEqual([s for _, s, _ in refs], ["external", "external"])
 
+    # L9: a clause qualified by a section finds its one matching descendant
+    def test_l9_qualified_clause_finds_the_one_descendant(self) -> None:
+        main = _article(
+            "a6",
+            "ARTICLE VI COVENANTS",
+            _section("s64", "Section 6.4 Conduct", "(a) The Company shall not:", "(i) amend;", "(ii) sell;", "(iii) borrow.", "(b) Parent shall not:", "(A) merge.")
+            + _section("s65", "Section 6.5 Other", "(a) Each party:", "(i) acts;", "(b) The other:", "(i) waits."),
+        )
+        refs = self._all(
+            "Breach of clauses (i) through (iii) of Section 6.4. Also clause (A) of Section 6.4. Also clause (i) of Section 6.5. "
+            "Also clause (x) of Section 6.4.",
+            main=main,
+        )
+        got = [(t, s, g) for t, s, g in refs if not t.startswith("Section")]
+        self.assertEqual(
+            got,
+            [
+                ("clauses (i)", "resolved", "s6.4(a)(i)"),
+                ("(iii)", "resolved", "s6.4(a)(iii)"),
+                ("clause (A)", "resolved", "s6.4(b)(A)"),
+                ("clause (i)", "section_fallback", "s6.5"),  # two (i) under 6.5: no guess
+                ("clause (x)", "section_fallback", "s6.4"),
+            ],
+        )
+
     # L8: "Sections 7.16-17" is a range of two sections, not a regulation number
     def test_l8_short_hyphen_range_links_both_ends(self) -> None:
         main = _article(

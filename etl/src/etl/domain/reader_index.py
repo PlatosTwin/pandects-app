@@ -1788,6 +1788,12 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         if (one := _in_one_group(ol, base, subs)) is not None:
             return "resolved", one.id, None
         if ref.qualified:
+            # L9: "clauses (i) through (xxiii) of this Section 6.4" where (i) sits under 6.4(a): the one descendant
+            # of the printed section that ends in the clause
+            if re.fullmatch(r"\([A-Za-z0-9]+\)", subs):
+                deep = [k for k in ol.subs if k.startswith(base + "(") and k.endswith(subs) and k not in ol.groups]
+                if len(deep) == 1:
+                    return "resolved", ol.subs[deep[0]].id, None
             # "clauses (i) through (v) of Section 3.4(c)" with no paragraph-level target: link the
             # deepest printed ancestor that exists, which the reader sees named right there
             parts = re.findall(r"\([A-Za-z0-9]+\)", subs)
