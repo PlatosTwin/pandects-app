@@ -1317,6 +1317,23 @@ BACK_TOC_ENTRY = re.compile(
     + r"(?=\s+(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Exhibits?|EXHIBITS?|Schedules?|SCHEDULES?|Annex|ANNEX)\b|\s*$)"
 )
 _BACK_TOC_MIN = 4
+# The number at the start of an outline title: "Section 5.4", "ARTICLE VIII", "6.16"
+_HEAD_LABEL = re.compile(r"^\s*(?:(?:Section|SECTION|Article|ARTICLE|Sec\.)\s*)?[\dIVXLC]+(?:\.\d+)*\.?\s*")
+
+
+def _names_main_heading(r: _Ref, ol: _Outline, tn: _Text, sec_text: str, after: str, by_id: dict[str, _Node]) -> bool:
+    """Whether a heading-shaped "Section 5.4 Authority; Approval" in back matter prints the title of the agreement's
+    own Section 5.4: a list of disclosure schedules or the agreement's table of contents, so a reference after all."""
+    if r.status:
+        return False
+    status, target, _ = _resolve(r, ol, tn, sec_text)
+    node = by_id.get(target) if status in ("resolved", "section_fallback") and target else None
+    if node is None:
+        return False
+    a = re.findall(r"[a-z]+", _HEAD_LABEL.sub("", node.title, count=1).lower())
+    b = re.findall(r"[a-z]+", after.lower())
+    k = min(len(a), len(b), 4)
+    return k >= 1 and a[:k] == b[:k] and (k >= 2 or len(a) == len(b) == 1)
 
 
 @dataclass
@@ -1419,6 +1436,12 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
     sec_text_cache: dict[int, str] = {}
 
     back_segments = _back_segments(texts)
+    nodes_by_id: dict[str, _Node] = {}
+    stack = list(ol.roots)
+    while stack:
+        n = stack.pop()
+        nodes_by_id[n.id] = n
+        stack.extend(n.children)
     # sections holding many declarations: their "(a)", "(i)" items belong to single definitions,
     # so a bare "clause (i)" there is never a subsection of the section
     decl_count = Counter(d.tn.s for d in decls)
@@ -1461,12 +1484,21 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         lead = len(tn.text) - len(tn.text.lstrip())
         numbered_para = (tn.s, tn.t) in ol.numbered_paras
         back = tn.region == "backMatter"
+        found = _find_refs(tn.text, in_exhibit=in_exhibit)
         if back and len(BACK_TOC_ENTRY.findall(tn.text)) >= _BACK_TOC_MIN:
-            continue  # "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 ...": an attachment's table of contents
-        for r in _find_refs(tn.text, in_exhibit=in_exhibit):
+            # "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 ...": an attachment's table of contents, unless
+            # its titles are the agreement's own (the agreement's contents or a list of its disclosure schedules)
+            heads = [r for r in found if r.head in _IN_DOCUMENT_HEADS]
+            same = sum(_names_main_heading(r, ol, tn, sec_text, tn.text[r.end : r.end + 120], nodes_by_id) for r in heads)
+            if not (same >= 2 and same * 2 >= len(heads)):
+                continue
+        for r in found:
             if (is_heading or numbered_para) and r.start == lead:
                 continue  # the heading "Annex 3.7" or "Section 5.16.1 Payments" itself, not a reference to it
-            if back and r.start == lead and r.head in _IN_DOCUMENT_HEADS and BACK_HEADING_TITLE.match(tn.text, r.end):
+            if (
+                back and r.start == lead and r.head in _IN_DOCUMENT_HEADS and BACK_HEADING_TITLE.match(tn.text, r.end)
+                and not _names_main_heading(r, ol, tn, sec_text, tn.text[r.end : r.end + 120], nodes_by_id)
+            ):
                 continue  # "Section 9.1 Amendments." opening a back-matter paragraph: an attachment's own heading
             if r.status == "unresolved" and r.detail == "exhibit_local" and r.head in _ATTACHMENT_HEADS and seg is not None and seg.defines_terms:
                 # own numbering is about section numbers: "this Annex 3.7" or "Schedule A, attached hereto" in a

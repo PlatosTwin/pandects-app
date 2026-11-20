@@ -1256,5 +1256,22 @@ class BackMatterSegmentTests(unittest.TestCase):
         self.assertEqual(len(p["xrefs"]), 3)
 
 
+    def test_back_matter_lines_that_print_the_agreements_own_titles_stay_references(self) -> None:
+        # a list of omitted disclosure schedules and the agreement's own table of contents, printed in back matter
+        back = _back(
+            "EXHIBIT A",
+            "“Holder” means a holder.",
+            "“Notice” means a notice.",
+            "“Share” means a share.",
+            "Section 2.1 — The Merger",
+            "Section 1.1 Definitions 1 Section 2.1 The Merger 2 Section 1.1 Definitions 3 Section 2.1 The Merger 4",
+            "Section 1.1 Notices. Notices go to the Holder.",
+        )
+        x = build_reader_index(_doc(MAIN, back=back))["xrefs"]
+        self.assertEqual([(r["at"]["t"], r["target"]) for r in x if r["at"]["t"] == 4], [(4, "s2.1")])
+        self.assertEqual(len([r for r in x if r["at"]["t"] == 5]), 4)
+        # a heading whose title is not the agreement's stays out
+        self.assertEqual([r for r in x if r["at"]["t"] == 6], [])
+
 if __name__ == "__main__":
     unittest.main()
