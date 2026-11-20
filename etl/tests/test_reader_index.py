@@ -387,6 +387,87 @@ class TermTests(unittest.TestCase):
         self.assertEqual(len(p["uses"]["s1/1"]), 1)
 
 
+ROUND_TWO = _doc(
+    _article(
+        "a3",
+        "ARTICLE III REPRESENTATIONS",
+        _section("s322", "Section 3.22 Taxes", "(a) Filed.", "(g) Paid."),
+    )
+    + _article(
+        "a5",
+        "ARTICLE V COVENANTS",
+        _section("s52", "Section 5.2 Conduct", "(a) Ordinary course.", "(b) Restrictions.", "(i) no dividends.", "(ii) no splits."),
+    )
+)
+
+
+def _round_two(text: str) -> dict[str, dict[str, Any]]:
+    xml = ROUND_TWO.replace("</body>", _article("a9", "ARTICLE IX MISC", _section("s91", "Section 9.1 Refs", text)) + "</body>")
+    return _xrefs(build_reader_index(xml))
+
+
+class RoundTwoRuleTests(unittest.TestCase):
+    """Round-2 census rules (2026-11-20): U05 "thereof" and U13 clause lists qualified by a section."""
+
+    def test_thereof_inside_a_parenthetical_keeps_the_section(self) -> None:
+        x = _round_two("The representations in Section 3.22 (except for paragraph (g) thereof) are true.")
+        self.assertEqual((x["Section 3.22"]["status"], x["Section 3.22"].get("target")), ("resolved", "s3.22"))
+        x = _round_two("A breach of Section 5.2(b) (other than clause (ii)(B) thereof) applies.")
+        self.assertEqual(x["Section 5.2(b)"]["status"], "resolved")
+
+    def test_thereof_after_the_reference_still_names_another_document(self) -> None:
+        x = _round_two("The Company complies with the DGCL, including Section 3.22 (as amended) thereof.")
+        self.assertEqual(x["Section 3.22"]["status"], "unresolved")
+        x = _round_two("Under the Lease, Sections 5.2 and 3.22 thereof apply.")
+        self.assertEqual(x["Sections 5.2"]["status"], "unresolved")
+
+    def test_section_printed_after_a_clause_list(self) -> None:
+        x = _round_two("The covenants in clauses (i) through (xxi) of Section 5.2(b) apply.")
+        self.assertEqual((x["clauses (i)"]["status"], x["clauses (i)"].get("target")), ("resolved", "s5.2(b)(i)"))
+        x = _round_two("Those proposals in clauses (D), (E) and (J), of Section 5.2(b), in each case, need a vote.")
+        self.assertEqual((x["clauses (D)"]["status"], x["clauses (D)"].get("target")), ("section_fallback", "s5.2(b)"))
+        x = _round_two("A breach of clause (ii) of the first sentence of Section 5.2(b) counts.")
+        self.assertEqual((x["clause (ii)"]["status"], x["clause (ii)"].get("target")), ("resolved", "s5.2(b)(ii)"))
+        x = _round_two("The amounts in clauses (i) through (xxi) above of this Section 3.22 are paid.")
+        self.assertEqual(x["clauses (i)"].get("target"), "s3.22")
+
+    def test_clause_thereof_takes_the_section_printed_before(self) -> None:
+        x = _round_two("A breach of Section 5.2(b) (other than clauses (i) and (ii) thereof) applies.")
+        self.assertEqual((x["clauses (i)"]["status"], x["clauses (i)"].get("target")), ("resolved", "s5.2(b)(i)"))
+        self.assertEqual(x["(ii)"].get("target"), "s5.2(b)(ii)")
+        x = _round_two("Section 5.2 (Conduct) shall be enforced as provided in clause (b) thereof.")
+        self.assertEqual(x["clause (b)"].get("target"), "s5.2(b)")
+        x = _round_two("Section 3.22 (other than paragraph (c) thereof) applies.")
+        self.assertEqual((x["paragraph (c)"]["status"], x["paragraph (c)"].get("target")), ("section_fallback", "s3.22"))
+
+    def test_clause_thereof_after_a_named_thing_stays_unlinked(self) -> None:
+        x = _round_two("For this Section 5.2(b) only, the exceptions to the Material Adverse Effect definition in clause (i) thereof do not apply.")
+        self.assertNotIn("target", x["clause (i)"])
+        x = _round_two("Under Section 5.2. The Lease and clause (i) thereof apply.")
+        self.assertNotIn("target", x["clause (i)"])
+        x = _round_two("The DGCL, including Section 262 and clause (i) thereof, applies.")
+        self.assertNotIn("target", x["clause (i)"])
+
+    def test_roman_article_title_without_the_word_article(self) -> None:
+        xml = _doc(
+            _article("r1", "I. THE MERGER", _section("r11", "1.1 The Merger.", "The Merger occurs."))
+            + _article("r3", "III. REPRESENTATIONS AND WARRANTIES", _section("r31", "3.1 Organization.", "Subject to this Article III and Article I. A Tax under Section 1.1502-6 or Section 3 applies."))
+            + _article("r4", "IV. other", "")
+        )
+        p = build_reader_index(xml)
+        self.assertEqual([n["id"] for n in p["outline"]], ["a1", "a3"])
+        x = _xrefs(p)
+        self.assertEqual((x["Article III"]["status"], x["Article III"].get("target")), ("resolved", "a3"))
+        self.assertEqual(x["Article I"].get("target"), "a1")
+        self.assertNotIn("target", x["Section 3"])  # "III." is an article title, not a "SECTION 3" heading
+
+    def test_late_section_of_another_document_does_not_qualify(self) -> None:
+        x = _round_two("A default under clause (ii) of the first sentence of Section 5.2(b) of the Credit Agreement.")
+        self.assertNotIn("target", x["clause (ii)"])
+        x = _round_two("Payments under clause (ii) and the fees of Counsel under Section 5.2 apply.")
+        self.assertNotIn("target", x["clause (ii)"])
+
+
 class XrefTests(unittest.TestCase):
     def test_statuses(self) -> None:
         x = _xrefs(build_reader_index(BASIC))

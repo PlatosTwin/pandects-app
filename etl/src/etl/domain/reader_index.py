@@ -145,8 +145,11 @@ def text_hash(xml: str) -> str:
 
 # ---------------------------------------------------------------- outline
 
+# "III. REPRESENTATIONS AND WARRANTIES" is article III too: a Roman number (I-XXXIX), a period and a capital,
+# with no "ARTICLE" before it, still goes to group 1
 ARTICLE_NUM = re.compile(
-    r"^\s*(?:ARTICLE|Article|PART|Part|SECTION|Section)\s+([IVXLC]+|\d+|[A-Z])\b|^\s*(\d+)\s*[.:]?\s+\D",
+    r"^\s*(?:(?:ARTICLE|Article|PART|Part|SECTION|Section)\s+|(?=" + _ROMAN_NUM + r"\.\s+[A-Z]))([IVXLC]+|\d+|[A-Z])\b"
+    + r"|^\s*(\d+)\s*[.:]?\s+\D",
 )
 # "Section VIII.2": some agreements number sections under their Roman article number
 SECTION_NUM = re.compile(
@@ -1233,6 +1236,56 @@ SECTION_TARGET = re.compile(r"(\d+[A-Z]?(?:\.\d+[A-Z]?)*)((?:\([A-Za-z0-9]+\))*)
 
 _HEAD_NORM = {"annexe": "annex", "appendice": "appendix"}
 _IN_DOCUMENT_HEADS = frozenset({"section", "article", "clause", "paragraph"})
+# "Sections 8.2 and 9.1 thereof", but not "Section 3.22 (except for paragraph (g) thereof)": there the "thereof"
+# sits inside a parenthetical about Section 3.22 itself, so a skipped parenthetical may not hold another "("
+THEREOF_AFTER = re.compile(r"^\s*(?:\([^()]*\)\s*)*,?\s*thereof\b")
+# The section printed after a clause list the run did not take whole: "clauses (i) through (xxi) of Section 6.3(b)",
+# "clauses (D), (E) and (J), of Section 8.2(b)", "clause (x) of the fourth sentence of Section 5.2",
+# "clause (A) in the proviso of Section 9.01(b)(i)", "clauses (i) through (vii) above of this Section 12.5(a)"
+_E = r"\([A-Za-z0-9]{1,6}\)"
+LATE_QUALIFIED = re.compile(
+    r"(?:\s*,?\s*(?:and/or|and|or|through|to|[\-–])?\s*(?:clauses?\s+|paragraphs?\s+)?" + _E + r"(?:\s?" + _E + r")*)*"
+    + r"\s*,?\s*(?:(?:above|below)\s+)?(?:in\s+each\s+case\s*,?\s*)?(?:of|in)\s+"
+    + r"(?:the\s+(?:(?:first|second|third|fourth|fifth|sixth|last|final|penultimate|preceding|introductory|lead-in)\s+)?"
+    + r"(?:sentence|paragraph|proviso|provisos)\s+(?:of|in|to)\s+)?(?:this\s+)?[Ss]ection\s+"
+    + r"((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.\d+[A-Z]?)+(?:\([A-Za-z0-9]{1,6}\))*)"
+)
+
+
+def _late_qualifier(text: str, pos: int) -> re.Match[str] | None:
+    """The section that a clause run names after the rest of its list, unless that section is another document's."""
+    m = LATE_QUALIFIED.match(text, pos)
+    if m is None or m.end() - pos > 300:
+        return None
+    after = text[m.end() : m.end() + 90]
+    if STATUTE.match(after) or OTHER_DOC.match(after) or DISCLOSURE.match(after) or ATTACHMENT_TAIL.match(after):
+        return None
+    return m
+
+
+_PAREN_PAIR = re.compile(r"\([^()]*\)")
+_THEREOF_SECTION = re.compile(r"(?:\d+|" + _ROMAN_NUM + r")\.\d")
+
+
+def _thereof_section(run: list[_Ref], text: str, start: int, last_sec: list[_Ref] | None) -> list[_Ref] | None:
+    """"Section 6.01(a) (other than clauses (iii) and (xx) thereof)", "Section 5.8 shall be enforceable as provided
+    in clause (d) thereof": a clause run whose "thereof" means the section of this agreement printed just before.
+    The gap between them stays in one sentence, within 160 characters, and names nothing (no capitalized word once
+    whole parentheticals such as captions are dropped). Returns the section run a later "thereof" may use."""
+    if run[0].head not in ("clause", "paragraph"):
+        return run if run[0].head == "section" and not run[0].qualified else None
+    sec = last_sec[-1] if last_sec else None
+    if sec is None or run[0].detail != "other_document" or sec.status or not _THEREOF_SECTION.match(sec.target):
+        return last_sec
+    gap = text[sec.end : start]
+    bare = _PAREN_PAIR.sub("", _PAREN_PAIR.sub("", gap))
+    if len(gap) > 160 or re.search(r"[.;]", bare) or re.search(r"[A-Z][a-z]", bare):
+        return last_sec
+    for r in run:
+        if r.target.startswith("("):
+            r.head, r.target, r.status, r.detail = "section", sec.target + r.target, "", ""
+            r.base_end, r.qualified = r.start, True
+    return last_sec
 
 
 @dataclass
@@ -1254,6 +1307,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
     prev_end: int | None = None
     # a paragraph with three or more all-caps heads is a table of contents, often of another document
     caps_toc = sum(1 for m in REF_HEAD.finditer(text) if m.group(1).isupper()) >= 3
+    last_sec: list[_Ref] | None = None  # the latest section run, for a clause run's "thereof"
     for hm in REF_HEAD.finditer(text):
         # an all-caps "ARTICLE VII" that opens the paragraph is a heading, not a reference
         if hm.group(1).isupper() and (caps_toc or not text[: hm.start()].strip()):
@@ -1356,7 +1410,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             or (lower_head and LOWER_HEAD_OTHER.match(tail))
         ):
             status = "external"
-        elif THEREOF.match(tail):
+        elif THEREOF_AFTER.match(tail):
             # "Sections 8.2 and 9.1 thereof": the sections of a document named just before
             status = "unresolved"
             for r in run:
@@ -1375,6 +1429,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             if status == "unresolved" and not r.detail:
                 r.detail = "exhibit_local"
         qm = QUALIFIED.match(tail)
+        qm = qm or (_late_qualifier(text, pos) if run[0].head in ("clause", "paragraph") else None)
         if qm and run[0].head in ("clause", "paragraph"):
             for r in run:
                 if r.target.startswith("(") and not r.status:
@@ -1382,6 +1437,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                     r.head, r.target = "section", re.sub(r"\s", "", qm.group(1)) + r.target
                     r.base_end = r.start  # never fall back on a clause-only span
                     r.qualified = True
+        last_sec = _thereof_section(run, text, hm.start(), last_sec)
         for r in run:
             if r.head == "schedule" and SEC_FORM.match(r.target):
                 r.status = "external"
@@ -1406,7 +1462,8 @@ def _in_one_group(ol: _Outline, base: str, subs: str) -> _Node | None:
     return hits[0] if len(hits) == 1 else None
 
 
-_ARTICLE_WORD = re.compile(r"^\s*(?:ARTICLE|Article|PART|Part)\b")
+# "VI. CONDITIONS" (a Roman article title without the word) is cited "Article VI" too, never a bare "Section 6"
+_ARTICLE_WORD = re.compile(r"^\s*(?:ARTICLE|Article|PART|Part)\b|^\s*" + _ROMAN_NUM + r"\.\s")
 
 
 def _section_style_article(ol: _Outline, key: str) -> bool:
