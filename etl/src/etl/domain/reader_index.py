@@ -446,6 +446,7 @@ def _positional_numbers(root: ET.Element, by_el: dict[ET.Element, _Text], roman:
         out = _Positional()
         tail: list[tuple[ET.Element, str]] = []
         fixed_keys: set[str] = set()
+        lone: set[ET.Element] = set()
         per_article: list[tuple[str, list[ET.Element], dict[int, int], set[int]]] = []
         for (_, secs), key in zip(arts, keys):
             if not key:
@@ -466,10 +467,19 @@ def _positional_numbers(root: ET.Element, by_el: dict[ET.Element, _Text], roman:
                 if i not in fixed and num and said_count[num] == 1 and num not in fixed_keys and (m := own.fullmatch(num)):
                     fixed[i] = int(m.group(1))
                     stated.add(i)
+            # A stated number that counting agrees with from nowhere (not from the article's start, not from another
+            # fixed point) is either left by an earlier draft ("this Section 3.5" in the sixth section) or follows a
+            # section missing from the XML. Its section gets no number, but it still stops the count around it.
+            for i in stated:
+                if fixed[i] != i + 1 and not any(fixed[j] - fixed[i] == j - i for j in fixed if j != i):
+                    lone.add(secs[i])
         for key, _, fixed, _ in per_article:
             fixed_keys.update(f"{key}.{n}" for n in fixed.values())
         for key, secs, fixed, stated in per_article:
             numbers, after_last, fits, misfits = _count_between(len(secs), fixed)
+            if fixed and secs[max(fixed)] in lone:
+                after_last = set()  # nothing is counted on from a stated number that nothing agrees with
+                numbers = {i: n for i, n in numbers.items() if i <= max(fixed)}
             # Printed numbers that follow each other say nothing about counting; a stated or a counted one does
             checked = [i for i in fixed if i in stated or (i > 0 and i - 1 not in fixed)]
             good = sum(1 for i in checked if numbers.get(i - 1, 0) == fixed[i] - 1 or (i == 0 and fixed[i] == 1))
@@ -477,7 +487,7 @@ def _positional_numbers(root: ET.Element, by_el: dict[ET.Element, _Text], roman:
             out.misfits += len(checked) - good
             for i, n in numbers.items():
                 sec, num = secs[i], f"{key}.{n}"
-                if sec in out.printed or (i not in fixed and num in fixed_keys):
+                if sec in out.printed or sec in lone or (i not in fixed and num in fixed_keys):
                     continue
                 if i in after_last:
                     tail.append((sec, num))
@@ -540,7 +550,15 @@ def _positional_numbers(root: ET.Element, by_el: dict[ET.Element, _Text], roman:
         if after and int(key) != after[0][1] - (after[0][0] - i):
             continue
         fixed_art[i] = int(key)
-    numbers, _, _, _ = _count_between(len(arts), fixed_art)
+    numbers, after_last, _, _ = _count_between(len(arts), fixed_art)
+    # As with sections: a stated article number that counting agrees with from nowhere ("this Section 14.1" left in
+    # Article XIII by an earlier draft) numbers neither its article nor the articles counted on from it
+    for i, _ in stated_pts:
+        if fixed_art[i] != i + 1 and not any(fixed_art[j] - fixed_art[i] == j - i for j in fixed_art if j != i):
+            numbers.pop(i, None)
+            if i == max(fixed_art):
+                for j in after_last:
+                    numbers.pop(j, None)
     twice = {n for n, c in Counter(numbers.values()).items() if c > 1}
     by_text: list[str | None] = [str(numbers[i]) if i in numbers and numbers[i] not in twice else None for i in range(len(arts))]
     if by_text == by_print:

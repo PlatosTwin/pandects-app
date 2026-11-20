@@ -196,11 +196,32 @@ class PositionalSectionTests(unittest.TestCase):
             )
         )
         secs = _sections_by_id(build_reader_index(xml))
-        # Article II: its second section says it is 2.3, so a section is missing before it and "One." gets no number
+        # Article II: its second section says it is 2.3. Either a section is missing before it or the phrase is left
+        # from an earlier draft; nothing tells which, so no section of the article gets a number
         self.assertEqual(
             {k: v["anchor"]["s"] for k, v in secs.items()},
-            {"s1.1": "s1", "s1.2": "s2", "s1.3": "s3", "s1.4": "s4", "s2.3": "s6", "s2.4": "s7", "s3.1": "s8", "s3.2": "s9"},
+            {"s1.1": "s1", "s1.2": "s2", "s1.3": "s3", "s1.4": "s4", "s3.1": "s8", "s3.2": "s9"},
         )
+
+    def test_a_stated_number_that_the_count_disagrees_with_numbers_nothing(self) -> None:
+        def stated(uuid: str, num: str) -> str:
+            return _section(uuid, "Heading.", f"this Section {num} applies")
+
+        xml = _doc(
+            _article(
+                "a3",
+                "ARTICLE III TERMS",
+                stated("s1", "3.1")
+                + stated("s2", "3.2")
+                + _section("s3", "Three.", "x")
+                + _section("s4", "Adjustments.", "under this Section 3.3, and this Section 3.3 again")
+                + _section("s5", "Five.", "x")
+                + stated("s6", "3.6"),
+            )
+        )
+        secs = _sections_by_id(build_reader_index(xml))
+        # "Adjustments." is the fourth section and the count from 3.2 and back from 3.6 says 3.4: a stale phrase
+        self.assertEqual({k: v["anchor"]["s"] for k, v in secs.items()}, {"s3.1": "s1", "s3.2": "s2", "s3.6": "s6"})
 
     def test_two_sections_stating_one_number_fix_nothing(self) -> None:
         xml = _doc(
