@@ -1154,6 +1154,22 @@ def _section_style_article(ol: _Outline, key: str) -> bool:
     return key in ol.flat_articles or not any(_ARTICLE_WORD.match(a.title) for a in ol.articles[key])
 
 
+_LARGE_BARE = re.compile(r"(\d+)[A-Z]?")
+# "Section 409A", "Section 262", "Section 338(h)(10)": a bare number this large with no node of its own is a
+# statute or another document (2026-11-20 census: 79 of 79 read). "Section 13" or "Section 16" of the Exchange
+# Act stays unresolved: small numbers are too often the agreement's own articles.
+_LARGE_BARE_MIN = 40
+
+
+def _is_large_bare_number(ref: _Ref, ol: _Outline, base: str, subs: str) -> bool:
+    """A bare "Section N", "Section N(a)" or "Section NA" with N >= 40 and no section, subsection or article N."""
+    m = _LARGE_BARE.fullmatch(base)
+    if ref.head != "section" or m is None or int(m.group(1)) < _LARGE_BARE_MIN:
+        return False
+    keys = {base, m.group(1)}
+    return not any(k in ol.articles or k in ol.sections or k in ol.subs or (k + subs) in ol.subs for k in keys)
+
+
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
     """Returns (status, target id, ambiguous candidates)."""
     if ref.status:
@@ -1199,6 +1215,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                 if (one := _in_one_group(ol, base, subs)) is not None:
                     return "resolved", one.id, None
                 return "section_fallback", ol.articles[base][0].id, None
+            if _is_large_bare_number(ref, ol, base, subs):
+                return "external", None, None
             return "unresolved", None, None
         if len(nodes) > 1:
             return "ambiguous", None, [n.id for n in nodes]

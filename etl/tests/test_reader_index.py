@@ -361,6 +361,59 @@ class BareSectionToArticleTests(unittest.TestCase):
         self.assertEqual(got, [("resolved", "s2"), ("external", None)])
 
 
+class StatusAndTargetRuleTests(unittest.TestCase):
+    """Enricher 0.10.0 rules on statuses and targets (reader_090 census, PROPOSALS.md rules 3, 5, 8-12)."""
+
+    def _status(self, xml: str) -> dict[str, tuple[str, str | None]]:
+        return {r["text"]: (r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]}
+
+    def _all(self, xml: str) -> list[tuple[str, str, str | None]]:
+        return [(r["text"], r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]]
+
+    # rule 3: a large bare section number is a statute or another document
+    def test_large_bare_section_numbers_are_external(self) -> None:
+        refs = self._status(
+            _doc(
+                _article("a1", "ARTICLE I Merger", _section("s11", "Section 1.1 Merger", "x"))
+                + _article(
+                    "a2",
+                    "ARTICLE II Refs",
+                    _section(
+                        "s21",
+                        "Section 2.1 Refs",
+                        "Appraisal rights under Section 262 apply. No payment is subject to Section 280G, "
+                        + "and the election under Section 338(h)(10) is made. Reports under Section 16 are filed.",
+                    ),
+                )
+            )
+        )
+        self.assertEqual(refs["Section 262"], ("external", None))
+        self.assertEqual(refs["Section 280G"], ("external", None))
+        self.assertEqual(refs["Section 338(h)(10)"], ("external", None))
+        # below 40: may be the agreement's own article, so it stays unresolved
+        self.assertEqual(refs["Section 16"], ("unresolved", None))
+
+    def test_large_bare_number_with_its_own_node_still_resolves(self) -> None:
+        flat = "".join(_article(f"f{n}", f"Section {n}. Item", "<text>(a) text.</text>") for n in (44, 45))
+        refs = self._status(
+            _doc(
+                _section("s40", "Section 40 Notices", "x")
+                + flat
+                + _article("f46", "Section 46. Refs", "<text>See Section 40, Section 45 and Section 44(a). Section 47 is a statute.</text>")
+            )
+        )
+        self.assertEqual(refs["Section 40"], ("resolved", "s40"))
+        self.assertEqual(refs["Section 45"], ("resolved", "a45"))
+        self.assertEqual(refs["Section 44(a)"], ("resolved", "s44(a)"))
+        self.assertEqual(refs["Section 47"], ("external", None))
+
+    def test_large_number_rule_leaves_other_heads_and_dotted_numbers(self) -> None:
+        refs = self._status(_doc(_section("s1", "Section 1.1 Refs", "See Article 52, clause 41 and Section 41.2.")))
+        self.assertEqual(refs["Article 52"], ("unresolved", None))
+        self.assertEqual(refs["clause 41"], ("unresolved", None))
+        self.assertEqual(refs["Section 41.2"], ("unresolved", None))
+
+
 class ReaderHealthShapeTests(unittest.TestCase):
     """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""
 
