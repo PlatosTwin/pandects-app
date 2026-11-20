@@ -597,6 +597,11 @@ class StatusAndTargetRuleTests(unittest.TestCase):
                 ("Annex C", "unlocated_attachment", None),
             ],
         )
+        # gold fixture 869a5c84: "(other than clause (i) thereto)" is a clause of another document
+        got = self._all(
+            _doc(_section("s42", "Section 4.2 Conduct", "(a) x:", "(i) y.", "(ii) any transfer (other than clause (i) thereto).", "(b) z:", "(i) w."))
+        )
+        self.assertEqual(got, [("clause (i)", "ambiguous", None)])
 
     def test_ambiguous_clause_outside_any_paragraph_stays_ambiguous(self) -> None:
         got = self._all(

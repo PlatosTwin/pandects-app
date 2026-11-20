@@ -988,9 +988,10 @@ _OTHER_TAIL = re.compile(
 
 
 # "clause (iii) of paragraph 2 of Annex C of the Commitment Letter", "clause (ii) of the Credit Agreement":
-# a clause of something other than this agreement's section
+# "clause (i) thereto": a clause of something other than this agreement's section
 CLAUSE_OF_OTHER = re.compile(
-    r"^[^.;]{0,80}?\b(?:of|under|in)\s+(?:(?:the|such|any|each|its|their)\s+(?!Agreement\b)(?:[A-Z][\w\-’']*\s+){0,5}"
+    r"^\s*(?:\([^)]*\)\s*)*,?\s*there(?:of|to|in|under)\b"
+    + r"|^[^.;]{0,80}?\b(?:of|under|in)\s+(?:(?:the|such|any|each|its|their)\s+(?!Agreement\b)(?:[A-Z][\w\-’']*\s+){0,5}"
     + r"(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles|Act|Code|Regulations?)\b"
     + r"|(?:paragraph|Annex|Exhibit|Schedule|Appendix)\s)"
 )
