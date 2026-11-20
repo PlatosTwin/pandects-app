@@ -526,6 +526,48 @@ class StatusAndTargetRuleTests(unittest.TestCase):
         self.assertEqual([s for _, s, _ in got[:8]], ["external"] * 8)
         self.assertEqual(got[8:], [("Sections 2.2", "resolved", "s2.2"), ("2.5", "resolved", "s2.5")] * 2)
 
+    # rule 11: "Section N" links to ARTICLE N in an agreement that writes "this Section N" inside article N
+    def _self_style(self, signal: str, refs: str, back: str = "") -> list[tuple[str, str, str | None]]:
+        return self._all(
+            _doc(
+                _article("a7", "ARTICLE VII CONDITIONS", _section("s71", "Section 7.1 Conditions", "x"))
+                + _article("a8", "ARTICLE VIII TERMINATION", _section("s81", "Section 8.1 Termination", signal))
+                + _article("a9", "ARTICLE IX MISCELLANEOUS", _section("s91", "Section 9.1 Notices", refs)),
+                back=back,
+            )
+        )
+
+    def test_self_style_agreement_links_bare_sections_to_articles(self) -> None:
+        got = self._self_style(
+            "The rights under this Section 8 survive.",
+            "Termination under Section 8 hereof ends it. See Sections 7 and 8. Also Section 8 of the Voting Agreement, "
+            + "Section 8 of Revenue Procedure 2004-53 and Section 8.l above.",
+        )
+        self.assertEqual(
+            got,
+            [
+                ("Section 8", "resolved", "a8"),
+                ("Section 8", "resolved", "a8"),
+                ("Sections 7", "resolved", "a7"),
+                ("8", "unresolved", None),
+                ("Section 8", "external", None),
+                ("Section 8", "unresolved", None),
+                ("Section 8", "unresolved", None),
+            ],
+        )
+
+    def test_self_style_needs_the_signal_inside_its_own_article(self) -> None:
+        got = self._self_style("The rights under Section 8 survive.", "As provided in this Section 8, and Section 8.")
+        self.assertEqual([s for _, s, _ in got], ["unresolved"] * 3)
+
+    def test_self_style_never_applies_in_back_matter(self) -> None:
+        back = (
+            "<text>EXHIBIT A</text><text>“Alpha” means the notice under Section 8.</text>"
+            + "<text>“Beta” means b.</text><text>“Gamma” means c.</text>"
+        )
+        got = self._self_style("The rights under this Section 8 survive.", "x", back=back)
+        self.assertEqual(got, [("Section 8", "resolved", "a8"), ("Section 8", "unresolved", None)])
+
 
 class ReaderHealthShapeTests(unittest.TestCase):
     """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""

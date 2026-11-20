@@ -282,6 +282,8 @@ class _Outline:
     groups: set[str] = field(default_factory=set)  # lettered group keys: "8.1(A)"
     roman_sections: bool = False  # most sections are numbered "VIII.2" (_roman_scheme): "Section VIII.2(e)" resolves
     para_labels: dict[str, str] = field(default_factory=dict)  # "8.2.1" -> printed "VIII.2.1"
+    # the body writes "this Section 8" inside "ARTICLE VIII": its bare "Section N" can mean article N (_self_cites_article)
+    self_cited_articles: bool = False
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
 
@@ -969,6 +971,24 @@ ACT_LATER = re.compile(r"\bof\s+(?:the\s+)?(?:[A-Z][\w .\-()]{2,60}|(?:1[89]|20)
 _VERB = re.compile(r"\b(?:shall|will|is|are|must|may|would|should|was|were|has|have|be|been)\b")
 
 
+# Tails that keep a reference in this agreement: none at all, "hereof", "of this Agreement", "above", "below"
+_SELF_TAIL = re.compile(
+    r"^[\s,]*(?:\([^)]*\)\s*)*,?\s*(?:here(?:of|to|in|under)\b|(?:of|to|in|under)\s+(?:this|the)\s+Agreement\b)"
+    + r"|(?i:^[\s,]*(?:above|below|hereinabove|hereinbelow|preceding|following)\b)"
+)
+# Tails that name something else: "of Revenue Procedure 2004-53", "of this Article", "to the Disclosure Letter",
+# "thereof"; and OCR continuations of the number ("Section 7.l", "Section 7,05", "Section 1-3")
+_OTHER_TAIL = re.compile(
+    r"^[\s,]*(?:\([^)]*\)\s*)*,?\s*(?:(?:of|under|pursuant\s+to)\s|there(?:of|to|in|under)\b"
+    + r"|(?:to|in)\s+(?:this\s+(?!Agreement\b)\w|(?:the|such|any|each|its|their)\s+[A-Z]|(?:Exhibit|Annex|Schedule|Appendix|Part)\s))"
+    + r"|^(?:[.,]{1,2}\s?\d|\.l|-\d)"
+)
+
+
+def _plain_tail(tail: str) -> bool:
+    return bool(_SELF_TAIL.match(tail)) or not _OTHER_TAIL.match(tail)
+
+
 def _act_later(tail: str) -> bool:
     m = ACT_LATER.search(tail[:70])
     return m is not None and not _VERB.search(tail, 0, m.end())
@@ -1016,6 +1036,9 @@ class _Ref:
     status: str = ""
     detail: str = ""
     qualified: bool = False  # "clause (ii) of Section 4.2": the section is printed next to it
+    lead: bool = False  # the first item of its run: it prints its own head ("Section 8")
+    this_before: bool = False  # "this Section 8"
+    plain_tail: bool = False  # no tail naming anything but this agreement, and no OCR continuation (".9", "-3")
 
 
 def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
@@ -1179,6 +1202,9 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         ):
             for r in prev_run:
                 r.status = run[0].status
+        run[0].lead = True
+        run[0].this_before = THIS_BEFORE.search(before) is not None
+        run[0].plain_tail = _plain_tail(tail)
         prev_run, prev_end, prev_self = run, pos, self_marker
         refs.extend(run)
     return refs
@@ -1196,6 +1222,30 @@ _ARTICLE_WORD = re.compile(r"^\s*(?:ARTICLE|Article|PART|Part)\b")
 def _section_style_article(ol: _Outline, key: str) -> bool:
     """Article `key` can be cited as "Section 8": its heading prints "SECTION 8" or "8.", or it is flat."""
     return key in ol.flat_articles or not any(_ARTICLE_WORD.match(a.title) for a in ol.articles[key])
+
+
+_THIS_SECTION = re.compile(r"(?i:\bthis\s+section)\s+\d")
+
+
+def _self_cites_article(texts: list[_Text], ol: _Outline) -> bool:
+    """Whether the body writes "this Section 8" inside a section 8.x of an "ARTICLE VIII" (no section 8): such an
+    agreement calls its articles "Section N", so its bare "Section N" may link to article N (census: 27 of 30)."""
+    for tn in texts:
+        if tn.region != "body" or not tn.section_key or not _THIS_SECTION.search(tn.text):
+            continue
+        art = _norm_num(tn.section_key.split(".", 1)[0])
+        if art not in ol.articles or ol.sections.get(art) or _section_style_article(ol, art):
+            continue
+        for r in _find_refs(tn.text, in_exhibit=False):
+            if r.lead and r.this_before and r.head == "section" and not r.status and re.fullmatch(r"\d+", r.target) and _norm_num(r.target) == art:
+                return True
+    return False
+
+
+def _self_cited_article(ref: _Ref, ol: _Outline, tn: _Text) -> bool:
+    """A body "Section 8" that prints its head, in an agreement that cites its articles that way, with no tail naming
+    another document and no OCR continuation of the number. Back matter never qualifies."""
+    return ol.self_cited_articles and tn.region == "body" and ref.head == "section" and ref.lead and ref.plain_tail
 
 
 _LARGE_BARE = re.compile(r"(\d+)[A-Z]?")
@@ -1249,7 +1299,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             # "Section 8" in agreements whose top level is "SECTION 8" (or "8."), or a flat item.
             # Under "ARTICLE VIII" with sections 8.1, 8.2, a bare "Section 8" is a statute, another
             # document or an exhibit's own section, and seldom the article (0.8.0 sample: 3 of 28 right).
-            if "." not in base and not subs and base in ol.articles and _section_style_article(ol, base):
+            if "." not in base and not subs and base in ol.articles and (_section_style_article(ol, base) or _self_cited_article(ref, ol, tn)):
                 arts = ol.articles[base]
                 if len(arts) > 1:
                     return "ambiguous", None, [a.id for a in arts]
@@ -1357,6 +1407,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
     root = ET.fromstring(xml)
     texts, by_el = _collect_texts(root)
     ol = _build_outline(root, by_el)
+    ol.self_cited_articles = _self_cites_article(texts, ol)
 
     # terms
     decls = _collect_declarations(root, texts, by_el)
