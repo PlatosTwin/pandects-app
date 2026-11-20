@@ -1385,6 +1385,7 @@ class _Ref:
     other_tail: bool = False  # "clause (iii) of paragraph 2 of Annex C of the Commitment Letter"
     tail: str = ""  # the text after the run (90 characters, stray items dropped), shared by its members
     self_marker: bool = False  # "this Section 6.3", "Section 6.3 hereof" (body only, rule 10)
+    after: str = ""  # the text from the end of this item to 60 characters past the end of its run
 
 
 def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
@@ -1559,7 +1560,7 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
         for r in run:
             r.other_tail = other_tail
         for r in run:
-            r.tail, r.self_marker = tail, self_marker
+            r.tail, r.self_marker, r.after = tail, self_marker, text[r.end : pos + 60]
         run[0].lead = True
         run[0].this_before = THIS_BEFORE.search(before) is not None
         run[0].plain_tail = _plain_tail(tail)
@@ -1662,6 +1663,32 @@ def _names_other(ref: _Ref) -> bool:
     )
 
 
+# L2: what may follow a bare Roman "Section VIII" that means article VIII. Not "Section IX B", "Section I(1)",
+# "Section IX.D"; and nothing in the rest of the clause names another document ("Section II of that certain
+# valuation report", "Sections I and II of Exhibit I", "Section IX and X of the Stipulated Order")
+_ROMAN_BARE_NEXT = re.compile(r"(?![\-(\w]|\.\S|\s+[A-Z]\b)")
+_ROMAN_OTHER_LATER = re.compile(
+    r"\b(?:of|under|in|to|pursuant\s+to)\s+(?:that\s+certain\b|(?:the|such|its|their|any)\s+(?!Agreement\b)[A-Z]|(?:Exhibit|Annex|Schedule|Appendix|Part)\b|[A-Z][\w\-]*[’']s\s)"
+)
+
+
+def _roman_section_article(ref: _Ref, ol: _Outline, tn: _Text) -> _Node | None:
+    """L2: a body "Section VIII" (bare Roman) is article VIII when that article's heading opens "SECTION" or the
+    reference reads "this Section VIII", and nothing after it names another document."""
+    if tn.region != "body" or ref.head != "section" or not re.fullmatch(r"[IVXLC]+", ref.target):
+        return None
+    n = _roman_to_int(ref.target)
+    arts = ol.articles.get(str(n)) if n else None
+    if not arts or len(arts) != 1 or not _ROMAN_BARE_NEXT.match(ref.after):
+        return None
+    if not (re.match(r"\s*(?:SECTION|Section)\b", arts[0].title) or ref.this_before):
+        return None
+    clause = re.split(r"[;]|\.(?:\s|$)", ref.after, maxsplit=1)[0]
+    if not _plain_tail(ref.tail) or _ROMAN_OTHER_LATER.search(clause):
+        return None
+    return arts[0]
+
+
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
     """Returns (status, target id, ambiguous candidates)."""
     if ref.status == "unresolved" and ref.detail == "exhibit_local" and _names_other(ref):
@@ -1684,6 +1711,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
     if ref.head == "section" or numbered_clause or dotted_article:
         m = SECTION_TARGET.match(t)
         if not m:
+            if (art := _roman_section_article(ref, ol, tn)) is not None:
+                return "resolved", art.id, None
             return "unresolved", None, None
         base = _norm_num(m.group(1))
         subs = m.group(2)

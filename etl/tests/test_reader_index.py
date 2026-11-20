@@ -1770,6 +1770,38 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
         self.assertIn(("Article Two", "unresolved", None), refs)
         self.assertIn(("Section 1", "unresolved", None), refs)  # "ARTICLE ONE" is not cited as "Section 1"
 
+    # L2: a bare Roman "Section VIII" is article VIII
+    def test_l2_roman_section_links_to_its_article(self) -> None:
+        xml = _doc(
+            _article("a8", "SECTION VIII TERMINATION", _section("s81", "8.1 Termination", "x"))
+            + _article(
+                "a9",
+                "ARTICLE IX MISC",
+                _section(
+                    "s91",
+                    "9.1 Terms",
+                    "Under Section VIII, the parties act. See Sections VIII and IX of this Agreement. "
+                    "Section VIII of that certain report applies. Section VIII B and IX.D of the Order apply. Section VIII(1) applies. "
+                    "Under this Section IX. Also Section IX applies. Section VIII of the Seller applies.",
+                ),
+            )
+        )
+        refs = [(x["text"], x["status"], x.get("target")) for x in build_reader_index(xml)["xrefs"]]
+        self.assertEqual(
+            refs,
+            [
+                ("Section VIII", "resolved", "a8"),
+                ("Sections VIII", "resolved", "a8"),
+                ("IX", "unresolved", None),  # "ARTICLE IX" is cited "Section IX" only as "this Section IX"
+                ("Section VIII", "unresolved", None),
+                ("Section VIII", "unresolved", None),
+                ("Section VIII", "unresolved", None),
+                ("Section IX", "resolved", "a9"),
+                ("Section IX", "unresolved", None),
+                ("Section VIII", "unresolved", None),
+            ],
+        )
+
 
 class BackMatterSegmentTests(unittest.TestCase):
     # Rule 1: own numbering ends a glossary segment
