@@ -1276,6 +1276,7 @@ OWN_NUMBER = re.compile(
 )
 _OWN_NUMBERING_MIN = 3
 _OWN_NUMBERING_RATIO = 5  # at least one numbered paragraph per five definitions
+_DOTTED = re.compile(r"\d+\.\d+")
 _ATTACHMENT_HEADS = frozenset({"exhibit", "schedule", "annex", "appendix"})
 
 
@@ -1309,7 +1310,11 @@ def _back_segments(texts: list[_Text]) -> dict[int, _Segment]:
         segments[-1][1].append(tn)
     out: dict[int, _Segment] = {}
     for seg, seg_texts in segments:
-        own = sum(1 for tn in seg_texts if OWN_NUMBER.match(tn.text))
+        # "Annex 3.7" whose paragraphs are "3.7.1", "3.7.2": the agreement's own Section 3.7 set out at the back,
+        # so those numbers are the agreement's, not an attached document's
+        hm = ATTACHMENT_HEADING.match(seg.head)
+        cont = hm.group(2).rstrip(".") + "." if hm and _DOTTED.fullmatch(hm.group(2).rstrip(".")) else None
+        own = sum(1 for tn in seg_texts if OWN_NUMBER.match(tn.text) and not (cont and tn.text.lstrip().startswith(cont)))
         entries = sum(1 for tn in seg_texts if _DECL_START.match(tn.text))
         # the agreement's own glossary can run on into a short unheaded document ("1. Amendment to the Merger
         # Agreement"): a few numbered paragraphs after a hundred definitions do not make it an attached document

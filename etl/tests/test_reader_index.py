@@ -1129,7 +1129,9 @@ class BackMatterSegmentTests(unittest.TestCase):
         x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
         self.assertEqual(x["Annex 3.7"]["target"], "x-annex-3.7")
         self.assertEqual(x["Schedule A"]["target"], "x-schedule-a")
-        self.assertEqual(x["Section 2.1"]["status"], "unresolved")
+        # "3.7.1", "3.7.2" under "ANNEX 3.7" continue the agreement's Section 3.7 (gold fixture 03f4e108), so the
+        # annex is not an attached document and its bare "Section 2.1" is the agreement's
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
 
     def test_numbered_definitions_annex_is_still_a_glossary(self) -> None:
         back = _back(
