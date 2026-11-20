@@ -1076,10 +1076,43 @@ Under "ARTICLE" headings, the wrong targets are OCR splits ("Section 7. 2(b)", w
 
 **Known limits:**
 - About 1 in 10 of the removed links was right: body text that calls an "ARTICLE" a "Section". These now show as plain text.
-- OCR splits ("Section 7. 2(b)") stay unresolved. Joining them to 7.2(b) is a separate rule.
+- OCR splits ("Section 7. 2(b)") stay unresolved. Joining them to 7.2(b) is a separate rule (done in 0.9.0, section 10.14).
 - Under "SECTION 8" or "8." headings, statute tails the parser misses ("Section 5 of the (U.S.) Federal Trade Commission Act") and exhibits with their own definitions still link wrongly. About a quarter of that group in the sample. The glossary test for back matter needs a tighter signal before that can change.
 
 **Prod.** The new rule reaches the served data only after the local `reader_index` table is rebuilt at 0.8.0 and the next production release is pushed.
+
+### 10.14 Enricher 0.9.0: a space inside a section number (2026-11-19)
+
+**What the 0.8.0 rebuild showed.** The local `reader_index` was rebuilt at 0.8.0 on 2026-11-19: 12,198 agreements, 0 failures, 11,351 references in 2,289 agreements from an article link to unresolved, as the dry run said. A look at the agreements that lost the most links found two groups. Knight / Swift (33b74998) lost 141 links inside attached bylaws ("Section 6 of this Article II"), which is right. Vurv / Taleo (c1cf60c6) lost 139 links printed as "Section 1. 6(c)", with a space after the period. Under 0.7.0 the parser read that as "Section 1" and linked ARTICLE I, the right article though not the section; under 0.8.0 it has no link. A scan of the 2,289 agreements counts at most 1,268 removed links of this kind, 825 of them in 55 agreements.
+
+**Rule.** After a section item that is a bare whole number, a period, white space and one more whole number (with an optional letter and enumerators) continue the same number: "Section 1. 6(c)" is Section 1.6(c), and "Sections 3. 1, 3. 2 and 3.3" are three sections. The space may also sit before the period ("Section 1 .6") or after the zero of the second part ("Section 9. 0 3(a)" and "Section 2.0 4" are 9.03(a) and 2.04; no section number ends in ".0"). A clause that names such a section ("clause (ii) of Section 4. 2") takes the joined number. The rule sits next to the older one for "Section 4,02". The join does not happen across a line break, when the second number is a count ("Section 8. 15 days after", "5 Business Days", "2 shares", "6%"), when a deeper number follows ("Section 4. 4.2 Covenants", a heading after the end of a sentence), or for any head other than "Section". A joined number with no such section stays unresolved; it does not fall back to the article.
+
+**Review.** An independent reviewer read 111 joined references of the first version in context, from 60 agreements: 104 right and 7 wrong, all of the form "Section 9. 0 3(a)", which that version read as 9.0. The rule above now covers that form. A scan of 2,000 other agreements found no join where the second number was not part of a section number.
+
+**Corpus rebuild at 0.9.0 (local, 2026-11-19).** 12,198 agreements, 0 failures. The rebuild compared each stored 0.8.0 payload with the new one, reference by reference (`reader_080/xref_changes_090.tsv` in the validation folder). 1,263 references in 271 agreements changed; no outline, term or term use changed:
+
+| From | To | References |
+|---|---|---|
+| unresolved | resolved | 762 |
+| unresolved | disclosure schedule ("Section 2. 3(g) of the Disclosure Schedule") | 211 |
+| not a reference | resolved or section-level link (later members of a list) | 93 |
+| unresolved | section-level link | 77 |
+| article link | the section (resolved 36, section-level 39) | 75 |
+| unresolved | unresolved (the text of the reference is longer) | 34 |
+| resolved | disclosure schedule | 5 |
+| unresolved | external | 3 |
+| not a reference | unresolved | 2 |
+| external | external | 1 |
+
+The 75 article links that moved to a section are in agreements whose articles print as sections, where 0.8.0 still linked "Section 1" to the article.
+
+**Against the released 0.7.0 index.** Over the served agreements, `n_xrefs_resolved` goes from 2,652,005 to 2,641,581, `n_xrefs_unresolved` from 717,094 to 727,394 and `n_xrefs` up by 95; 2,199 agreements have a changed count.
+
+**Gold.** The 125 fixtures are unchanged.
+
+**Known limits:**
+- A self reference with a plan or statute in its tail is stored as external: "this Section 2. 6(d) under the Company Option Plan". The tail rules do this for unsplit numbers too.
+- "Section 1.6. 2" and the like are not joined: nearly all such text is a heading that follows a full section number ("Section 6.06. 280G Calculation").
 
 ## 11. Decisions (2026-10-22)
 

@@ -25,18 +25,38 @@
 unreleased:
 - type: data
   severity: notable
-  summary: 'reader_index (enricher 0.8.0): a bare "Section 8" no longer links to "ARTICLE VIII".'
+  summary: 'reader_index rebuilt with enricher 0.9.0: a bare "Section 8" no longer links to "ARTICLE VIII", and "Section 1. 6(c)" links to Section 1.6(c).'
   details: >
-    A cross-reference printed as a bare "Section N", "clause N" or a bare list member now
-    resolves to article N only when that article's heading prints as a section ("SECTION 8",
-    "8.") or the article has no sections inside. Under an "ARTICLE VIII" heading with sections
-    8.1, 8.2, such references mostly cite a statute, another document, a disclosure schedule
-    or an exhibit's own section. A dry run over the 12,198 served agreements changes 11,354
-    cross-references in 2,289 agreements from resolved (article target) to unresolved. Outlines,
-    terms and all other cross-references are unchanged.
+    Two rules for cross-references changed, and the reader index of every served agreement
+    was rebuilt. Each row for a served agreement's current XML now carries enricher_version
+    0.9.0 (0.7.0 in the previous release).
+
+    Bare section numbers. A cross-reference printed as a bare "Section N", "clause N" or a
+    bare list member now resolves to article N only when that article's heading prints as
+    a section ("SECTION 8", "8.") or the article has no sections inside. Under an "ARTICLE
+    VIII" heading with sections 8.1, 8.2, such references mostly cite a statute, another
+    document, a disclosure schedule or an exhibit's own section. This took the article link
+    from 11,351 cross-references in 2,289 of the 12,198 served agreements (status resolved
+    to unresolved). In a sample, about 1 in 10 of those links was right: body text that
+    calls an "ARTICLE" a "Section". Those references now have no link.
+
+    Section numbers with a space inside. "Section 1. 6(c)", "Section 1 .6" and "Section 9.
+    0 3(a)" are now read as Section 1.6(c), 1.6 and 9.03(a); before, the parser read only
+    the first number. 1,263 cross-references in 271 agreements changed: 932 that had no link
+    now point to their section, 75 that pointed to an article now point to the section, 216
+    are now marked as disclosure-schedule references and 3 as external, 36 stay unresolved
+    and 1 stays external.
+
+    Totals over the served agreements, against the previous release: n_xrefs_resolved falls
+    from 2,652,005 to 2,641,581, n_xrefs_unresolved rises from 717,094 to 727,394, and
+    n_xrefs rises by 95 (later members of a list such as "Sections 3. 1, 3. 2" are now
+    read). 2,199 agreements have a changed count. Outlines, defined terms and term uses are
+    unchanged.
   tables: [reader_index]
-  migration: null
-  refs: []
+  migration: >
+    No action is needed. The reader-index endpoint's ETag includes the enricher version,
+    so a client that caches payloads fetches the new ones.
+  refs: ['#280', '#285']
 - type: api
   severity: minor
   summary: 'The API and the MCP tools serve an agreement only when its latest XML has passed validation.'
