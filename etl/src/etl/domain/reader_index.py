@@ -1341,6 +1341,7 @@ def _names_main_heading(r: _Ref, ol: _Outline, tn: _Text, sec_text: str, after: 
 _HERETO_BEFORE = re.compile(r"\bhere(?:to|with)\s+(?:as\s+)?$", re.IGNORECASE)
 _HERETO_AFTER = re.compile(r"\s*(?:\([^)]*\)\s*)*,?\s*(?:(?:attached|annexed|appended)\s+)?here(?:to|with)\b", re.IGNORECASE)
 _OWN_ATTACHMENT_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*(?:of|to)\s+(?:this\s+(?![Aa]greement\b|AGREEMENT\b)[A-Za-z]|the\s+Company['’]s\b)")
+_SCHEDULE_HEAD = re.compile(r"(?:SCHEDULE|Schedule)\b")
 
 
 @dataclass
@@ -1524,6 +1525,9 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
                 # names another document ("Annex A of this release") keeps the exhibit-local reading, and so does
                 # "attached hereto as Exhibit A" unless that attachment is printed after the reference (the
                 # attachment's own exhibit, printed next to it); before it, it is the agreement's or the attachment itself
+                r.status = r.detail = ""
+            if r.status == "unresolved" and r.detail == "exhibit_local" and r.head == "clause" and seg is not None and _SCHEDULE_HEAD.match(seg.head) and _DOTTED.match(r.target):
+                # UK drafting: a schedule numbers its own items as paragraphs and cites the agreement's "clause 9.2"
                 r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
             if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:

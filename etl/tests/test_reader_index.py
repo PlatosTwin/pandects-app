@@ -1318,6 +1318,29 @@ class BackMatterSegmentTests(unittest.TestCase):
             [(r["text"], r["status"], r.get("target")) for r in x if r["text"] in ("Exhibit A", "Exhibit B", "Annex A") and r["at"]["t"] > 1],
             [("Exhibit A", "unresolved", None), ("Exhibit A", "unresolved", None), ("Annex A", "unresolved", None), ("Exhibit B", "resolved", "x-exhibit-b")],
         )
+    # Rule 7: a UK "clause 9.2" inside a Schedule is the agreement's clause
+    UK = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x"))
+
+    def test_uk_clause_in_a_schedule_resolves(self) -> None:
+        back = _back(
+            "SCHEDULE 4",
+            "LIMITATIONS",
+            "1 DEFINITIONS",
+            "1.1 In this Schedule the Warranties are those given under clause 9.2.",
+            "2 LIMITS",
+            "2.1 Nothing in paragraph 1.1 or clause 9 limits liability.",
+        )
+        x = _xrefs(build_reader_index(_doc(self.UK, back=back)))
+        self.assertEqual(x["clause 9.2"]["target"], "s9.2")
+        # paragraphs stay unlinked and a bare top-level "clause 9" stays exhibit-local
+        self.assertEqual(x["paragraph 1.1"]["status"], "unresolved")
+        self.assertEqual(x["clause 9"]["status"], "unresolved")
+        self.assertNotIn("target", x["clause 9"])
+
+    def test_uk_clause_outside_a_schedule_stays_local(self) -> None:
+        back = _back("EXHIBIT 4", "DEED OF ADHERENCE", "1. The Covenantor is bound by clause 9.2 of the Deed.", "2. Signed.", "3. Law.")
+        x = _xrefs(build_reader_index(_doc(self.UK, back=back)))
+        self.assertEqual(x["clause 9.2"]["status"], "unresolved")
 
     def test_attachment_names_hereto_resolve_when_printed_after(self) -> None:
         # gold fixture b25fc0d0: an amendment in Exhibit E cites "Schedule A, attached hereto", printed right after it
