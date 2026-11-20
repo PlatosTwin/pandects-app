@@ -442,6 +442,16 @@ class StatusAndTargetRuleTests(unittest.TestCase):
         )
         self.assertEqual([s for _, s, _ in got], ["external"] * 7)
 
+    def test_self_markers_do_not_apply_in_back_matter(self) -> None:
+        # a voting agreement's "this Section 4.3" is its own section, not the merger agreement's Section 4.3
+        back = (
+            "<text>EXHIBIT A</text><text>“Alpha” means a.</text><text>“Beta” means b.</text><text>“Gamma” means c.</text>"
+            + "<text>No proposal arising out of a breach of this Section 6.3 or Section 5.2(a) of the Merger Agreement.</text>"
+            + "<text>Section 6.3 shall not apply to the filings of the Exchange Act.</text>"
+        )
+        got = self._all(_doc(_section("s63", "Section 6.3 Filings", "(a) x."), back=back))
+        self.assertEqual([s for _, s, _ in got], ["external"] * 3)
+
     # rule 9: a digit after a hyphen in a regulation number is not a list member
     def test_regulation_numbers_are_one_reference(self) -> None:
         xml = _doc(

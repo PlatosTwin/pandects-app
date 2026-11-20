@@ -1058,7 +1058,9 @@ class _Ref:
     other_tail: bool = False  # "clause (iii) of paragraph 2 of Annex C of the Commitment Letter"
 
 
-def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
+def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
+    # back: the text is in back matter, where "this Section 6.3" is an attached document's own section, so the
+    # self markers and the verb guard do not apply there (2026-11-20 corpus read: 24 of 26 such links were wrong)
     refs: list[_Ref] = []
     prev_run: list[_Ref] = []
     prev_end: int | None = None
@@ -1156,7 +1158,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         lower_head = hm.group(1) in ("section", "sections", "article", "articles")
         self_doc = (SELF_DOC_FROM_EXHIBIT if in_exhibit else SELF_DOC).match(tail)
         # "this Section 6.3", "Section 6.3 hereof": the document's own section, whatever the sentence names later
-        self_marker = bool(THIS_BEFORE.search(before) or HEREOF_TAIL.match(tail))
+        self_marker = not back and bool(THIS_BEFORE.search(before) or HEREOF_TAIL.match(tail))
         status = ""
         if COLON_NUMBER.match(text, pos):
             # "articles 7:17 DCC", "section 2:107a": civil-code numbering, never this agreement's
@@ -1172,7 +1174,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         elif not self_doc and not self_marker and (
             STATUTE.match(tail)
             or OTHER_DOC.match(tail)
-            or _act_later(tail)
+            or (ACT_LATER.search(tail[:70]) is not None if back else _act_later(tail))
             # a lowercase "section 9 of the Decree", "article 15 of the DCC" is how other documents and foreign
             # statutes are cited; this agreement's own sections are capitalized or "of this Agreement"
             or (lower_head and LOWER_HEAD_OTHER.match(tail))
@@ -1533,7 +1535,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         is_heading = ATTACHMENT_HEADING.match(tn.text.strip()) is not None and len(tn.text.strip()) < 120
         lead = len(tn.text) - len(tn.text.lstrip())
         numbered_para = (tn.s, tn.t) in ol.numbered_paras
-        for r in _find_refs(tn.text, in_exhibit=in_exhibit):
+        for r in _find_refs(tn.text, in_exhibit=in_exhibit, back=tn.region == "backMatter"):
             if (is_heading or numbered_para) and r.start == lead:
                 continue  # the heading "Annex 3.7" or "Section 5.16.1 Payments" itself, not a reference to it
             status, target, cands = _resolve(r, ol, tn, sec_text)
