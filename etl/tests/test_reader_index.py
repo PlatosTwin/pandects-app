@@ -97,6 +97,238 @@ class OutlineTests(unittest.TestCase):
         self.assertNotIn("target", x)
 
 
+def _sections_by_id(p: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    stack = list(p["outline"])
+    while stack:
+        n = stack.pop()
+        if n["kind"] == "section":
+            out[n["id"]] = n
+        stack.extend(n.get("children", []))
+    return out
+
+
+class PositionalSectionTests(unittest.TestCase):
+    """Headings that lost their numbers: the k-th section of Article N is Section N.k, when the text backs it."""
+
+    def test_unnumbered_headings_take_their_position(self) -> None:
+        xml = _doc(
+            _article(
+                "a1",
+                "ARTICLE I THE MERGER",
+                _section("s1", "Section i.. Merger.", "As set out in this Section 1.01, the parties merge.")
+                + _section("s2", "Section ii.. Closing.", "(a) The Closing occurs under this Section 1.02.", "(b) See Section 2.1."),
+            )
+            + _article(
+                "a2",
+                "ARTICLE II CONSIDERATION",
+                _section("s3", "Conversion.", "Subject to Section 1.2(a) and Section 1.01, shares convert.")
+                + _section("s4", "Exchange.", "See Section 2.3."),
+            )
+        )
+        p = build_reader_index(xml)
+        secs = _sections_by_id(p)
+        self.assertEqual(sorted(secs), ["s1.1", "s1.2", "s2.1", "s2.2"])
+        self.assertEqual((secs["s1.2"]["label"], secs["s1.2"]["title"], secs["s1.2"]["anchor"]), ("1.2", "Section ii.. Closing.", {"s": "s2"}))
+        x = _xrefs(p)
+        self.assertEqual((x["Section 1.2(a)"]["status"], x["Section 1.2(a)"]["target"]), ("resolved", "s1.2(a)"))
+        self.assertEqual(x["Section 1.01"]["target"], "s1.1")
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+        self.assertEqual(x["Section 2.3"]["status"], "unresolved")
+        self.assertEqual((p["stats"]["sections_positional"], p["stats"]["sections_unnumbered"]), (4, 0))
+
+    def test_no_backing_in_the_text_means_no_numbers(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I THE MERGER", _section("s1", "Merger.", "The parties merge.") + _section("s2", "Closing.", "x"))
+            + _article("a2", "ARTICLE II TERMS", _section("s3", "Conversion.", "See Section 1.2."))
+        )
+        p = build_reader_index(xml)
+        self.assertEqual(_sections_by_id(p), {})
+        self.assertEqual(_xrefs(p)["Section 1.2"]["status"], "unresolved")
+        self.assertEqual((p["stats"]["sections_positional"], p["stats"]["sections_unnumbered"]), (0, 3))
+
+    def test_one_stated_number_fixes_what_is_before_it_only(self) -> None:
+        xml = _doc(
+            _article(
+                "a1",
+                "ARTICLE I THE MERGER",
+                _section("s1", "Merger.", "The parties merge.") + _section("s2", "Closing.", "See this Section 1.2.") + _section("s3", "Effects.", "x"),
+            )
+            + _article("a2", "ARTICLE II TERMS", _section("s4", "Conversion.", "See Section 1.1 and Section 1.3."))
+        )
+        p = build_reader_index(xml)
+        # "Merger." is the one section before Section 1.2; nothing shows that counting works past it
+        self.assertEqual(sorted(_sections_by_id(p)), ["s1.1", "s1.2"])
+        x = _xrefs(p)
+        self.assertEqual((x["Section 1.1"]["target"], x["Section 1.3"]["status"]), ("s1.1", "unresolved"))
+
+    def test_gap_between_printed_numbers_is_filled_only_when_it_fits(self) -> None:
+        xml = _doc(
+            _article(
+                "a1",
+                "ARTICLE I TERMS",
+                _section("s1", "Section 1.1 One.", "a")
+                + _section("s2", "Two.", "b")
+                + _section("s3", "Section 1.3 Three.", "See Section 1.2 and Section 1.5.")
+                + _section("s4", "Four.", "c")
+                + _section("s5", "Section 1.6 Six.", "d")
+                + _section("s6", "Seven.", "e"),
+            )
+        )
+        p = build_reader_index(xml)
+        # "Two." sits between 1.1 and 1.3; "Four." cannot be both 1.4 and 1.5; "Seven." has nothing after it
+        self.assertEqual(sorted(_sections_by_id(p)), ["s1.1", "s1.2", "s1.3", "s1.6"])
+        x = _xrefs(p)
+        self.assertEqual(x["Section 1.2"]["target"], "s1.2")
+        self.assertEqual(x["Section 1.5"]["status"], "unresolved")
+
+    def test_a_missing_section_stops_the_count(self) -> None:
+        def stated(uuid: str, num: str) -> str:
+            return _section(uuid, "Heading.", f"this Section {num} applies")
+
+        xml = _doc(
+            _article("a1", "ARTICLE I A", stated("s1", "1.1") + stated("s2", "1.2") + stated("s3", "1.3") + _section("s4", "Four.", "x"))
+            + _article("a2", "ARTICLE II B", _section("s5", "One.", "x") + stated("s6", "2.3") + _section("s7", "Four.", "x"))
+            + _article(
+                "a3",
+                "ARTICLE III C",
+                _section("s8", "One.", "this Section 3.1 applies, and so does this Section 3.2, and again this Section 3.1") + stated("s9", "3.2"),
+            )
+        )
+        secs = _sections_by_id(build_reader_index(xml))
+        # Article II: its second section says it is 2.3. Either a section is missing before it or the phrase is left
+        # from an earlier draft; nothing tells which, so no section of the article gets a number
+        self.assertEqual(
+            {k: v["anchor"]["s"] for k, v in secs.items()},
+            {"s1.1": "s1", "s1.2": "s2", "s1.3": "s3", "s1.4": "s4", "s3.1": "s8", "s3.2": "s9"},
+        )
+
+    def test_a_stated_number_that_the_count_disagrees_with_numbers_nothing(self) -> None:
+        def stated(uuid: str, num: str) -> str:
+            return _section(uuid, "Heading.", f"this Section {num} applies")
+
+        xml = _doc(
+            _article(
+                "a3",
+                "ARTICLE III TERMS",
+                stated("s1", "3.1")
+                + stated("s2", "3.2")
+                + _section("s3", "Three.", "x")
+                + _section("s4", "Adjustments.", "under this Section 3.3, and this Section 3.3 again")
+                + _section("s5", "Five.", "x")
+                + stated("s6", "3.6"),
+            )
+        )
+        secs = _sections_by_id(build_reader_index(xml))
+        # "Adjustments." is the fourth section and the count from 3.2 and back from 3.6 says 3.4: a stale phrase
+        self.assertEqual({k: v["anchor"]["s"] for k, v in secs.items()}, {"s3.1": "s1", "s3.2": "s2", "s3.6": "s6"})
+
+    def test_two_sections_stating_one_number_fix_nothing(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I A", _section("s1", "One.", "this Section 1.1 applies") + _section("s2", "Two.", "this Section 1.1 applies"))
+        )
+        self.assertEqual(_sections_by_id(build_reader_index(xml)), {})
+
+    def test_one_number_printed_in_every_article(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I A", _section("s1", "Section 1.1 Terms.", "this Section 1.1") + _section("s2", "Section 1.2 More.", "x"))
+            + _article("a2", "ARTICLE II B", _section("s3", "Section 1.1 Merger.", "this Section 2.1") + _section("s4", "Section 1.2 Closing.", "See Section 1.2 and Section 2.2."))
+        )
+        p = build_reader_index(xml)
+        secs = _sections_by_id(p)
+        self.assertEqual({k: v["anchor"]["s"] for k, v in secs.items()}, {"s1.1": "s1", "s1.2": "s2", "s2.1": "s3", "s2.2": "s4"})
+        self.assertEqual(p["stats"]["duplicate_section_numbers"], [])
+        x = _xrefs(p)
+        self.assertEqual((x["Section 1.2"]["target"], x["Section 2.2"]["target"]), ("s1.2", "s2.2"))
+
+    def test_text_inside_a_renumbered_section_goes_by_the_new_number(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I A", _section("s1", "Section 1.1 Terms.", "this Section 1.1") + _section("s2", "Section 1.2 More.", "x"))
+            + _article(
+                "a2",
+                "ARTICLE II B",
+                _section("s3", "Section 1.1 Merger.", "this Section 2.1")
+                + _section("s4", "Section 1.2 Closing.", "(a) “Closing Date” means the day of the Closing.", "(b) Subject to clause (a), the parties close."),
+            )
+        )
+        p = build_reader_index(xml)
+        self.assertEqual(_xrefs(p)["clause (a)"]["target"], "s2.2(a)")
+        self.assertEqual(_term(p, "Closing Date")["decls"][0]["in"], "Section 2.2")
+
+    def test_articles_that_lost_their_numbers_count_by_position(self) -> None:
+        xml = _doc(
+            _article("a1", "DEFINITIONS", _section("s1", "Terms.", "this Section 1.1"))
+            + _article("a2", "THE MERGER", _section("s2", "Merger.", "this Section 2.1") + _section("s3", "Closing.", "See Article III and Section 3.1."))
+            + _article("a3", "REPRESENTATIONS", _section("s4", "Organization.", "x"))
+        )
+        p = build_reader_index(xml)
+        self.assertEqual([(n["id"], n["label"], n["title"]) for n in p["outline"]], [("a1", "1", "DEFINITIONS"), ("a2", "2", "THE MERGER"), ("a3", "3", "REPRESENTATIONS")])
+        x = _xrefs(p)
+        self.assertEqual((x["Article III"]["target"], x["Section 3.1"]["target"]), ("a3", "s3.1"))
+
+    def test_numbered_agreement_is_left_alone(self) -> None:
+        p = build_reader_index(BASIC)
+        self.assertEqual(p["stats"]["sections_positional"], 0)
+        self.assertEqual(sorted(_sections_by_id(p)), ["s1.1", "s3.1", "s3.2"])
+
+    def test_complete_printed_numbers_outrank_stale_self_references(self) -> None:
+        xml = _doc(
+            _article("a1", "1. A", _section("s1", "1.1 One.", "x"))
+            + _article("a2", "2. B", _section("s2", "2.1 One.", "x"))
+            + _article("a3", "3. C", _section("s3", "3.1 One.", "x") + _section("s4", "3.2 Two.", "x"))
+            + _article(
+                "a4",
+                "4. D",
+                _section("s5", "4.1 One.", "x")
+                + _section("s6", "4.2 Two.", "under this Section 3.2")
+                + _section("s7", "4.3 Three.", "See Section 4.2.")
+                + _section("s8", "4.4 Four.", "under this Section 3.4"),
+            )
+        )
+        p = build_reader_index(xml)
+        # A draft that once lacked Article C still says "this Section 3.2"; the headings print their numbers
+        self.assertEqual(p["stats"]["sections_positional"], 0)
+        self.assertEqual([n["id"] for n in p["outline"]], ["a1", "a2", "a3", "a4"])
+        self.assertEqual(_xrefs(p)["Section 4.2"]["target"], "s4.2")
+
+    def test_garbled_printed_article_numbers_stand_only_where_the_count_agrees(self) -> None:
+        xml = _doc(
+            _article("a1", "1 ARTICLE THE MERGER", _section("s1", "Merger.", "x"))
+            + _article("a2", "3 ARTICLE CONVERSION", _section("s2", "Conversion.", "under this Section 2.1"))
+            + _article("a3", "5 ARTICLE DISCLOSURE", _section("s3", "Schedules.", "x"))
+            + _article(
+                "a4",
+                "7 ARTICLE REPRESENTATIONS",
+                _section("s4", "Organization.", "this Section 4.1") + _section("s5", "Authority.", "Subject to Article III, this Section 4.2"),
+            )
+        )
+        p = build_reader_index(xml)
+        self.assertEqual([(n["id"], n["title"]) for n in p["outline"]][:3], [("a1", "1 ARTICLE THE MERGER"), ("a2", "3 ARTICLE CONVERSION"), ("a3", "5 ARTICLE DISCLOSURE")])
+        self.assertEqual(_xrefs(p)["Article III"]["target"], "a3")
+
+    def test_disclosure_schedule_item_is_not_a_numbered_paragraph(self) -> None:
+        xml = _doc(
+            _article(
+                "a5",
+                "ARTICLE V REPRESENTATIONS",
+                _section(
+                    "s1",
+                    "Section 5.12 Employee Benefits.",
+                    "(a) Each Plan is listed.",
+                    "Section 5.12.5 of the Company Disclosure Schedule sets forth each severance plan.",
+                    "(b) No Plan is subject to Title IV.",
+                    "5.12.6 Other Plans. See Section 5.12(b).",
+                ),
+            )
+        )
+        p = build_reader_index(xml)
+        x = _xrefs(p)
+        self.assertEqual(x["Section 5.12.5"]["status"], "disclosure_schedule")
+        self.assertEqual(x["Section 5.12(b)"]["target"], "s5.12(b)")
+        subs = [n["id"] for n in _sections_by_id(p)["s5.12"].get("children", [])]
+        self.assertEqual(subs, ["s5.12(a)", "s5.12(b)", "s5.12.6"])
+
+
 class TermTests(unittest.TestCase):
     def test_declarations_and_pointer_demotion(self) -> None:
         p = build_reader_index(BASIC)
