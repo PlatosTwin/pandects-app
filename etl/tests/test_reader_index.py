@@ -536,6 +536,20 @@ class StatusAndTargetRuleTests(unittest.TestCase):
         self.assertEqual([s for _, s, _ in got[:8]], ["external"] * 8)
         self.assertEqual(got[8:], [("Sections 2.2", "resolved", "s2.2"), ("2.5", "resolved", "s2.5")] * 2)
 
+    def test_possessive_disclosure_schedule_is_a_disclosure_reference(self) -> None:
+        got = self._all(
+            _doc(
+                _section("s71", "Section 7.1 Contracts", "(c) x.")
+                + _section(
+                    "s9",
+                    "Section 9.1 Refs",
+                    "Except as set forth in Section 7.1(c) of Seller’s Disclosure Schedule, and Section 7.1 of Parent's "
+                    + "Disclosure Letter. Under Section 7.1 of Parent's Credit Agreement.",
+                )
+            )
+        )
+        self.assertEqual([s for _, s, _ in got], ["disclosure_schedule", "disclosure_schedule", "external"])
+
     # rule 11: "Section N" links to ARTICLE N in an agreement that writes "this Section N" inside article N
     def _self_style(self, signal: str, refs: str, back: str = "") -> list[tuple[str, str, str | None]]:
         return self._all(
