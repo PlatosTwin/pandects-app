@@ -1807,6 +1807,19 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
         refs = self._all("Under the Schedule D&amp;O policy, Section U.S. Holder rules and Schedules K&amp;S Draft, see Exhibit A, B and C and Article IV.")
         self.assertEqual([t for t, _, _ in refs], ["Exhibit A", "B", "C", "Article IV"])
 
+    # L4: a dotted article reference falls back to its longest existing section prefix
+    def test_l4_dotted_article_falls_back_to_section(self) -> None:
+        refs = self._all("Under Article 2.1.11 the parties act. Article 2.1.4 of the Plan applies. See Article 5.12. See Article 7.1.1.")
+        self.assertEqual(
+            refs,
+            [
+                ("Article 2.1.11", "section_fallback", "s2.1"),
+                ("Article 2.1.4", "external", None),
+                ("Article 5.12", "unresolved", None),
+                ("Article 7.1.1", "unresolved", None),
+            ],
+        )
+
 
 class BackMatterSegmentTests(unittest.TestCase):
     # Rule 1: own numbering ends a glossary segment

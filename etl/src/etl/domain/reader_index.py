@@ -1745,6 +1745,16 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                 if (one := _in_one_group(ol, base, subs)) is not None:
                     return "resolved", one.id, None
                 return "section_fallback", ol.articles[base][0].id, None
+            # L4: "Article 3.2.11" with no node falls back to the longest dotted section prefix that exists ("3.2"),
+            # when nothing follows the run ("as are granted by Article 5.12" of a foreign code has no such prefix)
+            if dotted_article and base.count(".") >= 2 and _plain_tail(ref.tail):
+                parts = base.split(".")
+                for k in range(len(parts) - 1, 1, -1):
+                    pre = ".".join(parts[:k])
+                    if pre in ol.subs:
+                        return "section_fallback", ol.subs[pre].id, None
+                    if len(ol.sections.get(pre, [])) == 1:
+                        return "section_fallback", ol.sections[pre][0].id, None
             if _is_large_bare_number(ref, ol, base, subs) or _names_other(ref):
                 return "external", None, None
             return "unresolved", None, None
