@@ -1220,6 +1220,12 @@ LEFTOVER_ITEMS = re.compile(r"^(?:\s*,?\s*(?:and/or|and|or)?\s*\([A-Za-z0-9]{1,6
 INCLUSIVE = re.compile(r"^\s*,?\s*inclusive\s*,?(?=\s*(?:of|to|in|under|hereof)\b)")
 THEREOF = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*thereof\b")
 ATTACHMENT_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Schedules?|Part|Annex|Appendix|Exhibit)\s+[A-Z0-9IVX]")
+# L5: "Section 2 of Exhibit B to the Escrow Agreement", "item 3 of Annex A to the Commitment Letter": an attachment
+# of another document. "of Schedule 1 to the Company Disclosure Schedule" is the disclosure schedule.
+OTHER_ATTACHMENT_TAIL = re.compile(
+    r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Exhibit|Schedule|Annex|Appendix|Part)\s+\S+\s+(?:of|to)\s+(?:the|such|its)\s+"
+    + r"(?!(?:Merger\s+)?Agreement\b)(?:[A-Z][\w\-’']*\s+){0,5}(?:Letter|Agreement|Announcement|Plan|Indenture|Schedules?|Memorandum)\b"
+)
 SELF_DOC = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+Agreement\b")
 SELF_DOC_FROM_EXHIBIT = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+(?:Merger\s+)?Agreement\b")
 OTHER_DOC = re.compile(
@@ -1504,6 +1510,8 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
             status = "unresolved"
             for r in run:
                 r.detail = "other_document"
+        elif not self_marker and (om := OTHER_ATTACHMENT_TAIL.match(tail)):
+            status = "disclosure_schedule" if re.search(r"(?i:disclosure)|Schedules?$", om.group(0)) else "external"
         elif ATTACHMENT_TAIL.match(tail):
             # "paragraph 3 of Schedule 2", "Section 2 of Exhibit B": the attachment's own numbering
             status = "unresolved"

@@ -1744,6 +1744,17 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
         self.assertIn(("Section 7.3", "external", None), refs)
         self.assertIn(("Section 2.1", "unresolved", None), refs)
 
+    # L5: an attachment of another document
+    def test_l5_attachment_of_another_document(self) -> None:
+        refs = self._all(
+            "Under Section 2 of Exhibit B to the Escrow Agreement, Section 3.1 of Schedule 1 to the Company Disclosure Schedule, "
+            "Section 4 of Exhibit C to the Agreement and Section 5 of Exhibit D hereto."
+        )
+        self.assertIn(("Section 2", "external", None), refs)
+        self.assertIn(("Section 3.1", "disclosure_schedule", None), refs)
+        self.assertIn(("Section 4", "unresolved", None), refs)  # this agreement's own exhibit
+        self.assertIn(("Section 5", "unresolved", None), refs)
+
 
 class BackMatterSegmentTests(unittest.TestCase):
     # Rule 1: own numbering ends a glossary segment
