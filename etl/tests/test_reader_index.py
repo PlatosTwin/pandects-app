@@ -1824,6 +1824,8 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
     def test_l7_disclosure_statement_is_the_disclosure_schedule(self) -> None:
         refs = self._all("Except as set forth in Section 3.13(b) of the Matrix Disclosure Statement or Section 2.1 of Seller’s Disclosure Statement.")
         self.assertEqual([s for _, s, _ in refs], ["disclosure_schedule", "disclosure_schedule"])
+        refs = self._all("Except as set forth in Section 3.13(b) of the Schedule of Exceptions.")
+        self.assertEqual([s for _, s, _ in refs], ["disclosure_schedule"])
 
     def test_l1_reaches_numbers_no_section_can_have(self) -> None:
         refs = self._all("Under Section 1.368-2(g) of the Treasury regulations and Section 2510.3-101 of the Department of Labor regulations.")
