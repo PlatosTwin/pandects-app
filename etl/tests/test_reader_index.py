@@ -981,6 +981,45 @@ class HeldoutV3FormTests(unittest.TestCase):
         self.assertEqual({by_text[k]["status"] for k in ("Section 4.14(b)", "(c)")}, {"external"})
 
 
+    def test_space_inside_a_section_number(self) -> None:
+        # found by the 0.8.0 rebuild: Vurv / Taleo (c1cf60c6) prints every reference as "Section 1. 6(c)"
+        from etl.domain.reader_index import _find_refs
+
+        def refs(t: str) -> list[tuple[str, str]]:
+            return [(r.target, t[r.start : r.end]) for r in _find_refs(t, False)]
+
+        self.assertEqual(refs("pursuant to the terms of Section 1. 6(c) hereof"), [("1.6(c)", "Section 1. 6(c)")])
+        self.assertEqual(refs("in accordance with Section 7. 4(e)(ii)) shall"), [("7.4(e)(ii)", "Section 7. 4(e)(ii)")])
+        self.assertEqual(refs("as provided in Section 2. 15 and Section 2.16"), [("2.15", "Section 2. 15"), ("2.16", "Section 2.16")])
+        self.assertEqual(
+            refs("under Sections 3. 1, 3. 2 and 3.3 hereof"), [("3.1", "Sections 3. 1"), ("3.2", "3. 2"), ("3.3", "3.3")]
+        )
+        self.assertEqual(refs("see Section 6. 2A hereof"), [("6.2A", "Section 6. 2A")])
+        # a sentence that ends at "Section 8." and goes on with a count, a heading or a word stays "Section 8"
+        self.assertEqual(refs("terminated under Section 8. 15 days after notice"), [("8", "Section 8")])
+        self.assertEqual(refs("delivered under Section 4. 5 Business Days later"), [("4", "Section 4")])
+        self.assertEqual(refs("as described in Section 4. 4.2 Covenants. The parties"), [("4", "Section 4")])
+        self.assertEqual(refs("as set forth in Section 5. The Company shall"), [("5", "Section 5")])
+        self.assertEqual(refs("a rate under Section 1. 6% of the amount"), [("1", "Section 1")])
+        # only section references are joined
+        self.assertEqual(refs("see Article 2. 3 shares were issued"), [("2", "Article 2")])
+
+    def test_split_section_number_links_the_section(self) -> None:
+        p = build_reader_index(
+            _doc(
+                _article("a1", "ARTICLE I THE MERGER", _section("s16", "1.6 Effect on Capital Stock", "(c) Options. x"))
+                + _article(
+                    "a2",
+                    "ARTICLE II REPRESENTATIONS",
+                    _section("s21", "2.1 Organization", "As provided in Section 1. 6(c) and in Section 1. 9 hereof."),
+                )
+            )
+        )
+        got = {x["text"]: (x["status"], x.get("target")) for x in p["xrefs"]}
+        self.assertEqual(got["Section 1. 6(c)"], ("resolved", "s1.6(c)"))
+        # a joined number with no such section stays unresolved; it does not fall back to the article
+        self.assertEqual(got["Section 1. 9"], ("unresolved", None))
+
     def test_other_documents_and_typed_numbers(self) -> None:
         # found by the 0.4.0 corpus audit (docs/plans/smart-reader.md 10.7)
         from etl.domain.reader_index import _find_refs

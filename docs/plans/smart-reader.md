@@ -1076,10 +1076,31 @@ Under "ARTICLE" headings, the wrong targets are OCR splits ("Section 7. 2(b)", w
 
 **Known limits:**
 - About 1 in 10 of the removed links was right: body text that calls an "ARTICLE" a "Section". These now show as plain text.
-- OCR splits ("Section 7. 2(b)") stay unresolved. Joining them to 7.2(b) is a separate rule.
+- OCR splits ("Section 7. 2(b)") stay unresolved. Joining them to 7.2(b) is a separate rule (done in 0.9.0, section 10.14).
 - Under "SECTION 8" or "8." headings, statute tails the parser misses ("Section 5 of the (U.S.) Federal Trade Commission Act") and exhibits with their own definitions still link wrongly. About a quarter of that group in the sample. The glossary test for back matter needs a tighter signal before that can change.
 
 **Prod.** The new rule reaches the served data only after the local `reader_index` table is rebuilt at 0.8.0 and the next production release is pushed.
+
+### 10.14 Enricher 0.9.0: a space inside a section number (2026-11-19)
+
+**What the 0.8.0 rebuild showed.** The local `reader_index` was rebuilt at 0.8.0 on 2026-11-19: 12,198 agreements, 0 failures, 11,351 references in 2,289 agreements from an article link to unresolved, as the dry run said. A look at the agreements that lost the most links found two groups. Knight / Swift (33b74998) lost 141 links inside attached bylaws ("Section 6 of this Article II"), which is right. Vurv / Taleo (c1cf60c6) lost 139 links printed as "Section 1. 6(c)", with a space after the period. Under 0.7.0 the parser read that as "Section 1" and linked ARTICLE I, the right article though not the section; under 0.8.0 it has no link. A scan of the 2,289 agreements counts at most 1,268 removed links of this kind, 825 of them in 55 agreements.
+
+**Rule.** After a section item that is a bare whole number, a period, white space and one more whole number (with an optional letter and enumerators) continue the same number: "Section 1. 6(c)" is Section 1.6(c), and "Sections 3. 1, 3. 2 and 3.3" are three sections. It sits next to the older rule for "Section 4,02". The join does not happen when the second number is a count ("Section 8. 15 days after", "Section 4. 5 Business Days", "6%"), when a deeper number follows ("Section 4. 4.2 Covenants", a heading after the end of a sentence), or for any head other than "Section". A joined number with no such section stays unresolved; it does not fall back to the article.
+
+**Dry run on the 420 agreements that contain such a number.** 205 agreements change, with no change to any outline, term or term use:
+
+| From | To | References |
+|---|---|---|
+| unresolved | resolved (the section or its enumerator) | 686 |
+| unresolved | disclosure schedule ("Section 2. 3(g) of the Disclosure Schedule") | 205 |
+| not a reference | resolved or section-level link (later members of a list) | 66 |
+| unresolved | section-level link | 37 |
+| unresolved | unresolved (the joined number has no section) | 21 |
+| other | external or disclosure schedule | 8 |
+
+A read of 60 changed references found no wrong join. Second numbers of 25 or more occur 10 times (26, 28, 29), all sections of long representation articles.
+
+**Gold.** The 125 fixtures are unchanged.
 
 ## 11. Decisions (2026-10-22)
 

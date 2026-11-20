@@ -27,7 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-ENRICHER_VERSION = "0.8.0"
+ENRICHER_VERSION = "0.9.0"
 PAYLOAD_SCHEMA = 1
 
 # Regions whose text is indexed for term uses and cross-references. The table of
@@ -923,6 +923,13 @@ DISCLOSURE = re.compile(
 DISCLOSURE_BEFORE = re.compile(r"(?i:disclosure)\s+(?:Schedules?|Letter|Memorandum)\s*$")
 LOWER_HEAD_OTHER = re.compile(r"^[\d:.()A-Za-z]*\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant\s+to)\s+(?:the\s+|such\s+|its\s+|their\s+)?(?!this\b|Agreement\b|hereof\b)[A-Z]")
 OCR_COMMA = re.compile(r",(\d{2})(?![\d,])")
+# "Section 1. 6(c)": a space typed or scanned into the section number. The second part is one whole
+# number, and what follows must not make it a count ("Section 4. 15 days after ...") or a deeper
+# number ("Section 4. 4.2 Covenants", where a heading follows the end of a sentence).
+SPLIT_DOT = re.compile(
+    r"\.\s+(\d{1,3}[A-Z]?)((?:\s?\([A-Za-z0-9]{1,6}\))*)"
+    r"(?![\dA-Za-z]|\.\d|\s+(?i:(?:business|calendar|trading)\s+)?(?i:days?|months?|years?|hours?|weeks?|percent)\b|\s*%)"
+)
 COLON_NUMBER = re.compile(r":\d")
 LEFTOVER_ITEMS = re.compile(r"^(?:\s*,?\s*(?:and/or|and|or)?\s*\([A-Za-z0-9]{1,6}\))+")
 THEREOF = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*thereof\b")
@@ -998,6 +1005,19 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 last = run[-1]
                 last.target, last.end, last.base_end = f"{last.target}.{cm.group(1)}", cm.end(), cm.end()
                 pos = cm.end()
+                continue
+            # "Section 1. 6(c)": a space inside the number; the reference is to Section 1.6(c)
+            if (
+                run
+                and head == "section"
+                and not run[-1].relative
+                and re.fullmatch(r"\d+", run[-1].target)
+                and (sm := SPLIT_DOT.match(text, pos))
+            ):
+                last = run[-1]
+                last.target = f"{last.target}.{sm.group(1)}" + re.sub(r"\s", "", sm.group(2))
+                last.end, last.base_end = sm.end(), sm.end(1)
+                pos = sm.end()
                 continue
             if not first:
                 jm = REF_JOIN.match(text, pos)
