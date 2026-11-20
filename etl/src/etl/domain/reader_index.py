@@ -168,6 +168,9 @@ ATTACHMENT_HEADING = re.compile(
     r"^(EXHIBIT|Exhibit|ANNEX|Annex|SCHEDULE|Schedule|APPENDIX|Appendix)\s+([A-Z0-9][A-Z0-9.\-]*)\b"
 )
 
+# the enumerators of an attachment heading's number: "Annex 2.02(a)", "Schedule 1.1(b)(ii)"
+ATTACHMENT_ENUMS = re.compile(r"(?:\([A-Za-z0-9]{1,6}\))+")
+
 _LOWER_ROMANS = frozenset(
     "i ii iii iv v vi vii viii ix x xi xii xiii xiv xv xvi xvii xviii xix xx".split()
 )
@@ -476,11 +479,18 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             m = ATTACHMENT_HEADING.match(txt)
             if not m or len(txt) >= 120:
                 continue
-            key = f"{m.group(1).lower()} {m.group(2).lower().rstrip('.')}"
-            if key in ol.attachments:
+            num = m.group(2).lower().rstrip(".")
+            key = f"{m.group(1).lower()} {num}"
+            # "Annex 2.02(a)" keeps its enumerators, so "Annex 2.02(a)" and "Annex 2.02(b)" are two attachments;
+            # a bare "Annex 2.02" still finds the first of them
+            em = ATTACHMENT_ENUMS.match(txt, m.end(2)) if not m.group(2).endswith(".") else None
+            enums = em.group(0) if em else ""
+            full = key + enums.lower()
+            if full in ol.attachments or (not enums and key in ol.attachments):
                 continue
-            node = _Node(ol.unique_id("x-" + key.replace(" ", "-")), "attachment", key.split(" ", 1)[1].upper(), txt, {"s": tn.s, "t": tn.t})
-            ol.attachments[key] = node
+            node = _Node(ol.unique_id("x-" + full.replace(" ", "-")), "attachment", num.upper() + enums, txt, {"s": tn.s, "t": tn.t})
+            ol.attachments[full] = node
+            _ = ol.attachments.setdefault(key, node)
             ol.roots.append(node)
     # Subsections of a duplicated section or flat item can't say which copy they belong to
     dup = [n + "." for n, v in ol.sections.items() if len(v) > 1] + [n + "(" for n, v in ol.sections.items() if len(v) > 1]
@@ -977,6 +987,8 @@ GLUED_HEAD = re.compile(r"(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Schedules?|
 REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 # "Section VIII.2(e)": tried first for section, article, clause and paragraph heads only ("Exhibit C.2" is Exhibit C)
 ROMAN_ITEM = re.compile(r"(" + _ROMAN_NUM + r"(?:\.\d+" + _SUFFIX + r"?)+(?:\s?\([A-Za-z0-9]{1,6}\))*)")
+# "Exhibit C-1", "Exhibit I-1": tried first for attachment heads, so the label is not Roman "C" plus a range "-1"
+ATTACHMENT_ITEM = re.compile(r"([A-Z]-\d+)\b")
 # "(other than Sections 1.1, 6.2 (a)), 6.6 (f)": a list can step out of the parenthetical it started in
 RELATIVE_FOLLOW = re.compile(
     r"\s*(?:[,;.)]|$)|\s+(?:and|or|of|through|to|hereof|hereto|herein|thereof|above|below|shall|will|is|are|has|have|was|were|would|may|applies|apply)\b"
@@ -1055,7 +1067,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 item_pos = jm.end()
             # only consume a joiner when an item follows it: in "Section 3.14(a) to the Disclosure
             # Schedule" the "to" belongs to the tail, not to a range
-            im = (ROMAN_ITEM.match(text, item_pos) if head in _IN_DOCUMENT_HEADS else None) or REF_ITEM.match(text, item_pos)
+            im = (ROMAN_ITEM if head in _IN_DOCUMENT_HEADS else ATTACHMENT_ITEM).match(text, item_pos) or REF_ITEM.match(text, item_pos)
             if not im and head == "article":
                 im = SPELLED_ITEM.match(text, item_pos)
             if not im:

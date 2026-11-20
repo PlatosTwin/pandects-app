@@ -469,6 +469,41 @@ class StatusAndTargetRuleTests(unittest.TestCase):
             ],
         )
 
+    # rule 8: full attachment labels
+    def test_letter_hyphen_number_exhibits_are_one_label(self) -> None:
+        back = "<text>EXHIBIT C-1</text><text>Form of note.</text><text>Exhibit I-1</text><text>Form of letter.</text>"
+        got = self._all(_doc(_section("s1", "Section 1.1 Refs", "See Exhibit C-1, Exhibits I-1 and C-2, and Exhibits I-III."), back=back))
+        self.assertEqual(
+            got,
+            [
+                ("Exhibit C-1", "resolved", "x-exhibit-c-1"),
+                ("Exhibits I-1", "resolved", "x-exhibit-i-1"),
+                ("C-2", "unlocated_attachment", None),
+                ("Exhibits I", "unlocated_attachment", None),
+                ("III", "unlocated_attachment", None),
+            ],
+        )
+
+    def test_attachment_headings_keep_their_enumerators(self) -> None:
+        back = (
+            "<text>Annex 2.02(a)</text><text>Purchased assets.</text>"
+            "<text>Annex 2.02(b)</text><text>Excluded assets.</text>"
+            "<text>Exhibit B</text><text>Form of deed.</text>"
+        )
+        p = build_reader_index(_doc(_section("s1", "Section 1.1 Refs", "See Annex 2.02(a), Annex 2.02(b), Annex 2.02 and Exhibit B."), back=back))
+        got = [(r["text"], r["status"], r.get("target")) for r in p["xrefs"]]
+        self.assertEqual(
+            got,
+            [
+                ("Annex 2.02(a)", "resolved", "x-annex-2.02(a)"),
+                ("Annex 2.02(b)", "resolved", "x-annex-2.02(b)"),
+                ("Annex 2.02", "resolved", "x-annex-2.02(a)"),
+                ("Exhibit B", "resolved", "x-exhibit-b"),
+            ],
+        )
+        labels = [n["label"] for n in p["outline"] if n["kind"] == "attachment"]
+        self.assertEqual(labels, ["2.02(a)", "2.02(b)", "B"])
+
 
 class ReaderHealthShapeTests(unittest.TestCase):
     """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""
