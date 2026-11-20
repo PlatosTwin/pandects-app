@@ -413,6 +413,35 @@ class StatusAndTargetRuleTests(unittest.TestCase):
         self.assertEqual(refs["clause 41"], ("unresolved", None))
         self.assertEqual(refs["Section 41.2"], ("unresolved", None))
 
+    # rule 10: self markers beat statute and other-document tails
+    def _rule10(self, *texts: str) -> list[tuple[str, str, str | None]]:
+        return self._all(_doc(_section("s63", "Section 6.3 Filings", "(a) x.") + _section("s64", "Section 6.4 Refs", *texts)))
+
+    def test_this_and_hereof_keep_a_reference_internal(self) -> None:
+        got = self._rule10(
+            "The limits in this Section 6.3 apply to any registration of the Securities Act.",
+            "Section 6.3 hereof and any registration of the Securities Act apply.",
+            "This Section 6.3 under the Company Option Plan governs.",
+        )
+        self.assertEqual(got, [("Section 6.3", "resolved", "s6.3")] * 3)
+
+    def test_a_verb_before_the_act_keeps_a_reference_internal(self) -> None:
+        got = self._rule10("Section 6.3 shall not apply to the filings of the Exchange Act.")
+        self.assertEqual(got, [("Section 6.3", "resolved", "s6.3")])
+
+    def test_this_section_run_is_not_pushed_external_by_a_joined_run(self) -> None:
+        got = self._rule10("Under this Section 6.3 or Section 13 of the Exchange Act, the filing is made.")
+        self.assertEqual(got, [("Section 6.3", "resolved", "s6.3"), ("Section 13", "external", None)])
+
+    def test_statute_lists_and_other_documents_stay_external(self) -> None:
+        got = self._rule10(
+            "Reports under Section 15, Section 15B or Section 15C of the Exchange Act are filed.",
+            "Proxy rules in Section 14a-13 of the Exchange Act apply.",
+            "As provided in Section 6.3 of the Company Option Plan.",
+            "Section 6.3 or Section 13 of the Exchange Act applies.",
+        )
+        self.assertEqual([s for _, s, _ in got], ["external"] * 7)
+
 
 class ReaderHealthShapeTests(unittest.TestCase):
     """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""

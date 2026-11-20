@@ -946,6 +946,20 @@ OTHER_DOC = re.compile(
     + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:[a-z]+\s+){0,3}(?:bylaws|by-laws|charter|certificate of incorporation|articles of incorporation|operating agreement)\b"
     + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:Amended\s+and\s+Restated\s+)?(?:Articles|Certificate)\s+of\s+(?:Incorporation|Association|Organization)\b",
 )
+# Self markers: "this Section 6.3" and "Section 6.3 hereof" name the document's own section
+THIS_BEFORE = re.compile(r"(?i:\bthis)\s+$")
+HEREOF_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:hereof|herein|hereunder)\b")
+# "Section 14a-13 of the Exchange Act": an Act named after the reference. A verb before it means the Act
+# belongs to the rest of the sentence ("Section 6.3 shall not apply to filings under the Securities Act").
+ACT_LATER = re.compile(r"\bof\s+(?:the\s+)?[A-Z][\w .\-()]{2,60}\bAct\b")
+_VERB = re.compile(r"\b(?:shall|will|is|are|must|may|would|should|was|were|has|have|be|been)\b")
+
+
+def _act_later(tail: str) -> bool:
+    m = ACT_LATER.search(tail[:70])
+    return m is not None and not _VERB.search(tail, 0, m.end())
+
+
 # "Code Section 409A", "Treasury Regulations Section 1.368-2" (from the kirkland ingester)
 AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.)|§)\s*$")
 SEC_FORM = re.compile(r"^(?:\d{2}[A-Z](?:-\d+)?|TO|13E-3)$")
@@ -992,6 +1006,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
     refs: list[_Ref] = []
     prev_run: list[_Ref] = []
     prev_end: int | None = None
+    prev_self = False
     # a paragraph with three or more all-caps heads is a table of contents, often of another document
     caps_toc = sum(1 for m in REF_HEAD.finditer(text) if m.group(1).isupper()) >= 3
     for hm in REF_HEAD.finditer(text):
@@ -1075,6 +1090,8 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         before = text[max(0, hm.start() - 40) : hm.start()]
         lower_head = hm.group(1) in ("section", "sections", "article", "articles")
         self_doc = (SELF_DOC_FROM_EXHIBIT if in_exhibit else SELF_DOC).match(tail)
+        # "this Section 6.3", "Section 6.3 hereof": the document's own section, whatever the sentence names later
+        self_marker = bool(THIS_BEFORE.search(before) or HEREOF_TAIL.match(tail))
         status = ""
         if COLON_NUMBER.match(text, pos):
             # "articles 7:17 DCC", "section 2:107a": civil-code numbering, never this agreement's
@@ -1087,10 +1104,10 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             # "Seller Disclosure Schedule section 3.4(c)"; an index table's "Company Disclosure Schedule Section 2"
             # names a term and where it is defined
             status = "disclosure_schedule"
-        elif not self_doc and (
+        elif not self_doc and not self_marker and (
             STATUTE.match(tail)
             or OTHER_DOC.match(tail)
-            or re.search(r"\bof\s+(?:the\s+)?[A-Z][\w .\-()]{2,60}\bAct\b", tail[:70])
+            or _act_later(tail)
             # a lowercase "section 9 of the Decree", "article 15 of the DCC" is how other documents and foreign
             # statutes are cited; this agreement's own sections are capitalized or "of this Agreement"
             or (lower_head and LOWER_HEAD_OTHER.match(tail))
@@ -1127,15 +1144,17 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 r.status = "external"
         # "Section 355 or Section 361 of the Code": a run joined to an external run is external too
         # "Section 3.2(a) or Section 3.2(b) of the Company Schedules": the same for disclosure schedules
+        # A "this Section 6.3" run keeps its own status: "this Section 6.3 or Section 13 of the Exchange Act"
         if (
             prev_run
             and prev_end is not None
+            and not prev_self
             and run[0].status in ("external", "disclosure_schedule")
             and re.fullmatch(r"\s*(?:,\s*)?(?:and|or|and/or)?\s*", text[prev_end : hm.start()])
         ):
             for r in prev_run:
                 r.status = run[0].status
-        prev_run, prev_end = run, pos
+        prev_run, prev_end, prev_self = run, pos, self_marker
         refs.extend(run)
     return refs
 
