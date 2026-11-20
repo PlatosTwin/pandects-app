@@ -1820,6 +1820,11 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
             ],
         )
 
+    # L7: "of Seller's Disclosure Statement" is the disclosure schedule
+    def test_l7_disclosure_statement_is_the_disclosure_schedule(self) -> None:
+        refs = self._all("Except as set forth in Section 3.13(b) of the Matrix Disclosure Statement or Section 2.1 of Seller’s Disclosure Statement.")
+        self.assertEqual([s for _, s, _ in refs], ["disclosure_schedule", "disclosure_schedule"])
+
 
 class BackMatterSegmentTests(unittest.TestCase):
     # Rule 1: own numbering ends a glossary segment
