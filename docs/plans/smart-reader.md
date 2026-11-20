@@ -1114,6 +1114,157 @@ The 75 article links that moved to a section are in agreements whose articles pr
 - A self reference with a plan or statute in its tail is stored as external: "this Section 2. 6(d) under the Company Option Plan". The tail rules do this for unsplit numbers too.
 - "Section 1.6. 2" and the like are not joined: nearly all such text is a heading that follows a full section number ("Section 6.06. 280G Calculation").
 
+### 10.15 Enricher 0.10.0: back matter (2026-11-20)
+
+**Background.** After the 0.9.0 rebuild, a census sorted the unlinked and wrongly linked references into classes and read samples of each (`reader_090_census/PROPOSALS.md` in the validation folder). It proposed rules 1 to 12. Enricher 0.10.0 ships rules 1 to 12, a rule for lost section numbers (rule 13, section 10.17) and four rules from a second round of the census (R1 to R4, section 10.18). Sections 10.15 to 10.18 give each group. Back matter is the text after the agreement's body: exhibits, annexes, schedules, glossaries and indexes. Rules 1, 4, 2, 6 and 7 change how the enricher reads it.
+
+**Method.** The rules were applied in the order 1, 4, 2, 6, 7. Each rule was measured on top of the rules before it in its group, with a corpus dry diff over all 12,198 agreements (`measure_chain.py`; per-rule files in `reader_0100/backmatter/`). Then 30 changed references were read in context and labeled improved, regressed or neutral. A rule was kept only with at most 3 regressed of 30. When a sample failed, the rule got a guard, and the guarded rule was measured and read again.
+
+| Rule | Commits | Refs changed | Agreements | Main transitions | Sample (improved / regressed / neutral) |
+|---|---|---|---|---|---|
+| 1 own numbering ends a back-matter glossary segment | 990e82ef, 395b6a2b | 70,155 | 942 | resolved to unresolved 56,478; section_fallback to unresolved 12,244; external to resolved 591 | 25 / 2 / 3 |
+| 4 a back-matter index of defined terms belongs to the agreement | 0c9a17ad | 16,732 | 172 | unresolved to resolved 15,662; to section_fallback 871 | 27 / 0 / 3 |
+| 2 back-matter headings and contents lines are not references | cee70f89, fe591f26 | 63,548 | 1,212 | unresolved to absent 63,114; resolved to absent 384 | 30 / 0 / 0 |
+| 6 attachment names in back matter resolve to the agreement's attachments | 314a26c6, d52dbdad | 12,844 | 2,028 | unresolved to resolved 4,300; resolved to unresolved 782; status only 7,762 | 22 / 1 / 7 |
+| 7 a UK "clause N.M" inside a Schedule means the agreement | 20efc2d6, 9e6ca5e1, 3a5aca95 | 791 | 75 | unresolved to resolved 753; to section_fallback 38 | 29 / 1 / 0 |
+
+**Rule 1: own numbering ends a glossary segment.** Before 0.10.0, any back-matter segment that defined terms counted as the agreement's glossary, so its bare section references resolved against the main agreement. Many such segments are attached agreements (registration rights, LLC, voting, CVR and exchangeable-share provisions) with their own numbered sections. In the census, 17 of 19 links in segments with their own numbering were wrong. Now a segment with three or more paragraphs that open with their own section number, and at least one such paragraph per five definitions, is an attached document. Its bare section references stay exhibit-local; a tail that names the main agreement still resolves. Numbered definitions ("1.1 “Term” means") count as glossary entries, not as own numbering. Code: `OWN_NUMBER`, `_OWN_NUMBERING_MIN` (3), `_OWN_NUMBERING_RATIO` (5), `_back_segments` and `_glossary_exhibit_texts`.
+- Guard (395b6a2b): gold fixture 03f4e108 prints "Annex 3.7" with paragraphs 3.7.1 to 3.7.5, which are the agreement's own Section 3.7 set out at the back. The first version counted them as own numbering and lost the gold link. Paragraph numbers that start with the annex's own dotted number no longer count.
+
+**Rule 4: an index of defined terms belongs to the agreement.** A back-matter paragraph with four or more "Term Section N.M" pairs, in a segment without its own numbering, is an index of the agreement's defined terms. Its segment now resolves against the main agreement, as glossary text does. Before, these references stayed exhibit-local and unresolved; the census read 8 of 8 as the agreement's own sections. Prose citations and table-of-contents lines (a page number before the next place) do not count as pairs. Code: `INDEX_PLACE`, `_index_pairs` and `_INDEX_MIN_PAIRS` (4).
+
+**Rule 2: back-matter headings and contents lines are not references.** In back matter, a section or article reference that opens its paragraph and is followed by a title ("Section 9.1 Amendments.", "Section 8. Fees and Expenses.") is an attachment's own heading. A paragraph with four or more mixed-case "Section N.M Title page" entries is a table of contents. Before, both counted as unlinked references and inflated the unlinked count; the body already skipped its own headings. Neither yields references now, and body text is unchanged. Code: `BACK_HEADING_TITLE`, `BACK_TOC_ENTRY`, `_BACK_TOC_MIN` (4) and `_names_main_heading`.
+- Guard (fe591f26): the first sample had 3 of 30 regressed. The dropped lines included a list of omitted disclosure schedules ("Section 5.4 - Authority; Non-Contravention; Approval"), a table of disclosure schedules and the agreement's own table of contents printed in back matter. A heading whose printed title equals the title of the agreement's section with that number now stays a reference. So does a contents paragraph where at least half of the entries, and two or more, match.
+
+**Rule 6: attachment names in back matter resolve to attachments.** In back-matter text, "Exhibit C", "Annex I" or "Schedule 3" now goes through the attachment lookup. Before, the exhibit-local rule, which was meant for section numbers, also caught attachment names. The rule applies only in segments without their own numbering (or that define terms), because an attached agreement's "Exhibit A" is its own exhibit. Code: `_ATTACHMENT_HEADS`, `_HERETO_BEFORE`, `_HERETO_AFTER`, `_OWN_ATTACHMENT_TAIL` and `_printed_after`.
+- Guard (d52dbdad): in a preview of the corpus diff, about one in ten new links named a form's own exhibit ("attached hereto as Exhibit A", "Exhibit A hereto") or another document's ("Annex A of this release", "Schedule 1 of the Company's constitution"). A tail that names another document now keeps the exhibit-local reading. After "hereto", the link stays only when the named attachment is printed later in back matter than the reference. This keeps 2 right gold links in b25fc0d0 ("Schedule A, attached hereto" in an amendment).
+
+**Rule 7: a UK "clause N.M" inside a Schedule means the agreement.** UK schedules number their own items as paragraphs and cite the agreement as "clause 9.2". In a back-matter segment headed "Schedule", a dotted clause reference now resolves against the main agreement. Before, it stayed exhibit-local. Bare "clause 9" and paragraphs are unchanged. Code: `_SCHEDULE_HEAD`, `_THIS_BEFORE`, `_OWN_DEED`, `_OTHER_DOC_TAIL`, `_ABOVE_BELOW`, `_CLAUSE_DOTTED` and `_SECTION_DOTTED`.
+- The rule as proposed failed the census check (5 of 30 wrong), and the first guard failed a new sample (5 of 30).
+- Guard (9e6ca5e1): a "this" before the reference ("this clause 9.3" in a warranties schedule), a schedule that calls itself "this Deed" or "this Covenant" (a tax deed set out in a schedule), and a tail "of the <Capitalized>" other than "of this agreement" ("clause 2 of the Tax Covenant") keep the exhibit-local reading.
+- Guard (3a5aca95): "above" and "below" tails stay local ("clause 2.1 above" in a warranties schedule is the schedule's own paragraph). The tail check allows a comma ("clause 3.1 of, the Primary Policy"). The rule applies only when the body cites "clause N.M" at least as often as "Section N.M". One US agreement had 1 "clause N.M" against 131 "Section N.M" in its body, and its schedule's "clause 11.3(b)" had linked to Section 11.03 Severability.
+
+**The group against 0.9.0.** On their own branch, the five rules change 149,013 references in 3,063 agreements, with 0 build failures. 22,576 links are added and 69,653 removed; 48,657 unlinked headings and contents lines leave the list; 8,127 references change only their status. In the gold fixtures the only change removes one wrong link (8742300d); no right gold link is lost.
+
+**Known limits:**
+- Rule 1 loses about 2 in 24 right links: an exhibit that amends the main agreement, and a second copy of the agreement in back matter. No cheap guard was found.
+- One rule 6 regression is "attached as Exhibit A" written without "hereto".
+- The rule 2 sample labels correct heading removals as improved. Counted as neutral, rule 2 still has 0 regressed.
+- An attachment's own sections still have no outline nodes, so they stay unlinked. That needs attachment segmentation (Phase 4).
+
+### 10.16 Enricher 0.10.0: statuses and targets (2026-11-20)
+
+Rules 3, 10, 9, 8, 12, 11 and 5 change the status of a reference (external, disclosure_schedule, unresolved) or which target it links to. They were applied in that order. Each rule was measured on top of the rules before it in its group, over all 12,198 agreements; a fix was measured from its tip against the tree before it (per-rule files in `reader_0100/targets/`). The bar was the same as in section 10.15: at most 3 regressed of 30 read in context, or 4 of 40 for rule 5. Gold fixtures do not change under any rule (1,928 exact, 128 section, 2 wrong on base and tip).
+
+| Rule | Commits | Refs changed | Agreements | Links added / removed / moved | Sample (improved / regressed / neutral) |
+|---|---|---|---|---|---|
+| 3 bare "Section N", N of 40 or more, no node: external | a9237ed0 | 37,105 | 7,832 | 0 / 0 / 0 | 30 / 0 / 0 |
+| 10 self markers beat statute and other-document tails | 5d6531f1, 343028ca | 530 | 430 | 512 / 0 / 0 | 30 / 0 / 0 (before the fix 19 / 2 / 9) |
+| 9 regulation numbers after a hyphen | 5a05c160 | 90,790 | 9,725 | 59 / 113 / 8 | 30 / 0 / 0 |
+| 8 full attachment labels | 248ca2ae | 5,492 | 786 | 2,859 / 48 / 106 | 28 / 0 / 2 |
+| 12 small tail fixes | b4c5806d, 8dfaae64 | 3,571 | 838 | 48 / 1,453 / 3 | 30 / 0 / 0 (the fix's own changes 30 / 0 / 0) |
+| 11 "Section N" to ARTICLE N in self-style agreements | 00b14968, af634fb2 | 286 | 122 | 286 / 0 / 0 | 30 / 0 / 0 (before the fix 27 / 3 / 0) |
+| 5 nearest-scope tie-break for ambiguous clauses | e1ce6d64, 712fed76 | 4,450 | 1,833 | 2,361 / 0 / 7 | 27 / 0 / 13 of 40 |
+
+**Rule 3: large bare section numbers are external.** "Section 262", "Section 280G" and "Section 338(h)(10)" with no section, subsection or article of that number become `external` instead of `unresolved`. The census read 79 of 79 such references with N of 40 or more as a statute or another document. "Section 13" or "Section 16" of the Exchange Act stays unresolved, because small numbers are too often the agreement's own articles. The rule changes the status only. Code: `_is_large_bare_number`, `_LARGE_BARE` and `_LARGE_BARE_MIN` (40), in the section branch of `_resolve`.
+
+**Rule 10: self markers beat statute and other-document tails.** The census found 406 references in 307 agreements that the enricher stored as external although they cite the agreement itself, mostly because an Act search was not anchored to the reference or a run joined by "and" or "or" took an external run's status. Now a run after "this", or with a "hereof" tail, stays internal even when an Act or another document is named later. A verb before "of the ... Act" keeps a reference internal ("Section 6.3 shall ... of the Securities Act"). A "this Section" run is no longer pushed to external by a run joined to it. Statute lists stay external. Code: `THIS_BEFORE`, `HEREOF_TAIL`, `ACT_LATER`, `_act_later`, `_VERB`, and the `prev_self` flag in `_find_refs`.
+- Guard (343028ca): the self markers apply in the body only. In back matter, 24 of the 26 links rule 10 added were wrong: an exhibit's own "this Section 4.3" linked to the main agreement. Back matter keeps the 0.9.0 status logic (the `back` argument of `_find_refs`).
+
+**Rule 9: a regulation number after a hyphen is one reference.** "Section 1.368-3" and "Section 1.1502-6(a)" were read as "1.368" plus a list member "3", and the stray member could link to an article. Now the whole number is one reference, and its tail still makes it external. "Sections 2.1-3.1" and "Section 2.1 - 3" are still ranges. Code: `REG_HYPHEN`. Most of the 90,790 changed references touch no link.
+
+**Rule 8: full attachment labels.** "Exhibit C-1" and "Exhibit I-1" were read as a Roman "C" or "I" plus a range member "-1". They are now one label. An attachment heading also keeps its enumerators, so "Annex 2.02(a)" and "Annex 2.02(b)" are two attachments; a bare "Annex 2.02" still finds the first. "Exhibits I-III" is unchanged. Code: `ATTACHMENT_ITEM`, `ATTACHMENT_ENUMS` and the attachment key in `_build_outline`.
+
+**Rule 12: small tail fixes.** The census saw single wrong links from tails the parser missed. `STATUTE` and the Act search now accept a year before "Act" ("of the 1934 Act"). `OTHER_DOC` accepts a possessive name ("of the Company's Amended and Restated Certificate of Incorporation"). `INCLUSIVE` stops ", inclusive," from hiding a tail ("Sections 2.2 to 2.5, inclusive, of the Distribution Agreement"). `AUTHORITY_BEFORE` accepts "CFR" and "Regs.".
+- Guard (8dfaae64): the possessive made "Section 4.16(b) of Seller's Disclosure Schedule" external; 16 of the first 30 sampled changes were of this kind. `DISCLOSURE` now accepts the same possessive opening. 1,596 such references get `disclosure_schedule`, and 285 more wrong links go.
+
+**Rule 11: "Section N" to ARTICLE N in self-style agreements.** Enricher 0.8.0 (section 10.13) stopped linking a bare "Section N" to an "ARTICLE N". The census found that the removal was right for nearly all of them, but agreements that write "this Section N" inside article N call their articles "Section N". In such an agreement, a body "Section N" that prints its head, has no tail naming anything but this agreement and has no OCR continuation of the number links to article N again. Back matter never does. The broader body rule read 7 of 30 right in the census and is not used. Code: `_self_cites_article`, `_self_cited_article`, `_Outline.self_cited_articles`, `_OTHER_TAIL` and `_plain_tail`.
+- Guard (af634fb2): the first sample had 3 wrong article links, all statutes: "9 U.S.C., Section 1 et seq.", "Health Code, Chapter II, Section 1 et seq." and "Section 5f.103-1(c) of the Treasury Regulations". An "et seq." tail and a letter glued to the number now count as tails that name something else. This removes exactly those 3 links and nothing else.
+
+**Rule 5: nearest-scope tie-break for ambiguous clauses.** When "clause (ii)" has several candidates in the section, the rule keeps those whose parent is the paragraph that holds the reference or one of its ancestors. It resolves only if exactly one is left. References whose tail names another document, an annex or a paragraph are skipped. A qualifier is also read after a comma ("clauses (A)-(D) of, the foregoing Section 5.2(a)") and after a list ("clauses (i) through (xiii) or clause (xvi) of Section 4.12(a)"). Before, all these stayed `ambiguous`. Code: `_nearest_scope`, `_Outline.para_index`, `CLAUSE_OF_OTHER` and the wider `QUALIFIED`.
+- Guard (712fed76): gold fixture 869a5c84 reads "(other than clause (i) thereto)" as an inline item of another document, and the tie-break had linked it to Section 5.2(i). A "thereof" or "thereto" tail now skips the tie-break, and the 125 gold fixtures score as before.
+
+**The group against 0.9.0.** On their own branch, the seven rules change 142,129 references in 11,156 agreements. 6,125 links are added, 1,614 removed and 124 moved. 46,820 stray fragments disappear. 134,266 changes touch only the status or the text.
+
+**Known limits:**
+- 2 back-matter statuses slip from unresolved to external (no link involved).
+- "of Seller's Disclosure Statement" stays `external`.
+- Rule 5 has one class that is not sized, a coarser fallback; 1 of its 7 link moves was read (`labels/extra_rule5_link_moves.txt`).
+- Rule 9's 117 changes from `disclosure_schedule` to `unlocated_attachment` were not read (no link involved).
+
+### 10.17 Enricher 0.10.0: section numbers that the filed text lost (2026-11-20)
+
+**Cause.** The census found 67 agreements whose section numbers are unusable, so most of their references stayed unresolved. A triage showed that 63 of the 67 are hand-accepted and that the filed text itself lost the numbers. Their headings print "Section i.. Merger.", "Closing.", ".1 Consideration", or "Section 1.1" in every article. The source cannot be fixed, and the rulings say never to invent sections. Rule 13 therefore infers each number from the agreement's own text and from position, and the XML stays as filed.
+
+**Rule.** `_positional_numbers` in `reader_index.py` works per article:
+- A section that says "this Section N.M" about itself is Section N.M (`THIS_SECTION`, `THIS_ARTICLE`). A unique printed N.M in Article N stands too. These are fixed points.
+- Sections between two fixed points are counted (`_count_between`). They get numbers only when the count arrives exactly at the next fixed point.
+- The stretch after an article's last fixed point is numbered only when at least 2 fixed points sit where counting puts them and at most 1 in 5 does not.
+- Article numbers are taken from the text when the printed ones do not get that far (`_printed_article_key`, `_majority`).
+- The texts of a renumbered section take the new number, so its "clause (b)" and a term's "in Section ..." go by it. `_Outline.positional_sections` counts the sections numbered this way.
+
+**Guards added after failed checks:**
+- 9d9df009: a paragraph that opens "Section 5.12.5 of the Company Disclosure Schedule" matched `DECIMAL_PARA` and became sub node 5.12.5. Its own reference was then skipped as a heading, and later "(b)" paragraphs could be filed under it. Before the guard, 20 such paragraphs in 9 agreements matched, and 10 in 4 agreements were read as numbered paragraphs. Such a paragraph is now left alone when the text after the number matches `DISCLOSURE`.
+- a41bdc36: in 7 agreements, a few stale "this Section 6.6" phrases replaced correct printed numbers; in 335e9c67, Article IV lost all 24 numbers. Complete printed article numbers now stay. Garbled printed article numbers count only where the count agrees, and no article number is given twice.
+- 20538c5d: a check against tables of contents found self statements left from earlier drafts. In ba469def, the sixth section of Article III says "this Section 3.5" four times, while the table of contents and four definition pointers call it 3.6. In 401af4ee, one "this Section 14.1" made two articles 14 and 15, where the table of contents prints XIII and XIV. A stated number that no count agrees with now numbers nothing. It still stops the count around it.
+
+**Corpus diff at the head.** The diff ran over all 12,198 agreements against 0.9.0:
+- 135 agreements get 6,094 section numbers; 63 of the census's 67 get 5,678 of them. 14 also get article numbers from the text.
+- References change in 105 agreements. Linked references rise by 11,483; total references rise by 5.
+- Terms and term uses do not change. The "Defined in Section" label changes on 7,537 declarations.
+
+| From | To | References |
+|---|---|---|
+| unresolved | resolved | 8,003 |
+| unresolved | section_fallback | 3,177 |
+| ambiguous | resolved | 293 |
+| section_fallback | resolved | 33 |
+| ambiguous | section_fallback | 27 |
+| resolved | resolved, new target | 24 |
+| resolved | unresolved | 17 |
+| none | disclosure_schedule | 5 |
+| unresolved | ambiguous | 1 |
+| ambiguous | unresolved | 1 |
+
+**Sample.** Of 30 changed references from 26 agreements, read in context, 27 improved, 3 are neutral and 0 regressed (`rule13_final_sample.tsv`).
+
+**Lost or changed links.** All 43 were read. 17 are "Section 280G": statute references that had linked to a heading named "280G", which is right to unlink. 19 are the same paragraph under its new number. 5 are a bare "Section N" that now goes to Article N, as meant. In c912a4c1, "Section 2.7" names a section that does not exist, which is right to unlink. The rest ("Exhibit 2.3, Section 10" and "clauses (i)") are neutral.
+
+**Printed-source check.** In 12 agreements (7 outside the 67), 564 numbers were checked against tables of contents, definition pointers and text references: 0 wrong after the fixes. Over all 135 agreements, 2,107 numbers match the table of contents and 1,600 match definition pointers. The reported mismatches are tables of contents that print the same broken numbers (731d4045, ff587761), the same heading in two articles, heading typos that the table of contents copies, and stale pointers that the table of contents contradicts.
+
+**Known limits:**
+- About 15 numbers from lone statements are now dropped, and some were right (97b6fef7's 5.23 and the 4 sections after it).
+- In 8c2cea65, sections 8.4 and 8.5 follow position with no printed confirmation.
+- One existing test now expects no numbers for Article II.
+- 4 of the 67 agreements get no numbers from this rule.
+
+### 10.18 Enricher 0.10.0: round 2 of the census (2026-11-20)
+
+**Background.** The first census did not sample 17 classes of unlinked references. Round 2 read 30 references in each of them (`reader_090_census/round2_PROPOSALS.md`, `round2_samples.tsv`). Class sizes count the 727,394 unlinked references of 0.9.0. Four rules came out of it, R1 to R4, and each passed the same bar as sections 10.15 and 10.16: a corpus dry diff over all 12,198 agreements (R4 over the 81 agreements that can change), then 30 changed references read in context, with at most 3 regressed. Six smaller follow-up rules (L1 to L6) are handled separately.
+
+| Rule | Commits | Census class | Refs changed | Agreements | Main transitions | Sample (improved / regressed / neutral) |
+|---|---|---|---|---|---|---|
+| R1 a "thereof" inside a parenthetical keeps its section | 5c159648 | U05 A | 201 | 120 | unresolved to resolved 197; to section_fallback 3; to disclosure_schedule 1 | 30 / 0 / 0 |
+| R2 a clause list takes the section printed after it | fcbb05cd | U13 A, U04, U03 | 1,984 | 1,054 | unresolved to section_fallback 1,497; unresolved to resolved 299; ambiguous to resolved 82; resolved to another target 86 | 28 / 0 / 2 |
+| R3 "clause (iv) thereof" means the section printed just before | 8982f2be | U05 A | 529 | 237 | unresolved to resolved 324; to section_fallback 205 | 30 / 0 / 0 |
+| R4 "III. REPRESENTATIONS" is article III | 95e1897b, f32f44e4 | U16 E | 1,530 | 80 | all unresolved to resolved | 30 / 0 / 0 |
+
+**R1: a "thereof" inside a parenthetical keeps its section.** In "Section 3.22 (except for paragraph (g) thereof)", `THEREOF` took "(except for paragraph (g)" as one parenthetical, found the inner "thereof" and read the section as part of a document named before. The new `THEREOF_AFTER` skips only parentheticals with no "(" inside, so the "thereof" must follow the reference itself. The status block uses `THEREOF_AFTER`. `THEREOF` stays defined, and it can go in a later cleanup.
+
+**R2: a clause list takes the section printed after it.** When `QUALIFIED` stops before the section, the clause stays unlinked or links to a clause of the current section. This happens with a Roman number outside `_LOWER_ROMANS` ("clauses (i) through (xxi) of Section 6.3(b)"), a comma ("clauses (D), (E) and (J), of Section 8.2(b)") or a sentence phrase ("clause (x) of the fourth sentence of Section 5.2"). `LATE_QUALIFIED` (with `_late_qualifier`) now reads the rest of the list, an optional "above", "in each case," and "of the first, last, penultimate, preceding or introductory sentence, paragraph or proviso of", up to a dotted "[this] Section N.M(...)". It does not fire when that section's own tail names a statute, another document, a disclosure schedule or an attachment. The 2 neutral cases in the sample had a right old link and a right new one that is coarser ("clauses (i) through (xxi) of this Section 5.1" written inside 5.1(b)). Of 22 other target changes read first, 18 corrected a wrong link to a clause of the current section, and 4 were coarser but still right. About 289 of the 1,984 references (approximate) would also come from rule 5; both rules give the same target there.
+
+**R3: "clause (iv) thereof" means the section printed just before.** In "Section 6.01(a) (other than clauses (iii) and (xx) thereof)", the "thereof" is the section of this agreement printed just before. Before, such a clause run had detail `other_document` and stayed unlinked. `_thereof_section` now qualifies it by the last section run of the same paragraph, as if it read "clause (iv) of Section 6.01(a)". A run with any other head clears that memory. Guards: the section is internal (no status), dotted (`_THEREOF_SECTION`) and not itself a qualified clause; the gap is at most 160 characters and, after whole parentheticals are dropped (`_PAREN_PAIR`), holds no "." or ";" and no capitalized word. The capitalized-word guard drops the one wrong case of the census draw ("this Section 3.7(a) only, the exceptions to the Central Material Adverse Effect definition set forth in clauses (1) and (5) thereof").
+
+**R4: "III. REPRESENTATIONS" is article III.** Some agreements title their articles "I. THE MERGER" or "III. REPRESENTATIONS AND WARRANTIES OF THE COMPANY". `ARTICLE_NUM` wanted the word "ARTICLE" before a Roman number, so the outline had no article nodes, and every "Article III" in these agreements stayed unlinked. `ARTICLE_NUM` now also keys a title that opens with a Roman number I to XXXIX, a period and a capital. The number goes to group 1, so the article walk and rule 13's helper read it unchanged. All changed references are "Article N" or members of an "Articles" list, and every target heading in the sample matches ("VII. TERMINATION", "IX. INDEMNIFICATION"). No term or term use changes.
+- Guard (f32f44e4): the first version let a bare "Section 6" link to such an article, because its title lacks the word ARTICLE. It linked the "6" of "Section 1.1502-6" to article VI (1 regressed of 30). `_ARTICLE_WORD` now treats a Roman number and a period like "ARTICLE VI", so a bare "Section 6" never links to it. The rule was measured again after the fix.
+
+**Classes left alone, with the evidence:**
+- **An attachment's own numbering** (U07, U06 B, U08 B, U16 B, U21 B, U25 B, U28 B). 30 of 30 (U07), 19 of 30 (U06), 23 of 30 (U08), 13 of 30 (U16), 23 of 30 (U21) and 27 of 30 (U25) are sections, articles or schedules of an attached escrow agreement, charter, bylaws, voting agreement or plan. The outline has no nodes for an attachment's own sections, so no right target exists. That needs attachment segmentation (Phase 4). Rule 1 (section 10.15) already stops these from linking into the main agreement.
+- **Inline items** (U13 D, 20 of 30). "clause (iii) of the definition of Cause" and "this clause (c)" are items of the same paragraph or definition. The outline has no inline nodes.
+- **"Section 251(h) thereof"** (U05 C, 19 of 30). These keep detail `other_document` and stay unlinked, which is right. Making them external would mark 2 of 30 wrongly (an exhibit's "the Merger Agreement ... Section 2.5 thereof" means the main agreement), and it changes no link.
+- **Sections missing from the outline** (U18, U21 E, U25 E). Headings without numbers, "§4."-style headings and empty outlines are XML structure defects (rule 13 and the XML structure queue), not parser rules.
+- **The rest of U28.** "sub-section (i) above" is inline; lettered statute paragraphs with a tail go to the follow-up rules.
+
 ## 11. Decisions (2026-10-22)
 
 The user answered the open questions on 2026-10-22. Items 3, 6 and 7 use the defaults proposed in the hand-off, and the user did not object to them.
