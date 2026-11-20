@@ -284,6 +284,8 @@ class _Outline:
     para_labels: dict[str, str] = field(default_factory=dict)  # "8.2.1" -> printed "VIII.2.1"
     # the body writes "this Section 8" inside "ARTICLE VIII": its bare "Section N" can mean article N (_self_cites_article)
     self_cited_articles: bool = False
+    # container -> (ordinal, depth, key) of its paragraph nodes, built on first use (_nearest_scope)
+    para_index: dict[str, list[tuple[int, int, str]]] | None = None
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
 
@@ -985,6 +987,15 @@ _OTHER_TAIL = re.compile(
 )
 
 
+# "clause (iii) of paragraph 2 of Annex C of the Commitment Letter", "clause (ii) of the Credit Agreement":
+# a clause of something other than this agreement's section
+CLAUSE_OF_OTHER = re.compile(
+    r"^[^.;]{0,80}?\b(?:of|under|in)\s+(?:(?:the|such|any|each|its|their)\s+(?!Agreement\b)(?:[A-Z][\w\-’']*\s+){0,5}"
+    + r"(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles|Act|Code|Regulations?)\b"
+    + r"|(?:paragraph|Annex|Exhibit|Schedule|Appendix)\s)"
+)
+
+
 def _plain_tail(tail: str) -> bool:
     return bool(_SELF_TAIL.match(tail)) or not _OTHER_TAIL.match(tail)
 
@@ -1018,7 +1029,11 @@ RELATIVE_FOLLOW = re.compile(
 # "Sections 4.1 (Organization; Subsidiaries), 4.2 (Authority) and 4.7": a caption or other parenthetical
 # (not an enumerator) may follow each item
 REF_JOIN = re.compile(r"(?:\s*\((?![A-Za-z0-9]{1,6}\))[^()]{2,200}\))?(?:\s*(?:\)?,\s*(?:and|or)?\s*|\s+(?:and|or|through|to|and/or)\s+|\s*[\-–]\s*))")
-QUALIFIED = re.compile(r"\s+(?:of|in)\s+(?:this\s+)?[Ss]ection\s+((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.[^\S\n]?\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
+# "clause (ii) of Section 4.2"; also "clauses (A)-(D) of, the foregoing Section 5.2(a)" and, after a list,
+# "clauses (i) through (xiii) or clause (xvi) of Section 4.12(a)"
+QUALIFIED = re.compile(
+    r"(?:\s*,?\s*(?:and|or|and/or)\s+clauses?\s+\([A-Za-z0-9]{1,6}\)(?:\s*(?:through|to|[\-–])\s*\([A-Za-z0-9]{1,6}\))?)?"
+    + r"\s*,?\s+(?:of|in)\s*,?\s+(?:the\s+foregoing\s+|this\s+)?[Ss]ection\s+((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.[^\S\n]?\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
 SECTION_TARGET = re.compile(r"(\d+[A-Z]?(?:\.\d+[A-Z]?)*)((?:\([A-Za-z0-9]+\))*)$")
 
 _HEAD_NORM = {"annexe": "annex", "appendice": "appendix"}
@@ -1039,6 +1054,7 @@ class _Ref:
     lead: bool = False  # the first item of its run: it prints its own head ("Section 8")
     this_before: bool = False  # "this Section 8"
     plain_tail: bool = False  # no tail naming anything but this agreement, and no OCR continuation (".9", "-3")
+    other_tail: bool = False  # "clause (iii) of paragraph 2 of Annex C of the Commitment Letter"
 
 
 def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
@@ -1202,6 +1218,9 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         ):
             for r in prev_run:
                 r.status = run[0].status
+        other_tail = CLAUSE_OF_OTHER.match(tail) is not None
+        for r in run:
+            r.other_tail = other_tail
         run[0].lead = True
         run[0].this_before = THIS_BEFORE.search(before) is not None
         run[0].plain_tail = _plain_tail(tail)
@@ -1222,6 +1241,26 @@ _ARTICLE_WORD = re.compile(r"^\s*(?:ARTICLE|Article|PART|Part)\b")
 def _section_style_article(ol: _Outline, key: str) -> bool:
     """Article `key` can be cited as "Section 8": its heading prints "SECTION 8" or "8.", or it is flat."""
     return key in ol.flat_articles or not any(_ARTICLE_WORD.match(a.title) for a in ol.articles[key])
+
+
+def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str | None:
+    """"clause (ii)" with several (ii) in the section: the one whose parent is the paragraph that holds the
+    reference, or one of that paragraph's ancestors. None unless exactly one candidate is left."""
+    if ol.para_index is None:
+        ol.para_index = {}
+        for key, node in ol.subs.items():
+            if "t" in node.anchor:
+                ol.para_index.setdefault(node.anchor["s"], []).append((node.anchor["t"], key.count("("), key))
+        for v in ol.para_index.values():
+            v.sort()
+    here = [key for t, _, key in ol.para_index.get(tn.s, []) if t <= tn.t]
+    chain = {cur}
+    k = here[-1] if here else ""
+    while k:
+        chain.add(k)  # "5.16.1(b)", then "5.16.1"
+        k = k[: k.rfind("(")] if "(" in k else ""
+    keep =[c for c in cands if c[: c.rfind("(")] in chain]
+    return keep[0] if len(keep) == 1 else None
 
 
 _THIS_SECTION = re.compile(r"(?i:\bthis\s+section)\s+\d")
@@ -1364,6 +1403,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             if len(cands) == 1:
                 return "resolved", ol.subs[cands[0]].id, None
             if len(cands) > 1:
+                if not ref.other_tail and (one := _nearest_scope(ol, tn, cur, cands)) is not None:
+                    return "resolved", ol.subs[one].id, None
                 return "ambiguous", None, [ol.subs[k].id for k in cands]
         if t.startswith("(") and sec_text.count(t) >= 2:
             # an inline enumeration in the same section ("(i) ... (ii) ... clause (i) above");

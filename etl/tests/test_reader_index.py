@@ -568,6 +568,68 @@ class StatusAndTargetRuleTests(unittest.TestCase):
         got = self._self_style("The rights under this Section 8 survive.", "x", back=back)
         self.assertEqual(got, [("Section 8", "resolved", "a8"), ("Section 8", "unresolved", None)])
 
+    # rule 5: nearest-scope tie-break for ambiguous clauses
+    def test_ambiguous_clause_takes_the_nearest_scope(self) -> None:
+        got = self._all(
+            _doc(
+                _section(
+                    "s42",
+                    "Section 4.2 Conduct",
+                    "(a) Parent shall not:",
+                    "(i) issue shares;",
+                    "(ii) sell assets, except as permitted by clause (i);",
+                    "(b) The Company shall not:",
+                    "(i) amend its charter;",
+                    "(ii) merge, other than as provided in clause (i) above;",
+                    "(c) Nothing in clause (i) of the Credit Agreement or clause (ii) of paragraph 2 of Annex C applies.",
+                )
+            )
+        )
+        self.assertEqual(
+            got,
+            [
+                ("clause (i)", "resolved", "s4.2(a)(i)"),
+                ("clause (i)", "resolved", "s4.2(b)(i)"),
+                ("clause (i)", "external", None),
+                # a clause of another document's paragraph: no tie-break
+                ("clause (ii)", "ambiguous", None),
+                ("paragraph 2", "unresolved", None),
+                ("Annex C", "unlocated_attachment", None),
+            ],
+        )
+
+    def test_ambiguous_clause_outside_any_paragraph_stays_ambiguous(self) -> None:
+        got = self._all(
+            _doc(_section("s42", "Section 4.2 Conduct", "Subject to clause (i), the parties agree:", "(a) x:", "(i) y.", "(b) z:", "(i) w."))
+        )
+        self.assertEqual(got, [("clause (i)", "ambiguous", None)])
+
+    def test_qualifier_after_a_comma_or_a_list(self) -> None:
+        got = self._all(
+            _doc(
+                _section("s52", "Section 5.2 Covenants", "(a) items:", "(A) one.", "(D) four.")
+                + _section("s412", "Section 4.12 Plans", "(a) plans:", "(i) one.", "(xvi) sixteen.")
+                + _section(
+                    "s6",
+                    "Section 6.1 Refs",
+                    "Except clauses (A)-(D) of, the foregoing Section 5.2(a), none.",
+                    "Under clauses (i) through (xiii) or clause (xvi) of Section 4.12(a), none.",
+                )
+            )
+        )
+        self.assertEqual(
+            got,
+            [
+                ("clauses (A)", "resolved", "s5.2(a)(A)"),
+                ("(D)", "resolved", "s5.2(a)(D)"),
+                ("Section 5.2(a)", "resolved", "s5.2(a)"),
+                ("clauses (i)", "resolved", "s4.12(a)(i)"),
+                ("(xiii)", "section_fallback", "s4.12(a)"),
+                ("clause (xvi)", "resolved", "s4.12(a)(xvi)"),
+                ("Section 4.12(a)", "resolved", "s4.12(a)"),
+            ],
+        )
+
 
 class ReaderHealthShapeTests(unittest.TestCase):
     """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""
