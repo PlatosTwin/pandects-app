@@ -1202,7 +1202,8 @@ def _in_one_group(ol: _Outline, base: str, subs: str) -> _Node | None:
     return hits[0] if len(hits) == 1 else None
 
 
-_ARTICLE_WORD = re.compile(r"^\s*(?:ARTICLE|Article|PART|Part)\b")
+# "VI. CONDITIONS" (a Roman article title without the word) is cited "Article VI" too, never a bare "Section 6"
+_ARTICLE_WORD = re.compile(r"^\s*(?:ARTICLE|Article|PART|Part)\b|^\s*" + _ROMAN_NUM + r"\.\s")
 
 
 def _section_style_article(ol: _Outline, key: str) -> bool:

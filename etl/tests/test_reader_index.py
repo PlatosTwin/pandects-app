@@ -219,7 +219,7 @@ class RoundTwoRuleTests(unittest.TestCase):
     def test_roman_article_title_without_the_word_article(self) -> None:
         xml = _doc(
             _article("r1", "I. THE MERGER", _section("r11", "1.1 The Merger.", "The Merger occurs."))
-            + _article("r3", "III. REPRESENTATIONS AND WARRANTIES", _section("r31", "3.1 Organization.", "Subject to this Article III and Article I."))
+            + _article("r3", "III. REPRESENTATIONS AND WARRANTIES", _section("r31", "3.1 Organization.", "Subject to this Article III and Article I. A Tax under Section 1.1502-6 or Section 3 applies."))
             + _article("r4", "IV. other", "")
         )
         p = build_reader_index(xml)
@@ -227,6 +227,7 @@ class RoundTwoRuleTests(unittest.TestCase):
         x = _xrefs(p)
         self.assertEqual((x["Article III"]["status"], x["Article III"].get("target")), ("resolved", "a3"))
         self.assertEqual(x["Article I"].get("target"), "a1")
+        self.assertNotIn("target", x["Section 3"])  # "III." is an article title, not a "SECTION 3" heading
 
     def test_late_section_of_another_document_does_not_qualify(self) -> None:
         x = _round_two("A default under clause (ii) of the first sentence of Section 5.2(b) of the Credit Agreement.")
