@@ -1299,5 +1299,40 @@ class BackMatterSegmentTests(unittest.TestCase):
         self.assertNotIn("target", x["Exhibit B"])
 
 
+    def test_attachment_names_hereto_or_of_another_document_stay_local(self) -> None:
+        back = _back(
+            "EXHIBIT A",
+            "FORM OF CERTIFICATE OF MERGER",
+            "The charter shall read as set forth on Exhibit A attached hereto.",
+            "The plan is attached hereto as Exhibit A.",
+            "The prices are set out in Annex A of this release.",
+            "The form of letter of transmittal is attached to the Agreement as Exhibit B.",
+            "EXHIBIT B",
+            "LETTER OF TRANSMITTAL",
+            "ANNEX A",
+            "PRICES",
+        )
+        # "hereto" naming an attachment printed before the reference (here the exhibit itself) stays local
+        x = build_reader_index(_doc(MAIN, back=back))["xrefs"]
+        self.assertEqual(
+            [(r["text"], r["status"], r.get("target")) for r in x if r["text"] in ("Exhibit A", "Exhibit B", "Annex A") and r["at"]["t"] > 1],
+            [("Exhibit A", "unresolved", None), ("Exhibit A", "unresolved", None), ("Annex A", "unresolved", None), ("Exhibit B", "resolved", "x-exhibit-b")],
+        )
+
+    def test_attachment_names_hereto_resolve_when_printed_after(self) -> None:
+        # gold fixture b25fc0d0: an amendment in Exhibit E cites "Schedule A, attached hereto", printed right after it
+        back = _back(
+            "EXHIBIT A",
+            "FORM OF AMENDMENT",
+            "The terms are described on Schedule A, attached hereto. The charter is attached hereto as Exhibit A.",
+            "SCHEDULE A",
+            "TERMS",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Schedule A"]["target"], "x-schedule-a")
+        self.assertEqual(x["Exhibit A"]["status"], "unresolved")
+
+
+
 if __name__ == "__main__":
     unittest.main()

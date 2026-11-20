@@ -1336,6 +1336,13 @@ def _names_main_heading(r: _Ref, ol: _Outline, tn: _Text, sec_text: str, after: 
     return k >= 1 and a[:k] == b[:k] and (k >= 2 or len(a) == len(b) == 1)
 
 
+# Inside an attachment, "attached hereto as Exhibit A", "Exhibit A hereto", "Annex A of this release" and
+# "Schedule 1 of the Company's constitution" name the attachment's own exhibit or another document's
+_HERETO_BEFORE = re.compile(r"\bhere(?:to|with)\s+(?:as\s+)?$", re.IGNORECASE)
+_HERETO_AFTER = re.compile(r"\s*(?:\([^)]*\)\s*)*,?\s*(?:(?:attached|annexed|appended)\s+)?here(?:to|with)\b", re.IGNORECASE)
+_OWN_ATTACHMENT_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*(?:of|to)\s+(?:this\s+(?![Aa]greement\b|AGREEMENT\b)[A-Za-z]|the\s+Company['’]s\b)")
+
+
 @dataclass
 class _Segment:
     """A stretch of back matter that starts at an attachment heading (or at the start of back matter)."""
@@ -1382,6 +1389,12 @@ def _back_segments(texts: list[_Text]) -> dict[int, _Segment]:
         seg.glossary = (seg.defines_terms or index) and not seg.own_numbered
         out.update((id(tn), seg) for tn in seg_texts)
     return out
+
+
+def _printed_after(ol: _Outline, r: _Ref, tn: _Text) -> bool:
+    """Whether the attachment an "Exhibit A" names has its heading later in back matter than the reference."""
+    node = ol.attachments.get(f"{r.head} {r.target.lower()}")
+    return node is not None and node.anchor.get("s") == tn.s and node.anchor.get("t", -1) > tn.t
 
 
 def _glossary_exhibit_texts(texts: list[_Text]) -> set[int]:
@@ -1500,10 +1513,17 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
                 and not _names_main_heading(r, ol, tn, sec_text, tn.text[r.end : r.end + 120], nodes_by_id)
             ):
                 continue  # "Section 9.1 Amendments." opening a back-matter paragraph: an attachment's own heading
-            if r.status == "unresolved" and r.detail == "exhibit_local" and r.head in _ATTACHMENT_HEADS and seg is not None and (seg.defines_terms or not seg.own_numbered):
+            if (
+                r.status == "unresolved" and r.detail == "exhibit_local" and r.head in _ATTACHMENT_HEADS and seg is not None and (seg.defines_terms or not seg.own_numbered)
+                and not _OWN_ATTACHMENT_TAIL.match(tn.text, r.end)
+                and (not (_HERETO_BEFORE.search(tn.text, 0, r.start) or _HERETO_AFTER.match(tn.text, r.end)) or _printed_after(ol, r, tn))
+            ):
                 # "Exhibit C", "this Annex I": the exhibit-local rule is for section numbers. An attachment name is the
                 # agreement's attachment, except in an attached document with its own numbering (its own exhibits);
-                # one that defines terms keeps the glossary reading it had before rule 1 ("this Annex 3.7")
+                # one that defines terms keeps the glossary reading it had before rule 1 ("this Annex 3.7"). A tail that
+                # names another document ("Annex A of this release") keeps the exhibit-local reading, and so does
+                # "attached hereto as Exhibit A" unless that attachment is printed after the reference (the
+                # attachment's own exhibit, printed next to it); before it, it is the agreement's or the attachment itself
                 r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
             if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
