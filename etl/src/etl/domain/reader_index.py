@@ -923,13 +923,18 @@ DISCLOSURE = re.compile(
 DISCLOSURE_BEFORE = re.compile(r"(?i:disclosure)\s+(?:Schedules?|Letter|Memorandum)\s*$")
 LOWER_HEAD_OTHER = re.compile(r"^[\d:.()A-Za-z]*\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant\s+to)\s+(?:the\s+|such\s+|its\s+|their\s+)?(?!this\b|Agreement\b|hereof\b)[A-Z]")
 OCR_COMMA = re.compile(r",(\d{2})(?![\d,])")
-# "Section 1. 6(c)": a space typed or scanned into the section number. The second part is one whole
-# number, and what follows must not make it a count ("Section 4. 15 days after ...") or a deeper
-# number ("Section 4. 4.2 Covenants", where a heading follows the end of a sentence).
-SPLIT_DOT = re.compile(
-    r"\.\s+(\d{1,3}[A-Z]?)((?:\s?\([A-Za-z0-9]{1,6}\))*)"
-    r"(?![\dA-Za-z]|\.\d|\s+(?i:(?:business|calendar|trading)\s+)?(?i:days?|months?|years?|hours?|weeks?|percent)\b|\s*%)"
+# "Section 1. 6(c)", "Section 1 .6": a space typed or scanned into the section number. The second part
+# is one whole number on the same line, and what follows must not make it a count ("Section 4. 15 days
+# after ...") or a deeper number ("Section 4. 4.2 Covenants", where a heading follows the end of a sentence).
+_ENUMS = r"((?:\s?\([A-Za-z0-9]{1,6}\))*)"
+_NOT_A_COUNT = (
+    r"(?![\dA-Za-z]|\.\d|\s+(?i:(?:business|calendar|trading)\s+)?"
+    r"(?i:days?|months?|years?|hours?|weeks?|percent|shares?|million|billion|[ap]\.m\.|or\s+more)(?![A-Za-z])|\s*%)"
 )
+SPLIT_DOT = re.compile(r"(?:\.[^\S\n]+|[^\S\n]\.[^\S\n]*)(\d{1,3}[A-Z]?)" + _ENUMS + _NOT_A_COUNT)
+# "Section 9. 0 3(a)", "Section 2.0 4": the space falls after the zero of 9.03 or 2.04. No section number
+# ends in ".0", so a single digit after the space completes it.
+ZERO_SPLIT = re.compile(r"[^\S\n](\d)" + _ENUMS + _NOT_A_COUNT)
 COLON_NUMBER = re.compile(r":\d")
 LEFTOVER_ITEMS = re.compile(r"^(?:\s*,?\s*(?:and/or|and|or)?\s*\([A-Za-z0-9]{1,6}\))+")
 THEREOF = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*thereof\b")
@@ -963,7 +968,7 @@ RELATIVE_FOLLOW = re.compile(
 # "Sections 4.1 (Organization; Subsidiaries), 4.2 (Authority) and 4.7": a caption or other parenthetical
 # (not an enumerator) may follow each item
 REF_JOIN = re.compile(r"(?:\s*\((?![A-Za-z0-9]{1,6}\))[^()]{2,200}\))?(?:\s*(?:\)?,\s*(?:and|or)?\s*|\s+(?:and|or|through|to|and/or)\s+|\s*[\-–]\s*))")
-QUALIFIED = re.compile(r"\s+(?:of|in)\s+(?:this\s+)?[Ss]ection\s+((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
+QUALIFIED = re.compile(r"\s+(?:of|in)\s+(?:this\s+)?[Ss]ection\s+((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.[^\S\n]?\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
 SECTION_TARGET = re.compile(r"(\d+[A-Z]?(?:\.\d+[A-Z]?)*)((?:\([A-Za-z0-9]+\))*)$")
 
 _HEAD_NORM = {"annexe": "annex", "appendice": "appendix"}
@@ -1006,19 +1011,19 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 last.target, last.end, last.base_end = f"{last.target}.{cm.group(1)}", cm.end(), cm.end()
                 pos = cm.end()
                 continue
-            # "Section 1. 6(c)": a space inside the number; the reference is to Section 1.6(c)
-            if (
-                run
-                and head == "section"
-                and not run[-1].relative
-                and re.fullmatch(r"\d+", run[-1].target)
-                and (sm := SPLIT_DOT.match(text, pos))
-            ):
-                last = run[-1]
-                last.target = f"{last.target}.{sm.group(1)}" + re.sub(r"\s", "", sm.group(2))
-                last.end, last.base_end = sm.end(), sm.end(1)
-                pos = sm.end()
-                continue
+            # "Section 1. 6(c)", "Section 9. 0 3(a)": a space inside the number; the reference is to
+            # Section 1.6(c) and Section 9.03(a)
+            if run and head == "section" and not run[-1].relative:
+                last, sm, sep = run[-1], None, ""
+                if re.fullmatch(r"\d+", last.target):
+                    sm, sep = SPLIT_DOT.match(text, pos), "."
+                elif re.fullmatch(r"\d+\.0", last.target):
+                    sm = ZERO_SPLIT.match(text, pos)
+                if sm:
+                    last.target = f"{last.target}{sep}{sm.group(1)}" + re.sub(r"\s", "", sm.group(2))
+                    last.end, last.base_end = sm.end(), sm.end(1)
+                    pos = sm.end()
+                    continue
             if not first:
                 jm = REF_JOIN.match(text, pos)
                 if not jm:
@@ -1113,7 +1118,8 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         if qm and run[0].head in ("clause", "paragraph"):
             for r in run:
                 if r.target.startswith("(") and not r.status:
-                    r.head, r.target = "section", qm.group(1) + r.target
+                    # "clause (ii) of Section 4. 2": the section number may carry a stray space
+                    r.head, r.target = "section", re.sub(r"\s", "", qm.group(1)) + r.target
                     r.base_end = r.start  # never fall back on a clause-only span
                     r.qualified = True
         for r in run:
