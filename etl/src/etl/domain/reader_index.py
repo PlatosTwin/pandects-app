@@ -1000,6 +1000,31 @@ def _late_qualifier(text: str, pos: int) -> re.Match[str] | None:
     return m
 
 
+_PAREN_PAIR = re.compile(r"\([^()]*\)")
+_THEREOF_SECTION = re.compile(r"(?:\d+|" + _ROMAN_NUM + r")\.\d")
+
+
+def _thereof_section(run: list[_Ref], text: str, start: int, last_sec: list[_Ref] | None) -> list[_Ref] | None:
+    """"Section 6.01(a) (other than clauses (iii) and (xx) thereof)", "Section 5.8 shall be enforceable as provided
+    in clause (d) thereof": a clause run whose "thereof" means the section of this agreement printed just before.
+    The gap between them stays in one sentence, within 160 characters, and names nothing (no capitalized word once
+    whole parentheticals such as captions are dropped). Returns the section run a later "thereof" may use."""
+    if run[0].head not in ("clause", "paragraph"):
+        return run if run[0].head == "section" and not run[0].qualified else None
+    sec = last_sec[-1] if last_sec else None
+    if sec is None or run[0].detail != "other_document" or sec.status or not _THEREOF_SECTION.match(sec.target):
+        return last_sec
+    gap = text[sec.end : start]
+    bare = _PAREN_PAIR.sub("", _PAREN_PAIR.sub("", gap))
+    if len(gap) > 160 or re.search(r"[.;]", bare) or re.search(r"[A-Z][a-z]", bare):
+        return last_sec
+    for r in run:
+        if r.target.startswith("("):
+            r.head, r.target, r.status, r.detail = "section", sec.target + r.target, "", ""
+            r.base_end, r.qualified = r.start, True
+    return last_sec
+
+
 @dataclass
 class _Ref:
     head: str
@@ -1019,6 +1044,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
     prev_end: int | None = None
     # a paragraph with three or more all-caps heads is a table of contents, often of another document
     caps_toc = sum(1 for m in REF_HEAD.finditer(text) if m.group(1).isupper()) >= 3
+    last_sec: list[_Ref] | None = None  # the latest section run, for a clause run's "thereof"
     for hm in REF_HEAD.finditer(text):
         # an all-caps "ARTICLE VII" that opens the paragraph is a heading, not a reference
         if hm.group(1).isupper() and (caps_toc or not text[: hm.start()].strip()):
@@ -1148,6 +1174,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                     r.head, r.target = "section", re.sub(r"\s", "", qm.group(1)) + r.target
                     r.base_end = r.start  # never fall back on a clause-only span
                     r.qualified = True
+        last_sec = _thereof_section(run, text, hm.start(), last_sec)
         for r in run:
             if r.head == "schedule" and SEC_FORM.match(r.target):
                 r.status = "external"

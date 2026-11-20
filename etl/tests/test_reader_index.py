@@ -199,6 +199,23 @@ class RoundTwoRuleTests(unittest.TestCase):
         x = _round_two("The amounts in clauses (i) through (xxi) above of this Section 3.22 are paid.")
         self.assertEqual(x["clauses (i)"].get("target"), "s3.22")
 
+    def test_clause_thereof_takes_the_section_printed_before(self) -> None:
+        x = _round_two("A breach of Section 5.2(b) (other than clauses (i) and (ii) thereof) applies.")
+        self.assertEqual((x["clauses (i)"]["status"], x["clauses (i)"].get("target")), ("resolved", "s5.2(b)(i)"))
+        self.assertEqual(x["(ii)"].get("target"), "s5.2(b)(ii)")
+        x = _round_two("Section 5.2 (Conduct) shall be enforced as provided in clause (b) thereof.")
+        self.assertEqual(x["clause (b)"].get("target"), "s5.2(b)")
+        x = _round_two("Section 3.22 (other than paragraph (c) thereof) applies.")
+        self.assertEqual((x["paragraph (c)"]["status"], x["paragraph (c)"].get("target")), ("section_fallback", "s3.22"))
+
+    def test_clause_thereof_after_a_named_thing_stays_unlinked(self) -> None:
+        x = _round_two("For this Section 5.2(b) only, the exceptions to the Material Adverse Effect definition in clause (i) thereof do not apply.")
+        self.assertNotIn("target", x["clause (i)"])
+        x = _round_two("Under Section 5.2. The Lease and clause (i) thereof apply.")
+        self.assertNotIn("target", x["clause (i)"])
+        x = _round_two("The DGCL, including Section 262 and clause (i) thereof, applies.")
+        self.assertNotIn("target", x["clause (i)"])
+
     def test_late_section_of_another_document_does_not_qualify(self) -> None:
         x = _round_two("A default under clause (ii) of the first sentence of Section 5.2(b) of the Credit Agreement.")
         self.assertNotIn("target", x["clause (ii)"])
