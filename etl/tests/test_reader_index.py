@@ -1705,5 +1705,303 @@ class AnchorTests(unittest.TestCase):
         self.assertEqual(build_reader_index(BASIC), build_reader_index(BASIC))
 
 
+def _back(*texts: str) -> str:
+    return "".join(f"<text>{t}</text>" for t in texts)
+
+
+# The agreement the back-matter tests cite: Sections 1.1 and 2.1 under ARTICLE headings
+MAIN = _article("a1", "ARTICLE I DEFINITIONS", _section("s11", "Section 1.1 Definitions", "x")) + _article(
+    "a2", "ARTICLE II THE MERGER", _section("s21", "Section 2.1 The Merger", "y")
+)
+
+
+class BackMatterSegmentTests(unittest.TestCase):
+    # Rule 1: own numbering ends a glossary segment
+    def test_attached_agreement_with_own_numbering_is_not_a_glossary(self) -> None:
+        back = _back(
+            "EXHIBIT C",
+            "REGISTRATION RIGHTS AGREEMENT",
+            "Section 1.1 Definitions. As used in this Agreement:",
+            "“Holder” means a holder of Registrable Securities.",
+            "“Registrable Securities” means the Shares.",
+            "“Shelf” means a shelf registration statement.",
+            "Section 2.1 Demand Registration. Subject to Section 1.1, a Holder may demand a registration.",
+            "Section 2.2 Piggyback. As provided in Section 2.1 of the Merger Agreement, the Holder may join.",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Section 1.1"]["status"], "unresolved")
+        self.assertNotIn("target", x["Section 1.1"])
+        # a tail that names the main agreement still resolves
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+
+    def test_attachment_names_in_an_attached_agreement_that_defines_terms_still_resolve(self) -> None:
+        back = _back(
+            "ANNEX 3.7",
+            "“Earn-Out Payment” means the payment under Section 3.7.1 of this Annex 3.7.",
+            "“EBITDA” means net income.",
+            "“Target” means USD 1.",
+            "3.7.1 FY 2017 Earn-Out. Paid as set out in Schedule A.",
+            "3.7.2 FY 2018 Earn-Out. Paid as set out in Section 2.1.",
+            "3.7.3 Maximum. Capped.",
+            "SCHEDULE A",
+            "PAYMENTS",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Annex 3.7"]["target"], "x-annex-3.7")
+        self.assertEqual(x["Schedule A"]["target"], "x-schedule-a")
+        # "3.7.1", "3.7.2" under "ANNEX 3.7" continue the agreement's Section 3.7 (gold fixture 03f4e108), so the
+        # annex is not an attached document and its bare "Section 2.1" is the agreement's
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+
+    def test_numbered_definitions_annex_is_still_a_glossary(self) -> None:
+        back = _back(
+            "ANNEX A",
+            "DEFINITIONS",
+            "1.1 “Accounting Principles” means GAAP.",
+            "1.2 “Business Day” means a weekday.",
+            "1.3 “Closing” has the meaning set forth in Section 2.1.",
+            "1.4 “Holder” means a holder.",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+
+    def test_a_long_glossary_with_a_short_numbered_tail_stays_a_glossary(self) -> None:
+        defs = [f"“Term {i}” means item {i}." for i in range(16)]
+        back = _back(
+            "EXHIBIT A",
+            *defs,
+            "“Board” means the board, as provided in Section 2.1.",
+            "1. Amendment. Section 2.1 of the Merger Agreement is amended.",
+            "2. Effect. The rest stays.",
+            "3. Miscellaneous.",
+        )
+        first = next(x for x in build_reader_index(_doc(MAIN, back=back))["xrefs"] if x["text"] == "Section 2.1")
+        self.assertEqual(first["target"], "s2.1")
+
+    def test_an_sec_form_stays_external_in_an_attached_agreement(self) -> None:
+        back = _back(
+            "EXHIBIT C",
+            "“Holder” means a holder.",
+            "“Shares” means shares.",
+            "“Shelf” means a shelf.",
+            "Section 1.1 Transfers. No Holder transfers to a Person that filed a Schedule 13D.",
+            "Section 1.2 Notices. In writing.",
+            "Section 1.3 Law. Delaware.",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Schedule 13D"]["status"], "external")
+
+    def test_two_numbered_paragraphs_keep_the_glossary(self) -> None:
+        back = _back(
+            "EXHIBIT A",
+            "Section 1.1 Definitions.",
+            "“Holder” means a holder.",
+            "“Shelf” means a shelf registration, as described in Section 2.1.",
+            "“Shares” means common stock.",
+            "Section 1.2 Interpretation. Headings are for convenience.",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+
+    def test_own_number_shapes(self) -> None:
+        from etl.domain.reader_index import OWN_NUMBER
+
+        for t in ("Section 2.1 Demand Registration.", "2.1 Demand", "2. Transition Services.", "ARTICLE II GENERAL", "1 DEFINITIONS", "Section 7. Notices."):
+            self.assertIsNotNone(OWN_NUMBER.match(t), t)
+        for t in ("1.1 “Accounting Principles” means GAAP.", "100 Main Street", "2019 Annual Report", "(a) Parent shall", "1 Within 50 Business Days"):
+            self.assertIsNone(OWN_NUMBER.match(t), t)
+
+
+    # Rule 4: an index of defined terms in back matter belongs to the agreement
+    INDEX = "Closing Section 2.1 Closing Date Section 2.1(a) Certificate of Merger Section 2.1(b) Definitions Section 1.1 Agreement Preamble"
+
+    def test_index_of_defined_terms_resolves_against_the_agreement(self) -> None:
+        main = MAIN.replace("<text>y</text>", "<text>(a) first.</text><text>(b) second.</text>")
+        x = _xrefs(build_reader_index(_doc(main, back=_back("EXHIBIT B", "INDEX OF DEFINED TERMS", self.INDEX))))
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+        self.assertEqual(x["Section 2.1(a)"]["target"], "s2.1(a)")
+        self.assertEqual(x["Section 1.1"]["target"], "s1.1")
+
+    def test_index_needs_four_pairs_and_no_own_numbering(self) -> None:
+        short = "Closing Section 2.1 Closing Date Section 2.1(a) Certificate of Merger Section 1.1"
+        x = _xrefs(build_reader_index(_doc(MAIN, back=_back("EXHIBIT B", short))))
+        self.assertEqual(x["Section 2.1"]["status"], "unresolved")
+        own = _back("EXHIBIT B", "1. Defined Terms.", self.INDEX, "2. Notices. Each notice is in writing.", "3. Counterparts.")
+        x = _xrefs(build_reader_index(_doc(MAIN, back=own)))
+        self.assertEqual(x["Section 2.1"]["status"], "unresolved")
+        self.assertNotIn("target", x["Section 2.1"])
+
+    def test_index_pairs_skip_prose_and_tables_of_contents(self) -> None:
+        from etl.domain.reader_index import _index_pairs
+
+        self.assertEqual(_index_pairs(self.INDEX), 4)
+        prose = "as set forth in Section 4.01 (Organization), Section 4.02 (Authority), the first sentence of Section 4.03(a), Section 4.04 and Section 4.05"
+        self.assertEqual(_index_pairs(prose), 0)
+        toc = "ARTICLE I DEFINITIONS 1 Section 1.1 Definitions 1 Section 1.2 Interpretation 4 Section 1.3 Other 5 Section 1.4 More 6"
+        self.assertEqual(_index_pairs(toc), 0)
+
+
+    # Rule 2: back-matter headings and tables of contents are not references
+    def test_back_matter_headings_are_not_references(self) -> None:
+        back = _back(
+            "EXHIBIT D",
+            "Section 9.1 Amendments; Waivers. This agreement may be amended in writing.",
+            "Section 8. Fees and Expenses.",
+            "Section 1.1 Definitions 1",
+            "Section 2.1 The Company shall act as provided in Section 1.1 of the Merger Agreement.",
+            "Section 2.1 of the Merger Agreement applies.",
+        )
+        p = build_reader_index(_doc(MAIN, back=back))
+        texts = [(x["at"]["t"], x["text"]) for x in p["xrefs"]]
+        self.assertNotIn((1, "Section 9.1"), texts)
+        self.assertNotIn((2, "Section 8"), texts)
+        self.assertNotIn((3, "Section 1.1"), texts)
+        # a paragraph that opens with a real reference keeps it
+        self.assertIn((4, "Section 2.1"), texts)
+        self.assertIn((4, "Section 1.1"), texts)
+        self.assertIn((5, "Section 2.1"), texts)
+
+    def test_body_headings_are_unchanged(self) -> None:
+        main = MAIN + _section("s31", "Section 3.1 Other", "Section 2.1 Merger Sub. Merger Sub exists.")
+        x = _xrefs(build_reader_index(_doc(main)))
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+
+    def test_mixed_case_table_of_contents_in_back_matter(self) -> None:
+        toc = "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 Section 2.1 Demand Registration 5 Section 2.2 Piggyback Rights 7"
+        p = build_reader_index(_doc(MAIN, back=_back("EXHIBIT D", toc, "Subject to Section 1.1, the Holder may act.")))
+        self.assertEqual([x["at"]["t"] for x in p["xrefs"]], [2])
+        # three entries are not enough
+        three = "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 Section 2.1 Demand Registration 5"
+        p = build_reader_index(_doc(MAIN, back=_back("EXHIBIT D", three)))
+        self.assertEqual(len(p["xrefs"]), 3)
+
+
+    def test_back_matter_lines_that_print_the_agreements_own_titles_stay_references(self) -> None:
+        # a list of omitted disclosure schedules and the agreement's own table of contents, printed in back matter
+        back = _back(
+            "EXHIBIT A",
+            "“Holder” means a holder.",
+            "“Notice” means a notice.",
+            "“Share” means a share.",
+            "Section 2.1 — The Merger",
+            "Section 1.1 Definitions 1 Section 2.1 The Merger 2 Section 1.1 Definitions 3 Section 2.1 The Merger 4",
+            "Section 1.1 Notices. Notices go to the Holder.",
+        )
+        x = build_reader_index(_doc(MAIN, back=back))["xrefs"]
+        self.assertEqual([(r["at"]["t"], r["target"]) for r in x if r["at"]["t"] == 4], [(4, "s2.1")])
+        self.assertEqual(len([r for r in x if r["at"]["t"] == 5]), 4)
+        # a heading whose title is not the agreement's stays out
+        self.assertEqual([r for r in x if r["at"]["t"] == 6], [])
+
+    # Rule 6: attachment names in back matter resolve to the agreement's attachments
+    def test_attachment_names_in_back_matter_resolve(self) -> None:
+        back = _back(
+            "EXHIBIT A",
+            "FORM OF CERTIFICATE OF MERGER",
+            "The form of letter of transmittal is attached as Exhibit B.",
+            "EXHIBIT B",
+            "LETTER OF TRANSMITTAL",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual((x["Exhibit B"]["status"], x["Exhibit B"]["target"]), ("resolved", "x-exhibit-b"))
+
+    def test_attachment_names_in_attached_agreements_stay_local(self) -> None:
+        back = _back(
+            "EXHIBIT A",
+            "Section 1.1 Definitions. Terms have their meanings.",
+            "Section 1.2 Exhibits. The form of joinder is attached as Exhibit B.",
+            "Section 1.3 Notices. Notices are in writing.",
+            "EXHIBIT B",
+            "LETTER OF TRANSMITTAL",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Exhibit B"]["status"], "unresolved")
+        self.assertNotIn("target", x["Exhibit B"])
+
+
+    def test_attachment_names_hereto_or_of_another_document_stay_local(self) -> None:
+        back = _back(
+            "EXHIBIT A",
+            "FORM OF CERTIFICATE OF MERGER",
+            "The charter shall read as set forth on Exhibit A attached hereto.",
+            "The plan is attached hereto as Exhibit A.",
+            "The prices are set out in Annex A of this release.",
+            "The form of letter of transmittal is attached to the Agreement as Exhibit B.",
+            "EXHIBIT B",
+            "LETTER OF TRANSMITTAL",
+            "ANNEX A",
+            "PRICES",
+        )
+        # "hereto" naming an attachment printed before the reference (here the exhibit itself) stays local
+        x = build_reader_index(_doc(MAIN, back=back))["xrefs"]
+        self.assertEqual(
+            [(r["text"], r["status"], r.get("target")) for r in x if r["text"] in ("Exhibit A", "Exhibit B", "Annex A") and r["at"]["t"] > 1],
+            [("Exhibit A", "unresolved", None), ("Exhibit A", "unresolved", None), ("Annex A", "unresolved", None), ("Exhibit B", "resolved", "x-exhibit-b")],
+        )
+
+    def test_attachment_names_hereto_resolve_when_printed_after(self) -> None:
+        # gold fixture b25fc0d0: an amendment in Exhibit E cites "Schedule A, attached hereto", printed right after it
+        back = _back(
+            "EXHIBIT A",
+            "FORM OF AMENDMENT",
+            "The terms are described on Schedule A, attached hereto. The charter is attached hereto as Exhibit A.",
+            "SCHEDULE A",
+            "TERMS",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Schedule A"]["target"], "x-schedule-a")
+        self.assertEqual(x["Exhibit A"]["status"], "unresolved")
+
+    # Rule 7: a UK "clause 9.2" inside a Schedule is the agreement's clause
+    UK = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x"))
+
+    def test_uk_clause_in_a_schedule_resolves(self) -> None:
+        back = _back(
+            "SCHEDULE 4",
+            "LIMITATIONS",
+            "1 DEFINITIONS",
+            "1.1 In this Schedule the Warranties are those given under clause 9.2.",
+            "2 LIMITS",
+            "2.1 Nothing in paragraph 1.1 or clause 9 limits liability.",
+        )
+        x = _xrefs(build_reader_index(_doc(self.UK, back=back)))
+        self.assertEqual(x["clause 9.2"]["target"], "s9.2")
+        # paragraphs stay unlinked and a bare top-level "clause 9" stays exhibit-local
+        self.assertEqual(x["paragraph 1.1"]["status"], "unresolved")
+        self.assertEqual(x["clause 9"]["status"], "unresolved")
+        self.assertNotIn("target", x["clause 9"])
+
+    def test_uk_clause_outside_a_schedule_stays_local(self) -> None:
+        back = _back("EXHIBIT 4", "DEED OF ADHERENCE", "1. The Covenantor is bound by clause 9.2 of the Deed.", "2. Signed.", "3. Law.")
+        x = _xrefs(build_reader_index(_doc(self.UK, back=back)))
+        self.assertEqual(x["clause 9.2"]["status"], "unresolved")
+
+    def test_uk_clause_in_a_schedule_stays_local_when_it_is_the_schedules_own(self) -> None:
+        own = _back("SCHEDULE 6", "WARRANTIES", "9.3 Contracts", "(a) agreements (other than those under this clause 9.3) are listed.")
+        x = _xrefs(build_reader_index(_doc(self.UK, back=own)))
+        self.assertEqual(x["clause 9.3"]["status"], "unresolved")
+        tail = _back("SCHEDULE 3", "TAX", "1.1 No liability arises if excluded under clause 9.2 of the Tax Covenant.", "1.2 Or under clause 9.2 of this agreement.")
+        x = build_reader_index(_doc(self.UK, back=tail))["xrefs"]
+        self.assertEqual([(r["status"], r.get("target")) for r in x if r["text"] == "clause 9.2"], [("unresolved", None), ("resolved", "s9.2")])
+        deed = _back("SCHEDULE 7", "TAX DEED", "1.1 This Deed is made by the Covenantor.", "7.1 If the Covenantor pays under clause 9.2, this clause 7 applies.")
+        x = _xrefs(build_reader_index(_doc(self.UK, back=deed)))
+        self.assertEqual(x["clause 9.2"]["status"], "unresolved")
+
+    def test_uk_clause_in_a_schedule_stays_local_above_another_document_or_in_us_drafting(self) -> None:
+        back = _back(
+            "SCHEDULE 10",
+            "WARRANTIES",
+            "2.3 Except as set forth in clause 9.2 above, nothing is issued.",
+            "2.4 The declaration (as defined in, and pursuant to clause 9.2 of, the Primary Policy) is delivered.",
+            "2.5 Liability is capped under clause 9.2.",
+        )
+        x = build_reader_index(_doc(self.UK, back=back))["xrefs"]
+        self.assertEqual([(r["status"], r.get("target")) for r in x if r["text"] == "clause 9.2"], [("unresolved", None), ("unresolved", None), ("resolved", "s9.2")])
+        # the same schedule under a US agreement that cites "Section 9.2" in its body
+        us = _article("c9", "ARTICLE IX WARRANTIES", _section("s92", "Section 9.2 Limits", "As set out in Section 9.2 and Section 9.3."))
+        x = build_reader_index(_doc(us, back=back))["xrefs"]
+        self.assertEqual({r["status"] for r in x if r["text"] == "clause 9.2"}, {"unresolved"})
+
+
 if __name__ == "__main__":
     unittest.main()

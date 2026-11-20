@@ -27,7 +27,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-ENRICHER_VERSION = "0.9.0"
+ENRICHER_VERSION = "0.10.0"
 PAYLOAD_SCHEMA = 1
 
 # Regions whose text is indexed for term uses and cross-references. The table of
@@ -1582,7 +1582,7 @@ def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str |
     while k:
         chain.add(k)  # "5.16.1(b)", then "5.16.1"
         k = k[: k.rfind("(")] if "(" in k else ""
-    keep =[c for c in cands if c[: c.rfind("(")] in chain]
+    keep = [c for c in cands if c[: c.rfind("(")] in chain]
     return keep[0] if len(keep) == 1 else None
 
 
@@ -1739,32 +1739,157 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
 
 # ---------------------------------------------------------------- payload
 
-_DECL_START = re.compile(rf"^\s*(?:[A-Z0-9][^“”\".]{{0,80}}?\.\s+)?[{_Q_OPEN}][A-Z0-9][^{_Q_CLOSE}]{{0,80}}[{_Q_CLOSE}]")
+# 'Awards. "Awards" ...', '"Awards" ...' and a numbered definition, '1.1 "Accounting Principles" ...'
+_DECL_START = re.compile(rf"^\s*(?:[A-Z0-9][^“”\".]{{0,80}}?\.\s+|\d{{1,3}}(?:\.\d{{1,3}})+\.?\s+)?[{_Q_OPEN}][A-Z0-9][^{_Q_CLOSE}]{{0,80}}[{_Q_CLOSE}]")
 _GLOSSARY_MIN_ENTRIES = 3
 _DEFINITIONS_SECTION_MIN_DECLS = 5
+# A paragraph that opens with its own number: "Section 4.1 Title", "4.1 Title", "2. Title", "ARTICLE II", and the
+# UK "1 DEFINITIONS". A number before a quoted term ("1.1 “Accounting Principles” means") is a numbered
+# definition, so it does not count, and neither does a bare "100 Main Street".
+OWN_NUMBER = re.compile(
+    r"^\s*(?:(?:Section|SECTION|Sec\.|§)\s*\d{1,3}[A-Z]?(?:\.\d{1,3})*\.?|(?:Article|ARTICLE)\s+(?:\d{1,3}|[IVXL]+)\b\.?"
+    + r"|\d{1,3}(?:\.\d{1,3})+\.?|\d{1,3}\.|\d{1,2}(?=\s+[A-Z]{3,}\b))\s+(?=[A-Z(])"
+)
+_OWN_NUMBERING_MIN = 3
+_OWN_NUMBERING_RATIO = 5  # at least one numbered paragraph per five definitions
+_DOTTED = re.compile(r"\d+\.\d+")
+_ATTACHMENT_HEADS = frozenset({"exhibit", "schedule", "annex", "appendix"})
+# An index of defined terms, "Acceptable Confidentiality Agreement Section 4.5(a) Additional Amounts Section 6.3(h)
+# Agreement Preamble": the places it cites, and the term before each one
+INDEX_PLACE = re.compile(
+    r"(?:Sections?|§)\s*\d+(?:\.\d+)*[A-Z]?(?:\s?\([A-Za-z0-9]{1,6}\))*|(?:Article|ARTICLE)\s+[IVXLC\d]+\b|Preamble\b|Recitals?\b"
+)
+_INDEX_TERM = re.compile(r"[A-Z0-9$“\"][\w’'&/\-.,“”\"$]*(?:\s+[\w’'&/\-.,“”\"$]+){0,9}")
+_INDEX_SMALL = frozenset("a an and as at by for in of on or the to under with".split())
+_INDEX_MIN_PAIRS = 4
 
 
-def _glossary_exhibit_texts(texts: list[_Text]) -> set[int]:
-    """Back-matter texts that sit in a definitions exhibit ("Exhibit A: Definitions").
+def _index_pairs(text: str) -> int:
+    """How many "Term Section N.M" pairs a paragraph holds. The text before each cited place must be a short
+    capitalized term: "Closing Date", "Certificate of Merger", but not "as set forth in" or "(Capitalization),"."""
+    pairs, prev = 0, 0
+    for m in INDEX_PLACE.finditer(text):
+        chunk = text[prev : m.start()].strip()
+        prev = m.end()
+        # a term that ends in a page number ("Definitions 1", "Term D-39") is a table-of-contents line
+        if not _INDEX_TERM.fullmatch(chunk) or chunk.endswith(",") or re.search(r"(?:^|\s)(?:[A-Z]-)?\d+$", chunk):
+            continue
+        words = chunk.split()
+        if words[-1].lower() in _INDEX_SMALL or any(not (w[0].isupper() or not w[0].isalpha() or w in _INDEX_SMALL) for w in words):
+            continue
+        pairs += m.group(0)[0] in "S§"  # "Preamble" and "Article II" separate entries; only sections count
+    return pairs
 
-    Back matter is split at attachment headings. A segment where at least three
-    paragraphs open with a quoted term is a glossary for the agreement itself, so
-    its bare "Section 5.4" means the agreement's Section 5.4. Other exhibits keep
-    the conservative exhibit-local rule.
+
+# A heading title after a section number: "Section 9.1 Amendments; Waivers.", "Section 8. Fees and Expenses.",
+# "Section 1.1 Definitions 1" (with a page number), or the whole paragraph. "Section 2.1 The Company shall" is not.
+_TITLE_WORD = r"[A-Z][\w’'&/\-]*[,;]?"
+_TITLE_SMALL = r"(?:of|and|or|the|to|for|in|on|by|with|a|an|upon|from|its|their|not|no)"
+_TITLE = rf"{_TITLE_WORD}(?:\s+(?:{_TITLE_WORD}|{_TITLE_SMALL}))*"
+BACK_HEADING_TITLE = re.compile(rf"[.:]?\s+(?:[-–—]\s*)?{_TITLE}\s*(?:[.:]|[-–—]|\s(?:[A-Z]{{1,2}}-)?\d{{1,3}}\s*$|$)")
+# A mixed-case table-of-contents entry: "Section 1.2 Interpretation 4" before the next entry or the end
+BACK_TOC_ENTRY = re.compile(
+    rf"(?:Sections?|SECTIONS?|Articles?|ARTICLES?)\s+[\dIVXLC]+(?:\.\d+)*\.?\s+{_TITLE}\.?\s+(?:[A-Z]{{1,2}}-)?\d{{1,3}}(?![\d.])"
+    + r"(?=\s+(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Exhibits?|EXHIBITS?|Schedules?|SCHEDULES?|Annex|ANNEX)\b|\s*$)"
+)
+_BACK_TOC_MIN = 4
+# The number at the start of an outline title: "Section 5.4", "ARTICLE VIII", "6.16"
+_HEAD_LABEL = re.compile(r"^\s*(?:(?:Section|SECTION|Article|ARTICLE|Sec\.)\s*)?[\dIVXLC]+(?:\.\d+)*\.?\s*")
+
+
+def _names_main_heading(r: _Ref, ol: _Outline, tn: _Text, sec_text: str, after: str, by_id: dict[str, _Node]) -> bool:
+    """Whether a heading-shaped "Section 5.4 Authority; Approval" in back matter prints the title of the agreement's
+    own Section 5.4: a list of disclosure schedules or the agreement's table of contents, so a reference after all."""
+    if r.status:
+        return False
+    status, target, _ = _resolve(r, ol, tn, sec_text)
+    node = by_id.get(target) if status in ("resolved", "section_fallback") and target else None
+    if node is None:
+        return False
+    a = re.findall(r"[a-z]+", _HEAD_LABEL.sub("", node.title, count=1).lower())
+    b = re.findall(r"[a-z]+", after.lower())
+    k = min(len(a), len(b), 4)
+    return k >= 1 and a[:k] == b[:k] and (k >= 2 or len(a) == len(b) == 1)
+
+
+# Inside an attachment, "attached hereto as Exhibit A", "Exhibit A hereto", "Annex A of this release" and
+# "Schedule 1 of the Company's constitution" name the attachment's own exhibit or another document's
+_HERETO_BEFORE = re.compile(r"\bhere(?:to|with)\s+(?:as\s+)?$", re.IGNORECASE)
+_HERETO_AFTER = re.compile(r"\s*(?:\([^)]*\)\s*)*,?\s*(?:(?:attached|annexed|appended)\s+)?here(?:to|with)\b", re.IGNORECASE)
+_OWN_ATTACHMENT_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*(?:of|to)\s+(?:this\s+(?![Aa]greement\b|AGREEMENT\b)[A-Za-z]|the\s+Company['’]s\b)")
+_SCHEDULE_HEAD = re.compile(r"(?:SCHEDULE|Schedule)\b")
+# A deed or covenant set out in a schedule ("this Deed", "this Tax Covenant") numbers its own clauses
+_OWN_DEED = re.compile(r"\b[Tt]his\s+(?:[A-Z][a-z]+\s+)?(?:Deed|deed|Covenant|covenant)\b")
+_THIS_BEFORE = re.compile(r"\bthis\s+$", re.IGNORECASE)
+# "clause 2.1 of the Tax Covenant", "clause 4.2 of this Deed": another document; "of this agreement" is not
+_OTHER_DOC_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*,?\s*(?:of|in|under|to),?\s+(?:this|the)\s+(?![Aa]greement\b|AGREEMENT\b)(?:[A-Z]|deed\b)")
+# "clause 2.1 above": the schedule's own paragraph
+_ABOVE_BELOW = re.compile(r"\s*(?:\([^)]*\)\s*)*(?:above|below)\b")
+# UK drafting cites its own clauses as "clause 9.2"; a US agreement says "Section 9.2" and its schedules' "clause 9.2"
+# is something else
+_CLAUSE_DOTTED = re.compile(r"\b[Cc]lauses?\s+\d+\.\d")
+_SECTION_DOTTED = re.compile(r"\b(?:Sections?|SECTIONS?)\s+\d+\.\d")
+
+
+@dataclass
+class _Segment:
+    """A stretch of back matter that starts at an attachment heading (or at the start of back matter)."""
+
+    head: str  # the heading line that opens it, "" before the first one
+    glossary: bool = False  # the agreement's own definitions: a bare "Section 5.4" there is the agreement's
+    own_numbered: bool = False  # its paragraphs carry their own section numbers: an attached document
+    defines_terms: bool = False  # three or more paragraphs open with a quoted term
+    deed: bool = False  # it calls itself "this Deed" or "this Covenant": its "clause 2.1" is its own
+
+
+def _back_segments(texts: list[_Text]) -> dict[int, _Segment]:
+    """The segment of each back-matter text, by id().
+
+    Back matter is split at attachment headings. A segment where at least three paragraphs open with a quoted
+    term is a glossary for the agreement itself ("Exhibit A: Definitions"), so its bare "Section 5.4" means the
+    agreement's Section 5.4, unless at least three of its paragraphs (and one per five definitions) open with their
+    own section number. Such a
+    segment is an attached document (registration rights, LLC, escrow or voting agreement) that defines its own
+    terms, and its bare references are to its own sections. A segment without its own numbering that holds an
+    index of defined terms (a paragraph with four or more "Term Section N.M" pairs) is the agreement's as well.
     """
-    segments: list[list[_Text]] = [[]]
+    segments: list[tuple[_Segment, list[_Text]]] = [(_Segment(""), [])]
     for tn in texts:
         if tn.region != "backMatter":
             continue
         txt = tn.text.strip()
         if ATTACHMENT_HEADING.match(txt) and len(txt) < 120:
-            segments.append([])
-        segments[-1].append(tn)
-    out: set[int] = set()
-    for seg in segments:
-        if sum(1 for tn in seg if _DECL_START.match(tn.text)) >= _GLOSSARY_MIN_ENTRIES:
-            out.update(id(tn) for tn in seg)
+            segments.append((_Segment(txt), []))
+        segments[-1][1].append(tn)
+    out: dict[int, _Segment] = {}
+    for seg, seg_texts in segments:
+        # "Annex 3.7" whose paragraphs are "3.7.1", "3.7.2": the agreement's own Section 3.7 set out at the back,
+        # so those numbers are the agreement's, not an attached document's
+        hm = ATTACHMENT_HEADING.match(seg.head)
+        cont = hm.group(2).rstrip(".") + "." if hm and _DOTTED.fullmatch(hm.group(2).rstrip(".")) else None
+        own = sum(1 for tn in seg_texts if OWN_NUMBER.match(tn.text) and not (cont and tn.text.lstrip().startswith(cont)))
+        entries = sum(1 for tn in seg_texts if _DECL_START.match(tn.text))
+        # the agreement's own glossary can run on into a short unheaded document ("1. Amendment to the Merger
+        # Agreement"): a few numbered paragraphs after a hundred definitions do not make it an attached document
+        seg.own_numbered = own >= _OWN_NUMBERING_MIN and own * _OWN_NUMBERING_RATIO >= entries
+        seg.defines_terms = entries >= _GLOSSARY_MIN_ENTRIES
+        seg.deed = any(_OWN_DEED.search(tn.text) for tn in seg_texts)
+        # an index of the agreement's defined terms ("Closing Date Section 2.2") cites the agreement too
+        index = any(_index_pairs(tn.text) >= _INDEX_MIN_PAIRS for tn in seg_texts)
+        seg.glossary = (seg.defines_terms or index) and not seg.own_numbered
+        out.update((id(tn), seg) for tn in seg_texts)
     return out
+
+
+def _printed_after(ol: _Outline, r: _Ref, tn: _Text) -> bool:
+    """Whether the attachment an "Exhibit A" names has its heading later in back matter than the reference."""
+    node = ol.attachments.get(f"{r.head} {r.target.lower()}")
+    return node is not None and node.anchor.get("s") == tn.s and node.anchor.get("t", -1) > tn.t
+
+
+def _glossary_exhibit_texts(texts: list[_Text]) -> set[int]:
+    """Back-matter texts that sit in the agreement's own definitions exhibit (see _back_segments)."""
+    return {k for k, seg in _back_segments(texts).items() if seg.glossary}
 
 
 def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_version: int | None = None) -> dict[str, Any]:
@@ -1814,7 +1939,15 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
     body_counts: Counter[str] = Counter()  # in-document heads, body text only
     sec_text_cache: dict[int, str] = {}
 
-    glossary_texts = _glossary_exhibit_texts(texts)
+    back_segments = _back_segments(texts)
+    body_text = " ".join(t.text for t in texts if t.region == "body")
+    uk_clauses = len(_CLAUSE_DOTTED.findall(body_text)) >= len(_SECTION_DOTTED.findall(body_text))
+    nodes_by_id: dict[str, _Node] = {}
+    stack = list(ol.roots)
+    while stack:
+        n = stack.pop()
+        nodes_by_id[n.id] = n
+        stack.extend(n.children)
     # sections holding many declarations: their "(a)", "(i)" items belong to single definitions,
     # so a bare "clause (i)" there is never a subsection of the section
     decl_count = Counter(d.tn.s for d in decls)
@@ -1851,13 +1984,50 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
             sec_text = sec_text_cache[sk]
         else:
             sec_text = tn.text
-        in_exhibit = tn.region == "backMatter" and id(tn) not in glossary_texts
+        seg = back_segments.get(id(tn))
+        in_exhibit = tn.region == "backMatter" and not (seg is not None and seg.glossary)
         is_heading = ATTACHMENT_HEADING.match(tn.text.strip()) is not None and len(tn.text.strip()) < 120
         lead = len(tn.text) - len(tn.text.lstrip())
         numbered_para = (tn.s, tn.t) in ol.numbered_paras
-        for r in _find_refs(tn.text, in_exhibit=in_exhibit, back=tn.region == "backMatter"):
+        back = tn.region == "backMatter"
+        found = _find_refs(tn.text, in_exhibit=in_exhibit, back=back)
+        if back and len(BACK_TOC_ENTRY.findall(tn.text)) >= _BACK_TOC_MIN:
+            # "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 ...": an attachment's table of contents, unless
+            # its titles are the agreement's own (the agreement's contents or a list of its disclosure schedules)
+            heads = [r for r in found if r.head in _IN_DOCUMENT_HEADS]
+            same = sum(_names_main_heading(r, ol, tn, sec_text, tn.text[r.end : r.end + 120], nodes_by_id) for r in heads)
+            if not (same >= 2 and same * 2 >= len(heads)):
+                continue
+        for r in found:
             if (is_heading or numbered_para) and r.start == lead:
                 continue  # the heading "Annex 3.7" or "Section 5.16.1 Payments" itself, not a reference to it
+            if (
+                back and r.start == lead and r.head in _IN_DOCUMENT_HEADS and BACK_HEADING_TITLE.match(tn.text, r.end)
+                and not _names_main_heading(r, ol, tn, sec_text, tn.text[r.end : r.end + 120], nodes_by_id)
+            ):
+                continue  # "Section 9.1 Amendments." opening a back-matter paragraph: an attachment's own heading
+            if (
+                r.status == "unresolved" and r.detail == "exhibit_local" and r.head in _ATTACHMENT_HEADS and seg is not None and (seg.defines_terms or not seg.own_numbered)
+                and not _OWN_ATTACHMENT_TAIL.match(tn.text, r.end)
+                and (not (_HERETO_BEFORE.search(tn.text, 0, r.start) or _HERETO_AFTER.match(tn.text, r.end)) or _printed_after(ol, r, tn))
+            ):
+                # "Exhibit C", "this Annex I": the exhibit-local rule is for section numbers. An attachment name is the
+                # agreement's attachment, except in an attached document with its own numbering (its own exhibits);
+                # one that defines terms keeps the glossary reading it had before rule 1 ("this Annex 3.7"). A tail that
+                # names another document ("Annex A of this release") keeps the exhibit-local reading, and so does
+                # "attached hereto as Exhibit A" unless that attachment is printed after the reference (the
+                # attachment's own exhibit, printed next to it); before it, it is the agreement's or the attachment itself
+                r.status = r.detail = ""
+            if (
+                r.status == "unresolved" and r.detail == "exhibit_local" and r.head == "clause" and seg is not None and _SCHEDULE_HEAD.match(seg.head) and _DOTTED.match(r.target)
+                and not seg.deed and not _THIS_BEFORE.search(tn.text, 0, r.start) and not _OTHER_DOC_TAIL.match(tn.text, r.end)
+                and not _ABOVE_BELOW.match(tn.text, r.end) and uk_clauses
+            ):
+                # UK drafting: a schedule numbers its own items as paragraphs and cites the agreement's "clause 9.2".
+                # Not "this clause 9.3" (the schedule's own), a deed or covenant set out in the schedule, or a tail
+                # that names another document ("clause 2.1 of the Tax Covenant", "clause 3.1 of, the Primary Policy"), or
+                # "clause 2.1 above"; and only when the agreement itself cites "clause N.M" at least as often as "Section N.M"
+                r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
             if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
                 status, target, r.detail = "unresolved", None, "inline"
