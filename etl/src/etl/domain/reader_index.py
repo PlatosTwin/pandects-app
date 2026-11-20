@@ -1500,9 +1500,10 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
                 and not _names_main_heading(r, ol, tn, sec_text, tn.text[r.end : r.end + 120], nodes_by_id)
             ):
                 continue  # "Section 9.1 Amendments." opening a back-matter paragraph: an attachment's own heading
-            if r.status == "unresolved" and r.detail == "exhibit_local" and r.head in _ATTACHMENT_HEADS and seg is not None and seg.defines_terms:
-                # own numbering is about section numbers: "this Annex 3.7" or "Schedule A, attached hereto" in a
-                # segment that defines terms still names a filed attachment, as it did before
+            if r.status == "unresolved" and r.detail == "exhibit_local" and r.head in _ATTACHMENT_HEADS and seg is not None and (seg.defines_terms or not seg.own_numbered):
+                # "Exhibit C", "this Annex I": the exhibit-local rule is for section numbers. An attachment name is the
+                # agreement's attachment, except in an attached document with its own numbering (its own exhibits);
+                # one that defines terms keeps the glossary reading it had before rule 1 ("this Annex 3.7")
                 r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
             if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:

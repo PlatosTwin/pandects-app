@@ -1273,5 +1273,31 @@ class BackMatterSegmentTests(unittest.TestCase):
         # a heading whose title is not the agreement's stays out
         self.assertEqual([r for r in x if r["at"]["t"] == 6], [])
 
+    # Rule 6: attachment names in back matter resolve to the agreement's attachments
+    def test_attachment_names_in_back_matter_resolve(self) -> None:
+        back = _back(
+            "EXHIBIT A",
+            "FORM OF CERTIFICATE OF MERGER",
+            "The form of letter of transmittal is attached as Exhibit B.",
+            "EXHIBIT B",
+            "LETTER OF TRANSMITTAL",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual((x["Exhibit B"]["status"], x["Exhibit B"]["target"]), ("resolved", "x-exhibit-b"))
+
+    def test_attachment_names_in_attached_agreements_stay_local(self) -> None:
+        back = _back(
+            "EXHIBIT A",
+            "Section 1.1 Definitions. Terms have their meanings.",
+            "Section 1.2 Exhibits. The form of joinder is attached as Exhibit B.",
+            "Section 1.3 Notices. Notices are in writing.",
+            "EXHIBIT B",
+            "LETTER OF TRANSMITTAL",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Exhibit B"]["status"], "unresolved")
+        self.assertNotIn("target", x["Exhibit B"])
+
+
 if __name__ == "__main__":
     unittest.main()
